@@ -17,6 +17,10 @@ test.beforeEach(() => {
   choiceSeatingCacheInternals.resetForTests()
 })
 
+test("keeps seating caches for six hours", () => {
+  assert.equal(choiceSeatingCacheInternals.CACHE_TTL_SECONDS, 21_600)
+})
+
 test("reuses generated candidates for the same seating context", async () => {
   let builds = 0
   const build = () => {
@@ -58,4 +62,40 @@ test("coalesces simultaneous generation requests inside one function isolate", a
   assert.equal(first.cache.status, "miss")
   assert.equal(second.cache.status, "coalesced")
   assert.deepEqual(second.generated, first.generated)
+})
+
+test("saves each bounded generation step and resumes without rebuilding earlier work", async () => {
+  const receivedCheckpoints = []
+  const buildStep = checkpoint => {
+    receivedCheckpoints.push(checkpoint?.completed || 0)
+    const completed = Number(checkpoint?.completed || 0) + 1
+    if (completed < 3) {
+      return {
+        complete: false,
+        checkpoint: { completed },
+        progress: { completed_steps: completed, total_steps: 3, percent: Math.round(completed / 3 * 100) },
+      }
+    }
+    return {
+      complete: true,
+      generated: generatedFixture(9),
+      progress: { completed_steps: 3, total_steps: 3, percent: 100 },
+    }
+  }
+
+  const first = await getOrBuildChoiceSeatingCandidates({ contextHash: "checkpoint-context", eventId: 26, buildStep })
+  const second = await getOrBuildChoiceSeatingCandidates({ contextHash: "checkpoint-context", eventId: 26, buildStep })
+  const third = await getOrBuildChoiceSeatingCandidates({ contextHash: "checkpoint-context", eventId: 26, buildStep })
+  const cached = await getOrBuildChoiceSeatingCandidates({ contextHash: "checkpoint-context", eventId: 26, buildStep })
+
+  assert.deepEqual(receivedCheckpoints, [0, 1, 2])
+  assert.equal(first.pending, true)
+  assert.equal(first.cache.status, "checkpoint")
+  assert.equal(first.cache.completed_steps, 1)
+  assert.equal(second.pending, true)
+  assert.equal(second.cache.completed_steps, 2)
+  assert.deepEqual(third.generated, generatedFixture(9))
+  assert.equal(third.cache.status, "miss")
+  assert.equal(cached.cache.status, "hit")
+  assert.deepEqual(cached.generated, third.generated)
 })

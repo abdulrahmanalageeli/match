@@ -5,6 +5,7 @@ import { createRoundLensScorer } from "./round23-lenses.mjs"
 const MIN_PARTICIPANTS = 6
 const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
+const CANDIDATE_BUILD_STEPS = 6
 export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v3-flexible-six-seat-target"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
@@ -282,11 +283,8 @@ function buildCandidate(participants, options, seed) {
   }
 }
 
-export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
-  const normalized = normalizeParticipants(values)
-  if (normalized.error) return normalized
-  const allCandidates = Array.from({ length: 6 }, (_, index) => buildCandidate(normalized.participants, options, index + 1))
-    .sort((left, right) => compareVectors(left.sortKey, right.sortKey))
+function finalizeFlexibleCandidates(participants, rawCandidates) {
+  const allCandidates = [...rawCandidates].sort((left, right) => compareVectors(left.sortKey, right.sortKey))
   const repeatSafeCandidates = allCandidates
     .filter(candidate => candidate.plan.round3Rhythm.repeatMetrics.repeatedInAllThree === 0)
   const pool = repeatSafeCandidates.length >= 3 ? repeatSafeCandidates : allCandidates
@@ -306,13 +304,13 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   }
   if (selected.length !== 3) return { error: "Could not construct three flexible seating candidates" }
   const candidates = selected.map((candidate, index) => ({
-    id: `flex-${normalized.participants.length}-${candidate.seed}`,
+    id: `flex-${participants.length}-${candidate.seed}`,
     rank: index + 1,
     plan: candidate.plan,
     canonicalObjective: {
       version: FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
       flexible: true,
-      participantCount: normalized.participants.length,
+      participantCount: participants.length,
       tableCount: candidate.plan.T,
       sortKey: candidate.sortKey,
     },
@@ -336,8 +334,65 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   }
 }
 
+function validCheckpoint(checkpoint, participantCount) {
+  if (!checkpoint
+    || checkpoint.objective_version !== FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION
+    || Number(checkpoint.participant_count) !== participantCount
+    || !Array.isArray(checkpoint.candidates)
+    || checkpoint.candidates.length >= CANDIDATE_BUILD_STEPS) return false
+  return checkpoint.candidates.every((candidate, index) => (
+    Number(candidate?.seed) === index + 1
+    && Array.isArray(candidate?.sortKey)
+    && candidate?.plan
+    && Array.isArray(candidate.plan.round1)
+    && Array.isArray(candidate.plan.round2)
+    && Array.isArray(candidate.plan.round3)
+  ))
+}
+
+export function buildFlexibleChoiceOnlySeatingCandidatesStep(values, options = {}, checkpoint = null) {
+  const normalized = normalizeParticipants(values)
+  if (normalized.error) return { complete: true, generated: normalized }
+  const previousCandidates = validCheckpoint(checkpoint, normalized.participants.length)
+    ? checkpoint.candidates
+    : []
+  const candidates = [...previousCandidates]
+  candidates.push(buildCandidate(normalized.participants, options, candidates.length + 1))
+  const progress = {
+    completed_steps: candidates.length,
+    total_steps: CANDIDATE_BUILD_STEPS,
+    percent: Math.round((candidates.length / CANDIDATE_BUILD_STEPS) * 100),
+  }
+  if (candidates.length < CANDIDATE_BUILD_STEPS) {
+    return {
+      complete: false,
+      progress,
+      checkpoint: {
+        objective_version: FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
+        participant_count: normalized.participants.length,
+        candidates,
+      },
+    }
+  }
+  return {
+    complete: true,
+    progress,
+    generated: finalizeFlexibleCandidates(normalized.participants, candidates),
+  }
+}
+
+export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
+  const normalized = normalizeParticipants(values)
+  if (normalized.error) return normalized
+  const candidates = Array.from({ length: CANDIDATE_BUILD_STEPS }, (_, index) => (
+    buildCandidate(normalized.participants, options, index + 1)
+  ))
+  return finalizeFlexibleCandidates(normalized.participants, candidates)
+}
+
 export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({
   minimumParticipants: MIN_PARTICIPANTS,
   maximumParticipants: MAX_PARTICIPANTS,
   targetGroupSize: TARGET_GROUP_SIZE,
+  candidateBuildSteps: CANDIDATE_BUILD_STEPS,
 })

@@ -233,8 +233,17 @@ type ChoiceSeatingPreviewResponse = {
     generation_ms?: number
     total_ms?: number
     ttl_seconds?: number
+    completed_steps?: number
+    total_steps?: number
+    percent?: number
   }
   candidates: ChoiceSeatingCandidate[]
+}
+
+type ChoiceSeatingCheckpointProgress = {
+  completed_steps: number
+  total_steps: number
+  percent: number
 }
 
 type PersistedChoiceSeatingReport = {
@@ -663,11 +672,20 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   )
 })
 
-function ChoiceSeatingGenerationProgress({ elapsedMs }: { elapsedMs: number }) {
-  const progress = choiceSeatingProgressSnapshot(elapsedMs)
+function ChoiceSeatingGenerationProgress({ elapsedMs, checkpoint }: { elapsedMs: number; checkpoint: ChoiceSeatingCheckpointProgress | null }) {
+  const estimatedProgress = choiceSeatingProgressSnapshot(elapsedMs)
+  const completedSteps = Math.max(0, Number(checkpoint?.completed_steps || 0))
+  const totalSteps = Math.max(1, Number(checkpoint?.total_steps || 6))
+  const progress = checkpoint
+    ? {
+        percent: Math.min(99, Math.max(1, Number(checkpoint.percent || Math.round((completedSteps / totalSteps) * 100)))),
+        stage: `تم حفظ ${completedSteps} من ${totalSteps} خطط مرشحة`,
+        detail: "كل مرحلة مكتملة محفوظة لمدة 6 ساعات، وسيُستأنف الحساب منها تلقائياً",
+      }
+    : estimatedProgress
   const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
-  const steps = ["السياق", "الجولات", "البدائل"]
-  const activeStep = elapsedMs < 6_000 ? 0 : elapsedMs < 36_000 ? 1 : 2
+  const steps = Array.from({ length: totalSteps }, (_, index) => index + 1)
+  const activeStep = checkpoint ? completedSteps : elapsedMs < 6_000 ? 0 : elapsedMs < 36_000 ? 2 : 4
 
   return (
     <section id="choice-seating-progress" role="status" aria-live="polite" aria-label="تقدم إنشاء خطط الجلسات" className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/35 via-gray-950 to-violet-950/35 p-4 shadow-2xl shadow-cyan-950/20 sm:p-5">
@@ -700,14 +718,14 @@ function ChoiceSeatingGenerationProgress({ elapsedMs }: { elapsedMs: number }) {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-1.5" aria-hidden="true">
+        <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-6" aria-hidden="true">
           {steps.map((step, index) => (
             <div key={step} className={`rounded-lg border px-2 py-1.5 text-center text-[9px] font-bold transition-colors ${index < activeStep ? "border-emerald-700/30 bg-emerald-950/25 text-emerald-300" : index === activeStep ? "border-cyan-500/35 bg-cyan-950/35 text-cyan-100" : "border-white/5 bg-black/15 text-gray-600"}`}>
-              {index < activeStep ? "✓ " : ""}{step}
+              {index < activeStep ? "✓ " : ""}{index + 1}
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[9px] leading-5 text-gray-500">التقدّم المعروض تقديري أثناء الحساب على الخادم. عند وجود نسخة مطابقة محفوظة ستظهر الخيارات فوراً تقريباً.</p>
+        <p className="mt-3 text-[9px] leading-5 text-gray-500">بعد حفظ كل مرحلة، يبدأ الخادم التالية تلقائياً. عند إعادة المحاولة لن يعود الحساب إلى الصفر.</p>
       </div>
     </section>
   )
@@ -1383,6 +1401,7 @@ export default function Admin3Page() {
   const [choiceSeatingPreviewIssue, setChoiceSeatingPreviewIssue] = useState<{ message: string; missingSurveyFields: Array<{ participant_number: number; fields: string[] }> } | null>(null)
   const [choiceSeatingProgressStartedAt, setChoiceSeatingProgressStartedAt] = useState<number | null>(null)
   const [choiceSeatingProgressElapsedMs, setChoiceSeatingProgressElapsedMs] = useState(0)
+  const [choiceSeatingCheckpointProgress, setChoiceSeatingCheckpointProgress] = useState<ChoiceSeatingCheckpointProgress | null>(null)
   const [approvedChoiceSeatingReport, setApprovedChoiceSeatingReport] = useState<PersistedChoiceSeatingReport | null>(null)
   const [approvedChoiceSeatingReportExpanded, setApprovedChoiceSeatingReportExpanded] = useState(false)
   const approvedChoiceSeatingCandidate = useMemo(() => approvedChoiceSeatingReport?.report
@@ -2502,10 +2521,28 @@ export default function Admin3Page() {
     setSelectedChoiceSeatingCandidateId("")
     setChoiceSeatingPreviewIssue(null)
     setChoiceSeatingProgressElapsedMs(0)
+    setChoiceSeatingCheckpointProgress(null)
     setChoiceSeatingProgressStartedAt(Date.now())
     try {
-      const data = await api("e3-preview-choice-seating", expectedContext)
+      let data: any = null
+      let lastCompletedSteps = 0
+      let unchangedResponses = 0
+      for (let requestNumber = 0; requestNumber < 10; requestNumber++) {
+        data = await api("e3-preview-choice-seating", expectedContext)
+        if (!requestIsCurrent()) return
+        if (!data?.pending) break
+        const rawProgress = data.progress || data.cache || {}
+        const completedSteps = Math.max(0, Number(rawProgress.completed_steps || 0))
+        const totalSteps = Math.max(1, Number(rawProgress.total_steps || 6))
+        const percent = Math.min(99, Math.max(1, Number(rawProgress.percent || Math.round((completedSteps / totalSteps) * 100))))
+        setChoiceSeatingCheckpointProgress({ completed_steps: completedSteps, total_steps: totalSteps, percent })
+        unchangedResponses = completedSteps <= lastCompletedSteps ? unchangedResponses + 1 : 0
+        lastCompletedSteps = Math.max(lastCompletedSteps, completedSteps)
+        if (unchangedResponses >= 3) throw new Error("تعذّر إحراز تقدم في إنشاء الخطط، لكن المراحل المكتملة محفوظة لمدة 6 ساعات. أعد المحاولة.")
+        await new Promise<void>(resolve => window.setTimeout(resolve, 120))
+      }
       if (!requestIsCurrent()) return
+      if (data?.pending) throw new Error("توقّف الاستئناف قبل اكتمال الخطط، لكن المراحل المكتملة محفوظة لمدة 6 ساعات. أعد المحاولة.")
       const missingSurveyFields = Array.isArray(data.missing_survey_fields) ? data.missing_survey_fields : []
       if (data.error) {
         setChoiceSeatingPreviewIssue({ message: String(data.error), missingSurveyFields })
@@ -3772,7 +3809,7 @@ export default function Admin3Page() {
             </div>
 
             {choiceOnly && loading === "seating" && choiceSeatingProgressStartedAt != null && (
-              <ChoiceSeatingGenerationProgress elapsedMs={choiceSeatingProgressElapsedMs} />
+              <ChoiceSeatingGenerationProgress elapsedMs={choiceSeatingProgressElapsedMs} checkpoint={choiceSeatingCheckpointProgress} />
             )}
 
             {choiceOnly && choiceSeatingPreviewIssue && (

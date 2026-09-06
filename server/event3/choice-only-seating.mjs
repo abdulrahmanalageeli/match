@@ -1,7 +1,10 @@
 import { buildSevenBySixPlan, normalizedGender } from "./round2-age-optimizer.mjs"
 import { optimizeRound1SparkGroups } from "./round1-spark.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
-import { buildFlexibleChoiceOnlySeatingCandidates } from "./flexible-choice-seating.mjs"
+import {
+  buildFlexibleChoiceOnlySeatingCandidates,
+  buildFlexibleChoiceOnlySeatingCandidatesStep,
+} from "./flexible-choice-seating.mjs"
 
 const TABLE_COUNT = 7
 const GROUP_SIZE = 6
@@ -826,6 +829,17 @@ export function buildChoiceOnlySeatingCandidates(values, options = {}) {
     objectiveVersion: CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
     diversityPolicy: { ...CANDIDATE_DIVERSITY_POLICY },
     candidates,
+  }
+}
+
+export function buildChoiceOnlySeatingCandidatesStep(values, options = {}, checkpoint = null) {
+  if (Array.isArray(values) && values.length !== PARTICIPANT_COUNT) {
+    return buildFlexibleChoiceOnlySeatingCandidatesStep(values, options, checkpoint)
+  }
+  return {
+    complete: true,
+    progress: { completed_steps: 1, total_steps: 1, percent: 100 },
+    generated: buildChoiceOnlySeatingCandidates(values, options),
   }
 }
 

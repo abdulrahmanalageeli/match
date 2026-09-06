@@ -477,7 +477,7 @@ async function loadAppliedReport(db, body, eventId) {
   return withCurrentSeatingStatus(db, row, eventId)
 }
 
-export async function handleChoiceSeatingPreview({ db, action, body = {}, eventId, secret, buildCandidates }) {
+export async function handleChoiceSeatingPreview({ db, action, body = {}, eventId, secret, buildCandidates, buildCandidatesStep }) {
   if (action === "e3-get-choice-seating-report") return loadAppliedReport(db, body, eventId)
   validateExpectedRequest(body, eventId)
   const applying = action === "e3-apply-choice-seating-preview"
@@ -527,20 +527,37 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   }
 
   if (action !== "e3-preview-choice-seating") throw fail("Unknown choice seating preview action", 400)
-  if (typeof buildCandidates !== "function") throw fail("Choice seating candidate generation is unavailable", 503)
+  if (typeof buildCandidates !== "function" && typeof buildCandidatesStep !== "function") {
+    throw fail("Choice seating candidate generation is unavailable", 503)
+  }
   const incompleteProfiles = new Set(context.missingSurveyFields.map(row => Number(row.participant_number)))
   const lensProfileMap = new Map([...context.profileMap].filter(([participantNumber]) => !incompleteProfiles.has(participantNumber)))
+  const generationOptions = {
+    genderMap: context.genderMap,
+    ageMap: context.ageMap,
+    profileMap: lensProfileMap,
+    lockedPairsSet: context.lockedPairsSet,
+    requireCompleteLensProfiles: false,
+  }
   const generationResult = await getOrBuildChoiceSeatingCandidates({
     contextHash: context.contextHash,
     eventId,
-    build: () => buildCandidates(context.participantNumbers, {
-      genderMap: context.genderMap,
-      ageMap: context.ageMap,
-      profileMap: lensProfileMap,
-      lockedPairsSet: context.lockedPairsSet,
-      requireCompleteLensProfiles: false,
-    }),
+    ...(typeof buildCandidates === "function"
+      ? { build: () => buildCandidates(context.participantNumbers, generationOptions) }
+      : {}),
+    ...(typeof buildCandidatesStep === "function"
+      ? { buildStep: checkpoint => buildCandidatesStep(context.participantNumbers, generationOptions, checkpoint) }
+      : {}),
   })
+  if (generationResult.pending) {
+    return {
+      event_format: EVENT_FORMAT,
+      pending: true,
+      progress: generationResult.progress,
+      missing_survey_fields: context.missingSurveyFields,
+      cache: generationResult.cache,
+    }
+  }
   const generated = generationResult.generated
   if (generated?.error) throw fail(generated.error, 400)
   if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION].includes(generated?.objectiveVersion)) {

@@ -3,6 +3,7 @@ import test from "node:test"
 
 import {
   buildChoiceOnlySeatingCandidates,
+  buildChoiceOnlySeatingCandidatesStep,
   buildChoiceOnlySeatingPlan,
   CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
   choiceOnlySeatingMetrics,
@@ -433,4 +434,23 @@ test("targets six-person tables and distributes every remainder into larger grou
   assert.match(buildChoiceOnlySeatingPlan(participants, {
     requireCompleteLensProfiles: true,
   }).error, /complete survey profiles/)
+})
+
+test("builds flexible seating as six resumable candidate checkpoints", () => {
+  const flexibleParticipants = Array.from({ length: 6 }, (_, index) => index + 1)
+  let checkpoint = null
+  for (let completed = 1; completed <= 6; completed++) {
+    const result = buildChoiceOnlySeatingCandidatesStep(flexibleParticipants, {}, checkpoint)
+    assert.equal(result.progress.completed_steps, completed)
+    assert.equal(result.progress.total_steps, 6)
+    if (completed < 6) {
+      assert.equal(result.complete, false)
+      assert.equal(result.checkpoint.candidates.length, completed)
+      checkpoint = result.checkpoint
+    } else {
+      assert.equal(result.complete, true)
+      assert.equal(result.generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
+      assert.equal(result.generated.candidates.length, 3)
+    }
+  }
 })

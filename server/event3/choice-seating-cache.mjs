@@ -1,7 +1,8 @@
 import { getCache } from "@vercel/functions"
 
 const CACHE_SCHEMA_VERSION = "event3-choice-seating-candidates-v1"
-const CACHE_TTL_SECONDS = 15 * 60
+const CHECKPOINT_SCHEMA_VERSION = "event3-choice-seating-checkpoint-v1"
+const CACHE_TTL_SECONDS = 6 * 60 * 60
 const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000
 const CACHE_NAMESPACE = "event3-choice-seating"
 
@@ -12,6 +13,10 @@ let runtimeCacheUnavailableLogged = false
 
 function cacheKey(contextHash) {
   return `${CACHE_SCHEMA_VERSION}:${String(contextHash)}`
+}
+
+function checkpointKey(contextHash) {
+  return `${CHECKPOINT_SCHEMA_VERSION}:${String(contextHash)}`
 }
 
 function validGeneratedCandidates(generated) {
@@ -31,6 +36,16 @@ function validEnvelope(envelope, contextHash, now = Date.now()) {
     && validGeneratedCandidates(envelope.generated)
 }
 
+function validCheckpointEnvelope(envelope, contextHash, now = Date.now()) {
+  return Boolean(envelope)
+    && envelope.schema_version === CHECKPOINT_SCHEMA_VERSION
+    && envelope.context_hash === String(contextHash)
+    && Number.isFinite(Number(envelope.created_at))
+    && now - Number(envelope.created_at) < CACHE_TTL_MS
+    && Boolean(envelope.checkpoint)
+    && typeof envelope.checkpoint === "object"
+}
+
 function getRuntimeCacheClient() {
   if (!process.env.VERCEL) return null
   if (runtimeCacheClient) return runtimeCacheClient
@@ -46,20 +61,17 @@ function getRuntimeCacheClient() {
   }
 }
 
-async function readCachedGeneration(contextHash) {
-  const key = cacheKey(contextHash)
+async function readEnvelope(key, validator, contextHash) {
   const now = Date.now()
   const memoryEnvelope = memoryCache.get(key)
-  if (validEnvelope(memoryEnvelope, contextHash, now)) {
-    return { envelope: memoryEnvelope, layer: "memory" }
-  }
+  if (validator(memoryEnvelope, contextHash, now)) return { envelope: memoryEnvelope, layer: "memory" }
   if (memoryEnvelope) memoryCache.delete(key)
 
   const runtimeCache = getRuntimeCacheClient()
   if (!runtimeCache) return null
   try {
     const runtimeEnvelope = await runtimeCache.get(key)
-    if (!validEnvelope(runtimeEnvelope, contextHash, now)) {
+    if (!validator(runtimeEnvelope, contextHash, now)) {
       if (runtimeEnvelope) await runtimeCache.delete(key).catch(() => undefined)
       return null
     }
@@ -73,24 +85,23 @@ async function readCachedGeneration(contextHash) {
   }
 }
 
-async function storeGeneratedCandidates({ contextHash, eventId, generated }) {
-  if (!validGeneratedCandidates(generated)) return { stored: false, layer: "none" }
-  const key = cacheKey(contextHash)
-  const envelope = {
-    schema_version: CACHE_SCHEMA_VERSION,
-    context_hash: String(contextHash),
-    created_at: Date.now(),
-    generated,
-  }
-  memoryCache.set(key, envelope)
+function readCachedGeneration(contextHash) {
+  return readEnvelope(cacheKey(contextHash), validEnvelope, contextHash)
+}
 
+function readGenerationCheckpoint(contextHash) {
+  return readEnvelope(checkpointKey(contextHash), validCheckpointEnvelope, contextHash)
+}
+
+async function storeEnvelope({ key, envelope, eventId, name }) {
+  memoryCache.set(key, envelope)
   const runtimeCache = getRuntimeCacheClient()
   if (!runtimeCache) return { stored: true, layer: "memory" }
   try {
     await runtimeCache.set(key, envelope, {
       ttl: CACHE_TTL_SECONDS,
       tags: [CACHE_NAMESPACE, `event3-choice-seating-${Number(eventId)}`],
-      name: "Event3 choice seating candidates",
+      name,
     })
     return { stored: true, layer: "runtime" }
   } catch (error) {
@@ -101,8 +112,72 @@ async function storeGeneratedCandidates({ contextHash, eventId, generated }) {
   }
 }
 
-export async function getOrBuildChoiceSeatingCandidates({ contextHash, eventId, build }) {
-  if (!contextHash || typeof build !== "function") throw new TypeError("A seating context hash and build function are required")
+async function deleteGenerationCheckpoint(contextHash) {
+  const key = checkpointKey(contextHash)
+  memoryCache.delete(key)
+  const runtimeCache = getRuntimeCacheClient()
+  if (!runtimeCache) return
+  await runtimeCache.delete(key).catch(error => {
+    console.warn("[event3-choice-seating-cache] Runtime Cache checkpoint cleanup failed", {
+      message: error?.message || String(error),
+    })
+  })
+}
+
+async function storeGeneratedCandidates({ contextHash, eventId, generated }) {
+  if (!validGeneratedCandidates(generated)) return { stored: false, layer: "none" }
+  const envelope = {
+    schema_version: CACHE_SCHEMA_VERSION,
+    context_hash: String(contextHash),
+    created_at: Date.now(),
+    generated,
+  }
+  const stored = await storeEnvelope({
+    key: cacheKey(contextHash),
+    envelope,
+    eventId,
+    name: "Event3 choice seating candidates",
+  })
+  await deleteGenerationCheckpoint(contextHash)
+  return stored
+}
+
+async function storeGenerationCheckpoint({ contextHash, eventId, checkpoint }) {
+  if (!checkpoint || typeof checkpoint !== "object") return { stored: false, layer: "none" }
+  const envelope = {
+    schema_version: CHECKPOINT_SCHEMA_VERSION,
+    context_hash: String(contextHash),
+    created_at: Date.now(),
+    checkpoint,
+  }
+  return storeEnvelope({
+    key: checkpointKey(contextHash),
+    envelope,
+    eventId,
+    name: "Event3 choice seating generation checkpoint",
+  })
+}
+
+function responseFromResult(result, requestStartedAt, status) {
+  return {
+    ...(result.generated ? { generated: result.generated } : {}),
+    ...(result.pending ? { pending: true, progress: result.progress } : {}),
+    cache: {
+      status,
+      layer: result.layer,
+      age_ms: 0,
+      generation_ms: result.generationMs,
+      total_ms: Date.now() - requestStartedAt,
+      ttl_seconds: CACHE_TTL_SECONDS,
+      ...(result.progress || {}),
+    },
+  }
+}
+
+export async function getOrBuildChoiceSeatingCandidates({ contextHash, eventId, build, buildStep }) {
+  if (!contextHash || (typeof build !== "function" && typeof buildStep !== "function")) {
+    throw new TypeError("A seating context hash and build function are required")
+  }
   const requestStartedAt = Date.now()
   const cached = await readCachedGeneration(contextHash)
   if (cached) {
@@ -125,21 +200,38 @@ export async function getOrBuildChoiceSeatingCandidates({ contextHash, eventId, 
   const existingGeneration = inFlightGenerations.get(key)
   if (existingGeneration) {
     const result = await existingGeneration
-    return {
-      generated: result.generated,
-      cache: {
-        status: "coalesced",
-        layer: result.layer,
-        age_ms: 0,
-        generation_ms: result.generationMs,
-        total_ms: Date.now() - requestStartedAt,
-        ttl_seconds: CACHE_TTL_SECONDS,
-      },
-    }
+    return responseFromResult(result, requestStartedAt, "coalesced")
   }
 
   const generation = (async () => {
     const generationStartedAt = Date.now()
+    if (typeof buildStep === "function") {
+      const saved = await readGenerationCheckpoint(contextHash)
+      const stepResult = await buildStep(saved?.envelope?.checkpoint || null)
+      const generationMs = Date.now() - generationStartedAt
+      if (!stepResult?.complete) {
+        if (!stepResult?.checkpoint) throw new Error("The seating generation step did not return a resumable checkpoint")
+        const stored = await storeGenerationCheckpoint({ contextHash, eventId, checkpoint: stepResult.checkpoint })
+        console.info("[event3-choice-seating-cache] checkpoint", {
+          event_id: Number(eventId),
+          generation_ms: generationMs,
+          cache_layer: stored.layer,
+          completed_steps: Number(stepResult.progress?.completed_steps || 0),
+          total_steps: Number(stepResult.progress?.total_steps || 0),
+        })
+        return { pending: true, progress: stepResult.progress || {}, generationMs, layer: stored.layer }
+      }
+      const stored = await storeGeneratedCandidates({ contextHash, eventId, generated: stepResult.generated })
+      console.info("[event3-choice-seating-cache] generated", {
+        event_id: Number(eventId),
+        generation_ms: generationMs,
+        cache_layer: stored.layer,
+        cached: stored.stored,
+        resumed: Boolean(saved),
+      })
+      return { generated: stepResult.generated, generationMs, layer: stored.layer }
+    }
+
     const generated = await build()
     const generationMs = Date.now() - generationStartedAt
     const stored = await storeGeneratedCandidates({ contextHash, eventId, generated })
@@ -155,17 +247,7 @@ export async function getOrBuildChoiceSeatingCandidates({ contextHash, eventId, 
 
   try {
     const result = await generation
-    return {
-      generated: result.generated,
-      cache: {
-        status: "miss",
-        layer: result.layer,
-        age_ms: 0,
-        generation_ms: result.generationMs,
-        total_ms: Date.now() - requestStartedAt,
-        ttl_seconds: CACHE_TTL_SECONDS,
-      },
-    }
+    return responseFromResult(result, requestStartedAt, result.pending ? "checkpoint" : "miss")
   } finally {
     if (inFlightGenerations.get(key) === generation) inFlightGenerations.delete(key)
   }
@@ -173,9 +255,12 @@ export async function getOrBuildChoiceSeatingCandidates({ contextHash, eventId, 
 
 export const choiceSeatingCacheInternals = Object.freeze({
   CACHE_SCHEMA_VERSION,
+  CHECKPOINT_SCHEMA_VERSION,
   CACHE_TTL_SECONDS,
   cacheKey,
+  checkpointKey,
   validEnvelope,
+  validCheckpointEnvelope,
   resetForTests() {
     memoryCache.clear()
     inFlightGenerations.clear()

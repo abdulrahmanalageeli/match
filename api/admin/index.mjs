@@ -20,7 +20,11 @@ import {
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
-import { buildChoiceOnlySeatingCandidates, buildChoiceOnlySeatingPlan } from "../../server/event3/choice-only-seating.mjs"
+import {
+  buildChoiceOnlySeatingCandidates,
+  buildChoiceOnlySeatingCandidatesStep,
+  buildChoiceOnlySeatingPlan,
+} from "../../server/event3/choice-only-seating.mjs"
 import { handleChoiceSeatingPreview } from "../../server/event3/choice-seating-preview.mjs"
 import {
   buildGlobalChoiceMatches,
@@ -10537,6 +10541,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               eventId: choicePreviewEventId,
               secret: cohostTokenSecret(),
               buildCandidates: buildChoiceOnlySeatingCandidates,
+              buildCandidatesStep: buildChoiceOnlySeatingCandidatesStep,
             })
             return res.status(200).json(result)
           } catch (error) {

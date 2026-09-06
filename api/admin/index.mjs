@@ -3680,6 +3680,15 @@ export default async function handler(req, res) {
           console.error("get-upcoming-event-summary registration count error:", registrationCountError)
         }
 
+        const { data: seatsFullRule, error: seatsFullRuleError } = await supabase
+          .from("twilio_response_rules")
+          .select("enabled")
+          .eq("action_key", "event_payment_seats_full")
+          .maybeSingle()
+        if (seatsFullRuleError) {
+          console.error("get-upcoming-event-summary seats-full rule error:", seatsFullRuleError)
+        }
+
         const whatsappConfig = eventSummaryState.whatsapp_config || {}
         return res.status(200).json({
           upcoming_event: {
@@ -3688,6 +3697,7 @@ export default async function handler(req, res) {
             time_text: String(whatsappConfig.eventTimeText || "").trim() || null,
             arrival_time_text: String(whatsappConfig.arrivalTimeText || "").trim() || null,
             registered_count: registrationCountError ? null : Number(registeredCount || 0),
+            seats_full: seatsFullRule?.enabled === true,
           },
         })
       }

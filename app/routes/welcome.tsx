@@ -223,6 +223,7 @@ interface UpcomingEventSummary {
   timeText: string | null
   arrivalTimeText: string | null
   registeredCount: number | null
+  seatsFull: boolean
 }
 
 const SURVEY_DATA_METADATA_KEYS = new Set([
@@ -890,6 +891,7 @@ export default function WelcomePage() {
         registeredCount: Number.isFinite(Number(summary.registered_count))
           ? Number(summary.registered_count)
           : null,
+        seatsFull: summary.seats_full === true,
       })
     } catch (error) {
       console.error('Failed to load upcoming event summary:', error)
@@ -1057,6 +1059,7 @@ export default function WelcomePage() {
   const [showAutoSignupPrompt, setShowAutoSignupPrompt] = useState(false)
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
   const [showNextEventSignup, setShowNextEventSignup] = useState(false)
+  const [nextEventAttendanceConfirmed, setNextEventAttendanceConfirmed] = useState<boolean | null>(null)
   const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false)
   
@@ -4270,6 +4273,7 @@ export default function WelcomePage() {
       
       if (res.ok && data.participant) {
         const participant = data.participant
+        setNextEventAttendanceConfirmed(participant.attendance_confirmed === true)
         
         // Check what questions the participant has already filled (direct columns)
         const hasHumorStyle = participant.humor_banter_style !== null && participant.humor_banter_style !== undefined
@@ -4396,6 +4400,7 @@ export default function WelcomePage() {
         setShowNextEventPopup(false);
         // Update UI immediately to reflect signup state without refresh
         setShowNextEventSignup(true);
+        setNextEventAttendanceConfirmed(false);
         // Refresh the gender preference badge
         if (token) {
           pollParticipantData(token);
@@ -7882,18 +7887,67 @@ export default function WelcomePage() {
                             </div>
                           </div>
 
-                          <div className={`mt-2.5 flex items-center gap-2 rounded-xl border px-3 py-2 text-right text-[11px] font-bold sm:text-xs ${
-                            showNextEventSignup
-                              ? 'border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-200'
-                              : 'border-amber-300/15 bg-amber-300/[0.06] text-amber-100'
+                          <div className={`mt-2.5 flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-right ${
+                            nextEventAttendanceConfirmed
+                              ? 'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100'
+                              : showNextEventSignup
+                                ? 'border-amber-300/20 bg-amber-300/[0.07] text-amber-100'
+                                : 'border-slate-300/15 bg-white/[0.035] text-slate-200'
                           }`}>
-                            {showNextEventSignup ? (
-                              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-300" />
+                            {nextEventAttendanceConfirmed ? (
+                              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                             ) : (
-                              <AlertCircle className="h-4 w-4 shrink-0 text-amber-300" />
+                              <AlertCircle className={`mt-0.5 h-4 w-4 shrink-0 ${showNextEventSignup ? 'text-amber-300' : 'text-slate-400'}`} />
                             )}
-                            <span>{showNextEventSignup ? 'أنت مسجل في الفعالية القادمة' : 'أنت غير مسجل — سجل من الأسفل'}</span>
+                            <div>
+                              <p className="text-[11px] font-black sm:text-xs">
+                                {nextEventAttendanceConfirmed
+                                  ? 'حضورك مؤكد — مقعدك محجوز'
+                                  : showNextEventSignup
+                                    ? 'أنت مسجل مبدئياً، لكن حضورك غير مؤكد'
+                                    : 'أنت غير مؤكد للحضور في هذه الفعالية'}
+                              </p>
+                              <p className="mt-0.5 text-[9px] font-medium leading-4 opacity-70 sm:text-[10px]">
+                                {nextEventAttendanceConfirmed
+                                  ? 'تم اعتماد دفعتك لهذه الفعالية، ويمكنك الحضور في الموعد الموضح.'
+                                  : 'تأكيد الحضور يقتصر على من تم اعتماد دفعته لهذه الفعالية.'}
+                              </p>
+                            </div>
                           </div>
+
+                          {upcomingEvent.seatsFull && (
+                            <div className={`relative mt-3 overflow-hidden rounded-2xl border p-3.5 text-right shadow-2xl sm:p-4 ${
+                              nextEventAttendanceConfirmed
+                                ? 'border-emerald-300/25 bg-gradient-to-l from-emerald-400/[0.14] via-cyan-400/[0.08] to-slate-950/20 shadow-emerald-950/40'
+                                : 'border-rose-300/25 bg-gradient-to-l from-rose-500/[0.16] via-amber-400/[0.08] to-slate-950/30 shadow-rose-950/50'
+                            }`} role="note" aria-label="تنبيه اكتمال المقاعد">
+                              <div className="pointer-events-none absolute -left-8 -top-12 h-28 w-28 rounded-full bg-white/[0.08] blur-3xl" aria-hidden="true" />
+                              <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent" aria-hidden="true" />
+                              <div className="relative flex items-start gap-3">
+                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${
+                                  nextEventAttendanceConfirmed
+                                    ? 'bg-emerald-300/15 text-emerald-100 ring-emerald-200/25'
+                                    : 'bg-rose-300/15 text-rose-100 ring-rose-200/25'
+                                }`}>
+                                  <LockKeyhole className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className={`flex items-center gap-1.5 text-[10px] font-black tracking-[0.08em] ${nextEventAttendanceConfirmed ? 'text-emerald-200/80' : 'text-rose-200/80'}`}>
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    اكتملت السعة
+                                  </div>
+                                  <h3 className="mt-0.5 text-base font-black text-white sm:text-lg">
+                                    {nextEventAttendanceConfirmed ? 'المقاعد مكتملة — ومقعدك محفوظ ✓' : 'عذراً، جميع المقاعد مكتملة'}
+                                  </h3>
+                                  <p className={`mt-1 text-[11px] font-semibold leading-5 sm:text-xs ${nextEventAttendanceConfirmed ? 'text-emerald-50/70' : 'text-rose-50/75'}`}>
+                                    {nextEventAttendanceConfirmed
+                                      ? 'أنت ضمن قائمة الحضور المؤكدين لأن دفعتك معتمدة لهذه الفعالية.'
+                                      : 'التسجيل المبدئي لا يعني تأكيد الحضور. لا تحوّل أي مبلغ ولا تتوجه إلى موقع الفعالية؛ نتمنى لك حظاً أوفر في الفعالية القادمة 🤍'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -8355,7 +8409,7 @@ export default function WelcomePage() {
                             : "welcome-next-event-card--available"
                         }`}
                         >
-                          {!showNextEventSignup && (
+                          {!showNextEventSignup && !upcomingEvent?.seatsFull && (
                             <button
                               type="button"
                               aria-label="التسجيل في الفعالية القادمة"
@@ -8365,18 +8419,30 @@ export default function WelcomePage() {
                           )}
                           <UserCheck className={`h-5 w-5 text-emerald-200 ${showNextEventSignup ? "opacity-70" : ""}`} />
                           <h4 className="text-sm font-bold text-white sm:text-base">
-                            {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
+                            {nextEventAttendanceConfirmed
+                              ? "حضورك مؤكد ✓"
+                              : showNextEventSignup
+                                ? "مسجل مبدئياً — غير مؤكد"
+                                : upcomingEvent?.seatsFull
+                                  ? "المقاعد مكتملة"
+                                  : "سجل للفعالية القادمة"}
                           </h4>
                           <p className="text-[11px] text-slate-400 sm:text-xs">
-                            {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
+                            {nextEventAttendanceConfirmed
+                              ? "دفعتك معتمدة ومقعدك محفوظ لهذه الفعالية"
+                              : showNextEventSignup
+                                ? "لم تُعتمد دفعة لهذه الفعالية، لذلك لا تتوجه إلى الموقع"
+                                : upcomingEvent?.seatsFull
+                                  ? "لا تتوفر مقاعد أو دفعات جديدة لهذه الفعالية"
+                                  : "سجل باستخدام حسابك الحالي"}
                           </p>
                           
-                          {!showNextEventSignup ? (
+                          {!showNextEventSignup && !upcomingEvent?.seatsFull ? (
                             <div className="flex items-center gap-1 text-emerald-300">
                               <span className="text-xs font-medium">انقر للتسجيل</span>
                               <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
                             </div>
-                          ) : (
+                          ) : showNextEventSignup ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {/* Unregister from Next Event Button */}
                               <button
@@ -8402,6 +8468,7 @@ export default function WelcomePage() {
                                     const data = await response.json();
                                     if (response.ok) {
                                       setShowNextEventSignup(false);
+                                      setNextEventAttendanceConfirmed(null);
                                       toast.success("تم إلغاء تسجيلك في الفعالية القادمة بنجاح");
                                     } else {
                                       toast.error(`فشل إلغاء التسجيل: ${data.error}`);
@@ -8470,7 +8537,7 @@ export default function WelcomePage() {
                                 </button>
                               )}
                             </div>
-                          )}
+                          ) : null}
                         </div>
 
                         {/* Returning Player Button - Row 2 Left */}

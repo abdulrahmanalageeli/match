@@ -1433,22 +1433,10 @@ html:not(.dark) .round-bg-pattern::before {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(216, 180, 254, 0.16);
   box-shadow:
     0 22px 50px -28px rgba(var(--event3-purple), 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-
-.event3-action::after {
-  position: absolute;
-  top: 0;
-  right: 1.75rem;
-  left: 1.75rem;
-  z-index: 2;
-  height: 1px;
-  pointer-events: none;
-  content: "";
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.48), transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
 
 .event3-shell :where(button, a, input, textarea, select) {

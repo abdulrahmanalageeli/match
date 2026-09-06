@@ -23,7 +23,7 @@ test("final reveal shows scores only from 60 percent and restores choice-only an
   const finalReveal = source.slice(start, end)
 
   assert.match(finalReveal, /FINAL_REVEAL_RATING_THRESHOLD = 60/)
-  assert.match(finalReveal, /غير مُقيّم — يظهر التحليل من 60% فأعلى/)
+  assert.match(finalReveal, /لم يتم تحليله — يظهر التحليل من 60% فأعلى/)
   assert.match(finalReveal, /score=\{p4\?\.compatibility_score\}/)
   assert.match(finalReveal, /activeTab === 'third'/)
   assert.doesNotMatch(finalReveal, /score=\{choiceOnly \? null/)

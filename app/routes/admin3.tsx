@@ -1471,6 +1471,7 @@ export default function Admin3Page() {
     })
   }
   const [loading, setLoading] = useState<string | null>(null)
+  const [phaseJumpLoading, setPhaseJumpLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
@@ -2183,12 +2184,10 @@ export default function Admin3Page() {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve({ error: "preview mode" }) }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
-  const jumpToPhase = (phase: string) => {
+  const jumpToPhase = async (phase: string) => {
+    if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return }
+    if (phaseJumpLoading || loading?.startsWith("phase-")) return
     const duration = getEvent3PhaseSeconds(phase)
-    if (duration <= 0) {
-      void setPhaseStopTimer(phase)
-      return
-    }
     const timerRound = phase === "round1" ? 1
       : phase === "round2" ? 2
         : phase === "round3" ? 3
@@ -2197,7 +2196,31 @@ export default function Admin3Page() {
               : phase === "phase3_reveal" ? secondMatchTimerRound
                 : phase === "phase4_reveal" ? thirdMatchTimerRound
                   : 0
-    setPhaseWithTimer(phase, duration, timerRound)
+    const phaseLabel = phases.find(item => item.id === phase)?.label || phase
+    setPhaseJumpLoading(phase)
+    try {
+      const data = await api("e3-set-phase", duration > 0
+        ? { phase, start_timer: true, timer_duration: duration, timer_round: timerRound }
+        : { phase, start_timer: false })
+      if (data.error) {
+        toast.error(data.error)
+        return
+      }
+      setState((previous: any) => previous ? {
+        ...previous,
+        phase: data.phase || phase,
+        timer_active: Boolean(data.timer_active),
+        timer_start: data.timer_start ?? null,
+        timer_duration: data.timer_duration ?? null,
+        timer_round: data.timer_round ?? null,
+      } : previous)
+      toast.success(`تم الانتقال إلى ${phaseLabel}`)
+      await fetchState()
+    } catch (error: any) {
+      toast.error(error?.message || "تعذّر تغيير المرحلة")
+    } finally {
+      setPhaseJumpLoading(null)
+    }
   }
   const startTimer = (round: number, duration?: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المؤقت في وضع المعاينة"); return }
@@ -3223,8 +3246,9 @@ export default function Admin3Page() {
                   <button
                     type="button"
                     onClick={() => jumpToPhase(phase.id)}
-                    disabled={!!loading || idx === currentPhaseIdx}
+                    disabled={phaseJumpLoading !== null || loading?.startsWith("phase-") === true || idx === currentPhaseIdx}
                     aria-current={idx === currentPhaseIdx ? "step" : undefined}
+                    aria-busy={phaseJumpLoading === phase.id || loading === `phase-${phase.id}`}
                     className={`min-h-9 rounded-lg px-2 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-default sm:px-3 sm:text-xs ${
                     idx === currentPhaseIdx
                       ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
@@ -3232,7 +3256,7 @@ export default function Admin3Page() {
                       ? "bg-gray-700 text-green-400 hover:bg-gray-600"
                       : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
                   }`}>
-                    {loading === `phase-${phase.id}` ? <Loader2 size={10} className="ml-1 inline animate-spin" /> : <span className="ml-1">{phase.icon}</span>}{phase.label}
+                    {phaseJumpLoading === phase.id || loading === `phase-${phase.id}` ? <Loader2 size={10} className="ml-1 inline animate-spin" /> : <span className="ml-1">{phase.icon}</span>}{phase.label}
                     {idx < currentPhaseIdx && <Check size={10} className="inline mr-1" />}
                   </button>
                   {idx < phases.length - 1 && <ArrowRight size={12} className="text-gray-700 flex-shrink-0" />}
@@ -4240,15 +4264,18 @@ export default function Admin3Page() {
                     return (
                       <button
                         key={phase.id}
+                        type="button"
                         onClick={() => jumpToPhase(phase.id)}
-                        disabled={!!loading || isCurrent}
+                        disabled={phaseJumpLoading !== null || loading?.startsWith("phase-") === true || isCurrent}
+                        aria-current={isCurrent ? "step" : undefined}
+                        aria-busy={phaseJumpLoading === phase.id || loading === `phase-${phase.id}`}
                         className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 ${
                           isCurrent ? "bg-amber-600 text-white" :
                           isPast ? "bg-gray-700 text-green-400 hover:bg-gray-600" :
                           "bg-gray-800 text-gray-300 hover:bg-gray-700"
                         }`}
                       >
-                        <span className="ml-1">{phase.icon}</span>{phase.label}
+                        {phaseJumpLoading === phase.id || loading === `phase-${phase.id}` ? <Loader2 size={10} className="ml-1 inline animate-spin" /> : <span className="ml-1">{phase.icon}</span>}{phase.label}
                       </button>
                     )
                   })}

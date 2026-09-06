@@ -4374,16 +4374,20 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
       <AnimatePresence>
         {coordination?.status === "elected" && !isGroupCoordinator && !syncEnabled && !revealedCoordinator && !electionVisible && (
-          <motion.button
+          <motion.div
             initial={{ opacity: 0, y: 18, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12 }}
-            type="button"
-            onClick={() => setSyncEnabled(true)}
-            className="event3-action fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-[570] flex min-h-14 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-2xl border border-cyan-200/25 bg-gradient-to-l from-cyan-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/15"
+            className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[570] flex justify-center"
           >
-            <Wifi size={17} /> العودة لبث {coordinatorName}
-          </motion.button>
+            <button
+              type="button"
+              onClick={() => setSyncEnabled(true)}
+              className="event3-action pointer-events-auto flex min-h-14 w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-cyan-200/25 bg-gradient-to-l from-cyan-500 via-violet-500 to-fuchsia-500 px-4 text-center text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/15"
+            >
+              <Wifi size={17} className="shrink-0" /> <span className="min-w-0 truncate">العودة لبث {coordinatorName}</span>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 

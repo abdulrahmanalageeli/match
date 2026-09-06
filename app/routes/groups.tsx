@@ -2770,7 +2770,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           </motion.div>
 
           {/* Compact picker header */}
-          <div className={`relative z-20 flex items-center justify-between border-b bg-black/15 px-5 py-4 backdrop-blur-xl ${roundTheme.border}`}>
+          <div className={`relative z-20 flex items-center justify-between border-b bg-black/15 px-4 py-3 backdrop-blur-xl ${roundTheme.border}`}>
             <button
               type="button"
               onClick={() => {
@@ -2778,7 +2778,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 onClose?.();
               }}
               aria-label="إغلاق الأنشطة الجماعية"
-              className="flex h-11 min-w-11 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-10 min-w-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="w-4 h-4" />
               <span>إغلاق</span>
@@ -2792,10 +2792,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             </div>
           </div>
 
-          <div className="relative z-20 px-5 pt-4">
-            <div className={`flex items-center gap-3 rounded-2xl border bg-black/20 px-4 py-3 shadow-lg backdrop-blur-xl ${roundTheme.border}`}>
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
-                <Sparkles className="h-5 w-5" />
+          <div className="relative z-20 px-4 pt-3">
+            <div className={`flex items-center gap-2.5 rounded-2xl border bg-black/20 px-3 py-2.5 shadow-lg backdrop-blur-xl ${roundTheme.border}`}>
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
+                <Sparkles className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1 text-right">
                 <p className={`text-[10px] font-black ${roundTheme.text}`}>
@@ -2813,7 +2813,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <button
                   type="button"
                   onClick={onRequestReelection}
-                  className="min-h-10 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-[10px] font-black text-amber-200 transition-colors hover:bg-amber-400/15"
+                  className="min-h-9 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-2.5 text-[10px] font-black text-amber-200 transition-colors hover:bg-amber-400/15"
                 >
                   انقلاب
                 </button>
@@ -2822,7 +2822,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           </div>
 
           {/* Carousel area */}
-          <div className="relative z-10 flex flex-1 flex-col items-center px-5 pb-6 pt-5">
+          <div className="relative z-10 flex flex-1 flex-col items-center px-4 pb-4 pt-3">
             {/* Main carousel card — swipeable */}
             <div className="relative w-full max-w-sm">
               {/* Swipeable card container */}
@@ -2845,7 +2845,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 aria-describedby={`carousel-game-description-${currentGame.id}`}
                 className="cursor-grab active:cursor-grabbing"
               >
-                <div className={`relative overflow-hidden rounded-[2rem] border bg-gray-900/85 shadow-[0_28px_90px_-35px_rgba(0,0,0,0.95)] ring-1 ${roundTheme.border} ${roundTheme.ring}`}>
+                <div className={`relative overflow-hidden rounded-[1.6rem] border bg-gray-900/85 shadow-[0_24px_70px_-34px_rgba(0,0,0,0.95)] ring-1 ${roundTheme.border} ${roundTheme.ring}`}>
                   <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
                   <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${roundTheme.bar}`} />
                   <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/30" />
@@ -2858,20 +2858,20 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   />
 
                   {/* Card content */}
-                  <div className="relative z-10 flex min-h-[310px] flex-col p-6 text-right">
-                    <div className={`mb-4 rounded-2xl border px-3 py-2 ${roundTheme.softPanel}`}>
-                      <p className={`text-[10px] font-black ${roundTheme.text}`}>{roundTheme.nameAr}</p>
-                      <p className="mt-0.5 text-[10px] leading-5 text-white/55">{roundTheme.focusAr}</p>
-                    </div>
-                    <div className="flex items-center justify-between">
+                  <div className="relative z-10 flex min-h-[276px] flex-col p-4 text-right sm:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`text-[10px] font-black ${roundTheme.text}`}>{roundTheme.nameAr}</p>
+                        <p className="mt-0.5 line-clamp-2 text-[10px] leading-5 text-white/50">{roundTheme.focusAr}</p>
+                      </div>
                       <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold text-white/65">
                         {carouselIndex + 1} من {activityGames.length}
                       </span>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-white/60">
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-white/55">
                         <span>{currentGame.duration} دقائق</span>
                         <span className="h-1 w-1 rounded-full bg-white/30" />
                         <span>3–6 أشخاص</span>
-                      </div>
                     </div>
 
                     {/* Icon */}
@@ -2879,20 +2879,20 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       initial={{ scale: 0.8, rotate: -8 }}
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                      className={`mt-7 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
+                      className={`mt-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
                     >
                       {currentGame.icon}
                     </motion.div>
 
                     {/* Text */}
-                    <div className="flex-1 py-5">
+                    <div className="flex-1 py-4">
                       <motion.h2
                         ref={carouselHeadingRef}
                         id={`carousel-game-${currentGame.id}`}
                         tabIndex={-1}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-2xl font-black tracking-tight text-white"
+                        className="text-[1.65rem] font-black tracking-tight text-white"
                       >
                         {currentGame.nameAr}
                       </motion.h2>
@@ -2900,7 +2900,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         id={`carousel-game-description-${currentGame.id}`}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mt-2 max-w-[28rem] text-sm leading-7 text-white/65"
+                        className="mt-1.5 max-w-[28rem] text-[13px] leading-6 text-white/65"
                       >
                         {currentGame.descriptionAr}
                       </motion.p>
@@ -2914,7 +2914,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       transition={{ delay: 0.3 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => startGame(currentGame.id)}
-                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
+                      className={`flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} text-sm font-black text-white shadow-lg transition-all hover:brightness-110`}
                     >
                       <Play className="w-4 h-4 fill-current" />
                       <span>ابدأ النشاط</span>
@@ -2924,7 +2924,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </motion.div>
 
               {/* Stable navigation controls, kept outside the card edges */}
-              <div className="mt-4 grid grid-cols-[44px_1fr_44px] items-center gap-3">
+              <div className="mt-3 grid grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-2">
                 <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronRight className="h-5 w-5" />
                 </button>

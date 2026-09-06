@@ -226,6 +226,14 @@ type ChoiceSeatingCandidate = {
 type ChoiceSeatingPreviewResponse = {
   event_format?: string
   expires_at?: string | number
+  cache?: {
+    status?: "hit" | "miss" | "coalesced" | string
+    layer?: "runtime" | "memory" | "none" | string
+    age_ms?: number
+    generation_ms?: number
+    total_ms?: number
+    ttl_seconds?: number
+  }
   candidates: ChoiceSeatingCandidate[]
 }
 
@@ -294,6 +302,16 @@ function choiceSeatingTimestamp(value: unknown) {
   const numeric = Number(value)
   if (String(value || "").trim() && Number.isFinite(numeric) && numeric > 1_000_000_000_000) return numeric
   return Date.parse(String(value || ""))
+}
+
+function choiceSeatingProgressSnapshot(elapsedMs: number) {
+  const percent = Math.min(94, Math.max(7, Math.round(7 + 87 * (1 - Math.exp(-elapsedMs / 26_000)))))
+  if (elapsedMs < 1_500) return { percent, stage: "فحص الخطط المحفوظة", detail: "نبحث أولاً عن نتيجة مطابقة تماماً لهذه البيانات" }
+  if (elapsedMs < 6_000) return { percent, stage: "تجهيز سياق الفعالية", detail: "مراجعة المشاركين والإجابات والقيود الحالية" }
+  if (elapsedMs < 18_000) return { percent, stage: "تصميم الجولة الأولى", detail: "تحسين الشرارة والتوازن داخل كل طاولة" }
+  if (elapsedMs < 36_000) return { percent, stage: "موازنة الجولتين الثانية والثالثة", detail: "تقليل التكرار وتحسين العمق والإيقاع" }
+  if (elapsedMs < 58_000) return { percent, stage: "مقارنة البدائل الثلاثة", detail: "ترتيب الخطط وفحص أضعف الطاولات" }
+  return { percent, stage: "إنهاء المراجعة الآمنة", detail: "الحساب كبير هذه المرة، لكنه ما زال يعمل على الخادم" }
 }
 
 function choiceSeatingGender(value: unknown) {
@@ -645,6 +663,56 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   )
 })
 
+function ChoiceSeatingGenerationProgress({ elapsedMs }: { elapsedMs: number }) {
+  const progress = choiceSeatingProgressSnapshot(elapsedMs)
+  const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
+  const steps = ["السياق", "الجولات", "البدائل"]
+  const activeStep = elapsedMs < 6_000 ? 0 : elapsedMs < 36_000 ? 1 : 2
+
+  return (
+    <section id="choice-seating-progress" role="status" aria-live="polite" aria-label="تقدم إنشاء خطط الجلسات" className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/35 via-gray-950 to-violet-950/35 p-4 shadow-2xl shadow-cyan-950/20 sm:p-5">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(circle_at_85%_15%,rgba(34,211,238,.13),transparent_32%),radial-gradient(circle_at_12%_90%,rgba(139,92,246,.14),transparent_36%)]" />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-200 shadow-lg shadow-cyan-950/35">
+              <Layers size={19} />
+              <span aria-hidden="true" className="absolute -inset-1 rounded-[1.15rem] border border-cyan-300/15 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-black text-white sm:text-base">نبني أفضل ثلاث خطط للجلسات</h3>
+                <span className="rounded-full border border-cyan-500/25 bg-cyan-950/55 px-2 py-0.5 text-[9px] font-bold text-cyan-200">لم تُطبّق أي خطة</span>
+              </div>
+              <p className="mt-1 text-xs font-bold text-cyan-100/85">{progress.stage}</p>
+              <p className="mt-0.5 text-[10px] leading-5 text-gray-400">{progress.detail}</p>
+            </div>
+          </div>
+          <div className="shrink-0 text-left" dir="ltr">
+            <p className="font-mono text-xl font-black text-white">{progress.percent}%</p>
+            <p className="mt-0.5 font-mono text-[9px] text-gray-500">{elapsedSeconds}s</p>
+          </div>
+        </div>
+
+        <div className="mt-4 h-2 overflow-hidden rounded-full border border-white/5 bg-black/35" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent} aria-valuetext={`${progress.stage}، ${progress.percent} بالمئة تقريباً`}>
+          <div className="relative h-full rounded-full bg-gradient-to-l from-cyan-400 via-blue-500 to-violet-500 transition-[width] duration-500 ease-out shadow-[0_0_18px_rgba(34,211,238,.45)]" style={{ width: `${progress.percent}%` }}>
+            <span aria-hidden="true" className="absolute inset-y-0 right-0 w-16 translate-x-1/2 bg-gradient-to-l from-white/45 to-transparent blur-sm" />
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-1.5" aria-hidden="true">
+          {steps.map((step, index) => (
+            <div key={step} className={`rounded-lg border px-2 py-1.5 text-center text-[9px] font-bold transition-colors ${index < activeStep ? "border-emerald-700/30 bg-emerald-950/25 text-emerald-300" : index === activeStep ? "border-cyan-500/35 bg-cyan-950/35 text-cyan-100" : "border-white/5 bg-black/15 text-gray-600"}`}>
+              {index < activeStep ? "✓ " : ""}{step}
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[9px] leading-5 text-gray-500">التقدّم المعروض تقديري أثناء الحساب على الخادم. عند وجود نسخة مطابقة محفوظة ستظهر الخيارات فوراً تقريباً.</p>
+      </div>
+    </section>
+  )
+}
+
 function ChoiceSeatingPreviewPanel({
   preview,
   selectedId,
@@ -689,6 +757,11 @@ function ChoiceSeatingPreviewPanel({
               <Layers size={18} className="text-cyan-300" />
               <h3 id="choice-seating-preview-title" className="text-base font-black text-white">معاينة خطة الجلسات قبل الاعتماد</h3>
               <span className="rounded-full border border-cyan-700/40 bg-cyan-950/35 px-2 py-0.5 text-[9px] font-bold text-cyan-200">لم تُطبّق بعد</span>
+              {preview.cache?.status === "hit" || preview.cache?.status === "coalesced"
+                ? <span className="rounded-full border border-emerald-700/35 bg-emerald-950/35 px-2 py-0.5 text-[9px] font-bold text-emerald-200">⚡ نسخة محفوظة مطابقة</span>
+                : preview.cache?.status === "miss"
+                  ? <span className="rounded-full border border-violet-700/35 bg-violet-950/35 px-2 py-0.5 text-[9px] font-bold text-violet-200">بُنيت الآن وحُفظت مؤقتاً</span>
+                  : null}
             </div>
             <p className="mt-1 text-[10px] leading-5 text-gray-400">ثلاثة خيارات مرتبة وفق الهدف نفسه. اختر خياراً واحداً ثم استخدم زر الاعتماد الوحيد في الأسفل؛ لا تُرسل الطاولات من المتصفح إلى الخادم.</p>
           </div>
@@ -1028,6 +1101,12 @@ async function api(action: string, extra: Record<string, any> = {}, options: { s
     })
     const contentType = response.headers.get("content-type") || ""
     if (!contentType.includes("application/json")) {
+      if (action === "e3-preview-choice-seating" && response.status === 504) {
+        return {
+          error: "استغرق تجهيز خطط الجلسات وقتاً أطول من مهلة الخادم. لم يتم تطبيق أي خطة؛ أعد المحاولة للاستفادة من النسخة المحفوظة إن اكتمل الحساب.",
+          code: "EVENT3_SEATING_PREVIEW_TIMEOUT",
+        }
+      }
       return { error: "تعذّر الاتصال بخدمة إدارة الفعالية" }
     }
     const data = await response.json().catch(() => null)
@@ -1302,6 +1381,8 @@ export default function Admin3Page() {
   const [choiceSeatingPreview, setChoiceSeatingPreview] = useState<ChoiceSeatingPreviewResponse | null>(null)
   const [selectedChoiceSeatingCandidateId, setSelectedChoiceSeatingCandidateId] = useState("")
   const [choiceSeatingPreviewIssue, setChoiceSeatingPreviewIssue] = useState<{ message: string; missingSurveyFields: Array<{ participant_number: number; fields: string[] }> } | null>(null)
+  const [choiceSeatingProgressStartedAt, setChoiceSeatingProgressStartedAt] = useState<number | null>(null)
+  const [choiceSeatingProgressElapsedMs, setChoiceSeatingProgressElapsedMs] = useState(0)
   const [approvedChoiceSeatingReport, setApprovedChoiceSeatingReport] = useState<PersistedChoiceSeatingReport | null>(null)
   const [approvedChoiceSeatingReportExpanded, setApprovedChoiceSeatingReportExpanded] = useState(false)
   const approvedChoiceSeatingCandidate = useMemo(() => approvedChoiceSeatingReport?.report
@@ -1956,9 +2037,19 @@ export default function Admin3Page() {
     setChoiceSeatingPreview(null)
     setSelectedChoiceSeatingCandidateId("")
     setChoiceSeatingPreviewIssue(null)
+    setChoiceSeatingProgressStartedAt(null)
+    setChoiceSeatingProgressElapsedMs(0)
     setApprovedChoiceSeatingReport(null)
     setLoading(current => current === "seating" || current === "apply-seating-preview" ? null : current)
   }, [choiceUiContextKey])
+
+  useEffect(() => {
+    if (choiceSeatingProgressStartedAt == null) return
+    const update = () => setChoiceSeatingProgressElapsedMs(Date.now() - choiceSeatingProgressStartedAt)
+    update()
+    const interval = window.setInterval(update, 300)
+    return () => window.clearInterval(interval)
+  }, [choiceSeatingProgressStartedAt])
 
   // Feedback polling (visibility-aware)
   useVisibilityPoll(fetchFeedback, 5000, feedbackPolling && activeTab === "feedback")
@@ -2410,6 +2501,8 @@ export default function Admin3Page() {
     setChoiceSeatingPreview(null)
     setSelectedChoiceSeatingCandidateId("")
     setChoiceSeatingPreviewIssue(null)
+    setChoiceSeatingProgressElapsedMs(0)
+    setChoiceSeatingProgressStartedAt(Date.now())
     try {
       const data = await api("e3-preview-choice-seating", expectedContext)
       if (!requestIsCurrent()) return
@@ -2450,11 +2543,18 @@ export default function Admin3Page() {
       const nextPreview: ChoiceSeatingPreviewResponse = {
         event_format: data.event_format,
         expires_at: data.expires_at,
+        cache: data.cache,
         candidates,
       }
       setChoiceSeatingPreview(nextPreview)
       setSelectedChoiceSeatingCandidateId(candidates[0].candidate_id)
-      toast.success("تم إنشاء خطة أساسية وبديلين للمعاينة — لم تُطبّق أي خطة بعد")
+      const reusedCache = data.cache?.status === "hit" || data.cache?.status === "coalesced"
+      const generationSeconds = Number.isFinite(Number(data.cache?.generation_ms))
+        ? Math.max(1, Math.round(Number(data.cache.generation_ms) / 1000))
+        : null
+      toast.success(reusedCache
+        ? "تم استرجاع ثلاث خطط محفوظة ومطابقة لهذه البيانات"
+        : `تم إنشاء ثلاث خطط وحفظها مؤقتاً${generationSeconds ? ` خلال ${generationSeconds}ث` : ""} — لم تُطبّق أي خطة بعد`)
       window.setTimeout(() => {
         if (requestIsCurrent()) document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 50)
@@ -2464,7 +2564,10 @@ export default function Admin3Page() {
       setChoiceSeatingPreviewIssue({ message, missingSurveyFields: [] })
       toast.error(message)
     } finally {
-      if (requestIsCurrent()) setLoading(null)
+      if (requestIsCurrent()) {
+        setLoading(null)
+        setChoiceSeatingProgressStartedAt(null)
+      }
     }
   }
 
@@ -3667,6 +3770,10 @@ export default function Admin3Page() {
                 ))}
               </div>
             </div>
+
+            {choiceOnly && loading === "seating" && choiceSeatingProgressStartedAt != null && (
+              <ChoiceSeatingGenerationProgress elapsedMs={choiceSeatingProgressElapsedMs} />
+            )}
 
             {choiceOnly && choiceSeatingPreviewIssue && (
               <section className="rounded-2xl border border-red-700/45 bg-red-950/25 p-4" aria-live="polite">

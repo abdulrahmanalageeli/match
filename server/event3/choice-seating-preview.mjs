@@ -8,6 +8,7 @@ import {
 } from "./flexible-choice-seating.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 import { getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
+import { getOrBuildChoiceSeatingCandidates } from "./choice-seating-cache.mjs"
 
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
@@ -383,7 +384,7 @@ async function loadChoiceContext(db, eventId) {
   const fingerprint = stableValue({
     event_id: Number(eventId),
     event_format: EVENT_FORMAT,
-    objective_version: CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
+    objective_versions: [CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION],
     test_mode: testMode,
     session_key: sessionKey,
     roster: roster.map(row => [Number(row.participant_number), Number(row.position)]),
@@ -529,13 +530,18 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   if (typeof buildCandidates !== "function") throw fail("Choice seating candidate generation is unavailable", 503)
   const incompleteProfiles = new Set(context.missingSurveyFields.map(row => Number(row.participant_number)))
   const lensProfileMap = new Map([...context.profileMap].filter(([participantNumber]) => !incompleteProfiles.has(participantNumber)))
-  const generated = buildCandidates(context.participantNumbers, {
-    genderMap: context.genderMap,
-    ageMap: context.ageMap,
-    profileMap: lensProfileMap,
-    lockedPairsSet: context.lockedPairsSet,
-    requireCompleteLensProfiles: false,
+  const generationResult = await getOrBuildChoiceSeatingCandidates({
+    contextHash: context.contextHash,
+    eventId,
+    build: () => buildCandidates(context.participantNumbers, {
+      genderMap: context.genderMap,
+      ageMap: context.ageMap,
+      profileMap: lensProfileMap,
+      lockedPairsSet: context.lockedPairsSet,
+      requireCompleteLensProfiles: false,
+    }),
   })
+  const generated = generationResult.generated
   if (generated?.error) throw fail(generated.error, 400)
   if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION].includes(generated?.objectiveVersion)) {
     throw fail("The seating scheduler objective version does not match the preview service", 503)
@@ -630,6 +636,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     objective_version: String(generated.objectiveVersion || "unknown"),
     diversity_policy: generated.diversityPolicy || null,
     missing_survey_fields: context.missingSurveyFields,
+    cache: generationResult.cache,
     candidates,
   }
 }

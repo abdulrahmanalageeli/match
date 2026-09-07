@@ -626,18 +626,23 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
   )
 }
 
+function Event3Ambient() {
+  return (
+    <div className="event3-ambient" aria-hidden="true">
+      <div className="event3-ambient__halo event3-ambient__halo--primary" />
+      <div className="event3-ambient__halo event3-ambient__halo--secondary" />
+      <div className="event3-ambient__vignette" />
+    </div>
+  )
+}
+
 function PageWrapper({ children, className = "", embedded = false, ...contentProps }: React.HTMLAttributes<HTMLDivElement> & { embedded?: boolean }) {
   const heightClass = embedded ? "h-full min-h-full" : "min-h-[100dvh]"
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`event3-shell relative ${heightClass} overflow-x-hidden`} dir="rtl" lang="ar">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -right-32 -top-44 h-[430px] w-[430px] rounded-full bg-purple-600/[0.16] blur-[110px]" />
-        <div className="absolute -bottom-32 -left-28 h-[390px] w-[390px] rounded-full bg-cyan-500/[0.09] blur-[105px]" />
-        <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-500/[0.055] blur-[95px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,.42)_100%)]" />
-      </div>
-      <div {...contentProps} className={`relative ${heightClass} ${className}`}>{children}</div>
+    <div className={`event3-shell event3-stage relative ${heightClass} overflow-x-hidden`} dir="rtl" lang="ar">
+      <Event3Ambient />
+      <div {...contentProps} className={`relative z-10 ${heightClass} ${className}`}>{children}</div>
     </div>
     </MotionConfig>
   )
@@ -664,7 +669,7 @@ function ParticipantLogoutButton({ onLogout, compact = false, className = "" }: 
 
 function GlassCard({ children, className = "", glow = "" }: { children: React.ReactNode; className?: string; glow?: string }) {
   return (
-    <div className={`event3-glass rounded-2xl border border-white/[0.09] ${glow} ${className}`}>
+    <div className={`event3-glass rounded-[var(--event3-radius-card)] border border-white/[0.09] ${glow} ${className}`}>
       {children}
     </div>
   )
@@ -749,32 +754,32 @@ function JourneyCue({
 }) {
   const theme = JOURNEY_ACCENTS[accent]
   return (
-    <section className={`event3-glass relative overflow-hidden rounded-3xl border p-4 text-right ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
+    <section className={`event3-glass relative overflow-hidden rounded-[1.65rem] border p-[1.125rem] text-right ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${theme.wash}`} />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${theme.pill}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+          <span className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${theme.pill}`}>
+            <span className={`h-2 w-2 rounded-full shadow-[0_0_10px_currentColor] ${theme.dot}`} />
             {eyebrow}
           </span>
           {aside}
         </div>
-        <h2 className="mt-3 text-lg font-black leading-snug text-white">{title}</h2>
-        {description && <p className="mt-1 text-xs leading-6 text-gray-300">{description}</p>}
+        <h2 className="mt-3.5 text-xl font-black leading-[1.35] tracking-[-0.01em] text-white">{title}</h2>
+        {description && <p className="mt-1.5 text-sm leading-6 text-gray-300">{description}</p>}
 
-        <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="خطوات هذه المرحلة">
+        <ol className="mt-5 grid grid-cols-3 gap-2.5 rounded-2xl border border-white/[0.055] bg-black/15 px-2 py-3" aria-label="خطوات هذه المرحلة">
           {steps.map((step, index) => {
             const done = index < currentStep
             const active = index === currentStep
             return (
               <li key={step} className="relative min-w-0 text-center">
-                {index > 0 && <span aria-hidden="true" className={`absolute left-1/2 right-[-50%] top-3 h-px ${done || active ? theme.line : "bg-white/[0.08]"}`} />}
-                <span className={`relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-black ${
+                {index > 0 && <span aria-hidden="true" className={`absolute left-1/2 right-[-50%] top-3.5 h-px ${done || active ? theme.line : "bg-white/[0.08]"}`} />}
+                <span className={`relative z-10 mx-auto flex h-7 w-7 items-center justify-center rounded-full border text-xs font-black ${
                   done ? `${theme.dot} border-transparent text-gray-950` : active ? `${theme.pill} ring-4 ring-black/20` : "border-white/10 bg-gray-950 text-gray-600"
                 }`}>
                   {done ? <CheckCircle size={13} /> : index + 1}
                 </span>
-                <span className={`mt-1.5 block text-[10px] leading-4 ${active ? `${theme.text} font-black` : done ? "font-bold text-gray-300" : "text-gray-600"}`}>{step}</span>
+                <span className={`mt-2 block text-xs leading-4 ${active ? `${theme.text} font-black` : done ? "font-bold text-gray-300" : "text-gray-500"}`}>{step}</span>
               </li>
             )
           })}
@@ -811,24 +816,24 @@ function MeetingPass({
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${wash}`} />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <span className={`inline-flex items-center gap-2 text-xs font-black ${text}`}><Icon size={14} /> بطاقة اللقاء</span>
-          {badge && <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black text-amber-200">{badge}</span>}
+          <span className={`inline-flex items-center gap-2 text-sm font-black ${text}`}><Icon size={15} /> بطاقة اللقاء</span>
+          {badge && <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-200">{badge}</span>}
         </div>
-        <p className="mt-1 text-[11px] text-gray-400">{kind}</p>
+        <p className="mt-1 text-xs text-gray-400">{kind}</p>
 
         <div className="mt-5 grid grid-cols-[1fr_auto] items-stretch gap-3">
-          <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3">
-            <span className="text-[10px] font-bold text-gray-500">شريك اللقاء</span>
+          <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3.5">
+            <span className="text-xs font-bold text-gray-400">شريك اللقاء</span>
             {partnerHidden ? (
-              <span className="mt-1 text-base font-black text-gray-300">يظهر بعد وصولك</span>
+              <span className="mt-1.5 text-base font-black text-gray-200">يظهر بعد وصولك</span>
             ) : (
-              <span className="mt-1 truncate text-2xl font-black text-white">{partnerName || "جاري التجهيز"}</span>
+              <span className="mt-1.5 truncate text-2xl font-black tracking-[-0.02em] text-white">{partnerName || "جاري التجهيز"}</span>
             )}
           </div>
-          <div className={`flex min-w-[5.25rem] flex-col items-center justify-center rounded-2xl border px-3 py-3 ${square}`}>
-            <MapPin size={15} className={text} />
-            <span className={`mt-1 text-3xl font-black leading-none ${text}`}>{tableNumber ?? "—"}</span>
-            <span className="mt-1 text-[10px] font-bold text-gray-400">الطاولة</span>
+          <div className={`flex min-w-[5.5rem] flex-col items-center justify-center rounded-2xl border px-3 py-3 ${square}`}>
+            <MapPin size={16} className={text} />
+            <span className={`mt-1.5 text-3xl font-black leading-none ${text}`}>{tableNumber ?? "—"}</span>
+            <span className="mt-1.5 text-xs font-bold text-gray-300">الطاولة</span>
           </div>
         </div>
       </div>
@@ -1720,8 +1725,8 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
       setIntroStage("welcome")
       return
     }
-    const brandTimer = window.setTimeout(() => setIntroStage("brand"), 1050)
-    const welcomeTimer = window.setTimeout(() => setIntroStage("welcome"), 2350)
+    const brandTimer = window.setTimeout(() => setIntroStage("brand"), 650)
+    const welcomeTimer = window.setTimeout(() => setIntroStage("welcome"), 1450)
     return () => {
       window.clearTimeout(brandTimer)
       window.clearTimeout(welcomeTimer)
@@ -1807,19 +1812,8 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="event3-shell relative flex h-[100dvh] flex-col overflow-hidden bg-[#06040b]" dir="rtl" lang="ar">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.7) 1px, transparent 1px)", backgroundSize: "38px 38px", maskImage: "linear-gradient(to bottom, black, transparent 72%)" }} />
-        <div className="absolute -right-32 -top-44 h-[540px] w-[540px] rounded-full bg-purple-600/25 blur-[120px]" />
-        <div className="absolute -bottom-56 -left-32 h-[520px] w-[520px] rounded-full bg-fuchsia-600/15 blur-[120px]" />
-        <div className="absolute left-1/2 top-[42%] h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-500/[0.08] blur-[100px]" />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.55 }}
-          animate={{ opacity: reduceMotion ? 0.14 : [0, 0.28, 0.14], scale: reduceMotion ? 1 : [0.55, 1.08, 1] }}
-          transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute left-1/2 top-[5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,.55)_0%,rgba(59,130,246,.18)_38%,transparent_72%)] blur-2xl"
-        />
-      </div>
+    <div className="event3-shell event3-stage event3-welcome relative flex h-[100dvh] flex-col overflow-hidden bg-[#06040b]" dir="rtl" lang="ar">
+      <Event3Ambient />
 
       <AnimatePresence>
         {phase === "splash" && introStage !== "welcome" && (
@@ -1852,7 +1846,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                     transition={introStage === "code"
                       ? { duration: 1.2 + (index % 4) * 0.14, delay: index * 0.035, ease: "easeOut" }
                       : { duration: 0.72, delay: Math.abs(5.5 - index) * 0.025, ease: [0.22, 1, 0.36, 1] }}
-                    className={`absolute -top-20 h-[130vh] whitespace-pre-wrap font-mono text-[9px] font-bold leading-[1.85] tracking-[0.2em] ${color}`}
+                    className={`event3-decorative-type absolute -top-20 h-[130vh] whitespace-pre-wrap font-mono text-[9px] font-bold leading-[1.85] tracking-[0.2em] ${color}`}
                     style={{ writingMode: "vertical-rl", textOrientation: "upright", direction: "ltr" }}
                   >
                     {stream}
@@ -2366,7 +2360,7 @@ function PhoneEntry({
   const inputId = isTokenLogin ? "event3-secure-token" : step === "phone" ? "event3-phone" : "event3-otp"
 
   return (
-    <PageWrapper className="flex items-center justify-center p-5 sm:p-6">
+    <PageWrapper className="event3-auth-view flex items-center justify-center p-5 sm:p-6">
       <motion.div
         initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
@@ -2565,7 +2559,7 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
   ]
 
   return (
-    <PageWrapper embedded className="flex items-center justify-center px-5 py-6">
+    <PageWrapper embedded className="event3-setup-view flex items-center justify-center px-5 py-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -2708,7 +2702,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         aria-labelledby={titleId}
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 26 }}
-        className={`event3-glass relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-4 text-center ring-1 sm:p-6 ${ring}`}
+        className={`event3-glass event3-sheet relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-4 text-center ring-1 sm:p-6 ${ring}`}
       >
         {/* Close */}
         <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black/25 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
@@ -3433,7 +3427,7 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
         <motion.div className="absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/15" animate={reducedMotion ? undefined : { scale: [0.7, 1.2], opacity: [0.65, 0] }} transition={{ duration: 2.4, repeat: Infinity }} />
         <motion.div className="absolute left-1/2 top-1/2 h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/25 blur-[85px]" animate={reducedMotion ? undefined : { scale: [0.9, 1.18, 0.9] }} transition={{ duration: 3.8, repeat: Infinity }} />
       </div>
-      <motion.div initial={{ scale: 0.72, y: 35 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0 }} transition={{ type: "spring", stiffness: 210, damping: 20 }} className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-violet-300/25 bg-gradient-to-b from-[#201235]/95 via-[#10091d]/98 to-[#08050f]/98 p-7 text-center shadow-[0_40px_140px_-35px_rgba(168,85,247,.8)] ring-1 ring-white/10">
+      <motion.div initial={{ scale: 0.72, y: 35 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0 }} transition={{ type: "spring", stiffness: 210, damping: 20 }} className="event3-sheet relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-violet-300/25 bg-gradient-to-b from-[#201235]/95 via-[#10091d]/98 to-[#08050f]/98 p-7 text-center shadow-[0_40px_140px_-35px_rgba(168,85,247,.8)] ring-1 ring-white/10">
         <motion.div animate={reducedMotion ? undefined : { y: [0, -8, 0], rotate: [0, -4, 4, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/30 bg-gradient-to-br from-amber-300 via-fuchsia-400 to-violet-600 text-white shadow-[0_0_65px_rgba(244,114,182,.42)]">
           <Crown className="h-11 w-11 drop-shadow-lg" strokeWidth={1.8} />
         </motion.div>
@@ -3554,7 +3548,7 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
       aria-labelledby="reelection-title"
       dir="rtl"
     >
-      <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
+      <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="event3-sheet relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><Crown size={28} /></div>
         <p className="mt-4 text-[10px] font-black tracking-[0.18em] text-amber-300">انقلاب</p>
         <h2 id="reelection-title" className="mt-1 text-xl font-black text-white">فتح تصويت جديد؟</h2>
@@ -4011,7 +4005,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   )
 
   return (
-    <div className="relative min-h-full overflow-hidden" dir="rtl">
+    <div className="event3-round-view relative min-h-full overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className={`absolute inset-0 bg-gradient-to-b ${RC.shell}`} />
@@ -4772,18 +4766,18 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
 
   return (
-    <PageWrapper embedded className="flex min-h-0 flex-col overflow-hidden">
+    <PageWrapper embedded className="event3-ranking-view flex min-h-0 flex-col overflow-hidden">
       {/* ── Sticky header with integrated timer ── */}
       <div className="event3-status-header relative z-20 shrink-0 border-b border-white/[0.07]">
-        <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
-          <div className="flex items-center justify-between mb-1.5">
+        <div className="mx-auto w-full max-w-md px-4 pb-2.5 pt-3">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
                 <Trophy size={15} className="text-amber-400" />
               </div>
               <div>
-                <h1 className="text-base font-black text-white leading-tight">رتّب أولوياتك</h1>
-                <p className="text-gray-500 text-[10px] leading-tight mt-0.5">
+                <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب أولوياتك</h1>
+                <p className="mt-1 text-xs leading-tight text-gray-400">
                   {myInfo && <span className="font-bold text-amber-400/80">رقمك #{myInfo.number}</span>}
                   {myInfo && <span className="mx-1 text-gray-700">·</span>}
                   {people.length} أشخاص · اسحب أو اضغط رقم المركز
@@ -4861,7 +4855,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       {/* The list owns scrolling; the action footer stays in normal flex flow
           and can never cover a ranking card on short phone screens. */}
       <div className="event3-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <div className="mx-auto w-full max-w-md px-3 pb-4 pt-2 sm:px-4">
+      <div className="mx-auto w-full max-w-md px-3.5 pb-5 pt-3 sm:px-4">
         {!submitted && (
           <JourneyCue
             accent="amber"
@@ -4892,7 +4886,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         {!submitted && <p role="status" className={`mb-2 text-center text-[11px] ${draftSync === "error" ? "text-amber-300" : "text-gray-400"}`}>
           {draftSync === "error" ? "تعذّرت مزامنة الترتيب — نحاول مجدداً، أبقِ الصفحة مفتوحة" : draftSync === "saving" ? "جارٍ مزامنة ترتيبك..." : "تمت مزامنة ترتيبك — يُحفظ تلقائياً عند انتهاء المرحلة"}
         </p>}
-        <Reorder.Group axis="y" values={order} onReorder={next => { if (!submitted && !submitting && !autoSaving && !rankingClosed && !rankingExpired) setOrder(next) }} className="space-y-1.5" as="div" role="list" aria-label="ترتيب المشاركين">
+        <Reorder.Group axis="y" values={order} onReorder={next => { if (!submitted && !submitting && !autoSaving && !rankingClosed && !rankingExpired) setOrder(next) }} className="space-y-2" as="div" role="list" aria-label="ترتيب المشاركين">
           {order.map((num, idx) => {
             const p = personMap[num]
             if (!p) return null
@@ -4902,7 +4896,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <RankingReorderCard
                 key={num}
                 value={num}
-                className={`relative rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,.035),0_14px_35px_-30px_rgba(124,58,237,.75)] transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.13]'}`}
+                className={`relative rounded-[1.15rem] border shadow-[inset_0_1px_0_rgba(255,255,255,.045),0_16px_38px_-30px_rgba(124,58,237,.7)] transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.16]'}`}
                 disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
@@ -4912,7 +4906,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 }}
               >
                 {startDrag => <>
-                <div className="flex items-center justify-center gap-2 px-2 py-2.5 touch-pan-y sm:px-3">
+                <div className="flex touch-pan-y items-center justify-center gap-2.5 px-2.5 py-3 sm:px-3.5">
                   {/* Rank badge with icon for top 3 */}
                   <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center gap-0.5 rounded-xl bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring}`}>
                     <span aria-hidden="true" className="flex items-center gap-0.5">
@@ -5012,7 +5006,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Non-overlapping submit footer ── */}
-      <div className="relative z-40 shrink-0 border-t border-white/[0.06] bg-[#02030a]/96 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:px-4">
+      <div className="relative z-40 shrink-0 border-t border-white/[0.07] bg-[#08060e]/94 px-3.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-3.5 shadow-[0_-20px_55px_-38px_rgba(139,92,246,.7)] backdrop-blur-2xl sm:px-4">
         <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
@@ -5054,7 +5048,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 onClick={() => { if (!autoSaving && !autoSavedRef.current && timeLeft > 0) setShowConfirm(true) }}
                 disabled={submitting || autoSaving || timeLeft <= 0}
                 whileTap={{ scale: 0.97 }}
-                className="event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-black text-black transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50"
+                className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 px-4 py-3.5 text-base font-black text-black transition-all hover:from-amber-300 hover:to-orange-400 disabled:opacity-50"
               >
                 {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
                 {isFinalRanking ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
@@ -5108,7 +5102,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               ref={rankingConfirmDialogRef}
               initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
-              className="event3-glass w-full max-w-xs space-y-4 rounded-3xl border border-amber-500/20 p-6 text-center ring-1 ring-amber-500/10"
+              className="event3-glass event3-sheet w-full max-w-xs space-y-4 rounded-3xl border border-amber-500/20 p-6 text-center ring-1 ring-amber-500/10"
               onClick={e => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -5347,7 +5341,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
         initial={previewPeople ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         onClick={event => event.stopPropagation()}
-        className="relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)] sm:max-w-md sm:rounded-[2rem]"
+        className="event3-sheet relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)] sm:max-w-md sm:rounded-[2rem]"
         style={{ height: 'min(94dvh, 800px)' }}
         dir="rtl"
         role="dialog"
@@ -5572,7 +5566,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
         tabIndex={-1}
         initial={previewGroups ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-        className="relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-teal-300/15 bg-gradient-to-b from-[#0d2022] via-[#0c1017] to-[#08090d] shadow-[0_-20px_90px_-20px_rgba(45,212,191,0.35)] sm:max-w-md sm:rounded-[2rem]"
+        className="event3-sheet relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-teal-300/15 bg-gradient-to-b from-[#0d2022] via-[#0c1017] to-[#08090d] shadow-[0_-20px_90px_-20px_rgba(45,212,191,0.35)] sm:max-w-md sm:rounded-[2rem]"
         style={{ height: 'min(94dvh, 820px)' }}
         dir="rtl"
         role="dialog"
@@ -5870,7 +5864,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
   return (
     <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="event3-shell fixed inset-0 z-[240] flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
+      className="event3-shell event3-stage event3-feedback-view fixed inset-0 z-[240] flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-80 h-80 bg-pink-600/20 rounded-full blur-[100px]" />
         <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-purple-600/15 rounded-full blur-[90px]" />
@@ -6299,7 +6293,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="event3-glass flex w-[300px] max-w-full flex-col overflow-hidden overscroll-contain rounded-3xl border border-purple-300/[0.13]"
+              className="event3-glass event3-sheet flex w-[min(22rem,calc(100vw-2rem))] max-w-full flex-col overflow-hidden overscroll-contain rounded-3xl border border-purple-300/[0.13]"
               style={{ maxHeight: 'min(60dvh, calc(100dvh - 7.5rem))' }}
               role="dialog"
               aria-modal="true"
@@ -7288,7 +7282,7 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
   const isPhase4 = phase === "phase4_processing"
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   return (
-    <div className="flex min-h-full flex-col items-center justify-center px-6 py-10" dir="rtl">
+    <div className="event3-processing-view flex min-h-full flex-col items-center justify-center px-5 py-8 sm:px-6 sm:py-10" dir="rtl">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -7361,7 +7355,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
   const pct = timerDuration > 0 ? (timeLeft / timerDuration) * 100 : 0
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center px-6 py-10" dir="rtl">
+    <div className="event3-break-view flex min-h-full flex-col items-center justify-center px-5 py-8 sm:px-6 sm:py-10" dir="rtl">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -7372,17 +7366,17 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full"
+          className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full"
         >
           <span className="absolute -inset-4 rounded-full bg-teal-400/[0.11] blur-2xl" aria-hidden="true" />
           <span className="absolute inset-0 rounded-full border border-teal-300/25 bg-gradient-to-br from-teal-400/[0.14] via-cyan-400/[0.06] to-purple-500/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_18px_45px_-22px_rgba(45,212,191,.75)]" aria-hidden="true" />
           <span className="absolute inset-2 rounded-full border border-white/[0.08] bg-black/25" aria-hidden="true" />
-          <Coffee className="relative h-11 w-11 text-teal-200 [filter:drop-shadow(0_0_10px_rgba(45,212,191,.45))]" />
+          <Coffee className="relative h-9 w-9 text-teal-200 [filter:drop-shadow(0_0_10px_rgba(45,212,191,.45))]" />
         </motion.div>
 
         <p dir="ltr" className="mb-2 text-[8px] font-black uppercase tracking-[0.28em] text-teal-100/45">INTERMISSION · RESET</p>
-        <h1 className="mb-3 bg-gradient-to-l from-white via-teal-100 to-cyan-200 bg-clip-text text-3xl font-black text-transparent">اشحن طاقتك للقاء القادم ☕</h1>
-        <p className="mb-7 text-sm leading-6 text-gray-400">
+        <h1 className="mb-3 bg-gradient-to-l from-white via-teal-100 to-cyan-200 bg-clip-text text-[1.75rem] font-black leading-tight text-transparent">اشحن طاقتك للقاء القادم ☕</h1>
+        <p className="mb-6 text-sm leading-7 text-gray-400">
           الآن وقت القهوة — خذ قهوتك من المقهى واستعد لجولتك الفردية
         </p>
 
@@ -7456,7 +7450,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
         </motion.button>
 
-        <div className="event3-glass space-y-3 rounded-2xl border border-teal-300/[0.12] p-5 text-right">
+        <div className="event3-glass space-y-3 rounded-[1.5rem] border border-teal-300/[0.12] p-5 text-right">
           <p className="text-teal-300 font-bold text-sm text-center">ماذا سيحدث بعد الاستراحة؟</p>
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
@@ -7516,7 +7510,7 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
   const normalizedScore = normalizedFinalRevealScore(score)
   const rated = isFinalRevealRated(normalizedScore)
   return (
-    <div className="relative" style={{ perspective: "1000px" }}>
+    <div className="event3-reveal-card relative" style={{ perspective: "1000px" }}>
       <motion.div
         animate={{ rotateY: revealed ? 0 : 180 }}
         transition={{ duration: 0.7, type: "spring", stiffness: 120, damping: 18 }}
@@ -7698,9 +7692,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
     retry()
   }
 
-  if (loading) return <PageWrapper embedded className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
+  if (loading) return <PageWrapper embedded className="event3-final-view flex items-center justify-center"><Spinner size={28} /></PageWrapper>
   if (error && !data) return (
-    <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
+    <PageWrapper embedded className="event3-final-view flex items-center justify-center p-6 text-center">
       <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-amber-300/[0.14] p-6">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/[0.08]"><AlertTriangle className="text-amber-300" size={27} /></div>
         <div className="space-y-1">
@@ -7713,9 +7707,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
       </GlassCard>
     </PageWrapper>
   )
-  if (!data) return <PageWrapper embedded className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
+  if (!data) return <PageWrapper embedded className="event3-final-view flex items-center justify-center text-sm text-gray-500">لا توجد نتائج بعد</PageWrapper>
   if (!finalResultsReady && readinessTimedOut) return (
-    <PageWrapper embedded className="flex items-center justify-center p-6 text-center" role="alert">
+    <PageWrapper embedded className="event3-final-view flex items-center justify-center p-6 text-center" role="alert">
       <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-amber-300/[0.14] p-6">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/[0.08]"><AlertTriangle className="text-amber-300" size={27} /></div>
         <div className="space-y-2">
@@ -7729,7 +7723,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
     </PageWrapper>
   )
   if (!finalResultsReady) return (
-    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="status" aria-live="polite">
+    <PageWrapper embedded className="event3-final-view flex flex-col items-center justify-center gap-4 p-6 text-center" role="status" aria-live="polite">
       <Spinner size={28} />
       <div>
         <p className="font-bold text-white">نجهّز نتيجتك النهائية</p>
@@ -7745,7 +7739,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
   if (screenMode === "questions") {
     return (
-      <PageWrapper embedded>
+      <PageWrapper embedded className="event3-final-view">
         <div className="mx-auto max-w-md px-3 pb-8 pt-4" dir="rtl">
           <div className="event3-glass mb-4 rounded-2xl border border-white/[0.09] p-3">
             <div className="mb-3 text-center">
@@ -7807,8 +7801,8 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   }
 
   return (
-    <PageWrapper embedded>
-      <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center" dir="rtl">
+    <PageWrapper embedded className="event3-final-view">
+      <div className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4 text-center" dir="rtl">
         {/* Animated title */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
           <Event3Mark size="compact" className="mb-2" />
@@ -7832,7 +7826,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيارك الثاني ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}، واختيارك الثالث ${p4?.partner_first_name} ${finalRevealSpokenScore(p4?.compatibility_score)}`
             : `تم الكشف: اختيارك ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيار النظام ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}`
           : "جاري تجهيز الكشف النهائي"}</p>
-        <div className={`grid grid-cols-1 gap-2 sm:gap-3 ${choiceOnly ? "sm:grid-cols-3" : "min-[380px]:grid-cols-2"}`}>
+        <div className={`grid grid-cols-1 gap-3 ${choiceOnly ? "sm:grid-cols-3" : "min-[380px]:grid-cols-2"}`}>
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
             <RevealCard icon="heart" label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>
@@ -8598,7 +8592,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
           animate={{ scale: closing ? 0.95 : 1, y: closing ? 8 : 0, opacity: closing ? 0.5 : 1 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="event3-glass w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
+          className="event3-glass event3-sheet w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"
@@ -8705,7 +8699,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="event3-glass w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
+          className="event3-glass event3-sheet w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"
@@ -9043,27 +9037,41 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
       ? `الاتصال غير مستقر${lastSuccessAt ? ` — آخر تحديث قبل ${Math.max(1, secondsSinceSuccess)}ث` : ""}`
       : "متصل بالفعالية"
   const phaseGuidance = event3PhaseGuidance(phase, eventFormat)
+  const progressParts = (progress[phase] || "").split(" من ").map(Number)
+  const progressPercent = progressParts.length === 2 && progressParts.every(Number.isFinite)
+    ? Math.max(0, Math.min(100, (progressParts[0] / progressParts[1]) * 100))
+    : null
 
   return (
-    <div className={`event3-status-header sticky top-0 z-[90] border-b px-4 pb-2.5 pt-2.5 ${safeTopClass}`} dir="rtl">
-      <div className="mx-auto flex max-w-md items-center gap-2.5">
-        <div aria-hidden="true" title={connectionLabel} className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]">
-          <span className={`h-1.5 w-1.5 rounded-full shadow-[0_0_7px_currentColor] ${connectionState === "online" ? "bg-emerald-300 text-emerald-300" : connectionState === "unstable" ? "animate-pulse bg-amber-300 text-amber-300" : "animate-pulse bg-orange-300 text-orange-300"}`} />
+    <div className={`event3-status-header sticky top-0 z-[90] border-b px-4 pb-3 pt-3 ${safeTopClass}`} dir="rtl">
+      <div className="mx-auto flex max-w-md items-center gap-3">
+        <div aria-hidden="true" title={connectionLabel} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,.07)]">
+          <span className={`h-2 w-2 rounded-full shadow-[0_0_9px_currentColor] ${connectionState === "online" ? "bg-emerald-300 text-emerald-300" : connectionState === "unstable" ? "animate-pulse bg-amber-300 text-amber-300" : "animate-pulse bg-orange-300 text-orange-300"}`} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate text-[13px] font-black text-white">{event3PhaseLabel(phase, eventFormat)}</span>
-            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-300/[0.13] bg-purple-400/[0.08] px-2 py-0.5 text-[10px] font-bold text-purple-100/80">{progress[phase]}</span>}
+            <span className="truncate text-sm font-black tracking-[-0.01em] text-white">{event3PhaseLabel(phase, eventFormat)}</span>
+            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-300/[0.14] bg-purple-400/[0.09] px-2.5 py-0.5 text-xs font-bold text-purple-100/85">{progress[phase]}</span>}
           </div>
-          <p className="mt-0.5 truncate text-[10px] font-medium text-gray-400"><span className="text-cyan-100/35">الآن · </span>{phaseGuidance}</p>
-          {connectionState !== "online" && <p className="mt-0.5 text-[10px] text-amber-300">{connectionLabel}</p>}
+          <p className="mt-0.5 truncate text-xs font-medium text-gray-400"><span className="text-purple-200/60">الآن · </span>{phaseGuidance}</p>
+          {connectionState !== "online" && <p className="mt-0.5 text-xs text-amber-300">{connectionLabel}</p>}
           <span className="sr-only" aria-live="polite">{connectionState === "online" ? "الاتصال مستقر" : connectionState === "unstable" ? "الاتصال غير مستقر" : "لا يوجد اتصال"}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
-          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-lg border border-white/[0.07] bg-black/20 px-2 py-1 font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-100"}`}>{formatTime(remaining)}</span>}
+          {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-3 py-2 text-xs font-black text-amber-100">طاولة {table}</span>}
+          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-xl border border-white/[0.07] bg-black/20 px-2.5 py-1.5 font-mono text-base font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-100"}`}>{formatTime(remaining)}</span>}
         </div>
       </div>
+      {progressPercent != null && (
+        <div className="mx-auto mt-2 h-0.5 max-w-md overflow-hidden rounded-full bg-white/[0.055]" aria-hidden="true">
+          <motion.div
+            className="h-full origin-right rounded-full bg-gradient-to-l from-violet-400 via-fuchsia-400 to-cyan-300 shadow-[0_0_12px_rgba(168,85,247,.55)]"
+            initial={false}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -9380,17 +9388,18 @@ export default function Event3Page() {
   // This is intentionally read-only and does not touch event or participant data.
   if (questionPreview === "mobileQA") {
     return (
-      <main className="event3-shell min-h-[100dvh] bg-slate-950 px-4 py-8 text-white" dir="rtl">
-        <div className="mx-auto w-full max-w-lg">
-          <p className="text-xs font-black text-cyan-200">EVENT3 · MOBILE QA</p>
-          <h1 className="mt-2 text-2xl font-black">معاينات الشاشات</h1>
-          <p className="mt-2 text-sm leading-7 text-gray-400">افتح أي شاشة مباشرة. المعاينات المضمّنة أزيلت لأنها كانت محجوبة بسياسة الإطارات وتعرض صفحة فارغة.</p>
-          <nav className="mt-6 grid gap-3" aria-label="معاينات Event3">
+      <main className="event3-shell event3-stage min-h-[100dvh] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] text-white" dir="rtl">
+        <Event3Ambient />
+        <div className="relative z-10 mx-auto w-full max-w-lg">
+          <span className="inline-flex rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 py-1.5 text-xs font-black tracking-wide text-cyan-100">EVENT3 · MOBILE QA</span>
+          <h1 className="mt-5 text-[2rem] font-black leading-tight">معاينات الشاشات</h1>
+          <p className="mt-2 max-w-md text-sm leading-7 text-gray-400">افتح أي شاشة مباشرة لمراجعة التجربة على الهاتف.</p>
+          <nav className="mt-7 grid gap-3" aria-label="معاينات Event3">
             {EVENT3_QA_PREVIEWS.map(([preview, label]) => (
               <a
                 key={preview}
                 href={`/event3?questionPreview=${preview}`}
-                className="event3-action flex min-h-14 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-black text-white transition-colors hover:bg-white/[0.08]"
+                className="event3-action event3-glass flex min-h-16 items-center justify-between rounded-[1.25rem] border border-white/10 px-5 text-[15px] font-black text-white"
               >
                 <span>{label}</span>
                 <ArrowLeft size={17} className="text-cyan-200" />
@@ -9673,7 +9682,7 @@ export default function Event3Page() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="event3-shell flex h-[100dvh] flex-col overflow-hidden" dir="rtl" lang="ar">
+    <div className="event3-shell event3-stage flex h-[100dvh] flex-col overflow-hidden" dir="rtl" lang="ar">
       <Toaster position="top-center" toastOptions={{ style: { background: "rgba(10, 8, 24, .94)", color: "#f9fafb", border: "1px solid rgba(255, 255, 255, .1)", borderRadius: "16px", boxShadow: "0 20px 55px -30px rgba(168, 85, 247, .75)", backdropFilter: "blur(18px)" } }} />
 
       {/* Impersonation banner */}

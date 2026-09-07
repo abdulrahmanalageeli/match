@@ -1372,40 +1372,105 @@ html:not(.dark) .round-bg-pattern::before {
   cursor: grab;
 }
 
-/* Event 3 is a touch-first, full-height experience. Keep its interaction
-   affordances consistent without changing the admin and survey surfaces. */
+/* Event 3 — quiet-luxury, touch-first design system. The participant route is
+   intentionally isolated here so the admin, survey, and public pages keep
+   their existing visual language. */
 .event3-shell {
-  --event3-purple: 168, 85, 247;
+  --event3-purple: 139, 92, 246;
+  --event3-cyan: 103, 232, 249;
+  --event3-pink: 244, 114, 182;
+  --event3-ink: #05040a;
+  --event3-ink-soft: #0a0811;
+  --event3-surface: rgba(18, 15, 27, 0.84);
+  --event3-surface-strong: rgba(22, 18, 32, 0.94);
+  --event3-line: rgba(255, 255, 255, 0.095);
+  --event3-line-soft: rgba(255, 255, 255, 0.055);
+  --event3-text: #fbfaff;
+  --event3-muted: #aaa5b5;
+  --event3-radius-card: 1.5rem;
+  --event3-radius-control: 1rem;
   min-width: 0;
-  background-color: #02030a;
+  background-color: var(--event3-ink);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    radial-gradient(ellipse 70% 42% at 88% -8%, rgba(126, 34, 206, 0.2), transparent 68%),
-    radial-gradient(ellipse 62% 38% at -12% 104%, rgba(8, 145, 178, 0.12), transparent 70%),
-    radial-gradient(ellipse 45% 32% at 50% 48%, rgba(76, 29, 149, 0.07), transparent 72%),
-    linear-gradient(180deg, #050716 0%, #03040d 52%, #02030a 100%);
-  background-position: center, center, center, center, center, center;
-  background-size: 48px 48px, 48px 48px, auto, auto, auto, auto;
-  color: #fff;
+    radial-gradient(ellipse 88% 56% at 82% -12%, rgba(var(--event3-purple), 0.22), transparent 61%),
+    radial-gradient(ellipse 72% 46% at -18% 106%, rgba(var(--event3-cyan), 0.09), transparent 66%),
+    radial-gradient(ellipse 50% 34% at 50% 46%, rgba(var(--event3-purple), 0.045), transparent 72%),
+    linear-gradient(180deg, #090713 0%, var(--event3-ink-soft) 44%, var(--event3-ink) 100%);
+  color: var(--event3-text);
   font-family: "Tajawal", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-kerning: normal;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
   color-scheme: dark;
+}
+
+.event3-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.event3-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.event3-ambient__halo {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(88px);
+  will-change: transform;
+}
+
+.event3-ambient__halo--primary {
+  top: -15rem;
+  right: -10rem;
+  width: min(34rem, 92vw);
+  height: min(34rem, 92vw);
+  background: rgba(var(--event3-purple), 0.2);
+  animation: event3-ambient-drift 16s ease-in-out infinite alternate;
+}
+
+.event3-ambient__halo--secondary {
+  bottom: -13rem;
+  left: -11rem;
+  width: min(30rem, 84vw);
+  height: min(30rem, 84vw);
+  background: rgba(var(--event3-cyan), 0.075);
+  animation: event3-ambient-drift 19s ease-in-out -7s infinite alternate-reverse;
+}
+
+.event3-ambient__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 18%),
+    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.42) 100%);
+}
+
+@keyframes event3-ambient-drift {
+  from { transform: translate3d(0, 0, 0) scale(0.96); }
+  to { transform: translate3d(-1.5rem, 1.75rem, 0) scale(1.06); }
 }
 
 .event3-glass {
   position: relative;
   background:
-    radial-gradient(circle at 88% -12%, rgba(var(--event3-purple), 0.12), transparent 35%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(13, 10, 29, 0.84) 44%, rgba(4, 7, 18, 0.9));
+    radial-gradient(circle at 88% -18%, rgba(var(--event3-purple), 0.1), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.066), var(--event3-surface) 42%, rgba(8, 7, 14, 0.92));
   box-shadow:
-    0 26px 70px -48px rgba(var(--event3-purple), 0.72),
-    0 18px 44px -36px rgba(0, 0, 0, 0.95),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(18px) saturate(125%);
-  backdrop-filter: blur(18px) saturate(125%);
+    0 26px 72px -46px rgba(var(--event3-purple), 0.48),
+    0 20px 48px -34px rgba(0, 0, 0, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.085),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.025);
+  -webkit-backdrop-filter: blur(22px) saturate(118%);
+  backdrop-filter: blur(22px) saturate(118%);
 }
 
 .event3-glass::after {
@@ -1416,7 +1481,7 @@ html:not(.dark) .round-bg-pattern::before {
   height: 1px;
   pointer-events: none;
   content: "";
-  background: linear-gradient(90deg, transparent, rgba(216, 180, 254, 0.38), rgba(165, 243, 252, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(233, 213, 255, 0.36), rgba(207, 250, 254, 0.18), transparent);
 }
 
 /* Group surfaces use depth and ambient light without a colored top seam. */
@@ -1425,20 +1490,58 @@ html:not(.dark) .round-bg-pattern::before {
 }
 
 .event3-status-header {
-  border-color: rgba(255, 255, 255, 0.08);
+  position: relative;
+  border-color: var(--event3-line-soft);
   background:
-    radial-gradient(circle at 88% -50%, rgba(var(--event3-purple), 0.16), transparent 42%),
-    linear-gradient(180deg, rgba(4, 5, 16, 0.95), rgba(5, 6, 17, 0.84));
-  box-shadow: 0 18px 38px -32px rgba(var(--event3-purple), 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
-  -webkit-backdrop-filter: blur(22px) saturate(130%);
-  backdrop-filter: blur(22px) saturate(130%);
+    radial-gradient(circle at 82% -90%, rgba(var(--event3-purple), 0.15), transparent 46%),
+    linear-gradient(180deg, rgba(9, 7, 18, 0.96), rgba(8, 7, 15, 0.88));
+  box-shadow: 0 22px 50px -38px rgba(var(--event3-purple), 0.58), inset 0 -1px 0 rgba(255, 255, 255, 0.028);
+  -webkit-backdrop-filter: blur(24px) saturate(125%);
+  backdrop-filter: blur(24px) saturate(125%);
+}
+
+.event3-status-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 8%, rgba(var(--event3-purple), 0.34), rgba(var(--event3-cyan), 0.18), transparent 92%);
 }
 
 .event3-action {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  box-shadow: 0 22px 50px -28px rgba(var(--event3-purple), 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 22px 52px -29px rgba(var(--event3-purple), 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  transform: translateZ(0);
+  transition-property: transform, filter, border-color, background-color, box-shadow, opacity;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.event3-action:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.event3-action:disabled {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+@media (hover: hover) {
+  .event3-action:hover:not(:disabled) {
+    border-color: rgba(233, 213, 255, 0.23);
+    box-shadow:
+      0 24px 58px -28px rgba(var(--event3-purple), 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  }
 }
 
 .event3-shell :where(button, a, input, textarea, select) {
@@ -1446,15 +1549,111 @@ html:not(.dark) .round-bg-pattern::before {
   -webkit-tap-highlight-color: transparent;
 }
 
+.event3-shell :where(button, [role="button"], a.event3-action) {
+  min-height: 2.75rem;
+}
+
+.event3-shell :where(button, [role="button"]) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.event3-shell :where(input, textarea, select) {
+  min-height: 3.25rem;
+  font-size: 1rem;
+}
+
+.event3-shell :where(h1, h2, h3, p, span, button, a, label) {
+  overflow-wrap: break-word;
+}
+
+.event3-shell ::selection {
+  color: #fff;
+  background: rgba(var(--event3-purple), 0.52);
+}
+
+.event3-auth-view,
+.event3-setup-view,
+.event3-processing-view,
+.event3-break-view,
+.event3-final-view {
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.event3-processing-view > div,
+.event3-break-view > div,
+.event3-final-view > div {
+  width: 100%;
+}
+
+.event3-round-view > .fixed {
+  opacity: 0.64;
+}
+
+.event3-reveal-card > div {
+  min-height: 11.75rem;
+}
+
+.event3-final-view details {
+  background: rgba(255, 255, 255, 0.024);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.event3-final-view summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tiny metadata was difficult to read in venue lighting. Keep secondary copy
+   compact, but never microscopic on a phone. */
+.event3-shell :is(.text-\[8px\], .text-\[9px\], .text-\[10px\]) {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.event3-shell .text-\[11px\] {
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+}
+
+.event3-shell .text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.event3-shell .text-sm {
+  font-size: 0.9375rem;
+  line-height: 1.45rem;
+}
+
+.event3-shell .event3-decorative-type {
+  font-size: 0.5625rem;
+  line-height: 1rem;
+}
+
+.event3-sheet {
+  border-color: var(--event3-line);
+  background:
+    radial-gradient(circle at 84% -14%, rgba(var(--event3-purple), 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(24, 20, 35, 0.98), rgba(8, 7, 13, 0.99));
+  box-shadow:
+    0 -24px 80px -40px rgba(var(--event3-purple), 0.72),
+    0 30px 90px -44px rgba(0, 0, 0, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
 .event3-shell :where(button, a, input, textarea, select):focus-visible {
-  outline: 2px solid rgba(216, 180, 254, 0.95);
-  outline-offset: 2px;
+  outline: 2px solid rgba(233, 213, 255, 0.98);
+  outline-offset: 3px;
 }
 
 .event3-scroll {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scroll-padding-top: 1rem;
+  scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom));
   scrollbar-width: none;
 }
 
@@ -1462,11 +1661,49 @@ html:not(.dark) .round-bg-pattern::before {
   display: none;
 }
 
+@media (max-width: 639px) {
+  .event3-shell :where(button, [role="button"], a.event3-action) {
+    min-height: 3rem;
+  }
+
+  .event3-status-header {
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .event3-ranking-view,
+  .event3-feedback-view {
+    padding-right: env(safe-area-inset-right);
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .event3-reveal-card > div {
+    min-height: 10.75rem;
+  }
+}
+
+@media (max-width: 379px) {
+  .event3-shell {
+    --event3-radius-card: 1.25rem;
+    --event3-radius-control: 0.875rem;
+  }
+
+  .event3-status-header {
+    gap: 0.625rem;
+  }
+
+  .event3-break-view,
+  .event3-processing-view {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+}
+
 /* Respect the participant's operating-system motion preference across welcome and event flows. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .event3-shell *,
+  .event3-shell *::before,
+  .event3-shell *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

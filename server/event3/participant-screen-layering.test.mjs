@@ -51,7 +51,7 @@ test("automatic reminders and ranking actions stay in flow instead of covering c
   const ranking = between(event3Source, "function RankingScreen", "// ─── Optional Group Reflection")
   assert.match(round, /role="status"[\s\S]*تذكير خفيف: خلّوا الجميع يأخذ فرصته/)
   assert.doesNotMatch(round, /z-\[520\]/)
-  assert.match(ranking, /className="flex min-h-0 flex-col overflow-hidden"/)
+  assert.match(ranking, /className="event3-ranking-view flex min-h-0 flex-col overflow-hidden"/)
   assert.match(ranking, /event3-scroll min-h-0 flex-1 overflow-y-auto/)
   assert.match(ranking, /Non-overlapping submit footer/)
   assert.doesNotMatch(ranking, /fixed inset-x-0 bottom-0 z-40/)

@@ -9415,7 +9415,7 @@ export default function Event3Page() {
   }
   if (questionPreview === "phaseTransition") {
     return (
-      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+      <main className="event3-shell event3-stage min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <EventPhaseTransition
           transitionId={1}
           phase={searchParams.get("phase") || "round2"}
@@ -9430,7 +9430,7 @@ export default function Event3Page() {
   }
   if (questionPreview === "aiWelcome" || questionPreview === "aiWelcomeFailed") {
     return (
-      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+      <main className="event3-shell event3-stage min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <AiWelcomePopup
           token="preview"
           onDone={() => {}}
@@ -9442,7 +9442,7 @@ export default function Event3Page() {
   }
   if (questionPreview === "groupReflection") {
     return (
-      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+      <main className="event3-shell event3-stage min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <GroupReflectionSheet
           token={null}
           groupRound={1}
@@ -9461,7 +9461,7 @@ export default function Event3Page() {
   }
   if (questionPreview === "breakGroupFeedback") {
     return (
-      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+      <main className="event3-shell event3-stage min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <BreakGroupFeedbackPreview />
       </main>
     )
@@ -9524,8 +9524,9 @@ export default function Event3Page() {
   if (questionPreview === "phase1" || questionPreview === "phase2") {
     const isPhaseOne = questionPreview === "phase1"
     return (
-      <main className="min-h-[100dvh] bg-gray-950 px-3 py-5 text-white" dir="rtl">
-        <div className="mx-auto max-w-md">
+      <main className="event3-shell event3-stage min-h-[100dvh] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))] text-white" dir="rtl">
+        <Event3Ambient />
+        <div className="relative z-10 mx-auto max-w-md">
           <div className="mb-4 flex items-end justify-between gap-3 px-1">
             <div>
               <p className="text-xs font-bold text-purple-300">معاينة الجوال</p>
@@ -9533,7 +9534,7 @@ export default function Event3Page() {
             </div>
             <a
               href={`/event3?questionPreview=${isPhaseOne ? "phase2" : "phase1"}`}
-              className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-bold text-gray-300"
+              className="event3-action inline-flex min-h-12 items-center rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-gray-200"
             >
               عرض المرحلة {isPhaseOne ? "الثانية" : "الأولى"}
             </a>

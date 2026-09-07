@@ -2415,10 +2415,9 @@ export default async function handler(req, res) {
       }));
 
       // ── Fetch Event 3 (5.0) matches across ALL events ──
-      // Visibility is governed by the master `results_visible` toggle (checked by the
-      // frontend before calling this endpoint), NOT by the live event3 phase. This ensures
-      // participants from past event3 events (e.g. 20) still see their results even after
-      // the admin starts a new event (21) or moves the phase away from final_reveal.
+      // Completed editions remain visible after the admin starts a new event. Only rows
+      // belonging to the active edition are withheld until its final reveal.
+      let currentEventResultsVisible = true
       try {
         const E3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
         const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
@@ -2431,45 +2430,52 @@ export default async function handler(req, res) {
           .maybeSingle()
 
         const e3Finished = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+        currentEventResultsVisible = e3Finished
+        const activeEventId = Number(e3State?.current_event_id) || null
         const hiddenTestEventId = e3State?.test_mode_active === true
           ? Number(e3State?.current_event_id)
           : null
         console.log(`[resolve-token] Event3 state for #${participant.assigned_number}:`, { phase: e3State?.phase, results_visible: e3State?.results_visible, e3Finished })
 
-        if (e3Finished) {
-          // Fetch ALL of this participant's event3 matches (one row per event_id).
-          // The `match_preference` column may not be applied yet in some DBs, so we try the
-          // full query first and fall back to the same query without that column.
-          let e3Matches = null
-          let e3MatchErr = null
-          try {
-            const { data, error } = await supabase
-              .from("event3_matches")
-              .select("event_id,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase3_feedback,phase4_partner,phase4_word,phase4_feedback,match_preference")
-              .eq("match_id", E3_MATCH_ID)
-              .eq("participant_number", participant.assigned_number)
-            e3Matches = data
-            e3MatchErr = error
-          } catch (err) {
-            e3MatchErr = err
-          }
-          console.log(`[resolve-token] Event3 matches loaded`, { count: e3Matches?.length || 0, hasError: Boolean(e3MatchErr) })
-          if (e3MatchErr) {
-            console.error("[API] Event3 matches query (with match_preference) error:", e3MatchErr.message)
-            const { data: fbData, error: fbErr } = await supabase
-              .from("event3_matches")
-              .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback")
-              .eq("match_id", E3_MATCH_ID)
-              .eq("participant_number", participant.assigned_number)
-            e3Matches = fbData
-            e3MatchErr = fbErr
-          }
-
-          if (e3MatchErr) console.error("[API] Event3 matches query error:", e3MatchErr.message)
-
-        if (hiddenTestEventId) {
-          e3Matches = (e3Matches || []).filter(match => Number(match.event_id) !== hiddenTestEventId)
+        // Fetch ALL of this participant's event3 matches (one row per event_id).
+        // The `match_preference` column may not be applied yet in some DBs, so we try the
+        // full query first and fall back to the same query without that column.
+        let e3Matches = null
+        let e3MatchErr = null
+        try {
+          const { data, error } = await supabase
+            .from("event3_matches")
+            .select("event_id,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase3_feedback,phase4_partner,phase4_word,phase4_feedback,match_preference")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("participant_number", participant.assigned_number)
+          e3Matches = data
+          e3MatchErr = error
+        } catch (err) {
+          e3MatchErr = err
         }
+        console.log(`[resolve-token] Event3 matches loaded`, { count: e3Matches?.length || 0, hasError: Boolean(e3MatchErr) })
+        if (e3MatchErr) {
+          console.error("[API] Event3 matches query (with match_preference) error:", e3MatchErr.message)
+          const { data: fbData, error: fbErr } = await supabase
+            .from("event3_matches")
+            .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("participant_number", participant.assigned_number)
+          e3Matches = fbData
+          e3MatchErr = fbErr
+        }
+
+        if (e3MatchErr) console.error("[API] Event3 matches query error:", e3MatchErr.message)
+
+        e3Matches = (e3Matches || []).filter(match => {
+          const eventId = Number(match.event_id)
+          if (hiddenTestEventId && eventId === hiddenTestEventId) return false
+          // Fail closed if the event state cannot be resolved. When it can, historical
+          // rows are safe to return and only the active edition depends on the reveal.
+          if (activeEventId === null) return false
+          return eventId !== activeEventId || e3Finished
+        })
+
         if (e3Matches && e3Matches.length > 0) {
           // Collect every partner number across all events for a single participants lookup.
           const allPartnerNums = [...new Set(
@@ -2746,7 +2752,6 @@ export default async function handler(req, res) {
             }
           }
         }
-        }
       } catch (e3Err) {
         console.log("[API] Event3 matches fetch skipped:", e3Err.message)
       }
@@ -2757,6 +2762,7 @@ export default async function handler(req, res) {
         assigned_number: participant.assigned_number,
         event_id: participant.event_id,
         event_format: resultsEventFormat,
+        current_event_results_visible: currentEventResultsVisible,
         history: history.map(protectPartnerPrivacy)
       });
 

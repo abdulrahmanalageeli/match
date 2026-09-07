@@ -307,7 +307,7 @@ test("each table elects, projects, and replaces its coordinator atomically", asy
   )
 })
 
-test("participant API and Event3 UI expose the full election and synchronized projector contract", async () => {
+test("participant API and Event3 UI expose the election and opt-in projector contract", async () => {
   const [api, event3, groups, prompts] = await Promise.all([
     readFile(new URL("../../api/participant.mjs", import.meta.url), "utf8"),
     readFile(new URL("../../app/routes/event3.tsx", import.meta.url), "utf8"),
@@ -335,7 +335,9 @@ test("participant API and Event3 UI expose the full election and synchronized pr
   assert.match(event3, /function GroupElectionOverlay/)
   assert.match(event3, /function GroupProjectorOverlay/)
   assert.match(event3, /فك المزامنة والتصفّح بحرية/)
-  assert.match(event3, /العودة لبث/)
+  assert.match(event3, /عرض سؤال الطاولة/)
+  assert.match(event3, /const \[syncEnabled, setSyncEnabled\] = useState\(false\)/)
+  assert.match(event3, /Boolean\(coordination\.active_content\)/)
   assert.match(event3, /انقلاب/)
   assert.match(event3, /يعطي كل شخص فرصته للكلام/)
   assert.match(event3, /تخطّي المؤقت وحسم الأصوات/)

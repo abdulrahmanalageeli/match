@@ -25,6 +25,7 @@ import { QuestionSlideshow } from "~/components/QuestionSlideshow"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import { hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
+import { resolveEvent3PromptVisibility } from "~/lib/event3-overlay-policy.mjs"
 import {
   EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
   EVENT3_MEMORY_WORD_MAX_LENGTH,
@@ -861,77 +862,38 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="pointer-events-none fixed inset-x-0 top-[max(5rem,calc(env(safe-area-inset-top)+4rem))] z-[480] flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-[480] flex justify-center px-3"
     >
       <motion.div
-        initial={{ scale: 0.7, y: 30, opacity: 0 }}
+        initial={{ scale: 0.94, y: -12, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.8, y: 20, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 350, damping: 22 }}
-        className={`pointer-events-auto relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-3xl border bg-gradient-to-br px-5 py-5 text-center ${t.bg} ${t.border} backdrop-blur-xl`}
+        exit={{ scale: 0.96, y: -8, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 360, damping: 30 }}
+        className={`pointer-events-auto relative flex w-full max-w-sm items-center gap-3 overflow-hidden rounded-2xl border bg-gradient-to-br px-3 py-3 text-right ${t.bg} ${t.border} backdrop-blur-xl`}
         style={{ boxShadow: `0 0 40px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.06)` }}
         role="alert"
         aria-live="assertive"
         aria-atomic="true"
         aria-label={`${label}، ${sublabel || ""}`}
+        dir="rtl"
       >
-        <button type="button" onClick={dismiss} aria-label="إخفاء التنبيه" className="absolute left-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/20 text-white/70 transition hover:bg-black/30 hover:text-white">
-          <X size={17} />
-        </button>
-        {/* Animated rings behind icon */}
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2"
-          style={{ borderColor: t.iconGlow.replace("0.4", "0.15") }}
-          animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2"
-          style={{ borderColor: t.iconGlow.replace("0.4", "0.2") }}
-          animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
-          transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-        />
-
-        {/* Icon */}
-        <motion.div
-          animate={{ scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${t.iconBg} border ${t.iconBorder} flex items-center justify-center mb-4`}
+        <div
+          className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br ${t.iconBg} ${t.iconBorder}`}
           style={{ boxShadow: `0 0 24px ${t.iconGlow}` }}
         >
-          <Timer size={28} className={t.iconColor} />
-        </motion.div>
-
-        {/* Big countdown number */}
-        <motion.div
-          initial={{ scale: 1.3, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, type: "spring", stiffness: 400, damping: 15 }}
-          className={`text-5xl font-black font-mono tabular-nums ${t.text} mb-2`}
-          style={{ textShadow: `0 0 30px ${t.glow}` }}
-        >
+          <Timer size={20} className={t.iconColor} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-black ${t.text}`}>{label}</p>
+          {sublabel && <p className={`mt-0.5 truncate text-[10px] font-bold ${t.sub}`}>{sublabel}</p>}
+        </div>
+        <span className={`shrink-0 font-mono text-lg font-black tabular-nums ${t.text}`}>
           {displaySeconds > 60 ? `${Math.floor(displaySeconds / 60)}:${String(displaySeconds % 60).padStart(2, "0")}` : displaySeconds}
-        </motion.div>
+        </span>
+        <button type="button" onClick={dismiss} aria-label="إخفاء التنبيه" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/20 text-white/70 transition hover:bg-black/30 hover:text-white">
+          <X size={16} />
+        </button>
 
-        {/* Label */}
-        <motion.p
-          initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.15 }}
-          className={`text-sm font-bold ${t.text} tracking-wide`}
-        >
-          {label}
-        </motion.p>
-        {sublabel && (
-          <motion.p
-            initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.25 }}
-            className={`text-[11px] mt-1.5 leading-relaxed ${t.sub}`}
-          >
-            {sublabel}
-          </motion.p>
-        )}
-
-        {/* Auto-dismiss progress bar — single CSS animation, no state updates */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
           <div
             className={`h-full bg-gradient-to-r ${t.bar}`}
@@ -3324,7 +3286,7 @@ function GroupElectionOverlay({
               {isReelection ? "من يقود الشاشة الآن؟" : "انتخبوا منسّق مجموعتكم"}
             </h2>
             <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-6 text-white/55">
-              التصويت سرّي. الفائز يختار النشاط والأسئلة، ويظهر اختياره على شاشة الجميع.
+              التصويت سرّي. الفائز يختار النشاط والأسئلة، ويظهر للجميع زر واضح لفتح اختياره عند الاستعداد.
             </p>
           </div>
 
@@ -3482,11 +3444,11 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
           <p className="mt-2 font-mono text-sm font-black text-white/45">#{leader.number}</p>
         </div>
         <p className="text-sm font-bold leading-7 text-white/65">
-          {isMe ? "أنت الآن قائد الشاشة — اختر النشاط والسؤال وسنرسله للجميع." : `${leader.name} سيقود شاشة الطاولة ويعرض ما تحتاجونه فقط.`}
+          {isMe ? "أنت الآن قائد الشاشة — اختر النشاط والسؤال وسنجهّز زر العرض للجميع." : `${leader.name} سيقود نشاط الطاولة. افتح سؤاله عندما تكون جاهزاً من داخل شاشة الأنشطة.`}
         </p>
         <button type="button" autoFocus onClick={onContinue} className="event3-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
-          {isMe ? <Megaphone size={19} /> : <Radio size={19} />}
-          {isMe ? "ابدأ قيادة الطاولة" : "الدخول إلى بث الطاولة"}
+          {isMe ? <Megaphone size={19} /> : <Users size={19} />}
+          {isMe ? "ابدأ قيادة الطاولة" : "متابعة إلى أنشطة الطاولة"}
         </button>
       </motion.div>
     </motion.div>
@@ -3639,7 +3601,8 @@ function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection 
   )
 }
 
-function GroupBroadcastReturnButton({ coordinatorName, onReturn }: { coordinatorName: string; onReturn: () => void }) {
+function GroupBroadcastReturnButton({ coordinatorName, content, onReturn }: { coordinatorName: string; content: SharedGroupContent | null; onReturn: () => void }) {
+  const isQuestion = content?.kind === "question"
   return (
     <motion.button
       type="button"
@@ -3653,8 +3616,8 @@ function GroupBroadcastReturnButton({ coordinatorName, onReturn }: { coordinator
         <Wifi size={18} className="text-violet-200" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black">العودة إلى البث</span>
-        <span className="mt-0.5 block truncate text-[10px] font-medium text-white/45">متابعة شاشة {coordinatorName}</span>
+        <span className="block text-sm font-black">{isQuestion ? "عرض سؤال الطاولة" : "عرض نشاط الطاولة"}</span>
+        <span className="mt-0.5 block truncate text-[10px] font-medium text-white/45">{content?.title || `محتوى اختاره ${coordinatorName}`}</span>
       </span>
       <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,.75)]" aria-hidden="true" />
     </motion.button>
@@ -3681,14 +3644,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [dismissedElectionVersion, setDismissedElectionVersion] = useState<number | null>(null)
   const [electionSeconds, setElectionSeconds] = useState(180)
   const [revealedCoordinator, setRevealedCoordinator] = useState<{ number: number; version: number; kind: "initial" | "revolt" } | null>(null)
-  const [syncEnabled, setSyncEnabled] = useState(true)
+  // Shared questions are opt-in. Yesterday's automatic projector repeatedly
+  // replaced the participant's current screen whenever the coordinator moved.
+  const [syncEnabled, setSyncEnabled] = useState(false)
   const [showReelectionConfirm, setShowReelectionConfirm] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
-  const [participationNudgePending, setParticipationNudgePending] = useState(false)
   const participationNudgeTimerRef = useRef<string | null>(null)
-  const participationNudgeButtonRef = useRef<HTMLButtonElement>(null)
-  const participationNudgeTitleId = useId()
   const groupsDialogRef = useRef<HTMLDivElement>(null)
   const groupsOpenerRef = useRef<HTMLElement | null>(null)
   const coordinationServerOffsetRef = useRef(0)
@@ -3724,6 +3686,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     : null
   const projectorVisible = coordination?.status === "elected"
     && Boolean(coordination.coordinator_number)
+    && Boolean(coordination.active_content)
     && !isGroupCoordinator
     && syncEnabled
     && !revealedCoordinator
@@ -3732,6 +3695,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const coordinationModalVisible = electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm
   const groupsInteractive = showGroups && !coordinationModalVisible
   const returnToBroadcastVisible = coordination?.status === "elected"
+    && Boolean(coordination.active_content)
     && !isGroupCoordinator
     && !syncEnabled
     && !revealedCoordinator
@@ -3832,7 +3796,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     setDismissedElectionVersion(null)
     setShowReelectionConfirm(false)
     setElectionVisible(true)
-    setSyncEnabled(true)
+    setSyncEnabled(false)
     setCoordinationBusy(false)
   }, [token, round, coordinationBusy, applyCoordinationState])
 
@@ -3915,13 +3879,17 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       if (sessionStorage.getItem(revealKey) === "1") return
       sessionStorage.setItem(revealKey, "1")
     } catch {}
-    setSyncEnabled(true)
+    setSyncEnabled(false)
     setRevealedCoordinator({
       number: coordination.coordinator_number,
       version: coordination.election_version,
       kind: coordination.kind || "initial",
     })
   }, [coordination?.status, coordination?.coordinator_number, coordination?.election_version, coordination?.table_number, coordination?.kind, round, myInfo?.number])
+
+  useEffect(() => {
+    if (!coordination?.active_content) setSyncEnabled(false)
+  }, [coordination?.active_content])
 
   // Treat the activities panel like a native modal sheet while keeping it
   // mounted off-screen so selected activities retain their progress.
@@ -3964,35 +3932,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     }
   }, [groupsInteractive, closeGroups])
   useEffect(() => {
-    onGroupsOpenChange?.(showGroups || showTutorial || showGroupParticipationNudge || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
-  }, [showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
+    onGroupsOpenChange?.(showGroups || showTutorial || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
+  }, [showGroups, showTutorial, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
 
   useEffect(() => {
     onProjectorVisibilityChange?.(projectorVisible)
     return () => onProjectorVisibilityChange?.(false)
   }, [projectorVisible, onProjectorVisibilityChange])
-
-  useEffect(() => {
-    if (!showGroupParticipationNudge) return
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    const focusTimer = window.setTimeout(() => participationNudgeButtonRef.current?.focus(), 50)
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowGroupParticipationNudge(false)
-      if (event.key === "Tab") {
-        event.preventDefault()
-        participationNudgeButtonRef.current?.focus()
-      }
-    }
-    document.body.style.overflow = "hidden"
-    window.addEventListener("keydown", onKeyDown)
-    return () => {
-      window.clearTimeout(focusTimer)
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener("keydown", onKeyDown)
-      opener?.focus()
-    }
-  }, [showGroupParticipationNudge])
 
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, {
     oneMinSublabel: "خلصوا النشاط وتأكدوا من أسماء الجميع — الترتيب يبدأ بعد دقيقة ومحدد بوقت"
@@ -4024,7 +3970,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   useEffect(() => {
     if (!timerActive || !timerStart) {
       participationNudgeTimerRef.current = null
-      setParticipationNudgePending(false)
       setShowGroupParticipationNudge(false)
       return
     }
@@ -4033,17 +3978,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     if (elapsed >= 10 * 60 && participationNudgeTimerRef.current !== timerKey) {
       participationNudgeTimerRef.current = timerKey
-      setParticipationNudgePending(true)
+      setShowGroupParticipationNudge(true)
     }
   }, [timerActive, timerStart, timeLeft, round, correctedNow])
-
-  // Queue this gentle reminder until the current sheet/tutorial is closed.
-  // Only one Round overlay owns focus and the body scroll lock at a time.
-  useEffect(() => {
-    if (!participationNudgePending || showGroups || showTutorial || showGroupParticipationNudge || electionVisible || revealedCoordinator || projectorVisible || showReelectionConfirm) return
-    setParticipationNudgePending(false)
-    setShowGroupParticipationNudge(true)
-  }, [participationNudgePending, showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm])
 
   // Wake lock: prevent screen sleep during active round
   const wakeLockActive = timerActive && timeLeft > 0
@@ -4241,6 +4178,29 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <ArrowLeft size={18} className="relative z-10 shrink-0 text-white/75 transition-transform group-hover:-translate-x-0.5" />
           </motion.button>
 
+          <AnimatePresence>
+            {showGroupParticipationNudge && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                role="status"
+                className="event3-group-surface flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] p-3 text-right"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-400/10 text-amber-200">
+                  <Users size={18} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-black text-amber-100">تذكير خفيف: خلّوا الجميع يأخذ فرصته</span>
+                  <span className="mt-0.5 block text-[10px] leading-5 text-amber-100/55">المشاركة اختيارية، والمهم أن يبقى الحوار مريحاً للجميع.</span>
+                </span>
+                <button type="button" onClick={() => setShowGroupParticipationNudge(false)} aria-label="إخفاء تذكير المشاركة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-amber-100/55 transition-colors hover:bg-white/5 hover:text-amber-100">
+                  <X size={16} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <p className="text-gray-600 text-xs">
             {round === 1 && "تعارف جماعي على طاولتك — ستختار بعدها من تريد جلسة فردية معه"}
             {round === 2 && (choiceOnly ? "بعد هذه الجولة ستحدّث ترتيبك، ثم تنتقل إلى مجموعة ثالثة" : "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية")}
@@ -4255,7 +4215,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
           <AnimatePresence>
             {returnToBroadcastVisible && (
-              <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />
+              <GroupBroadcastReturnButton coordinatorName={coordinatorName} content={coordination?.active_content || null} onReturn={() => setSyncEnabled(true)} />
             )}
           </AnimatePresence>
 
@@ -4321,7 +4281,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                   <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
                     تخطي كسر الجليد والذهاب للأنشطة
                   </button>
-                  {returnToBroadcastVisible && <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />}
+                  {returnToBroadcastVisible && <GroupBroadcastReturnButton coordinatorName={coordinatorName} content={coordination?.active_content || null} onReturn={() => setSyncEnabled(true)} />}
                 </div>
               </div>
             ) : (
@@ -4345,7 +4305,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                 {returnToBroadcastVisible && (
                   <div className="shrink-0 border-t border-white/[0.06] bg-gray-950/92 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
                     <div className="mx-auto w-full max-w-sm">
-                      <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />
+                      <GroupBroadcastReturnButton coordinatorName={coordinatorName} content={coordination?.active_content || null} onReturn={() => setSyncEnabled(true)} />
                     </div>
                   </div>
                 )}
@@ -4424,19 +4384,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             }}
             onConfirm={startCoordinatorReelection}
           />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showGroupParticipationNudge && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[520] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby={participationNudgeTitleId}>
-            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="event3-glass event3-group-surface w-full max-w-md rounded-3xl border border-amber-400/25 p-6 text-center" dir="rtl">
-              <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
-              <h2 id={participationNudgeTitleId} className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
-              <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
-              <button ref={participationNudgeButtonRef} type="button" onClick={() => setShowGroupParticipationNudge(false)} className="event3-action mt-5 min-h-12 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-gray-950">نكمل</button>
-            </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
 
@@ -4825,9 +4772,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
 
   return (
-    <PageWrapper embedded>
+    <PageWrapper embedded className="flex min-h-0 flex-col overflow-hidden">
       {/* ── Sticky header with integrated timer ── */}
-      <div className="event3-status-header sticky top-0 z-20 border-b border-white/[0.07]">
+      <div className="event3-status-header relative z-20 shrink-0 border-b border-white/[0.07]">
         <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2">
@@ -4911,8 +4858,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         </div>
       </div>
 
-      {/* ── Ranking list ── */}
-      <div className="w-full max-w-md mx-auto pb-[calc(10rem+env(safe-area-inset-bottom))] px-3 sm:px-4 pt-2">
+      {/* The list owns scrolling; the action footer stays in normal flex flow
+          and can never cover a ranking card on short phone screens. */}
+      <div className="event3-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="mx-auto w-full max-w-md px-3 pb-4 pt-2 sm:px-4">
         {!submitted && (
           <JourneyCue
             accent="amber"
@@ -5060,9 +5009,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           })}
         </Reorder.Group>
       </div>
+      </div>
 
-      {/* ── Fixed submit bar ── */}
-      <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[#02030a] via-[#02030a]/95 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 sm:px-4">
+      {/* ── Non-overlapping submit footer ── */}
+      <div className="relative z-40 shrink-0 border-t border-white/[0.06] bg-[#02030a]/96 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:px-4">
         <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
@@ -8631,6 +8581,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
   }
   const cfg = iconMap[notif.icon] || iconMap.info
   const Icon = cfg.icon
+  const isUrgent = notif.icon === "alert"
 
   return (
     <AnimatePresence>
@@ -8639,7 +8590,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[600] flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl"
+        className={`fixed inset-0 flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl ${isUrgent ? "z-[800]" : "z-[600]"}`}
       >
         <motion.div
           ref={dialogRef}
@@ -8827,6 +8778,18 @@ const EVENT_PHASE_LABELS: Record<string, string> = {
   phase4_reveal: "جلسة الاختيار الثالث",
   final_reveal: "النتيجة النهائية",
 }
+
+const EVENT3_QA_PREVIEWS = [
+  ["welcome", "الترحيب"],
+  ["login", "تسجيل الدخول"],
+  ["breakScreen", "شاشة الاستراحة"],
+  ["groupReflection", "تقييم أفراد المجموعة"],
+  ["breakGroupFeedback", "مراجعة تقييمات الاستراحة"],
+  ["feedbackFlow", "تقييم اللقاء الفردي"],
+  ["aiWelcome", "رسالة الترحيب الشخصية"],
+  ["phase1", "أسئلة اللقاء الأول"],
+  ["phase2", "أسئلة اللقاء التالي"],
+] as const
 
 const EVENT_PHASE_GUIDANCE: Record<string, string> = {
   setup: "لا شيء مطلوب الآن — ستنتقل الشاشة تلقائياً",
@@ -9417,11 +9380,24 @@ export default function Event3Page() {
   // This is intentionally read-only and does not touch event or participant data.
   if (questionPreview === "mobileQA") {
     return (
-      <main className="flex min-h-[100dvh] flex-wrap items-center justify-center gap-6 bg-slate-950 p-6">
-        <iframe title="معاينة شاشة الاستراحة" src="/event3?questionPreview=breakScreen" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
-        <iframe title="معاينة تقييم المجموعة" src="/event3?questionPreview=groupReflection" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
-        <iframe title="معاينة مراجعة تقييمات الاستراحة" src="/event3?questionPreview=breakGroupFeedback" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
-        <iframe title="معاينة رسالة الترحيب" src="/event3?questionPreview=aiWelcome" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
+      <main className="event3-shell min-h-[100dvh] bg-slate-950 px-4 py-8 text-white" dir="rtl">
+        <div className="mx-auto w-full max-w-lg">
+          <p className="text-xs font-black text-cyan-200">EVENT3 · MOBILE QA</p>
+          <h1 className="mt-2 text-2xl font-black">معاينات الشاشات</h1>
+          <p className="mt-2 text-sm leading-7 text-gray-400">افتح أي شاشة مباشرة. المعاينات المضمّنة أزيلت لأنها كانت محجوبة بسياسة الإطارات وتعرض صفحة فارغة.</p>
+          <nav className="mt-6 grid gap-3" aria-label="معاينات Event3">
+            {EVENT3_QA_PREVIEWS.map(([preview, label]) => (
+              <a
+                key={preview}
+                href={`/event3?questionPreview=${preview}`}
+                className="event3-action flex min-h-14 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-black text-white transition-colors hover:bg-white/[0.08]"
+              >
+                <span>{label}</span>
+                <ArrowLeft size={17} className="text-cyan-200" />
+              </a>
+            ))}
+          </nav>
+        </div>
       </main>
     )
   }
@@ -9669,23 +9645,29 @@ export default function Event3Page() {
   const hasPendingMoodCheck = Boolean(!finalQuestionsOpen && eventState?.mood_check?.pending)
   const hasPendingNotification = Boolean(eventState?.notification?.pending)
   const hasUrgentNotification = hasPendingNotification && eventState?.notification?.icon === "alert"
-  const isSafePromptMoment = ["setup", "break", "phase2_processing", "phase3_processing", "phase4_processing"].includes(phase)
-  const isActiveMoodMoment = ["round1", "round2", "round3", "phase2_reveal", "phase3_reveal", "phase4_reveal"].includes(phase)
   // Once a reflection sheet is open, keep it mounted until the participant
   // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
   // drafted ratings and notes are never destroyed.
   const activeGroupFeedbackRound = visibleGroupFeedbackRound
   const activeBreakFeedback = phase === "break" && breakFeedbackOpen
   const feedbackOverlayOpen = Boolean(activeGroupFeedbackRound || activeBreakFeedback || activeMatchFeedbackSlot)
-  const canShowMoodCheck = !hasUrgentNotification && hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !feedbackOverlayOpen
-  // Urgent alerts overlay the current screen without unmounting its draft.
-  const canShowNotification = hasPendingNotification && (hasUrgentNotification || (!finalQuestionsOpen && isSafePromptMoment && !feedbackOverlayOpen && !hasPendingMoodCheck))
-  const canShowAiWelcome = showAiWelcome
-    && phase === "setup"
-    && !finalQuestionsOpen
-    && !hasPendingMoodCheck
-    && !hasPendingNotification
-    && !feedbackOverlayOpen
+  const interactionOverlayOpen = Boolean(
+    rankingRoundToRender
+    || groupsOpen
+    || projectorOpen
+    || finalQuestionsOpen
+    || feedbackOverlayOpen
+    || oneToOneSessionOpen
+    || phaseTransition,
+  )
+  const { canShowMoodCheck, canShowNotification, canShowAiWelcome } = resolveEvent3PromptVisibility({
+    phase,
+    hasPendingMoodCheck,
+    hasPendingNotification,
+    hasUrgentNotification,
+    interactionOverlayOpen,
+    showAiWelcome,
+  })
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
   const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender
 

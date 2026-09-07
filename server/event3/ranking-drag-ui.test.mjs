@@ -17,7 +17,7 @@ test("ranking reorder measurements include the page scroll offset", () => {
 })
 
 test("dragged ranking cards establish a stacking context", () => {
-  assert.match(route, /className=\{`relative rounded-xl border transition-colors \$\{accent\}/)
+  assert.match(route, /whileDrag=\{submitted \? undefined : \{[\s\S]*?zIndex: 50/)
 })
 
 test("successful ranking submission opens feedback for the completed group round", () => {

@@ -2799,14 +2799,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </div>
               <div className="min-w-0 flex-1 text-right">
                 <p className={`text-[10px] font-black ${roundTheme.text}`}>
-                  {isGroupCoordinator ? "أنت منسّق الطاولة" : "شاشة الطاولة المتزامنة"}
+                  {isGroupCoordinator ? "أنت منسّق الطاولة" : "عرض المنسّق عند الطلب"}
                 </p>
                 <p className="mt-0.5 text-xs font-bold leading-5 text-white/75">
                   {isGroupCoordinator
-                    ? "اختيارك سيظهر فوراً على شاشات الجميع"
+                    ? "اختيارك سيجهّز زر عرض واضح لبقية المجموعة"
                     : coordinatorName
-                      ? `${coordinatorName} يختار النشاط للمجموعة`
-                      : "سيظهر اختيار المنسّق هنا للجميع"}
+                      ? `${coordinatorName} يختار النشاط — افتح سؤاله عندما تكون جاهزاً`
+                      : "سيظهر زر فتح عندما يجهّز المنسّق السؤال"}
                 </p>
               </div>
               {onRequestReelection && (

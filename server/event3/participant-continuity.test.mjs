@@ -76,7 +76,7 @@ test("Event3 organizer help and broadcast actions stay in flow without covering 
   assert.match(route, /triggerHidden=\{true\}/)
   assert.match(route, /onProjectorVisibilityChange=\{setProjectorOpen\}/)
   assert.match(supportMount, /suppressed=\{projectorOpen\}/)
-  assert.match(route, /العودة إلى البث/)
+  assert.match(route, /عرض سؤال الطاولة/)
   assert.doesNotMatch(route, /fixed inset-x-4 bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\] z-\[570\]/)
   assert.doesNotMatch(support, /fixed left-0 right-0|pointer-events-none fixed inset-x-4/)
   assert.match(support, /window\.addEventListener\(EVENT3_OPEN_SUPPORT_EVENT/)
@@ -120,10 +120,10 @@ test("Event3 participant requests are pinned to both the displayed edition and r
 test("ordinary results omit the current edition while its temporary Event3 test data is active", async () => {
   const api = await read("api/participant.mjs")
   const guards = [...api.matchAll(/const hiddenTestEventId = e3State\?\.test_mode_active === true/g)]
-  const filters = [...api.matchAll(/filter\(match => Number\(match\.event_id\) !== hiddenTestEventId\)/g)]
 
   assert.equal(guards.length, 2, "both Event3 history builders must derive the hidden test edition")
-  assert.equal(filters.length, 2, "both Event3 history builders must remove temporary current-edition rows")
+  assert.match(api, /filter\(match => Number\(match\.event_id\) !== hiddenTestEventId\)/)
+  assert.match(api, /if \(hiddenTestEventId && eventId === hiddenTestEventId\) return false/)
   assert.equal((api.match(/select\("phase,current_event_id,results_visible,test_mode_active"\)/g) || []).length, 2)
 })
 

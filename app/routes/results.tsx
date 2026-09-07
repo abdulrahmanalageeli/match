@@ -753,31 +753,18 @@ export default function ResultsPage() {
       }
 
       try {
-        // First check if results are visible
-        const visibilityRes = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get-results-visibility" }),
-        })
-        if (!visibilityRes.ok) {
-          throw new Error(`Could not check results visibility (${visibilityRes.status})`)
-        }
-        const visibilityData = await visibilityRes.json()
-        
-        if (visibilityData.visible === false) {
-          setError("waiting")
-          setLoading(false)
-          return
-        }
-
         const res = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-match-results", secure_token: token }),
         })
-        
+
+        if (!res.ok) {
+          throw new Error(`Could not fetch match results (${res.status})`)
+        }
+
         const data = await res.json()
-        
+
         if (data.success) {
           // Filter out matches with organizer (participant #9999)
           const filteredHistory = (data.history || []).filter((match: MatchResult) =>
@@ -785,7 +772,14 @@ export default function ResultsPage() {
             match.with !== "المنظم" &&
             match.round !== 0
           )
-          
+
+          // The participant API hides only the active Event3 edition until its reveal.
+          // Historical editions must remain available after the admin starts a new event.
+          if (filteredHistory.length === 0 && data.current_event_results_visible === false) {
+            setError("waiting")
+            return
+          }
+
           setResultsData({
             assigned_number: data.assigned_number,
             event_id: data.event_id || 1,

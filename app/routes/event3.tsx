@@ -659,7 +659,7 @@ function ParticipantLogoutButton({ onLogout, compact = false, className = "" }: 
       onClick={onLogout}
       aria-label="تسجيل الخروج"
       title="تسجيل الخروج واستخدام حساب آخر"
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-black/25 px-3 py-2 text-xs font-bold text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,.055)] backdrop-blur-xl transition-colors hover:border-rose-300/25 hover:bg-rose-500/[0.1] hover:text-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/80 ${className}`}
+      className={`event3-soft-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-gray-300 hover:border-rose-300/25 hover:bg-rose-500/[0.1] hover:text-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/80 ${className}`}
     >
       <LogOut size={15} aria-hidden="true" />
       <span className={compact ? "sr-only" : ""}>تسجيل الخروج</span>
@@ -1036,7 +1036,7 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
         <span className={`shrink-0 font-mono text-lg font-black tabular-nums ${t.text}`}>
           {displaySeconds > 60 ? `${Math.floor(displaySeconds / 60)}:${String(displaySeconds % 60).padStart(2, "0")}` : displaySeconds}
         </span>
-        <button type="button" onClick={dismiss} aria-label="إخفاء التنبيه" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/20 text-white/70 transition hover:bg-black/30 hover:text-white">
+        <button type="button" onClick={dismiss} aria-label="إخفاء التنبيه" className="event3-icon-action flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/70 hover:text-white">
           <X size={16} />
         </button>
 
@@ -1992,7 +1992,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             <button
               type="button"
               onClick={() => setIntroStage("welcome")}
-              className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 min-h-11 rounded-full px-3 text-[10px] font-bold tracking-wide text-white/40 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              className="event3-tertiary-action absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 min-h-11 rounded-full px-3 text-[10px] font-bold tracking-wide text-white/50 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
               تخطّي
             </button>
@@ -2190,12 +2190,12 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 <button
                   type="button"
                   onClick={() => { setStep(0); setPhase("steps") }}
-                  className="min-h-11 text-purple-200 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                  className="event3-tertiary-action min-h-11 rounded-xl px-3 text-purple-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                 >
                   كيف تعمل؟
                 </button>
                 <span className="text-white/15" aria-hidden="true">•</span>
-                <button type="button" onClick={openResults} className="min-h-11 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300">عرض النتائج</button>
+                <button type="button" onClick={openResults} className="event3-tertiary-action min-h-11 rounded-xl px-3 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300">عرض النتائج</button>
               </div>
               <p className="flex items-center justify-center gap-1.5 text-xs text-gray-500"><ShieldCheck size={13} className="text-emerald-300/75" /> بياناتك واختياراتك سرية</p>
               </motion.div>
@@ -2226,7 +2226,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 type="button"
                 onClick={() => step === 0 ? setPhase("splash") : goPrev()}
                 aria-label={step === 0 ? "الرجوع إلى شاشة الدخول" : `الرجوع إلى الخطوة ${step}`}
-                className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                className="event3-tertiary-action flex min-h-11 items-center gap-1 rounded-xl px-3 py-1 text-sm text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <ChevronRight size={15} className="rotate-180" />
                 {step === 0 ? "الدخول" : "السابق"}
@@ -2287,7 +2287,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 <button
                   type="button"
                   onClick={onDone}
-                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  className="event3-tertiary-action flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-medium text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
                   <ArrowLeft size={12} />
                   {showLogout ? "متابعة الفعالية الآن" : "الدخول مباشرة برقم الجوال"}
@@ -2573,16 +2573,16 @@ function PhoneEntry({
               </motion.button>
               {!isTokenLogin && step === "otp" && (
                 <div className="flex items-center justify-center gap-3 pt-1 text-xs font-bold">
-                  <button type="button" onClick={requestOtp} disabled={loading} className="min-h-11 text-purple-300 disabled:opacity-50">إعادة إرسال الرمز</button>
+                  <button type="button" onClick={requestOtp} disabled={loading} className="event3-tertiary-action min-h-11 rounded-xl px-3 text-purple-300">إعادة إرسال الرمز</button>
                   <span className="text-gray-700">•</span>
-                  <button type="button" onClick={editPhone} disabled={loading} className="min-h-11 text-gray-300 disabled:opacity-50">تغيير الرقم</button>
+                  <button type="button" onClick={editPhone} disabled={loading} className="event3-tertiary-action min-h-11 rounded-xl px-3 text-gray-300">تغيير الرقم</button>
                 </div>
               )}
               <button
                 type="button"
                 disabled={loading}
                 onClick={() => selectLoginMethod(isTokenLogin ? "sms" : "token")}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-gray-400 transition-colors hover:bg-white/[0.035] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 disabled:opacity-50"
+                className="event3-soft-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 {isTokenLogin ? <Smartphone size={14} /> : <KeyRound size={14} />}
                 {isTokenLogin ? "الدخول برقم الجوال" : "استخدام رمز الدخول بدلاً من الرسالة"}
@@ -2688,7 +2688,7 @@ function SetupScreen({ myInfo, enrolledCount, eventFormat, onOpenWelcomeMessage 
               <ChevronRight size={16} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
             </summary>
             <div className="space-y-4 border-t border-white/[0.06] p-4">
-              <button type="button" onClick={onOpenWelcomeMessage} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-purple-300/[0.14] bg-purple-400/[0.08] text-sm font-bold text-purple-100 transition-colors hover:bg-purple-400/[0.13]">
+              <button type="button" onClick={onOpenWelcomeMessage} className="event3-soft-action flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-purple-100">
                 <Sparkles size={16} /> رسالة ترحيب لك
               </button>
               <div>
@@ -2768,7 +2768,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         className={`event3-glass event3-sheet relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-5 text-right ring-1 ${ring}`}
       >
         {/* Close */}
-        <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black/25 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+        <button onClick={onClose} aria-label="إغلاق التذكير" className="event3-icon-action absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
           <X size={13} />
         </button>
 
@@ -2876,7 +2876,7 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
             <p className={`text-xs font-bold ${ac.text}`}>{t.title}</p>
             <p className="text-gray-400 text-[11px] leading-relaxed">{t.desc}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="إغلاق النصائح" className="-m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300">
+          <button type="button" onClick={onClose} aria-label="إغلاق النصائح" className="event3-icon-action -m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:text-gray-200">
             <X size={14} />
           </button>
         </div>
@@ -2888,7 +2888,7 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
                 animate={i === tip ? { opacity: [1, 0.6, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity }} />
             ))}
           </div>
-          <motion.button type="button" onClick={goNext} whileTap={{ scale: 0.95 }} className={`min-h-11 rounded-xl px-3 text-xs font-bold ${ac.text} transition-opacity hover:bg-white/5 hover:opacity-80`}>
+          <motion.button type="button" onClick={goNext} whileTap={{ scale: 0.95 }} className={`event3-tertiary-action min-h-11 rounded-xl px-3 text-xs font-bold ${ac.text} hover:opacity-90`}>
             {tip < tips.length - 1 ? "التالي ←" : "تم"}
           </motion.button>
         </div>
@@ -3111,7 +3111,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
             type="button"
             onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
             disabled={currentIdx === 0}
-            className="flex min-h-14 items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-white/65 transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+            className="event3-soft-action flex min-h-14 items-center justify-center gap-1 rounded-2xl px-4 text-sm font-bold text-white/70 disabled:cursor-not-allowed"
           >
             <ChevronRight size={17} /> السابق
           </button>
@@ -3198,7 +3198,7 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
         >
           <CheckCircle size={16} /> خلّصنا التحدي — ابدأوا الجلسة
         </motion.button>
-        <button type="button" onClick={() => setDone(true)} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+        <button type="button" onClick={() => setDone(true)} className="event3-tertiary-action mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 hover:text-gray-200">
           تخطي التحدي والبدء بالأسئلة
         </button>
       </GlassCard>
@@ -3446,7 +3446,7 @@ function GroupElectionOverlay({
                 type="button"
                 onClick={onFinalize}
                 disabled={submitting || state.votes_cast === 0}
-                className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-violet-300/20 bg-violet-400/10 px-2 text-[10px] font-black text-violet-100 transition-all hover:bg-violet-400/20 disabled:cursor-not-allowed disabled:opacity-35"
+                className="event3-soft-action flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-2 text-[10px] font-black text-violet-100 disabled:cursor-not-allowed"
               >
                 <Timer size={14} aria-hidden="true" /> تخطّي المؤقت وحسم الأصوات
               </button>
@@ -3454,7 +3454,7 @@ function GroupElectionOverlay({
                 type="button"
                 onClick={onRandomSelect}
                 disabled={submitting || candidates.length === 0}
-                className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-cyan-300/20 bg-cyan-400/[0.08] px-2 text-[10px] font-black text-cyan-100 transition-all hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-35"
+                className="event3-soft-action flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-2 text-[10px] font-black text-cyan-100 disabled:cursor-not-allowed"
               >
                 <Shuffle size={14} aria-hidden="true" /> اختيار منسّق عشوائياً
               </button>
@@ -3462,7 +3462,7 @@ function GroupElectionOverlay({
                 type="button"
                 onClick={() => selectedCandidate && onDirectSelect(selectedCandidate.number)}
                 disabled={submitting || !selectedCandidate}
-                className="col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl border border-fuchsia-300/25 bg-gradient-to-l from-fuchsia-500/15 to-violet-500/15 px-3 text-[11px] font-black text-fuchsia-100 transition-all hover:border-fuchsia-200/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+                className="event3-soft-action col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-[11px] font-black text-fuchsia-100 hover:border-fuchsia-200/40 disabled:cursor-not-allowed"
               >
                 <Crown size={14} className="shrink-0" aria-hidden="true" />
                 <span className="truncate">{selectedCandidate ? `تعيين ${selectedCandidate.name} مباشرة` : "صوّت أولاً ثم عيّنه مباشرة"}</span>
@@ -3480,7 +3480,7 @@ function GroupElectionOverlay({
             {state.my_vote ? (
               <div className="space-y-1.5">
                 <p className="text-xs font-bold text-emerald-300">تم تسجيل صوتك بأمان ✓</p>
-                <button type="button" onClick={onMinimize} className="min-h-11 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/5 hover:text-white/75">
+                <button type="button" onClick={onMinimize} className="event3-tertiary-action min-h-11 rounded-xl px-4 text-xs font-bold text-white/50 hover:text-white/80">
                   العودة مؤقتاً — سنخبرك بالنتيجة
                 </button>
               </div>
@@ -3612,7 +3612,7 @@ function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentV
       </main>
 
       <footer className="relative z-10 border-t border-white/[0.07] bg-black/25 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-center backdrop-blur-2xl">
-        <button type="button" autoFocus onClick={onUnsync} className="mx-auto flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/75">
+        <button type="button" autoFocus onClick={onUnsync} className="event3-tertiary-action mx-auto flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white/50 hover:text-white/80">
           <WifiOff size={14} /> فك المزامنة والتصفّح بحرية
         </button>
       </footer>
@@ -3648,7 +3648,7 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
         <p className="mt-3 text-sm font-medium leading-7 text-white/55">يبقى {coordinatorName} منسّقاً أثناء التصويت. أمام المجموعة 3 دقائق لاختيار شخص آخر.</p>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200">{error}</p>}
         <div className="mt-5 grid grid-cols-2 gap-2.5">
-          <button type="button" autoFocus onClick={onCancel} disabled={busy} className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/60 transition-colors hover:bg-white/10 disabled:opacity-50">إلغاء</button>
+          <button type="button" autoFocus onClick={onCancel} disabled={busy} className="event3-soft-action min-h-12 rounded-2xl px-4 text-sm font-black text-white/70">إلغاء</button>
           <button type="button" onClick={onConfirm} disabled={busy} className="event3-action flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-500 text-sm font-black text-gray-950 transition-all hover:brightness-110 disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Vote size={16} />} ابدأ التصويت
           </button>
@@ -4263,7 +4263,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                   <span className="block text-xs font-black text-amber-100">تذكير خفيف: خلّوا الجميع يأخذ فرصته</span>
                   <span className="mt-0.5 block text-[10px] leading-5 text-amber-100/55">المشاركة اختيارية، والمهم أن يبقى الحوار مريحاً للجميع.</span>
                 </span>
-                <button type="button" onClick={() => setShowGroupParticipationNudge(false)} aria-label="إخفاء تذكير المشاركة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-amber-100/55 transition-colors hover:bg-white/5 hover:text-amber-100">
+                <button type="button" onClick={() => setShowGroupParticipationNudge(false)} aria-label="إخفاء تذكير المشاركة" className="event3-icon-action flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-amber-100/60 hover:text-amber-100">
                   <X size={16} />
                 </button>
               </motion.div>
@@ -4271,7 +4271,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
           </AnimatePresence>
 
           {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("discussionPreview") && (
-            <button onClick={() => setShowGroupParticipationNudge(true)} className="text-amber-300/80 hover:text-amber-200 text-[11px] font-medium transition-colors mx-auto">
+            <button onClick={() => setShowGroupParticipationNudge(true)} className="event3-tertiary-action mx-auto rounded-xl px-3 text-[11px] font-medium text-amber-300/80 hover:text-amber-200">
               اختبار تنبيه المشاركة (10 دقائق)
             </button>
           )}
@@ -4287,7 +4287,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <motion.button
               onClick={() => setShowTutorial(true)}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-              className="mx-auto flex min-h-11 items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-gray-300"
+              className="event3-tertiary-action mx-auto flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-medium text-gray-500 hover:text-gray-300"
             >
               <Info size={13} />
               شرح الجولة
@@ -4338,7 +4338,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                       <p className={`text-sm font-black ${RC.text}`}>الجولة {RC.ordinalAr} · {RC.nameAr}</p>
                       <h2 className="mt-0.5 text-xl font-black text-white">سؤال تعارف سريع</h2>
                     </div>
-                    <button type="button" onClick={closeGroups} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-gray-300 transition-colors hover:bg-white/10 hover:text-white" aria-label="إغلاق أنشطة المجموعة"><X size={19} /></button>
+                    <button type="button" onClick={closeGroups} className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white" aria-label="إغلاق أنشطة المجموعة"><X size={19} /></button>
                   </div>
                   <div className="relative">
                     <BinaryPopupFormation
@@ -4356,7 +4356,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                       />
                     </div>
                   </div>
-                  <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-12 items-center justify-center gap-1.5 rounded-2xl px-4 text-sm font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+                  <button type="button" onClick={beginGroupActivities} className="event3-tertiary-action mx-auto flex min-h-12 items-center justify-center gap-1.5 rounded-2xl px-4 text-sm font-bold text-gray-400 hover:text-gray-200">
                     تخطي سؤال التعارف <ArrowLeft size={16} />
                   </button>
                   {returnToBroadcastVisible && <GroupBroadcastReturnButton coordinatorName={coordinatorName} content={coordination?.active_content || null} onReturn={() => setSyncEnabled(true)} />}
@@ -4900,7 +4900,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           )}
 
           {showPhaseWarning && !submitted && (
-            <button type="button" onClick={() => setShowPhaseWarning(false)} className="mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-amber-700/30 bg-amber-900/25 px-3 text-xs font-bold text-amber-200">
+            <button type="button" onClick={() => setShowPhaseWarning(false)} className="event3-soft-action mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-amber-200">
               <Clock size={12} /> انتقل المنظم — نؤكد الحفظ تلقائياً
             </button>
           )}
@@ -4921,7 +4921,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             currentStep={0}
             className="mb-3"
             aside={(
-              <button type="button" onClick={() => setShowRankTutorial(true)} className="min-h-10 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-gray-300">
+              <button type="button" onClick={() => setShowRankTutorial(true)} className="event3-soft-action min-h-10 rounded-xl px-3 text-xs font-bold text-gray-300">
                 شرح
               </button>
             )}
@@ -5071,7 +5071,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <motion.button
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 onClick={() => onOpenGroupFeedback(completedRounds as Event3GroupRound)} whileTap={{ scale: 0.97 }}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-400/20 bg-purple-500/10 py-3 text-xs font-black text-purple-200"
+                className="event3-soft-action flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-black text-purple-200"
               >
                 <Trophy size={14} />
                 تقييم أفراد المجموعة {completedRounds}
@@ -5079,7 +5079,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               {!autoSavedRef.current && (
                 <button onClick={() => { submittedRef.current = false; setSubmitted(false); onRankingDirty() }} disabled={submitting || rankingClosed || rankingExpired}
-                  className="text-gray-500 hover:text-gray-300 text-[10px] underline transition-colors">
+                  className="event3-tertiary-action min-h-10 rounded-xl px-3 text-[10px] font-bold text-gray-500 hover:text-gray-300">
                   تعديل التصنيف
                 </button>
               )}
@@ -5164,7 +5164,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <div className="flex gap-3 pt-1">
                 <button ref={rankingConfirmCancelRef} type="button" onClick={() => setShowConfirm(false)} disabled={autoSaving}
-                  className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] text-gray-400 font-bold text-sm hover:bg-white/[0.06] transition-colors disabled:opacity-50">
+                  className="event3-soft-action flex-1 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300">
                   إلغاء
                 </button>
                 <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0}
@@ -5385,7 +5385,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
             </div>
             <p className="mt-1 text-xs leading-relaxed text-gray-400">{reviewMode ? 'عدّل انطباعك السابق أو أضف تقييماً لمن فاتك.' : `الجولة ${groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.`}</p>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-300 transition hover:bg-white/[0.1] hover:text-white active:scale-90">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="event3-icon-action flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-300 hover:text-white">
             <X size={17} />
           </button>
         </header>
@@ -5397,7 +5397,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
             <div className="py-14 text-center space-y-2">
               <Users size={28} className="mx-auto text-gray-700" />
               <p className="text-sm font-bold text-gray-400">ما لقينا مشاركين من جولاتك الجماعية</p>
-              <button onClick={onClose} className="text-xs text-purple-300">رجوع</button>
+              <button onClick={onClose} className="event3-tertiary-action min-h-11 rounded-xl px-4 text-xs font-bold text-purple-300">رجوع</button>
             </div>
           ) : (
             <>
@@ -5477,7 +5477,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
         </div>
         {!loading && people.length > 0 && (
           <footer className="relative z-20 flex shrink-0 gap-2 border-t border-white/[0.08] bg-[#09070e]/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5">
-            <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-white/[0.09] bg-white/[0.05] px-5 text-sm font-bold text-gray-300 transition active:scale-95">{reviewMode ? 'المجموعات' : 'تخطي'}</button>
+            <button type="button" onClick={onClose} className="event3-soft-action min-h-12 rounded-2xl px-5 text-sm font-bold text-gray-300">{reviewMode ? 'المجموعات' : 'تخطي'}</button>
             <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved || reviewedCount === 0} aria-busy={saving}
               className="event3-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white disabled:opacity-60">
               {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
@@ -5610,7 +5610,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
             </div>
             <p className="mt-1 text-xs leading-relaxed text-gray-400">الأشخاص مرتّبون حسب المجموعة التي قابلتهم فيها.</p>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-300 transition hover:bg-white/[0.1] hover:text-white active:scale-90">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="event3-icon-action flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-300 hover:text-white">
             <X size={17} />
           </button>
         </header>
@@ -5896,7 +5896,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
       <div className="relative z-10 flex shrink-0 items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:px-5">
         {step === 0 && backDisabled ? <span className="h-11 w-11" aria-hidden="true" /> : (
           <button type="button" onClick={step === 0 ? onBack : goBack} aria-label={step === 0 ? "العودة إلى الجلسة" : "الخطوة السابقة"}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.07] text-gray-300 transition-all hover:bg-white/[0.1] hover:text-white active:scale-90">
+          className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white">
             <ChevronRight size={18} />
           </button>
         )}
@@ -6300,7 +6300,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
                 </div>
               </div>
               <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} aria-label="إغلاق محادثة المنظم"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.045] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white">
+                className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white">
                 <X size={13} />
               </button>
             </div>
@@ -6761,7 +6761,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                           <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
                           <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
-                        <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-400/70 transition-colors hover:bg-white/5 hover:text-red-200">
+                  <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="event3-icon-action flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-300/70 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
@@ -6791,8 +6791,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
                     </summary>
                     <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] p-3">
-                      <button type="button" onClick={() => setShowSessionTips(true)} className="min-h-11 rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />نصائح سريعة</button>
-                      <button type="button" onClick={() => setShowTutorial(true)} className="min-h-11 rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Info size={13} className="ml-1 inline" />طريقة اللقاء</button>
+                      <button type="button" onClick={() => setShowSessionTips(true)} className="event3-soft-action min-h-11 rounded-xl px-3 text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />نصائح سريعة</button>
+                      <button type="button" onClick={() => setShowTutorial(true)} className="event3-soft-action min-h-11 rounded-xl px-3 text-xs font-bold text-gray-300"><Info size={13} className="ml-1 inline" />طريقة اللقاء</button>
                     </div>
                   </details>
 
@@ -7110,7 +7110,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                           <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
                           <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
-                        <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-400/70 transition-colors hover:bg-white/5 hover:text-red-200">
+                  <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="event3-icon-action flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-300/70 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
@@ -7140,7 +7140,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
                     </summary>
                     <div className="border-t border-white/[0.06] p-3">
-                      <button type="button" onClick={() => setShowSessionTips(true)} className="min-h-11 w-full rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />طريقة استخدام الأسئلة</button>
+                      <button type="button" onClick={() => setShowSessionTips(true)} className="event3-soft-action min-h-11 w-full rounded-xl px-3 text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />طريقة استخدام الأسئلة</button>
                     </div>
                   </details>
 
@@ -7332,7 +7332,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
                     <p className="text-amber-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد للعودة</p>
                     <p className="text-amber-400/50 text-[10px] mt-0.5">المرحلة التالية ستبدأ قريباً</p>
                   </div>
-                  <button type="button" onClick={() => setShowBreakWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-amber-400/70 transition-colors hover:bg-white/5 hover:text-amber-200">
+                  <button type="button" onClick={() => setShowBreakWarning(false)} aria-label="إخفاء تنبيه الوقت" className="event3-icon-action flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-amber-300/70 hover:text-amber-200">
                     <X size={14} />
                   </button>
                   {/* Countdown progress bar */}
@@ -7356,7 +7356,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           type="button"
           whileTap={{ scale: 0.98 }}
           onClick={onOpenGroupFeedback}
-          className="group mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+          className="event3-soft-action group mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300 hover:text-white"
         >
           <PenLine size={16} className="text-purple-200" />
           مراجعة تقييمات المجموعات
@@ -7506,7 +7506,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
             <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
             <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>التحليل الذكي</span>
           </div>
-          <button type="button" onClick={() => setShown(false)} aria-label="إغلاق التحليل الذكي" className="flex h-11 w-11 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white"><X size={16} /></button>
+          <button type="button" onClick={() => setShown(false)} aria-label="إغلاق التحليل الذكي" className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white"><X size={16} /></button>
         </div>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
           className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap text-right p-4">{analysis}</motion.p>
@@ -7700,10 +7700,10 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           </div>
 
           <nav className="event3-status-header sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 p-2" aria-label="التنقل بعد الكشف النهائي">
-            <a href="/welcome" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-gray-300">
+            <a href="/welcome" className="event3-soft-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-bold text-gray-300">
               <Home size={17} /> الرئيسية
             </a>
-            <a href={resultsHref} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-amber-200">
+            <a href={resultsHref} className="event3-soft-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-bold text-amber-200">
               <Trophy size={17} /> النتائج
             </a>
             <button onClick={() => setScreenMode("reveal")} className="event3-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
@@ -8166,7 +8166,7 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -6, scale: 0.96 }}
                 transition={{ duration: 0.22 }}
-                className="absolute left-4 top-4 z-30 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.035] px-3.5 text-[11px] font-bold text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,.045),0_12px_28px_-22px_rgba(192,132,252,.65)] backdrop-blur-xl transition-all hover:border-purple-300/20 hover:bg-purple-300/[0.07] hover:text-purple-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-purple-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0718]"
+                className="event3-soft-action absolute left-4 top-4 z-30 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-[11px] font-bold text-gray-400 hover:text-purple-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-purple-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0718]"
               >
                 <span>تخطّي</span>
                 <ArrowLeft size={12} aria-hidden="true" />
@@ -8353,7 +8353,7 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                   <div className="sticky bottom-0 z-20 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
                     <button
                       onClick={finishTyping}
-                      className="w-full rounded-2xl border border-purple-400/20 bg-purple-500/10 py-3 text-sm font-bold text-purple-200 transition active:scale-[0.98]"
+                      className="event3-soft-action w-full rounded-2xl py-3 text-sm font-bold text-purple-200"
                     >
                       عرض الرسالة كاملة
                     </button>
@@ -8375,7 +8375,7 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                           whileTap={{ scale: 0.97 }}
                           onClick={saveImage}
                           disabled={savingImage}
-                          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm bg-white/[0.055] border border-white/[0.1] text-purple-200 hover:bg-purple-500/10 hover:border-purple-400/30 disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                          className="event3-soft-action flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-purple-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                         >
                           {savingImage
                             ? <><span className="w-4 h-4 border-2 border-purple-200/30 border-t-purple-200 rounded-full animate-spin" /> جاري الحفظ</>
@@ -8577,23 +8577,22 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
   const [selected, setSelected] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!moodCheck) return
+    if (!moodCheck) {
+      setPendingCheck(null)
+      return
+    }
     if (moodCheck.pending && moodCheck.check_id && !dismissed.has(moodCheck.check_id)) {
-      // Auto-expire after 5 minutes
-      const ageMs = Date.now() - new Date(moodCheck.triggered_at!).getTime()
-      if (ageMs > 5 * 60 * 1000) {
-        call("e3-submit-mood-check", token, { check_id: moodCheck.check_id, mood: "expired" })
-        setDismissed(prev => new Set(prev).add(moodCheck.check_id!))
-        setPendingCheck(null)
-      } else {
-        setPendingCheck({ check_id: moodCheck.check_id, triggered_at: moodCheck.triggered_at! })
-      }
+      // A check may have waited behind ranking, feedback, or a group activity.
+      // Start its response window only once it can actually be shown.
+      setPendingCheck(current => current?.check_id === moodCheck.check_id
+        ? current
+        : { check_id: moodCheck.check_id!, triggered_at: moodCheck.triggered_at! })
     } else {
       setPendingCheck(null)
     }
   }, [moodCheck, dismissed, token])
 
-  const submit = async (mood: "happy" | "neutral" | "not_great" | "expired") => {
+  const submit = useCallback(async (mood: "happy" | "neutral" | "not_great" | "expired") => {
     if (!pendingCheck || moodSubmitInFlightRef.current) return
     const checkId = pendingCheck.check_id
     moodSubmitInFlightRef.current = true
@@ -8610,7 +8609,15 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
       moodSubmitInFlightRef.current = false
       setSubmitting(false)
     }
-  }
+  }, [pendingCheck, token])
+
+  useEffect(() => {
+    if (!pendingCheck) return
+    const expiryTimer = window.setTimeout(() => {
+      void submit("expired")
+    }, 5 * 60 * 1000)
+    return () => window.clearTimeout(expiryTimer)
+  }, [pendingCheck, submit])
 
   useModalFocus({
     open: Boolean(pendingCheck),
@@ -8687,7 +8694,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
             })}
           </div>
 
-          <button type="button" onClick={() => submit("expired")} disabled={submitting} className="mt-3 min-h-11 rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200 disabled:opacity-40">
+          <button type="button" onClick={() => submit("expired")} disabled={submitting} className="event3-tertiary-action mt-3 min-h-11 rounded-xl px-4 text-xs font-bold text-gray-400 hover:text-gray-200">
             ليس الآن
           </button>
 
@@ -9438,7 +9445,7 @@ export default function Event3Page() {
             <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-bold text-gray-400">تحتاجون مساعدة في إدارة الحوار؟ <ChevronRight size={15} className="rotate-90" /></summary>
             </details>
-            <button type="button" className="min-h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] text-sm font-bold text-gray-400">إنهاء اللقاء والبدء بالتقييم</button>
+            <button type="button" className="event3-soft-action min-h-12 w-full rounded-2xl text-sm font-bold text-gray-300">إنهاء اللقاء والبدء بالتقييم</button>
           </div>
         </div>
       </main>

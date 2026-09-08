@@ -2,9 +2,10 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-const [event3Source, groupsSource] = await Promise.all([
+const [event3Source, groupsSource, styles] = await Promise.all([
   readFile(new URL("../../app/routes/event3.tsx", import.meta.url), "utf8"),
   readFile(new URL("../../app/routes/groups.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../../app/app.css", import.meta.url), "utf8"),
 ])
 
 function between(source, startMarker, endMarker) {
@@ -55,6 +56,23 @@ test("automatic reminders and ranking actions stay in flow instead of covering c
   assert.match(ranking, /event3-scroll min-h-0 flex-1 overflow-y-auto/)
   assert.match(ranking, /Non-overlapping submit footer/)
   assert.doesNotMatch(ranking, /fixed inset-x-0 bottom-0 z-40/)
+})
+
+test("participant secondary, icon, and tertiary buttons share the Event3 control system", () => {
+  assert.match(styles, /\.event3-soft-action\s*\{[\s\S]*backdrop-filter: blur\(18px\)/)
+  assert.match(styles, /\.event3-icon-action\s*\{[\s\S]*backdrop-filter: blur\(16px\)/)
+  assert.match(styles, /\.event3-tertiary-action\s*\{/)
+  assert.ok((event3Source.match(/event3-soft-action/g) || []).length >= 20)
+  assert.ok((event3Source.match(/event3-icon-action/g) || []).length >= 10)
+  assert.ok((event3Source.match(/event3-tertiary-action/g) || []).length >= 15)
+
+  const mood = between(event3Source, "function MoodCheckModal", "// ─── Root Component")
+  const groupRound = between(event3Source, "function RoundScreen", "// ─── Ranking Tutorial Overlay")
+  assert.match(mood, /event3-tertiary-action/)
+  assert.match(groupRound, /event3-icon-action/)
+  assert.match(groupsSource, /event3-action[^\n]*ابدأوا هذا النشاط|event3-action[^\n]*currentGame\.color/)
+  assert.match(groupsSource, /event3-soft-action/)
+  assert.match(groupsSource, /event3-icon-action/)
 })
 
 test("the mobile QA hub uses direct previews instead of blocked iframes", () => {

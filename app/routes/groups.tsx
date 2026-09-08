@@ -2799,7 +2799,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 onClose?.();
               }}
               aria-label="إغلاق الأنشطة الجماعية"
-              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
@@ -2833,7 +2833,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <button
                   type="button"
                   onClick={onRequestReelection}
-                  className="min-h-11 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-xs font-black text-amber-200 transition-colors hover:bg-amber-400/15"
+                  className="event3-soft-action min-h-11 shrink-0 rounded-xl px-3 text-xs font-black text-amber-200"
                 >
                   تغيير
                 </button>
@@ -2916,7 +2916,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       type="button"
                       whileTap={{ scale: 0.97 }}
                       onClick={() => startGame(currentGame.id)}
-                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
+                      className={`event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg hover:brightness-110`}
                     >
                       <Play className="h-4 w-4 fill-current" />
                       <span>ابدأوا هذا النشاط</span>
@@ -2928,14 +2928,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <p className="mt-3 text-center text-sm font-medium leading-6 text-white/50">اقرؤوا الفكرة، اختاروا، ثم خلّوا الهاتف في المنتصف.</p>
 
               <div className="mt-3 grid grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3">
-                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white">
                   <ChevronRight className="h-5 w-5" />
                 </button>
                 <div className="text-center">
                   <p className="text-sm font-black text-white">اسحبوا لاختيار النشاط</p>
                   <p className="mt-0.5 text-xs font-medium text-white/45">أو استخدموا الأسهم</p>
                 </div>
-                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               </div>
@@ -3104,14 +3104,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <button
                 type="button"
                 onClick={returnToActivitySelection}
-                className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
+                className={`event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg hover:brightness-110`}
               >
                 <Shuffle className="h-5 w-5" /> اختيار نشاط آخر
               </button>
               <button
                 type="button"
                 onClick={() => onClose?.()}
-                className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 text-sm font-bold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                className="event3-soft-action flex min-h-14 w-full items-center justify-center rounded-2xl px-5 text-sm font-bold text-white/70 hover:text-white"
               >
                 العودة للطاولة
               </button>
@@ -3186,7 +3186,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <button
                 onClick={() => setShowInstructions(prev => !prev)}
                 aria-expanded={showInstructions}
-                className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-bold transition-all active:scale-[0.98] ${showInstructions ? "border-white/20 bg-white/15 text-white" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                className={`event3-soft-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold ${showInstructions ? "border-white/20 text-white" : "text-white/70 hover:text-white"}`}
               >
                 <Lightbulb className="h-4 w-4" />
                 {showInstructions ? "إخفاء الخطوات" : "إظهار الخطوات"}
@@ -3194,7 +3194,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </button>
               <button
                 onClick={returnToActivitySelection}
-                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-bold text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
+                className="event3-soft-action flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white/70 hover:text-white"
               >
                 <Shuffle className="h-4 w-4" /> تغيير النشاط
               </button>
@@ -4937,7 +4937,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <button
                   type="button"
                   onClick={returnToActivitySelection}
-                  className="flex min-h-12 items-center gap-1.5 rounded-xl px-2 text-sm font-bold text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+                  className="event3-tertiary-action flex min-h-12 items-center gap-1.5 rounded-xl px-3 text-sm font-bold text-gray-400 hover:text-white"
                 >
                   <ChevronRight className="h-4 w-4" /> تغيير
                 </button>
@@ -4954,7 +4954,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       onClose();
                     }}
                     aria-label="إغلاق الأنشطة الجماعية"
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+                    className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-400 hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>

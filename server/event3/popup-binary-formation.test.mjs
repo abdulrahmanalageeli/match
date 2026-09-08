@@ -41,6 +41,8 @@ test("AI welcome, notifications, and mood checks resolve through the shared bina
   assert.match(aiWelcome, /<BinaryPopupFormation tone="violet" size="tall" \/>/)
   assert.match(notification, /<BinaryPopupFormation key=\{notif\.notif_id\} tone=\{binaryTone\} urgent=\{isUrgent\} \/>/)
   assert.match(mood, /<BinaryPopupFormation key=\{pendingCheck\.check_id\} tone="violet" \/>/)
+  assert.match(mood, /5 \* 60 \* 1000/)
+  assert.doesNotMatch(mood, /Date\.now\(\) - new Date\(moodCheck\.triggered_at/)
 
   for (const popup of [aiWelcome, notification, mood]) {
     assert.match(popup, /clipPath: "inset\(48|clipPath: "inset\(49/)

@@ -10094,16 +10094,59 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
         // e3-get-event-list — list all event_ids that have data
         if (action === "e3-get-event-list") {
-          const { data: epEvents, error: epErr } = await supabase.from("event3_participants").select("event_id").eq("match_id", EVENT3_MATCH_ID)
-          const { data: matchEvents, error: matchErr } = await supabase.from("event3_matches").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          const [participantResult, matchResult, assignmentResult, settingsResult] = await Promise.all([
+            supabase.from("event3_participants").select("event_id").eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_matches").select("event_id").eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("session_assignments").select("event_id").eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_event_settings").select("event_id,event_format").eq("match_id", EVENT3_MATCH_ID),
+          ])
+          const { data: epEvents, error: epErr } = participantResult
+          const { data: matchEvents, error: matchErr } = matchResult
+          const { data: assignmentEvents, error: assignmentErr } = assignmentResult
+          const { data: eventSettings, error: settingsErr } = settingsResult
           if (epErr) console.error("[e3-get-event-list] event3_participants error:", epErr.message)
           if (matchErr) console.error("[e3-get-event-list] event3_matches error:", matchErr.message)
+          if (assignmentErr) console.error("[e3-get-event-list] session_assignments error:", assignmentErr.message)
+          if (settingsErr) console.error("[e3-get-event-list] event3_event_settings error:", settingsErr.message)
           const eventIds = new Set()
           for (const r of epEvents || []) if (r.event_id) eventIds.add(r.event_id)
           for (const r of matchEvents || []) if (r.event_id) eventIds.add(r.event_id)
+          for (const r of assignmentEvents || []) if (r.event_id) eventIds.add(r.event_id)
           eventIds.add(realEventId) // always include current
           const sorted = Array.from(eventIds).sort((a, b) => b - a)
-          return res.status(200).json({ events: sorted, current_event_id: realEventId, errors: { participants: epErr?.message || null, matches: matchErr?.message || null } })
+          const countByEvent = rows => {
+            const counts = new Map()
+            for (const row of rows || []) counts.set(Number(row.event_id), (counts.get(Number(row.event_id)) || 0) + 1)
+            return counts
+          }
+          const participantCounts = countByEvent(epEvents)
+          const assignmentCounts = countByEvent(assignmentEvents)
+          const matchCounts = countByEvent(matchEvents)
+          const formatByEvent = new Map((eventSettings || []).map(row => [Number(row.event_id), row.event_format]))
+          const replayEvents = sorted
+            .filter(eventId => Number(eventId) !== Number(realEventId))
+            .map(eventId => {
+              const participantCount = participantCounts.get(Number(eventId)) || 0
+              return {
+                event_id: Number(eventId),
+                event_format: formatByEvent.get(Number(eventId)) || EVENT3_FORMAT_CLASSIC,
+                participant_count: participantCount,
+                assignment_count: assignmentCounts.get(Number(eventId)) || 0,
+                match_count: matchCounts.get(Number(eventId)) || 0,
+                replay_ready: participantCount >= 6 && participantCount <= 44 && participantCount % 2 === 0,
+              }
+            })
+          return res.status(200).json({
+            events: sorted,
+            replay_events: replayEvents,
+            current_event_id: realEventId,
+            errors: {
+              participants: epErr?.message || null,
+              matches: matchErr?.message || null,
+              assignments: assignmentErr?.message || null,
+              settings: settingsErr?.message || null,
+            },
+          })
         }
 
         // e3-run-diagnostics — pre-event smoke test
@@ -14281,6 +14324,84 @@ ${alternativeLines}
           })
         }
 
+        // e3-start-replay-test-mode — copy a saved edition into the reversible
+        // current-event sandbox. The source event is selected from only and is
+        // never updated or deleted by either replay start or replay end.
+        if (action === "e3-start-replay-test-mode") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Admin access required" })
+          const sourceEventId = Number(req.body?.source_event_id)
+          if (!Number.isSafeInteger(sourceEventId) || sourceEventId <= 0 || sourceEventId === Number(realEventId)) {
+            return res.status(400).json({ error: "Choose a valid saved Event3 event to replay" })
+          }
+          if (Number(currentEventId) !== Number(realEventId)) {
+            return res.status(409).json({ error: `Return to the current event (${realEventId}) before starting replay` })
+          }
+
+          const { data: replayResult, error: replayError } = await supabase.rpc("begin_event3_past_event_replay_v1", {
+            p_event_id: Number(realEventId),
+            p_source_event_id: sourceEventId,
+          })
+          if (replayError) {
+            const message = `${replayError.message || ""} ${replayError.details || ""}`
+            const migrationRequired = replayError.code === "PGRST202" || message.includes("begin_event3_past_event_replay_v1")
+            const conflict = ["55000", "P0001"].includes(replayError.code)
+            return res.status(migrationRequired ? 501 : replayError.code === "22023" ? 400 : conflict ? 409 : 500).json({
+              error: migrationRequired
+                ? `The past-event replay migration must be applied before replay can start. ${replayError.message}`
+                : replayError.message,
+              migration_required: migrationRequired,
+            })
+          }
+
+          const { data: replayRoster, error: replayRosterError } = await supabase.from("event3_participants")
+            .select("participant_number,position")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", realEventId)
+            .order("position", { ascending: true })
+          const replayNumbers = (replayRoster || []).map(row => Number(row.participant_number))
+          const { data: replayProfiles, error: replayProfilesError } = replayNumbers.length
+            ? await supabase.from("participants")
+              .select("assigned_number,name,gender,age,phone_number,secure_token")
+              .eq("match_id", STATIC_MATCH_ID)
+              .in("assigned_number", replayNumbers)
+            : { data: [], error: null }
+          const replayProfilesByNumber = new Map((replayProfiles || []).map(profile => [Number(profile.assigned_number), profile]))
+          const testUsers = replayNumbers.map(number => {
+            const profile = replayProfilesByNumber.get(number)
+            return {
+              number,
+              name: profile?.name || `#${number}`,
+              gender: profile?.gender || "?",
+              age: profile?.age || "?",
+              phone: profile?.phone_number || null,
+              token: profile?.secure_token,
+            }
+          })
+          const replayFormat = replayResult?.replay_source_event_format || EVENT3_FORMAT_CLASSIC
+          const copied = replayResult?.copied || {}
+          return res.status(200).json({
+            test_mode: true,
+            replay_mode: true,
+            replay_source_event_id: sourceEventId,
+            replay_source_event_format: replayFormat,
+            replay_source_participant_count: replayNumbers.length,
+            event_format: replayFormat,
+            started_at: replayResult?.started_at || null,
+            prepared_algorithm_pairs: 0,
+            runtime_snapshot: replayResult,
+            copied,
+            healthy: true,
+            checks: [
+              { name: "source_preserved", status: "ok", message: `الفعالية المحفوظة ${sourceEventId} للقراءة فقط وبقيت كما هي` },
+              { name: "runtime_copy", status: "ok", message: `نُسخ ${copied.participants || replayNumbers.length} مشاركاً و${copied.assignments || 0} مقعداً و${copied.rankings || 0} تصنيفاً و${copied.matches || 0} سجل مطابقة` },
+              { name: "live_restore", status: "ok", message: `حُفظت الفعالية الحالية ${realEventId} وستعود تلقائياً عند إنهاء الاختبار` },
+              ...((replayRosterError || replayProfilesError) ? [{ name: "test_users", status: "warn", message: "بدأت النسخة بنجاح؛ حدّث الصفحة لإظهار كل حسابات المشاركين" }] : []),
+            ],
+            test_users: testUsers,
+            message: `Saved event ${sourceEventId} is now replaying as an isolated copy. The original saved event will not be changed or deleted.`,
+          })
+        }
+
         // e3-end-test-mode — delete all test data and exit test mode
         if (action === "e3-end-test-mode") {
           if (displayedEvent3Context.testMode !== true || !displayedEvent3Context.testSessionKey) {
@@ -14303,7 +14424,9 @@ ${alternativeLines}
           }
 
           return res.status(200).json({
-            message: restoreResult?.legacy_cleanup
+            message: restoreResult?.replay_source_preserved
+              ? `Replay ended. Current Event3 data was restored, and saved event ${restoreResult.replay_source_event_id} remains unchanged.`
+              : restoreResult?.legacy_cleanup
               ? "Legacy test mode ended and all temporary data was deleted. This older session had no pre-test runtime snapshot to restore."
               : "Test mode ended. All temporary data was deleted and the pre-test Event3 runtime was restored.",
             restored: restoreResult,
@@ -14346,6 +14469,11 @@ ${alternativeLines}
             test_mode: true,
             event_format: testModeFormat,
             started_at: stateRow?.test_mode_snapshot?.started_at || null,
+            replay_mode: Number.isSafeInteger(Number(stateRow?.test_mode_snapshot?.replay_source_event_id))
+              && Number(stateRow?.test_mode_snapshot?.replay_source_event_id) > 0,
+            replay_source_event_id: stateRow?.test_mode_snapshot?.replay_source_event_id || null,
+            replay_source_event_format: stateRow?.test_mode_snapshot?.replay_source_event_format || null,
+            replay_source_participant_count: Number(stateRow?.test_mode_snapshot?.replay_source_participant_count || 0) || null,
             prepared_algorithm_pairs: preparedAlgorithmCount || 0,
             test_users: testUsers,
           })

@@ -123,6 +123,14 @@ function finalMatchPreferenceLabel(value: unknown, choiceOnly: boolean) {
 }
 
 type Event3Format = "classic" | "choice_only_three_groups"
+type Event3ReplayOption = {
+  event_id: number
+  event_format: Event3Format
+  participant_count: number
+  assignment_count: number
+  match_count: number
+  replay_ready: boolean
+}
 const CHOICE_ONLY_MIN_PARTICIPANTS = 6
 const CHOICE_ONLY_MAX_PARTICIPANTS = 44
 const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
@@ -1400,6 +1408,9 @@ export default function Admin3Page() {
   const thirdMatchTimerRound = 7
   const [previewEventId, setPreviewEventIdState] = useState<number | null>(null)
   const [eventList, setEventList] = useState<number[]>([])
+  const [replayEvents, setReplayEvents] = useState<Event3ReplayOption[]>([])
+  const [replaySourceEventId, setReplaySourceEventId] = useState<number | "">("")
+  const [replayConfirmOpen, setReplayConfirmOpen] = useState(false)
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
   const [migrationErrors, setMigrationErrors] = useState<string[] | null>(null)
   const [diagnostics, setDiagnostics] = useState<{ healthy: boolean; checks: any[] } | null>(null)
@@ -2053,6 +2064,14 @@ export default function Admin3Page() {
       }
     }
     if (data.events) setEventList(data.events)
+    if (Array.isArray(data.replay_events)) {
+      const options = data.replay_events as Event3ReplayOption[]
+      setReplayEvents(options)
+      setReplaySourceEventId(previous => {
+        if (previous !== "" && options.some(option => option.event_id === previous && option.replay_ready)) return previous
+        return options.find(option => option.replay_ready)?.event_id ?? ""
+      })
+    }
     if (data.current_event_id) setRealCurrentEventId(data.current_event_id)
   }, [])
 
@@ -2907,6 +2926,28 @@ export default function Admin3Page() {
     }
   }
 
+  const startReplayTestMode = async () => {
+    if (previewEventId != null) { toast.error("ارجع إلى الفعالية النشطة أولاً"); return }
+    if (!Number.isSafeInteger(Number(replaySourceEventId)) || Number(replaySourceEventId) <= 0) {
+      toast.error("اختر فعالية محفوظة صالحة لإعادة التشغيل")
+      return
+    }
+    setReplayConfirmOpen(false)
+    setTestModeLoading(true)
+    try {
+      const data = await api("e3-start-replay-test-mode", { source_event_id: Number(replaySourceEventId) })
+      if (data.error) { toast.error(data.error); return }
+      setTestMode(true)
+      setTestModeData(data)
+      toast.success(data.message || "بدأت إعادة تشغيل النسخة المحفوظة")
+      await Promise.all([fetchState(), fetchParticipants(), fetchSeating(), fetchRankStatus()])
+    } catch (error: any) {
+      toast.error(error?.message || "تعذّر بدء إعادة التشغيل")
+    } finally {
+      setTestModeLoading(false)
+    }
+  }
+
   const prepareTestAlgorithm = async () => {
     if (loading || testModeLoading || previewEventId != null || !testMode || testModeData?.prepared_algorithm_pairs !== 0) return
     await run("prepare-test-algorithm", async () => {
@@ -2925,8 +2966,9 @@ export default function Admin3Page() {
       if (data.error) { toast.error(data.error); return }
       setTestMode(false)
       setTestModeData(null)
+      setReplayConfirmOpen(false)
       toast.success(data.message || "تم إنهاء وضع الاختبار")
-      fetchState(); fetchParticipants(); setSeating(null); setRankStatus(null)
+      fetchState(); fetchParticipants(); fetchEventList(); setSeating(null); setRankStatus(null)
     } catch (e: any) {
       toast.error(e.message || "خطأ")
     } finally {
@@ -3077,6 +3119,7 @@ export default function Admin3Page() {
   const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
   const participantAccessLocked = state?.event3_participant_access_locked === true
   const canEditEventFormat = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
+  const selectedReplayEvent = replayEvents.find(option => option.event_id === Number(replaySourceEventId)) || null
 
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
@@ -3379,7 +3422,9 @@ export default function Admin3Page() {
               <FlaskConical className={testMode ? "text-amber-400" : "text-gray-400"} size={18} />
               <h2 className="text-sm font-medium text-gray-300">وضع الاختبار</h2>
               {testMode && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-600/40">نشط</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-600/40">
+                  {testModeData?.replay_mode ? `نسخة فعالية ${testModeData.replay_source_event_id}` : "نشط"}
+                </span>
               )}
             </div>
             <div className="flex gap-2">
@@ -3399,7 +3444,7 @@ export default function Admin3Page() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-                  إنهاء وحذف
+                  إنهاء واستعادة
                 </button>
               )}
             </div>
@@ -3409,11 +3454,21 @@ export default function Admin3Page() {
           {testMode && testModeData && previewEventId == null && (
             <div className="space-y-3">
               {/* Test mode info banner */}
-              <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2.5 text-xs text-amber-300/80">
-                <p>⚠️ أنت في وضع الاختبار. جميع البيانات مؤقتة وسيتم حذفها عند الإنهاء.</p>
+              <div className={`rounded-xl border p-3 text-xs leading-6 ${testModeData.replay_mode ? "border-violet-500/35 bg-violet-950/35 text-violet-200" : "border-amber-800/40 bg-amber-950/40 text-amber-300/80"}`}>
+                {testModeData.replay_mode ? (
+                  <div className="flex items-start gap-2.5">
+                    <RotateCcw size={16} className="mt-1 shrink-0 text-violet-300" />
+                    <div>
+                      <p className="font-bold text-violet-100">تُعاد الآن فعالية {testModeData.replay_source_event_id} من نسخة مستقلة</p>
+                      <p className="text-violet-300/75">الفعالية المحفوظة الأصلية لم تتغير ولن تُحذف. عند الإنهاء تعود الفعالية الحالية كما كانت قبل الاختبار.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p>⚠️ أنت في وضع الاختبار. تغييرات هذه الجلسة مؤقتة، وعند الإنهاء تعود بيانات الفعالية الأصلية كما كانت.</p>
+                )}
               </div>
 
-              {!choiceOnly && testModeData.prepared_algorithm_pairs === 0 ? (
+              {!testModeData.replay_mode && !choiceOnly && testModeData.prepared_algorithm_pairs === 0 ? (
                 <div className="rounded-xl border border-violet-500/30 bg-violet-950/25 p-3 sm:p-4">
                   <p id="prepare-test-algorithm-description" className="text-xs leading-6 text-violet-200/80">يمكن تجهيز أزواج الخوارزمية لهذا الاختبار مسبقاً لتظهر للمضيفة، بدون تغيير المرحلة أو بيانات الفعالية الحقيقية.</p>
                   <button
@@ -3511,11 +3566,77 @@ export default function Admin3Page() {
           )}
 
           {!testMode && (
-            <p className="text-xs text-gray-500">
-              {choiceOnly
-                ? "يختار تلقائياً أكبر عدد متوازن من المشاركين الذين أكملوا جميع الأسئلة، ثم يوزعهم على مجموعات تستهدف 6 أشخاص. لا يلزم حفظ قائمة مسبقاً."
-                : "يختار 18 ذكراً و18 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء."}
-            </p>
+            <div className="space-y-3">
+              <p className="text-xs leading-5 text-gray-500">
+                {choiceOnly
+                  ? "الاختبار السريع يختار تلقائياً أكبر عدد متوازن من المشاركين المكتملة بياناتهم."
+                  : "الاختبار السريع يختار 36 مشاركاً متوازنين ويستخدم أكبر قدر متاح من النتائج المحفوظة."}
+              </p>
+
+              <div className="overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-950/55 via-gray-900 to-fuchsia-950/25 shadow-[0_18px_55px_rgba(76,29,149,0.16)]">
+                <div className="p-3.5 sm:p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-400/25 bg-violet-500/15 text-violet-200 shadow-inner shadow-violet-300/10">
+                      <RotateCcw size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-white">إعادة تشغيل فعالية سابقة</h3>
+                      <p className="mt-1 text-xs leading-5 text-gray-400">ينسخ المشاركين والطاولات والتصنيفات والمطابقات والتفاعل إلى اختبار مستقل، ثم يبدأ من شاشة البداية.</p>
+                    </div>
+                  </div>
+
+                  <label htmlFor="event3-replay-source" className="mt-4 block text-[11px] font-semibold text-gray-400">اختر النسخة المحفوظة</label>
+                  <div className="mt-1.5 grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <select
+                      id="event3-replay-source"
+                      value={replaySourceEventId}
+                      onChange={event => {
+                        setReplaySourceEventId(event.target.value ? Number(event.target.value) : "")
+                        setReplayConfirmOpen(false)
+                      }}
+                      disabled={testModeLoading || !!loading || previewEventId != null || replayEvents.length === 0}
+                      className="min-h-11 w-full rounded-xl border border-gray-700 bg-gray-950/70 px-3 text-sm text-white outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50"
+                    >
+                      {replayEvents.length === 0 && <option value="">لا توجد فعاليات محفوظة</option>}
+                      {replayEvents.map(option => (
+                        <option key={option.event_id} value={option.event_id} disabled={!option.replay_ready}>
+                          فعالية {option.event_id} · {option.participant_count} مشارك{option.replay_ready ? "" : " · غير مكتملة"}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setReplayConfirmOpen(true)}
+                      disabled={testModeLoading || !!loading || previewEventId != null || !selectedReplayEvent?.replay_ready}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/15 px-4 text-xs font-bold text-violet-100 transition-all hover:-translate-y-0.5 hover:bg-violet-500/25 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Play size={14} /> مراجعة وبدء
+                    </button>
+                  </div>
+
+                  {selectedReplayEvent && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] text-gray-400">
+                      <span className="rounded-full border border-gray-700 bg-gray-950/50 px-2 py-1">{selectedReplayEvent.event_format === "choice_only_three_groups" ? "نظام الاختيارات الثلاثة" : "النظام الكلاسيكي"}</span>
+                      <span className="rounded-full border border-gray-700 bg-gray-950/50 px-2 py-1">{selectedReplayEvent.assignment_count} مقعداً محفوظاً</span>
+                      <span className="rounded-full border border-gray-700 bg-gray-950/50 px-2 py-1">{selectedReplayEvent.match_count} سجل مطابقة</span>
+                    </div>
+                  )}
+
+                  {replayConfirmOpen && selectedReplayEvent && (
+                    <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3" role="group" aria-label="تأكيد إعادة تشغيل الفعالية المحفوظة">
+                      <p className="text-xs font-bold text-emerald-200">سيتم تشغيل نسخة من فعالية {selectedReplayEvent.event_id}</p>
+                      <p className="mt-1 text-[11px] leading-5 text-emerald-300/70">لن نمسح أو نعدّل الفعالية المحفوظة. تُحفظ الفعالية الحالية تلقائياً وتعود كما هي عند الإنهاء.</p>
+                      <div className="mt-3 flex gap-2">
+                        <button type="button" onClick={startReplayTestMode} disabled={testModeLoading} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 text-xs font-extrabold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50">
+                          {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} تشغيل النسخة الآن
+                        </button>
+                        <button type="button" onClick={() => setReplayConfirmOpen(false)} disabled={testModeLoading} className="min-h-10 rounded-xl border border-gray-700 bg-gray-900 px-3 text-xs font-bold text-gray-300 transition hover:bg-gray-800 disabled:opacity-50">إلغاء</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

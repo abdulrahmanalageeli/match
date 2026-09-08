@@ -115,6 +115,7 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
       event_id integer not null,
       participant_number integer not null,
       position integer not null,
+      created_at timestamptz default now(),
       phase2_excluded boolean default false,
       unique (match_id, event_id, participant_number),
       unique (match_id, event_id, position)
@@ -139,6 +140,7 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
       phase3_word text,
       phase3_feedback jsonb,
       match_preference text,
+      created_at timestamptz default now(),
       updated_at timestamptz default now(),
       unique (match_id, event_id, participant_number)
     );
@@ -149,6 +151,7 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
       round smallint not null,
       table_number integer not null,
       participant_id integer not null,
+      created_at timestamptz default now(),
       unique (match_id, event_id, round, participant_id)
     );
     create table participant_rankings (
@@ -158,6 +161,7 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
       ranker_number integer not null,
       ranked_number integer not null,
       rank integer not null,
+      submitted_at timestamptz default now(),
       auto_saved boolean default false,
       unique (match_id, event_id, ranker_number, ranked_number),
       unique (match_id, event_id, ranker_number, rank)
@@ -379,6 +383,41 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
       select snapshot into v_snapshot
       from public.event3_test_mode_snapshots
       where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      delete from public.participant_rankings
+      where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      delete from public.session_assignments
+      where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      delete from public.event3_matches
+      where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      delete from public.event3_exclusions
+      where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      delete from public.event3_participants
+      where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
+      insert into public.event3_participants
+      select restored.* from jsonb_populate_recordset(
+        null::public.event3_participants,
+        coalesce(v_snapshot -> 'event3_participants', '[]'::jsonb)
+      ) restored;
+      insert into public.event3_matches
+      select restored.* from jsonb_populate_recordset(
+        null::public.event3_matches,
+        coalesce(v_snapshot -> 'event3_matches', '[]'::jsonb)
+      ) restored;
+      insert into public.session_assignments
+      select restored.* from jsonb_populate_recordset(
+        null::public.session_assignments,
+        coalesce(v_snapshot -> 'session_assignments', '[]'::jsonb)
+      ) restored;
+      insert into public.participant_rankings
+      select restored.* from jsonb_populate_recordset(
+        null::public.participant_rankings,
+        coalesce(v_snapshot -> 'participant_rankings', '[]'::jsonb)
+      ) restored;
+      insert into public.event3_exclusions
+      select restored.* from jsonb_populate_recordset(
+        null::public.event3_exclusions,
+        coalesce(v_snapshot -> 'event3_exclusions', '[]'::jsonb)
+      ) restored;
       delete from public.event3_participant_notes
       where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
       insert into public.event3_participant_notes
@@ -408,7 +447,16 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
         coalesce(v_snapshot -> 'event3_ai_welcome_messages', '[]'::jsonb)
       ) restored;
       update public.event_state
-      set test_mode_active = false, test_mode_snapshot = null
+      set phase = coalesce(v_snapshot #>> '{event_state,phase}', 'setup'),
+          current_round = coalesce(nullif(v_snapshot #>> '{event_state,current_round}', '')::integer, 1),
+          global_timer_active = coalesce(nullif(v_snapshot #>> '{event_state,global_timer_active}', '')::boolean, false),
+          global_timer_start_time = nullif(v_snapshot #>> '{event_state,global_timer_start_time}', '')::timestamptz,
+          global_timer_duration = nullif(v_snapshot #>> '{event_state,global_timer_duration}', '')::integer,
+          global_timer_round = nullif(v_snapshot #>> '{event_state,global_timer_round}', '')::integer,
+          phase2_score_revealed = coalesce(nullif(v_snapshot #>> '{event_state,phase2_score_revealed}', '')::boolean, false),
+          phase3_score_revealed = coalesce(nullif(v_snapshot #>> '{event_state,phase3_score_revealed}', '')::boolean, false),
+          test_mode_active = false,
+          test_mode_snapshot = null
       where match_id = '${EVENT3_MATCH_ID}'::uuid and current_event_id = p_event_id;
       delete from public.event3_test_mode_snapshots
       where match_id = '${EVENT3_MATCH_ID}'::uuid and event_id = p_event_id;
@@ -499,6 +547,16 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
     import.meta.url,
   ), "utf8")
   await db.exec(bulkRanking44Migration)
+  const groupCoordinationMigration = await readFile(new URL(
+    "../../supabase/migrations/20260906014852_event3_group_coordinator_elections.sql",
+    import.meta.url,
+  ), "utf8")
+  await db.exec(groupCoordinationMigration)
+  const replayMigration = await readFile(new URL(
+    "../../supabase/migrations/20260908121134_add_event3_past_event_replay.sql",
+    import.meta.url,
+  ), "utf8")
+  await db.exec(replayMigration)
   return db
 }
 
@@ -1509,6 +1567,192 @@ test("variable runtime migration refuses an active legacy Event3 test snapshot",
       return true
     },
   )
+})
+
+test("past Event3 replay copies a saved edition and restores the live event without touching the source", async t => {
+  const db = await createFixture(t)
+  const sourceEventId = EVENT_ID - 1
+
+  await db.query(`insert into event_state(
+    match_id,current_event_id,phase,current_round,global_timer_active,
+    phase2_score_revealed,phase3_score_revealed,test_mode_active
+  ) values ($1,$2,'round2',2,false,true,false,false)`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into event3_event_settings(match_id,event_id,event_format)
+    values ($1,$2,'choice_only_three_groups'),($1,$3,'classic')`, [EVENT3_MATCH_ID, EVENT_ID, sourceEventId])
+
+  await db.query(`insert into event3_participants(
+    match_id,event_id,participant_number,position,phase2_excluded
+  ) values ($1,$2,99,0,false)`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into event3_participant_notes(
+    match_id,event_id,participant_number,about_number,phase,note
+  ) values ($1,$2,99,null,1,'live note')`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into event_attendance(
+    match_id,event_id,participant_number,attended,updated_by
+  ) values ($1,$2,99,true,'live-host')`, [ATTENDANCE_MATCH_ID, EVENT_ID])
+  await db.query(`insert into organizer_requests(
+    id,event_id,participant_token,participant_number,message
+  ) values ('00000000-0000-0000-0000-000000000199',$1,'live-token',99,'live help')`, [EVENT_ID])
+  await db.query(`insert into event3_cohost_notes(
+    match_id,event_id,test_mode,test_session_key,scope_type,scope_key,note
+  ) values ($1,$2,false,'','event','event','live operations')`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into event3_group_coordination(
+    match_id,event_id,session_key,round,table_number,election_status,coordinator_number
+  ) values ($1,$2,'live',1,9,'elected',99)`, [EVENT3_MATCH_ID, EVENT_ID])
+
+  await db.query(`insert into event3_participants(
+    match_id,event_id,participant_number,position,phase2_excluded
+  ) select $1,$2,number,number - 1,number = 2
+    from generate_series(1,6) number`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into session_assignments(
+    match_id,event_id,round,table_number,participant_id
+  ) select $1,$2,1,1,number from generate_series(1,6) number`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into session_assignments(
+    match_id,event_id,round,table_number,participant_id
+  ) values ($1,$2,20,4,1),($1,$2,20,4,2)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_matches(
+    match_id,event_id,participant_number,phase2_partner,phase2_score,phase2_word
+  ) values ($1,$2,1,2,81,'easy'),($1,$2,2,1,81,'warm')`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into participant_rankings(
+    match_id,event_id,ranker_number,ranked_number,rank,auto_saved
+  ) values ($1,$2,1,2,1,false)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_ranking_drafts(
+    match_id,event_id,ranker_number,completed_rounds,session_key,
+    ranked_numbers,revision,submitted
+  ) values ($1,$2,1,1,'live','{2}',3,true)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_participant_notes(
+    match_id,event_id,participant_number,about_number,phase,note
+  ) values ($1,$2,1,2,1,'historic note')`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_mood_checks(
+    match_id,event_id,check_id,participant_number,mood,answered_at
+  ) values ($1,$2,'historic-check',1,'happy',now())`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_notifications(
+    match_id,event_id,notif_id,participant_number,title,seen_at
+  ) values ($1,$2,'historic-notification',1,'Historic update',now())`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_ai_welcome_messages(
+    match_id,event_id,participant_number,welcome_message,anchor_used
+  ) values ($1,$2,1,'Historic welcome','curiosity')`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_exclusions(
+    match_id,event_id,participant_a_number,participant_b_number,reason
+  ) values ($1,$2,1,3,'historic boundary')`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_group_reflections(
+    match_id,event_id,ranker_number,ranked_numbers,source_phase,group_round
+  ) values ($1,$2,1,'{2}','ranking1',1)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_group_member_feedback(
+    match_id,event_id,group_round,reviewer_number,member_number,
+    experience,is_test_mode
+  ) values ($1,$2,1,1,2,'great',false)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event_attendance(
+    match_id,event_id,participant_number,attended,updated_by
+  ) values ($1,$2,1,true,'historic-host')`, [ATTENDANCE_MATCH_ID, sourceEventId])
+  await db.query(`insert into organizer_requests(
+    id,event_id,participant_token,participant_number,message
+  ) values ('00000000-0000-0000-0000-000000000198',$1,'historic-token',1,'historic help')`, [sourceEventId])
+  await db.query(`insert into event3_cohost_notes(
+    match_id,event_id,test_mode,test_session_key,scope_type,scope_key,note
+  ) values ($1,$2,false,'','event','event','historic operations')`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_group_coordination(
+    match_id,event_id,session_key,round,table_number,election_status,coordinator_number
+  ) values ($1,$2,'live',1,1,'elected',1)`, [EVENT3_MATCH_ID, sourceEventId])
+  await db.query(`insert into event3_group_coordinator_votes(
+    match_id,event_id,session_key,round,table_number,election_version,
+    voter_number,candidate_number
+  ) values ($1,$2,'live',1,1,1,2,1)`, [EVENT3_MATCH_ID, sourceEventId])
+
+  const sourceBefore = await db.query(`select
+    (select count(*)::int from event3_participants where match_id=$1 and event_id=$2) as participants,
+    (select count(*)::int from session_assignments where match_id=$1 and event_id=$2) as assignments,
+    (select count(*)::int from participant_rankings where match_id=$1 and event_id=$2) as rankings,
+    (select count(*)::int from event3_matches where match_id=$1 and event_id=$2) as matches,
+    (select count(*)::int from event3_notifications where match_id=$1 and event_id=$2) as notifications`, [EVENT3_MATCH_ID, sourceEventId])
+
+  const replay = await db.query(
+    "select begin_event3_past_event_replay_v1($1,$2) as result",
+    [EVENT_ID, sourceEventId],
+  )
+  assert.deepEqual(replay.rows[0].result.copied, {
+    participants: 6,
+    assignments: 8,
+    rankings: 1,
+    matches: 2,
+  })
+  assert.equal(replay.rows[0].result.replay_source_event_id, sourceEventId)
+  const startedAt = replay.rows[0].result.started_at
+  assert.ok(startedAt)
+
+  const replayState = await db.query(`select phase,test_mode_active,
+    test_mode_snapshot->>'replay_source_event_id' as source_event_id
+    from event_state where match_id=$1`, [EVENT3_MATCH_ID])
+  assert.deepEqual(replayState.rows, [{
+    phase: "setup",
+    test_mode_active: true,
+    source_event_id: String(sourceEventId),
+  }])
+  assert.equal((await db.query(`select event_format from event3_event_settings
+    where match_id=$1 and event_id=$2`, [EVENT3_MATCH_ID, EVENT_ID])).rows[0].event_format, "classic")
+  assert.deepEqual((await db.query(`select participant_number,position,phase2_excluded
+    from event3_participants where match_id=$1 and event_id=$2 order by position`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { participant_number: 1, position: 0, phase2_excluded: false },
+    { participant_number: 2, position: 1, phase2_excluded: true },
+    { participant_number: 3, position: 2, phase2_excluded: false },
+    { participant_number: 4, position: 3, phase2_excluded: false },
+    { participant_number: 5, position: 4, phase2_excluded: false },
+    { participant_number: 6, position: 5, phase2_excluded: false },
+  ])
+  assert.match((await db.query(`select notif_id from event3_notifications
+    where match_id=$1 and event_id=$2`, [EVENT3_MATCH_ID, EVENT_ID])).rows[0].notif_id, /^replay:/)
+  assert.deepEqual((await db.query(`select is_test_mode,experience from event3_group_member_feedback
+    where match_id=$1 and event_id=$2 and is_test_mode=true`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { is_test_mode: true, experience: "great" },
+  ])
+  assert.deepEqual((await db.query(`select test_mode,test_session_key,note from event3_cohost_notes
+    where match_id=$1 and event_id=$2 and test_mode=true`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { test_mode: true, test_session_key: startedAt, note: "historic operations" },
+  ])
+  assert.equal((await db.query(`select count(*)::int as count from event3_group_coordinator_votes
+    where match_id=$1 and event_id=$2 and session_key=$3`, [EVENT3_MATCH_ID, EVENT_ID, `test:${startedAt}`])).rows[0].count, 1)
+
+  assert.deepEqual((await db.query(`select
+    (select count(*)::int from event3_participants where match_id=$1 and event_id=$2) as participants,
+    (select count(*)::int from session_assignments where match_id=$1 and event_id=$2) as assignments,
+    (select count(*)::int from participant_rankings where match_id=$1 and event_id=$2) as rankings,
+    (select count(*)::int from event3_matches where match_id=$1 and event_id=$2) as matches,
+    (select count(*)::int from event3_notifications where match_id=$1 and event_id=$2) as notifications`, [EVENT3_MATCH_ID, sourceEventId])).rows, sourceBefore.rows)
+
+  await db.query("delete from event3_notifications where match_id=$1 and event_id=$2", [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query("update event3_matches set phase2_word='changed in replay' where match_id=$1 and event_id=$2", [EVENT3_MATCH_ID, EVENT_ID])
+  const ended = await db.query("select end_event3_test_mode_v2($1,$2) as result", [EVENT_ID, startedAt])
+  assert.equal(ended.rows[0].result.replay_source_event_id, sourceEventId)
+  assert.equal(ended.rows[0].result.replay_source_preserved, true)
+
+  assert.deepEqual((await db.query(`select participant_number from event3_participants
+    where match_id=$1 and event_id=$2 order by position`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { participant_number: 99 },
+  ])
+  assert.deepEqual((await db.query(`select phase,current_round,test_mode_active,test_mode_snapshot
+    from event_state where match_id=$1`, [EVENT3_MATCH_ID])).rows, [{
+    phase: "round2",
+    current_round: 2,
+    test_mode_active: false,
+    test_mode_snapshot: null,
+  }])
+  assert.equal((await db.query(`select event_format from event3_event_settings
+    where match_id=$1 and event_id=$2`, [EVENT3_MATCH_ID, EVENT_ID])).rows[0].event_format, "choice_only_three_groups")
+  assert.equal((await db.query(`select count(*)::int as count from event3_group_coordination
+    where match_id=$1 and event_id=$2 and session_key like 'test:%'`, [EVENT3_MATCH_ID, EVENT_ID])).rows[0].count, 0)
+  assert.deepEqual((await db.query(`select note from event3_cohost_notes
+    where match_id=$1 and event_id=$2 order by test_mode`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { note: "live operations" },
+  ])
+  assert.deepEqual((await db.query(`select note from event3_participant_notes
+    where match_id=$1 and event_id=$2`, [EVENT3_MATCH_ID, EVENT_ID])).rows, [
+    { note: "live note" },
+  ])
+  assert.deepEqual((await db.query(`select
+    (select count(*)::int from event3_participants where match_id=$1 and event_id=$2) as participants,
+    (select count(*)::int from session_assignments where match_id=$1 and event_id=$2) as assignments,
+    (select count(*)::int from participant_rankings where match_id=$1 and event_id=$2) as rankings,
+    (select count(*)::int from event3_matches where match_id=$1 and event_id=$2) as matches,
+    (select count(*)::int from event3_notifications where match_id=$1 and event_id=$2) as notifications`, [EVENT3_MATCH_ID, sourceEventId])).rows, sourceBefore.rows)
 })
 
 test("test mode refuses an Event3 state with no current event", async t => {

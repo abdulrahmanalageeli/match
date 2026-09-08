@@ -3,26 +3,32 @@ import test from "node:test"
 
 import { resolveEvent3PromptVisibility } from "./event3-overlay-policy.mjs"
 
-test("Event3 queues ordinary prompts behind active participant work", () => {
-  for (const phase of ["round1", "round2", "round3", "ranking1", "phase2_reveal", "final_reveal"]) {
+test("Event3 shows ordinary prompts during every phase when no protected interaction is open", () => {
+  for (const phase of ["setup", "round1", "round2", "round3", "break", "phase2_processing", "phase2_reveal", "final_reveal"]) {
     const visibility = resolveEvent3PromptVisibility({
       phase,
       hasPendingMoodCheck: true,
       hasPendingNotification: true,
     })
     assert.equal(visibility.canShowMoodCheck, false, phase)
-    assert.equal(visibility.canShowNotification, false, phase)
+    assert.equal(visibility.canShowNotification, true, phase)
   }
-
-  const blockedBreak = resolveEvent3PromptVisibility({
-    phase: "break",
-    hasPendingMoodCheck: true,
-    interactionOverlayOpen: true,
-  })
-  assert.equal(blockedBreak.canShowMoodCheck, false)
 })
 
-test("Event3 shows at most one ordinary prompt in safe phases", () => {
+test("Event3 queues ordinary prompts behind ranking, feedback, activity, and question overlays", () => {
+  for (const phase of ["round1", "ranking1", "phase2_reveal", "final_reveal"]) {
+    const visibility = resolveEvent3PromptVisibility({
+      phase,
+      hasPendingMoodCheck: true,
+      hasPendingNotification: true,
+      interactionOverlayOpen: true,
+    })
+    assert.equal(visibility.canShowMoodCheck, false, phase)
+    assert.equal(visibility.canShowNotification, false, phase)
+  }
+})
+
+test("Event3 shows at most one ordinary prompt at a time", () => {
   const notificationFirst = resolveEvent3PromptVisibility({
     phase: "break",
     hasPendingMoodCheck: true,
@@ -33,7 +39,7 @@ test("Event3 shows at most one ordinary prompt in safe phases", () => {
   assert.equal(notificationFirst.canShowAiWelcome, false)
 
   const moodOnly = resolveEvent3PromptVisibility({
-    phase: "phase2_processing",
+    phase: "round2",
     hasPendingMoodCheck: true,
   })
   assert.equal(moodOnly.canShowMoodCheck, true)

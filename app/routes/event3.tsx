@@ -675,6 +675,138 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
   )
 }
 
+type BinaryPopupTone = "violet" | "cyan" | "amber" | "rose"
+type BinaryPopupSize = "compact" | "tall"
+
+const BINARY_POPUP_STREAMS = [
+  { value: "01011001 10100110 00110101", fromX: "-48vw", fromY: "-38vh", targetX: -8.8, targetY: -1, rotate: -7 },
+  { value: "10100110 01011001 11001010", fromX: "46vw", fromY: "-35vh", targetX: 8.6, targetY: -1, rotate: 7 },
+  { value: "00110110 11001001 01010110", fromX: "-52vw", fromY: "-8vh", targetX: -11, targetY: -0.45, rotate: 88 },
+  { value: "11001001 00110110 10101001", fromX: "52vw", fromY: "-5vh", targetX: 11, targetY: -0.38, rotate: -88 },
+  { value: "01101001 10010110 00101101", fromX: "-50vw", fromY: "24vh", targetX: -11, targetY: 0.42, rotate: 86 },
+  { value: "10010110 01101001 11010010", fromX: "50vw", fromY: "28vh", targetX: 11, targetY: 0.4, rotate: -86 },
+  { value: "01001101 10110010 01100101", fromX: "-44vw", fromY: "42vh", targetX: -8.4, targetY: 1, rotate: 6 },
+  { value: "10110010 01001101 10011010", fromX: "44vw", fromY: "40vh", targetX: 8.5, targetY: 1, rotate: -6 },
+] as const
+
+const BINARY_POPUP_TONES: Record<BinaryPopupTone, { code: string; line: string; aura: string; scan: string }> = {
+  violet: {
+    code: "text-violet-100/80",
+    line: "from-transparent via-violet-200/90 to-transparent",
+    aura: "radial-gradient(circle, rgba(168,85,247,.3) 0%, rgba(34,211,238,.1) 42%, transparent 72%)",
+    scan: "from-transparent via-cyan-100/90 to-transparent",
+  },
+  cyan: {
+    code: "text-cyan-100/80",
+    line: "from-transparent via-cyan-200/90 to-transparent",
+    aura: "radial-gradient(circle, rgba(34,211,238,.26) 0%, rgba(99,102,241,.1) 42%, transparent 72%)",
+    scan: "from-transparent via-blue-100/90 to-transparent",
+  },
+  amber: {
+    code: "text-amber-100/80",
+    line: "from-transparent via-amber-200/90 to-transparent",
+    aura: "radial-gradient(circle, rgba(251,191,36,.25) 0%, rgba(249,115,22,.08) 42%, transparent 72%)",
+    scan: "from-transparent via-amber-100/90 to-transparent",
+  },
+  rose: {
+    code: "text-rose-100/80",
+    line: "from-transparent via-rose-200/90 to-transparent",
+    aura: "radial-gradient(circle, rgba(244,63,94,.26) 0%, rgba(217,70,239,.09) 42%, transparent 72%)",
+    scan: "from-transparent via-pink-100/90 to-transparent",
+  },
+}
+
+/**
+ * A finite, decorative assembly pass for true interruption surfaces. Eight
+ * deterministic streams converge on the popup perimeter, draw its outline,
+ * and dissolve as the real dialog resolves. It never owns pointer events and
+ * is omitted entirely when the participant requests reduced motion.
+ */
+function BinaryPopupFormation({ tone = "violet", size = "compact", urgent = false }: {
+  tone?: BinaryPopupTone
+  size?: BinaryPopupSize
+  urgent?: boolean
+}) {
+  const reduceMotion = useReducedMotion()
+  if (reduceMotion) return null
+
+  const theme = BINARY_POPUP_TONES[tone]
+  const halfHeight = size === "tall" ? 19 : 12.5
+  const duration = urgent ? 0.52 : size === "tall" ? 1.02 : 0.86
+  const frameHeight = size === "tall"
+    ? "min(42rem, calc(100dvh - 2rem))"
+    : "min(27rem, calc(100dvh - 5rem))"
+
+  return (
+    <div
+      data-event3-binary-formation={tone}
+      className="event3-binary-formation pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden="true"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.42 }}
+        animate={{ opacity: [0, urgent ? 0.34 : 0.5, 0], scale: [0.42, 1, 1.08] }}
+        transition={{ duration, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute inset-[12%] rounded-full"
+        style={{ background: theme.aura, willChange: "transform, opacity" }}
+      />
+
+      {BINARY_POPUP_STREAMS.map((stream, index) => {
+        const targetY = `${stream.targetY * halfHeight}rem`
+        return (
+          <motion.span
+            key={`${stream.value}-${index}`}
+            initial={{ opacity: 0, x: stream.fromX, y: stream.fromY, rotate: stream.rotate, scale: 0.78 }}
+            animate={{
+              opacity: urgent ? [0, 0.82, 0.38, 0] : [0, 0.94, 0.52, 0],
+              x: [stream.fromX, `${stream.targetX}rem`, `${stream.targetX * 0.96}rem`],
+              y: [stream.fromY, targetY, targetY],
+              rotate: stream.rotate,
+              scale: [0.78, 1, 0.96],
+            }}
+            transition={{ duration, delay: index * (urgent ? 0.012 : 0.024), ease: [0.22, 1, 0.36, 1] }}
+            className={`event3-binary-formation__code event3-decorative-type absolute left-1/2 top-1/2 whitespace-nowrap font-mono font-black tracking-[0.3em] ${theme.code}`}
+            style={{ direction: "ltr", willChange: "transform, opacity" }}
+          >
+            {stream.value}
+          </motion.span>
+        )
+      })}
+
+      <div
+        className="event3-binary-formation__frame absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[1.8rem]"
+        style={{ height: frameHeight }}
+      >
+        {["top-0", "bottom-0"].map(position => (
+          <motion.span
+            key={position}
+            initial={{ opacity: 0, scaleX: 0.04 }}
+            animate={{ opacity: [0, 1, 0.28], scaleX: [0.04, 1, 1] }}
+            transition={{ duration: duration * 0.72, delay: urgent ? 0.05 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className={`absolute left-5 right-5 ${position} h-px origin-center bg-gradient-to-r ${theme.line}`}
+          />
+        ))}
+        {["left-0", "right-0"].map(position => (
+          <motion.span
+            key={position}
+            initial={{ opacity: 0, scaleY: 0.04 }}
+            animate={{ opacity: [0, 1, 0.24], scaleY: [0.04, 1, 1] }}
+            transition={{ duration: duration * 0.72, delay: urgent ? 0.07 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className={`absolute bottom-5 top-5 ${position} w-px origin-center bg-gradient-to-b ${theme.line}`}
+          />
+        ))}
+        <motion.span
+          initial={{ opacity: 0, top: "3%" }}
+          animate={{ opacity: [0, 0.9, 0], top: ["3%", "97%", "97%"] }}
+          transition={{ duration: duration * 0.62, delay: urgent ? 0.08 : 0.2, ease: "easeInOut" }}
+          className={`absolute inset-x-3 h-px bg-gradient-to-r ${theme.scan}`}
+          style={{ boxShadow: "0 0 18px rgba(255,255,255,.28)" }}
+        />
+      </div>
+    </div>
+  )
+}
+
 type JourneyAccent = "blue" | "amber" | "pink" | "purple" | "emerald"
 
 const JOURNEY_ACCENTS: Record<JourneyAccent, {
@@ -7932,12 +8064,24 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
           </motion.div>
         ))}
 
+        <BinaryPopupFormation tone="violet" size="tall" />
+
         {/* ─── Main card ─── */}
         <motion.div
           ref={cardRef}
-          initial={{ scale: 0.85, y: 50, opacity: 0 }}
-          animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
-          transition={{ type: "spring", stiffness: 240, damping: 24 }}
+          initial={reduceMotion ? false : { scale: 0.94, y: 14, opacity: 0, filter: "blur(9px)", clipPath: "inset(49% 8% 49% 8% round 32px)" }}
+          animate={{
+            scale: closing ? 0.94 : 1,
+            y: closing ? 18 : 0,
+            opacity: closing ? 0 : 1,
+            filter: closing ? "blur(7px)" : "blur(0px)",
+            clipPath: closing ? "inset(4% 2% 4% 2% round 32px)" : "inset(0% 0% 0% 0% round 32px)",
+          }}
+          transition={closing
+            ? { duration: 0.32, ease: "easeIn" }
+            : reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.58, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           onClick={e => e.stopPropagation()}
           tabIndex={-1}
           className="event3-glass relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.1] focus:outline-none"
@@ -8235,6 +8379,7 @@ function NotEnrolledScreen({ onUseAnotherNumber, onLogout }: { onUseAnotherNumbe
 // ─── Notification Modal ───────────────────────────────────────────────────────
 function NotificationModal({ token, notification }: { token: string; notification?: { pending: boolean; notif_id?: string; title?: string; body?: string | null; icon?: string; created_at?: string } }) {
   const titleId = useId()
+  const reduceMotion = useReducedMotion()
   const overlayRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const dismissButtonRef = useRef<HTMLButtonElement>(null)
@@ -8287,6 +8432,11 @@ function NotificationModal({ token, notification }: { token: string; notificatio
   const cfg = iconMap[notif.icon] || iconMap.info
   const Icon = cfg.icon
   const isUrgent = notif.icon === "alert"
+  const binaryTone: BinaryPopupTone = notif.icon === "clock" || notif.icon === "star"
+    ? "amber"
+    : notif.icon === "heart" || isUrgent
+      ? "rose"
+      : "cyan"
 
   return (
     <AnimatePresence>
@@ -8295,15 +8445,27 @@ function NotificationModal({ token, notification }: { token: string; notificatio
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl ${isUrgent ? "z-[800]" : "z-[600]"}`}
+        className={`fixed inset-0 flex items-center justify-center overflow-hidden bg-[#03050d]/80 p-5 backdrop-blur-xl ${isUrgent ? "z-[800]" : "z-[600]"}`}
       >
+        <BinaryPopupFormation key={notif.notif_id} tone={binaryTone} urgent={isUrgent} />
         <motion.div
+          key={`card-${notif.notif_id}`}
           ref={dialogRef}
-          initial={{ scale: 0.92, y: 16 }}
-          animate={{ scale: closing ? 0.95 : 1, y: closing ? 8 : 0, opacity: closing ? 0.5 : 1 }}
+          initial={reduceMotion ? false : { scale: 0.95, y: 10, opacity: 0, filter: "blur(8px)", clipPath: "inset(48% 7% 48% 7% round 1.65rem)" }}
+          animate={{
+            scale: closing ? 0.95 : 1,
+            y: closing ? 8 : 0,
+            opacity: closing ? 0.5 : 1,
+            filter: closing ? "blur(4px)" : "blur(0px)",
+            clipPath: "inset(0% 0% 0% 0% round 1.65rem)",
+          }}
           exit={{ scale: 0.92, y: 16 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="event3-glass event3-sheet w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
+          transition={closing
+            ? { duration: 0.22, ease: "easeIn" }
+            : reduceMotion
+              ? { duration: 0 }
+              : { duration: isUrgent ? 0.34 : 0.5, delay: isUrgent ? 0.08 : 0.26, ease: [0.16, 1, 0.3, 1] }}
+          className="event3-glass event3-sheet relative z-10 w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"
@@ -8336,6 +8498,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
 // ─── Mood Check Modal ─────────────────────────────────────────────────────────
 function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: string | null; moodCheck?: { pending: boolean; check_id?: string; triggered_at?: string } }) {
   const titleId = useId()
+  const reduceMotion = useReducedMotion()
   const overlayRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const moodSubmitInFlightRef = useRef(false)
@@ -8402,15 +8565,17 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[300] flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl"
+        className="fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-[#03050d]/80 p-5 backdrop-blur-xl"
       >
+        <BinaryPopupFormation key={pendingCheck.check_id} tone="violet" />
         <motion.div
+          key={`card-${pendingCheck.check_id}`}
           ref={dialogRef}
-          initial={{ scale: 0.92, y: 16 }}
-          animate={{ scale: 1, y: 0 }}
+          initial={reduceMotion ? false : { scale: 0.95, y: 10, opacity: 0, filter: "blur(8px)", clipPath: "inset(48% 7% 48% 7% round 1.65rem)" }}
+          animate={{ scale: 1, y: 0, opacity: 1, filter: "blur(0px)", clipPath: "inset(0% 0% 0% 0% round 1.65rem)" }}
           exit={{ scale: 0.92, y: 16 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="event3-glass event3-sheet w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.5, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
+          className="event3-glass event3-sheet relative z-10 w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"

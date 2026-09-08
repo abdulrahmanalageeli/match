@@ -1653,6 +1653,22 @@ html:not(.dark) .round-bg-pattern::before {
   line-height: 1rem;
 }
 
+.event3-binary-formation {
+  contain: strict;
+  isolation: isolate;
+}
+
+.event3-binary-formation__code {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px currentColor, 0 0 20px currentColor;
+}
+
+.event3-binary-formation__frame {
+  box-shadow:
+    0 0 30px -12px rgba(var(--event3-cyan), 0.34),
+    0 0 56px -24px rgba(var(--event3-purple), 0.42);
+}
+
 .event3-sheet {
   border-color: var(--event3-line);
   background:

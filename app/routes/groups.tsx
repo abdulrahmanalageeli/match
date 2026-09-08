@@ -2843,6 +2843,38 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
           <div className="event3-scroll relative z-10 flex flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <div className="relative w-full max-w-sm">
+              <nav
+                aria-label="التنقل بين الأنشطة"
+                className="event3-activity-navigation sticky top-0 z-30 mb-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-2xl p-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={prevActivity}
+                  aria-label="النشاط السابق"
+                  aria-controls="activity-carousel-slide"
+                  data-event3-activity-arrow="previous"
+                  className="event3-activity-navigation__button flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-black text-white"
+                >
+                  <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2.75} />
+                  <span>السابق</span>
+                </button>
+                <div className="min-w-[4.5rem] px-1 text-center">
+                  <p className="text-sm font-black tabular-nums text-white">{carouselIndex + 1} / {activityGames.length}</p>
+                  <p className="mt-0.5 text-[11px] font-bold text-white/50">اسحبوا أيضاً</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={nextActivity}
+                  aria-label="النشاط التالي"
+                  aria-controls="activity-carousel-slide"
+                  data-event3-activity-arrow="next"
+                  className="event3-activity-navigation__button flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-black text-white"
+                >
+                  <span>التالي</span>
+                  <ChevronLeft aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2.75} />
+                </button>
+              </nav>
+
               <AnimatePresence initial={false} mode="popLayout" custom={carouselDirection}>
                 <motion.article
                   id="activity-carousel-slide"
@@ -2926,19 +2958,6 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </AnimatePresence>
 
               <p className="mt-3 text-center text-sm font-medium leading-6 text-white/50">اقرؤوا الفكرة، اختاروا، ثم خلّوا الهاتف في المنتصف.</p>
-
-              <div className="mt-3 grid grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3">
-                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white">
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-                <div className="text-center">
-                  <p className="text-sm font-black text-white">اسحبوا لاختيار النشاط</p>
-                  <p className="mt-0.5 text-xs font-medium text-white/45">أو استخدموا الأسهم</p>
-                </div>
-                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="event3-icon-action flex h-12 w-12 items-center justify-center rounded-2xl text-gray-300 hover:text-white">
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              </div>
               <div className="mt-2 grid grid-cols-8 gap-1" role="group" aria-label="اختيار النشاط">
                 {activityGames.map((game, index) => (
                   <button

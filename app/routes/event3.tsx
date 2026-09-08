@@ -23,7 +23,7 @@ import {
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
-import { hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
+import { buildEvent3Uri, hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
 import { resolveEvent3PromptVisibility } from "~/lib/event3-overlay-policy.mjs"
 import {
@@ -9011,6 +9011,8 @@ export default function Event3Page() {
     const confirmed = window.confirm("هل أنت متأكد من تسجيل الخروج من الفعالية؟")
     if (!confirmed) return
 
+    const nextUri = buildEvent3Uri(window.location.search, { remove: ["token", "t"] })
+
     clearBrowserSessionArtifacts()
     setToken(null)
     setTokenError(false)
@@ -9025,12 +9027,13 @@ export default function Event3Page() {
     setShowWelcome(true)
     setShowAiWelcome(false)
 
-    window.history.replaceState({}, "", "/event3")
-    window.location.replace("/event3")
+    window.history.replaceState({}, "", nextUri)
+    window.location.replace(nextUri)
   }, [])
 
   const handleUseAnotherNumber = useCallback(() => {
     if (typeof window === "undefined") return
+    const nextUri = buildEvent3Uri(window.location.search, { remove: ["token", "t"] })
     clearStoredParticipantIdentity()
     clearAllArrived()
     setToken(null)
@@ -9045,7 +9048,7 @@ export default function Event3Page() {
     setPhaseTransition(null)
     setShowWelcome(false)
     setShowAiWelcome(false)
-    window.history.replaceState({}, "", "/event3")
+    window.history.replaceState({}, "", nextUri)
   }, [])
 
   const fetchState = useCallback(async () => {
@@ -9267,7 +9270,7 @@ export default function Event3Page() {
             {EVENT3_QA_PREVIEWS.map(([preview, label]) => (
               <a
                 key={preview}
-                href={`/event3?questionPreview=${preview}`}
+                href={buildEvent3Uri(searchParams, { set: { questionPreview: preview } })}
                 className="event3-action event3-glass flex min-h-16 items-center justify-between rounded-[1.25rem] border border-white/10 px-5 text-[15px] font-black text-white"
               >
                 <span>{label}</span>
@@ -9402,7 +9405,7 @@ export default function Event3Page() {
               <h1 className="mt-1 text-xl font-black">أسئلة المرحلة {isPhaseOne ? "الأولى" : "الثانية"}</h1>
             </div>
             <a
-              href={`/event3?questionPreview=${isPhaseOne ? "phase2" : "phase1"}`}
+              href={buildEvent3Uri(searchParams, { set: { questionPreview: isPhaseOne ? "phase2" : "phase1" } })}
               className="event3-action inline-flex min-h-12 items-center rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-gray-200"
             >
               عرض المرحلة {isPhaseOne ? "الثانية" : "الأولى"}

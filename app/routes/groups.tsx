@@ -1718,8 +1718,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     // Add event listener for browser back button
     window.addEventListener('popstate', handlePopState);
 
-    // Push current state to history so back button is intercepted
-    window.history.pushState(null, '', window.location.pathname);
+    // Push current state to history so back is intercepted without stripping
+    // Event3's token, test impersonation, admin marker, or fragment.
+    window.history.pushState(null, '', `${window.location.pathname}${window.location.search}${window.location.hash}`);
 
     // Cleanup event listener on component unmount
     return () => {

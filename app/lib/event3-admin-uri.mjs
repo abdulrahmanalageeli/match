@@ -17,3 +17,25 @@ export function hasEvent3AdminUriOverride(search) {
   }
   return false
 }
+
+/**
+ * Build an Event3 URL by updating the current query instead of replacing it.
+ * Test-mode access lives in the URI, so unrelated navigation must never drop
+ * markers such as `impersonate=1` or the explicit admin override.
+ */
+export function buildEvent3Uri(search, { remove = [], set = {} } = {}) {
+  const params = new URLSearchParams(
+    search instanceof URLSearchParams
+      ? search.toString()
+      : String(search || "").replace(/^\?/, ""),
+  )
+
+  for (const key of remove) params.delete(String(key))
+  for (const [key, value] of Object.entries(set)) {
+    if (value == null) params.delete(key)
+    else params.set(key, String(value))
+  }
+
+  const query = params.toString()
+  return query ? `/event3?${query}` : "/event3"
+}

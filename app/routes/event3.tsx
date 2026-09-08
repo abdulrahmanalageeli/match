@@ -676,7 +676,7 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
 }
 
 type BinaryPopupTone = "violet" | "cyan" | "amber" | "rose"
-type BinaryPopupSize = "compact" | "tall"
+type BinaryPopupSize = "compact" | "tall" | "container"
 
 const BINARY_POPUP_STREAMS = [
   { value: "01011001 10100110 00110101", fromX: "-48vw", fromY: "-38vh", targetX: -8.8, targetY: -1, rotate: -7 },
@@ -689,29 +689,29 @@ const BINARY_POPUP_STREAMS = [
   { value: "10110010 01001101 10011010", fromX: "44vw", fromY: "40vh", targetX: 8.5, targetY: 1, rotate: -6 },
 ] as const
 
-const BINARY_POPUP_TONES: Record<BinaryPopupTone, { code: string; line: string; aura: string; scan: string }> = {
+const BINARY_POPUP_TONES: Record<BinaryPopupTone, { code: string; line: string; glow: string; scan: string }> = {
   violet: {
     code: "text-violet-100/80",
     line: "from-transparent via-violet-200/90 to-transparent",
-    aura: "radial-gradient(circle, rgba(168,85,247,.3) 0%, rgba(34,211,238,.1) 42%, transparent 72%)",
+    glow: "rgba(168,85,247,.52)",
     scan: "from-transparent via-cyan-100/90 to-transparent",
   },
   cyan: {
     code: "text-cyan-100/80",
     line: "from-transparent via-cyan-200/90 to-transparent",
-    aura: "radial-gradient(circle, rgba(34,211,238,.26) 0%, rgba(99,102,241,.1) 42%, transparent 72%)",
+    glow: "rgba(34,211,238,.46)",
     scan: "from-transparent via-blue-100/90 to-transparent",
   },
   amber: {
     code: "text-amber-100/80",
     line: "from-transparent via-amber-200/90 to-transparent",
-    aura: "radial-gradient(circle, rgba(251,191,36,.25) 0%, rgba(249,115,22,.08) 42%, transparent 72%)",
+    glow: "rgba(251,191,36,.46)",
     scan: "from-transparent via-amber-100/90 to-transparent",
   },
   rose: {
     code: "text-rose-100/80",
     line: "from-transparent via-rose-200/90 to-transparent",
-    aura: "radial-gradient(circle, rgba(244,63,94,.26) 0%, rgba(217,70,239,.09) 42%, transparent 72%)",
+    glow: "rgba(244,63,94,.48)",
     scan: "from-transparent via-pink-100/90 to-transparent",
   },
 }
@@ -731,24 +731,36 @@ function BinaryPopupFormation({ tone = "violet", size = "compact", urgent = fals
   if (reduceMotion) return null
 
   const theme = BINARY_POPUP_TONES[tone]
-  const halfHeight = size === "tall" ? 19 : 12.5
-  const duration = urgent ? 0.52 : size === "tall" ? 1.02 : 0.86
+  const isContainerBound = size === "container"
+  const halfHeight = size === "tall" ? 19 : size === "container" ? 13.5 : 12.5
+  const duration = urgent ? 0.52 : size === "tall" ? 1.02 : size === "container" ? 0.94 : 0.86
   const frameHeight = size === "tall"
     ? "min(42rem, calc(100dvh - 2rem))"
     : "min(27rem, calc(100dvh - 5rem))"
+  const frameClass = isContainerBound
+    ? "absolute inset-0 rounded-[var(--event3-radius-card)]"
+    : "absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[1.8rem]"
+  const frameStyle = isContainerBound
+    ? { willChange: "transform, opacity" }
+    : { height: frameHeight, willChange: "transform, opacity" }
 
   return (
     <div
       data-event3-binary-formation={tone}
-      className="event3-binary-formation pointer-events-none absolute inset-0 overflow-hidden"
+      data-event3-binary-shape={isContainerBound ? "container" : "viewport"}
+      className={`event3-binary-formation pointer-events-none absolute inset-0 overflow-hidden ${isContainerBound ? "z-20" : ""}`}
       aria-hidden="true"
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.42 }}
-        animate={{ opacity: [0, urgent ? 0.34 : 0.5, 0], scale: [0.42, 1, 1.08] }}
+        initial={{ opacity: 0, scale: 0.82 }}
+        animate={{ opacity: [0, urgent ? 0.78 : 0.64, 0], scale: [0.82, 1, 1.025] }}
         transition={{ duration, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-[12%] rounded-full"
-        style={{ background: theme.aura, willChange: "transform, opacity" }}
+        className={`${frameClass} event3-binary-formation__aura`}
+        style={{
+          ...frameStyle,
+          border: `1px solid ${theme.glow}`,
+          boxShadow: `0 0 68px -18px ${theme.glow}, inset 0 0 38px -30px ${theme.glow}`,
+        }}
       />
 
       {BINARY_POPUP_STREAMS.map((stream, index) => {
@@ -773,15 +785,18 @@ function BinaryPopupFormation({ tone = "violet", size = "compact", urgent = fals
         )
       })}
 
-      <div
-        className="event3-binary-formation__frame absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[1.8rem]"
-        style={{ height: frameHeight }}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: [0, 1, 0.72, 0], scale: [0.94, 1, 1, 1.015] }}
+        transition={{ duration, times: [0, 0.28, 0.72, 1], ease: [0.22, 1, 0.36, 1] }}
+        className={`event3-binary-formation__frame ${frameClass}`}
+        style={frameStyle}
       >
         {["top-0", "bottom-0"].map(position => (
           <motion.span
             key={position}
             initial={{ opacity: 0, scaleX: 0.04 }}
-            animate={{ opacity: [0, 1, 0.28], scaleX: [0.04, 1, 1] }}
+            animate={{ opacity: [0, 1, 0], scaleX: [0.04, 1, 1] }}
             transition={{ duration: duration * 0.72, delay: urgent ? 0.05 : 0.18, ease: [0.22, 1, 0.36, 1] }}
             className={`absolute left-5 right-5 ${position} h-px origin-center bg-gradient-to-r ${theme.line}`}
           />
@@ -790,7 +805,7 @@ function BinaryPopupFormation({ tone = "violet", size = "compact", urgent = fals
           <motion.span
             key={position}
             initial={{ opacity: 0, scaleY: 0.04 }}
-            animate={{ opacity: [0, 1, 0.24], scaleY: [0.04, 1, 1] }}
+            animate={{ opacity: [0, 1, 0], scaleY: [0.04, 1, 1] }}
             transition={{ duration: duration * 0.72, delay: urgent ? 0.07 : 0.2, ease: [0.22, 1, 0.36, 1] }}
             className={`absolute bottom-5 top-5 ${position} w-px origin-center bg-gradient-to-b ${theme.line}`}
           />
@@ -802,7 +817,7 @@ function BinaryPopupFormation({ tone = "violet", size = "compact", urgent = fals
           className={`absolute inset-x-3 h-px bg-gradient-to-r ${theme.scan}`}
           style={{ boxShadow: "0 0 18px rgba(255,255,255,.28)" }}
         />
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -3024,6 +3039,11 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
 
   const current = order[currentIdx]
   const nextSpeaker = order[currentIdx + 1]
+  const speakerToneClass = round === 1
+    ? "event3-speaker-orbit--cyan"
+    : round === 2
+      ? "event3-speaker-orbit--violet"
+      : "event3-speaker-orbit--amber"
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -3063,7 +3083,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
             transition={{ type: "spring", stiffness: 250, damping: 27 }}
             className="pt-5"
           >
-            <div className="event3-speaker-orbit mx-auto flex min-h-28 w-28 flex-col items-center justify-center rounded-full border border-white/15 bg-gray-950/80 px-3 text-center shadow-2xl">
+            <div className={`event3-speaker-orbit ${speakerToneClass} mx-auto flex min-h-24 w-full max-w-[15rem] flex-col items-center justify-center rounded-[1.6rem] border border-white/15 px-4 text-center shadow-2xl`}>
               <p className={`text-xs font-black ${theme.text}`}>{current.isMe ? "دورك الآن" : "الدور الآن"}</p>
               <p className="mt-1 max-w-full truncate text-lg font-black text-white">{current.name}</p>
             </div>
@@ -4303,11 +4323,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <div className={`absolute -right-24 -top-28 h-80 w-80 rounded-full blur-[95px] ${RC.primaryOrb}`} />
               <div className={`absolute -bottom-28 -left-20 h-72 w-72 rounded-full blur-[90px] ${RC.secondaryOrb}`} />
             </div>
-            <BinaryPopupFormation
-              key={`group-stage-${round}-${groupActivityStage}`}
-              tone={round === 1 ? "cyan" : round === 2 ? "violet" : "amber"}
-              size="tall"
-            />
+            {groupActivityStage === "activities" && (
+              <BinaryPopupFormation
+                key={`group-stage-${round}-${groupActivityStage}`}
+                tone={round === 1 ? "cyan" : round === 2 ? "violet" : "amber"}
+                size="tall"
+              />
+            )}
             {groupActivityStage === "warmup" && assignment?.tablemates ? (
               <div className="event3-scroll relative z-10 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" tabIndex={-1}>
                 <div className="mx-auto w-full max-w-sm space-y-4">
@@ -4318,13 +4340,22 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                     </div>
                     <button type="button" onClick={closeGroups} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-gray-300 transition-colors hover:bg-white/10 hover:text-white" aria-label="إغلاق أنشطة المجموعة"><X size={19} /></button>
                   </div>
-                  <IceBreaker
-                    round={round}
-                    tableNumber={assignment.table}
-                    myInfo={myInfo}
-                    tablemates={assignment.tablemates}
-                    onDone={beginGroupActivities}
-                  />
+                  <div className="relative">
+                    <BinaryPopupFormation
+                      key={`icebreaker-formation-${round}`}
+                      tone={round === 1 ? "cyan" : round === 2 ? "violet" : "amber"}
+                      size="container"
+                    />
+                    <div className="relative z-10">
+                      <IceBreaker
+                        round={round}
+                        tableNumber={assignment.table}
+                        myInfo={myInfo}
+                        tablemates={assignment.tablemates}
+                        onDone={beginGroupActivities}
+                      />
+                    </div>
+                  </div>
                   <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-12 items-center justify-center gap-1.5 rounded-2xl px-4 text-sm font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
                     تخطي سؤال التعارف <ArrowLeft size={16} />
                   </button>

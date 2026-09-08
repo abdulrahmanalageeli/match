@@ -56,8 +56,10 @@ test("group overlays use premium formation and shared motion surfaces", () => {
 
   assert.match(round, /key=\{`group-stage-\$\{round\}-\$\{groupActivityStage\}`\}/)
   assert.match(round, /<BinaryPopupFormation/)
+  assert.match(round, /key=\{`icebreaker-formation-\$\{round\}`\}[\s\S]*size="container"/)
   assert.match(styles, /\.event3-icebreaker-card\s*\{/)
   assert.match(styles, /\.event3-speaker-orbit::before/)
+  assert.match(styles, /\.event3-speaker-orbit--amber/)
   assert.match(styles, /\.event3-activity-card\s*\{/)
   assert.match(styles, /\.event3-activity-play \.modern-activity-card/)
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)

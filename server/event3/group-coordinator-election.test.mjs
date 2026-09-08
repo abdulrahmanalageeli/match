@@ -338,7 +338,7 @@ test("participant API and Event3 UI expose the election and opt-in projector con
   assert.match(event3, /عرض سؤال الطاولة/)
   assert.match(event3, /const \[syncEnabled, setSyncEnabled\] = useState\(false\)/)
   assert.match(event3, /Boolean\(coordination\.active_content\)/)
-  assert.match(event3, /انقلاب/)
+  assert.match(event3, /تغيير المنسّق/)
   assert.match(event3, /يعطي كل شخص فرصته للكلام/)
   assert.match(event3, /تخطّي المؤقت وحسم الأصوات/)
   assert.match(event3, /اختيار منسّق عشوائياً/)

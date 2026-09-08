@@ -2815,7 +2815,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   onClick={onRequestReelection}
                   className="min-h-9 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-2.5 text-[10px] font-black text-amber-200 transition-colors hover:bg-amber-400/15"
                 >
-                  انقلاب
+                  تغيير المنسّق
                 </button>
               )}
             </div>

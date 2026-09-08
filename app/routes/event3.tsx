@@ -753,36 +753,33 @@ function JourneyCue({
   className?: string
 }) {
   const theme = JOURNEY_ACCENTS[accent]
+  const safeStep = Math.max(0, Math.min(currentStep, steps.length - 1))
   return (
-    <section className={`event3-glass relative overflow-hidden rounded-[1.65rem] border p-[1.125rem] text-right ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
+    <section className={`event3-glass event3-guide relative overflow-hidden rounded-[1.4rem] border px-4 py-3.5 text-right ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${theme.wash}`} />
       <div className="relative">
-        <div className="flex items-center justify-between gap-3">
-          <span className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${theme.pill}`}>
-            <span className={`h-2 w-2 rounded-full shadow-[0_0_10px_currentColor] ${theme.dot}`} />
-            {eyebrow}
-          </span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={`flex items-center gap-2 text-xs font-black ${theme.text}`}>
+              <span className={`h-2 w-2 shrink-0 rounded-full shadow-[0_0_10px_currentColor] ${theme.dot}`} />
+              {eyebrow}
+            </p>
+            <h2 className="mt-1.5 text-lg font-black leading-[1.4] tracking-[-0.01em] text-white">{title}</h2>
+          </div>
           {aside}
         </div>
-        <h2 className="mt-3.5 text-xl font-black leading-[1.35] tracking-[-0.01em] text-white">{title}</h2>
-        {description && <p className="mt-1.5 text-sm leading-6 text-gray-300">{description}</p>}
-
-        <ol className="mt-5 grid grid-cols-3 gap-2.5 rounded-2xl border border-white/[0.055] bg-black/15 px-2 py-3" aria-label="خطوات هذه المرحلة">
-          {steps.map((step, index) => {
-            const done = index < currentStep
-            const active = index === currentStep
-            return (
-              <li key={step} className="relative min-w-0 text-center">
-                {index > 0 && <span aria-hidden="true" className={`absolute left-1/2 right-[-50%] top-3.5 h-px ${done || active ? theme.line : "bg-white/[0.08]"}`} />}
-                <span className={`relative z-10 mx-auto flex h-7 w-7 items-center justify-center rounded-full border text-xs font-black ${
-                  done ? `${theme.dot} border-transparent text-gray-950` : active ? `${theme.pill} ring-4 ring-black/20` : "border-white/10 bg-gray-950 text-gray-600"
-                }`}>
-                  {done ? <CheckCircle size={13} /> : index + 1}
-                </span>
-                <span className={`mt-2 block text-xs leading-4 ${active ? `${theme.text} font-black` : done ? "font-bold text-gray-300" : "text-gray-500"}`}>{step}</span>
-              </li>
-            )
-          })}
+        {description && <p className="mt-1 text-sm leading-6 text-gray-300">{description}</p>}
+        <div className="mt-3 flex items-center gap-2 border-t border-white/[0.06] pt-2.5" aria-hidden="true">
+          <div className="flex items-center gap-1.5">
+            {steps.map((step, index) => (
+              <span key={step} className={`h-1.5 rounded-full transition-[width,background-color] ${index === safeStep ? `w-5 ${theme.dot}` : index < safeStep ? `w-1.5 ${theme.dot} opacity-55` : "w-1.5 bg-white/15"}`} />
+            ))}
+          </div>
+          <span className="text-xs font-bold text-gray-400">{steps[safeStep]}</span>
+          <span className="mr-auto text-xs text-gray-600">{safeStep + 1}/{steps.length}</span>
+        </div>
+        <ol className="sr-only" aria-label="خطوات هذه المرحلة">
+          {steps.map((step, index) => <li key={step} aria-current={index === safeStep ? "step" : undefined}>{step}</li>)}
         </ol>
       </div>
     </section>
@@ -812,29 +809,26 @@ function MeetingPass({
   const Icon = pink ? Heart : Brain
 
   return (
-    <section className={`event3-glass relative overflow-hidden rounded-[1.75rem] border p-5 text-right ${border}`} aria-label={`بطاقة ${kind}`}>
+    <section className={`event3-glass relative overflow-hidden rounded-[1.5rem] border p-4 text-right ${border}`} aria-label={`بطاقة ${kind}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${wash}`} />
-      <div className="relative">
-        <div className="flex items-center justify-between gap-3">
-          <span className={`inline-flex items-center gap-2 text-sm font-black ${text}`}><Icon size={15} /> بطاقة اللقاء</span>
-          {badge && <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-200">{badge}</span>}
-        </div>
-        <p className="mt-1 text-xs text-gray-400">{kind}</p>
-
-        <div className="mt-5 grid grid-cols-[1fr_auto] items-stretch gap-3">
-          <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3.5">
-            <span className="text-xs font-bold text-gray-400">شريك اللقاء</span>
+      <div className="relative flex items-stretch gap-3">
+        <div className="flex min-w-0 flex-1 flex-col justify-center px-1 py-1 text-right">
+          <div className="flex items-center gap-2">
+            <Icon size={15} className={text} />
+            <span className={`text-xs font-black ${text}`}>{kind}</span>
+            {badge && <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-xs font-black text-amber-200">{badge}</span>}
+          </div>
+          <span className="mt-2 text-xs font-bold text-gray-400">شريك اللقاء</span>
             {partnerHidden ? (
-              <span className="mt-1.5 text-base font-black text-gray-200">يظهر بعد وصولك</span>
+              <span className="mt-1 text-base font-black text-gray-200">يظهر عند وصولك</span>
             ) : (
-              <span className="mt-1.5 truncate text-2xl font-black tracking-[-0.02em] text-white">{partnerName || "جاري التجهيز"}</span>
+              <span className="mt-1 truncate text-2xl font-black tracking-[-0.02em] text-white">{partnerName || "جاري التجهيز"}</span>
             )}
-          </div>
-          <div className={`flex min-w-[5.5rem] flex-col items-center justify-center rounded-2xl border px-3 py-3 ${square}`}>
-            <MapPin size={16} className={text} />
-            <span className={`mt-1.5 text-3xl font-black leading-none ${text}`}>{tableNumber ?? "—"}</span>
-            <span className="mt-1.5 text-xs font-bold text-gray-300">الطاولة</span>
-          </div>
+        </div>
+        <div className={`flex min-w-[5.25rem] flex-col items-center justify-center rounded-2xl border px-3 py-3 ${square}`}>
+          <MapPin size={16} className={text} />
+          <span className={`mt-1 text-3xl font-black leading-none ${text}`}>{tableNumber ?? "—"}</span>
+          <span className="mt-1 text-xs font-bold text-gray-300">الطاولة</span>
         </div>
       </div>
     </section>
@@ -1126,7 +1120,6 @@ function Brand() {
         </span>
         <span className="h-px w-5 bg-gradient-to-r from-cyan-300/60 to-transparent" aria-hidden="true" />
       </div>
-      <div dir="ltr" className="mt-1 text-[7px] font-bold uppercase tracking-[0.3em] text-cyan-100/40">Blind Match · Edition 5.0</div>
     </div>
   )
 }
@@ -1798,18 +1791,6 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
     window.location.href = storedToken ? `/results?token=${storedToken}` : "/results"
   }
 
-  const journeyStats = isChoiceOnlyEvent3(eventFormat)
-    ? [
-        { value: "٣", label: "جولات جماعية", Icon: Users, tone: "text-blue-300 bg-blue-400/10 border-blue-300/15" },
-        { value: "٣", label: "لقاءات فردية", Icon: Heart, tone: "text-pink-300 bg-pink-400/10 border-pink-300/15" },
-        { value: "١٠٠٪", label: "اختيارات سرية", Icon: ShieldCheck, tone: "text-emerald-300 bg-emerald-400/10 border-emerald-300/15" },
-      ]
-    : [
-        { value: "٢", label: "جولات جماعية", Icon: Users, tone: "text-blue-300 bg-blue-400/10 border-blue-300/15" },
-        { value: "٢", label: "لقاءات فردية", Icon: Heart, tone: "text-pink-300 bg-pink-400/10 border-pink-300/15" },
-        { value: "١٠٠٪", label: "اختيارات سرية", Icon: ShieldCheck, tone: "text-emerald-300 bg-emerald-400/10 border-emerald-300/15" },
-      ]
-
   return (
     <MotionConfig reducedMotion="user">
     <div className="event3-shell event3-stage event3-welcome relative flex h-[100dvh] flex-col overflow-hidden bg-[#06040b]" dir="rtl" lang="ar">
@@ -1897,10 +1878,9 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 0.55, y: 0 }}
                     transition={{ delay: 0.28, duration: 0.4 }}
-                    dir="ltr"
-                    className="mt-3 font-mono text-[9px] font-bold uppercase tracking-[0.42em] text-cyan-100"
+                    className="mt-3 text-sm font-bold tracking-wide text-cyan-100/70"
                   >
-                    Connection beyond the surface
+                    تواصل أبعد من الانطباع الأول
                   </motion.p>
                   <motion.div
                     initial={{ scaleX: 0 }}
@@ -2034,77 +2014,43 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                     aria-hidden="true"
                   />
                 </div>
-                <span dir="ltr" className="mt-1.5 text-[8px] font-extrabold uppercase tracking-[0.34em] text-cyan-100/45">
-                  Blind Match <span className="text-purple-200/60">·</span> Edition 5.0
-                </span>
               </motion.div>
 
               <motion.h1 ref={splashHeadingRef} tabIndex={-1} initial={{ opacity: 0, y: 16, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ delay: reduceMotion ? 0 : 0.43, duration: 0.52, ease: [0.22, 1, 0.36, 1] }} className="text-[1.85rem] font-black leading-[1.15] text-white focus:outline-none sm:text-[2.1rem]">
-                جاهز لرحلتك
-                <span className="block bg-gradient-to-l from-purple-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">الليلة؟</span>
+                أهلاً بك في
+                <span className="block bg-gradient-to-l from-purple-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">التوافق الأعمى</span>
               </motion.h1>
               <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.5, duration: 0.42 }} className="mx-auto mt-2 max-w-[290px] text-[13px] font-medium leading-6 text-gray-400">
-                لقاءات حقيقية تقودها اختيارات متبادلة — بخطوات واضحة وخصوصية كاملة.
+                سنخبرك بما تحتاجه في كل خطوة. اختياراتك تبقى سرية.
               </motion.p>
 
-              <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.58, duration: 0.46, ease: [0.22, 1, 0.36, 1] }} className="relative mt-5 w-full overflow-hidden rounded-[1.65rem] border border-white/[0.1] bg-[linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018))] p-px shadow-[0_24px_70px_-44px_rgba(139,92,246,.85),inset_0_1px_0_rgba(255,255,255,.08)]">
-                <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/55 to-transparent" aria-hidden="true" />
-                <div className="relative grid grid-cols-3 overflow-hidden rounded-[calc(1.65rem-1px)] bg-[#0d0a16]/85 px-1 py-2.5">
-                  <span className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-blue-500/[0.08] blur-2xl" aria-hidden="true" />
-                  <span className="pointer-events-none absolute -left-10 -bottom-14 h-28 w-28 rounded-full bg-fuchsia-500/[0.07] blur-2xl" aria-hidden="true" />
-                  {journeyStats.map(({ value, label, Icon, tone }, index) => (
-                    <motion.div key={label} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.66 + index * 0.055, duration: 0.32 }} className={`relative flex min-w-0 flex-col items-center px-1 py-1.5 ${index > 0 ? "border-r border-white/[0.055]" : ""}`}>
-                      <div className={`relative mb-2 flex h-8 w-8 items-center justify-center rounded-[0.7rem] border shadow-[inset_0_1px_0_rgba(255,255,255,.09),0_8px_20px_-12px_currentColor] ${tone}`}>
-                        <Icon size={14} strokeWidth={1.8} />
-                      </div>
-                      <span className="bg-gradient-to-b from-white to-white/75 bg-clip-text text-[15px] font-black leading-none text-transparent">{value}</span>
-                      <span className="mt-1.5 text-[9px] font-bold leading-3 text-gray-400">{label}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.75, duration: 0.48, ease: [0.22, 1, 0.36, 1] }} className="mt-3.5 w-full space-y-2.5">
+              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.6, duration: 0.48, ease: [0.22, 1, 0.36, 1] }} className="mt-6 w-full space-y-3">
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={onDone}
-                className="group relative isolate min-h-[4.65rem] w-full overflow-hidden rounded-[1.45rem] bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-3.5 py-3 text-right text-white shadow-[0_22px_48px_-24px_rgba(168,85,247,.82)] transition-[filter,transform] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+                className="event3-action group relative isolate flex min-h-14 w-full items-center justify-center overflow-hidden rounded-[1.35rem] bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-4 py-3 text-white shadow-[0_22px_48px_-24px_rgba(168,85,247,.82)] transition-[filter,transform] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
               >
                 <span className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-white/[0.13] blur-2xl" aria-hidden="true" />
                 <motion.span initial={{ x: "-125%" }} animate={{ x: reduceMotion ? "-125%" : "150%" }} transition={{ delay: 1.15, duration: 0.95, ease: "easeInOut" }} className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/[0.16] to-transparent" aria-hidden="true" />
-                <span className="relative flex items-center justify-between gap-2.5">
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] border border-white/[0.14] bg-white/[0.1] shadow-[inset_0_1px_0_rgba(255,255,255,.16)]"><Smartphone size={18} strokeWidth={1.9} /></span>
-                    <span className="min-w-0">
-                      <span className="block text-[15px] font-black leading-5 sm:text-base">{showLogout ? "متابعة الفعالية" : "الدخول برقم الجوال"}</span>
-                      <span className="mt-0.5 block text-[10px] font-semibold text-white/65 sm:text-[11px]">{showLogout ? "تم التعرّف على هذا الجهاز" : "سنرسل لك رمز تحقق آمن"}</span>
-                    </span>
-                  </span>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.16] bg-black/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"><ArrowLeft size={17} className="transition-transform group-hover:-translate-x-0.5" /></span>
+                <span className="relative flex items-center justify-center gap-2.5 text-base font-black">
+                  {showLogout ? "متابعة الفعالية" : "الدخول إلى الفعالية"}
+                  <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-0.5" />
                 </span>
               </motion.button>
 
-              <button
-                type="button"
-                onClick={() => { setStep(0); setPhase("steps") }}
-                className="group relative flex min-h-[3.8rem] w-full items-center justify-between overflow-hidden rounded-[1.25rem] border border-white/[0.095] bg-[linear-gradient(115deg,rgba(255,255,255,.065),rgba(124,58,237,.075),rgba(255,255,255,.025))] px-3 text-right text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,.055)] transition-all hover:border-purple-300/25 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
-              >
-                <span className="pointer-events-none absolute -right-8 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-purple-500/[0.08] blur-xl" aria-hidden="true" />
-                <span className="relative flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-purple-300/[0.12] bg-purple-400/[0.09] text-purple-200 shadow-[inset_0_1px_0_rgba(255,255,255,.06)]"><Sparkles size={15} /></span><span><span className="block text-xs font-black text-white/90">كيف تعمل الفعالية؟</span><span className="mt-0.5 block text-[9px] font-medium text-gray-500">كل ما تحتاج معرفته قبل البداية</span></span></span>
-                <span className="relative flex items-center gap-2"><span className="rounded-full border border-white/[0.07] bg-black/10 px-2 py-1 text-[8px] font-bold text-purple-200/65">٣ خطوات</span><ChevronRight size={14} className="rotate-180 text-gray-500 transition-transform group-hover:-translate-x-0.5" /></span>
-              </button>
-
-              <div className="flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-2.5">
-                <span className="flex min-w-0 items-center gap-1.5 text-[9px] font-semibold text-gray-500 sm:text-[10px]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-400/[0.06]"><ShieldCheck size={12} className="text-emerald-400/80" /></span> بياناتك واختياراتك سرية</span>
+              <div className="flex min-h-12 items-center justify-center gap-4 text-sm font-bold">
                 <button
                   type="button"
-                  onClick={openResults}
-                  className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-2.5 text-[11px] font-bold text-gray-300 transition-colors hover:border-emerald-300/15 hover:bg-emerald-400/[0.07] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                  onClick={() => { setStep(0); setPhase("steps") }}
+                  className="min-h-11 text-purple-200 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                 >
-                  <Trophy size={13} className="text-emerald-300/80" /> النتائج
+                  كيف تعمل؟
                 </button>
+                <span className="text-white/15" aria-hidden="true">•</span>
+                <button type="button" onClick={openResults} className="min-h-11 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300">عرض النتائج</button>
               </div>
+              <p className="flex items-center justify-center gap-1.5 text-xs text-gray-500"><ShieldCheck size={13} className="text-emerald-300/75" /> بياناتك واختياراتك سرية</p>
               </motion.div>
             </div>
           </motion.div>
@@ -2364,15 +2310,12 @@ function PhoneEntry({
       <motion.div
         initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-        className="w-full max-w-sm space-y-6 text-center"
+        className="w-full max-w-sm space-y-4 text-center"
       >
-        <div className="space-y-3">
-          <Event3Mark />
+        <div className="space-y-2">
+          <Event3Mark size="compact" />
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-300/[0.12] bg-cyan-300/[0.055] px-2.5 py-1 text-[9px] font-black tracking-wide text-cyan-100/75">
-              <ShieldCheck size={11} /> دخول آمن ومشفّر
-            </span>
-            <h1 className="bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-[1.85rem] font-black leading-tight text-transparent">
+            <h1 className="bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-[1.7rem] font-black leading-tight text-transparent">
               {loginTitle}
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
@@ -2385,39 +2328,6 @@ function PhoneEntry({
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
           <GlassCard className="rounded-[1.65rem] p-5">
             <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3.5" noValidate>
-              <div className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-white/[0.07] bg-black/25 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,.025)]" role="group" aria-label="طريقة تسجيل الدخول">
-                <button
-                  type="button"
-                  aria-pressed={loginMethod === "sms"}
-                  disabled={loading}
-                  onClick={() => selectLoginMethod("sms")}
-                  className={`relative flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-[0.9rem] px-2 text-xs font-black transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 disabled:cursor-wait ${
-                    loginMethod === "sms"
-                      ? "border border-purple-300/20 bg-gradient-to-br from-purple-500/30 via-violet-500/20 to-fuchsia-500/20 text-white shadow-[0_10px_30px_-16px_rgba(168,85,247,.9),inset_0_1px_0_rgba(255,255,255,.12)]"
-                      : "border border-transparent text-gray-500 hover:bg-white/[0.035] hover:text-gray-300"
-                  }`}
-                >
-                  {loginMethod === "sms" && <span aria-hidden="true" className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/70 to-transparent" />}
-                  <Smartphone size={15} className={loginMethod === "sms" ? "text-purple-200" : "text-gray-600"} />
-                  <span className="whitespace-nowrap">رسالة SMS</span>
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={loginMethod === "token"}
-                  disabled={loading}
-                  onClick={() => selectLoginMethod("token")}
-                  className={`relative flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-[0.9rem] px-2 text-xs font-black transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-wait ${
-                    loginMethod === "token"
-                      ? "border border-cyan-200/20 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/25 text-white shadow-[0_10px_30px_-16px_rgba(34,211,238,.8),inset_0_1px_0_rgba(255,255,255,.12)]"
-                      : "border border-transparent text-gray-500 hover:bg-white/[0.035] hover:text-gray-300"
-                  }`}
-                >
-                  {loginMethod === "token" && <span aria-hidden="true" className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/75 to-transparent" />}
-                  <KeyRound size={15} className={loginMethod === "token" ? "text-cyan-200" : "text-gray-600"} />
-                  <span className="whitespace-nowrap">رمز الدخول</span>
-                </button>
-              </div>
-
               <div className="flex items-center justify-between px-0.5">
                 <label htmlFor={inputId} className="block text-right text-xs font-black text-gray-200">
                   {isTokenLogin ? "الرمز المميز" : step === "phone" ? "رقم الجوال" : "رمز التحقق"}
@@ -2521,14 +2431,22 @@ function PhoneEntry({
                   <button type="button" onClick={editPhone} disabled={loading} className="min-h-11 text-gray-300 disabled:opacity-50">تغيير الرقم</button>
                 </div>
               )}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => selectLoginMethod(isTokenLogin ? "sms" : "token")}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-gray-400 transition-colors hover:bg-white/[0.035] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 disabled:opacity-50"
+              >
+                {isTokenLogin ? <Smartphone size={14} /> : <KeyRound size={14} />}
+                {isTokenLogin ? "الدخول برقم الجوال" : "استخدام رمز الدخول بدلاً من الرسالة"}
+              </button>
             </form>
           </GlassCard>
         </motion.div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-          className="space-y-1 text-center text-xs text-gray-500">
+          className="text-center text-xs text-gray-500">
           <p className="inline-flex items-center justify-center gap-1.5"><ShieldCheck size={12} className="text-emerald-300/65" /> {isTokenLogin ? "رمزك خاص بك ولا يظهر لأي مشارك" : "بيانات الدخول لا تظهر لبقية المشاركين"}</p>
-          <p className="text-[11px] text-gray-600">{isTokenLogin ? "يتم التحقق مباشرة من دون إرسال رسالة جديدة." : "إذا لم يصلك الرمز، استخدم رمز الدخول أو تواصل مع المنظم."}</p>
         </motion.div>
       </motion.div>
     </PageWrapper>
@@ -2536,7 +2454,12 @@ function PhoneEntry({
 }
 
 // ─── Waiting / Setup Screen ───────────────────────────────────────────────────
-function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null; eventFormat: Event3Format }) {
+function SetupScreen({ myInfo, enrolledCount, eventFormat, onOpenWelcomeMessage }: {
+  myInfo: { number: number; name: string; gender: string | null } | null
+  enrolledCount: number | null
+  eventFormat: Event3Format
+  onOpenWelcomeMessage: () => void
+}) {
 
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
 
@@ -2564,15 +2487,15 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-sm space-y-4"
+        className="w-full max-w-sm space-y-3.5"
       >
         <Brand />
 
         {/* Participant info card */}
         {myInfo && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <GlassCard className="flex items-center gap-4 rounded-[1.35rem] border-purple-300/[0.12] p-4">
-              <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border text-2xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_12px_28px_-18px_currentColor] ${
+            <GlassCard className="flex items-center gap-3 rounded-[1.35rem] border-purple-300/[0.12] p-3.5">
+              <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border text-xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_12px_28px_-18px_currentColor] ${
                 myInfo.gender === "female" ? "border-pink-400/20 bg-gradient-to-br from-pink-500/25 to-fuchsia-950/40 text-pink-200" :
                 myInfo.gender === "male" ? "border-cyan-400/20 bg-gradient-to-br from-cyan-500/20 to-blue-950/40 text-cyan-200" :
                 "border-purple-400/20 bg-gradient-to-br from-purple-500/25 to-violet-950/40 text-purple-200"
@@ -2581,19 +2504,13 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
               </div>
               <div className="flex-1 min-w-0 text-right">
                 <p className="text-base font-black leading-tight text-white">{myInfo.name}</p>
-                <p className="mt-1 text-[11px] font-medium text-gray-500">هويتك داخل الفعالية · الرقم {myInfo.number}</p>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/[0.12] bg-emerald-400/[0.07] px-2 py-1">
-                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,.75)]" />
-                  <span className="text-[10px] font-black text-emerald-200">جاهز</span>
-                </div>
+                <p className="mt-1 text-xs font-medium text-gray-500">رقمك في الفعالية: {myInfo.number}</p>
               </div>
             </GlassCard>
           </motion.div>
         )}
 
-        <GlassCard className="space-y-3.5 rounded-[1.5rem] border-purple-300/[0.12] p-5 text-center">
+        <GlassCard className="space-y-3 rounded-[1.5rem] border-purple-300/[0.12] p-5 text-center">
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2].map(i => (
               <motion.div
@@ -2605,45 +2522,44 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
             ))}
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-purple-200/55">READY ROOM</p>
-            <h1 className="mt-1 bg-gradient-to-l from-white via-purple-100 to-cyan-100 bg-clip-text text-xl font-black text-transparent">الفعالية ستبدأ قريباً</h1>
-            <p className="mt-1 text-xs text-gray-500">انتظر توجيهات المنظم</p>
+            <h1 className="bg-gradient-to-l from-white via-purple-100 to-cyan-100 bg-clip-text text-xl font-black text-transparent">أنت جاهز</h1>
+            <p className="mt-1 text-sm text-gray-400">انتظر بدء الفعالية</p>
           </div>
-          <p className="rounded-xl border border-emerald-300/[0.12] bg-emerald-400/[0.055] px-3 py-2 text-xs leading-5 text-emerald-100/80">
-            لا تحتاج أن تفعل شيئاً الآن — ستنتقل الشاشة تلقائياً عند بدء الجولة.
+          <p className="rounded-xl border border-emerald-300/[0.12] bg-emerald-400/[0.055] px-3 py-2.5 text-sm leading-6 text-emerald-100/85">
+            لا تحتاج إلى فعل شيء. ستنتقل الشاشة تلقائياً.
           </p>
           {enrolledCount != null && enrolledCount > 0 && (
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-green-400 text-xs font-medium">{enrolledCount} مشارك مسجّل</span>
-            </div>
+            <p className="text-xs font-medium text-gray-500">تم تسجيل {enrolledCount} مشارك</p>
           )}
         </GlassCard>
 
-        {/* Event timeline preview */}
+        {/* Optional context stays out of the waiting path. */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <GlassCard className="space-y-3 rounded-[1.35rem] p-4">
-            <p className="flex items-center justify-between text-xs font-black text-gray-300">
-              <span className="flex items-center gap-1.5"><Clock size={12} className="text-purple-300" /> رحلة الفعالية</span>
-              <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-cyan-100/35">THE JOURNEY</span>
-            </p>
-            <div className="space-y-2">
-              {timeline.map((step, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="relative flex items-center justify-center">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.65rem] border border-white/[0.08] bg-white/[0.045] text-sm shadow-[inset_0_1px_0_rgba(255,255,255,.05)]">
-                      {step.icon}
+          <details className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-bold text-gray-300">
+              معلومات إضافية
+              <ChevronRight size={16} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+            </summary>
+            <div className="space-y-4 border-t border-white/[0.06] p-4">
+              <button type="button" onClick={onOpenWelcomeMessage} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-purple-300/[0.14] bg-purple-400/[0.08] text-sm font-bold text-purple-100 transition-colors hover:bg-purple-400/[0.13]">
+                <Sparkles size={16} /> رسالة ترحيب لك
+              </button>
+              <div>
+                <p className="mb-3 flex items-center gap-2 text-sm font-black text-white"><Clock size={14} className="text-purple-300" /> خطوات الفعالية</p>
+                <div className="space-y-2.5">
+                  {timeline.map((step, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.65rem] border border-white/[0.08] bg-white/[0.045] text-sm">
+                        {step.icon}
+                      </div>
+                      <span className="flex-1 text-xs font-medium text-gray-300">{step.label}</span>
+                      <span className="text-xs text-gray-600">{step.time}</span>
                     </div>
-                    {i < timeline.length - 1 && (
-                      <div className="absolute top-full h-2 w-px bg-gradient-to-b from-purple-400/35 to-transparent" />
-                    )}
-                  </div>
-                  <span className="flex-1 text-xs font-medium text-gray-300">{step.label}</span>
-                  <span className="rounded-full border border-white/[0.055] bg-black/20 px-2 py-0.5 font-mono text-[9px] text-gray-500">{step.time}</span>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </GlassCard>
+          </details>
         </motion.div>
       </motion.div>
     </PageWrapper>
@@ -2667,7 +2583,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
   const titleId = useId()
   const grad = accent === "pink" ? "from-pink-600 to-rose-600" : accent === "amber" ? "from-amber-500 to-orange-500" : "from-purple-600 to-pink-600"
   const ring = accent === "pink" ? "ring-pink-500/30" : accent === "amber" ? "ring-amber-500/30" : "ring-purple-500/30"
-  const chipBg = accent === "pink" ? "bg-pink-600/25 border-pink-500/50 text-pink-200" : accent === "amber" ? "bg-amber-600/25 border-amber-500/50 text-amber-200" : "bg-purple-600/25 border-purple-500/50 text-purple-200"
+  const accentText = accent === "pink" ? "text-pink-200" : accent === "amber" ? "text-amber-200" : "text-purple-200"
   const ctaText = accent === "amber" ? "text-black" : "text-white"
 
   useEffect(() => {
@@ -2702,34 +2618,28 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         aria-labelledby={titleId}
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 26 }}
-        className={`event3-glass event3-sheet relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-4 text-center ring-1 sm:p-6 ${ring}`}
+        className={`event3-glass event3-sheet relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-5 text-right ring-1 ${ring}`}
       >
         {/* Close */}
         <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black/25 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
           <X size={13} />
         </button>
 
-        {/* Label chip */}
-        <span className={`inline-flex self-center shrink-0 items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-xs font-black tracking-wide mb-2 sm:mb-3`}>
-          <Lightbulb size={12} /> {label}
-        </span>
-
-        {/* Icon */}
-        <div className="relative mx-auto w-fit mb-2 sm:mb-3 shrink-0">
-          <motion.div className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
-            animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.09] bg-gradient-to-br from-white/[0.08] to-white/[0.025] shadow-[inset_0_1px_0_rgba(255,255,255,.08)] sm:h-14 sm:w-14">{icon}</div>
+        <div className="flex items-center gap-3 pl-10">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.09] bg-white/[0.045]">{icon}</div>
+          <div className="min-w-0">
+            <p className={`text-xs font-bold ${accentText}`}>{label}</p>
+            <h2 id={titleId} className="mt-0.5 text-lg font-black text-white">{title}</h2>
+          </div>
         </div>
 
-        <h2 id={titleId} className="text-white font-black text-lg mb-2 sm:mb-3 shrink-0">{title}</h2>
-
         {/* Points */}
-        <div className="space-y-1.5 sm:space-y-2 text-right mb-3 sm:mb-5 min-h-0 overflow-y-auto overscroll-contain pr-0.5">
+        <div className="my-4 min-h-0 space-y-3 overflow-y-auto overscroll-contain">
           {points.map((p, i) => (
             <motion.div key={i} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }}
-              className="flex items-start gap-2 rounded-xl border border-white/[0.065] bg-black/[0.18] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,.025)] sm:px-3 sm:py-2">
-              <span className="shrink-0 mt-0.5">{p.icon}</span>
-              <p className="text-gray-300 text-[12px] leading-relaxed flex-1">{p.text}</p>
+              className="flex items-start gap-3 border-b border-white/[0.055] pb-3 last:border-0 last:pb-0">
+              <span className="mt-0.5 shrink-0">{p.icon}</span>
+              <p className="flex-1 text-sm leading-6 text-gray-300">{p.text}</p>
             </motion.div>
           ))}
         </div>
@@ -2738,7 +2648,6 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
           className={`event3-action w-full shrink-0 rounded-xl bg-gradient-to-r py-3 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${grad} ${ctaText}`}>
           {cta}
         </motion.button>
-        <p className="text-gray-500 text-[10px] sm:text-xs mt-1.5 shrink-0">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
       </motion.div>
     </motion.div>
   )
@@ -2755,10 +2664,9 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
       title="جولة جماعية"
       cta="فهمت — ابدأ الجولة"
       points={[
-        { icon: <MapPin size={15} className="text-purple-400" />, text: <>اذهب إلى <span className="text-white font-bold">رقم طاولتك</span> الظاهر في المنتصف واجلس مع مجموعتك</> },
-        { icon: <Target size={15} className="text-indigo-400" />, text: <>اضغط <span className="text-white font-bold">«اختيار نشاط للمجموعة»</span> واختاروا لعبة أو أسئلة نقاش تناسبكم</> },
-        { icon: <MessageSquare size={15} className="text-emerald-400" />, text: <>زر <span className="text-white font-bold">«المنظم»</span> في الأسفل لأي مساعدة أو طارئ</> },
-        { icon: <Clock size={15} className="text-amber-400" />, text: <>المؤقت في الأعلى ينبّهك عند اقتراب انتهاء الوقت</> },
+        { icon: <MapPin size={16} className="text-purple-300" />, text: <>اذهب إلى الطاولة الظاهرة على الشاشة.</> },
+        { icon: <Target size={16} className="text-indigo-300" />, text: <>اضغط <span className="font-bold text-white">ابدأوا معاً</span> واتبع الخطوة الظاهرة.</> },
+        { icon: <MessageSquare size={16} className="text-emerald-300" />, text: <>استخدم زر المنظّم فقط إذا احتجت مساعدة.</> },
       ]}
     />
   )
@@ -2775,10 +2683,9 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
       title="جلستك الفردية"
       cta="فهمت — ابدأ الجلسة"
       points={[
-        { icon: <MapPin size={15} className="text-amber-400" />, text: <>اذهب إلى <span className="text-white font-bold">رقم طاولتك</span> الظاهر في المنتصف لمقابلة شريكك</> },
-        { icon: <MessageSquare size={15} className="text-purple-400" />, text: <>اضغط <span className="text-white font-bold">«أسئلة الجلسة»</span> لأسئلة نقاش — تأخذان أدوارًا: واحد يسأل والآخر يجيب</> },
-        { icon: <Clock size={15} className="text-amber-400" />, text: <>المؤقت ينبهك عند اقتراب انتهاء الوقت</> },
-        { icon: <Heart size={15} className="text-emerald-400" />, text: <>بعد الجلسة: قيّم تجربتك — إجاباتك سرية وتساعد في التحسين</> },
+        { icon: <MapPin size={16} className="text-amber-300" />, text: <>اذهب إلى طاولتك ثم أكّد وصولك.</> },
+        { icon: <MessageSquare size={16} className="text-purple-300" />, text: <>ابدأ بالسؤال الظاهر وخذا دوركما في الإجابة.</> },
+        { icon: <Heart size={16} className="text-emerald-300" />, text: <>عند النهاية أرسل تقييمك السري.</> },
       ]}
     />
   )
@@ -3272,7 +3179,7 @@ function GroupElectionOverlay({
 
             <div className="mb-2 flex items-center justify-center gap-2">
               <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[10px] font-black tracking-wide text-fuchsia-200">
-                {isReelection ? "انقلاب ديمقراطي" : "قرار الطاولة"}
+                {isReelection ? "اختيار منسّق جديد" : "قرار الطاولة"}
               </span>
               <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-black text-cyan-200">اختروا الآن</span>
             </div>
@@ -3480,7 +3387,7 @@ function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentV
           </div>
         </div>
         <button type="button" onClick={onReelection} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-xs font-black text-amber-200 transition-colors hover:bg-amber-400/15">
-          <Crown size={14} /> انقلاب
+          <Crown size={14} /> تغيير المنسّق
         </button>
       </header>
 
@@ -3550,7 +3457,7 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
     >
       <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="event3-sheet relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><Crown size={28} /></div>
-        <p className="mt-4 text-[10px] font-black tracking-[0.18em] text-amber-300">انقلاب</p>
+        <p className="mt-4 text-xs font-black text-amber-300">تغيير المنسّق</p>
         <h2 id="reelection-title" className="mt-1 text-xl font-black text-white">فتح تصويت جديد؟</h2>
         <p className="mt-3 text-sm font-medium leading-7 text-white/55">يبقى {coordinatorName} منسّقاً أثناء التصويت. أمام المجموعة 3 دقائق لاختيار شخص آخر.</p>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200">{error}</p>}
@@ -3581,12 +3488,12 @@ function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection 
           {voting ? <Vote size={20} /> : <Crown size={20} />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black text-violet-200">{voting ? (state.kind === "revolt" ? "انقلاب قيد التصويت" : "انتخابات الطاولة") : "منسّق الطاولة"}</p>
+          <p className="text-xs font-black text-violet-200">{voting ? (state.kind === "revolt" ? "تصويت لمنسّق جديد" : "انتخابات الطاولة") : "منسّق الطاولة"}</p>
           <p className="mt-0.5 truncate text-sm font-black text-white">{voting ? `${state.votes_cast} من ${state.member_count} صوّتوا` : `${leaderName}${isLeader ? " · أنت" : ""}`}</p>
         </div>
         {!voting && (
           <button type="button" onClick={onReelection} className="flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 text-[11px] font-black text-amber-200 transition-colors hover:bg-amber-400/15">
-            انقلاب
+            تغيير المنسّق
           </button>
         )}
       </div>
@@ -4022,23 +3929,11 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
         inert={showGroups || coordinationModalVisible}
       >
         <div className="w-full max-w-md space-y-4 text-center">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring" }}
-            className={`inline-flex items-center gap-2 rounded-full border bg-black/20 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_14px_35px_-24px_rgba(0,0,0,.9)] backdrop-blur-xl ${RC.badge}`}
-          >
-            <Users size={13} />
-            <span className="font-bold text-sm">الجولة الجماعية {RC.ordinalAr}</span>
-            <span className="text-gray-600 text-xs">من {groupRoundCount}</span>
-          </motion.div>
-          <JourneyCue
-            accent={RC.journeyAccent}
-            eyebrow={RC.nameAr}
-            title={assignment ? `توجّه الآن إلى طاولة ${assignment.table}` : "نجهّز مكانك في الجولة"}
-            description={`${RC.focusAr}. بعد الوصول ستبدأون بكسر جليد قصير، ثم تختارون نشاطاً واحداً للمجموعة.`}
-            steps={["الوصول", "كسر الجليد", "نشاط المجموعة"]}
-            currentStep={groupActivityStage === "activities" ? 2 : groupsHaveOpened ? 1 : 0}
-            className="event3-group-surface"
-          />
+          <motion.header initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="px-1 text-right">
+            <p className={`text-xs font-black ${RC.text}`}>الجولة الجماعية {RC.ordinalAr} من {groupRoundCount}</p>
+            <h1 className="mt-1 text-2xl font-black text-white">{assignment ? "اذهب إلى طاولتك" : "نجهّز طاولتك"}</h1>
+            <p className="mt-1 text-sm leading-6 text-gray-400">{assignment ? "ستجد رقمها واضحاً هنا، ثم ابدأوا معاً." : "ستظهر هنا خلال لحظات."}</p>
+          </motion.header>
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -4050,17 +3945,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                   <div className={`absolute -bottom-24 -left-16 w-44 h-44 rounded-full blur-3xl pointer-events-none ${RC.secondaryOrb}`} />
                   <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-4">
                     <div className="min-w-0">
-                      <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black ${RC.badge}`}>
-                        <Sparkles size={11} /> مجموعتك جاهزة
-                      </div>
-                      <h2 className="mt-2 text-xl font-black tracking-tight text-white">مكانك لهذه الجولة</h2>
-                      <p className="mt-1 text-xs font-medium leading-5 text-white/45">توجّه للطاولة، تعرّف على الجميع، ثم ابدأوا النشاط معاً.</p>
-                      {assignment.tablemates?.length > 0 && (
-                        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-black/20 px-3 py-1.5 text-[10px] font-bold text-white/50">
-                          <Users size={11} />
-                          <span>{assignment.tablemates.length + (myInfo ? 1 : 0)} أشخاص في المجموعة</span>
-                        </div>
-                      )}
+                      <p className={`text-xs font-black ${RC.text}`}>رقم الطاولة</p>
+                      <h2 className="mt-1 text-xl font-black tracking-tight text-white">توجّه إليها الآن</h2>
+                      <p className="mt-1 text-sm font-medium leading-6 text-white/50">بعد أن تجلس، اضغط زر «ابدأوا معاً».</p>
                     </div>
                     <div className={`flex min-h-[7rem] flex-col items-center justify-center rounded-[1.6rem] border bg-black/25 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_18px_45px_-26px_rgba(34,211,238,.6)] ${RC.border}`}>
                       <MapPin size={15} className={RC.text} />
@@ -4073,9 +3960,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                 </div>
 
                 {(myInfo || assignment.tablemates?.length > 0) && (
-                  <div className="border-t border-white/[0.06] bg-black/15 px-4 pb-4 pt-3">
-                    <p className="mb-2.5 text-right text-[10px] font-black text-white/35">أعضاء المجموعة</p>
-                    <div className="flex flex-wrap justify-start gap-1.5">
+                  <details className="group border-t border-white/[0.06] bg-black/15 text-right">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-300">
+                      <span className="flex items-center gap-2"><Users size={14} className={RC.text} /> أسماء المجموعة</span>
+                      <span className="flex items-center gap-2 text-gray-500">{assignment.tablemates.length + (myInfo ? 1 : 0)} أشخاص <ChevronRight size={14} className="rotate-90 transition-transform group-open:-rotate-90" /></span>
+                    </summary>
+                    <div className="flex flex-wrap justify-start gap-1.5 border-t border-white/[0.05] px-4 pb-4 pt-3">
                       {myInfo && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-black text-amber-100 ring-1 ring-amber-400/10">
                           <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]" />
@@ -4104,7 +3994,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
 
               {/* Session ended overlay */}
@@ -4167,7 +4057,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <span className="block text-base font-black">{
                 !groupsHaveOpened ? "وصلت — ابدأوا معاً" : groupActivityStage === "warmup" ? "متابعة كسر الجليد" : "العودة إلى نشاط المجموعة"
               }</span>
-              <span className="mt-0.5 block text-xs font-medium text-white/75">تعارف سريع، ثم ألعاب وأسئلة يشارك فيها الجميع</span>
             </span>
             <ArrowLeft size={18} className="relative z-10 shrink-0 text-white/75 transition-transform group-hover:-translate-x-0.5" />
           </motion.button>
@@ -4195,12 +4084,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             )}
           </AnimatePresence>
 
-          <p className="text-gray-600 text-xs">
-            {round === 1 && "تعارف جماعي على طاولتك — ستختار بعدها من تريد جلسة فردية معه"}
-            {round === 2 && (choiceOnly ? "بعد هذه الجولة ستحدّث ترتيبك، ثم تنتقل إلى مجموعة ثالثة" : "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية")}
-            {round === 3 && "آخر جولة جماعية — بعدها ستحسم ترتيبك النهائي للقاءات الاختيار الثلاثة"}
-          </p>
-
           {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("discussionPreview") && (
             <button onClick={() => setShowGroupParticipationNudge(true)} className="text-amber-300/80 hover:text-amber-200 text-[11px] font-medium transition-colors mx-auto">
               اختبار تنبيه المشاركة (10 دقائق)
@@ -4218,10 +4101,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <motion.button
               onClick={() => setShowTutorial(true)}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-              className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
+              className="mx-auto flex min-h-11 items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-gray-300"
             >
-              <RefreshCw size={11} />
-              كيف تسير الجولة؟
+              <Info size={13} />
+              شرح الجولة
             </motion.button>
           )}
 
@@ -4400,13 +4283,11 @@ function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceO
       title="رتّب من أعجبك"
       cta="فهمت — ابدأ الترتيب"
       points={[
-        { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
-        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> فهذا أقوى نوع من الاختيار المتبادل في اللقاءين الأول والثاني.</> },
-        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث. ننتقل للخيار المتبادل التالي فقط عندما يلزم ذلك لإكمال أزواج الجولة، ثم نحسب اللقاء الثالث كأفضل توزيع شامل متبقٍ.</> },
-        { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
-        { icon: <Users size={14} className="text-pink-400" />, text: choiceOnly
-          ? <>نتيجتك: <span className="text-white font-bold">ثلاث جلسات فردية متبادلة</span> مع أشخاص مختلفين؛ أول جلستين بأولوية الاختيار الفردي والثالثة بأفضل خطة شاملة متبقية</>
-          : <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
+        { icon: <Trophy size={16} className="text-amber-300" />, text: <>ضع الشخص الذي ترغب بلقائه أكثر في المركز الأول. اسحب المقبض أو اضغط رقم المركز.</> },
+        { icon: <Heart size={16} className="text-emerald-300" />, text: <>اختياراتك سرية، واللقاء لا يعتمد على اختيار طرف واحد فقط.</> },
+        { icon: <Users size={16} className="text-pink-300" />, text: choiceOnly
+          ? <>سنستخدم الترتيب لتكوين ثلاثة لقاءات متبادلة مع أشخاص مختلفين.</>
+          : <>سنستخدم الترتيب لتكوين لقاء اختيارك ولقاء يرشحه النظام.</> },
       ]}
     />
   )
@@ -4447,7 +4328,7 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback, onRankingResolved, onRankingDirty, eventFormat }: {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, onOpenGroupFeedback, onRankingResolved, onRankingDirty, eventFormat }: {
   token: string
   completedRounds: number
   currentPhase: string
@@ -4455,7 +4336,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   timerStart: string | null
   timerDuration: number
   correctedNow?: () => number
-  myInfo: { number: number; name: string; gender: string | null } | null
   onOpenGroupFeedback: (round: Event3GroupRound) => void
   onRankingResolved: (round: number) => void
   onRankingDirty: () => void
@@ -4776,12 +4656,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 <Trophy size={15} className="text-amber-400" />
               </div>
               <div>
-                <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب أولوياتك</h1>
-                <p className="mt-1 text-xs leading-tight text-gray-400">
-                  {myInfo && <span className="font-bold text-amber-400/80">رقمك #{myInfo.number}</span>}
-                  {myInfo && <span className="mx-1 text-gray-700">·</span>}
-                  {people.length} أشخاص · اسحب أو اضغط رقم المركز
-                </p>
+                <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب من تفضّل</h1>
+                <p className="mt-1 text-xs leading-tight text-gray-400">الأكثر رغبة أولاً · {people.length} أسماء</p>
               </div>
             </div>
 
@@ -4822,32 +4698,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             </div>
           )}
 
-          {/* Compact status row — replaces 3 separate banners */}
-          {!submitted && (
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {newNums.size > 0 && (
-                <span className="text-purple-300 text-[10px] bg-purple-900/20 border border-purple-800/25 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
-                  <Sparkles size={10} /> {newNums.size} جدد
-                </span>
-              )}
-              {showPhaseWarning && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                  className="text-amber-300 text-[10px] bg-amber-900/30 border border-amber-700/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1 cursor-pointer"
-                  onClick={() => setShowPhaseWarning(false)}
-                >
-                  <Clock size={10} /> انتقل المنظم — جارٍ تأكيد الحفظ التلقائي
-                </motion.span>
-              )}
-              {timeLeft <= 30 && timeLeft > 0 && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                  className="text-red-300 text-[10px] bg-red-900/30 border border-red-700/30 rounded-full px-2.5 py-0.5 font-bold inline-flex items-center gap-1"
-                >
-                  <Clock size={10} className="animate-pulse" /> باقي {timeLeft}ث
-                </motion.span>
-              )}
-            </div>
+          {showPhaseWarning && !submitted && (
+            <button type="button" onClick={() => setShowPhaseWarning(false)} className="mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-amber-700/30 bg-amber-900/25 px-3 text-xs font-bold text-amber-200">
+              <Clock size={12} /> انتقل المنظم — نؤكد الحفظ تلقائياً
+            </button>
           )}
         </div>
       </div>
@@ -4860,32 +4714,22 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           <JourneyCue
             accent="amber"
             eyebrow={isFinalRanking ? "قرارك النهائي" : "قرار هذه الجولة"}
-            title="ضع الأكثر رغبة في اللقاء بالمركز الأول"
-            description="الترتيب الحالي نقطة بداية فقط؛ غيّره ليعكس اختيارك، ثم راجع أول ثلاثة قبل الحفظ."
+            title="ضع مَن تفضّله في المركز الأول"
+            description="اسحب المقبض، أو اضغط رقم المركز لاختيار مكانه."
             steps={["رتّب", "راجع الأعلى", "احفظ"]}
             currentStep={0}
             className="mb-3"
             aside={(
-              <button type="button" onClick={() => setShowRankTutorial(true)} className="min-h-9 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-[11px] font-bold text-gray-300">
-                كيف تُحسم؟
+              <button type="button" onClick={() => setShowRankTutorial(true)} className="min-h-10 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-gray-300">
+                شرح
               </button>
             )}
           />
         )}
-        {order.length > 4 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-cyan-800/25 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-200"
-          >
-            <motion.span animate={{ y: [0, 3, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>↓</motion.span>
-            مرّر لرؤية كل الأسماء · اسحب المقبض أو اضغط رقم المركز
-          </motion.div>
-        )}
+        {order.length > 4 && <p className="mb-2 text-center text-xs font-medium text-gray-500">مرّر للأسفل لرؤية بقية الأسماء</p>}
         <p className="sr-only" aria-live="polite">{rankAnnouncement}</p>
-        {!submitted && <p role="status" className={`mb-2 text-center text-[11px] ${draftSync === "error" ? "text-amber-300" : "text-gray-400"}`}>
-          {draftSync === "error" ? "تعذّرت مزامنة الترتيب — نحاول مجدداً، أبقِ الصفحة مفتوحة" : draftSync === "saving" ? "جارٍ مزامنة ترتيبك..." : "تمت مزامنة ترتيبك — يُحفظ تلقائياً عند انتهاء المرحلة"}
-        </p>}
+        {!submitted && draftSync === "error" && <p role="status" className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2 text-center text-xs font-bold text-amber-200">تعذّر الحفظ الآن — نحاول مجدداً تلقائياً</p>}
+        {!submitted && draftSync !== "error" && <p role="status" className="sr-only">{draftSync === "saving" ? "جارٍ حفظ ترتيبك" : "تم حفظ ترتيبك مؤقتاً"}</p>}
         <Reorder.Group axis="y" values={order} onReorder={next => { if (!submitted && !submitting && !autoSaving && !rankingClosed && !rankingExpired) setOrder(next) }} className="space-y-2" as="div" role="list" aria-label="ترتيب المشاركين">
           {order.map((num, idx) => {
             const p = personMap[num]
@@ -4924,30 +4768,27 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     </select>
                   </div>
 
+                  <div className="flex min-w-0 flex-1 flex-col justify-center px-1 text-right">
+                      <span className="flex max-w-full items-center gap-1.5">
+                        <span className="truncate text-sm font-bold leading-tight text-white">{p.first_name}</span>
+                        <span className="shrink-0 text-[11px] font-mono text-gray-400">#{p.number}</span>
+                        {newNums.has(num) && (
+                          <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-purple-800/40 bg-purple-900/35 px-1.5 py-0.5 text-xs font-semibold text-purple-200">
+                            <Sparkles size={8} /> جديد
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-1 text-xs font-medium text-gray-500">المجموعة {p.round}</span>
+                  </div>
+
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
                     aria-expanded={openNote === num}
                     aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name} من المجموعة ${p.round}`}
-                    className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-center transition hover:bg-white/[0.04]"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors ${notes[num] ? 'border-amber-400/20 bg-amber-400/[0.08] text-amber-200' : 'border-white/[0.06] bg-white/[0.025] text-gray-500 hover:text-gray-300'}`}
                   >
-                    <span className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                      <span className="flex max-w-full items-center justify-center gap-1.5">
-                        <span className="truncate text-sm font-bold leading-tight text-white">{p.first_name}</span>
-                        <span className="shrink-0 text-[11px] font-mono text-gray-400">#{p.number}</span>
-                        {newNums.has(num) && (
-                          <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-purple-800/50 bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-200">
-                            <Sparkles size={8} /> جديد
-                          </span>
-                        )}
-                      </span>
-                      <span className="flex flex-wrap items-center justify-center gap-1.5">
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/25 bg-gradient-to-r from-cyan-500/[0.13] to-blue-500/[0.08] px-2.5 py-0.5 text-[10px] font-black text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.08)]">
-                          <Users size={9} aria-hidden="true" /> المجموعة {p.round}
-                        </span>
-                      </span>
-                    </span>
-                    <PenLine size={14} className={notes[num] ? 'shrink-0 text-amber-300' : 'shrink-0 text-gray-400'} />
+                    <PenLine size={15} />
                   </button>
 
                   {/* Drag handle — keeping drag here leaves the rest of the card free for page scrolling. */}
@@ -5053,19 +4894,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
                 {isFinalRanking ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
-              <div className="flex items-center justify-center gap-1.5 mt-2">
-                <p className="text-gray-600 text-[10px]">
-                  {choiceOnly ? "سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين؛ الأول والثاني بأولوية الاختيار الفردي والثالث بأفضل توزيع شامل متبقٍ" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
-                </p>
-                {timeLeft > 0 && timeLeft <= 60 && (
-                  <>
-                    <span className="text-gray-700 text-[10px]">·</span>
-                    <p className="text-amber-500/60 text-[10px]">
-                      يُحفظ تلقائياً عند انتهاء الوقت
-                    </p>
-                  </>
-                )}
-              </div>
+              <p className="mt-2 text-center text-xs text-gray-500">اختياراتك سرية · يُحفظ ترتيبك تلقائياً عند انتهاء الوقت</p>
             </>
           )}
         </div>
@@ -5111,14 +4940,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
                 <Send size={22} className="text-amber-400" />
               </div>
-              <h3 id="ranking-confirm-title" className="text-white font-black text-lg">تأكيد التصنيف</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                حفظ ترتيبك لـ <span className="text-white font-bold">{order.length}</span> شخص.
-                {isFinalRanking ? " تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك التعديل في الجولة القادمة."}
-              </p>
-              <p className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2 text-xs leading-relaxed text-amber-100/80">
-                تأكد أن القائمة تعبّر عن رغبتك، وليست مجرد الترتيب المبدئي.
-              </p>
+              <h3 id="ranking-confirm-title" className="text-white font-black text-lg">احفظ هذا الترتيب؟</h3>
+              <p className="text-sm leading-6 text-gray-400">راجع أعلى ثلاثة، ثم أكّد الحفظ.</p>
               {/* Top 3 podium preview */}
               <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3.5 space-y-2">
                 {order.slice(0, 3).map((num, i) => {
@@ -5897,50 +5720,20 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
         <AnimatePresence mode="wait" custom={dir}>
           {step === 0 && (
             <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-2">
-              {/* Disclaimer banner — intellectual compatibility, not looks (only on this step) */}
-              <div className="relative z-10">
-                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                  className="relative overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 px-4 py-3">
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-                  <div className="flex items-start gap-2.5">
-                    <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-                      className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-600/30 flex items-center justify-center shrink-0 mt-0.5">
-                      <AlertTriangle size={15} className="text-amber-400" />
-                    </motion.div>
-                    <div className="space-y-1">
-                      <p className="text-amber-300 text-xs font-black">قيّم اللقاء كما عشته</p>
-                      <p className="text-xs leading-relaxed text-amber-100/75">
-                        {choiceOnly
-                          ? <>خمّن التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>. هذا التقدير يساعد المنظم على فهم جودة التجربة، ولا يغيّر ترتيبك أو شركاء هذه النسخة.</>
-                          : <>خمّن التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. نستخدم تقديرك لتحسين جودة المطابقات المستقبلية.</>}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
-                <div className="inline-flex items-center gap-1.5 bg-purple-900/30 border border-purple-700/40 rounded-full px-3 py-1 mb-1">
-                  <Brain size={11} className="text-purple-400" />
-                  <span className="text-xs font-semibold text-purple-200">توافق فكري</span>
-                </div>
-                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">خمّن درجة التوافق الفكري</h2>
-                <p className="text-sm text-gray-300">لو كنت تخمّن نسبة التوافق الفكري بينكم — كم تعطي؟</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">كم كان التوافق الفكري؟</h2>
+                <p className="text-sm leading-6 text-gray-400">قيّم الشخصية والتفكير، وليس المظهر.</p>
               </div>
-              {/* Beautiful slider card */}
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="relative space-y-4 overflow-hidden rounded-3xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-purple-950/20 p-4 shadow-xl shadow-purple-900/20 sm:space-y-5 sm:p-6">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
-                {/* Floating glow orbs */}
-                <motion.div className="absolute w-24 h-24 rounded-full bg-purple-500/10 blur-2xl"
-                  animate={{ x: [0, 15, 0], y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '5%', left: '5%' }} />
+                className="event3-glass relative space-y-5 overflow-hidden rounded-3xl border border-purple-400/[0.14] p-5">
                 {/* Big percentage display */}
                 <div className="relative z-10 text-center">
                   <motion.div
                     key={fb.compatibilityRate}
                     initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`text-5xl font-black font-mono tabular-nums sm:text-6xl ${
+                    className={`text-4xl font-black font-mono tabular-nums sm:text-5xl ${
                       fb.compatibilityRate >= 80 ? 'text-emerald-400' :
                       fb.compatibilityRate >= 60 ? 'text-amber-400' :
                       fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
@@ -5993,10 +5786,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                 </div>
                 {/* Hint */}
                 {!fb.sliderMoved && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="relative z-10 text-center">
-                    <p className="flex items-center justify-center gap-1.5 text-xs text-purple-200/80"><motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>حرّك المؤشر، أو ثبّت الدرجة الحالية</p>
-                    <button type="button" onClick={() => setFb(p => ({ ...p, sliderMoved: true }))} className="mt-2 min-h-11 rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-xs font-bold text-purple-200">50٪ يناسبني</button>
-                  </motion.div>
+                  <button type="button" onClick={() => setFb(p => ({ ...p, sliderMoved: true }))} className="relative z-10 flex min-h-11 w-full items-center justify-center rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-xs font-bold text-purple-200">اختيار 50٪</button>
                 )}
               </motion.div>
               {/* Next button */}
@@ -6030,11 +5820,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
                 <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">هل تريد التواصل لاحقاً؟</h2>
-                <p className="text-sm text-gray-400">اختيارك سري، ولا يظهر إلا عند الموافقة المتبادلة</p>
-              </div>
-              <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3 text-right">
-                <p className="text-sm font-black text-emerald-200">موافقة متبادلة فقط</p>
-                <p className="mt-1 text-xs leading-6 text-emerald-100/70">إذا اخترتما «نعم» كلاكما، تظهر معلومات التواصل في النتائج. غير ذلك لا يعرف الطرف الآخر إجابتك.</p>
+                <p className="text-sm leading-6 text-gray-400">اختيارك سري. تظهر معلومات التواصل فقط إذا وافقتما معاً.</p>
               </div>
               <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="الرغبة في التواصل لاحقاً">
                 <button type="button" role="radio" aria-checked={fb.wantConnect === true} onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
@@ -6113,21 +5899,24 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-3.5 text-right">
-                <label htmlFor={memoryWordId} className="block text-sm font-black text-violet-100">كلمة واحدة تحفظ إحساسك باللقاء — اختياري</label>
-                <p className="mt-1 text-xs leading-5 text-violet-100/60">ستظهر لك أنت فقط في الكشف النهائي، ولن يراها شريكك.</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <input id={memoryWordId} value={word} onChange={event => updateMemoryWord(event.target.value)} disabled={wordSubmitted} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: عفوي" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-base text-white outline-none placeholder:text-gray-600 disabled:text-violet-200" />
-                  {wordSubmitted && <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-emerald-300"><CheckCircle size={15} /> محفوظة</span>}
-                </div>
-              </div>
-              <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
-                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
-                  إضافة ملاحظة خاصة للمنظم — اختياري
-                  <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
+              <details className="event3-secondary-details group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-bold text-gray-400">
+                  إضافات اختيارية
+                  <ChevronRight size={15} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
                 </summary>
-                <div className="border-t border-white/[0.06] p-3">
+                <div className="space-y-4 border-t border-white/[0.06] p-3">
+                  <div>
+                    <label htmlFor={memoryWordId} className="block text-sm font-black text-violet-100">كلمة تذكّرك باللقاء</label>
+                    <p className="mt-1 text-xs leading-5 text-violet-100/60">تظهر لك أنت فقط في الكشف النهائي.</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input id={memoryWordId} value={word} onChange={event => updateMemoryWord(event.target.value)} disabled={wordSubmitted} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: عفوي" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-base text-white outline-none placeholder:text-gray-600 disabled:text-violet-200" />
+                      {wordSubmitted && <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-emerald-300"><CheckCircle size={15} /> محفوظة</span>}
+                    </div>
+                  </div>
+                  <div className="border-t border-white/[0.06] pt-3">
+                    <label className="mb-1.5 block text-sm font-black text-gray-300">ملاحظة خاصة للمنظم</label>
                   <textarea value={fb.organizerImpression} onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))} placeholder="مثلاً: شعرت بالراحة، أو احتجت وقتاً أطول..." rows={3} maxLength={300} aria-label="ملاحظة اختيارية للمنظم" className="w-full resize-none rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-3 text-base text-white outline-none placeholder:text-gray-600 sm:text-sm" />
+                  </div>
                 </div>
               </details>
               <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
@@ -6575,14 +6364,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   return (
     <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : choiceOnly ? "جلسة فردية 1:1 · الاختيار الأول" : "جلسة فردية 1:1 · اختيارك أنت"}
-            </div>
-            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "لقاء متبادل من أقوى الرتب الممكنة لهذه الجولة" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
-          </div>
-        </motion.div>
+        <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="pt-4 text-right">
+          <p className="text-xs font-black text-pink-300">{data?.is_backup ? "فرصة جديدة" : choiceOnly ? "الاختيار الأول" : "اختيارك"}</p>
+          <h1 className="mt-1 text-2xl font-black text-white">لقاء فردي</h1>
+        </motion.header>
 
         <AnimatePresence mode="wait">
           {!tableRevealed ? (
@@ -6612,11 +6397,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <JourneyCue
                 accent="pink"
                 title={`اتجه الآن إلى طاولة ${data?.table_number ?? "—"}`}
-                description="اسم شريكك يظهر هنا بمجرد تأكيد وصولك — ولن تحتاج للرجوع بحثاً عن التفاصيل."
+                description="عندما تصل، أكّد وصولك لنظهر اسم شريكك."
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
-              <MeetingPass accent="pink" kind={data?.is_backup ? "لقاء رتّبناه لك" : choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} tableNumber={data?.table_number} partnerHidden />
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -6657,7 +6441,6 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 tableNumber={data?.table_number}
                 badge={data?.is_backup ? "لقاء جديد" : null}
               />
-              <JourneyCue accent="pink" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
               {/* Backup pairing explanation banner */}
               {data?.is_backup && (
@@ -6757,36 +6540,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.div>
               ) : (
                 <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-                  {/* Redesigned partner reminder bar */}
-                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                    className="relative overflow-hidden rounded-2xl border border-pink-700/30 bg-gradient-to-r from-pink-950/40 via-rose-950/30 to-pink-950/20 px-4 py-3">
-                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-pink-400/50 to-transparent"
-                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <motion.div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center"
-                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
-                          <Users size={15} className="text-pink-400" />
-                        </motion.div>
-                        <div>
-                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
-                          <p className="text-pink-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
-                        </div>
-                      </div>
-                      {data?.table_number && (
-                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
-                          className="flex items-center gap-2">
-                          {data?.is_backup && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">احتياطي</span>}
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
-                            <MapPin size={12} className="text-amber-400" />
-                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-
-                  <JourneyCue accent="pink" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
+                  <JourneyCue accent="pink" eyebrow="الحوار" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -7008,14 +6762,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   return (
     <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              {choiceOnly ? <Heart size={13} /> : <Brain size={13} />} جلسة فردية 1:1 · {meetingKind}
-            </div>
-            <p className="text-gray-400 text-xs">{choiceOnly ? (isThirdChoice ? "لقاء متبادل مع شخص ثالث بعد استبعاد الشريكين السابقين" : "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول") : "لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة"}</p>
-          </div>
-        </motion.div>
+        <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="pt-4 text-right">
+          <p className="text-xs font-black text-purple-300">{meetingKind}</p>
+          <h1 className="mt-1 text-2xl font-black text-white">لقاء فردي</h1>
+        </motion.header>
 
         <AnimatePresence mode="wait">
           {!tableRevealed ? (
@@ -7045,11 +6795,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <JourneyCue
                 accent="purple"
                 title={`اتجه الآن إلى طاولة ${data?.table_number ?? "—"}`}
-                description="اسم شريكك يظهر هنا بمجرد تأكيد وصولك — ولن تحتاج للرجوع بحثاً عن التفاصيل."
+                description="عندما تصل، أكّد وصولك لنظهر اسم شريكك."
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
-              <MeetingPass accent="purple" kind={meetingLabel} tableNumber={data?.table_number} partnerHidden />
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -7093,7 +6842,6 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               )}
 
               <MeetingPass accent="purple" kind={meetingLabel} partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={!choiceOnly && data?.same_as_phase2 ? "تطابق مثالي" : null} />
-              <JourneyCue accent="purple" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
               {data && (
                 <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] text-right">
@@ -7141,36 +6889,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </div>
 
             <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-                  {/* Redesigned partner reminder bar */}
-                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                    className="relative overflow-hidden rounded-2xl border border-purple-700/30 bg-gradient-to-r from-purple-950/40 via-violet-950/30 to-purple-950/20 px-4 py-3">
-                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"
-                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <motion.div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center"
-                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
-                          {choiceOnly ? <Heart size={15} className="text-purple-400" /> : <Brain size={15} className="text-purple-400" />}
-                        </motion.div>
-                        <div>
-                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
-                          <p className="text-purple-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
-                        </div>
-                      </div>
-                      {data?.table_number && (
-                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
-                          className="flex items-center gap-2">
-                          {!choiceOnly && data?.same_as_phase2 && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">مطابقة</span>}
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
-                            <MapPin size={12} className="text-amber-400" />
-                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-
-                  <JourneyCue accent="purple" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
+                  <JourneyCue accent="purple" eyebrow="الحوار" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -7374,10 +7093,9 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           <Coffee className="relative h-9 w-9 text-teal-200 [filter:drop-shadow(0_0_10px_rgba(45,212,191,.45))]" />
         </motion.div>
 
-        <p dir="ltr" className="mb-2 text-[8px] font-black uppercase tracking-[0.28em] text-teal-100/45">INTERMISSION · RESET</p>
-        <h1 className="mb-3 bg-gradient-to-l from-white via-teal-100 to-cyan-200 bg-clip-text text-[1.75rem] font-black leading-tight text-transparent">اشحن طاقتك للقاء القادم ☕</h1>
+        <h1 className="mb-3 bg-gradient-to-l from-white via-teal-100 to-cyan-200 bg-clip-text text-[1.75rem] font-black leading-tight text-transparent">استراحة قصيرة ☕</h1>
         <p className="mb-6 text-sm leading-7 text-gray-400">
-          الآن وقت القهوة — خذ قهوتك من المقهى واستعد لجولتك الفردية
+          خذ قهوتك واستعد. سننقلك تلقائياً عند بدء اللقاء.
         </p>
 
         {timerActive && timeLeft > 0 ? (
@@ -7437,42 +7155,38 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           type="button"
           whileTap={{ scale: 0.98 }}
           onClick={onOpenGroupFeedback}
-          className="event3-action group mb-4 flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-purple-500/[0.2] via-fuchsia-500/[0.13] to-teal-500/[0.16] px-4 py-3 text-right transition hover:brightness-110"
+          className="group mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/15 text-purple-200 transition group-hover:scale-105">
-            <PenLine size={19} />
-          </div>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-black text-white">راجع وعدّل تقييمات المجموعات</span>
-            <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">أكمل من فاتك أو غيّر انطباعك السابق بسرية</span>
-          </span>
-          <span className="hidden shrink-0 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-200 min-[360px]:inline-flex">تقييمك سري</span>
-          <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
+          <PenLine size={16} className="text-purple-200" />
+          مراجعة تقييمات المجموعات
         </motion.button>
 
-        <div className="event3-glass space-y-3 rounded-[1.5rem] border border-teal-300/[0.12] p-5 text-right">
-          <p className="text-teal-300 font-bold text-sm text-center">ماذا سيحدث بعد الاستراحة؟</p>
-          <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
+        <details className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-bold text-gray-300">
+            ماذا سيحدث بعد الاستراحة؟
+            <ChevronRight size={16} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+          </summary>
+          <div className="space-y-3 border-t border-white/[0.06] p-4 text-sm leading-6 text-gray-300">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>تبدأ مرحلة مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-pink-300">{choiceOnly ? "اختيارك الأول" : "اختيارك"}</b> وجهاً لوجه. بعدها ستشاركنا انطباعك.</span>
+              <span>لقاء {choiceOnly ? "الاختيار الأول" : "اختيارك"} ثم تقييم سريع.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم تبدأ مرحلة ثانية مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-purple-300">{choiceOnly ? "اختيارك الثاني" : "اختيارنا"}</b>. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} وبعدها تقيّمه.</span>
+              <span>لقاء {choiceOnly ? "الاختيار الثاني" : "اختيار النظام"} ثم تقييم سريع.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
-              <span>{choiceOnly ? <>بعدها تبدأ مرحلة ثالثة مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-violet-300">اختيارك الثالث</b> مع شخص مختلف عن اللقاءين السابقين، ثم تقيّمه.</> : <>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</>}</span>
+              <span>{choiceOnly ? "لقاء الاختيار الثالث ثم تقييم سريع." : "النتيجة النهائية وخيارات التواصل."}</span>
             </div>
             {choiceOnly && (
               <div className="flex items-start gap-2">
                 <span className="text-teal-400 mt-0.5 shrink-0">٤.</span>
-                <span>أخيرًا، ستشاهد نتيجتك النهائية وتقارن اللقاءات الثلاثة. ✨</span>
+                <span>النتيجة النهائية وخيارات التواصل.</span>
               </div>
             )}
           </div>
-        </div>
+        </details>
       </motion.div>
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
@@ -7515,13 +7229,13 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
         animate={{ rotateY: revealed ? 0 : 180 }}
         transition={{ duration: 0.7, type: "spring", stiffness: 120, damping: 18 }}
         style={{ transformStyle: "preserve-3d" }}
-        className="relative w-full min-h-[180px]"
+        className="relative w-full min-h-36"
       >
         {/* Front — revealed content */}
         <div
           aria-hidden={!revealed}
           inert={!revealed}
-          className={`relative overflow-hidden rounded-2xl border shadow-xl h-full flex flex-col items-center justify-center p-5 space-y-2.5 ${isPink ? "border-pink-800/40 shadow-pink-900/20 bg-gradient-to-br from-pink-950/40 to-rose-950/20" : "border-purple-800/40 shadow-purple-900/20 bg-gradient-to-br from-purple-950/40 to-violet-950/20"}`}
+          className={`relative flex h-full flex-col items-center justify-center space-y-2 overflow-hidden rounded-2xl border p-4 shadow-xl ${isPink ? "border-pink-800/40 shadow-pink-900/20 bg-gradient-to-br from-pink-950/40 to-rose-950/20" : "border-purple-800/40 shadow-purple-900/20 bg-gradient-to-br from-purple-950/40 to-violet-950/20"}`}
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
           <div className={`absolute top-0 inset-x-0 h-px ${isPink ? "bg-gradient-to-r from-transparent via-pink-400/50 to-transparent" : "bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"}`} />
@@ -7806,8 +7520,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         {/* Animated title */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
           <Event3Mark size="compact" className="mb-2" />
-          <p dir="ltr" className="text-[8px] font-black uppercase tracking-[0.28em] text-cyan-100/40">FINAL REVEAL</p>
-          <h1 className="mt-1 bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-2xl font-black text-transparent">الكشف النهائي</h1>
+          <h1 className="bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-2xl font-black text-transparent">نتيجتك النهائية</h1>
         </motion.div>
 
         {/* Same match banner */}
@@ -7840,8 +7553,17 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           )}
         </div>
 
-        <AnimatePresence>
-          {revealed && (
+        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-[0_20px_50px_-28px_rgba(217,70,239,.95)]">
+          <Trophy size={18} /> فتح النتائج والتواصل
+        </motion.a>
+
+        {revealed && (
+          <details className="event3-secondary-details group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
+              قراءة ما بين السطور
+              <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+            </summary>
+            <div className="border-t border-white/[0.06] p-3">
             <motion.section
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
@@ -7849,37 +7571,18 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
               aria-labelledby="pair-reading-title"
               className="space-y-3"
             >
-              <div className="event3-glass relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] px-4 py-4 text-right">
-                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl" />
-                <div className="relative flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/10 text-purple-200 shadow-[0_0_25px_-10px_rgba(192,132,252,.9)]">
-                    <Sparkles size={19} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300/65">BEYOND THE SCORE</p>
-                    <h2 id="pair-reading-title" className="mt-0.5 text-lg font-black text-white">قراءة ما بين السطور</h2>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/[0.07] px-2 py-1 text-[9px] font-bold text-emerald-200/70">
-                    <ShieldCheck size={9} /> خاصة
-                  </span>
-                </div>
-                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-400">خلاصة عالية المستوى لكل لقاء — من دون عرض إجاباتكما أو معايير التقييم أو طريقة الحساب.</p>
-              </div>
-
+              <h2 id="pair-reading-title" className="sr-only">ملخص اللقاءات</h2>
               <PairInsightCard result={p2} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />
               {!sameMatch && <PairInsightCard result={p3} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
               {choiceOnly && <PairInsightCard result={p4} label="اللقاء الثالث" order={3} accent="cyan" />}
             </motion.section>
-          )}
-        </AnimatePresence>
+            </div>
+          </details>
+        )}
 
-        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-[0_20px_50px_-28px_rgba(217,70,239,.95)]">
-          <Trophy size={18} /> فتح النتائج والتواصل
-        </motion.a>
-
-        <details className="group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
+        <details className="event3-secondary-details group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
-            قراءة شخصية أعمق <span className="font-medium text-gray-600">— اختياري</span>
+            قراءة شخصية أعمق <span className="font-medium text-gray-600">اختياري</span>
             <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
           </summary>
           <div className="space-y-3 border-t border-white/[0.06] p-3">
@@ -7898,9 +7601,15 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           </div>
         </details>
 
-        {/* Match preference — simplified */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
-          className="event3-glass space-y-3 rounded-2xl border border-white/[0.09] p-4">
+        <details className="event3-secondary-details group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
+            خيارات إضافية
+            <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+          </summary>
+          <div className="space-y-3 border-t border-white/[0.06] p-3">
+        {/* Match preference — optional */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="space-y-3 rounded-2xl border border-white/[0.07] bg-black/15 p-4 text-center">
           <div>
             <p className="text-gray-300 font-bold text-sm">مَن كان أقرب لك؟ <span className="font-medium text-gray-600">— اختياري</span></p>
             <p className="mt-1 text-[11px] leading-5 text-gray-500">نستخدم الإجابة لتحسين التجربة فقط، ولا يراها أي شريك.</p>
@@ -7956,6 +7665,8 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         >
           <MessageSquare size={17} /> مواصلة الحوار بأسئلة إضافية
         </motion.button>
+          </div>
+        </details>
 
         {/* Simple home link */}
         <motion.a href="/welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
@@ -8965,10 +8676,9 @@ function EventPhaseTransition({ transitionId, phase, eventFormat, onDone }: {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 0.55, y: 0 }}
             transition={{ delay: 0.08, duration: 0.22 }}
-            className="font-mono text-[9px] font-black uppercase tracking-[0.42em] text-white"
-            dir="ltr"
+            className="text-xs font-black tracking-wide text-white"
           >
-            SIGNAL LOCKED · 5.0
+            تم الانتقال
           </motion.p>
           <motion.div
             initial={{ scaleX: 0.08, opacity: 0 }}
@@ -8990,7 +8700,7 @@ function EventPhaseTransition({ transitionId, phase, eventFormat, onDone }: {
             transition={{ delay: 0.3, duration: 0.24 }}
             className="mt-3 text-xs font-bold tracking-wide text-purple-100"
           >
-            تمّت المزامنة · ننتقل الآن
+            اتبع الخطوة الظاهرة على الشاشة
           </motion.p>
         </div>
       </div>
@@ -9045,16 +8755,13 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
   return (
     <div className={`event3-status-header sticky top-0 z-[90] border-b px-4 pb-3 pt-3 ${safeTopClass}`} dir="rtl">
       <div className="mx-auto flex max-w-md items-center gap-3">
-        <div aria-hidden="true" title={connectionLabel} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,.07)]">
-          <span className={`h-2 w-2 rounded-full shadow-[0_0_9px_currentColor] ${connectionState === "online" ? "bg-emerald-300 text-emerald-300" : connectionState === "unstable" ? "animate-pulse bg-amber-300 text-amber-300" : "animate-pulse bg-orange-300 text-orange-300"}`} />
-        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
             <span className="truncate text-sm font-black tracking-[-0.01em] text-white">{event3PhaseLabel(phase, eventFormat)}</span>
-            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-300/[0.14] bg-purple-400/[0.09] px-2.5 py-0.5 text-xs font-bold text-purple-100/85">{progress[phase]}</span>}
+            {progress[phase] && <span className="whitespace-nowrap text-xs font-bold text-purple-200/60">{progress[phase]}</span>}
           </div>
-          <p className="mt-0.5 truncate text-xs font-medium text-gray-400"><span className="text-purple-200/60">الآن · </span>{phaseGuidance}</p>
-          {connectionState !== "online" && <p className="mt-0.5 text-xs text-amber-300">{connectionLabel}</p>}
+          <p className="mt-0.5 truncate text-xs font-medium text-gray-400">{phaseGuidance}</p>
+          {connectionState !== "online" && <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-amber-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />{connectionLabel}</p>}
           <span className="sr-only" aria-live="polite">{connectionState === "online" ? "الاتصال مستقر" : connectionState === "unstable" ? "الاتصال غير مستقر" : "لا يوجد اتصال"}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -9373,10 +9080,7 @@ export default function Event3Page() {
   const handleWelcomeDone = useCallback(() => {
     try { localStorage.setItem(EVENT3_ONBOARDING_KEY, "1") } catch {}
     setShowWelcome(false)
-    // Only show AI welcome if not already seen for this token
-    if (aiWelcomeSeenKey && localStorage.getItem(aiWelcomeSeenKey) === "1") return
-    setShowAiWelcome(true)
-  }, [aiWelcomeSeenKey])
+  }, [])
 
   useEffect(() => {
     if (!showAiWelcome || !eventState?.phase || eventState.phase === "setup") return
@@ -9704,9 +9408,9 @@ export default function Event3Page() {
       {/* Screen content fills available space */}
       <motion.div ref={eventContentRef} layoutScroll className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
-          {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} onOpenWelcomeMessage={() => setShowAiWelcome(true)} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} onProjectorVisibilityChange={setProjectorOpen} eventFormat={eventFormat} />}
-          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
+          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 3 || (!activeMatchFeedbackSlot && phase === "phase4_reveal")) && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} onFeedbackOpenChange={trackThirdMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
@@ -9773,7 +9477,7 @@ export default function Event3Page() {
         )}
       </AnimatePresence>
 
-      {/* AI Welcome popup — shows once after welcome screen */}
+      {/* The personalized welcome is opt-in from the setup screen. */}
       {canShowAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {
         if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
         setShowAiWelcome(false)

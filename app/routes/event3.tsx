@@ -2883,33 +2883,47 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
 }
 
 // ─── Ice Breaker (Group Rounds) ──────────────────────────────────────────────
-const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?: string[] }> = {
+type GroupIceBreaker = {
+  title: string
+  prompt: string
+  choices: string[]
+  followUp: string
+  answerCue: string
+}
+
+const ICE_BREAKERS: Record<number, GroupIceBreaker> = {
   1: {
-    title: "شرارة البداية",
+    title: "ثلاثة أشياء تعرّفنا عليك",
     prompt: "اسمك، ثم أعطنا 3 أشياء تساعدنا نتعرف عليك أكثر — ممنوع تقول عمرك أو وظيفتك.",
-    subPrompts: [
-      "مثال: هواية غريبة عندك، حقيقة ما أحد يعرفها عنك، أو شيء تحب تسويه بوقتك الحر.",
-      "مثال: موهبة مخفية، مكان تحب تزوره، أو أكلة ما تمل منها أبدًا.",
-      "مثال: شيء تخطط له، تجربة غيّرت نظرتك، أو شيء متحمّس له هالفترة.",
+    choices: [
+      "شيء يشحن طاقتك",
+      "شيء الناس غالباً ما يتوقعونه عنك",
+      "شيء متحمّس له هالفترة",
     ],
+    followUp: "بعد كل دور، اختاروا شيئاً واحداً واسألوا: «وش قصته؟»",
+    answerCue: "حوالي 45 ثانية لكل شخص",
   },
   2: {
-    title: "أبعد من الانطباع الأول",
-    prompt: "اسمك، وشارك 3 أشياء عنك:",
-    subPrompts: [
-      "شيء تحب تسويه.",
-      "شيء الناس غالبًا ما يتوقعونه عنك.",
-      "شيء تتمنى تجربه أو تتعلمه.",
+    title: "القصة وراء الاختيار",
+    prompt: "قل اسمك، ثم اختر واحداً واحكِ لنا قصته باختصار:",
+    choices: [
+      "قرار صغير فرّق معك",
+      "مكان ترتاح فيه فعلاً — وليه",
+      "شيء غيّرت رأيك فيه مؤخراً",
     ],
+    followUp: "بعد كل دور، اسألوا: «وش علّمك هذا عن نفسك؟»",
+    answerCue: "قصة قصيرة، ثم سؤال متابعة واحد",
   },
   3: {
-    title: "انسجام وإيقاع",
-    prompt: "اسمك، ثم اختر سؤالاً واحداً يفتح حواراً جديداً:",
-    subPrompts: [
-      "ما تجربة بسيطة غيّرت رأيك في شيء مهم؟",
-      "ما الشيء الذي يعطيك طاقة هذه الفترة؟",
-      "ما عادة أو قيمة تحب أن يعرفها الناس عنك؟",
+    title: "إيقاعك مع الناس",
+    prompt: "قل اسمك، ثم اختر سؤالاً واحداً:",
+    choices: [
+      "متى تحس أنك على طبيعتك فعلاً؟",
+      "وش يخليك ترتاح بسرعة مع الناس؟",
+      "وش طاقة تتمنى تأخذها من هالفعالية؟",
     ],
+    followUp: "اسألوا سؤال متابعة واحداً، ثم مرّروا الدور وخلو الحوار يكمل لاحقاً.",
+    answerCue: "اختيار واحد وإجابة صادقة وبسيطة",
   },
 }
 
@@ -2938,12 +2952,18 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
   const [done, setDone] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [order, setOrder] = useState<{ name: string; number: number; isMe: boolean }[]>([])
+  const participantCount = tablemates.length + (myInfo ? 1 : 0)
 
   const startBreaker = () => {
     const all = [
       ...(myInfo ? [{ name: myInfo.name, number: myInfo.number, isMe: true }] : []),
       ...tablemates.map(m => ({ name: m.first_name, number: m.number, isMe: false })),
     ]
+    if (all.length === 0) {
+      setDone(true)
+      onDone?.()
+      return
+    }
     // Deterministic seed from table number + round — same order on every device at the table
     const seed = (tableNumber * 1000 + round) >>> 0
     setOrder(seededShuffle(all, seed))
@@ -2964,20 +2984,38 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
 
   if (!started) {
     return (
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <GlassCard className={`event3-group-surface space-y-3 border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
-          <div className="flex items-center justify-center gap-2">
-            {roundIcon}
-            <h4 className="text-white font-bold text-sm">{ib.title}</h4>
+      <motion.div initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 24 }}>
+        <GlassCard className={`event3-group-surface event3-icebreaker-card overflow-hidden border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className={`rounded-full border px-3 py-1 text-xs font-black ${theme.softPanel} ${theme.text}`}>الخطوة 1 من 2</span>
+            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${theme.softPanel} ${theme.border}`}>
+              {roundIcon}
+            </div>
           </div>
-          <p className="text-gray-400 text-xs text-center leading-relaxed">
-            قبل بدء الأسئلة — نشاط تعارف سريع يبدأ بشخص عشوائي ويمر على الجميع
+          <div className="mt-5 text-right">
+            <p className={`text-sm font-black ${theme.text}`}>سؤال تعارف سريع</p>
+            <h3 className="mt-1 text-2xl font-black leading-tight text-white">{ib.title}</h3>
+            <p className="mt-3 text-[15px] font-medium leading-7 text-white/72">{ib.prompt}</p>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2 text-right">
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 p-3">
+              <p className="text-xs font-bold text-white/45">المدة</p>
+              <p className="mt-1 text-sm font-bold leading-5 text-white/85">{ib.answerCue}</p>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 p-3">
+              <p className="text-xs font-bold text-white/45">الدور</p>
+              <p className="mt-1 text-sm font-bold leading-5 text-white/85">{participantCount ? `يمر على ${participantCount} أشخاص` : "يمر على كل الموجودين"}</p>
+            </div>
+          </div>
+          <p className="mt-4 text-center text-sm leading-6 text-white/55">
+            ابدأوا بشخص واحد، واسمعوا إجابته قبل تمرير الدور.
           </p>
           <button
+            type="button"
             onClick={startBreaker}
-            className={`event3-action w-full rounded-xl bg-gradient-to-r py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95 ${theme.bar}`}
+            className={`event3-action mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
           >
-            <Sparkles size={14} className="inline" /> ابدأ كسر الجليد
+            <Sparkles size={17} /> ابدأوا السؤال
           </button>
         </GlassCard>
       </motion.div>
@@ -2985,90 +3023,86 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
   }
 
   const current = order[currentIdx]
-  const speakerClass = current.isMe
-    ? `inline-flex items-center gap-2 rounded-2xl border-2 px-5 py-2.5 ${theme.softPanel} ${theme.border}`
-    : "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 bg-gray-800/60 border border-gray-700/50"
+  const nextSpeaker = order[currentIdx + 1]
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-      <GlassCard className={`event3-group-surface space-y-4 border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
-        {/* Header */}
+      <GlassCard className={`event3-group-surface event3-icebreaker-card overflow-hidden border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {roundIcon}
-            <h4 className="text-white font-bold text-sm">{ib.title}</h4>
-          </div>
-          <span className={`${theme.mutedText} text-[10px] font-mono`}>{currentIdx + 1}/{order.length}</span>
-        </div>
-
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-1.5">
-          {order.map((p, i) => (
-            <div
-              key={p.number}
-              className={
-                i < currentIdx ? `h-1.5 w-2 rounded-full bg-gradient-to-r opacity-60 transition-all duration-300 ${theme.bar}`
-                : i === currentIdx ? `h-1.5 w-6 rounded-full bg-gradient-to-r transition-all duration-300 ${theme.bar}`
-                : "h-1.5 rounded-full transition-all duration-300 w-2 bg-gray-700"
-              }
-            />
-          ))}
-        </div>
-
-        {/* Current speaker */}
-        <div className="text-center space-y-2 py-2">
-          <p className="text-gray-500 text-[10px]">دور</p>
-          <motion.div
-            key={currentIdx}
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className={speakerClass}
-          >
-            <span className="text-white font-black text-lg">{current.name}</span>
-            {current.isMe && <span className={`${theme.text} text-[10px] font-bold`}>أنت</span>}
-          </motion.div>
-        </div>
-
-        {/* Prompt */}
-        <div className={`rounded-xl border p-4 space-y-2 ${theme.softPanel}`}>
-          <p className={`${theme.text} text-sm leading-relaxed text-center font-medium`}>{ib.prompt}</p>
-          {ib.subPrompts && (
-            <div className="space-y-1 pt-1">
-              {ib.subPrompts.map((sp, i) => (
-                <p key={i} className={`${theme.mutedText} text-xs leading-relaxed text-center`}>
-                  {i + 1}. {sp}
-                </p>
-              ))}
+            <div className="text-right">
+              <p className={`text-xs font-black ${theme.text}`}>سؤال تعارف سريع</p>
+              <h4 className="text-sm font-black text-white">{ib.title}</h4>
             </div>
-          )}
+          </div>
+          <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/65">{currentIdx + 1} من {order.length}</span>
         </div>
 
-        {/* Circle order preview */}
-        <div className="flex flex-wrap gap-1.5 justify-center">
-          {order.map((p, i) => (
-            <span
-              key={p.number}
-              className={
-                i === currentIdx
-                  ? `text-[10px] px-2 py-0.5 rounded-full border transition-all font-bold ${theme.softPanel} ${theme.text}`
-                  : i < currentIdx
-                    ? `text-[10px] px-2 py-0.5 rounded-full border transition-all opacity-45 ${theme.softPanel} ${theme.mutedText}`
-                    : "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-gray-800/40 border-gray-700/40 text-gray-500"
-              }
-            >
-              {p.name}{p.isMe ? " (أنت)" : ""}
-            </span>
-          ))}
-        </div>
-
-        {/* Next button */}
-        <button
-          onClick={nextPerson}
-          className={`event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95 ${theme.bar}`}
+        <div
+          className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.08]"
+          role="progressbar"
+          aria-label="تقدم أدوار سؤال التعارف"
+          aria-valuemin={1}
+          aria-valuemax={order.length}
+          aria-valuenow={currentIdx + 1}
         >
-          {currentIdx < order.length - 1 ? "الشخص التالي ←" : "تم النشاط ✓"}
-        </button>
+          <motion.div
+            className={`h-full rounded-full bg-gradient-to-r ${theme.bar}`}
+            animate={{ width: `${((currentIdx + 1) / order.length) * 100}%` }}
+            transition={{ type: "spring", stiffness: 220, damping: 28 }}
+          />
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current.number}
+            initial={{ opacity: 0, x: 28, filter: "blur(8px)" }}
+            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, x: -22, filter: "blur(8px)" }}
+            transition={{ type: "spring", stiffness: 250, damping: 27 }}
+            className="pt-5"
+          >
+            <div className="event3-speaker-orbit mx-auto flex min-h-28 w-28 flex-col items-center justify-center rounded-full border border-white/15 bg-gray-950/80 px-3 text-center shadow-2xl">
+              <p className={`text-xs font-black ${theme.text}`}>{current.isMe ? "دورك الآن" : "الدور الآن"}</p>
+              <p className="mt-1 max-w-full truncate text-lg font-black text-white">{current.name}</p>
+            </div>
+
+            <div className={`mt-5 rounded-[1.4rem] border p-4 ${theme.softPanel}`}>
+              <p className="text-right text-base font-bold leading-7 text-white">{ib.prompt}</p>
+              <div className="mt-3 space-y-2">
+                {ib.choices.map((choice, i) => (
+                  <div key={choice} className="flex items-start gap-3 rounded-xl border border-white/[0.07] bg-black/15 px-3 py-2.5 text-right">
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-black ${theme.text}`}>{i + 1}</span>
+                    <p className="pt-0.5 text-sm font-semibold leading-5 text-white/80">{choice}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2.5 text-right">
+                <MessageSquare size={16} className={`mt-0.5 shrink-0 ${theme.text}`} />
+                <p className="text-sm font-medium leading-6 text-white/65">{ib.followUp}</p>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2">
+          <button
+            type="button"
+            onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
+            disabled={currentIdx === 0}
+            className="flex min-h-14 items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-white/65 transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ChevronRight size={17} /> السابق
+          </button>
+          <button
+            type="button"
+            onClick={nextPerson}
+            className={`event3-action flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-4 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
+          >
+            {nextSpeaker ? <>الدور لـ {nextSpeaker.name} <ArrowLeft size={17} /></> : <>خلصنا — نختار النشاط <ArrowLeft size={17} /></>}
+          </button>
+        </div>
       </GlassCard>
     </motion.div>
   )
@@ -4187,7 +4221,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </span>
             <span className="relative z-10 min-w-0 flex-1">
               <span className="block text-base font-black">{
-                !groupsHaveOpened ? "وصلت — ابدأوا معاً" : groupActivityStage === "warmup" ? "متابعة كسر الجليد" : "العودة إلى نشاط المجموعة"
+                !groupsHaveOpened ? "وصلت — ابدأوا معاً" : groupActivityStage === "warmup" ? "متابعة سؤال التعارف" : "العودة إلى نشاط المجموعة"
               }</span>
             </span>
             <ArrowLeft size={18} className="relative z-10 shrink-0 text-white/75 transition-transform group-hover:-translate-x-0.5" />
@@ -4269,17 +4303,21 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <div className={`absolute -right-24 -top-28 h-80 w-80 rounded-full blur-[95px] ${RC.primaryOrb}`} />
               <div className={`absolute -bottom-28 -left-20 h-72 w-72 rounded-full blur-[90px] ${RC.secondaryOrb}`} />
             </div>
+            <BinaryPopupFormation
+              key={`group-stage-${round}-${groupActivityStage}`}
+              tone={round === 1 ? "cyan" : round === 2 ? "violet" : "amber"}
+              size="tall"
+            />
             {groupActivityStage === "warmup" && assignment?.tablemates ? (
               <div className="event3-scroll relative z-10 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" tabIndex={-1}>
                 <div className="mx-auto w-full max-w-sm space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-right">
-                      <p className={`text-xs font-bold ${RC.text}`}>الخطوة 1 من 2 · {RC.nameAr}</p>
-                      <h2 className="mt-0.5 text-lg font-black text-white">ابدأوا بتعارف سريع</h2>
+                      <p className={`text-sm font-black ${RC.text}`}>الجولة {RC.ordinalAr} · {RC.nameAr}</p>
+                      <h2 className="mt-0.5 text-xl font-black text-white">سؤال تعارف سريع</h2>
                     </div>
-                    <button type="button" onClick={closeGroups} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-gray-300" aria-label="إغلاق أنشطة المجموعة"><X size={18} /></button>
+                    <button type="button" onClick={closeGroups} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-gray-300 transition-colors hover:bg-white/10 hover:text-white" aria-label="إغلاق أنشطة المجموعة"><X size={19} /></button>
                   </div>
-                  <JourneyCue accent={RC.journeyAccent} eyebrow={RC.nameAr} title="خلّوا كل شخص يأخذ دوره" description={RC.focusAr} steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} className="event3-group-surface" />
                   <IceBreaker
                     round={round}
                     tableNumber={assignment.table}
@@ -4287,8 +4325,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                     tablemates={assignment.tablemates}
                     onDone={beginGroupActivities}
                   />
-                  <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
-                    تخطي كسر الجليد والذهاب للأنشطة
+                  <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-12 items-center justify-center gap-1.5 rounded-2xl px-4 text-sm font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+                    تخطي سؤال التعارف <ArrowLeft size={16} />
                   </button>
                   {returnToBroadcastVisible && <GroupBroadcastReturnButton coordinatorName={coordinatorName} content={coordination?.active_content || null} onReturn={() => setSyncEnabled(true)} />}
                 </div>

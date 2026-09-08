@@ -55,6 +55,8 @@ interface Game {
   nameAr: string;
   description: string;
   descriptionAr: string;
+  energyAr: "هادئ" | "متوازن" | "حماسي";
+  fitAr: string;
   duration: number; // in minutes
   icon: JSX.Element;
   color: string;
@@ -76,7 +78,9 @@ const games: Game[] = [
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
     description: "Each person gets one minute with engaging prompts that reveal their personality",
-    descriptionAr: "لكل شخص دقيقة واحدة مع أسئلة ممتعة تكشف شخصيته وطريقة تواصله",
+    descriptionAr: "دقيقة لكل شخص وأسئلة سريعة تكشف حضوره وطريقة تفكيره.",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تتعرّفون على الجميع بسرعة",
     duration: 6,
     icon: <Mic className="w-6 h-6" />,
     color: "from-amber-500 to-orange-600"
@@ -84,9 +88,11 @@ const games: Game[] = [
   {
     id: "discussion-questions",
     name: "Discussion Questions",
-    nameAr: "أسئلة للنقاش",
+    nameAr: "سؤال يفتح السالفة",
     description: "Deep conversation starters",
-    descriptionAr: "أسئلة عميقة لبدء المحادثات",
+    descriptionAr: "اختاروا سؤالاً واحداً يفتح حواراً طبيعيّاً ويخلّي كل شخص يأخذ راحته.",
+    energyAr: "هادئ",
+    fitAr: "مناسب إذا جوّكم هادئ وتبغون حواراً أعمق",
     duration: 10,
     icon: <Sparkles className="w-6 h-6" />,
     color: "from-purple-500 to-pink-500"
@@ -94,9 +100,11 @@ const games: Game[] = [
   {
     id: "what-would-you-do",
     name: "What Would You Do",
-    nameAr: "ماذا تفعل لو",
+    nameAr: "وش بتسوي لو؟",
     description: "Medium-to-deep real-life scenarios for value-driven discussion",
-    descriptionAr: "سيناريوهات حياتية متوسطة إلى عميقة تفتح نقاشاً حول القيم والقرارات",
+    descriptionAr: "مواقف واقعية تكشف كيف يفكّر كل شخص ويتعامل مع القرارات.",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تكتشفون طريقة التفكير",
     duration: 10,
     icon: <MessageSquare className="w-6 h-6" />,
     color: "from-indigo-500 to-blue-600"
@@ -104,9 +112,11 @@ const games: Game[] = [
   {
     id: "never-have-i-ever",
     name: "Never Have I Ever",
-    nameAr: "لم أفعل من قبل",
+    nameAr: "قد سويتها؟",
     description: "Share deep personal experiences",
-    descriptionAr: "شاركوا تجاربكم الشخصية العميقة",
+    descriptionAr: "عبارات تفتح قصصاً ومفاجآت؛ المشاركة دائماً على راحتكم.",
+    energyAr: "متوازن",
+    fitAr: "مناسب للقصص الخفيفة والمواقف غير المتوقعة",
     duration: 10,
     icon: <Target className="w-6 h-6" />,
     color: "from-blue-500 to-cyan-500"
@@ -114,9 +124,11 @@ const games: Game[] = [
   {
     id: "would-you-rather",
     name: "Would You Rather",
-    nameAr: "ماذا تفضل",
+    nameAr: "بين خيارين",
     description: "Choose between meaningful life decisions",
-    descriptionAr: "اختاروا بين قرارات حياتية مهمة",
+    descriptionAr: "خياران، قرار سريع، ثم السبب اللي يكشف أولويات كل شخص.",
+    energyAr: "هادئ",
+    fitAr: "مناسب لحوار خفيف يكشف الاختلافات",
     duration: 10,
     icon: <Heart className="w-6 h-6" />,
     color: "from-red-500 to-orange-500"
@@ -124,9 +136,11 @@ const games: Game[] = [
   {
     id: "5-second-rule",
     name: "5-Second Rule",
-    nameAr: "قاعدة الخمس ثواني",
+    nameAr: "خمس ثواني",
     description: "Name 3 things in 5 seconds",
-    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
+    descriptionAr: "سمّ ثلاثة أشياء قبل انتهاء الوقت—بسرعة ومن دون تفكير طويل.",
+    energyAr: "حماسي",
+    fitAr: "مناسب إذا تبغون طاقة وضحكاً سريعاً",
     duration: 10,
     icon: <Timer className="w-6 h-6" />,
     color: "from-orange-500 to-red-500"
@@ -136,7 +150,9 @@ const games: Game[] = [
     name: "Wala Kelma",
     nameAr: "ولا كلمة",
     description: "Act out fun pop culture topics without speaking",
-    descriptionAr: "مثلوا مواضيع ممتعة ومشهورة بدون كلام",
+    descriptionAr: "مثّل الكلمة من دون صوت، وخَلّ مجموعتك تحاول تعرفها.",
+    energyAr: "حماسي",
+    fitAr: "مناسب إذا مجموعتكم تحب الحركة والضحك",
     duration: 10,
     icon: <ThumbsUp className="w-6 h-6" />,
     color: "from-green-500 to-teal-500"
@@ -147,9 +163,11 @@ const games: Game[] = [
 games.push({
   id: "imposter",
   name: "Imposter",
-  nameAr: "الأمبوستر",
+  nameAr: "مين الأمبوستر؟",
   description: "Social deduction party game on one phone",
-  descriptionAr: "لعبة تخمين جماعية على هاتف واحد: كلمة سرية ومحتال يحاول التخفي",
+  descriptionAr: "كلمة سرّية للجميع وشخص واحد يحاول يندمج من دون ما ينكشف.",
+  energyAr: "حماسي",
+  fitAr: "مناسب لمجموعة تحب التحدّي والشكوك اللطيفة",
   duration: 12,
   icon: <Ghost className="w-6 h-6" />,
   color: "from-fuchsia-600 to-purple-700"
@@ -2677,6 +2695,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   // Activity carousel index for embedded compact mode
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselDirection, setCarouselDirection] = useState(1);
 
   useEffect(() => {
     const indexChanged = previousCarouselIndexRef.current !== carouselIndex;
@@ -2748,30 +2767,31 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   const renderGameSelection = () => {
     if (disableOnboarding) {
-      // Interactive carousel — swipeable, colorful, exciting
       const currentGame = activityGames[carouselIndex];
-      const nextActivity = () => setCarouselIndex(prev => (prev + 1) % activityGames.length);
-      const prevActivity = () => setCarouselIndex(prev => (prev - 1 + activityGames.length) % activityGames.length);
+      const selectActivity = (nextIndex: number, direction: number) => {
+        setCarouselDirection(direction);
+        setCarouselIndex((nextIndex + activityGames.length) % activityGames.length);
+      };
+      const nextActivity = () => selectActivity(carouselIndex + 1, 1);
+      const prevActivity = () => selectActivity(carouselIndex - 1, -1);
 
       return (
         <div className={`relative flex h-full min-h-full w-full flex-col bg-gradient-to-b ${roundTheme.shell}`}>
-          {/* Dynamic gradient background that shifts with current activity */}
           <motion.div
             key={`bg-${currentGame.id}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
-            className="absolute inset-0 pointer-events-none"
+            transition={{ duration: 0.45 }}
+            className="pointer-events-none absolute inset-0"
           >
             <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
             <div className={`absolute -top-24 left-1/3 h-64 w-64 rounded-full blur-[90px] ${roundTheme.primaryOrb}`} />
             <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.08]`} />
-            <div className={`absolute -top-20 -right-16 w-72 h-72 bg-gradient-to-br ${currentGame.color} opacity-20 rounded-full blur-[80px]`} />
-            <div className={`absolute bottom-0 -left-16 w-64 h-64 bg-gradient-to-br ${currentGame.color} opacity-15 rounded-full blur-[70px]`} />
+            <div className={`absolute -right-16 -top-20 h-72 w-72 rounded-full bg-gradient-to-br ${currentGame.color} opacity-20 blur-[80px]`} />
+            <div className={`absolute -bottom-12 -left-16 h-64 w-64 rounded-full bg-gradient-to-br ${currentGame.color} opacity-15 blur-[70px]`} />
           </motion.div>
 
-          {/* Compact picker header */}
-          <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-[#070914]/75 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-2xl">
+          <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-[#070914]/75 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-2xl">
             <button
               type="button"
               onClick={() => {
@@ -2779,174 +2799,161 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 onClose?.();
               }}
               aria-label="إغلاق الأنشطة الجماعية"
-              className="flex h-10 min-w-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
             >
-              <X className="w-4 h-4" />
-              <span>إغلاق</span>
+              <X className="h-5 w-5" />
             </button>
-            <div className="text-left">
-              <div className="flex items-center justify-end gap-2">
+            <div className="text-right">
+              <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full bg-gradient-to-r ${roundTheme.bar}`} />
-                <p className={`text-[10px] font-black ${roundTheme.text}`}>الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
+                <p className={`text-xs font-black ${roundTheme.text}`}>الخطوة 2 من 2 · {roundTheme.nameAr}</p>
               </div>
-              <p className="mt-0.5 text-sm font-black text-white">اختر نشاطكم</p>
+              <h1 className="mt-0.5 text-base font-black text-white">اختاروا نشاطاً يناسب جوّكم</h1>
             </div>
-          </div>
+          </header>
 
           <div className="relative z-20 px-4 pt-3">
-            <div className="mx-auto flex w-full max-w-lg items-center gap-2.5 rounded-2xl border border-white/[0.09] bg-black/20 px-3 py-2.5 shadow-[0_18px_50px_-34px_rgba(0,0,0,.95)] backdrop-blur-xl">
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
+            <div className="mx-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border border-white/[0.09] bg-black/20 px-3 py-3 shadow-[0_18px_50px_-34px_rgba(0,0,0,.95)] backdrop-blur-xl">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1 text-right">
-                <p className={`text-[10px] font-black ${roundTheme.text}`}>
+                <p className={`text-xs font-black ${roundTheme.text}`}>
                   {isGroupCoordinator ? "أنت منسّق الطاولة" : "عرض المنسّق عند الطلب"}
                 </p>
-                <p className="mt-0.5 text-xs font-bold leading-5 text-white/75">
+                <p className="mt-0.5 text-sm font-semibold leading-5 text-white/70">
                   {isGroupCoordinator
-                    ? "اختيارك سيجهّز زر عرض واضح لبقية المجموعة"
+                    ? "اختيارك يظهر لبقية المجموعة تلقائياً"
                     : coordinatorName
-                      ? `${coordinatorName} يختار النشاط — افتح سؤاله عندما تكون جاهزاً`
-                      : "سيظهر زر فتح عندما يجهّز المنسّق السؤال"}
+                      ? `${coordinatorName} يختار، وأنتم تقدرون تتابعون العرض`
+                      : "المنسّق يختار، ثم يظهر النشاط للجميع"}
                 </p>
               </div>
               {onRequestReelection && (
                 <button
                   type="button"
                   onClick={onRequestReelection}
-                  className="min-h-9 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-2.5 text-[10px] font-black text-amber-200 transition-colors hover:bg-amber-400/15"
+                  className="min-h-11 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-xs font-black text-amber-200 transition-colors hover:bg-amber-400/15"
                 >
-                  تغيير المنسّق
+                  تغيير
                 </button>
               )}
             </div>
           </div>
 
-          {/* Carousel area */}
-          <div className="relative z-10 flex flex-1 flex-col items-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-            {/* Main carousel card — swipeable */}
+          <div className="event3-scroll relative z-10 flex flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <div className="relative w-full max-w-sm">
-              {/* Swipeable card container */}
-              <motion.div
-                id="activity-carousel-slide"
-                key={`card-${carouselIndex}`}
-                initial={{ opacity: 0, scale: 0.97, x: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 280, damping: 26 }}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.35}
-                onDragEnd={(_, info) => {
-                  if (info.offset.x < -60) nextActivity();
-                  else if (info.offset.x > 60) prevActivity();
-                }}
-                role="group"
-                aria-roledescription="شريحة"
-                aria-labelledby={`carousel-game-${currentGame.id}`}
-                aria-describedby={`carousel-game-description-${currentGame.id}`}
-                className="cursor-grab active:cursor-grabbing"
-              >
-                <div className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.1] bg-gray-900/85 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.98)] ring-1 ring-white/[0.04]">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/30" />
+              <AnimatePresence initial={false} mode="popLayout" custom={carouselDirection}>
+                <motion.article
+                  id="activity-carousel-slide"
+                  key={`card-${currentGame.id}`}
+                  custom={carouselDirection}
+                  variants={{
+                    enter: (direction: number) => ({ opacity: 0, x: direction * 56, scale: 0.96, filter: "blur(8px)" }),
+                    center: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+                    exit: (direction: number) => ({ opacity: 0, x: direction * -44, scale: 0.97, filter: "blur(8px)" }),
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ type: "spring", stiffness: 285, damping: 27 }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.3}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.x < -60) nextActivity();
+                    else if (info.offset.x > 60) prevActivity();
+                  }}
+                  role="group"
+                  aria-roledescription="شريحة"
+                  aria-labelledby={`carousel-game-${currentGame.id}`}
+                  aria-describedby={`carousel-game-description-${currentGame.id}`}
+                  className="event3-activity-card relative cursor-grab overflow-hidden rounded-[2rem] border border-white/[0.12] bg-gray-900/88 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.98)] ring-1 ring-white/[0.05] active:cursor-grabbing"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.16]`} />
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-black/35" />
+                  <div className={`absolute -right-16 -top-20 h-56 w-56 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`} />
 
-                  {/* Decorative glow */}
-                  <motion.div
-                    className={`absolute -right-16 -top-20 h-56 w-56 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`}
-                    animate={{ scale: [1, 1.12, 1], x: [0, -8, 0], y: [0, 6, 0] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                  />
-
-                  {/* Card content */}
-                  <div className="relative z-10 flex min-h-[276px] flex-col p-4 text-right sm:p-6">
+                  <div className="event3-activity-card__content relative z-10 flex flex-col p-5 text-right">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className={`text-[10px] font-black ${roundTheme.text}`}>{roundTheme.nameAr}</p>
-                        <p className="mt-0.5 line-clamp-2 text-[10px] leading-5 text-white/50">{roundTheme.focusAr}</p>
-                      </div>
-                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold text-white/65">
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-bold text-white/70">
                         {carouselIndex + 1} من {activityGames.length}
                       </span>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-white/55">
-                        <span>{currentGame.duration} دقائق</span>
-                        <span className="h-1 w-1 rounded-full bg-white/30" />
-                        <span>3–6 أشخاص</span>
+                      <motion.div
+                        initial={{ scale: 0.72, rotate: -10 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                        className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
+                      >
+                        {currentGame.icon}
+                      </motion.div>
                     </div>
 
-                    {/* Icon */}
-                    <motion.div
-                      initial={{ scale: 0.8, rotate: -8 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                      className={`mt-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
-                    >
-                      {currentGame.icon}
-                    </motion.div>
+                    <div className="mt-5 flex flex-wrap justify-end gap-2">
+                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/70">{currentGame.energyAr}</span>
+                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/70">{currentGame.duration} دقائق</span>
+                    </div>
 
-                    {/* Text */}
-                    <div className="flex-1 py-4">
-                      <motion.h2
+                    <div className="flex-1 py-3">
+                      <h2
                         ref={carouselHeadingRef}
                         id={`carousel-game-${currentGame.id}`}
                         tabIndex={-1}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-[1.65rem] font-black tracking-tight text-white"
+                        className="text-[1.8rem] font-black leading-tight tracking-tight text-white"
                       >
                         {currentGame.nameAr}
-                      </motion.h2>
-                      <motion.p
-                        id={`carousel-game-description-${currentGame.id}`}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-1.5 max-w-[28rem] text-[13px] leading-6 text-white/65"
-                      >
+                      </h2>
+                      <p id={`carousel-game-description-${currentGame.id}`} className="mt-2 text-[15px] font-medium leading-7 text-white/72">
                         {currentGame.descriptionAr}
-                      </motion.p>
+                      </p>
+                      <div className="mt-3 flex items-start gap-2 rounded-2xl border border-white/[0.08] bg-black/20 px-3 py-2.5">
+                        <Users className={`mt-0.5 h-4 w-4 shrink-0 ${roundTheme.text}`} />
+                        <p className="text-sm font-semibold leading-5 text-white/66">{currentGame.fitAr}</p>
+                      </div>
                     </div>
 
-                    {/* Start button */}
                     <motion.button
                       type="button"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.97 }}
                       onClick={() => startGame(currentGame.id)}
-                      className={`flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} text-sm font-black text-white shadow-lg transition-all hover:brightness-110`}
+                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
                     >
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>ابدأ النشاط</span>
+                      <Play className="h-4 w-4 fill-current" />
+                      <span>ابدأوا هذا النشاط</span>
                     </motion.button>
                   </div>
-                </div>
-              </motion.div>
+                </motion.article>
+              </AnimatePresence>
 
-              {/* Stable navigation controls, kept outside the card edges */}
-              <div className="mt-3 grid grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-2">
-                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+              <p className="mt-3 text-center text-sm font-medium leading-6 text-white/50">اقرؤوا الفكرة، اختاروا، ثم خلّوا الهاتف في المنتصف.</p>
+
+              <div className="mt-3 grid grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3">
+                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronRight className="h-5 w-5" />
                 </button>
-                <div className="flex items-center overflow-x-auto" role="group" aria-label="اختيار النشاط">
-                  {activityGames.map((g, i) => (
-                    <button
-                      key={g.id}
-                      ref={(node) => { carouselDotRefs.current[i] = node; }}
-                      type="button"
-                      onClick={() => setCarouselIndex(i)}
-                      aria-label={`النشاط ${i + 1}: ${g.nameAr}`}
-                      aria-current={i === carouselIndex ? "true" : undefined}
-                      aria-controls="activity-carousel-slide"
-                      className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                    >
-                      <span aria-hidden="true" className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIndex ? `w-7 bg-gradient-to-r ${currentGame.color}` : "w-1.5 bg-white/20 group-hover:bg-white/40"}`} />
-                    </button>
-                  ))}
+                <div className="text-center">
+                  <p className="text-sm font-black text-white">اسحبوا لاختيار النشاط</p>
+                  <p className="mt-0.5 text-xs font-medium text-white/45">أو استخدموا الأسهم</p>
                 </div>
-                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
+              </div>
+              <div className="mt-2 grid grid-cols-8 gap-1" role="group" aria-label="اختيار النشاط">
+                {activityGames.map((game, index) => (
+                  <button
+                    key={game.id}
+                    ref={(node) => { carouselDotRefs.current[index] = node; }}
+                    type="button"
+                    onClick={() => selectActivity(index, index >= carouselIndex ? 1 : -1)}
+                    aria-label={`النشاط ${index + 1}: ${game.nameAr}`}
+                    aria-current={index === carouselIndex ? "true" : undefined}
+                    aria-controls="activity-carousel-slide"
+                    className="group flex h-11 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    <span aria-hidden="true" className={`h-1.5 rounded-full transition-all duration-300 ${index === carouselIndex ? `w-full bg-gradient-to-r ${currentGame.color}` : "w-2 bg-white/20 group-hover:bg-white/40"}`} />
+                  </button>
+                ))}
               </div>
               <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
                 النشاط {carouselIndex + 1} من {activityGames.length}: {currentGame.nameAr}
@@ -3079,20 +3086,37 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     if (gamePhase === "completed") {
       return (
-        <div className="text-center space-y-6 py-8">
+        <div className="space-y-6 py-8 text-center">
           <motion.div
             initial={{ scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 18 }}
-            className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-xl"
+            className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-xl"
           >
             <Trophy className="w-10 h-10" />
           </motion.div>
           <div>
-            <h2 className="text-2xl font-black text-white mb-2">انتهت اللعبة!</h2>
-            <p className="text-gray-400 text-base">أحسنتم! وقت للعبة التالية</p>
+            <h2 className="mb-2 text-2xl font-black text-white">خلصتم النشاط</h2>
+            <p className="text-base leading-7 text-gray-400">حلو! اختاروا نشاطاً ثانياً أو ارجعوا للطاولة.</p>
           </div>
-          {currentGameIndex < games.length - 1 ? (
+          {disableOnboarding ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={returnToActivitySelection}
+                className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
+              >
+                <Shuffle className="h-5 w-5" /> اختيار نشاط آخر
+              </button>
+              <button
+                type="button"
+                onClick={() => onClose?.()}
+                className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 text-sm font-bold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                العودة للطاولة
+              </button>
+            </div>
+          ) : currentGameIndex < games.length - 1 ? (
             <motion.div whileTap={{ scale: 0.95 }}>
               <Button 
                 onClick={nextGame}
@@ -3118,7 +3142,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     // Playing phase
     return (
-      <div className={disableOnboarding ? `relative min-h-full space-y-4 pb-8 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3 [&_.modern-activity-card_button]:min-h-11 [&_.modern-activity-card_button]:rounded-2xl` : "space-y-6"}>
+      <div className={disableOnboarding ? `event3-activity-play relative min-h-full space-y-4 pb-8 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3 [&_.modern-activity-card_button]:min-h-11 [&_.modern-activity-card_button]:rounded-2xl` : "space-y-6"}>
         {disableOnboarding && (
           <motion.section
             initial={{ opacity: 0, y: 18 }}
@@ -3143,30 +3167,36 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </motion.div>
               <div className="min-w-0 flex-1">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold text-white/75">
+                  <span className={`text-xs font-black ${roundTheme.text}`}>النشاط الآن</span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/75">
+                    {currentGame.energyAr}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/75">
                     {currentGame.duration} دقائق
                   </span>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold text-white/75">3–6 أشخاص</span>
                 </div>
-                <h2 className="text-xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
-                <p className="mt-1 text-xs leading-relaxed text-white/60">{currentGame.descriptionAr}</p>
+                <h2 className="text-2xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
+                <p className="mt-1 text-[15px] font-medium leading-7 text-white/65">{currentGame.descriptionAr}</p>
               </div>
             </div>
+            <p className="relative z-10 mt-4 rounded-2xl border border-white/[0.07] bg-black/20 px-3 py-2.5 text-right text-sm font-semibold leading-6 text-white/60">
+              اقرأوا المطلوب، ثم خلّوا الهاتف في المنتصف.
+            </p>
             <div className="relative z-10 mt-4 flex items-center gap-2">
               <button
                 onClick={() => setShowInstructions(prev => !prev)}
                 aria-expanded={showInstructions}
-                className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-bold transition-all active:scale-[0.98] ${showInstructions ? "border-white/20 bg-white/15 text-white" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-bold transition-all active:scale-[0.98] ${showInstructions ? "border-white/20 bg-white/15 text-white" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
               >
                 <Lightbulb className="h-4 w-4" />
-                {showInstructions ? "إخفاء طريقة اللعب" : "طريقة اللعب"}
+                {showInstructions ? "إخفاء الخطوات" : "إظهار الخطوات"}
                 <ChevronDown className={`h-4 w-4 transition-transform ${showInstructions ? "rotate-180" : ""}`} />
               </button>
               <button
                 onClick={returnToActivitySelection}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-bold text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-bold text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
               >
-                <Shuffle className="h-4 w-4" /> نشاط آخر
+                <Shuffle className="h-4 w-4" /> تغيير النشاط
               </button>
             </div>
           </motion.section>
@@ -3177,7 +3207,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">
-                  أسئلة للنقاش العميق
+                  اختاروا سؤالاً يفتح السالفة
                 </h3>
                 <p className="text-slate-300 mb-4">
                   اختر موضوعاً وليجب كل مشارك على السؤال بالدور
@@ -3188,7 +3218,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-white/[0.03] rounded-xl p-4 mb-6 border border-white/[0.06]">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
                   <li>اختاروا موضوعاً من القائمة أدناه</li>
@@ -3220,7 +3250,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <Target className="w-4 h-4 text-violet-300" />
                   <span className="text-violet-200 text-xs font-bold">تجارب شخصية</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-2">لم أفعل من قبل</h3>
+                <h3 className="text-3xl font-extrabold text-white mb-2">قد سويتها؟</h3>
                 <p className="text-slate-300">شاركوا تجاربكم الشخصية العميقة</p>
               </div>
 
@@ -3228,7 +3258,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-gradient-to-r from-violet-700/30 to-fuchsia-700/30 rounded-xl p-6 mb-8 border border-violet-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-violet-300" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-violet-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
@@ -3290,7 +3320,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <MessageSquare className="w-4 h-4 text-indigo-300" />
                   <span className="text-indigo-200 text-xs font-bold">سيناريو</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-2">ماذا تفعل لو؟</h3>
+                <h3 className="text-3xl font-extrabold text-white mb-2">وش بتسوي لو؟</h3>
                 <p className="text-indigo-100/90">سيناريوهات متوسطة إلى عميقة لتحفيز نقاش قيَمي وقرارات واعية</p>
               </div>
 
@@ -3298,7 +3328,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 mb-8 border border-indigo-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-indigo-300" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-indigo-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
@@ -3376,7 +3406,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <Timer className="w-4 h-4 text-orange-300" />
                   <span className="text-orange-200 text-xs font-bold">تحدي السرعة</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-1">قاعدة الخمس ثواني</h3>
+                <h3 className="text-3xl font-extrabold text-white mb-1">خمس ثواني</h3>
                 <p className="text-orange-100/90">سمّ 3 أشياء قبل انتهاء الوقت!</p>
               </div>
 
@@ -3384,7 +3414,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 mb-8 border border-orange-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-orange-400" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-slate-200 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
@@ -3923,14 +3953,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <Heart className="w-4 h-4 text-rose-300" />
                   <span className="text-rose-200 text-xs font-bold">مفاضلة</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-1">ماذا تفضل؟</h3>
+                <h3 className="text-3xl font-extrabold text-white mb-1">بين خيارين</h3>
               </div>
 
               {/* Game Instructions */}
               <div className={`instructions-block rounded-xl p-6 mb-6 border ${disableOnboarding ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-700/30 border-slate-600/50'}`}>
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
                   <li>اقرؤوا الخيارين بصوت عالٍ</li>
@@ -4011,7 +4041,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 mb-8 border border-amber-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-amber-300" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
@@ -4271,7 +4301,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="instructions-block bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-emerald-300" />
-                  كيفية اللعب:
+                  الخطوات:
                 </h4>
                 <ol className="text-emerald-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
@@ -4907,16 +4937,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <button
                   type="button"
                   onClick={returnToActivitySelection}
-                  className="flex min-h-11 items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                  className="flex min-h-12 items-center gap-1.5 rounded-xl px-2 text-sm font-bold text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"
                 >
-                  ← رجوع
+                  <ChevronRight className="h-4 w-4" /> تغيير
                 </button>
               </div>
-              <span className="text-white font-bold text-sm truncate text-center px-2">
-                {(() => {
-                  const g = games.find(gm => gm.id === selectedGameId);
-                  return g ? g.nameAr : "";
-                })()}
+              <span className="truncate px-2 text-center text-sm font-black text-white">
+                الجولة {roundTheme.ordinalAr} · النشاط الآن
               </span>
               <div className="flex items-center justify-end">
                 {onClose && (
@@ -4927,7 +4954,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       onClose();
                     }}
                     aria-label="إغلاق الأنشطة الجماعية"
-                    className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -4947,10 +4974,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   ? `نشاط ${games.find(game => game.id === selectedGameId)?.nameAr ?? "جماعي"}`
                   : "اختيار الأنشطة الجماعية"
                 : undefined}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
+              initial={{ opacity: 0, y: 18, scale: 0.985, filter: "blur(8px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -12, scale: 0.99, filter: "blur(7px)" }}
+              transition={{ type: "spring", stiffness: 270, damping: 28 }}
               onAnimationComplete={() => {
                 const viewKey = selectedGameId ?? 'selection';
                 if (activityFocusTargetRef.current !== viewKey) return;

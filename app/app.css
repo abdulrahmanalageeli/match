@@ -1489,6 +1489,111 @@ html:not(.dark) .round-bg-pattern::before {
   display: none;
 }
 
+/* The group journey should feel like a shared room prompt, not another app
+   dashboard. These surfaces use one luminous focal point and quiet depth. */
+.event3-icebreaker-card {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 82% -8%, rgba(var(--event3-cyan), 0.12), transparent 34%),
+    radial-gradient(circle at 8% 112%, rgba(var(--event3-purple), 0.17), transparent 42%),
+    linear-gradient(150deg, rgba(27, 23, 40, 0.96), rgba(8, 8, 16, 0.97) 58%, rgba(6, 7, 13, 0.99));
+  box-shadow:
+    0 32px 90px -52px rgba(var(--event3-purple), 0.8),
+    0 26px 54px -38px rgba(0, 0, 0, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.event3-icebreaker-card::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  opacity: 0.24;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.65px, transparent 0.75px);
+  background-size: 18px 18px;
+  -webkit-mask-image: linear-gradient(135deg, #000, transparent 58%);
+  mask-image: linear-gradient(135deg, #000, transparent 58%);
+}
+
+.event3-speaker-orbit {
+  isolation: isolate;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 20px 55px -28px rgba(var(--event3-purple), 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.event3-speaker-orbit::before,
+.event3-speaker-orbit::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
+}
+
+.event3-speaker-orbit::before {
+  inset: -0.55rem;
+  border: 1px solid rgba(var(--event3-cyan), 0.28);
+  box-shadow: 0 0 28px -8px rgba(var(--event3-cyan), 0.6);
+  animation: event3-speaker-breathe 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.event3-speaker-orbit::after {
+  inset: -1rem;
+  border: 1px solid rgba(var(--event3-purple), 0.13);
+}
+
+.event3-activity-card {
+  isolation: isolate;
+  transform: translateZ(0);
+  box-shadow:
+    0 32px 92px -45px rgba(var(--event3-purple), 0.62),
+    0 26px 62px -40px rgba(0, 0, 0, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.event3-activity-card::after {
+  position: absolute;
+  inset: -30% -70%;
+  z-index: 12;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(105deg, transparent 43%, rgba(255, 255, 255, 0.12) 50%, transparent 57%);
+  transform: translate3d(-44%, 0, 0);
+  animation: event3-activity-sheen 920ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.event3-activity-card__content {
+  min-height: 21.75rem;
+}
+
+.event3-activity-play .modern-activity-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at 86% -18%, rgba(var(--event3-purple), 0.12), transparent 34%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.055), rgba(12, 11, 20, 0.9));
+  box-shadow:
+    0 28px 78px -48px rgba(var(--event3-purple), 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.event3-activity-play .instructions-block {
+  border-color: rgba(var(--event3-cyan), 0.12);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+@keyframes event3-speaker-breathe {
+  0%, 100% { opacity: 0.46; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes event3-activity-sheen {
+  from { transform: translate3d(-44%, 0, 0); }
+  to { transform: translate3d(44%, 0, 0); }
+}
+
 .event3-status-header {
   position: relative;
   border-color: var(--event3-line-soft);
@@ -1734,6 +1839,12 @@ html:not(.dark) .round-bg-pattern::before {
   .event3-processing-view {
     padding-right: 1rem;
     padding-left: 1rem;
+  }
+}
+
+@media (max-height: 720px) and (max-width: 639px) {
+  .event3-activity-card__content {
+    min-height: 19.5rem;
   }
 }
 

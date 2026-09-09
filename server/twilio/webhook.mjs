@@ -1,6 +1,7 @@
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
 import { attendanceDeclineAccessState, confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState, shouldBlockNewEventPayment } from "./confirmation-policy.mjs"
+import { paymentWindowLabels } from "./payment-deadline.mjs"
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
 const supabase = supabaseAdmin
@@ -457,14 +458,15 @@ async function paymentReply(participant, eventId = null) {
     ? "attendance_payment_pending_choice_only"
     : "attendance_payment_pending"
   const { price, isEarly } = paymentDetailsFor(participant, config)
+  const paymentWindow = paymentWindowLabels(config.latePriceSwitchLabel)
   return responseText(responseKey, {
     participant_number: participant.assigned_number,
     price,
     price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
     early_price: Number(config.earlyPrice) || 60,
     late_price: Number(config.latePrice) || 75,
-    early_time: "حتى السبت الساعة 3 مساءً",
-    late_time: "ابتداءً من السبت الساعة 3 مساءً",
+    early_time: paymentWindow.earlyTime,
+    late_time: paymentWindow.lateTime,
     stc_pay: config.stcPay,
     bank_name: config.bankName,
     iban: config.iban,

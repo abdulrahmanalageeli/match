@@ -1,5 +1,13 @@
 export const SEAT_PAYMENT_DEADLINE_WINDOW_MS = 60 * 60 * 1000
 
+export function paymentWindowLabels(cutoffLabel) {
+  const label = String(cutoffLabel || "").trim() || "الموعد المحدد"
+  return {
+    earlyTime: `حتى ${label}`,
+    lateTime: `ابتداءً من ${label}`,
+  }
+}
+
 const RIYADH_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Riyadh",
   hour: "numeric",

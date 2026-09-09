@@ -54,3 +54,23 @@ test("welcome animation is brief, skippable, and respects reduced motion", () =>
   assert.match(route, /if \(reduceMotion\) \{[\s\S]*setIntroStage\("welcome"\)/)
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.event3-shell \*/)
 })
+
+test("final reveal has a cohesive mobile-first finale treatment", () => {
+  assert.match(route, /event3-finale-stage/)
+  assert.match(route, /event3-finale-journey/)
+  assert.match(route, /event3-finale-reveal-list/)
+  assert.match(route, /event3-finale-cta/)
+  assert.match(styles, /\.event3-finale-stage\s*\{[\s\S]*backdrop-filter: blur\(22px\)/)
+  assert.match(styles, /\.event3-finale-cta\s*\{[\s\S]*linear-gradient/)
+  assert.match(styles, /@keyframes event3-finale-cta-sheen/)
+})
+
+test("tutorial uses the premium Event3 surface and anchored mobile navigation", () => {
+  assert.match(route, /event3-tutorial-shell/)
+  assert.match(route, /event3-tutorial-card/)
+  assert.match(route, /event3-tutorial-act/)
+  assert.match(route, /event3-tutorial-ranking/)
+  assert.match(route, /event3-tutorial-mutual/)
+  assert.match(styles, /\.event3-tutorial-card\s*\{[\s\S]*backdrop-filter: blur\(22px\)/)
+  assert.match(styles, /\.event3-tutorial-header,[\s\S]*\.event3-tutorial-nav\s*\{[\s\S]*backdrop-filter: blur\(20px\)/)
+})

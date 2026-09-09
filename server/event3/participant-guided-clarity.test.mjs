@@ -37,6 +37,20 @@ test("waiting screen keeps optional information and personalized welcome collaps
   assert.doesNotMatch(welcomeDone, /setShowAiWelcome\(true\)/)
 })
 
+test("Event3 tutorial explains the whole flow in three plain-language acts", () => {
+  const slideCatalog = between("const WALK_SLIDES", "const WALK_ACCENTS")
+  assert.match(slideCatalog, /key: "overview"[\s\S]*label: "الاكتشاف"/)
+  assert.match(slideCatalog, /key: "ranking"[\s\S]*label: "الاختيار"/)
+  assert.match(slideCatalog, /key: "feedback"[\s\S]*label: "ما بعد اللقاء"/)
+
+  const tutorial = between("function WalkSlide", "const WELCOME_BINARY_STREAMS")
+  assert.match(tutorial, /دليل سريع · ٣٠ ثانية/)
+  assert.match(tutorial, /ثلاثة فصول، بلا تعقيد/)
+  assert.match(tutorial, /استخدم السهمين[^<]*ويمكنك السحب/)
+  assert.match(tutorial, /التواصل يحتاج «نعم» من الطرفين/)
+  assert.match(tutorial, /بلا نسب أو درجات/)
+})
+
 test("ranking uses explicit controls and hides routine sync chatter", () => {
   const ranking = between("function RankingScreen", "// ─── Optional Group Reflection")
   assert.match(ranking, /ضع مَن تفضّله في المركز الأول/)
@@ -52,9 +66,20 @@ test("break and final result screens keep secondary content behind disclosure", 
   assert.doesNotMatch(breakScreen, /INTERMISSION · RESET/)
 
   const finalReveal = between("function FinalRevealScreen", "// ─── AI Welcome Popup")
+  const revealCard = between("function RevealCard", "function AiAnalysisCompact")
   const primaryAction = finalReveal.indexOf("فتح النتائج والتواصل")
   const firstDisclosure = finalReveal.indexOf("event3-secondary-details")
   assert.ok(primaryAction > -1 && firstDisclosure > primaryAction, "results must be the first post-reveal action")
+  assert.match(finalReveal, /<BinaryPopupFormation tone="amber" size="container" \/>/)
+  assert.match(finalReveal, /setRevealedCount\(index \+ 1\)/)
+  assert.match(finalReveal, /revealed=\{revealedCount >= 1\}/)
+  assert.match(finalReveal, /revealed=\{revealedCount >= 2\}/)
+  assert.match(finalReveal, /revealed=\{revealedCount >= 3\}/)
+  assert.match(finalReveal, /ثلاثة لقاءات حقيقية، وثلاث كلمات بقيت في الذاكرة/)
+  assert.match(finalReveal, /لا تظهر معلومات التواصل إلا عندما تكون الموافقة متبادلة/)
+  assert.match(revealCard, /قراءة اللقاء/)
+  assert.doesNotMatch(revealCard, /مؤشر الانسجام/)
+  assert.doesNotMatch(revealCard, />\{normalizedScore\}%</)
   assert.match(finalReveal, /قراءة ما بين السطور/)
   assert.match(finalReveal, /خيارات إضافية/)
 })

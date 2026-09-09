@@ -1489,6 +1489,80 @@ html:not(.dark) .round-bg-pattern::before {
   display: none;
 }
 
+.event3-tutorial-shell {
+  background:
+    radial-gradient(circle at 86% -12%, rgba(var(--event3-purple), 0.12), transparent 35%),
+    radial-gradient(circle at -8% 82%, rgba(var(--event3-cyan), 0.05), transparent 32%);
+}
+
+.event3-tutorial-progress {
+  overflow: hidden;
+  box-shadow: 0 1px 18px rgba(var(--event3-purple), 0.18);
+}
+
+.event3-tutorial-header,
+.event3-tutorial-nav {
+  background: linear-gradient(180deg, rgba(7, 5, 13, 0.9), rgba(7, 5, 13, 0.68));
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+.event3-tutorial-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+.event3-tutorial-nav {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 -24px 70px -52px rgba(var(--event3-purple), 0.8);
+}
+
+.event3-tutorial-card {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
+    radial-gradient(circle at 90% 0%, rgba(var(--event3-purple), 0.14), transparent 34%),
+    linear-gradient(155deg, rgba(22, 18, 33, 0.97), rgba(8, 7, 14, 0.985) 72%);
+  background-size: 24px 24px, 24px 24px, auto, auto;
+  box-shadow:
+    0 34px 88px -55px rgba(var(--event3-purple), 0.95),
+    0 28px 58px -42px rgba(0, 0, 0, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  -webkit-backdrop-filter: blur(22px) saturate(118%);
+  backdrop-filter: blur(22px) saturate(118%);
+}
+
+.event3-tutorial-card__accent {
+  box-shadow: 0 0 24px rgba(var(--event3-purple), 0.35);
+}
+
+.event3-tutorial-card__body {
+  position: relative;
+}
+
+.event3-tutorial-act,
+.event3-tutorial-afterglow {
+  background:
+    radial-gradient(circle at 92% -40%, rgba(var(--event3-purple), 0.09), transparent 52%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.event3-tutorial-ranking {
+  background:
+    radial-gradient(circle at 90% -24%, rgba(251, 191, 36, 0.09), transparent 48%),
+    linear-gradient(155deg, rgba(37, 27, 13, 0.32), rgba(7, 6, 12, 0.52));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.event3-tutorial-mutual {
+  background:
+    radial-gradient(circle at 92% -30%, rgba(52, 211, 153, 0.12), transparent 48%),
+    linear-gradient(145deg, rgba(6, 78, 59, 0.16), rgba(7, 13, 14, 0.54));
+  box-shadow:
+    0 22px 58px -45px rgba(52, 211, 153, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* The group journey should feel like a shared room prompt, not another app
    dashboard. These surfaces use one luminous focal point and quiet depth. */
 .event3-icebreaker-card {
@@ -1835,6 +1909,146 @@ html:not(.dark) .round-bg-pattern::before {
 
 .event3-reveal-card > div {
   min-height: 9.5rem;
+}
+
+.event3-final-view {
+  background:
+    radial-gradient(circle at 50% -8%, rgba(var(--event3-purple), 0.16), transparent 34rem),
+    radial-gradient(circle at 100% 42%, rgba(var(--event3-pink), 0.07), transparent 27rem),
+    radial-gradient(circle at 0% 68%, rgba(var(--event3-cyan), 0.055), transparent 25rem);
+}
+
+.event3-finale-stage {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.12), transparent 35%),
+    radial-gradient(circle at 86% 22%, rgba(var(--event3-purple), 0.18), transparent 36%),
+    linear-gradient(155deg, rgba(29, 18, 48, 0.96), rgba(10, 8, 18, 0.98) 68%);
+  background-size: 22px 22px, 22px 22px, auto, auto, auto;
+  box-shadow:
+    0 34px 90px -54px rgba(var(--event3-purple), 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  backdrop-filter: blur(22px) saturate(125%);
+}
+
+.event3-finale-stage::after {
+  position: absolute;
+  top: 0;
+  right: 12%;
+  left: 12%;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(253, 230, 138, 0.65), rgba(216, 180, 254, 0.48), transparent);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.24);
+}
+
+.event3-finale-journey {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 1.15rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.event3-finale-journey__step {
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.event3-finale-journey__step + .event3-finale-journey__step {
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.event3-finale-reveals {
+  padding-top: 0.3rem;
+}
+
+.event3-reveal-card__face {
+  background-color: rgba(12, 9, 21, 0.98);
+  box-shadow:
+    0 22px 68px -48px rgba(var(--event3-purple), 0.88),
+    inset 0 1px 0 rgba(255, 255, 255, 0.085),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+}
+
+.event3-reveal-card__face::after {
+  position: absolute;
+  top: 0;
+  right: 9%;
+  left: 9%;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  opacity: 0.7;
+}
+
+.event3-reveal-card__number {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.85rem;
+  z-index: 0;
+  color: rgba(255, 255, 255, 0.035);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.08em;
+}
+
+.event3-reveal-card__back {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(var(--event3-purple), 0.12), transparent 30%),
+    linear-gradient(155deg, rgba(25, 18, 40, 0.96), rgba(9, 7, 16, 0.98));
+  box-shadow:
+    0 24px 70px -50px rgba(var(--event3-purple), 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.event3-finale-convergence {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(251, 191, 36, 0.13), transparent 48%),
+    linear-gradient(145deg, rgba(69, 45, 12, 0.32), rgba(20, 14, 14, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.event3-finale-next {
+  background:
+    radial-gradient(circle at 88% -15%, rgba(var(--event3-purple), 0.15), transparent 48%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  box-shadow:
+    0 28px 74px -54px rgba(var(--event3-purple), 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065);
+}
+
+.event3-finale-cta {
+  background:
+    radial-gradient(circle at 86% -80%, rgba(255, 255, 255, 0.26), transparent 55%),
+    linear-gradient(115deg, rgb(109, 40, 217), rgb(192, 38, 211) 54%, rgb(219, 39, 119));
+  box-shadow:
+    0 28px 64px -30px rgba(217, 70, 239, 0.88),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(55, 16, 86, 0.42);
+}
+
+.event3-finale-cta::after {
+  position: absolute;
+  inset: -30% -70%;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 43%, rgba(255, 255, 255, 0.16) 49%, transparent 55%);
+  transform: translate3d(38%, 0, 0);
+  animation: event3-finale-cta-sheen 4.8s 1.4s ease-in-out infinite;
+}
+
+@keyframes event3-finale-cta-sheen {
+  0%, 58% { transform: translate3d(38%, 0, 0); }
+  82%, 100% { transform: translate3d(-38%, 0, 0); }
 }
 
 .event3-final-view details {

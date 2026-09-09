@@ -40,21 +40,24 @@ test("the ice-breaker makes turn order and handoff unmistakable", () => {
 
 test("the activity deck stays swipeable, readable, and directly selectable", () => {
   const picker = between(groupsSource, "const renderGameSelection", "const renderGameContent")
+  const catalog = between(groupsSource, "const games: Game[]", "const hashActivitySeed")
+  const listedActivityIds = new Set([...catalog.matchAll(/\bid: "([^"]+)"/g)].map(match => match[1]))
+  const playableActivityIds = new Set([...groupsSource.matchAll(/currentGame\.id === "([^"]+)"/g)].map(match => match[1]))
 
   assert.match(groupsSource, /energyAr: "(?:هادئ|متوازن|حماسي)"/)
   assert.match(groupsSource, /fitAr:/)
   assert.match(picker, /carouselDirection/)
   assert.match(picker, /drag="x"/)
   assert.match(picker, /mode="popLayout"/)
-  assert.match(picker, /grid-cols-8/)
-  assert.match(picker, /event3-activity-navigation sticky top-0 z-30/)
-  assert.match(picker, /data-event3-activity-arrow="previous"/)
-  assert.match(picker, /data-event3-activity-arrow="next"/)
-  assert.match(picker, /<span>السابق<\/span>/)
-  assert.match(picker, /<span>التالي<\/span>/)
+  assert.match(picker, /setCarouselIndex\(currentIndex => \(currentIndex \+ direction \+ activityGames\.length\) % activityGames\.length\)/)
+  assert.match(picker, /gridTemplateColumns: `repeat\(\$\{activityGames\.length\}, minmax\(0, 1fr\)\)`/)
+  assert.doesNotMatch(picker, /grid-cols-8/)
+  assert.ok(listedActivityIds.has("two-truths-lie"), "two truths and a lie must be listed in the picker")
+  for (const activityId of playableActivityIds) {
+    assert.ok(listedActivityIds.has(activityId), `playable activity ${activityId} is missing from the picker`)
+  }
   assert.match(picker, /ابدأوا هذا النشاط/)
   assert.match(picker, /خلّوا الهاتف في المنتصف/)
-  assert.match(styles, /\.event3-activity-navigation__button svg\s*\{[\s\S]*color: rgb\(255 255 255\)/)
 })
 
 test("group overlays use premium formation and shared motion surfaces", () => {

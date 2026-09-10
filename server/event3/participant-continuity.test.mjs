@@ -184,6 +184,15 @@ test("Event3 tokenless walkthrough loads only public onboarding metadata before 
   )
 })
 
+test("Event3 welcome starts fresh on every route entry", async () => {
+  const route = await read("app/routes/event3.tsx")
+
+  assert.match(route, /const \[showWelcome, setShowWelcome\] = useState\(true\)/)
+  assert.match(route, /const handleWelcomeDone = useCallback\(\(\) => \{\s*setShowWelcome\(false\)/)
+  assert.doesNotMatch(route, /EVENT3_ONBOARDING_KEY/)
+  assert.doesNotMatch(route, /event3OnboardingKey/)
+})
+
 test("Event3 results and cohost keep edition-aware top-level fallbacks", async () => {
   const api = await read("api/participant.mjs")
   const resultsRoute = await read("app/routes/results.tsx")

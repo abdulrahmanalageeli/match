@@ -2231,6 +2231,14 @@ export default function Admin3Page() {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve({ error: "preview mode" }) }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
+  const confirmNonSequentialPhaseChange = (targetLabel: string) => {
+    const currentLabel = phases.find(item => item.id === String(state?.phase || "setup"))?.label || "المرحلة الحالية"
+    return window.confirm(`الانتقال إلى «${targetLabel}» ليس الخطوة التالية بعد «${currentLabel}».\nقد يتغيّر ما يراه المشاركون ويُعاد تشغيل مؤقت المرحلة.\nهل تريد المتابعة؟`)
+  }
+  const runPhaseControl = (label: string, action: (confirmedOutOfSequence?: boolean) => void | Promise<unknown>, isExpectedNext: boolean) => {
+    if (!isExpectedNext && !confirmNonSequentialPhaseChange(label)) return
+    action(!isExpectedNext)
+  }
   const jumpToPhase = async (phase: string) => {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return }
     if (phaseJumpLoading || loading?.startsWith("phase-")) return
@@ -2244,6 +2252,9 @@ export default function Admin3Page() {
                 : phase === "phase4_reveal" ? thirdMatchTimerRound
                   : 0
     const phaseLabel = phases.find(item => item.id === phase)?.label || phase
+    const currentPhaseIndex = phases.findIndex(item => item.id === String(state?.phase || "setup"))
+    const targetPhaseIndex = phases.findIndex(item => item.id === phase)
+    if (targetPhaseIndex !== currentPhaseIndex + 1 && !confirmNonSequentialPhaseChange(phaseLabel)) return
     setPhaseJumpLoading(phase)
     try {
       const data = await api("e3-set-phase", duration > 0
@@ -2811,10 +2822,10 @@ export default function Admin3Page() {
     return data
   }) }
 
-  const triggerPhase2 = () => {
+  const triggerPhase2 = (confirmedOutOfSequence = false) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
-    if (![finalRankingPhase, "phase2_processing"].includes(String(state?.phase || ""))) {
+    if (!confirmedOutOfSequence && ![finalRankingPhase, "phase2_processing"].includes(String(state?.phase || ""))) {
       toast.error("أكمل الجولات الجماعية والتصنيف النهائي قبل تشغيل اللقاء الفردي الأول")
       return
     }
@@ -2826,14 +2837,14 @@ export default function Admin3Page() {
     if (choiceOnly) return runMatching()
     return setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : runMatching())
   }
-  const triggerPhase3 = () => {
+  const triggerPhase3 = (confirmedOutOfSequence = false) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
-    if (choiceOnly && (state?.phase !== "phase2_reveal" || !state?.phase2_matches_done)) {
-      toast.error("لا يمكن تشغيل الاختيار الثاني إلا أثناء كشف الاختيار الأول وبعد اكتمال الاختيار الأول للجميع")
+    if (!state?.phase2_matches_done) {
+      toast.error(choiceOnly ? "أكمل الاختيار الأول قبل تشغيل الاختيار الثاني" : "أكمل مطابقة المرحلة الثانية أولاً")
       return
     }
-    if (!choiceOnly && (state?.phase !== "phase2_reveal" || !state?.phase2_matches_done)) {
-      toast.error("لا يمكن تشغيل مطابقة المرحلة الثالثة إلا أثناء كشف المرحلة الثانية وبعد اكتمالها")
+    if (!confirmedOutOfSequence && state?.phase !== "phase2_reveal") {
+      toast.error(choiceOnly ? "لا يمكن تشغيل الاختيار الثاني إلا أثناء كشف الاختيار الأول" : "لا يمكن تشغيل مطابقة المرحلة الثالثة إلا أثناء كشف المرحلة الثانية")
       return
     }
     run("phase3", async () => {
@@ -2852,11 +2863,15 @@ export default function Admin3Page() {
     })
   }
 
-  const triggerPhase4 = () => {
+  const triggerPhase4 = (confirmedOutOfSequence = false) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
     if (!choiceOnly) { toast.error("الاختيار الثالث متاح فقط في نظام الاختيارات الثلاثة"); return }
-    if (state?.phase !== "phase3_reveal" || !state?.phase3_matches_done) {
-      toast.error("لا يمكن تشغيل الاختيار الثالث إلا أثناء كشف الاختيار الثاني وبعد اكتماله للجميع")
+    if (!state?.phase3_matches_done) {
+      toast.error("أكمل الاختيار الثاني قبل تشغيل الاختيار الثالث")
+      return
+    }
+    if (!confirmedOutOfSequence && state?.phase !== "phase3_reveal") {
+      toast.error("لا يمكن تشغيل الاختيار الثالث إلا أثناء كشف الاختيار الثاني")
       return
     }
     run("phase4", async () => {
@@ -4136,7 +4151,7 @@ export default function Admin3Page() {
                     action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: state?.phase === "setup" && (choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6),
+                    enabled: state?.phase === "setup" && state?.seating_generated !== true && (choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6),
                     loadKey: "seating",
                   },
                   {
@@ -4281,27 +4296,31 @@ export default function Admin3Page() {
                     action: () => setPhase("setup"),
                     icon: Home,
                     color: "gray",
-                    enabled: true,
+                    enabled: state?.phase === "setup",
                     loadKey: "phase-setup",
                   },
                 ].map(btn => (
                   <button
                     key={btn.loadKey}
-                    onClick={btn.action}
-                    disabled={!btn.enabled || !!loading || previewEventId != null}
+                    onClick={() => runPhaseControl(btn.label, btn.action, btn.enabled === true)}
+                    disabled={!!loading || previewEventId != null}
+                    aria-label={btn.enabled ? btn.label : `${btn.label} — انتقال غير متسلسل يحتاج تأكيداً`}
                     className={`flex items-center gap-3 p-3 rounded-lg border text-right transition-all ${
                       btn.enabled && previewEventId == null
                         ? "border-gray-700 bg-gray-800 hover:bg-gray-750 hover:border-purple-700 text-white"
-                        : "border-gray-800 bg-gray-850 text-gray-600 cursor-not-allowed"
+                        : previewEventId == null
+                          ? "border-gray-700/80 bg-gray-850 text-gray-300 hover:border-amber-700/60 hover:bg-gray-800 cursor-pointer"
+                          : "border-gray-800 bg-gray-850 text-gray-600 cursor-not-allowed"
                     }`}
                   >
                     {loading === btn.loadKey
                       ? <Loader2 size={16} className="animate-spin text-purple-400 flex-shrink-0" />
-                      : <btn.icon size={16} className={btn.enabled && previewEventId == null ? "text-purple-400" : "text-gray-700"} />
+                      : <btn.icon size={16} className={btn.enabled && previewEventId == null ? "text-purple-400" : "text-gray-400"} />
                     }
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">{btn.label}</div>
                       <div className="text-xs text-gray-500">{btn.desc}</div>
+                      {!btn.enabled && previewEventId == null && <div className="mt-1 text-[10px] font-bold text-amber-500/80">انتقال مباشر · يتطلب تأكيداً</div>}
                     </div>
                   </button>
                 ))}
@@ -4438,7 +4457,7 @@ export default function Admin3Page() {
                 </div>
                 <div className="flex gap-1.5 mt-2">
                   <button
-                    onClick={triggerPhase2}
+                    onClick={() => triggerPhase2()}
                     disabled={!!loading || (choiceOnly
                       ? !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
                       : !["ranking2", "phase2_processing"].includes(String(state?.phase || "")))}
@@ -4447,7 +4466,7 @@ export default function Admin3Page() {
                     ⚡ {choiceOnly ? "الاختيار الأول" : "مطابقة المرحلة 2"}
                   </button>
                   <button
-                    onClick={triggerPhase3}
+                    onClick={() => triggerPhase3()}
                     disabled={!!loading || state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
@@ -4455,7 +4474,7 @@ export default function Admin3Page() {
                   </button>
                   {choiceOnly && (
                     <button
-                      onClick={triggerPhase4}
+                      onClick={() => triggerPhase4()}
                       disabled={!!loading || state?.phase !== "phase3_reveal" || state?.phase3_matches_done !== true || state?.phase4_matches_done === true}
                       className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-violet-900/50 hover:bg-violet-900/70 text-violet-300 transition-all disabled:opacity-40"
                     >
@@ -5847,7 +5866,7 @@ export default function Admin3Page() {
                 <h4 className="font-semibold text-gray-300 text-sm">نتائج المطابقة ({choiceOnly ? "الاختيار الأول" : "اختيارك"})</h4>
                 <div className="flex gap-2">
                   <button
-                    onClick={triggerPhase2}
+                    onClick={() => triggerPhase2()}
                     disabled={!!loading || (choiceOnly
                       ? !choiceOnlyRosterReady(state?.participants_selected) || !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
                       : !["ranking2", "phase2_processing"].includes(String(state?.phase || "")) || (rankStatus?.submitted || 0) === 0)}
@@ -6000,7 +6019,7 @@ export default function Admin3Page() {
                 <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة {secondMatchLabel}</h4>
                 <div className="flex gap-2">
                   <button
-                    onClick={triggerPhase3}
+                    onClick={() => triggerPhase3()}
                     disabled={!!loading || state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true}
                     className="flex items-center gap-1.5 bg-purple-900/40 hover:bg-purple-900/70 border border-purple-800/50 text-purple-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
@@ -6102,7 +6121,7 @@ export default function Admin3Page() {
                   <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة {thirdMatchLabel}</h4>
                   <div className="flex gap-2">
                     <button
-                      onClick={triggerPhase4}
+                      onClick={() => triggerPhase4()}
                       disabled={!!loading || state?.phase !== "phase3_reveal" || state?.phase3_matches_done !== true || state?.phase4_matches_done === true}
                       className="flex items-center gap-1.5 bg-violet-900/40 hover:bg-violet-900/70 border border-violet-800/50 text-violet-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                     >

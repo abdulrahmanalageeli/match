@@ -435,8 +435,6 @@ function clearAllArrived() {
   }
 }
 
-const EVENT3_ONBOARDING_KEY = "e3_onboarding_event3_v5_0_v1"
-
 function clearStoredParticipantIdentity() {
   if (typeof window === "undefined") return
   try { clearParticipantBrowserIdentity(window.localStorage) } catch {}
@@ -10374,8 +10372,8 @@ export default function Event3Page() {
     return typeof window !== "undefined" ? getParticipantBrowserToken(window.localStorage) : null
   })
 
-  // Keep the server and first client render identical, then resolve persisted
-  // onboarding state before showing either the welcome or participant screen.
+  // Keep the server and first client render identical. Welcome intentionally
+  // starts fresh on every Event3 entry and is dismissed only for this mount.
   const [showWelcome, setShowWelcome] = useState(true)
   const [storageReady, setStorageReady] = useState(false)
   const [showAiWelcome, setShowAiWelcome] = useState(false)
@@ -10411,19 +10409,8 @@ export default function Event3Page() {
   }, [token])
 
   useEffect(() => {
-    if (isImpersonating) {
-      setStorageReady(true)
-      return
-    }
-    try {
-      const parameterToken = searchParams.get("token") || searchParams.get("t")
-      const hasToken = Boolean(parameterToken || getParticipantBrowserToken(window.localStorage))
-      setShowWelcome(!(hasToken && localStorage.getItem(EVENT3_ONBOARDING_KEY) === "1"))
-    } catch {
-      setShowWelcome(true)
-    }
     setStorageReady(true)
-  }, [isImpersonating, searchParams])
+  }, [])
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return
@@ -10670,7 +10657,6 @@ export default function Event3Page() {
   }, [])
 
   const handleWelcomeDone = useCallback(() => {
-    try { localStorage.setItem(EVENT3_ONBOARDING_KEY, "1") } catch {}
     setShowWelcome(false)
   }, [])
 

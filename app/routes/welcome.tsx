@@ -97,7 +97,7 @@ import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
 
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, MotionConfig } from "framer-motion"
 import confetti from "canvas-confetti"
 // Use layout effect only on client to avoid SSR warnings
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -120,6 +120,8 @@ function useAccessibleWelcomeDialogs() {
   useEffect(() => {
     let activeDialog: HTMLElement | null = null
     let previouslyFocused: HTMLElement | null = null
+    let previousBodyOverflow: string | null = null
+    let previousRootOverflow: string | null = null
 
     const getFocusable = (dialog: HTMLElement) => Array.from(
       dialog.querySelectorAll<HTMLElement>(
@@ -134,6 +136,14 @@ function useAccessibleWelcomeDialogs() {
 
       if (!nextDialog) {
         activeDialog = null
+        if (previousBodyOverflow !== null) {
+          document.body.style.overflow = previousBodyOverflow
+          previousBodyOverflow = null
+        }
+        if (previousRootOverflow !== null) {
+          document.documentElement.style.overflow = previousRootOverflow
+          previousRootOverflow = null
+        }
         previouslyFocused?.focus()
         previouslyFocused = null
         return
@@ -141,6 +151,10 @@ function useAccessibleWelcomeDialogs() {
 
       if (!activeDialog) {
         previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+        previousBodyOverflow = document.body.style.overflow
+        previousRootOverflow = document.documentElement.style.overflow
+        document.body.style.overflow = 'hidden'
+        document.documentElement.style.overflow = 'hidden'
       }
       activeDialog = nextDialog
       requestAnimationFrame(() => {
@@ -191,6 +205,8 @@ function useAccessibleWelcomeDialogs() {
     return () => {
       observer.disconnect()
       document.removeEventListener('keydown', handleKeyDown)
+      if (previousBodyOverflow !== null) document.body.style.overflow = previousBodyOverflow
+      if (previousRootOverflow !== null) document.documentElement.style.overflow = previousRootOverflow
       previouslyFocused?.focus()
     }
   }, [])
@@ -3549,7 +3565,7 @@ export default function WelcomePage() {
         onClick={handleParticipantLogout}
         aria-label="تسجيل الخروج"
         title="تسجيل الخروج واستخدام حساب آخر"
-        className="welcome-topbar-control inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-rose-400/20 bg-rose-400/[0.08] px-3 font-bold text-rose-200 shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-rose-300/40 hover:bg-rose-400/[0.14] hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
+        className="welcome-topbar-control inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 font-bold text-rose-200 hover:text-rose-100"
       >
         <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
         <span>خروج</span>
@@ -3582,16 +3598,16 @@ export default function WelcomePage() {
     const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
     
     return (
-      <div className={`${positionClass} w-[calc(100vw-1.5rem)] max-w-xl`}>
+      <div className={`${positionClass} welcome-navigation-anchor w-[calc(100vw-1.5rem)] max-w-xl`}>
         <div className="flex flex-col items-center gap-1.5">
-          <nav aria-label="التنقل الرئيسي" className="w-full rounded-2xl border border-white/[0.09] bg-slate-950/75 p-1.5 shadow-[0_14px_38px_-24px_rgba(15,23,42,0.95)] backdrop-blur-xl">
+          <nav aria-label="التنقل الرئيسي" className="welcome-navigation-surface w-full rounded-2xl border p-1.5">
             <div className="welcome-topbar">
             {/* Brand / Home */}
             <button
               type="button"
               aria-label="العودة إلى الصفحة الرئيسية"
               onClick={handleLogoClick}
-              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.045] transition-colors hover:bg-white/[0.075] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+              className="welcome-icon-action flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl text-purple-100"
             >
               <img src="/blindmatch-imprint.png" alt="" className="h-10 w-10 scale-[1.3] object-contain opacity-100" />
             </button>
@@ -3614,7 +3630,7 @@ export default function WelcomePage() {
             {showAutoSignupOffer && !isTokenAndRoundPhase && (
                 <button
                   onClick={enableAutoSignup}
-                  className="welcome-topbar-control welcome-topbar-auto flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-400/25 bg-emerald-400/10 font-bold text-emerald-200 transition-colors hover:bg-emerald-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
+                  className="welcome-topbar-control welcome-topbar-auto flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl font-bold text-emerald-200"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
@@ -3624,7 +3640,7 @@ export default function WelcomePage() {
 
             {/* Global Timer - Show only when accessing via token URL AND in round phase */}
             {isTokenAndRoundPhase && (
-                <div className="welcome-topbar-control flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/20 bg-blue-400/10 font-medium text-blue-200">
+                <div className="welcome-topbar-control flex h-9 shrink-0 items-center gap-1.5 rounded-xl font-medium text-blue-200">
                   <Clock className="w-3 h-3" />
                   <span className="font-mono">
                     {!conversationStarted 
@@ -3641,7 +3657,7 @@ export default function WelcomePage() {
             {!isTokenAndRoundPhase && (
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="welcome-topbar-control flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] font-medium text-cyan-200 transition-colors hover:bg-cyan-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                  className="welcome-topbar-control flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl font-medium text-cyan-200"
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   <span>تواصل</span>
@@ -3655,7 +3671,7 @@ export default function WelcomePage() {
               onClick={() => {
                 window.location.href = `/welcome?token=${secureToken}&flow=returning`
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-slate-950/70 px-3 py-1.5 shadow-sm backdrop-blur-xl transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
+              className="welcome-soft-action inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5"
             >
               <span className="text-[10px] font-medium text-slate-500">التفضيل</span>
               <span className="text-[10px] font-bold text-blue-300">
@@ -3698,21 +3714,21 @@ export default function WelcomePage() {
       : "fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]";
     
     return (
-    <div className={positionClass}>
+    <div className={`${positionClass} welcome-logo-anchor`}>
       <div className="flex flex-col items-end gap-2">
         {/* Logo */}
         <button
           type="button"
           aria-label="العودة إلى الصفحة الرئيسية"
           onClick={handleLogoClick}
-          className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
+          className="group cursor-pointer"
         >
           <div className="relative">
             {/* Glow effect background */}
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
             
             {/* Main logo container */}
-            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
+            <div className="welcome-icon-action relative rounded-lg p-2">
               <div className="w-8 h-8 rounded-md bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1.5 shadow-md ring-1 ring-white/10">
                 <Home className="w-full h-full text-white" strokeWidth={2.5} />
               </div>
@@ -3745,10 +3761,10 @@ export default function WelcomePage() {
       : "fixed bottom-4 left-4 z-[100]";
     
     return (
-      <div className={positionClass}>
+      <div className={`${positionClass} welcome-contact-anchor`}>
         <button
           onClick={() => setShowContactForm(true)}
-          className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-xl px-4 py-3 shadow-lg hover:shadow-purple-500/25 transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-1"
+          className="welcome-primary-action group relative rounded-xl px-4 py-3"
           title="تواصل معنا"
         >
           {/* Glow effect */}
@@ -3759,7 +3775,7 @@ export default function WelcomePage() {
           
           {/* Icon and Text */}
           <div className="relative flex items-center gap-2" dir="rtl">
-            <MessageCircle className="w-5 h-5 text-white drop-shadow-sm animate-bounce" style={{ animationDuration: '2s' }} />
+            <MessageCircle className="h-5 w-5 text-purple-100" />
             <span className="text-white text-sm font-medium drop-shadow-sm">
               تواصل معنا
             </span>
@@ -3795,13 +3811,13 @@ export default function WelcomePage() {
     
     return (
       <div className={positionClass}>
-        <div className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105">
+        <div className="group cursor-pointer">
           <div className="relative">
             {/* Glow effect background */}
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm sm:blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
             
             {/* Main participant container */}
-            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-lg sm:shadow-xl group-hover:shadow-cyan-500/20 transition-all duration-700 ease-out">
+            <div className="welcome-event-card relative rounded-lg border p-2 sm:rounded-xl sm:p-3">
               <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
                 {/* Participant Number */}
                 <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-lg sm:text-xl leading-tight">
@@ -4941,7 +4957,7 @@ export default function WelcomePage() {
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 
       onClick={onClick} 
-      className="spring-btn relative ps-12 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+      className="welcome-primary-action relative min-h-12 rounded-2xl px-5 ps-12 font-black"
     >
       {label}
       <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">
@@ -4953,7 +4969,7 @@ export default function WelcomePage() {
   const FancyPreviousButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 
       onClick={onClick} 
-      className="spring-btn relative pe-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+      className="welcome-soft-action relative min-h-12 rounded-2xl px-5 pe-12 font-bold text-gray-300"
     >
       {label}
       <span className="bg-white/20 pointer-events-none absolute inset-y-0 end-0 flex w-9 items-center justify-center rounded-e-md">
@@ -6257,7 +6273,7 @@ export default function WelcomePage() {
   if (showMatchInsightsUpdate && missingMatchInsightIds.length > 0) {
     return (
       <>
-        <div className="relative min-h-screen overflow-hidden page-bg" dir="rtl" aria-hidden="true">
+        <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl" aria-hidden="true">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(139,92,246,0.12),transparent_42%)]" />
           <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 text-white/35">
             <img src="/blindmatch-imprint.png" alt="" className="h-12 w-12 object-contain opacity-70" />
@@ -6279,7 +6295,7 @@ export default function WelcomePage() {
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
   if (vibeCompletionPopupEnabled && showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
     return (
-      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
+      <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -6485,7 +6501,7 @@ export default function WelcomePage() {
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
     return (
-      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
+      <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -6578,7 +6594,7 @@ export default function WelcomePage() {
   // Token validation loading UI
   if (token && isResolving) {
     return (
-      <div className="relative min-h-screen overflow-hidden page-bg" dir="rtl">
+      <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl">
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
           <div className="absolute -right-28 -top-36 h-80 w-80 rounded-full bg-cyan-400/[0.12] blur-[90px]" />
           <div className="absolute -bottom-40 -left-28 h-96 w-96 rounded-full bg-violet-500/[0.12] blur-[110px]" />
@@ -6708,9 +6724,10 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
+        <MotionConfig reducedMotion="user">
+        <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl">
         {/* Animated Background Elements */}
-        <div className="absolute inset-0">
+        <div className="welcome-legacy-ambient absolute inset-0">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
@@ -6764,6 +6781,7 @@ export default function WelcomePage() {
           </div>
         </div>
       </div>
+      </MotionConfig>
       </>
     )
   }
@@ -6774,8 +6792,24 @@ export default function WelcomePage() {
       <>
         {/* New User Type Popup */}
         {showNewUserTypePopup && (
-          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="اختيار نوع المشاركة" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-md sm:p-6">
-            <div className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/[0.12] bg-slate-950/90 p-5 shadow-[0_30px_100px_-28px_rgba(34,211,238,0.45)] ring-1 ring-white/[0.04] sm:p-7" dir="rtl">
+          <motion.div
+            data-welcome-dialog
+            role="dialog"
+            aria-modal="true"
+            aria-label="اختيار نوع المشاركة"
+            tabIndex={-1}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 sm:p-6"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(5px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              transition={{ type: "spring", stiffness: 320, damping: 30, mass: 0.72 }}
+              className="welcome-event-card relative w-full max-w-lg overflow-hidden rounded-[2rem] border p-5 sm:p-7"
+              dir="rtl"
+            >
               <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-24 -left-20 h-52 w-52 rounded-full bg-violet-500/10 blur-3xl" />
 
@@ -6783,7 +6817,7 @@ export default function WelcomePage() {
                 <div className="mb-7 flex items-center justify-between gap-3 border-b border-white/[0.14] pb-4">
                   <button
                     onClick={() => setShowFAQPopup(true)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    className="welcome-soft-action inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-slate-100"
                     title="الأسئلة الشائعة"
                   >
                     <HelpCircle className="h-4 w-4" />
@@ -6791,7 +6825,7 @@ export default function WelcomePage() {
                   </button>
                   <button
                     onClick={() => setShowInfoPopup(true)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    className="welcome-soft-action inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-slate-100"
                     title="اضغط لمعرفة المزيد عن الفعالية"
                   >
                     <Info className="h-4 w-4 text-cyan-300" />
@@ -6808,7 +6842,7 @@ export default function WelcomePage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-white/[0.16] bg-white/[0.065] p-4 sm:p-5">
+                  <div className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
                         <RotateCcw className="h-5 w-5" />
@@ -6832,7 +6866,7 @@ export default function WelcomePage() {
                       <button
                         onClick={handleReturningUserToken}
                         disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:bg-white/[0.10] disabled:text-slate-500 disabled:opacity-100 disabled:ring-1 disabled:ring-inset disabled:ring-white/[0.08] sm:w-auto"
+                        className="welcome-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold sm:w-auto"
                       >
                         {newUserTokenLoading ? (
                           <>
@@ -6864,21 +6898,21 @@ export default function WelcomePage() {
 
                   <button
                     onClick={handleNewUserDirect}
-                    className="group flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-l from-cyan-300 to-blue-400 px-4 text-right text-slate-900 shadow-[0_18px_45px_-20px_rgba(34,211,238,0.85)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    className="welcome-primary-action group flex min-h-16 w-full items-center gap-3 rounded-2xl px-4 text-right text-white"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950/10">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-300/15 bg-purple-300/[0.08] text-purple-100">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-black">أنا مشارك جديد</h3>
-                      <p className="mt-0.5 text-xs font-semibold text-slate-800/80">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
+                      <p className="mt-0.5 text-xs font-semibold text-gray-400">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
                     </div>
                     <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Forgot-token recovery is available on the public landing page. */}
@@ -7748,9 +7782,10 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
+        <MotionConfig reducedMotion="user">
+        <div className="welcome-shell welcome-stage page-bg relative min-h-[100dvh] overflow-hidden" dir="rtl">
         {/* Animated Background Elements */}
-        <div className="absolute inset-0">
+        <div className="welcome-legacy-ambient absolute inset-0">
           {/* Floating orbs */}
           {[...Array(8)].map((_, i) => (
             <div
@@ -7771,16 +7806,24 @@ export default function WelcomePage() {
         </div>
 
         {/* Grid pattern overlay */}
-        <div className="absolute inset-0 opacity-20" style={{
+        <div className="welcome-legacy-ambient absolute inset-0 opacity-20" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }}></div>
 
         {/* Main Content */}
-        <div className="relative z-10 flex min-h-screen items-start justify-center px-4">
+        <div className="welcome-scroll relative z-10 flex min-h-[100dvh] items-start justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-4xl w-full">
             {/* Initial Loading Animation */}
+            <AnimatePresence mode="wait" initial={false}>
             {!showRegistrationContent && (
-              <div className="flex min-h-[100svh] items-center justify-center py-5 text-center">
+              <motion.div
+                key="welcome-loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 1.02, filter: "blur(7px)" }}
+                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                className="flex min-h-[100svh] items-center justify-center py-5 text-center"
+              >
                 <div className="w-full -translate-y-8 sm:-translate-y-10">
                   <AnimatedBlindMatchLogo />
                   <p className="mt-3 text-sm font-medium tracking-wide text-cyan-100/80 sm:text-base">
@@ -7790,12 +7833,19 @@ export default function WelcomePage() {
                     <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-300 animate-[pulse_1.4s_ease-in-out_infinite]" />
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Final Registration Content */}
             {showRegistrationContent && (
-              <>
+              <motion.div
+                key="welcome-dashboard"
+                initial={{ opacity: 0, y: 16, scale: 0.992, filter: "blur(6px)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, scale: 0.995 }}
+                transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+                className="welcome-dashboard"
+              >
                 <h1 className="sr-only">بلايند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
                 {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
                 <div className="h-24 sm:h-24" aria-hidden="true" />
@@ -7807,7 +7857,7 @@ export default function WelcomePage() {
                     aria-busy={upcomingEventLoading}
                     className="mx-3 mb-4 mt-3 max-w-5xl sm:mx-auto sm:mt-0"
                   >
-                    <div className="relative isolate overflow-hidden rounded-3xl border border-cyan-300/[0.14] bg-slate-950/70 p-3 shadow-[0_24px_75px_-45px_rgba(34,211,238,0.7)] ring-1 ring-white/[0.025] backdrop-blur-2xl sm:p-4">
+                    <div className="welcome-event-card relative isolate overflow-hidden rounded-3xl border p-3 sm:p-4">
                       <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/75 to-transparent" aria-hidden="true" />
                       <div className="pointer-events-none absolute -right-20 -top-24 h-48 w-48 rounded-full bg-cyan-400/[0.09] blur-3xl" aria-hidden="true" />
                       <div className="pointer-events-none absolute -bottom-24 left-1/4 h-44 w-44 rounded-full bg-violet-500/[0.07] blur-3xl" aria-hidden="true" />
@@ -8602,7 +8652,7 @@ export default function WelcomePage() {
                   <>
                     {/* See Match Results Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-2 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
+                      <div className="welcome-event-card rounded-2xl border p-6 sm:p-8">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
@@ -8685,7 +8735,7 @@ export default function WelcomePage() {
                             <Button
                               onClick={() => viewResults(resultToken)}
                               disabled={!resultToken.trim() || getSecurityStatus('resultToken').isLocked}
-                              className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                               className="welcome-primary-action w-full rounded-2xl px-5 py-3 text-base font-black sm:py-4 sm:text-lg"
                             >
                               عرض النتائج
                             </Button>
@@ -8696,7 +8746,7 @@ export default function WelcomePage() {
 
                     {/* Group Activities Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
-                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
+                      <div className="welcome-event-card rounded-2xl border p-6 sm:p-8">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
@@ -8718,7 +8768,7 @@ export default function WelcomePage() {
                               onClick={() => {
                                 window.location.href = `/groups${window.location.search}`
                               }}
-                              className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                               className="welcome-primary-action w-full rounded-2xl px-5 py-3 text-base font-black sm:py-4 sm:text-lg"
                             >
                               <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                               ابدأ الألعاب الجماعية
@@ -8732,8 +8782,9 @@ export default function WelcomePage() {
 
                 
 
-              </>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -8748,6 +8799,7 @@ export default function WelcomePage() {
           }}
         />
       </div>
+      </MotionConfig>
 
       {/* Remote Event3 Feedback Modal — duplicated here for !token early return */}
       <AnimatePresence>
@@ -9061,8 +9113,9 @@ export default function WelcomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+      <MotionConfig reducedMotion="user">
       <div
-        className={`min-h-screen px-4 py-4 flex items-start justify-center relative overflow-hidden transition-colors duration-1000 ${
+        className={`welcome-shell welcome-stage min-h-[100dvh] px-4 py-4 flex items-start justify-center relative overflow-hidden ${
           dark
             ? step === 4 && currentRound === 1
               ? currentQuestions[currentQuestionIndex].level === 0
@@ -9176,7 +9229,7 @@ export default function WelcomePage() {
       )}
 
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="welcome-legacy-ambient absolute inset-0 overflow-hidden">
         <div className={`absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse ${
           dark ? "bg-slate-500/10" : "bg-blue-400/20"
         }`}></div>
@@ -9214,12 +9267,12 @@ export default function WelcomePage() {
       </div>
 
       {/* Grid pattern overlay */}
-      <div className="absolute inset-0 opacity-20" style={{
+      <div className="welcome-legacy-ambient absolute inset-0 opacity-20" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${dark ? '%236B7280' : '%233B82F6'}' fill-opacity='${dark ? '0.1' : '0.15'}'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
       }}></div>
 
 
-      <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
+      <div className="welcome-scroll w-full max-w-md space-y-7 pb-[max(1rem,env(safe-area-inset-bottom))] text-center animate-fade-in relative z-10">
 
         {/* Welcome Landing Page */}
         {step === -1 && (
@@ -9228,7 +9281,7 @@ export default function WelcomePage() {
               <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
                 dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
               }`}></div>
-              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+              <div className={`welcome-event-card relative rounded-3xl border p-7 sm:p-8 ${
                 dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
               }`}>
                 <div className="flex justify-center mb-6">
@@ -9273,7 +9326,7 @@ export default function WelcomePage() {
               <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
                 dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
               }`}></div>
-              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+              <div className={`welcome-event-card relative rounded-3xl border p-7 sm:p-8 ${
                 dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
               }`}>
                 <div className="flex justify-center mb-6">
@@ -9325,7 +9378,7 @@ export default function WelcomePage() {
         {/* خطوة 1 */}
         {step === 1 && !token && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`welcome-event-card rounded-3xl border p-7 sm:p-8 ${
               dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
             }`}>
               <div className="flex justify-center mb-4">
@@ -9385,7 +9438,7 @@ export default function WelcomePage() {
         {/* خطوة 2 */}
         {step === 2 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl transition-all duration-500 ${showSurvey ? 'p-2 sm:p-4' : 'p-6 sm:p-8 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50'} ${
+            <div className={`welcome-event-card rounded-3xl border ${showSurvey ? 'p-2 sm:p-4' : 'p-6 sm:p-8'} ${
               dark ? "bg-white/0 border-white/20 hover:bg-white/0" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
               {!showSurvey && <div className="flex flex-col items-center gap-4 mb-6">
@@ -13148,6 +13201,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 
 
       </div>
+      </MotionConfig>
 
       {/* Remote Event3 Feedback Modal */}
       <AnimatePresence>

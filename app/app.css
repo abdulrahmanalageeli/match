@@ -700,51 +700,52 @@ html:not(.dark) .ai-ink {
   mix-blend-mode: normal;
 }
 
-/* === Page background: brighter, uplifting tech gradient with soft radials === */
+/* Welcome uses the same calm, near-black ambient world as Event3. */
 .page-bg {
+  background-color: #05040a;
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.14), transparent 65%),
-    radial-gradient(900px 500px at 10% 110%, rgba(168, 85, 247, 0.12), transparent 60%),
-    linear-gradient(180deg, #101c32 0%, #0c162a 100%);
+    radial-gradient(ellipse 88% 56% at 82% -12%, rgba(139, 92, 246, 0.22), transparent 61%),
+    radial-gradient(ellipse 72% 46% at -18% 106%, rgba(103, 232, 249, 0.09), transparent 66%),
+    radial-gradient(ellipse 50% 34% at 50% 46%, rgba(139, 92, 246, 0.045), transparent 72%),
+    linear-gradient(180deg, #090713 0%, #0a0811 44%, #05040a 100%);
 }
 
-/* Subtle page pattern overlay (uses /public/BGPattern.png)
-   Drawn above the gradient but below in-DOM animated layers and content */
+/* Two slow ambient halos replace the legacy circuit artwork and pulsing dots. */
 .page-bg::before {
   content: "";
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  top: -15rem;
+  right: -10rem;
+  width: min(34rem, 92vw);
+  height: min(34rem, 92vw);
+  border-radius: 999px;
   pointer-events: none;
-  /* The pattern image ships in /public, so it is served from root */
-  background-image: url('/BGPattern.jpg');
-  background-repeat: no-repeat;
-  background-size: cover;          /* scale to viewport while preserving aspect */
-  background-position: center;     /* center the artwork */
-  opacity: 0.18;                   /* a bit more opaque */
-  transform: none;                 /* revert to original size */
-  transform-origin: center;
-  /* soft glow around the pattern lines */
-  filter: drop-shadow(0 0 36px rgba(56,189,248,0.25))
-          drop-shadow(0 0 24px rgba(168,85,247,0.20));
-  will-change: transform, opacity, filter;
-  z-index: 2;                      /* above orbs and glow, below content (z-10) */
+  background: rgba(139, 92, 246, 0.2);
+  filter: blur(88px);
+  animation: welcome-ambient-drift 16s ease-in-out infinite alternate;
+  will-change: transform;
+  z-index: 0;
 }
 
-/* Underlay glow (blurred) for the pattern */
 .page-bg::after {
   content: "";
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  bottom: -13rem;
+  left: -11rem;
+  width: min(30rem, 84vw);
+  height: min(30rem, 84vw);
+  border-radius: 999px;
   pointer-events: none;
-  background-image: url('/BGPattern.png');
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  transform: scale(0.85);
-  transform-origin: center;
-  filter: blur(12px) saturate(110%);
-  opacity: 0.10;                   /* subtle halo */
-  z-index: 1;                      /* sits between orbs (0) and main pattern (2) */
+  background: rgba(103, 232, 249, 0.075);
+  filter: blur(88px);
+  animation: welcome-ambient-drift 19s ease-in-out -7s infinite alternate-reverse;
+  will-change: transform;
+  z-index: 0;
+}
+
+@keyframes welcome-ambient-drift {
+  from { transform: translate3d(0, 0, 0) scale(0.96); }
+  to { transform: translate3d(-1.5rem, 1.75rem, 0) scale(1.06); }
 }
 
 /* === Animated gradient border (works without @property) === */
@@ -1237,6 +1238,311 @@ html:not(.dark) .ai-ink {
 
 .welcome-action-card:active {
   transform: translateY(1px);
+}
+
+/* Welcome route — Event3-cohesive participant design system. */
+:is(
+  .welcome-shell,
+  .welcome-event-card,
+  .welcome-navigation-surface,
+  .welcome-actions-panel,
+  .welcome-process-panel,
+  .welcome-primary-action,
+  .welcome-soft-action,
+  .welcome-icon-action,
+  .welcome-topbar-control
+) {
+  --welcome-purple: 139, 92, 246;
+  --welcome-cyan: 103, 232, 249;
+  --welcome-surface: rgba(18, 15, 27, 0.84);
+  --welcome-line: rgba(255, 255, 255, 0.095);
+  --welcome-text: #fbfaff;
+  --welcome-muted: #aaa5b5;
+}
+
+.welcome-shell {
+  min-width: 0;
+  min-height: 100dvh;
+  color: var(--welcome-text);
+  background-color: #05040a;
+  background-image:
+    radial-gradient(ellipse 88% 56% at 82% -12%, rgba(var(--welcome-purple), 0.22), transparent 61%),
+    radial-gradient(ellipse 72% 46% at -18% 106%, rgba(var(--welcome-cyan), 0.09), transparent 66%),
+    radial-gradient(ellipse 50% 34% at 50% 46%, rgba(var(--welcome-purple), 0.045), transparent 72%),
+    linear-gradient(180deg, #090713 0%, #0a0811 44%, #05040a 100%);
+  font-family: "Tajawal", ui-sans-serif, system-ui, sans-serif;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  color-scheme: dark;
+}
+
+.welcome-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.welcome-shell::selection,
+.welcome-shell ::selection {
+  color: #fff;
+  background: rgba(var(--welcome-purple), 0.52);
+}
+
+.welcome-shell :where(button, a, input, textarea, select) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.welcome-shell :where(h1, h2, h3, p, span, button, a, label) {
+  overflow-wrap: break-word;
+}
+
+.welcome-shell :where(button, a, input, textarea, select):focus-visible,
+.welcome-topbar-control:focus-visible,
+.welcome-icon-action:focus-visible,
+.welcome-soft-action:focus-visible,
+.welcome-primary-action:focus-visible {
+  outline: 2px solid rgba(233, 213, 255, 0.98);
+  outline-offset: 3px;
+}
+
+.welcome-scroll {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scroll-padding-top: max(6rem, env(safe-area-inset-top));
+  scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.welcome-event-card,
+.welcome-navigation-surface,
+.welcome-actions-panel,
+.welcome-process-panel {
+  position: relative;
+  border-color: var(--welcome-line) !important;
+  background:
+    radial-gradient(circle at 88% -18%, rgba(var(--welcome-purple), 0.1), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.066), var(--welcome-surface) 42%, rgba(8, 7, 14, 0.92)) !important;
+  box-shadow:
+    0 26px 72px -46px rgba(var(--welcome-purple), 0.48),
+    0 20px 48px -34px rgba(0, 0, 0, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.085),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.025) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(118%);
+  backdrop-filter: blur(22px) saturate(118%);
+}
+
+.welcome-event-card::after,
+.welcome-navigation-surface::after,
+.welcome-actions-panel::after,
+.welcome-process-panel::after {
+  position: absolute;
+  top: 0;
+  right: 12%;
+  left: 12%;
+  height: 1px;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(233, 213, 255, 0.3), rgba(207, 250, 254, 0.14), transparent);
+}
+
+.welcome-shell .welcome-next-event-card,
+.welcome-shell .welcome-action-card,
+.welcome-shell .blindmatch-explainer-trigger,
+.welcome-shell .welcome-process-panel [role="tab"] {
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  background:
+    radial-gradient(circle at 82% -70%, rgba(var(--welcome-purple), 0.14), transparent 58%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.062), rgba(255, 255, 255, 0.025)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease !important;
+}
+
+.welcome-shell .welcome-action-card--primary,
+.welcome-shell .welcome-process-panel [role="tab"][aria-selected="true"] {
+  border-color: rgba(216, 180, 254, 0.2) !important;
+  background:
+    radial-gradient(circle at 84% -58%, rgba(var(--welcome-purple), 0.24), transparent 54%),
+    linear-gradient(145deg, rgba(45, 31, 68, 0.82), rgba(17, 13, 28, 0.94) 72%) !important;
+  box-shadow: 0 18px 44px -34px rgba(var(--welcome-purple), 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.welcome-shell .welcome-action-card > p,
+.welcome-shell .welcome-next-event-card > p {
+  color: var(--welcome-muted);
+  font-size: 0.75rem;
+  line-height: 1.1rem;
+}
+
+.welcome-shell .welcome-process-panel .ai-card.ai-cut {
+  border-color: rgba(255, 255, 255, 0.085) !important;
+  background:
+    radial-gradient(circle at 84% -40%, rgba(var(--welcome-purple), 0.1), transparent 52%),
+    rgba(255, 255, 255, 0.03) !important;
+}
+
+.welcome-primary-action,
+.welcome-soft-action,
+.welcome-icon-action,
+.welcome-topbar-control {
+  position: relative;
+  isolation: isolate;
+  transform: translateZ(0);
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms ease,
+    border-color 180ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease,
+    opacity 180ms ease !important;
+}
+
+.welcome-primary-action {
+  overflow: hidden;
+  min-height: 3rem;
+  border: 1px solid rgba(216, 180, 254, 0.2) !important;
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 84% -58%, rgba(var(--welcome-purple), 0.26), transparent 54%),
+    radial-gradient(circle at 8% 145%, rgba(var(--welcome-cyan), 0.08), transparent 48%),
+    linear-gradient(145deg, rgba(45, 31, 68, 0.94), rgba(17, 13, 28, 0.985) 72%) !important;
+  color: rgb(250 245 255) !important;
+  box-shadow:
+    0 18px 44px -34px rgba(var(--welcome-purple), 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+}
+
+.welcome-soft-action,
+.welcome-topbar-control {
+  overflow: hidden;
+  min-height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.105) !important;
+  background:
+    radial-gradient(circle at 78% -70%, rgba(var(--welcome-purple), 0.17), transparent 58%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.028)) !important;
+  box-shadow:
+    0 18px 42px -34px rgba(var(--welcome-purple), 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16) !important;
+}
+
+.welcome-icon-action {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)) !important;
+  box-shadow: 0 14px 34px -28px rgba(var(--welcome-purple), 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.welcome-primary-action:active:not(:disabled),
+.welcome-soft-action:active:not(:disabled),
+.welcome-icon-action:active:not(:disabled),
+.welcome-topbar-control:active:not(:disabled),
+.welcome-action-card:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.welcome-primary-action:disabled,
+.welcome-soft-action:disabled,
+.welcome-icon-action:disabled,
+.welcome-topbar-control:disabled {
+  opacity: 0.42;
+  box-shadow: none !important;
+}
+
+.welcome-navigation-anchor {
+  top: max(0.75rem, env(safe-area-inset-top)) !important;
+}
+
+.welcome-logo-anchor {
+  top: max(0.75rem, env(safe-area-inset-top)) !important;
+  right: max(0.75rem, env(safe-area-inset-right)) !important;
+}
+
+.welcome-contact-anchor {
+  bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+  left: max(1rem, env(safe-area-inset-left)) !important;
+}
+
+.welcome-dashboard .animate-in {
+  animation-delay: 0ms !important;
+  animation-duration: 440ms !important;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.welcome-legacy-ambient {
+  display: none;
+}
+
+[data-welcome-dialog] {
+  z-index: 250 !important;
+  overscroll-behavior: contain;
+  background-color: rgba(3, 2, 9, 0.78) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(112%);
+  backdrop-filter: blur(18px) saturate(112%);
+}
+
+[data-welcome-dialog] > div {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background:
+    radial-gradient(circle at 88% -18%, rgba(139, 92, 246, 0.12), transparent 38%),
+    linear-gradient(155deg, rgba(24, 20, 35, 0.98), rgba(8, 7, 13, 0.99)) !important;
+  box-shadow: 0 30px 90px -42px rgba(139, 92, 246, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+@media (hover: hover) {
+  .welcome-primary-action:hover:not(:disabled),
+  .welcome-soft-action:hover:not(:disabled),
+  .welcome-icon-action:hover:not(:disabled),
+  .welcome-topbar-control:hover:not(:disabled),
+  .welcome-action-card:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(216, 180, 254, 0.24) !important;
+    box-shadow: 0 20px 48px -34px rgba(var(--welcome-purple), 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .welcome-primary-action,
+  .welcome-soft-action,
+  .welcome-icon-action,
+  .welcome-topbar-control,
+  .welcome-action-card {
+    min-height: 3rem;
+  }
+}
+
+@media (max-height: 720px) {
+  [data-welcome-dialog] {
+    align-items: flex-start !important;
+    padding-top: max(0.75rem, env(safe-area-inset-top)) !important;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-shell *,
+  .welcome-shell *::before,
+  .welcome-shell *::after,
+  [data-welcome-dialog] *,
+  [data-welcome-dialog] *::before,
+  [data-welcome-dialog] *::after,
+  .page-bg::before,
+  .page-bg::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 600px) {

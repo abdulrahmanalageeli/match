@@ -1563,37 +1563,6 @@ html:not(.dark) .round-bg-pattern::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.event3-tutorial-choice {
-  background:
-    radial-gradient(circle at 84% 8%, rgba(var(--event3-purple), 0.18), transparent 34%),
-    radial-gradient(circle at 8% 92%, rgba(var(--event3-cyan), 0.08), transparent 38%),
-    linear-gradient(160deg, rgba(9, 6, 18, 0.72), rgba(5, 4, 10, 0.94));
-}
-
-.event3-tutorial-mode-card {
-  position: relative;
-  isolation: isolate;
-  box-shadow:
-    0 22px 58px -42px rgba(0, 0, 0, 0.94),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.event3-tutorial-mode-card--quick {
-  background:
-    radial-gradient(circle at 92% -35%, rgba(var(--event3-cyan), 0.12), transparent 52%),
-    linear-gradient(145deg, rgba(20, 24, 35, 0.88), rgba(9, 8, 16, 0.94));
-  -webkit-backdrop-filter: blur(18px) saturate(118%);
-  backdrop-filter: blur(18px) saturate(118%);
-}
-
-.event3-tutorial-mode-card--story {
-  box-shadow:
-    0 30px 82px -42px rgba(var(--event3-purple), 0.72),
-    0 26px 52px -38px rgba(0, 0, 0, 0.96),
-    inset 0 1px 0 rgba(255, 255, 255, 0.13);
-}
-
 .event3-choice-story {
   background:
     radial-gradient(circle at 92% -12%, rgba(var(--event3-purple), 0.16), transparent 36%),

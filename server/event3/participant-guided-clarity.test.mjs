@@ -37,7 +37,7 @@ test("waiting screen keeps optional information and personalized welcome collaps
   assert.doesNotMatch(welcomeDone, /setShowAiWelcome\(true\)/)
 })
 
-test("Event3 tutorial offers a quick guide and a complete choice-mode story", () => {
+test("Event3 sends choice-mode participants directly to the complete story", () => {
   const slideCatalog = between("const WALK_SLIDES", "const WALK_ACCENTS")
   assert.match(slideCatalog, /key: "overview"[\s\S]*label: "الاكتشاف"/)
   assert.match(slideCatalog, /key: "ranking"[\s\S]*label: "الاختيار"/)
@@ -50,7 +50,7 @@ test("Event3 tutorial offers a quick guide and a complete choice-mode story", ()
   assert.match(quickGuide, /التواصل يحتاج «نعم» من الطرفين/)
   assert.match(quickGuide, /بلا نسب أو درجات/)
 
-  const storyCatalog = between("const CHOICE_TUTORIAL_SLIDES", "function TutorialModeChooser")
+  const storyCatalog = between("const CHOICE_TUTORIAL_SLIDES", "function ChoiceTutorialDeck")
   assert.equal((storyCatalog.match(/key: "/g) || []).length, 8)
   assert.match(storyCatalog, /٣ جولات جماعية/)
   assert.match(storyCatalog, /ثلاث لقاءات مع ثلاثة أشخاص مختلفين/)
@@ -62,16 +62,14 @@ test("Event3 tutorial offers a quick guide and a complete choice-mode story", ()
   assert.match(storyCatalog, /choice-venue\.webp/)
   assert.doesNotMatch(storyCatalog, /رومانسي|موعد|شريك/)
 
-  const chooser = between("function TutorialModeChooser", "function ChoiceTutorialDeck")
-  assert.match(chooser, /اختر طريقة الشرح/)
-  assert.match(chooser, /شرح سريع/)
-  assert.match(chooser, /شرح شامل/)
-  assert.match(chooser, /مولّدة بالذكاء الاصطناعي/)
-
   const story = between("function ChoiceTutorialDeck", "const WELCOME_BINARY_STREAMS")
   assert.match(story, /aria-label="تقدم الشرح الشامل"/)
   assert.match(story, /drag=\{reduceMotion \? false : "x"\}/)
   assert.match(story, /aria-live="polite"/)
+
+  const welcome = between("function WelcomeScreen", "// ─── Participant Entry Screen")
+  assert.match(welcome, /setPhase\(isChoiceOnlyEvent3\(eventFormat\) \? "story" : "steps"\)/)
+  assert.doesNotMatch(welcome, /tutorialChoice|TutorialModeChooser|mode === "quick"/)
 })
 
 test("ranking uses explicit controls and hides routine sync chatter", () => {

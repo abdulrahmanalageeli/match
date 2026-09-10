@@ -2060,100 +2060,6 @@ const CHOICE_TUTORIAL_SLIDES = [
   },
 ] as const
 
-function TutorialModeChooser({
-  headingRef,
-  onBack,
-  onSelect,
-}: {
-  headingRef: React.RefObject<HTMLHeadingElement | null>
-  onBack: () => void
-  onSelect: (mode: "quick" | "story") => void
-}) {
-  return (
-    <motion.div
-      key="tutorial-choice"
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      className="event3-tutorial-choice relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden"
-    >
-      <div className="event3-tutorial-header flex items-center justify-between px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          onClick={onBack}
-          className="event3-tertiary-action flex min-h-11 items-center gap-1 rounded-xl px-3 py-1 text-sm text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
-        >
-          <ChevronRight size={15} className="rotate-180" />
-          رجوع
-        </button>
-        <span className="flex items-center gap-1.5 text-xs font-black text-purple-100/80"><Sparkles size={12} /> دليل الفعالية</span>
-        <span className="w-[4.25rem]" aria-hidden="true" />
-      </div>
-
-      <div className="event3-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6">
-        <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center">
-          <div className="mb-6 text-right">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 py-1 text-[10px] font-black text-cyan-100/80">
-              <Timer size={12} /> على حسب وقتك
-            </span>
-            <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-[1.85rem] font-black leading-[1.25] text-white focus:outline-none">اختر طريقة الشرح</h1>
-            <p className="mt-2 text-sm leading-7 text-gray-400">شرح سريع للمختصر، أو شرح شامل خطوة بخطوة.</p>
-          </div>
-
-          <div className="space-y-3">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.985 }}
-              onClick={() => onSelect("quick")}
-              className="event3-tutorial-mode-card event3-tutorial-mode-card--quick group flex w-full items-center gap-4 rounded-[1.45rem] border border-white/[0.09] px-4 py-4 text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-            >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.08] text-cyan-100"><Clock size={21} /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-black text-cyan-100/55">الخيار ١</span>
-                <span className="mt-0.5 block text-[16px] font-black text-white">شرح سريع</span>
-                <span className="mt-1 block text-xs text-gray-400">٣ خطوات · أقل من دقيقة</span>
-              </span>
-              <ArrowLeft size={18} className="shrink-0 text-cyan-100/60 transition-transform group-hover:-translate-x-1" />
-            </motion.button>
-
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.985 }}
-              onClick={() => onSelect("story")}
-              className="event3-tutorial-mode-card event3-tutorial-mode-card--story group relative isolate min-h-[15.5rem] w-full overflow-hidden rounded-[1.65rem] border border-purple-200/[0.18] text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
-            >
-              <img
-                src="/event3/tutorial/choice-venue.webp"
-                alt=""
-                width={1280}
-                height={960}
-                decoding="async"
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025]"
-              />
-              <span className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,5,13,.1)_0%,rgba(7,5,13,.55)_38%,rgba(7,5,13,.97)_100%)]" aria-hidden="true" />
-              <span className="relative flex min-h-[15.5rem] flex-col justify-between p-4">
-                <span className="flex items-center justify-between gap-3">
-                  <span className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[9px] font-black text-white/75 backdrop-blur-md">الخيار ٢ · حوالي دقيقتين</span>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-purple-100 backdrop-blur-md"><Sparkles size={18} /></span>
-                </span>
-                <span>
-                  <span className="block text-xl font-black text-white">شرح شامل</span>
-                  <span className="mt-1.5 block max-w-[18rem] text-xs font-medium leading-6 text-white/70">شرح مرئي لكل شيء من أول طاولة لين كشف النتائج.</span>
-                  <span className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-                    <span className="text-[9px] font-bold text-white/45">مشاهد تصوّرية مولّدة بالذكاء الاصطناعي</span>
-                    <span className="flex items-center gap-1 text-xs font-black text-purple-100">ابدأ الشرح <ArrowLeft size={15} className="transition-transform group-hover:-translate-x-1" /></span>
-                  </span>
-                </span>
-              </span>
-            </motion.button>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
 function ChoiceTutorialDeck({
   step,
   onStep,
@@ -2228,11 +2134,11 @@ function ChoiceTutorialDeck({
         <button
           type="button"
           onClick={goPrevious}
-          aria-label={step === 0 ? "الرجوع إلى اختيار نوع الشرح" : "الشريحة السابقة"}
+          aria-label={step === 0 ? "الرجوع إلى شاشة الدخول" : "الشريحة السابقة"}
           className="event3-tertiary-action flex min-h-11 items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-bold text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
         >
           <ChevronRight size={15} className="rotate-180" />
-          {step === 0 ? "اختيار الشرح" : "السابق"}
+          {step === 0 ? "الدخول" : "السابق"}
         </button>
         <span className="flex items-center gap-1.5 text-[11px] font-black text-purple-100/80"><Sparkles size={12} /> الشرح الشامل</span>
         <span dir="ltr" className="font-mono text-xs tabular-nums text-white/45">{step + 1} / {CHOICE_TUTORIAL_SLIDES.length}</span>
@@ -2359,12 +2265,11 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   showLogout?: boolean
   eventFormat: Event3Format
 }) {
-  const [phase, setPhase] = useState<"splash" | "tutorialChoice" | "steps" | "story">("splash")
+  const [phase, setPhase] = useState<"splash" | "steps" | "story">("splash")
   const [step, setStep] = useState(0)
   const [introStage, setIntroStage] = useState<"code" | "brand" | "welcome">("code")
   const reduceMotion = useReducedMotion()
   const splashHeadingRef = useRef<HTMLHeadingElement>(null)
-  const choiceHeadingRef = useRef<HTMLHeadingElement>(null)
   const walkHeadingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
@@ -2426,11 +2331,9 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
     const focusTimer = window.setTimeout(() => {
       const target = phase === "splash"
         ? splashHeadingRef.current
-        : phase === "tutorialChoice"
-          ? choiceHeadingRef.current
-          : phase === "steps"
-            ? walkHeadingRef.current
-            : null
+        : phase === "steps"
+          ? walkHeadingRef.current
+          : null
       target?.focus({ preventScroll: true })
     }, reduceMotion ? 0 : 420)
     return () => window.clearTimeout(focusTimer)
@@ -2706,7 +2609,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               <div className="flex min-h-12 items-center justify-center gap-4 text-sm font-bold">
                 <button
                   type="button"
-                  onClick={() => { setStep(0); setPhase(isChoiceOnlyEvent3(eventFormat) ? "tutorialChoice" : "steps") }}
+                  onClick={() => { setStep(0); setPhase(isChoiceOnlyEvent3(eventFormat) ? "story" : "steps") }}
                   className="event3-tertiary-action min-h-11 rounded-xl px-3 text-purple-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                 >
                   كيف تعمل؟
@@ -2719,21 +2622,11 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             </div>
           </motion.div>
         )}
-        {phase === "tutorialChoice" && (
-          <TutorialModeChooser
-            headingRef={choiceHeadingRef}
-            onBack={() => setPhase("splash")}
-            onSelect={(mode) => {
-              setStep(0)
-              setPhase(mode === "quick" ? "steps" : "story")
-            }}
-          />
-        )}
         {phase === "story" && (
           <ChoiceTutorialDeck
             step={step}
             onStep={setStep}
-            onBack={() => setPhase("tutorialChoice")}
+            onBack={() => setPhase("splash")}
             onDone={finishTutorial}
             showLogout={showLogout}
           />
@@ -2758,12 +2651,12 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             <div className="event3-tutorial-header flex items-center justify-between px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
               <button
                 type="button"
-                onClick={() => step === 0 ? setPhase(isChoiceOnlyEvent3(eventFormat) ? "tutorialChoice" : "splash") : goPrev()}
-                aria-label={step === 0 ? (isChoiceOnlyEvent3(eventFormat) ? "الرجوع إلى اختيار نوع الشرح" : "الرجوع إلى شاشة الدخول") : `الرجوع إلى الخطوة ${step}`}
+                onClick={() => step === 0 ? setPhase("splash") : goPrev()}
+                aria-label={step === 0 ? "الرجوع إلى شاشة الدخول" : `الرجوع إلى الخطوة ${step}`}
                 className="event3-tertiary-action flex min-h-11 items-center gap-1 rounded-xl px-3 py-1 text-sm text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <ChevronRight size={15} className="rotate-180" />
-                {step === 0 ? (isChoiceOnlyEvent3(eventFormat) ? "اختيار الشرح" : "الدخول") : "السابق"}
+                {step === 0 ? "الدخول" : "السابق"}
               </button>
               <span className="flex items-center gap-1.5 text-xs font-black text-purple-100/80"><Sparkles size={12} /> دليل الفعالية · ٣٠ ثانية</span>
               <span dir="ltr" className="text-gray-500 text-xs font-mono tabular-nums">{step + 1} / {WALK_SLIDES.length}</span>

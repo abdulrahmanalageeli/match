@@ -68,9 +68,13 @@ test("final reveal has a cohesive mobile-first finale treatment", () => {
 test("tutorial uses the premium Event3 surface and anchored mobile navigation", () => {
   assert.match(route, /event3-tutorial-shell/)
   assert.match(route, /event3-tutorial-card/)
+  assert.match(route, /event3-tutorial-mode-card/)
+  assert.match(route, /event3-choice-story__slide/)
   assert.match(route, /event3-tutorial-act/)
   assert.match(route, /event3-tutorial-ranking/)
   assert.match(route, /event3-tutorial-mutual/)
   assert.match(styles, /\.event3-tutorial-card\s*\{[\s\S]*backdrop-filter: blur\(22px\)/)
+  assert.match(styles, /\.event3-tutorial-mode-card--story\s*\{[\s\S]*box-shadow/)
+  assert.match(styles, /\.event3-choice-story__slide\s*\{[\s\S]*grid-template-rows/)
   assert.match(styles, /\.event3-tutorial-header,[\s\S]*\.event3-tutorial-nav\s*\{[\s\S]*backdrop-filter: blur\(20px\)/)
 })

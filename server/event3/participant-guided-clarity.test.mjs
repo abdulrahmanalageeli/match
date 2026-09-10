@@ -37,18 +37,41 @@ test("waiting screen keeps optional information and personalized welcome collaps
   assert.doesNotMatch(welcomeDone, /setShowAiWelcome\(true\)/)
 })
 
-test("Event3 tutorial explains the whole flow in three plain-language acts", () => {
+test("Event3 tutorial offers a quick guide and a complete choice-mode story", () => {
   const slideCatalog = between("const WALK_SLIDES", "const WALK_ACCENTS")
   assert.match(slideCatalog, /key: "overview"[\s\S]*label: "الاكتشاف"/)
   assert.match(slideCatalog, /key: "ranking"[\s\S]*label: "الاختيار"/)
   assert.match(slideCatalog, /key: "feedback"[\s\S]*label: "ما بعد اللقاء"/)
 
-  const tutorial = between("function WalkSlide", "const WELCOME_BINARY_STREAMS")
-  assert.match(tutorial, /دليل سريع · ٣٠ ثانية/)
-  assert.match(tutorial, /ثلاثة فصول، بلا تعقيد/)
-  assert.match(tutorial, /استخدم السهمين[^<]*ويمكنك السحب/)
-  assert.match(tutorial, /التواصل يحتاج «نعم» من الطرفين/)
-  assert.match(tutorial, /بلا نسب أو درجات/)
+  const quickGuide = between("function WalkSlide", "const CHOICE_TUTORIAL_SLIDES")
+  assert.match(quickGuide, /دليل سريع · ٣٠ ثانية/)
+  assert.match(quickGuide, /الزبدة في ثلاث خطوات/)
+  assert.match(quickGuide, /استخدم السهمين[^<]*ويمكنك السحب/)
+  assert.match(quickGuide, /التواصل يحتاج «نعم» من الطرفين/)
+  assert.match(quickGuide, /بلا نسب أو درجات/)
+
+  const storyCatalog = between("const CHOICE_TUTORIAL_SLIDES", "function TutorialModeChooser")
+  assert.equal((storyCatalog.match(/key: "/g) || []).length, 8)
+  assert.match(storyCatalog, /٣ جولات جماعية/)
+  assert.match(storyCatalog, /ثلاث لقاءات مع ثلاثة أشخاص مختلفين/)
+  assert.match(storyCatalog, /اختيار متبادل/)
+  assert.match(storyCatalog, /نسخة الاختيارات ما فيها نسب أو درجات/)
+  assert.match(storyCatalog, /صداقة جديدة/)
+  assert.match(storyCatalog, /choice-check-in\.webp/)
+  assert.match(storyCatalog, /choice-conversation\.webp/)
+  assert.match(storyCatalog, /choice-venue\.webp/)
+  assert.doesNotMatch(storyCatalog, /رومانسي|موعد|شريك/)
+
+  const chooser = between("function TutorialModeChooser", "function ChoiceTutorialDeck")
+  assert.match(chooser, /كيف ودّك تعرف الفعالية؟/)
+  assert.match(chooser, /الزبدة بسرعة/)
+  assert.match(chooser, /الجولة الكاملة/)
+  assert.match(chooser, /مولّدة بالذكاء الاصطناعي/)
+
+  const story = between("function ChoiceTutorialDeck", "const WELCOME_BINARY_STREAMS")
+  assert.match(story, /aria-label="تقدم الجولة الكاملة"/)
+  assert.match(story, /drag=\{reduceMotion \? false : "x"\}/)
+  assert.match(story, /aria-live="polite"/)
 })
 
 test("ranking uses explicit controls and hides routine sync chatter", () => {

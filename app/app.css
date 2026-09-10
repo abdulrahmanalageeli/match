@@ -1563,6 +1563,96 @@ html:not(.dark) .round-bg-pattern::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.event3-tutorial-choice {
+  background:
+    radial-gradient(circle at 84% 8%, rgba(var(--event3-purple), 0.18), transparent 34%),
+    radial-gradient(circle at 8% 92%, rgba(var(--event3-cyan), 0.08), transparent 38%),
+    linear-gradient(160deg, rgba(9, 6, 18, 0.72), rgba(5, 4, 10, 0.94));
+}
+
+.event3-tutorial-mode-card {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    0 22px 58px -42px rgba(0, 0, 0, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.event3-tutorial-mode-card--quick {
+  background:
+    radial-gradient(circle at 92% -35%, rgba(var(--event3-cyan), 0.12), transparent 52%),
+    linear-gradient(145deg, rgba(20, 24, 35, 0.88), rgba(9, 8, 16, 0.94));
+  -webkit-backdrop-filter: blur(18px) saturate(118%);
+  backdrop-filter: blur(18px) saturate(118%);
+}
+
+.event3-tutorial-mode-card--story {
+  box-shadow:
+    0 30px 82px -42px rgba(var(--event3-purple), 0.72),
+    0 26px 52px -38px rgba(0, 0, 0, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+.event3-choice-story {
+  background:
+    radial-gradient(circle at 92% -12%, rgba(var(--event3-purple), 0.16), transparent 36%),
+    radial-gradient(circle at 6% 94%, rgba(var(--event3-cyan), 0.07), transparent 34%),
+    #06040b;
+}
+
+.event3-choice-story__slide {
+  display: grid;
+  grid-template-rows: clamp(10.25rem, 34vh, 24rem) minmax(0, 1fr);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(var(--event3-story-accent), 0.12), transparent 38%),
+    linear-gradient(150deg, rgba(20, 17, 31, 0.98), rgba(7, 6, 13, 0.99));
+  box-shadow:
+    0 34px 90px -52px rgba(var(--event3-story-accent), 0.72),
+    0 28px 62px -42px rgba(0, 0, 0, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.event3-choice-story__visual {
+  background: rgba(9, 7, 15, 0.92);
+}
+
+.event3-choice-story__image {
+  user-select: none;
+  filter: saturate(0.84) contrast(1.03) brightness(0.82);
+}
+
+.event3-choice-story__shade {
+  background:
+    linear-gradient(180deg, rgba(5, 4, 10, 0.08) 0%, rgba(5, 4, 10, 0.1) 48%, rgba(8, 6, 14, 0.96) 100%),
+    linear-gradient(90deg, rgba(var(--event3-story-accent), 0.11), transparent 45%);
+}
+
+.event3-choice-story__body {
+  background:
+    radial-gradient(circle at 96% -25%, rgba(var(--event3-story-accent), 0.09), transparent 46%),
+    linear-gradient(160deg, rgba(18, 15, 27, 0.98), rgba(8, 7, 14, 0.99));
+}
+
+@media (min-width: 768px) and (min-height: 620px) {
+  .event3-choice-story__slide {
+    grid-template-columns: minmax(0, 1.28fr) minmax(22rem, 0.82fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .event3-choice-story__shade {
+    background:
+      linear-gradient(90deg, rgba(5, 4, 10, 0.04) 0%, rgba(5, 4, 10, 0.08) 58%, rgba(8, 6, 14, 0.9) 100%),
+      linear-gradient(180deg, rgba(var(--event3-story-accent), 0.1), transparent 48%);
+  }
+}
+
+@media (max-height: 620px) and (max-width: 767px) {
+  .event3-choice-story__slide {
+    grid-template-rows: 9.25rem minmax(0, 1fr);
+  }
+}
+
 /* The group journey should feel like a shared room prompt, not another app
    dashboard. These surfaces use one luminous focal point and quiet depth. */
 .event3-icebreaker-card {
@@ -1923,10 +2013,14 @@ html:not(.dark) .round-bg-pattern::before {
 .event3-auth-view,
 .event3-setup-view,
 .event3-processing-view,
-.event3-break-view,
-.event3-final-view {
+.event3-break-view {
   padding-top: max(1.5rem, env(safe-area-inset-top));
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.event3-final-view {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 .event3-processing-view > div,
@@ -1940,7 +2034,7 @@ html:not(.dark) .round-bg-pattern::before {
 }
 
 .event3-reveal-card > div {
-  min-height: 9.5rem;
+  min-height: 8.25rem;
 }
 
 .event3-final-view {
@@ -1987,8 +2081,8 @@ html:not(.dark) .round-bg-pattern::before {
 }
 
 .event3-finale-journey__step {
-  padding-top: 0.7rem;
-  padding-bottom: 0.7rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
 }
 
 .event3-finale-journey__step + .event3-finale-journey__step {
@@ -2183,7 +2277,7 @@ html:not(.dark) .round-bg-pattern::before {
   }
 
   .event3-reveal-card > div {
-    min-height: 9rem;
+    min-height: 8.25rem;
   }
 }
 

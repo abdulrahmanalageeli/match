@@ -2,11 +2,12 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-const [event3Source, groupsSource, styles] = await Promise.all([
+const [event3SourceRaw, groupsSource, styles] = await Promise.all([
   readFile(new URL("../../app/routes/event3.tsx", import.meta.url), "utf8"),
   readFile(new URL("../../app/routes/groups.tsx", import.meta.url), "utf8"),
   readFile(new URL("../../app/app.css", import.meta.url), "utf8"),
 ])
+const event3Source = event3SourceRaw.replace(/\r\n/g, "\n")
 
 function between(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker)

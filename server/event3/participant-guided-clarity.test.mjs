@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-const route = await readFile(new URL("../../app/routes/event3.tsx", import.meta.url), "utf8")
+const route = (await readFile(new URL("../../app/routes/event3.tsx", import.meta.url), "utf8")).replace(/\r\n/g, "\n")
 
 function between(startMarker, endMarker) {
   const start = route.indexOf(startMarker)

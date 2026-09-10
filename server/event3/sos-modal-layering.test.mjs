@@ -23,5 +23,7 @@ test("the organizer help dialog stays above Event3 overlays and always has close
   assert.match(support, /aria-label="إغلاق محادثة المنظم"/)
   assert.doesNotMatch(support, /fixed inset-x-0 z-\[300\]/)
   assert.doesNotMatch(support, /z-\[580\][^\n]*shrink-0 items-center/)
-  assert.match(support, /if \(suppressed\) setOpen\(false\)/)
+  assert.match(support, /if \(suppressed \|\| triggerHidden\) setOpen\(false\)/)
+  assert.match(support, /EVENT3_CLOSE_SUPPORT_EVENT, closeSupport/)
+  assert.match(event3Source, /const beginFeedback = useCallback\(\(\) => \{\s*(?:\/\/[^\n]*\n\s*)*window\.dispatchEvent\(new Event\(EVENT3_CLOSE_SUPPORT_EVENT\)\)/)
 })

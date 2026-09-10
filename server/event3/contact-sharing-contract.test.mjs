@@ -37,12 +37,28 @@ test('the shared feedback flow submits every one-to-one round and renders custom
 
   assert.match(event3Source, /contactMethod === 'phone'/)
   assert.match(event3Source, /contactMethod === 'message'/)
+  assert.match(event3Source, /type="range" min="0" max="100" step="5"/)
+  assert.doesNotMatch(event3Source, /name="event3-compatibility-impression"/)
   assert.match(event3Source, /value=\{fb\.contactMessage\}/)
   assert.equal(event3Source.match(/<RockPaperScissors accent=/g)?.length, 1)
   assert.match(event3Source, /defaultSet=\{isThirdChoice \? "partnership" : "choice"\}/)
   assert.match(event3Source, /onSubmitWord=\{submitWord\}/)
   assert.match(resultsSource, /match\.partner_contact_method === 'message'/)
   assert.match(resultsSource, /\{match\.partner_contact_message\}/)
+})
+
+test('the full-screen feedback flow keeps every primary action in a safe-area footer', async () => {
+  const source = await readFile(event3RoutePath, 'utf8')
+  const start = source.indexOf('function FeedbackFlow')
+  const end = source.indexOf('// ─── SOS / Organizer Chat Box', start)
+  const feedback = source.slice(start, end)
+
+  assert.match(feedback, /<footer data-feedback-sticky-action className="[^"]*shrink-0[^"]*safe-area-inset-bottom/)
+  assert.match(feedback, /step === 1[\s\S]*متابعة/)
+  assert.match(feedback, /step === 2[\s\S]*متابعة/)
+  assert.match(feedback, /step === 3 && !contactRevealed[\s\S]*إظهار خيارات التواصل/)
+  assert.match(feedback, /step === 3 && contactRevealed[\s\S]*تأكيد وإرسال الرد/)
+  assert.doesNotMatch(feedback, /event3-action sticky bottom-0/)
 })
 
 test('an unfinished one-to-one feedback draft stays mounted across a phase change without reopening the expired meeting', async () => {

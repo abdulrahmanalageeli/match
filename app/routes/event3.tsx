@@ -17,8 +17,8 @@ import {
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
   Target, Star, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
-  Eye, EyeOff, KeyRound, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
-  Crown, Medal, Award, Download, Vote, Radio, Wifi, WifiOff, Megaphone,
+  Eye, EyeOff, KeyRound, Smartphone, Handshake, Timer, ShieldCheck, Coffee, Bell, Info, Loader2,
+  Crown, Award, Download, Vote, Radio, Wifi, WifiOff, Megaphone,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -162,6 +162,29 @@ const API = "/api/participant"
 
 type Event3Format = "classic" | "choice_only_three_groups"
 type Event3GroupRound = 1 | 2 | 3
+type Event3MeetingStatus = "met" | "did_not_start" | "partner_absent" | "needed_help"
+type Event3FeedbackDraft = {
+  conversationQuality: number
+  personalConnection: number
+  wantConnect: boolean | null
+  contactMethod: "phone" | "message" | null
+  contactMessage: string
+  organizerImpression: string
+  compatibilityRate: number
+  sliderMoved: boolean
+}
+type Event3FeedbackSubmitResult = {
+  ok: boolean
+  alreadySaved?: boolean
+  savedFeedback?: Record<string, any> | null
+  feedbackFingerprint?: string | null
+  retainedDifferent?: boolean
+}
+type Event3FeedbackAssignment = {
+  revision: string
+  partnerNumber: number
+  partnerName: string | null
+}
 type GroupReflectionPerson = {
   number: number
   first_name: string
@@ -204,14 +227,64 @@ const EVENT3_GROUP_ORDINALS: Record<Event3GroupRound, string> = {
 }
 
 const GROUP_REFLECTION_EXPERIENCE_LABELS: Record<string, { label: string; style: string }> = {
-  great: { label: "ممتاز", style: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" },
-  good: { label: "جيد", style: "border-cyan-400/25 bg-cyan-500/10 text-cyan-300" },
-  neutral: { label: "عادي", style: "border-amber-400/25 bg-amber-500/10 text-amber-300" },
-  uncomfortable: { label: "غير مريح", style: "border-rose-400/25 bg-rose-500/10 text-rose-300" },
+  great: { label: "ممتاز", style: "border-violet-300/35 bg-violet-400/12 text-violet-100" },
+  good: { label: "جيد", style: "border-violet-300/35 bg-violet-400/12 text-violet-100" },
+  neutral: { label: "عادي", style: "border-violet-300/35 bg-violet-400/12 text-violet-100" },
+  uncomfortable: { label: "غير مريح", style: "border-violet-300/35 bg-violet-400/12 text-violet-100" },
 }
 
 function event3GroupLabel(round: Event3GroupRound) {
   return `مجموعة الجولة ${EVENT3_GROUP_ORDINALS[round]}`
+}
+
+function emptyEvent3FeedbackDraft(): Event3FeedbackDraft {
+  return {
+    conversationQuality: 0,
+    personalConnection: 0,
+    wantConnect: null,
+    contactMethod: null,
+    contactMessage: '',
+    organizerImpression: '',
+    compatibilityRate: 50,
+    sliderMoved: false,
+  }
+}
+
+function comparableEvent3Feedback(value: Record<string, any> | null | undefined): Record<string, any> {
+  const meetingStatus: Event3MeetingStatus = value?.meetingStatus || 'met'
+  const organizerImpression = String(value?.organizerImpression || '').trim()
+  if (meetingStatus !== 'met') return { meetingStatus, organizerImpression }
+  const wantConnect = value?.wantConnect === true
+  const contactMethod = wantConnect ? (value?.contactMethod || 'phone') : null
+  return {
+    meetingStatus,
+    compatibilityRate: Number(value?.compatibilityRate),
+    conversationQuality: Number(value?.conversationQuality),
+    personalConnection: Number(value?.personalConnection),
+    wantConnect,
+    contactMethod,
+    contactMessage: contactMethod === 'message' ? String(value?.contactMessage || '') : '',
+    organizerImpression,
+  }
+}
+
+function sameEvent3Feedback(left: Record<string, any>, right: Record<string, any> | null | undefined) {
+  if (!right) return false
+  return JSON.stringify(comparableEvent3Feedback(left)) === JSON.stringify(comparableEvent3Feedback(right))
+}
+
+function event3SavedFeedbackSummary(value: Record<string, any> | null | undefined) {
+  const feedback = comparableEvent3Feedback(value)
+  if (feedback.meetingStatus !== 'met') {
+    if (feedback.meetingStatus === 'partner_absent') return 'المحفوظ: الطرف الآخر لم يصل · لا يوجد تقييم أو قرار تواصل.'
+    if (feedback.meetingStatus === 'needed_help') return 'المحفوظ: احتجت مساعدة · لا يوجد تقييم أو قرار تواصل.'
+    return 'المحفوظ: اللقاء لم يبدأ · لا يوجد تقييم أو قرار تواصل.'
+  }
+  const compatibility = feedback.compatibilityRate <= 20 ? 'محدود' : feedback.compatibilityRate <= 40 ? 'خفيف' : feedback.compatibilityRate <= 60 ? 'متوسط' : feedback.compatibilityRate <= 80 ? 'واضح' : 'قوي'
+  const contact = feedback.wantConnect
+    ? `نعم · ${feedback.contactMethod === 'message' ? 'وسيلة أخرى كتبتها' : 'رقم الجوال'} · تظهر فقط عند الموافقة المتبادلة`
+    : 'لا · لن يعرف الطرف الآخر إجابتك'
+  return `المحفوظ: التوافق ${compatibility} · جودة المحادثة ${feedback.conversationQuality}/5 · الراحة ${feedback.personalConnection}/5 · التواصل: ${contact}.`
 }
 
 const BREAK_GROUP_FEEDBACK_PREVIEW: GroupReflectionGroup[] = [
@@ -340,19 +413,19 @@ async function call(action: string, token: string | null, extra: Record<string, 
 // Prevents auto-rejoin from skipping the "وصلت إلى الطاولة" step on page refresh.
 // Keys are scoped by the server reset generation as well as event id. Old
 // browser caches may stay, but they cannot affect a freshly reset live run.
-function arrivedKey(eventId: number | string | undefined, phase: string) {
+function arrivedKey(eventId: number | string | undefined, phase: string, assignmentFingerprint = "unknown") {
   const runtimeSession = typeof window !== "undefined"
     ? window.sessionStorage.getItem("event3_runtime_session_key") || "unknown"
     : "unknown"
-  return `e3_arrived_${runtimeSession}_${eventId ?? "unknown"}_${phase}`
+  return `e3_arrived_${runtimeSession}_${eventId ?? "unknown"}_${phase}_${assignmentFingerprint}`
 }
-function hasArrived(eventId: number | string | undefined, phase: string): boolean {
+function hasArrived(eventId: number | string | undefined, phase: string, assignmentFingerprint?: string): boolean {
   if (typeof window === "undefined") return false
-  return sessionStorage.getItem(arrivedKey(eventId, phase)) === "1"
+  return sessionStorage.getItem(arrivedKey(eventId, phase, assignmentFingerprint)) === "1"
 }
-function setArrived(eventId: number | string | undefined, phase: string) {
+function setArrived(eventId: number | string | undefined, phase: string, assignmentFingerprint?: string) {
   if (typeof window === "undefined") return
-  sessionStorage.setItem(arrivedKey(eventId, phase), "1")
+  sessionStorage.setItem(arrivedKey(eventId, phase, assignmentFingerprint), "1")
 }
 function clearAllArrived() {
   if (typeof window === "undefined") return
@@ -399,7 +472,32 @@ function formatTime(s: number) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
 }
 
+function event3TimerTextClass(seconds: number, normal = "text-cyan-200") {
+  if (seconds <= 10) return "text-red-300"
+  if (seconds <= 60) return "text-amber-300"
+  return normal
+}
+
+function event3TimerBarClass(seconds: number, normal: string) {
+  if (seconds <= 10) return "bg-gradient-to-r from-red-500 to-rose-400"
+  if (seconds <= 60) return "bg-gradient-to-r from-amber-400 to-yellow-300"
+  return normal
+}
+
 // ─── Sound & Vibration helpers (no external files needed) ─────────────────────
+type Event3SensoryMode = "sound" | "vibrate" | "silent"
+const EVENT3_SENSORY_MODE_KEY = "e3_sensory_mode_v1"
+
+function getEvent3SensoryMode(): Event3SensoryMode {
+  if (typeof window === "undefined") return "sound"
+  try {
+    const stored = window.localStorage.getItem(EVENT3_SENSORY_MODE_KEY)
+    return stored === "vibrate" || stored === "silent" ? stored : "sound"
+  } catch {
+    return "sound"
+  }
+}
+
 let _audioCtx: AudioContext | null = null
 function getAudioCtx() {
   if (typeof window === "undefined") return null
@@ -410,6 +508,7 @@ function getAudioCtx() {
 }
 
 function playBeep(frequency: number, duration: number, volume = 0.15) {
+  if (getEvent3SensoryMode() !== "sound") return
   const ctx = getAudioCtx()
   if (!ctx) return
   try {
@@ -451,6 +550,7 @@ function playSOSMessageSound() {
 }
 
 function vibrate(pattern: number | number[]) {
+  if (getEvent3SensoryMode() === "silent") return
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     try { navigator.vibrate(pattern) } catch {}
   }
@@ -1153,6 +1253,8 @@ function useScreenWakeLock(active: boolean) {
   }, [active])
 }
 
+const event3ModalFocusStack: Array<{ id: symbol; overlay: HTMLElement | null }> = []
+
 function useModalFocus({
   open,
   overlayRef,
@@ -1167,6 +1269,7 @@ function useModalFocus({
   onEscape?: () => void
 }) {
   const onEscapeRef = useRef(onEscape)
+  const modalIdRef = useRef(Symbol('event3-modal'))
   onEscapeRef.current = onEscape
 
   useEffect(() => {
@@ -1174,6 +1277,16 @@ function useModalFocus({
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     const overlay = overlayRef.current
+    const previousModal = event3ModalFocusStack[event3ModalFocusStack.length - 1]?.overlay || null
+    const previousModalState = previousModal && previousModal !== overlay
+      ? { inert: previousModal.inert, ariaHidden: previousModal.getAttribute('aria-hidden') }
+      : null
+    if (previousModalState && previousModal) {
+      previousModal.inert = true
+      previousModal.setAttribute('aria-hidden', 'true')
+    }
+    const modalEntry = { id: modalIdRef.current, overlay }
+    event3ModalFocusStack.push(modalEntry)
     const siblings = overlay?.parentElement
       ? Array.from(overlay.parentElement.children).filter(node => node !== overlay) as HTMLElement[]
       : []
@@ -1182,6 +1295,7 @@ function useModalFocus({
     document.body.style.overflow = "hidden"
 
     const focusTimer = window.setTimeout(() => {
+      if (event3ModalFocusStack[event3ModalFocusStack.length - 1]?.id !== modalIdRef.current) return
       const firstControl = dialogRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
@@ -1189,6 +1303,7 @@ function useModalFocus({
     }, 60)
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event3ModalFocusStack[event3ModalFocusStack.length - 1]?.id !== modalIdRef.current) return
       if (event.key === "Escape" && onEscapeRef.current) {
         event.preventDefault()
         onEscapeRef.current()
@@ -1212,6 +1327,9 @@ function useModalFocus({
     }
     document.addEventListener("keydown", onKeyDown)
     return () => {
+      const stackIndex = event3ModalFocusStack.findIndex(entry => entry.id === modalIdRef.current)
+      const wasTopModal = stackIndex === event3ModalFocusStack.length - 1
+      if (stackIndex >= 0) event3ModalFocusStack.splice(stackIndex, 1)
       window.clearTimeout(focusTimer)
       document.removeEventListener("keydown", onKeyDown)
       document.body.style.overflow = previousOverflow
@@ -1220,7 +1338,12 @@ function useModalFocus({
         if (ariaHidden == null) node.removeAttribute("aria-hidden")
         else node.setAttribute("aria-hidden", ariaHidden)
       })
-      if (opener?.isConnected) opener.focus()
+      if (wasTopModal && previousModalState && previousModal?.isConnected) {
+        previousModal.inert = previousModalState.inert
+        if (previousModalState.ariaHidden == null) previousModal.removeAttribute('aria-hidden')
+        else previousModal.setAttribute('aria-hidden', previousModalState.ariaHidden)
+      }
+      if (wasTopModal && opener?.isConnected) opener.focus()
     }
   }, [open, overlayRef, dialogRef, initialFocusRef])
 }
@@ -1282,50 +1405,6 @@ function Spinner({ size = 24, className = "" }: { size?: number; className?: str
   )
 }
 
-// ─── Partner Info Card ────────────────────────────────────────────────────────
-function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink" | "purple" }) {
-  const cl = accent === "pink"
-    ? { border: "border-pink-800/30", bg: "from-pink-950/30 to-rose-950/20", text: "text-pink-300", label: "text-pink-400/70" }
-    : { border: "border-purple-800/30", bg: "from-purple-950/30 to-violet-950/20", text: "text-purple-300", label: "text-purple-400/70" }
-
-  const ageRange = (age: number | null) => {
-    if (!age) return null
-    if (age <= 22) return "18-22"
-    if (age <= 27) return "23-27"
-    if (age <= 32) return "28-32"
-    if (age <= 37) return "33-37"
-    return "38+"
-  }
-
-  const traits = [
-    data?.partner_mbti && { icon: <Brain size={16} className={cl.text} />, label: "الشخصية", value: data.partner_mbti },
-    data?.partner_communication && { icon: <MessageSquare size={16} className={cl.text} />, label: "التواصل", value: data.partner_communication },
-    data?.partner_attachment && { icon: <Handshake size={16} className={cl.text} />, label: "التعلق", value: data.partner_attachment },
-  ].filter(Boolean)
-
-  if (traits.length === 0) return null
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-      className={`event3-glass space-y-3 rounded-[1.35rem] border ${cl.border} bg-gradient-to-br ${cl.bg} p-4`}>
-      <p className={`text-xs font-bold ${cl.label} flex items-center gap-1.5`}>
-        <Sparkles size={11} /> نبذة عن شريكك
-      </p>
-      <div className="grid grid-cols-2 gap-2.5">
-        {traits.map((t: any, i: number) => (
-          <div key={i} className="flex items-center gap-2 rounded-xl border border-white/[0.055] bg-black/20 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]">
-            <span className="text-base flex-shrink-0">{t.icon}</span>
-            <div className="min-w-0">
-              <p className="text-gray-600 text-[10px] leading-tight">{t.label}</p>
-              <p className={`${cl.text} text-xs font-semibold leading-tight truncate`}>{t.value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  )
-}
-
 // ─── Participant-safe pair reading ───────────────────────────────────────────
 // The API sends finished prose only; score internals never enter the browser.
 const PAIR_INSIGHT_STYLES = {
@@ -1354,11 +1433,27 @@ const PAIR_INSIGHT_STYLES = {
 
 function fallbackPairInsight(score: number | null, partnerName: string) {
   return {
-    signal: score !== null && score >= 85 ? "انسجام نادر" : score !== null && score >= 76 ? "إشارة قوية" : score !== null && score >= 68 ? "إشارة واضحة" : "قابلية تستحق الاكتشاف",
-    headline: score !== null && score >= 80 ? "انسجام يلتقط نفسه" : "مساحة تستحق لقاءً ثانياً",
-    body: `بينك وبين ${partnerName} قابلية واضحة لأن يتحول الانطباع الأول إلى حوار أعمق. الجميل هنا ليس التشابه الكامل، بل سهولة اكتشاف الطرف الآخر من غير تكلّف.`,
-    prompt: "لا تعيدا اللقاء الأول؛ اختارا تفصيلة لم تأخذ وقتها واسألا: ماذا كان وراءها؟",
+    signal: score !== null ? "إشارة أولية" : "قراءة محدودة",
+    headline: "لمحة من هذا اللقاء",
+    body: `تلخّص هذه القراءة إشارات محدودة من لقاءك مع ${partnerName}. هي نقطة للتأمل، وليست حكماً على أي منكما أو ضماناً لما قد يحدث لاحقاً.`,
+    prompt: "إن رغبتما في لقاء آخر، اختارا تفصيلة لم تأخذ وقتها واسألا عنها.",
   }
+}
+
+function event3FinalMeetingStatus(result: any): Event3MeetingStatus {
+  return result?.meeting_status || result?.my_feedback?.meeting_status || 'met'
+}
+
+function event3FinalMeetingOccurred(result: any): boolean {
+  const explicit = result?.meeting_occurred ?? result?.my_feedback?.meeting_occurred
+  return explicit !== false && event3FinalMeetingStatus(result) === 'met'
+}
+
+function event3OperationalMeetingLabel(result: any) {
+  const status = event3FinalMeetingStatus(result)
+  if (status === 'partner_absent') return 'لم يصل الطرف الآخر'
+  if (status === 'needed_help') return 'توقّف اللقاء لطلب مساعدة'
+  return 'لم يبدأ اللقاء'
 }
 
 function PairInsightCard({ result, label, order, accent }: {
@@ -1369,7 +1464,8 @@ function PairInsightCard({ result, label, order, accent }: {
 }) {
   const palette = PAIR_INSIGHT_STYLES[accent]
   const partnerName = String(result?.partner_first_name || "هذا الشخص")
-  const rated = isFinalRevealRated(result?.compatibility_score)
+  const meetingOccurred = event3FinalMeetingOccurred(result)
+  const rated = meetingOccurred && isFinalRevealRated(result?.compatibility_score)
   const score = normalizedFinalRevealScore(result?.compatibility_score)
   const insight = rated ? (result?.insight || fallbackPairInsight(score, partnerName)) : null
 
@@ -1394,7 +1490,12 @@ function PairInsightCard({ result, label, order, accent }: {
         </span>
       </div>
 
-      {insight ? (
+      {!meetingOccurred ? (
+        <div className="relative mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.055] px-4 py-4 text-right">
+          <p className="text-sm font-black text-cyan-100">{event3OperationalMeetingLabel(result)}</p>
+          <p className="mt-1 text-[11px] leading-5 text-cyan-100/60">هذه حالة تشغيلية، لذلك لم نعرض تقييماً أو قراءة شخصية لهذا اللقاء.</p>
+        </div>
+      ) : insight ? (
         <>
           <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.07] to-white/[0.015] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.045)]">
             <div className="flex items-center gap-2">
@@ -1416,8 +1517,10 @@ function PairInsightCard({ result, label, order, accent }: {
         </>
       ) : (
         <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-5 text-center">
-          <p className="text-sm font-black text-white/55">لم يتم تحليله</p>
-          <p className="mt-1 text-[11px] leading-5 text-white/30">الإشارة الحالية لا تكفي لبناء قراءة موثوقة لهذا اللقاء.</p>
+          <p className="text-sm font-black text-white/70">{score !== null ? "إشارة محدودة من الإجابات" : "بيانات غير متاحة لقراءة"}</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/40">{score !== null
+            ? "هذه إشارة فعلية من الإجابات، لكنها دون حد عرض قراءة مفصّلة ولا تحكم على جودة اللقاء أو قيمته."
+            : "لم تصلنا درجة لهذا اللقاء، لذلك لا نعرض قراءة شخصية أو نستنتج شيئاً عن جودته."}</p>
         </div>
       )}
     </motion.article>
@@ -1571,10 +1674,8 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
     { init: "ن", color: "from-violet-500 to-purple-500" },
   ]
   const rankBadge = (i: number) =>
-    i === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black" :
-    i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-black" :
-    i === 2 ? "bg-gradient-to-br from-amber-700 to-amber-800 text-white" :
-    "bg-gray-800 text-gray-500"
+    i === 0 ? "bg-violet-400/20 text-violet-100 border border-violet-300/25" :
+    "bg-white/[0.055] text-gray-300 border border-white/[0.07]"
 
   return (
     <div className={`event3-tutorial-card relative overflow-hidden rounded-[1.8rem] border border-white/[0.09] shadow-2xl ${ac.glow}`}>
@@ -1770,7 +1871,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200/20 bg-emerald-300/10 text-emerald-200"><Handshake size={17} /></div>
                 <div>
                   <p className="text-xs font-black text-emerald-100">التواصل يحتاج «نعم» من الطرفين</p>
-                  <p className="mt-0.5 text-[10px] leading-5 text-emerald-100/45">عندها فقط تظهر الوسيلة لكما. أي قرار آخر يبقى سرياً تماماً.</p>
+                  <p className="mt-0.5 text-[10px] leading-5 text-emerald-100/45">عندها فقط تظهر الوسيلة لكما. لا يظهر قرار أي طرف للآخر منفرداً.</p>
                 </div>
               </div>
             </div>
@@ -3486,7 +3587,7 @@ function GroupElectionOverlay({
                 disabled={submitting || !selectedCandidate}
                 className="event3-soft-action col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-[11px] font-black text-fuchsia-100 hover:border-fuchsia-200/40 disabled:cursor-not-allowed"
               >
-                <Crown size={14} className="shrink-0" aria-hidden="true" />
+                <Vote size={14} className="shrink-0" aria-hidden="true" />
                 <span className="truncate">{selectedCandidate ? `تعيين ${selectedCandidate.name} مباشرة` : "صوّت أولاً ثم عيّنه مباشرة"}</span>
               </button>
             </div>
@@ -3544,7 +3645,7 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
       </div>
       <motion.div initial={{ scale: 0.72, y: 35 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0 }} transition={{ type: "spring", stiffness: 210, damping: 20 }} className="event3-sheet relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-violet-300/25 bg-gradient-to-b from-[#201235]/95 via-[#10091d]/98 to-[#08050f]/98 p-7 text-center shadow-[0_40px_140px_-35px_rgba(168,85,247,.8)] ring-1 ring-white/10">
         <motion.div animate={reducedMotion ? undefined : { y: [0, -8, 0], rotate: [0, -4, 4, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/30 bg-gradient-to-br from-amber-300 via-fuchsia-400 to-violet-600 text-white shadow-[0_0_65px_rgba(244,114,182,.42)]">
-          <Crown className="h-11 w-11 drop-shadow-lg" strokeWidth={1.8} />
+          <Vote className="h-11 w-11 drop-shadow-lg" strokeWidth={1.8} />
         </motion.div>
         <p className="mt-5 text-[11px] font-black tracking-[0.22em] text-cyan-200">{isReelection ? "انتقال القيادة" : "تم الحسم"}</p>
         <h2 id="coordinator-reveal-title" className="mt-2 text-2xl font-black text-white">منسّق الطاولة</h2>
@@ -3693,7 +3794,7 @@ function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection 
       <div className="absolute -right-12 -top-16 h-32 w-32 rounded-full bg-violet-500/15 blur-3xl" />
       <div className="relative flex items-center gap-3">
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${voting ? "border-violet-300/25 bg-violet-400/10 text-violet-200" : "border-amber-300/25 bg-amber-400/10 text-amber-200"}`}>
-          {voting ? <Vote size={20} /> : <Crown size={20} />}
+          <Vote size={20} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-black text-violet-200">{voting ? (state.kind === "revolt" ? "تصويت لمنسّق جديد" : "انتخابات الطاولة") : "منسّق الطاولة"}</p>
@@ -3742,6 +3843,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   const [assignment, setAssignment] = useState<any>(null)
   const [assignmentError, setAssignmentError] = useState("")
+  const [assignmentErrorCode, setAssignmentErrorCode] = useState<string | null>(null)
+  const [assignmentChange, setAssignmentChange] = useState<{ fromTable: number | null; toTable: number | null; membersChanged: boolean } | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
   const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
@@ -3765,6 +3868,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const coordinationServerOffsetRef = useRef(0)
   const lastPublishedSignatureRef = useRef("")
   const publishQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const assignmentRef = useRef<any>(null)
+  const assignmentTableRef = useRef<number | null>(null)
+  const assignmentRequestRef = useRef(0)
   const coordinatorCandidates: GroupCoordinatorCandidate[] = []
   if (myInfo) {
     coordinatorCandidates.push({ number: myInfo.number, name: myInfo.name, gender: myInfo.gender, isMe: true })
@@ -3816,8 +3922,28 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [])
   const closeGroups = useCallback(() => setShowGroups(false), [])
 
+  const resetTableScopedUi = useCallback(() => {
+    setCoordination(null)
+    setCoordinationError("")
+    setCoordinationBusy(false)
+    setElectionVisible(false)
+    setDismissedElectionVersion(null)
+    setRevealedCoordinator(null)
+    setSyncEnabled(true)
+    setShowReelectionConfirm(false)
+    setShowGroups(false)
+    setGroupsHaveOpened(false)
+    setGroupActivityStage("warmup")
+    setShowTutorial(false)
+    setShowGroupParticipationNudge(false)
+    setParticipationNudgePending(false)
+    lastPublishedSignatureRef.current = ""
+    publishQueueRef.current = Promise.resolve()
+  }, [])
+
   const applyCoordinationState = useCallback((incoming: GroupCoordinationState) => {
     if (!incoming || !["idle", "voting", "elected"].includes(incoming.status)) return
+    if (incoming.table_number != null && assignmentTableRef.current != null && Number(incoming.table_number) !== assignmentTableRef.current) return
     if (incoming.server_now) {
       const serverTime = Date.parse(incoming.server_now)
       if (Number.isFinite(serverTime)) coordinationServerOffsetRef.current = serverTime - Date.now()
@@ -3948,7 +4074,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       cancelled = true
       if (nextPoll) clearTimeout(nextPoll)
     }
-  }, [assignment?.table, token, round, applyCoordinationState])
+  }, [assignment?.assignment_revision, assignment?.table, token, round, applyCoordinationState])
 
   useEffect(() => {
     if (coordination?.status !== "voting" || !coordination.election_version) {
@@ -4054,13 +4180,59 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, timerStart)
 
   const loadAssignment = useCallback(async () => {
-    setAssignmentError("")
+    const requestId = ++assignmentRequestRef.current
     const data = await call("e3-get-assignment", token, { round })
-    if (data.error) { setAssignmentError(data.error); return }
+    if (requestId !== assignmentRequestRef.current) return
+    if (data.error || data.ready === false) {
+      setAssignmentErrorCode(data.code || 'EVENT3_ASSIGNMENT_UNAVAILABLE')
+      setAssignmentError(data.code === 'EVENT3_ASSIGNMENT_PENDING'
+        ? 'نجهّز طاولتك وقائمة المجموعة. سنحدّثها تلقائياً.'
+        : 'تعذّر تحديث طاولتك مؤقتاً. نعرض آخر معلومات مؤكدة وسنحاول مجدداً.')
+      return
+    }
+    const previous = assignmentRef.current
+    const previousRevision = previous ? String(previous.assignment_revision || `${previous.table}:${previous.tablemate_signature || ''}`) : null
+    const nextRevision = String(data.assignment_revision || `${data.table}:${data.tablemate_signature || ''}`)
+    if (previous && previousRevision !== nextRevision) {
+      const fromTable = Number.isFinite(Number(previous.table)) ? Number(previous.table) : null
+      const toTable = Number.isFinite(Number(data.table)) ? Number(data.table) : null
+      setAssignmentChange({
+        fromTable,
+        toTable,
+        membersChanged: String(previous.tablemate_signature || '') !== String(data.tablemate_signature || ''),
+      })
+      resetTableScopedUi()
+      toast('تم تحديث طاولتك أو أعضاء مجموعتك — راجع البطاقة', { icon: '↻', duration: 6000 })
+    }
+    assignmentRef.current = data
+    assignmentTableRef.current = Number(data.table)
     setAssignment(data)
-  }, [token, round])
+    setAssignmentError("")
+    setAssignmentErrorCode(null)
+  }, [token, round, resetTableScopedUi])
 
-  useEffect(() => { loadAssignment() }, [loadAssignment])
+  useEffect(() => {
+    assignmentRef.current = null
+    assignmentTableRef.current = null
+    assignmentRequestRef.current += 1
+    setAssignment(null)
+    setAssignmentChange(null)
+    setAssignmentError("")
+    setAssignmentErrorCode(null)
+    resetTableScopedUi()
+    let cancelled = false
+    let nextPoll: ReturnType<typeof setTimeout> | null = null
+    const poll = async () => {
+      await loadAssignment()
+      if (cancelled) return
+      nextPoll = setTimeout(poll, typeof document !== 'undefined' && document.hidden ? 12000 : 4500)
+    }
+    void poll()
+    return () => {
+      cancelled = true
+      if (nextPoll) clearTimeout(nextPoll)
+    }
+  }, [loadAssignment, resetTableScopedUi])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -4142,6 +4314,26 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <h1 className="mt-1 text-2xl font-black text-white">{assignment ? "اذهب إلى طاولتك" : "نجهّز طاولتك"}</h1>
             <p className="mt-1 text-sm leading-6 text-gray-400">{assignment ? "ستجد رقمها واضحاً هنا، ثم ابدأوا معاً." : "ستظهر هنا خلال لحظات."}</p>
           </motion.header>
+          {assignmentChange && (
+            <div className="rounded-2xl border border-amber-300/30 bg-amber-400/[0.1] px-4 py-3 text-right shadow-[0_16px_45px_-30px_rgba(251,191,36,.7)]" role="alert">
+              <div className="flex items-start gap-2.5">
+                <RefreshCw size={17} className="mt-0.5 shrink-0 text-amber-300" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-amber-100">تم تحديث مجموعتك</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-100/70">
+                    {assignmentChange.fromTable !== assignmentChange.toTable
+                      ? `انتقلت من طاولة ${assignmentChange.fromTable ?? 'سابقة'} إلى طاولة ${assignmentChange.toTable ?? 'جديدة'}.`
+                      : 'تغيّرت قائمة أعضاء مجموعتك مع بقاء رقم الطاولة نفسه.'}
+                    {' '}أغلقنا نشاط الطاولة السابق؛ راجع الأسماء قبل المتابعة.
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setAssignmentChange(null)} className="mt-3 min-h-11 w-full rounded-xl border border-amber-200/20 bg-amber-300/10 text-xs font-black text-amber-100">فهمت — هذه مجموعتي الآن</button>
+            </div>
+          )}
+          {assignment && assignmentError && (
+            <p className="rounded-xl border border-cyan-300/15 bg-cyan-400/[0.055] px-3 py-2 text-xs leading-5 text-cyan-100/75" role="status">تعذّر التحقق من تحديث جديد الآن؛ نعرض آخر طاولة مؤكدة وسنحاول تلقائياً.</p>
+          )}
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -4219,14 +4411,22 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               </GlassCard>
             </motion.div>
           ) : assignmentError ? (
-            <GlassCard className="event3-group-surface flex flex-col items-center gap-3 border border-red-500/20 p-8">
-              <MapPin size={26} className="text-red-300" />
-              <p className="text-white text-sm font-bold">لم نجد طاولتك لهذه الجولة</p>
-              <p className="text-gray-500 text-xs leading-5">أخبر المنظم برقمك، ثم اضغط إعادة المحاولة.</p>
-              <button onClick={loadAssignment} className="event3-action mt-1 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-xs font-black text-white">
-                <RefreshCw size={13} /> إعادة المحاولة
-              </button>
-            </GlassCard>
+            assignmentErrorCode === 'EVENT3_ASSIGNMENT_PENDING' ? (
+              <GlassCard className="event3-group-surface flex flex-col items-center gap-3 border border-cyan-300/15 p-8 text-center">
+                <Spinner size={24} />
+                <p className="text-sm font-black text-white" role="status">نجهّز طاولتك</p>
+                <p className="text-xs leading-5 text-cyan-100/60">نرتّب رقم الطاولة وأسماء المجموعة. ستتحدث هذه البطاقة تلقائياً.</p>
+              </GlassCard>
+            ) : (
+              <GlassCard className={`event3-group-surface flex flex-col items-center gap-3 p-8 text-center ${assignmentErrorCode === 'EVENT3_INVALID_ROUND' ? 'border border-rose-400/20' : 'border border-amber-300/20'}`}>
+                <RefreshCw size={26} className={assignmentErrorCode === 'EVENT3_INVALID_ROUND' ? 'text-rose-300' : 'text-amber-300'} />
+                <p className="text-sm font-black text-white">{assignmentErrorCode === 'EVENT3_INVALID_ROUND' ? 'تعذّر تحديد الجولة' : 'تعذّر تحديث الطاولة مؤقتاً'}</p>
+                <p className="text-xs leading-5 text-gray-400">{assignmentErrorCode === 'EVENT3_INVALID_ROUND' ? 'اطلب مساعدة المنظم للتحقق من الجولة.' : 'التأخير تقني، وسنحاول تلقائياً. يمكنك المحاولة الآن أيضاً.'}</p>
+                <button onClick={loadAssignment} className="event3-action mt-1 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-amber-500 to-orange-500 px-5 text-xs font-black text-gray-950">
+                  <RefreshCw size={13} /> إعادة المحاولة
+                </button>
+              </GlassCard>
+            )
           ) : (
             <GlassCard className="event3-group-surface flex flex-col items-center gap-3 p-10">
               <Spinner size={22} />
@@ -4388,6 +4588,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
                 <div className="min-h-0 flex-1 overflow-hidden">
                   <GroupsPage
+                    key={String(assignment?.assignment_revision || `${round}:${assignment?.table || 'pending'}`)}
                     disableOnboarding
                     onClose={closeGroups}
                     round={round}
@@ -4502,8 +4703,8 @@ function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceO
       onClose={onClose}
       accent="amber"
       label="التقييم والترتيب"
-      icon={<Trophy size={26} className="text-amber-400" />}
-      title="رتّب من أعجبك"
+      icon={<BarChart3 size={26} className="text-violet-300" />}
+      title="رتّب أولوية اللقاء"
       cta="فهمت — ابدأ الترتيب"
       points={[
         { icon: <Trophy size={16} className="text-amber-300" />, text: <>ضع الشخص الذي ترغب بلقائه أكثر في المركز الأول. اسحب المقبض أو اضغط رقم المركز.</> },
@@ -4577,12 +4778,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [rankAnnouncement, setRankAnnouncement] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [notes, setNotes] = useState<Record<number, string>>({})
+  const [notesStatus, setNotesStatus] = useState<"loading" | "ready" | "error">("loading")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [noteSaveErrors, setNoteSaveErrors] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(false)
+  const [privacyRevealed, setPrivacyRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
   const [draftSync, setDraftSync] = useState<"saving" | "saved" | "error">("saving")
@@ -4597,6 +4800,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const rankingConfirmOverlayRef = useRef<HTMLDivElement>(null)
   const rankingConfirmDialogRef = useRef<HTMLDivElement>(null)
   const rankingConfirmCancelRef = useRef<HTMLButtonElement>(null)
+  const notesScopeRef = useRef(`${token}:${completedRounds}`)
 
   useModalFocus({
     open: showConfirm && !autoSaving && !autoSavedRef.current && timeLeft > 0,
@@ -4607,6 +4811,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   })
 
   useEffect(() => {
+    const notesScope = `${token}:${completedRounds}`
+    if (notesScopeRef.current !== notesScope) {
+      notesScopeRef.current = notesScope
+      setNotes({})
+    }
+    setNotesStatus("loading")
     Promise.all([
       call("e3-get-participants-met", token, { completed_rounds: completedRounds }),
       call("e3-get-notes", token),
@@ -4644,9 +4854,26 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       }
       setLoading(false)
 
-      if (!nd.error && nd.notes) setNotes(nd.notes)
+      if (!nd.error && nd.notes) {
+        setNotes(nd.notes)
+        setNotesStatus("ready")
+      } else {
+        setNotesStatus("error")
+      }
     })
   }, [token, completedRounds, reloadKey, onRankingResolved])
+
+  const retryNotes = async () => {
+    setNotesStatus("loading")
+    const nd = await call("e3-get-notes", token)
+    if (!nd.error && nd.notes) {
+      setNotes(nd.notes)
+      setNotesStatus("ready")
+      return
+    }
+    setNotesStatus("error")
+    toast.error('تعذّر تحميل الملاحظات الخاصة. ترتيبك ما زال متاحاً.')
+  }
 
   // Keep refs in sync
   useEffect(() => { submittedRef.current = submitted }, [submitted])
@@ -4759,6 +4986,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   }, [rankingClosed, submitted])
 
   const saveNote = async (aboutNumber: number, text: string) => {
+    if (notesStatus !== "ready") return
     setSavingNote(aboutNumber)
     const result = await call("e3-save-note", token, { about_number: aboutNumber, note: text })
     setSavingNote(null)
@@ -4827,16 +5055,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   }
 
   const rankBadge = (idx: number) => {
-    if (idx === 0) return { bg: "from-amber-400 to-yellow-500", text: "text-black", ring: "ring-amber-400/30", glow: "shadow-amber-500/20" }
-    if (idx === 1) return { bg: "from-slate-300 to-slate-400", text: "text-black", ring: "ring-slate-300/20", glow: "shadow-slate-400/15" }
-    if (idx === 2) return { bg: "from-amber-600 to-orange-700", text: "text-white", ring: "ring-amber-600/25", glow: "shadow-orange-600/20" }
-    return { bg: "from-white/[0.06] to-white/[0.03]", text: "text-gray-400", ring: "ring-white/[0.04]", glow: "" }
+    if (idx === 0) return { bg: "from-violet-400/25 to-cyan-400/10", text: "text-violet-100", ring: "ring-violet-300/20", glow: "shadow-violet-500/10" }
+    return { bg: "from-white/[0.06] to-white/[0.03]", text: "text-gray-300", ring: "ring-white/[0.06]", glow: "" }
   }
 
   const cardAccent = (idx: number) => {
-    if (idx === 0) return "border-amber-500/20 bg-gradient-to-r from-amber-950/20 to-transparent"
-    if (idx === 1) return "border-slate-400/15 bg-gradient-to-r from-slate-800/15 to-transparent"
-    if (idx === 2) return "border-orange-700/15 bg-gradient-to-r from-orange-950/15 to-transparent"
+    if (idx === 0) return "border-violet-400/20 bg-gradient-to-r from-violet-950/25 to-transparent"
     return "border-white/[0.05] bg-white/[0.02]"
   }
 
@@ -4864,9 +5088,25 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     </PageWrapper>
   )
 
+  if (!privacyRevealed) return (
+    <PageWrapper embedded className="flex items-center justify-center p-5 text-center">
+      <div className="event3-glass w-full max-w-sm rounded-[1.75rem] border border-violet-300/[0.16] p-6 shadow-[0_28px_80px_-44px_rgba(139,92,246,.8)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-200">
+          <EyeOff size={24} />
+        </div>
+        <p className="mt-4 text-xs font-black tracking-wide text-violet-300">مساحة خاصة</p>
+        <h1 className="mt-1 text-xl font-black text-white">افتح ترتيبك بعيداً عن الأنظار</h1>
+        <p className="mx-auto mt-2 max-w-xs text-sm leading-7 text-gray-300">ستظهر أسماء من قابلتهم وترتيبك السري. قرّب الشاشة منك قبل المتابعة.</p>
+        <button type="button" onClick={() => setPrivacyRevealed(true)} className="event3-action mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-600 via-purple-600 to-indigo-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200">
+          <Eye size={18} /> إظهار الترتيب
+        </button>
+      </div>
+    </PageWrapper>
+  )
+
   const timerPct = timerDuration > 0 ? Math.min(100, (timeLeft / timerDuration) * 100) : 0
-  const timerColor = timeLeft <= 30 ? "bg-red-500" : timeLeft <= 60 ? "bg-amber-500" : "bg-emerald-500"
-  const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
+  const timerColor = timeLeft <= 10 ? "bg-red-500" : timeLeft <= 60 ? "bg-amber-400" : "bg-cyan-400"
+  const timerText = timeLeft <= 10 ? "text-red-300" : timeLeft <= 60 ? "text-amber-300" : "text-cyan-100"
 
   return (
     <PageWrapper embedded className="event3-ranking-view flex min-h-0 flex-col overflow-hidden">
@@ -4875,8 +5115,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         <div className="mx-auto w-full max-w-md px-4 pb-2.5 pt-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
-                <Trophy size={15} className="text-amber-400" />
+              <div className="w-8 h-8 rounded-xl border border-violet-300/20 bg-violet-400/10 flex items-center justify-center">
+                <BarChart3 size={15} className="text-violet-300" />
               </div>
               <div>
                 <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب من تفضّل</h1>
@@ -4901,7 +5141,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 )
               ) : timeLeft > 0 ? (
                 <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-mono font-bold text-sm tabular-nums transition-colors ${timerText} ${
-                  timeLeft <= 30 ? 'bg-red-950/30' : timeLeft <= 60 ? 'bg-amber-950/30' : 'bg-white/[0.04]'
+                  timeLeft <= 10 ? 'bg-red-950/30' : timeLeft <= 60 ? 'bg-amber-950/30' : 'bg-cyan-950/20'
                 }`}>
                   <Clock size={13} />
                   {formatTime(timeLeft)}
@@ -4934,11 +5174,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       <div className="event3-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto w-full max-w-md px-3.5 pb-5 pt-3 sm:px-4">
         {!submitted && (
+          <>
           <JourneyCue
             accent="amber"
             eyebrow={isFinalRanking ? "قرارك النهائي" : "قرار هذه الجولة"}
             title="ضع مَن تفضّله في المركز الأول"
-            description="اسحب المقبض، أو اضغط رقم المركز لاختيار مكانه."
+            description="اسحب المقبض، أو اضغط رقم المركز لاختيار مكانه. سيُحفظ الترتيب الظاهر تلقائياً عند انتهاء الوقت."
             steps={["رتّب", "راجع الأعلى", "احفظ"]}
             currentStep={0}
             className="mb-3"
@@ -4948,11 +5189,18 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </button>
             )}
           />
+          <div className="mb-3"><OneToOneSupportButton /></div>
+          </>
         )}
         {order.length > 4 && <p className="mb-2 text-center text-xs font-medium text-gray-500">مرّر للأسفل لرؤية بقية الأسماء</p>}
         <p className="sr-only" aria-live="polite">{rankAnnouncement}</p>
         {!submitted && draftSync === "error" && <p role="status" className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2 text-center text-xs font-bold text-amber-200">تعذّر الحفظ الآن — نحاول مجدداً تلقائياً</p>}
-        {!submitted && draftSync !== "error" && <p role="status" className="sr-only">{draftSync === "saving" ? "جارٍ حفظ ترتيبك" : "تم حفظ ترتيبك مؤقتاً"}</p>}
+        {!submitted && draftSync !== "error" && <p role="status" className="sr-only">{draftSync === "saving" ? "جارٍ حفظ مسودتك الخاصة..." : "مسودتك محفوظة — سيُعتمد الترتيب الظاهر عند انتهاء الوقت"}</p>}
+        {!submitted && notesStatus !== "ready" && (
+          <div className={`mb-2 flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-xs ${notesStatus === 'error' ? 'border-amber-300/20 bg-amber-400/[0.07] text-amber-100' : 'border-white/[0.07] bg-white/[0.03] text-gray-400'}`} role="status">
+            {notesStatus === 'loading' ? <><Spinner size={13} /> نحمّل ملاحظاتك الخاصة…</> : <><AlertTriangle size={14} className="shrink-0" /><span className="flex-1">الملاحظات غير متاحة مؤقتاً؛ عطّلنا تعديلها كي لا نستبدل نصاً محفوظاً.</span><button type="button" onClick={retryNotes} className="min-h-9 shrink-0 rounded-lg border border-amber-200/20 px-2 font-black">إعادة</button></>}
+          </div>
+        )}
         <Reorder.Group axis="y" values={order} onReorder={next => { if (!submitted && !submitting && !autoSaving && !rankingClosed && !rankingExpired) setOrder(next) }} className="space-y-2" as="div" role="list" aria-label="ترتيب المشاركين">
           {order.map((num, idx) => {
             const p = personMap[num]
@@ -4977,7 +5225,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   {/* Rank badge with icon for top 3 */}
                   <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center gap-0.5 rounded-xl bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring}`}>
                     <span aria-hidden="true" className="flex items-center gap-0.5">
-                      {idx === 0 ? <Crown size={12} /> : idx === 1 ? <Medal size={12} /> : idx === 2 ? <Award size={12} /> : null}
                       <span className="text-xs font-black">{idx + 1}</span>
                     </span>
                     <select
@@ -5007,6 +5254,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
+                    disabled={notesStatus !== "ready"}
                     aria-expanded={openNote === num}
                     aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name} من المجموعة ${p.round}`}
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors ${notes[num] ? 'border-amber-400/20 bg-amber-400/[0.08] text-amber-200' : 'border-white/[0.06] bg-white/[0.025] text-gray-500 hover:text-gray-300'}`}
@@ -5022,7 +5270,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     // Inline touch-action must beat the shell's unlayered button rule.
                     style={{ touchAction: "none" }}
                     aria-label={`اسحب لتغيير ترتيب ${p.first_name}`}
-                    className="flex h-11 w-11 min-h-11 min-w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/[0.06] text-amber-400/80 shadow-inner shadow-amber-950/20 transition-colors hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 active:cursor-grabbing active:bg-amber-500/15 disabled:cursor-default disabled:border-white/[0.04] disabled:bg-white/[0.02] disabled:text-gray-700"
+                    className="flex h-11 w-11 min-h-11 min-w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-violet-300/15 bg-violet-400/[0.06] text-violet-300/80 shadow-inner transition-colors hover:border-violet-300/30 hover:bg-violet-400/10 hover:text-violet-200 active:cursor-grabbing active:bg-violet-400/15 disabled:cursor-default disabled:border-white/[0.04] disabled:bg-white/[0.02] disabled:text-gray-700"
                   >
                     <GripVertical size={21} strokeWidth={2.5} />
                   </button>
@@ -5044,6 +5292,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                         <div className="pt-2.5 border-t border-white/[0.05]">
                           <textarea
                             value={notes[num] || ''}
+                            disabled={notesStatus !== "ready"}
                             onChange={e => setNotes(prev => ({ ...prev, [num]: e.target.value }))}
                             onBlur={() => saveNote(num, notes[num] || '')}
                             placeholder="ملاحظة خاصة — لن يراها أحد غيرك..."
@@ -5110,14 +5359,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             <>
               <motion.button
                 onClick={() => { if (!autoSaving && !autoSavedRef.current && timeLeft > 0) setShowConfirm(true) }}
-                disabled={submitting || autoSaving || timeLeft <= 0}
+                disabled={submitting || autoSaving || timeLeft <= 0 || order.length === 0}
                 whileTap={{ scale: 0.97 }}
                 className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 px-4 py-3.5 text-base font-black text-black transition-all hover:from-amber-300 hover:to-orange-400 disabled:opacity-50"
               >
-                {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
-                {isFinalRanking ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
+                {submitting ? <Spinner size={16} /> : <Send size={16} />}
+                {isFinalRanking ? 'إرسال الترتيب النهائي' : 'حفظ الترتيب'}
               </motion.button>
-              <p className="mt-2 text-center text-xs text-gray-500">اختياراتك سرية · يُحفظ ترتيبك تلقائياً عند انتهاء الوقت</p>
+              <p className="mt-2 text-center text-xs text-gray-500">اختياراتك سرية · يُحفظ تلقائياً عند انتهاء الوقت</p>
             </>
           )}
         </div>
@@ -5134,7 +5383,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           <TimerWarningPopup
             seconds={90}
             label="دقيقة ونصف متبقية"
-            sublabel="إذا لم ترسل تصنيفك سيُحفظ تلقائياً ويُقفل"
+            sublabel="إذا لم ترسل ترتيبك سيُحفظ تلقائياً ويُقفل"
             theme="amber"
             onDone={() => setShowTimeWarning(false)}
           />
@@ -5160,39 +5409,39 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               aria-modal="true"
               aria-labelledby="ranking-confirm-title"
             >
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
-                <Send size={22} className="text-amber-400" />
+              <div className="w-14 h-14 mx-auto rounded-2xl border border-violet-300/20 bg-violet-400/10 flex items-center justify-center">
+                <Send size={22} className="text-violet-300" />
               </div>
               <h3 id="ranking-confirm-title" className="text-white font-black text-lg">احفظ هذا الترتيب؟</h3>
               <p className="text-sm leading-6 text-gray-400">راجع أعلى ثلاثة، ثم أكّد الحفظ.</p>
               {/* Top 3 podium preview */}
               <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3.5 space-y-2">
-                {order.slice(0, 3).map((num, i) => {
-                  const p = personMap[num]
-                  if (!p) return null
-                  const rb = rankBadge(i)
-                  return (
-                    <div key={num} className="flex items-center gap-2.5">
-                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
-                      <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/[0.08] px-2 py-0.5 text-[9px] font-black text-cyan-100">
-                        <Users size={8} aria-hidden="true" /> المجموعة {p.round}
-                      </span>
-                      <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
-                    </div>
-                  )
-                })}
-                {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1 text-center">+ {order.length - 3} آخرون</p>}
+                  {order.slice(0, 3).map((num, i) => {
+                    const p = personMap[num]
+                    if (!p) return null
+                    const rb = rankBadge(i)
+                    return (
+                      <div key={num} className="flex items-center gap-2.5">
+                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
+                        <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/[0.08] px-2 py-0.5 text-[9px] font-black text-cyan-100">
+                          <Users size={8} aria-hidden="true" /> المجموعة {p.round}
+                        </span>
+                        <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
+                      </div>
+                    )
+                  })}
+                  {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1 text-center">+ {order.length - 3} آخرون</p>}
               </div>
               <div className="flex gap-3 pt-1">
                 <button ref={rankingConfirmCancelRef} type="button" onClick={() => setShowConfirm(false)} disabled={autoSaving}
                   className="event3-soft-action flex-1 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300">
                   إلغاء
                 </button>
-                <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0}
-                  className="event3-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-black text-black transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50">
-                  {submitting ? <Spinner size={16} className="!text-black" /> : <CheckCircle size={16} />}
-                  تأكيد
+                <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0 || order.length === 0}
+                  className="event3-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-500 via-purple-500 to-indigo-500 py-3 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
+                  {submitting ? <Spinner size={16} /> : <CheckCircle size={16} />}
+                  اعتماد وإرسال
                 </button>
               </div>
             </motion.div>
@@ -5224,61 +5473,14 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
   const overlayRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
 
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const overlay = overlayRef.current
-    const siblings = overlay?.parentElement
-      ? Array.from(overlay.parentElement.children).filter(node => node !== overlay) as HTMLElement[]
-      : []
-    const siblingState = siblings.map(node => ({
-      node,
-      inert: node.inert,
-      ariaHidden: node.getAttribute('aria-hidden'),
-    }))
-    siblings.forEach(node => {
-      node.inert = true
-      node.setAttribute('aria-hidden', 'true')
-    })
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCloseRef.current()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      ) || []).filter(node => !node.hasAttribute('hidden'))
-      if (!focusable.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', onKeyDown)
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 120)
-    return () => {
-      window.clearTimeout(focusTimer)
-      window.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
-      siblingState.forEach(({ node, inert, ariaHidden }) => {
-        node.inert = inert
-        if (ariaHidden == null) node.removeAttribute('aria-hidden')
-        else node.setAttribute('aria-hidden', ariaHidden)
-      })
-      opener?.focus()
-    }
-  }, [])
+  useModalFocus({
+    open: true,
+    overlayRef,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onEscape: onClose,
+  })
 
   useEffect(() => {
     if (previewPeople) {
@@ -5366,10 +5568,10 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
 
   const reviewedCount = Object.values(drafts).filter(value => value.experience).length
   const experiences = [
-    { value: 'great', label: 'ممتاز', icon: Sparkles, style: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300' },
-    { value: 'good', label: 'جيد', icon: Smile, style: 'border-cyan-400/35 bg-cyan-500/12 text-cyan-300' },
-    { value: 'neutral', label: 'عادي', icon: Meh, style: 'border-amber-400/35 bg-amber-500/12 text-amber-300' },
-    { value: 'uncomfortable', label: 'غير مريح', icon: Frown, style: 'border-rose-400/35 bg-rose-500/12 text-rose-300' },
+    { value: 'great', label: 'ممتاز', icon: Sparkles, style: 'border-violet-300/40 bg-violet-400/15 text-violet-100' },
+    { value: 'good', label: 'جيد', icon: Smile, style: 'border-violet-300/40 bg-violet-400/15 text-violet-100' },
+    { value: 'neutral', label: 'عادي', icon: Meh, style: 'border-violet-300/40 bg-violet-400/15 text-violet-100' },
+    { value: 'uncomfortable', label: 'غير مريح', icon: Frown, style: 'border-violet-300/40 bg-violet-400/15 text-violet-100' },
   ]
   const tags = [
     ['fun', 'ممتع'], ['comfortable', 'مريح'], ['good_listener', 'مستمع جيد'], ['respectful', 'محترم'], ['engaging', 'متفاعل'],
@@ -5429,6 +5631,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
                   <p className="text-xs leading-relaxed text-emerald-100/85">لن يطّلع أي مشارك آخر على تقييمك أو ملاحظاتك؛ يراها المنظّم فقط.</p>
                 </div>
               )}
+              <OneToOneSupportButton />
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3.5 py-2.5">
                 <p className="text-xs leading-relaxed text-gray-300">{reviewMode ? 'يمكنك تغيير أي تقييم أو إكمال الأشخاص غير المقيّمين' : 'اختر انطباعاً سريعاً لكل شخص ترغب بمراجعته'}</p>
                 <span aria-live="polite" className="shrink-0 rounded-full bg-purple-500/15 px-2.5 py-1 text-xs font-black text-purple-200">{reviewedCount}/{people.length}</span>
@@ -5449,19 +5652,20 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
                           </span>
                           {draft?.experience && <ChevronRight aria-hidden="true" size={16} className={`shrink-0 text-purple-300 transition-transform ${isExpanded ? '-rotate-90' : 'rotate-90'}`} />}
                         </button>
-                        <div className="mt-2 grid grid-cols-4 gap-1.5" role="group" aria-label={`تقييم تجربتك مع ${person.first_name}`}>
+                        <fieldset className="mt-2 grid grid-cols-4 gap-1.5" aria-label={`تقييم تجربتك مع ${person.first_name}`}>
                           {experiences.map(option => {
                             const Icon = option.icon
                             const active = draft?.experience === option.value
                             return (
-                              <button type="button" key={option.value} onClick={() => setExperience(person.number, option.value)} aria-pressed={active} aria-label={`${option.label} — ${person.first_name}`}
-                                className={`flex min-h-14 min-w-0 flex-col items-center justify-center rounded-xl border px-1 transition active:scale-95 ${active ? option.style : 'border-white/[0.07] bg-white/[0.035] text-gray-400'}`}>
+                              <label key={option.value}
+                                className={`flex min-h-14 min-w-0 cursor-pointer flex-col items-center justify-center rounded-xl border px-1 transition active:scale-95 focus-within:ring-2 focus-within:ring-purple-300/60 ${active ? option.style : 'border-white/[0.07] bg-white/[0.035] text-gray-400'}`}>
+                                <input type="radio" className="sr-only" name={`event3-group-experience-${groupRound}-${person.number}`} value={option.value} checked={active} onChange={() => setExperience(person.number, option.value)} aria-label={`${option.label} — ${person.first_name}`} />
                                 <Icon size={16} />
                                 <span className="mt-1 text-[10px] font-bold leading-tight">{option.label}</span>
-                              </button>
+                              </label>
                             )
                           })}
-                        </div>
+                        </fieldset>
                       </div>
 
                       {draft?.experience && !isExpanded && (
@@ -5599,8 +5803,6 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
     totalPeople += group.people.length
     totalReviewed += group.feedback.filter(entry => Boolean(entry.experience)).length
   }
-  const completionPercent = totalPeople > 0 ? Math.round((totalReviewed / totalPeople) * 100) : 0
-
   return (
     <motion.div
       ref={overlayRef}
@@ -5627,8 +5829,8 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
           </div>
           <div className="min-w-0 flex-1 text-right">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h2 id={titleId} className="text-lg font-black leading-snug text-white">راجع وعدّل تقييماتك</h2>
-              <span className="rounded-full border border-teal-300/15 bg-teal-400/10 px-2 py-0.5 text-[10px] font-bold text-teal-200">وقت الاستراحة</span>
+              <h2 id={titleId} className="text-lg font-black leading-snug text-white">مراجعة اختيارية</h2>
+              <span className="rounded-full border border-teal-300/15 bg-teal-400/10 px-2 py-0.5 text-[10px] font-bold text-teal-200">وقت الاستراحة · اختياري</span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-gray-400">الأشخاص مرتّبون حسب المجموعة التي قابلتهم فيها.</p>
           </div>
@@ -5647,6 +5849,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
               <p className="mt-1 text-xs leading-relaxed text-emerald-100/70">لن يطّلع أي مشارك آخر على تقييمك أو ملاحظاتك. هذه المعلومات خاصة ويراها المنظّم فقط.</p>
             </div>
           </div>
+          <OneToOneSupportButton />
 
           {loading ? (
             <div className="flex h-64 items-center justify-center" role="status" aria-label="جاري تحميل التقييمات"><Spinner size={24} /></div>
@@ -5666,15 +5869,12 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
           ) : (
             <>
               <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3.5">
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div className="text-right">
-                    <p className="text-xs font-black text-white">تقدّمك في التقييم</p>
-                    <p className="mt-0.5 text-[11px] text-gray-500">يمكنك العودة لأي مجموعة والتعديل في أي وقت خلال الاستراحة</p>
+                    <p className="text-xs font-black text-white">راجعت {totalReviewed} انطباعاً</p>
+                    <p className="mt-0.5 text-[11px] text-gray-400">لا يلزم إكمال الجميع؛ يمكنك الإغلاق والراحة في أي وقت.</p>
                   </div>
                   <span className="shrink-0 rounded-full border border-teal-300/15 bg-teal-400/10 px-2.5 py-1 text-xs font-black text-teal-200">{totalReviewed}/{totalPeople}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${completionPercent}%` }} className="h-full rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-purple-400" />
                 </div>
               </div>
 
@@ -5682,7 +5882,6 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
                 {groups.map(group => {
                   const feedbackByMember = new Map(group.feedback.map(entry => [entry.member_number, entry]))
                   const reviewed = group.people.filter(person => Boolean(feedbackByMember.get(person.number)?.experience)).length
-                  const complete = group.people.length > 0 && reviewed === group.people.length
                   return (
                     <section key={group.round} className="overflow-hidden rounded-[1.4rem] border border-white/[0.08] bg-gradient-to-br from-white/[0.055] to-white/[0.018] shadow-lg shadow-black/10">
                       <div className="flex items-center gap-3 border-b border-white/[0.06] px-3.5 py-3">
@@ -5691,8 +5890,8 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
                           <h3 className="text-sm font-black text-white">{event3GroupLabel(group.round)}</h3>
                           <p className="mt-0.5 text-[11px] text-gray-500">{group.people.length} {group.people.length === 1 ? 'شخص' : 'أشخاص'} · تم تقييم {reviewed}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${complete ? 'border-emerald-300/15 bg-emerald-400/10 text-emerald-300' : 'border-amber-300/15 bg-amber-400/10 text-amber-200'}`}>
-                          {complete ? 'مكتملة' : `${group.people.length - reviewed} بانتظارك`}
+                        <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[10px] font-black text-gray-300">
+                          {reviewed ? `راجعت ${reviewed}` : 'اختياري'}
                         </span>
                       </div>
 
@@ -5709,7 +5908,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
                               {experience ? (
                                 <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${experience.style}`}>{experience.label}</span>
                               ) : (
-                                <span className="shrink-0 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[10px] font-bold text-gray-500">لم يُقيّم بعد</span>
+                                <span className="shrink-0 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[10px] font-bold text-gray-400">غير مقيّم · اختياري</span>
                               )}
                             </div>
                           )
@@ -5718,7 +5917,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
 
                       <button type="button" onClick={() => onSelectRound(group.round)} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-b-[1.35rem] border-t border-teal-300/10 bg-gradient-to-r from-teal-500/[0.09] via-cyan-500/[0.07] to-purple-500/[0.09] px-4 text-sm font-black text-teal-100 transition hover:from-teal-500/[0.14] hover:to-purple-500/[0.14] active:scale-[0.99]">
                         <PenLine size={15} />
-                        {reviewed > 0 ? 'مراجعة وتعديل هذه المجموعة' : 'ابدأ تقييم هذه المجموعة'}
+                        {reviewed > 0 ? 'مراجعة وتعديل اختياري' : 'مراجعة هذه المجموعة · اختياري'}
                         <ChevronRight size={15} className="rotate-180" />
                       </button>
                     </section>
@@ -5760,29 +5959,79 @@ function BreakGroupFeedbackPreview() {
 }
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, onWordChange, onSubmitWord, onSubmit, isLastSession, accent = "pink", choiceOnly = false, backDisabled = false }: {
+function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, onWordChange, onSubmitWord, onSubmit, isLastSession, accent = "pink", choiceOnly = false, backDisabled = false, draftKey, assignmentStale = false, onAssignmentChanged, initialSavedFeedback, initialFeedbackFingerprint }: {
   partnerName: string | null; word: string; wordSubmitted: boolean; done: boolean
   onDone: () => void; onBack: () => void; onWordChange: (word: string) => void
-  onSubmitWord: () => Promise<boolean>; onSubmit: (fb: Record<string, any>) => Promise<boolean>
-  isLastSession?: boolean; accent?: "pink" | "purple"; choiceOnly?: boolean; backDisabled?: boolean
+  onSubmitWord: () => Promise<boolean>; onSubmit: (fb: Record<string, any>) => Promise<Event3FeedbackSubmitResult>
+  isLastSession?: boolean; accent?: "pink" | "purple"; choiceOnly?: boolean; backDisabled?: boolean; draftKey?: string
+  assignmentStale?: boolean; onAssignmentChanged?: () => void
+  initialSavedFeedback?: Record<string, any> | null; initialFeedbackFingerprint?: string | null
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [dir, setDir] = useState(1)
+  const [meetingStatus, setMeetingStatus] = useState<Event3MeetingStatus | null>(null)
+  const [contactRevealed, setContactRevealed] = useState(false)
+  const [draftReady, setDraftReady] = useState(!draftKey)
+  const [savedSummary, setSavedSummary] = useState<string | null>(null)
+  const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null)
+  const [retainedPrevious, setRetainedPrevious] = useState(false)
+  const confirmedSavedSummary = savedSummary || (done && initialSavedFeedback ? event3SavedFeedbackSummary(initialSavedFeedback) : null)
+  const confirmedSavedFingerprint = savedFingerprint || initialFeedbackFingerprint || null
   const feedbackTitleId = useId()
   const memoryWordId = useId()
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const feedbackOverlayRef = useRef<HTMLDivElement>(null)
+  const feedbackDialogRef = useRef<HTMLDivElement>(null)
   const stepTransitionLockedRef = useRef(false)
   const stepTransitionTimerRef = useRef<number | null>(null)
-  const [fb, setFb] = useState({
-    conversationQuality: 0, personalConnection: 0,
-    wantConnect: null as boolean | null,
-    contactMethod: null as 'phone' | 'message' | null,
-    contactMessage: '',
-    organizerImpression: '',
-    compatibilityRate: 50, sliderMoved: false,
+  const [fb, setFb] = useState<Event3FeedbackDraft>(() => emptyEvent3FeedbackDraft())
+  const STEPS = 4
+  useModalFocus({
+    open: !done,
+    overlayRef: feedbackOverlayRef,
+    dialogRef: feedbackDialogRef,
+    initialFocusRef: stepHeadingRef,
+    onEscape: () => {
+      if (step > 0) goBack()
+      else if (!backDisabled) onBack()
+    },
   })
-  const STEPS = 3
+
+  useEffect(() => {
+    if (!draftKey) return
+    setDraftReady(false)
+    setFb(emptyEvent3FeedbackDraft())
+    setMeetingStatus(null)
+    setStep(0)
+    setContactRevealed(false)
+    setSavedSummary(null)
+    setSavedFingerprint(null)
+    setRetainedPrevious(false)
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(draftKey) || "null")
+      if (parsed?.version === 1 && parsed.fb) {
+        setFb(current => ({ ...current, ...parsed.fb }))
+        setMeetingStatus(parsed.meetingStatus || null)
+        setStep(Math.max(0, Math.min(Number(parsed.step) || 0, STEPS - 1)))
+        if (typeof parsed.word === "string" && parsed.word && !word) onWordChange(parsed.word)
+        toast('استعدنا مسودة تقييمك على هذا الجهاز', { icon: '↻', duration: 3500 })
+      }
+    } catch {}
+    setDraftReady(true)
+  }, [draftKey])
+
+  useEffect(() => {
+    if (!draftKey || !draftReady || done) return
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({ version: 1, savedAt: Date.now(), step, meetingStatus, fb, word }))
+    } catch {}
+  }, [draftKey, draftReady, done, step, meetingStatus, fb, word])
+
+  useEffect(() => {
+    if (!done || !draftKey) return
+    try { sessionStorage.removeItem(draftKey) } catch {}
+  }, [done, draftKey])
   useEffect(() => {
     const focusTimer = window.setTimeout(() => stepHeadingRef.current?.focus({ preventScroll: true }), 220)
     return () => window.clearTimeout(focusTimer)
@@ -5808,6 +6057,8 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
   }
   const goBack = () => { moveStep(-1) }
   const handleSubmit = async () => {
+    if (assignmentStale) return
+    if (meetingStatus !== 'met') { toast.error('حدّد أولاً إن كان اللقاء قد حدث'); return }
     if (!fb.sliderMoved) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
     if (fb.wantConnect === null) { toast.error('اختر ما إذا كنت تريد التواصل لاحقاً'); return }
     if (fb.wantConnect && !fb.contactMethod) { toast.error('اختر طريقة مشاركة معلومات التواصل'); return }
@@ -5823,9 +6074,30 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
         return
       }
     }
-    const ok = await onSubmit(fb)
+    const requestedFeedback = { ...fb, meetingStatus: 'met' }
+    const result = await onSubmit(requestedFeedback)
     setSubmitting(false)
-    if (ok) onDone()
+    if (result.ok) {
+      const canonical = result.savedFeedback || requestedFeedback
+      setSavedSummary(event3SavedFeedbackSummary(canonical))
+      setSavedFingerprint(result.feedbackFingerprint || null)
+      setRetainedPrevious(result.retainedDifferent === true)
+      onDone()
+    }
+  }
+  const submitMeetingStatus = async () => {
+    if (!meetingStatus || meetingStatus === 'met' || submitting || assignmentStale) return
+    setSubmitting(true)
+    const requestedFeedback = { meetingStatus, organizerImpression: fb.organizerImpression }
+    const result = await onSubmit(requestedFeedback)
+    setSubmitting(false)
+    if (result.ok) {
+      const canonical = result.savedFeedback || requestedFeedback
+      setSavedSummary(event3SavedFeedbackSummary(canonical))
+      setSavedFingerprint(result.feedbackFingerprint || null)
+      setRetainedPrevious(result.retainedDifferent === true)
+      onDone()
+    }
   }
   const saveMemoryWord = async () => {
     if (!word.trim() || wordSubmitted || submitting) return
@@ -5838,29 +6110,50 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
     onWordChange(Array.from(firstWord).slice(0, EVENT3_MEMORY_WORD_MAX_LENGTH).join(''))
   }
   const ratingConfigs = [
-    { icon: <Frown size={18} />, gradient: 'from-red-500/80 to-rose-600/80', ring: 'ring-red-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(239,68,68,0.5)]' },
-    { icon: <Frown size={18} className="[&>path]:stroke-[1.5]" />, gradient: 'from-orange-500/80 to-amber-600/80', ring: 'ring-orange-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(249,115,22,0.5)]' },
-    { icon: <Meh size={18} />, gradient: 'from-amber-500/80 to-yellow-600/80', ring: 'ring-amber-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(245,158,11,0.5)]' },
-    { icon: <Smile size={18} />, gradient: 'from-lime-500/80 to-green-600/80', ring: 'ring-lime-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(132,204,22,0.5)]' },
-    { icon: <Sparkles size={18} />, gradient: 'from-emerald-500/80 to-teal-600/80', ring: 'ring-emerald-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(16,185,129,0.5)]' },
+    { icon: <Frown size={18} />, gradient: 'from-violet-500/55 to-indigo-600/55', ring: 'ring-violet-300/50', glow: 'shadow-[0_0_20px_-6px_rgba(139,92,246,0.45)]' },
+    { icon: <Frown size={18} className="[&>path]:stroke-[1.5]" />, gradient: 'from-violet-500/55 to-indigo-600/55', ring: 'ring-violet-300/50', glow: 'shadow-[0_0_20px_-6px_rgba(139,92,246,0.45)]' },
+    { icon: <Meh size={18} />, gradient: 'from-violet-500/55 to-indigo-600/55', ring: 'ring-violet-300/50', glow: 'shadow-[0_0_20px_-6px_rgba(139,92,246,0.45)]' },
+    { icon: <Smile size={18} />, gradient: 'from-violet-500/55 to-indigo-600/55', ring: 'ring-violet-300/50', glow: 'shadow-[0_0_20px_-6px_rgba(139,92,246,0.45)]' },
+    { icon: <Sparkles size={18} />, gradient: 'from-violet-500/55 to-indigo-600/55', ring: 'ring-violet-300/50', glow: 'shadow-[0_0_20px_-6px_rgba(139,92,246,0.45)]' },
   ]
+  const compatibilityLabel = fb.compatibilityRate >= 80
+    ? 'قوي'
+    : fb.compatibilityRate >= 60
+      ? 'واضح'
+      : fb.compatibilityRate >= 40
+        ? 'متوسط'
+        : fb.compatibilityRate >= 20
+          ? 'خفيف'
+          : 'محدود'
   const RatingRow = ({ labels, field, val }: { labels: string[]; field: string; val: number }) => (
-    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+    <fieldset className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label={field === 'conversationQuality' ? 'جودة المحادثة' : 'الراحة والتفاهم'}>
       {labels.map((label, i) => {
         const cfg = ratingConfigs[i]
         const selected = val === i + 1
         return (
-          <motion.button type="button" key={i} whileTap={{ scale: 0.88 }} aria-pressed={selected} aria-label={`${label}، ${i + 1} من 5`}
-            onClick={() => setFb(p => ({ ...p, [field]: i + 1 }))}
-            className={`flex flex-col items-center gap-1.5 py-3 sm:py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
+          <motion.label key={i} whileTap={{ scale: 0.88 }}
+            className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl py-3 transition-all duration-200 focus-within:ring-2 focus-within:ring-violet-200 sm:py-4 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
+            <input type="radio" className="sr-only" name={`event3-feedback-${field}`} value={i + 1} checked={selected} onChange={() => setFb(p => ({ ...p, [field]: i + 1 }))} aria-label={`${label}، ${i + 1} من 5`} />
             <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
               {cfg.icon}
             </div>
             <span className={`text-[11px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-300'}`}>{label}</span>
-          </motion.button>
+          </motion.label>
         )
       })}
-    </div>
+    </fieldset>
+  )
+  if (assignmentStale && !done) return (
+    <motion.div ref={node => { feedbackOverlayRef.current = node; feedbackDialogRef.current = node }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="event3-shell fixed inset-0 z-[260] flex items-center justify-center overflow-y-auto bg-gray-950 p-5" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
+      <div className="event3-glass w-full max-w-sm rounded-[1.75rem] border border-amber-300/25 p-5 text-center shadow-[0_28px_80px_-42px_rgba(251,191,36,.45)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><RefreshCw size={23} /></div>
+        <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="mt-4 text-xl font-black text-white focus:outline-none">تغيّر هذا اللقاء قبل الإرسال</h2>
+        <p className="mt-2 text-sm leading-7 text-gray-300">لم نرسل هذه المسودة إلى الشريك الجديد. احتفظنا بها منفصلة على جهازك كي لا تختلط إجابات لقاءين.</p>
+        <button type="button" onClick={onAssignmentChanged} className="event3-action mt-5 min-h-14 w-full rounded-2xl bg-gradient-to-l from-amber-500 to-orange-500 px-4 text-sm font-black text-gray-950">فهمت — اعرض اللقاء المحدّث</button>
+        <div className="mt-3"><OneToOneSupportButton /></div>
+      </div>
+    </motion.div>
   )
   if (done) return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -5874,13 +6167,14 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
       </div>
       <div className="space-y-2 text-center">
         <p dir="ltr" className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-200/55">FEEDBACK SECURED</p>
-        <h2 className="bg-gradient-to-l from-white via-emerald-100 to-cyan-100 bg-clip-text text-2xl font-black text-transparent">شكراً لك</h2>
-        <p className="text-sm text-gray-400">تم حفظ تقييمك بأمان — انتظر المرحلة التالية</p>
+        <h2 className={`bg-gradient-to-l from-white bg-clip-text text-2xl font-black text-transparent ${retainedPrevious ? 'via-amber-100 to-orange-100' : 'via-emerald-100 to-cyan-100'}`}>{retainedPrevious ? 'راجع الرد المحفوظ' : 'شكراً لك'}</h2>
+        <p className="text-sm text-gray-300">{retainedPrevious ? 'كان هناك رد محفوظ لهذا اللقاء، فأبقينا النسخة السابقة ولم نستبدلها.' : 'تم تأكيد استلام ردك — انتظر المرحلة التالية'}</p>
+        {confirmedSavedSummary && <p data-feedback-confirmation={confirmedSavedFingerprint || undefined} className={`mx-auto max-w-sm rounded-2xl border px-4 py-3 text-xs leading-6 ${retainedPrevious ? 'border-amber-300/20 bg-amber-400/[0.07] text-amber-100' : 'border-cyan-300/15 bg-cyan-400/[0.06] text-cyan-100'}`} role="status">{confirmedSavedSummary}</p>}
       </div>
       {!wordSubmitted && (
         <div className="event3-glass w-full max-w-sm rounded-[1.35rem] border border-violet-300/[0.14] p-4 text-right">
           <label htmlFor={`${memoryWordId}-done`} className="block text-sm font-black text-violet-100">كلمة واحدة تحفظ إحساسك باللقاء — اختياري</label>
-          <p className="mt-1 text-xs leading-5 text-violet-100/60">تظهر لك أنت فقط في الكشف النهائي.</p>
+          <p className="mt-1 text-xs leading-5 text-violet-100/65">لن تظهر لشريكك. قد يطّلع عليها فريق التنظيم لدعم التجربة وعرضها لك في الكشف النهائي.</p>
           <div className="mt-3 flex gap-2">
             <input id={`${memoryWordId}-done`} value={word} onChange={event => updateMemoryWord(event.target.value)} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: مريح" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.09] bg-black/30 px-3 text-base text-white outline-none placeholder:text-gray-600 focus:border-violet-300/40" />
             <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="event3-action min-h-12 rounded-xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-4 text-sm font-black text-white disabled:opacity-35">
@@ -5908,7 +6202,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
     </motion.div>
   )
   return (
-    <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+    <motion.div ref={node => { feedbackOverlayRef.current = node; feedbackDialogRef.current = node }} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="event3-shell event3-stage event3-feedback-view fixed inset-0 z-[240] flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -5929,6 +6223,9 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
               transition={{ duration: 0.3 }} />
           ))}
         </div>
+        <button type="button" onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))} className="flex min-h-11 items-center gap-1.5 rounded-xl border border-violet-300/15 bg-violet-400/[0.06] px-2.5 text-[11px] font-bold text-violet-100" aria-label="فتح محادثة المساعدة مع المنظم">
+          <LifeBuoy size={14} /> مساعدة
+        </button>
         <span className="w-11 text-left font-mono text-xs text-gray-300">{step + 1}/{STEPS}</span>
       </div>
       {partnerName && (
@@ -5942,87 +6239,103 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
       <div className="event3-scroll relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 [scroll-padding-bottom:7rem] sm:px-5">
         <AnimatePresence mode="wait" custom={dir}>
           {step === 0 && (
-            <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
-              <div className="text-center space-y-2">
-                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">كم كان التوافق الفكري؟</h2>
-                <p className="text-sm leading-6 text-gray-400">قيّم الشخصية والتفكير، وليس المظهر.</p>
+            <motion.div key="meeting-status" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }} transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-4 py-3">
+              <div className="space-y-2 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-200"><Users size={20} /></div>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none">هل حدث اللقاء؟</h2>
+                <p className="text-sm leading-6 text-gray-300">نحتاج هذا أولاً حتى لا نطلب منك تقييم لقاء لم يحدث.</p>
               </div>
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="event3-glass relative space-y-5 overflow-hidden rounded-3xl border border-purple-400/[0.14] p-5">
-                {/* Big percentage display */}
-                <div className="relative z-10 text-center">
-                  <motion.div
-                    key={fb.compatibilityRate}
-                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`text-4xl font-black font-mono tabular-nums sm:text-5xl ${
-                      fb.compatibilityRate >= 80 ? 'text-emerald-400' :
-                      fb.compatibilityRate >= 60 ? 'text-amber-400' :
-                      fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
-                    }`}
-                    style={{ textShadow: fb.compatibilityRate >= 80 ? '0 0 30px rgba(16,185,129,0.3)' : fb.compatibilityRate >= 60 ? '0 0 30px rgba(245,158,11,0.3)' : '0 0 30px rgba(239,68,68,0.2)' }}
-                  >
-                    {fb.compatibilityRate}%
-                  </motion.div>
-                  <p className="mt-1 text-xs text-gray-300">{fb.compatibilityRate >= 80 ? 'توافق عالي جداً!' : fb.compatibilityRate >= 60 ? 'توافق جيد' : fb.compatibilityRate >= 40 ? 'توافق متوسط' : 'توافق منخفض'}</p>
-                </div>
-                {/* Slider */}
-                <div className="relative z-10">
-                  <div className="relative" style={{ direction: 'ltr' }}>
-                    <input
-                      type="range" min="0" max="100" step="5"
-                      value={fb.compatibilityRate}
-                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                      aria-label="درجة التوافق الفكري"
-                      aria-valuetext={`${fb.compatibilityRate} بالمئة`}
-                      className="e3-feedback-range h-11 w-full cursor-pointer appearance-none rounded-full py-4 [background-clip:content-box] focus:outline-none transition-all
-                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
-                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
-                        [&::-webkit-slider-thumb]:shadow-[0_2px_10px_rgba(0,0,0,.35)] [&::-webkit-slider-thumb]:border-2
-                        [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
-                        [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-105
-                        [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
-                        [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:shadow-[0_2px_10px_rgba(0,0,0,.35)] [&::-moz-range-thumb]:cursor-pointer"
-                      style={{
-                        background: `linear-gradient(to right,
-                          ${fb.compatibilityRate >= 80 ? '#059669' : fb.compatibilityRate >= 60 ? '#d97706' : fb.compatibilityRate >= 40 ? '#ea580c' : '#dc2626'} 0%,
-                          ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} ${Math.max(fb.compatibilityRate - 2, 0)}%,
-                          ${fb.compatibilityRate >= 80 ? '#34d399' : fb.compatibilityRate >= 60 ? '#fbbf24' : fb.compatibilityRate >= 40 ? '#fb923c' : '#f87171'} ${fb.compatibilityRate}%,
-                          #334155 ${Math.min(fb.compatibilityRate + 2, 100)}%, #1e293b 100%)`,
-                      }}
-                    />
-                    <style>{`
-                      .e3-feedback-range::-webkit-slider-thumb {
-                        border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
-                      }
-                      .e3-feedback-range::-moz-range-thumb {
-                        border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
-                      }
-                    `}</style>
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-gray-400">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
+              <fieldset aria-label="حالة اللقاء" className="grid gap-2.5">
+                {([
+                  ['met', 'نعم، تحدثنا', 'انتقل إلى تقييم اللقاء', CheckCircle],
+                  ['did_not_start', 'لم يبدأ اللقاء بعد', 'يمكنك العودة إذا بدأتما الآن', Clock],
+                  ['partner_absent', 'الطرف الآخر لم يصل', 'سنرسل الحالة للمنظم من دون تقييم', MapPin],
+                  ['needed_help', 'احتجت مساعدة', 'لن نطلب منك تقييماً أو قرار تواصل', LifeBuoy],
+                ] as const).map(([value, label, description, Icon]) => {
+                  const selected = meetingStatus === value
+                  return (
+                    <label key={value} className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border px-3.5 text-right transition focus-within:ring-2 focus-within:ring-violet-300 ${selected ? 'border-violet-300/45 bg-violet-400/14 text-violet-50' : 'border-white/[0.08] bg-white/[0.035] text-gray-200'}`}>
+                      <input type="radio" className="sr-only" name="event3-meeting-status" value={value} checked={selected} onChange={() => { setMeetingStatus(value); if (value === 'met') goNext() }} />
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${selected ? 'border-violet-300/25 bg-violet-400/15 text-violet-200' : 'border-white/[0.07] bg-black/15 text-gray-400'}`}><Icon size={17} /></span>
+                      <span><span className="block text-sm font-black">{label}</span><span className="mt-0.5 block text-[11px] leading-5 text-current opacity-60">{description}</span></span>
+                    </label>
+                  )
+                })}
+              </fieldset>
+              {meetingStatus && meetingStatus !== 'met' && (
+                <div className="space-y-2.5 rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.055] p-3.5 text-right">
+                  <p className="text-xs leading-6 text-cyan-100/80">التأخير أو الغياب حالة تشغيلية، وليس نتيجة لاختيارك أو قيمتك. إذا بدأ اللقاء الآن يمكنك الرجوع إليه.</p>
+                  {meetingStatus === 'needed_help' && <OneToOneSupportButton />}
+                  <div className="grid grid-cols-2 gap-2">
+                    {!backDisabled && <button type="button" onClick={onBack} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-gray-200">العودة للقاء</button>}
+                    <button type="button" onClick={submitMeetingStatus} disabled={submitting} className="event3-action min-h-12 rounded-xl bg-gradient-to-l from-violet-500 to-indigo-600 px-3 text-xs font-black text-white disabled:opacity-40">{submitting ? 'جارٍ الإرسال...' : 'إرسال الحالة'}</button>
                   </div>
                 </div>
-                {/* Hint */}
-                {!fb.sliderMoved && (
-                  <button type="button" onClick={() => setFb(p => ({ ...p, sliderMoved: true }))} className="relative z-10 flex min-h-11 w-full items-center justify-center rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-xs font-bold text-purple-200">اختيار 50٪</button>
-                )}
-              </motion.div>
-              {/* Next button */}
-              <motion.button type="button"
-                onClick={() => { if (!fb.sliderMoved) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
-                whileTap={{ scale: 0.97 }}
-                disabled={!fb.sliderMoved}
-                className="event3-action flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 py-4 text-sm font-bold text-white transition-all disabled:opacity-30 disabled:shadow-none">
-                متابعة <ChevronRight size={16} />
-              </motion.button>
+              )}
             </motion.div>
           )}
           {step === 1 && (
+            <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-2">
+              {/* Disclaimer banner — intellectual compatibility, not looks (only on this step) */}
+              <div className="relative z-10">
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="relative overflow-hidden rounded-2xl border border-violet-300/20 bg-gradient-to-br from-violet-950/45 via-indigo-950/25 to-violet-950/20 px-4 py-3">
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-300/35 to-transparent" />
+                  <div className="flex items-start gap-2.5">
+                    <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+                      className="w-8 h-8 rounded-lg bg-violet-400/10 border border-violet-300/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Info size={15} className="text-violet-300" />
+                    </motion.div>
+                    <div className="space-y-1">
+                      <p className="text-violet-100 text-xs font-black">سجّل انطباعك كما عشته</p>
+                      <p className="text-xs leading-relaxed text-violet-100/70">
+                        {choiceOnly
+                          ? <>اختر أقرب وصف لانطباعك عن <span className="font-bold text-violet-200">الحوار والتفكير</span>. لا يغيّر هذا ترتيبك أو شركاء هذه النسخة.</>
+                          : <>اختر أقرب وصف لانطباعك عن <span className="font-bold text-violet-200">الحوار والتفكير</span>، وليس المظهر. نستخدمه لتحسين التجربة مستقبلاً.</>}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-1.5 bg-purple-900/30 border border-purple-700/40 rounded-full px-3 py-1 mb-1">
+                  <Brain size={11} className="text-purple-400" />
+                  <span className="text-xs font-semibold text-purple-200">توافق فكري</span>
+                </div>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">كم كان التوافق الفكري؟</h2>
+                <p className="text-sm text-gray-300">اختر وصفاً تقريبياً لانطباعك بعد هذا اللقاء.</p>
+              </div>
+              {/* Neutral verbal scale: this is a subjective impression, not a scorecard. */}
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="relative space-y-4 overflow-hidden rounded-3xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-purple-950/20 p-4 shadow-xl shadow-purple-900/20 sm:space-y-5 sm:p-6">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
+                <div className="relative z-10 flex items-center justify-between gap-3 rounded-2xl border border-violet-300/15 bg-violet-400/[0.07] px-4 py-3">
+                  <span className="text-xs font-bold text-violet-100/65">انطباعك الحالي</span>
+                  <output className="text-sm font-black text-violet-100" aria-live="polite">{compatibilityLabel}</output>
+                </div>
+                <div className="relative z-10" style={{ direction: 'ltr' }}>
+                  <input
+                    type="range" min="0" max="100" step="5"
+                    value={fb.compatibilityRate}
+                    onChange={event => setFb(previous => ({ ...previous, compatibilityRate: parseInt(event.target.value), sliderMoved: true }))}
+                    aria-label="درجة التوافق الفكري"
+                    aria-valuetext={`${compatibilityLabel}، ${fb.compatibilityRate} من 100`}
+                    className="h-12 w-full cursor-pointer appearance-none rounded-full py-5 [background-clip:content-box] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-violet-300 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-violet-300 [&::-moz-range-thumb]:bg-white"
+                    style={{ background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(196 181 253) ${fb.compatibilityRate}%, rgb(51 65 85) ${fb.compatibilityRate}%, rgb(30 41 59) 100%)` }}
+                  />
+                  <div className="mt-1 flex justify-between text-[10px] font-bold text-violet-100/45" aria-hidden="true">
+                    <span>محدود</span><span>متوسط</span><span>قوي</span>
+                  </div>
+                </div>
+                {!fb.sliderMoved && (
+                  <button type="button" onClick={() => setFb(previous => ({ ...previous, compatibilityRate: 50, sliderMoved: true }))} className="event3-soft-action relative z-10 flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-xs font-black text-violet-100">اختيار المتوسط</button>
+                )}
+                <p className="relative z-10 text-center text-xs leading-5 text-violet-100/60">هذه قراءة انطباعية وليست حكماً أو قياساً علمياً.</p>
+              </motion.div>
+            </motion.div>
+          )}
+          {step === 2 && (
             <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
@@ -6033,28 +6346,39 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
               <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
               <p className="text-xs font-bold text-gray-300">الراحة والتفاهم</p>
               <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
-              <motion.button type="button" onClick={() => goNext()} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition disabled:opacity-30">
-                متابعة <ChevronRight size={16} />
-              </motion.button>
             </motion.div>
           )}
-          {step === 2 && (
+          {step === 3 && !contactRevealed && (
+            <motion.div key="contact-privacy" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }} transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200"><EyeOff size={23} /></div>
+              <div className="space-y-2">
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none">قرار تواصل خاص</h2>
+                <p className="mx-auto max-w-xs text-sm leading-7 text-gray-300">ستظهر الآن خيارات مشاركة التواصل. قرّب الشاشة منك قبل فتحها.</p>
+              </div>
+              <p className="text-xs text-gray-400">يمكنك دائماً اختيار «لا» من دون أن يعرف الطرف الآخر.</p>
+            </motion.div>
+          )}
+          {step === 3 && contactRevealed && (
             <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
                 <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">هل تريد التواصل لاحقاً؟</h2>
-                <p className="text-sm leading-6 text-gray-400">اختيارك سري. تظهر معلومات التواصل فقط إذا وافقتما معاً.</p>
+                <p className="text-sm text-gray-300">اختيارك سري. تظهر معلومات التواصل فقط إذا وافقتما معاً.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="الرغبة في التواصل لاحقاً">
-                <button type="button" role="radio" aria-checked={fb.wantConnect === true} onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                  className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === true ? "border-emerald-400/55 bg-emerald-400/15 text-emerald-200 ring-2 ring-emerald-400/20" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+              <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3 text-right">
+                <p className="text-sm font-black text-emerald-200">موافقة متبادلة فقط</p>
+                <p className="mt-1 text-xs leading-6 text-emerald-100/70">إذا اخترتما «نعم» كلاكما، تظهر معلومات التواصل في النتائج. غير ذلك لا يعرف الطرف الآخر إجابتك.</p>
+              </div>
+              <fieldset className="grid grid-cols-2 gap-3" aria-label="الرغبة في التواصل لاحقاً">
+                <label className={`flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border text-base font-black transition-all focus-within:ring-2 focus-within:ring-violet-200 ${fb.wantConnect === true ? "border-violet-300/45 bg-violet-400/14 text-violet-100 ring-2 ring-violet-300/15" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+                  <input type="radio" className="sr-only" name="event3-want-connect" value="yes" checked={fb.wantConnect === true} onChange={() => setFb(p => ({ ...p, wantConnect: true }))} />
                   <CheckCircle size={24} className="mx-auto mb-2" />نعم
-                </button>
-                <button type="button" role="radio" aria-checked={fb.wantConnect === false} onClick={() => setFb(p => ({ ...p, wantConnect: false, contactMethod: null, contactMessage: '' }))}
-                  className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === false ? "border-slate-300/35 bg-slate-300/10 text-slate-100 ring-2 ring-slate-300/15" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+                </label>
+                <label className={`flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border text-base font-black transition-all focus-within:ring-2 focus-within:ring-violet-200 ${fb.wantConnect === false ? "border-violet-300/45 bg-violet-400/14 text-violet-100 ring-2 ring-violet-300/15" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+                  <input type="radio" className="sr-only" name="event3-want-connect" value="no" checked={fb.wantConnect === false} onChange={() => setFb(p => ({ ...p, wantConnect: false, contactMethod: null, contactMessage: '' }))} />
                   <X size={24} className="mx-auto mb-2" />لا
-                </button>
-              </div>
+                </label>
+              </fieldset>
               <AnimatePresence initial={false}>
                 {fb.wantConnect === true && (
                   <motion.div
@@ -6069,34 +6393,24 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                         <p className="text-sm font-black text-cyan-100">كيف تريد أن يتواصل معك؟</p>
                         <p className="mt-1 text-xs leading-5 text-cyan-100/60">لن نشارك إلا الخيار الذي تحدده، وفقط عند الموافقة المتبادلة.</p>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="طريقة مشاركة معلومات التواصل">
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={fb.contactMethod === 'phone'}
-                          onClick={() => setFb(p => ({ ...p, contactMethod: 'phone', contactMessage: '' }))}
-                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-right transition ${fb.contactMethod === 'phone' ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-100 ring-1 ring-emerald-400/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}
-                        >
+                      <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="طريقة مشاركة معلومات التواصل">
+                        <label className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 text-right transition focus-within:ring-2 focus-within:ring-cyan-200 ${fb.contactMethod === 'phone' ? 'border-cyan-300/45 bg-cyan-400/14 text-cyan-50 ring-1 ring-cyan-300/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}>
+                          <input type="radio" className="sr-only" name="event3-contact-method" value="phone" checked={fb.contactMethod === 'phone'} onChange={() => setFb(p => ({ ...p, contactMethod: 'phone', contactMessage: '' }))} />
                           <Smartphone size={19} className="shrink-0" />
                           <span>
                             <span className="block text-sm font-black">مشاركة رقم جوالي</span>
                             <span className="block text-[10px] font-medium opacity-65">يظهر رقمك المسجل للطرف الآخر</span>
                           </span>
-                        </button>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={fb.contactMethod === 'message'}
-                          onClick={() => setFb(p => ({ ...p, contactMethod: 'message' }))}
-                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-right transition ${fb.contactMethod === 'message' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-400/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}
-                        >
+                        </label>
+                        <label className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 text-right transition focus-within:ring-2 focus-within:ring-cyan-200 ${fb.contactMethod === 'message' ? 'border-cyan-300/45 bg-cyan-400/14 text-cyan-50 ring-1 ring-cyan-300/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}>
+                          <input type="radio" className="sr-only" name="event3-contact-method" value="message" checked={fb.contactMethod === 'message'} onChange={() => setFb(p => ({ ...p, contactMethod: 'message' }))} />
                           <MessageSquare size={19} className="shrink-0" />
                           <span>
                             <span className="block text-sm font-black">مشاركة وسيلة أخرى</span>
                             <span className="block text-[10px] font-medium opacity-65">بدون إظهار رقم جوالك</span>
                           </span>
-                        </button>
-                      </div>
+                        </label>
+                      </fieldset>
                       <AnimatePresence initial={false}>
                         {fb.contactMethod === 'message' && (
                           <motion.div key="custom-contact-message" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
@@ -6142,22 +6456,63 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                   </div>
                 </div>
               </details>
-              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
-                {submitting ? <><Spinner size={17} />جاري الإرسال...</> : <><Send size={17} />إرسال التقييم</>}
-              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+      {step > 0 && (
+        <footer data-feedback-sticky-action className="relative z-30 shrink-0 border-t border-white/[0.08] bg-gray-950/96 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-18px_42px_-20px_rgba(3,7,18,.95)] backdrop-blur-xl sm:px-5">
+          {step === 1 && (
+            <motion.button type="button"
+              onClick={() => { if (!fb.sliderMoved) { toast.error('اختر أقرب وصف أولاً'); return } goNext() }}
+              whileTap={{ scale: 0.97 }}
+              disabled={!fb.sliderMoved}
+              className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition-all disabled:opacity-30">
+              متابعة <ChevronRight size={16} />
+            </motion.button>
+          )}
+          {step === 2 && (
+            <motion.button type="button" onClick={() => { setContactRevealed(false); goNext() }} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition disabled:opacity-30">
+              متابعة <ChevronRight size={16} />
+            </motion.button>
+          )}
+          {step === 3 && !contactRevealed && (
+            <button type="button" onClick={() => { setContactRevealed(true); window.setTimeout(() => stepHeadingRef.current?.focus(), 80) }} className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-l from-cyan-500 via-blue-500 to-violet-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+              إظهار خيارات التواصل
+            </button>
+          )}
+          {step === 3 && contactRevealed && (
+            <div className="space-y-1.5">
+              <p className="px-2 text-center text-[10px] leading-4 text-gray-300">راجع قرار التواصل؛ وبعد انتهاء المرحلة قد لا يتاح تعديل الرد.</p>
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
+                {submitting ? <><Spinner size={17} />جاري التأكيد...</> : <><Send size={17} />تأكيد وإرسال الرد</>}
+              </motion.button>
+            </div>
+          )}
+        </footer>
+      )}
     </motion.div>
   )
 }
 
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
 const EVENT3_OPEN_SUPPORT_EVENT = "event3-open-support"
+const EVENT3_CLOSE_SUPPORT_EVENT = "event3-close-support"
 
 function OneToOneSupportButton() {
-  return null
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
+      className="event3-action flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-violet-300/[0.16] bg-violet-400/[0.065] px-3.5 text-right text-violet-100 transition hover:border-violet-300/30 hover:bg-violet-400/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+    >
+      <span className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/15 bg-black/20"><LifeBuoy size={16} className="text-violet-200" /></span>
+        <span><span className="block text-sm font-black">أحتاج مساعدة</span><span className="block text-[11px] text-violet-100/55">رسالة خاصة أو مساعدة بعيداً عن الطاولة</span></span>
+      </span>
+      <ChevronRight size={16} className="rotate-180 text-violet-200/60" />
+    </button>
+  )
 }
 
 function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = false }: { token: string; sosRequests?: any[]; suppressed?: boolean; triggerHidden?: boolean }) {
@@ -6169,30 +6524,63 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
   const [sending, setSending] = useState(false)
   const [showOptions, setShowOptions] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
+  const [sensoryMode, setSensoryMode] = useState<Event3SensoryMode>(() => getEvent3SensoryMode())
   const scrollRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const openRef = useRef(false)
-  const lastReplyCountRef = useRef(parseInt(sessionStorage.getItem('sos_last_reply_count') || '0'))
+  const lastReplyCountRef = useRef(
+    typeof window !== 'undefined'
+      ? Number.parseInt(window.sessionStorage.getItem('sos_last_reply_count') || '0', 10)
+      : 0,
+  )
   useEffect(() => { openRef.current = open }, [open])
 
   useEffect(() => {
-    if (suppressed) setOpen(false)
-  }, [suppressed])
+    // A timed session/feedback surface sits below this panel visually. Close
+    // only the panel when its global trigger is hidden so the newly mounted
+    // dialog cannot make a still-visible support sheet inert. Messages stay
+    // in memory and remain available from the local help action.
+    if (suppressed || triggerHidden) setOpen(false)
+  }, [suppressed, triggerHidden])
 
   useEffect(() => {
     if (!sosRequests) return
-      const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[] = []
+      const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string; sortTime: number; sequence: number }[] = []
       let orgCount = 0
+      let sequence = 0
       for (const r of sosRequests) {
         const history = Array.isArray(r.chat_history) ? r.chat_history : []
         for (const msg of history) {
-          allMsgs.push({ id: r.id + '-' + msg.timestamp, text: msg.text, from: msg.from === 'organizer' ? 'organizer' : 'user', status: r.status, timestamp: msg.timestamp })
+          const messageTime = Date.parse(msg.timestamp || '')
+          const requestTime = Date.parse(r.created_at || '')
+          allMsgs.push({
+            id: r.id + '-' + (msg.timestamp || sequence),
+            text: msg.text,
+            from: msg.from === 'organizer' ? 'organizer' : 'user',
+            status: r.status,
+            timestamp: msg.timestamp,
+            sortTime: Number.isFinite(messageTime) ? messageTime : Number.isFinite(requestTime) ? requestTime : sequence,
+            sequence: sequence++,
+          })
           if (msg.from === 'organizer') orgCount++
         }
       }
-      allMsgs.sort((a, b) => a.id.localeCompare(b.id))
-      setMessages(allMsgs)
+      allMsgs.sort((a, b) => a.sortTime - b.sortTime || a.sequence - b.sequence)
+      const remoteMessages = allMsgs.map(({ sortTime: _sortTime, sequence: _sequence, ...message }) => message)
+      setMessages(current => {
+        const failedLocalMessages = current.filter(message => message.status === 'failed')
+        return [...remoteMessages, ...failedLocalMessages].sort((a, b) => {
+          const aTime = Date.parse(a.timestamp || '')
+          const bTime = Date.parse(b.timestamp || '')
+          if (Number.isFinite(aTime) && Number.isFinite(bTime)) return aTime - bTime
+          if (Number.isFinite(aTime)) return -1
+          if (Number.isFinite(bTime)) return 1
+          return 0
+        })
+      })
       const prevCount = lastReplyCountRef.current
       if (orgCount > prevCount && prevCount >= 0) {
         setHasUnread(true)
@@ -6203,7 +6591,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
         }
       }
       lastReplyCountRef.current = orgCount
-      sessionStorage.setItem('sos_last_reply_count', String(orgCount))
+      try { window.sessionStorage.setItem('sos_last_reply_count', String(orgCount)) } catch {}
       if (allMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
       if (orgCount === 0 && allMsgs.length === 0) setHasUnread(false)
@@ -6218,50 +6606,66 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
 
   useEffect(() => {
     const openSupport = () => setOpen(true)
+    const closeSupport = () => setOpen(false)
     window.addEventListener(EVENT3_OPEN_SUPPORT_EVENT, openSupport)
-    return () => window.removeEventListener(EVENT3_OPEN_SUPPORT_EVENT, openSupport)
+    window.addEventListener(EVENT3_CLOSE_SUPPORT_EVENT, closeSupport)
+    return () => {
+      window.removeEventListener(EVENT3_OPEN_SUPPORT_EVENT, openSupport)
+      window.removeEventListener(EVENT3_CLOSE_SUPPORT_EVENT, closeSupport)
+    }
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 50)
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.clearTimeout(focusTimer)
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [open])
+  useModalFocus({
+    open,
+    overlayRef,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onEscape: () => setOpen(false),
+  })
 
-  const send = async (text: string, requestType?: string) => {
+  const cycleSensoryMode = () => {
+    const next: Event3SensoryMode = sensoryMode === 'sound' ? 'vibrate' : sensoryMode === 'vibrate' ? 'silent' : 'sound'
+    setSensoryMode(next)
+    try { localStorage.setItem(EVENT3_SENSORY_MODE_KEY, next) } catch {}
+    if (next === 'vibrate') vibrate(80)
+  }
+
+  const send = async (text: string, requestType?: string, retryMessageId?: string) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
     setSending(true)
     const d = await call('e3-sos', token, { message: trimmed, request_type: requestType || 'chat' })
     setSending(false)
     if (!d.error) {
-      setMessages(prev => [...prev, { id: d.id || String(Date.now()), text: trimmed, from: 'user', status: 'pending' }])
+      const sentAt = new Date().toISOString()
+      setMessages(prev => [
+        ...prev.filter(message => message.id !== retryMessageId),
+        { id: d.id || String(Date.now()), text: trimmed, from: 'user', status: 'pending', timestamp: sentAt },
+      ])
       setShowOptions(false)
       setInput("")
       toast.success('تم الإرسال')
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    } else if (!retryMessageId) {
+      setMessages(prev => [...prev, { id: `failed-${Date.now()}`, text: trimmed, from: 'user', status: 'failed', timestamp: new Date().toISOString() }])
+      setShowOptions(false)
+      toast.error('لم تصل الرسالة — يمكنك إعادة المحاولة')
     } else {
-      toast.error('حدث خطأ')
+      toast.error('لم تصل الرسالة — سنبقيها هنا لتحاول مرة أخرى')
     }
   }
 
   const pendingCount = messages.filter(m => m.from === 'user' && m.status === 'pending').length
+  const failedCount = messages.filter(m => m.from === 'user' && m.status === 'failed').length
   const hasActive = messages.length > 0
 
-  const buttonLabel = hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : hasActive ? 'المنظم' : 'طلب مساعدة'
-  const buttonState = hasUnread ? 'unread' : pendingCount > 0 ? 'pending' : hasActive ? 'active' : 'idle'
+  const buttonLabel = hasUnread ? 'رد جديد من المنظم' : failedCount > 0 ? 'تعذّر الإرسال' : pendingCount > 0 ? 'تم الإرسال · بانتظار الرد' : hasActive ? 'محادثة المنظم' : 'طلب مساعدة'
+  const buttonState = hasUnread ? 'unread' : failedCount > 0 ? 'failed' : pendingCount > 0 ? 'pending' : hasActive ? 'active' : 'idle'
 
   return (
     <div className={suppressed ? "hidden" : "contents"} aria-hidden={suppressed || undefined} inert={suppressed}>
       {/* Organizer help is an in-flow footer action, never a floating obstruction. */}
-      <div className={`${triggerHidden ? 'hidden' : 'flex'} shrink-0 justify-center border-t border-white/[0.055] bg-gray-950/92 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl`} dir="rtl">
+      <div className={`${triggerHidden ? 'hidden' : 'flex'} relative z-[60] shrink-0 justify-center border-t border-white/[0.055] bg-gray-950/92 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl`} dir="rtl">
         <motion.button
           type="button"
           whileTap={{ scale: 0.985 }}
@@ -6271,19 +6675,20 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
           aria-label={`${buttonLabel} — تواصل مع المنظم`}
           className={`event3-action group relative flex min-h-14 w-full max-w-md items-center gap-3 overflow-hidden rounded-2xl border px-3.5 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_18px_45px_-32px_rgba(168,85,247,.85)] backdrop-blur-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 ${
             buttonState === 'unread' ? 'border-emerald-300/25 bg-gradient-to-l from-emerald-400/[0.1] via-white/[0.045] to-transparent text-emerald-100'
+            : buttonState === 'failed' ? 'border-rose-300/25 bg-gradient-to-l from-rose-400/[0.1] via-white/[0.045] to-transparent text-rose-100'
             : buttonState === 'pending' ? 'border-amber-300/20 bg-gradient-to-l from-amber-400/[0.09] via-white/[0.04] to-transparent text-amber-100'
             : buttonState === 'active' ? 'border-cyan-300/20 bg-gradient-to-l from-cyan-400/[0.08] via-white/[0.04] to-transparent text-cyan-100'
             : 'border-purple-300/[0.16] bg-gradient-to-l from-purple-400/[0.09] via-white/[0.045] to-transparent text-gray-100 hover:border-purple-300/30 hover:from-purple-400/[0.13]'
           }`}
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.09] bg-black/20 shadow-inner" aria-hidden="true">
-            <LifeBuoy size={17} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
+            <LifeBuoy size={17} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'failed' ? 'text-rose-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-black">{buttonLabel}</span>
             <span className="mt-0.5 block truncate text-[10px] font-medium text-white/40">تواصل مباشر وسري مع المنظم</span>
           </span>
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${buttonState === 'unread' ? 'bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : buttonState === 'pending' ? 'bg-amber-300' : buttonState === 'active' ? 'bg-cyan-300/70' : 'bg-purple-300/60'}`} aria-hidden="true" />
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${buttonState === 'unread' ? 'bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : buttonState === 'failed' ? 'bg-rose-300' : buttonState === 'pending' ? 'bg-amber-300' : buttonState === 'active' ? 'bg-cyan-300/70' : 'bg-purple-300/60'}`} aria-hidden="true" />
         </motion.button>
       </div>
 
@@ -6291,15 +6696,18 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={overlayRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
             className="fixed inset-0 z-[700] flex items-end justify-center overflow-hidden bg-black/55 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center"
             onClick={() => setOpen(false)}
+            onKeyDown={event => { if (event.key === 'Escape') setOpen(false) }}
             dir="rtl"
           >
             <motion.div
+              ref={dialogRef}
               id={panelId}
               initial={{ opacity: 0, y: 20, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -6313,7 +6721,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
               onClick={event => event.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.065] bg-white/[0.025] px-4 py-3">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.065] bg-white/[0.025] px-3 py-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">ع</div>
                 <div>
@@ -6321,32 +6729,58 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
                   <p className="text-gray-500 text-[10px] leading-tight">المنظم — تواصل مباشر</p>
                 </div>
               </div>
-              <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} aria-label="إغلاق محادثة المنظم"
-                className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white">
-                <X size={13} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={cycleSensoryMode} aria-label={`تنبيهات الفعالية: ${sensoryMode === 'sound' ? 'صوت واهتزاز' : sensoryMode === 'vibrate' ? 'اهتزاز فقط' : 'صامت'}. اضغط للتغيير`} className="flex min-h-11 items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.04] px-2.5 text-[10px] font-bold text-gray-300">
+                  {sensoryMode === 'silent' ? <Bell size={14} className="opacity-45" /> : sensoryMode === 'vibrate' ? <Smartphone size={14} /> : <Bell size={14} />}
+                  {sensoryMode === 'sound' ? 'صوت' : sensoryMode === 'vibrate' ? 'اهتزاز' : 'صامت'}
+                </button>
+                <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} aria-label="إغلاق محادثة المنظم"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.045] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white">
+                  <X size={13} />
+                </button>
+              </div>
             </div>
 
             {/* Messages area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-[120px]">
               {messages.length === 0 && showOptions && (
                 <div className="space-y-2.5 py-2">
-                  <div className="bg-amber-950/30 border border-amber-800/30 rounded-xl p-3 text-[10px] leading-relaxed text-amber-200/80 space-y-1.5">
-                    <p className="font-bold text-amber-300 text-[11px]">قبل أن تطلب المساعدة:</p>
-                    <p>عدم الإعجاب بالشخص أو المجموعة ليس سبباً صحيحاً لطلب المساعدة — كل جولة جديدة فرصة مختلفة، وتقييمك يساعدنا على تحسين التجربة.</p>
-                    <p>استخدم هذا الزر فقط إذا: خالف أحدهم القواعد، أو لديك طارئ، أو لديك استفسار عام.</p>
-                    <p className="text-amber-400/60">يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا رغب الطرفان.</p>
+                  <div className="rounded-xl border border-violet-300/15 bg-violet-400/[0.06] p-3 text-xs leading-6 text-violet-100/75">
+                    <p className="font-bold text-violet-100">اطلب ما تحتاجه من دون شرح طويل.</p>
+                    <p>إذا شعرت بعدم ارتياح، أو وجدت طاولة أو شريكاً مختلفاً، يمكن للمنظم مساعدتك بهدوء.</p>
                   </div>
-                  <p className="text-center text-gray-600 text-xs mb-1">اختر نوع الطلب</p>
+                  <p className="mb-1 text-center text-xs text-gray-400">اختر أسرع وصف</p>
                   <button
                     type="button"
-                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي', 'organizer_needed') }}
-                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-800/40 bg-red-950/30 px-4 py-3.5 text-right transition-all hover:bg-red-950/50"
+                    onClick={() => { setShowOptions(false); setInput(''); send('أحتاج مساعدة هادئة بعيداً عن الطاولة', 'away_from_table') }}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-violet-300/20 bg-violet-400/[0.07] px-4 py-3.5 text-right transition-all hover:bg-violet-400/10"
                   >
-                    <LifeBuoy size={18} className="text-red-400" />
+                    <LifeBuoy size={18} className="text-violet-300" />
                     <div>
-                      <p className="text-red-300 text-sm font-semibold">طلب مساعدة</p>
-                      <p className="text-gray-500 text-[11px]">سيأتي المنظم إلى طاولتك</p>
+                      <p className="text-violet-100 text-sm font-semibold">مساعدة بعيداً عن الطاولة</p>
+                      <p className="text-gray-400 text-[11px]">سيتواصل معك المنظم بطريقة هادئة</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowOptions(false); setInput(''); send('الطاولة أو الشريك الظاهر لدي غير صحيح', 'wrong_assignment') }}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.06] px-4 py-3.5 text-right transition-all hover:bg-cyan-400/10"
+                  >
+                    <MapPin size={18} className="text-cyan-300" />
+                    <div>
+                      <p className="text-cyan-100 text-sm font-semibold">الطاولة أو الشريك غير صحيح</p>
+                      <p className="text-gray-400 text-[11px]">سنراجع التحديث الحالي فوراً</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowOptions(false); setInput(''); send('أحتاج حضور المنظم الآن', 'organizer_needed') }}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-rose-300/20 bg-rose-400/[0.06] px-4 py-3.5 text-right transition-all hover:bg-rose-400/10"
+                  >
+                    <AlertTriangle size={18} className="text-rose-300" />
+                    <div>
+                      <p className="text-rose-100 text-sm font-semibold">أحتاج المنظم الآن</p>
+                      <p className="text-gray-400 text-[11px]">لطلب عاجل أو شعور بعدم الارتياح</p>
                     </div>
                   </button>
                   <button
@@ -6391,6 +6825,11 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
                     )}
                     {msg.from === 'user' && (msg.status === 'replied' || msg.status === 'resolved') && (
                       <p className="text-white/50 text-[9px] mt-1">✓✓ تم الرد</p>
+                    )}
+                    {msg.from === 'user' && msg.status === 'failed' && (
+                      <button type="button" onClick={() => send(msg.text, undefined, msg.id)} disabled={sending} className="mt-2 flex min-h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/15 px-2.5 text-[10px] font-bold text-white disabled:cursor-wait disabled:opacity-50">
+                        <RefreshCw size={11} /> لم تصل · إعادة الإرسال
+                      </button>
                     )}
                   </div>
                 </div>
@@ -6469,6 +6908,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
+  const [assignmentUpdated, setAssignmentUpdated] = useState(false)
+  const [feedbackAssignment, setFeedbackAssignment] = useState<Event3FeedbackAssignment | null>(null)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
 
   useEffect(() => {
@@ -6482,21 +6923,63 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase2-reveal", token)
-    if (d.error) throw new Error(d.error)
+    if (d.error || d.ready === false) {
+      if (d.code === 'EVENT3_MATCH_PENDING' || d.ready === false) throw new Error('نجهّز اسم الشريك والطاولة. التأخير تقني ولا يعكس اختياراً أو نتيجة.')
+      throw new Error('تعذّر تحديث بيانات اللقاء مؤقتاً. بياناتك لم تضِع؛ حاول مجدداً.')
+    }
     return d
   }, [token])
 
   const { data, loading, error, retry } = useApiPoll(fetchReveal, {
     interval: 5000,
-    stopWhen: (d) => Boolean(d.partner_number && d.partner_first_name && d.table_number != null)
   })
   const choiceOnly = isChoiceOnlyEvent3(normalizeEvent3Format(data?.event_format, eventFormat))
+  const assignmentFingerprint = String(data?.assignment_revision || `${data?.partner_number ?? 'pending'}_${data?.table_number ?? 'pending'}`)
+  const previousAssignmentRef = useRef<string | null>(null)
+  const beginFeedback = useCallback(() => {
+    // Close the higher support sheet in the same state transition so the
+    // feedback dialog never mounts underneath a visible, then-inert panel.
+    window.dispatchEvent(new Event(EVENT3_CLOSE_SUPPORT_EVENT))
+    if (data?.partner_number) {
+      setFeedbackAssignment({
+        revision: assignmentFingerprint,
+        partnerNumber: Number(data.partner_number),
+        partnerName: data.partner_first_name || null,
+      })
+    }
+    setView('feedback')
+  }, [assignmentFingerprint, data?.partner_number, data?.partner_first_name])
+  const feedbackAssignmentStale = !!feedbackAssignment && feedbackAssignment.revision !== assignmentFingerprint
+
+  useEffect(() => {
+    if (!data?.partner_number || data?.table_number == null) return
+    const previous = previousAssignmentRef.current
+    previousAssignmentRef.current = assignmentFingerprint
+    if (!previous || previous === assignmentFingerprint) return
+    // A memory word and completion state belong to one exact assignment.
+    // Clear them before hydrating the replacement so private text from the
+    // previous partner can never be submitted against the new revision.
+    setWord("")
+    setWordSubmitted(false)
+    setFeedbackDone(false)
+    setAssignmentUpdated(true)
+    setRejoined(false)
+    setIcebreakerDone(false)
+    if (view !== 'feedback') {
+      setRevealed(false)
+      setTableRevealed(true)
+      setView('partner')
+    }
+    toast('تم تحديث شريكك أو طاولتك — راجع البطاقة الجديدة', { icon: '↻', duration: 6000 })
+  }, [assignmentFingerprint, data?.partner_number, data?.table_number, view])
 
   useEffect(() => {
     if (data?.my_word) { setWord(data.my_word); setWordSubmitted(true) }
-    else setWordSubmitted(Boolean(data?.word_submitted))
-    if (data?.feedback_submitted) setFeedbackDone(true)
-  }, [data])
+    else setWordSubmitted(current => current || Boolean(data?.word_submitted))
+    // A response that was already in flight before a successful POST must not
+    // reopen the form. Assignment changes explicitly reset this state above.
+    setFeedbackDone(current => current || Boolean(data?.feedback_submitted))
+  }, [assignmentFingerprint, data?.my_word, data?.word_submitted, data?.feedback_submitted])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -6519,7 +7002,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
-    const meetingKey = `${eventId}:phase2:${data.partner_number}`
+    const meetingKey = `${eventId}:phase2:${assignmentFingerprint}`
     if (rejoinContext.current === meetingKey) return
     const firstSync = rejoinContext.current === null
     rejoinContext.current = meetingKey
@@ -6527,16 +7010,16 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const now = correctedNow ? correctedNow() : Date.now()
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    const arrived = hasArrived(eventId, "phase2")
+    const arrived = hasArrived(eventId, "phase2", assignmentFingerprint)
     if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
-    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow])
+    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); beginFeedback() }
+    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); beginFeedback() }
+  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow, assignmentFingerprint, beginFeedback])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
-    if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
-  }, [timeLeft, view, timerActive])
+    if (view === 'session' && timerActive && timeLeft === 0) beginFeedback()
+  }, [timeLeft, view, timerActive, beginFeedback])
 
   // Auto-show tips on first entry to session view
   // Mobile browsers release wake locks when backgrounded; the shared hook
@@ -6548,16 +7031,25 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const handleReveal = () => {
     if (!canArrive) return
-    setArrived(eventId, "phase2")
+    setArrived(eventId, "phase2", assignmentFingerprint)
     setRevealed(true)
     if (!reduceMotion) fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
   }
 
   const submitWord = async () => {
     if (!word.trim()) return false
-    const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
+    if (!feedbackAssignment || feedbackAssignment.revision !== assignmentFingerprint) {
+      toast('تغيّر اللقاء؛ احتفظنا بالكلمة على جهازك ولم نرسلها', { icon: '↻' })
+      return false
+    }
+    const d = await call("e3-submit-phase2-word", token, {
+      word: word.trim(),
+      expected_partner: feedbackAssignment.partnerNumber,
+      expected_assignment_revision: feedbackAssignment.revision,
+    })
     if (!d.error) { setWordSubmitted(true); toast.success("تم حفظ كلمتك"); return true }
-    toast.error(d.error || "تعذّر حفظ الكلمة. تحقق من الاتصال وحاول مجدداً.")
+    if (d.code === 'EVENT3_ASSIGNMENT_CHANGED') toast('تغيّر اللقاء؛ احتفظنا بالكلمة ولم نرسلها للشريك الجديد', { icon: '↻' })
+    else toast.error("تعذّر حفظ الكلمة. احتفظنا بها على جهازك؛ حاول مجدداً.")
     return false
   }
 
@@ -6569,17 +7061,18 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   if (error && !data) return (
     <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
-      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-red-300/[0.13] p-6">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.08]">
-          <AlertTriangle className="text-red-300" size={27} />
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-cyan-300/[0.13] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08]">
+          <RefreshCw className="text-cyan-300" size={27} />
         </div>
         <div className="space-y-1">
-          <p className="font-black text-white">تعذّر تحميل بيانات الجلسة</p>
-          <p className="text-sm leading-6 text-gray-400">قد تكون المطابقة ما زالت قيد التجهيز. حاول مرة أخرى بعد لحظات.</p>
+          <p className="font-black text-white">نراجع تفاصيل اللقاء</p>
+          <p className="text-sm leading-6 text-gray-300">{error}</p>
         </div>
-        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-sm font-black text-white">
+        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
           <RefreshCw size={16} /> إعادة المحاولة
         </button>
+        <OneToOneSupportButton />
       </GlassCard>
     </PageWrapper>
   )
@@ -6587,6 +7080,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   return (
     <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
+        {assignmentUpdated && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-amber-300/25 bg-amber-400/[0.08] px-3.5 py-3 text-right" role="status">
+            <RefreshCw size={16} className="mt-0.5 shrink-0 text-amber-300" />
+            <div><p className="text-sm font-black text-amber-100">تم تحديث اللقاء</p><p className="mt-0.5 text-xs leading-5 text-amber-100/70">طاولتك الآن {data?.table_number}. تأكد من اسم الشريك أدناه قبل الوصول.</p></div>
+            <button type="button" onClick={() => setAssignmentUpdated(false)} className="mr-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-amber-100/70" aria-label="إخفاء تنبيه تحديث اللقاء"><X size={15} /></button>
+          </div>
+        )}
         <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="pt-4 text-right">
           <p className="text-xs font-black text-pink-300">{data?.is_backup ? "فرصة جديدة" : choiceOnly ? "الاختيار الأول" : "اختيارك"}</p>
           <h1 className="mt-1 text-2xl font-black text-white">لقاء فردي</h1>
@@ -6605,11 +7105,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <div className="event3-glass overflow-hidden rounded-2xl border border-pink-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${event3TimerTextClass(canArrive ? timeLeft : waitSeconds, "text-white")}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
-                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                    <motion.div className={`h-full ${event3TimerBarClass(canArrive ? timeLeft : waitSeconds, "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600")}`}
                       animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
@@ -6624,6 +7123,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
+
+              {timerActive && canArrive && timeLeft > 0 && timerDuration - timeLeft > 90 && (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.07] px-3.5 py-3 text-right" role="status">
+                  <Clock size={16} className="mt-0.5 shrink-0 text-cyan-300" />
+                  <div><p className="text-sm font-black text-cyan-100">يمكنك الانضمام الآن</p><p className="mt-0.5 text-xs leading-5 text-cyan-100/65">بدأ الوقت قبل وصولك، لكن هذه الطاولة ما زالت وجهتك. أكّد وصولك ثم ابدأ بالسؤال الظاهر.</p></div>
+                </div>
+              )}
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -6645,11 +7151,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <div className="event3-glass overflow-hidden rounded-2xl border border-pink-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${event3TimerTextClass(canArrive ? timeLeft : waitSeconds, "text-white")}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
-                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                    <motion.div className={`h-full ${event3TimerBarClass(canArrive ? timeLeft : waitSeconds, "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600")}`}
                       animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
@@ -6684,16 +7189,6 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.div>
               )}
 
-              {data && (
-                <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] text-right">
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-300">
-                    لمحة اختيارية قبل اللقاء
-                    <ChevronRight size={15} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
-                  </summary>
-                  <div className="px-3 pb-3"><PartnerInfoCard data={data} accent="pink" /></div>
-                </details>
-              )}
-
               <motion.button
                 type="button"
                 onClick={() => setView('session')}
@@ -6712,21 +7207,45 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
       <AnimatePresence>
         {view === 'feedback' && (
           <FeedbackFlow
-            partnerName={data?.partner_first_name || null}
+            partnerName={feedbackAssignment?.partnerName || data?.partner_first_name || null}
+            draftKey={`e3_feedback_draft_v1_${eventId ?? 'unknown'}_1_${feedbackAssignment?.revision || assignmentFingerprint}`}
             word={word}
             wordSubmitted={wordSubmitted}
             done={feedbackDone}
+            initialSavedFeedback={data?.saved_feedback || null}
+            initialFeedbackFingerprint={data?.feedback_fingerprint || null}
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             backDisabled={feedbackLocked}
+            assignmentStale={feedbackAssignmentStale}
+            onAssignmentChanged={() => { setFeedbackAssignment(null); setWord(""); setWordSubmitted(false); setFeedbackDone(false); setRevealed(false); setTableRevealed(true); setAssignmentUpdated(true); setView('partner') }}
             onWordChange={setWord}
             onSubmitWord={submitWord}
             choiceOnly={choiceOnly}
             onSubmit={async (fbData) => {
-              const d = await call('e3-submit-phase2-feedback', token, { feedback: fbData })
-              if (!d.error) { toast.success('تم الحفظ'); return true }
-              toast.error(d.error || 'تعذّر حفظ التقييم. تحقق من الاتصال وحاول مجددًا.')
-              return false
+              if (!feedbackAssignment || feedbackAssignment.revision !== assignmentFingerprint) {
+                toast('تغيّر اللقاء؛ لم نرسل هذه المسودة', { icon: '↻' })
+                return { ok: false }
+              }
+              const d = await call('e3-submit-phase2-feedback', token, {
+                feedback: fbData,
+                expected_partner: feedbackAssignment.partnerNumber,
+                expected_assignment_revision: feedbackAssignment.revision,
+              })
+              if (d.code === 'EVENT3_FEEDBACK_CONFLICT' && d.saved_feedback) {
+                toast('وجدنا رداً محفوظاً سابقاً وأبقيناه كما هو', { icon: 'i' })
+                return { ok: true, alreadySaved: true, savedFeedback: d.saved_feedback, feedbackFingerprint: d.feedback_fingerprint || null, retainedDifferent: true }
+              }
+              if (!d.error) {
+                const savedFeedback = d.saved_feedback || fbData
+                const retainedDifferent = d.already_saved === true && !sameEvent3Feedback(fbData, savedFeedback)
+                if (retainedDifferent) toast('وجدنا رداً محفوظاً سابقاً وأبقيناه كما هو', { icon: 'i' })
+                else toast.success('تم الحفظ')
+                return { ok: true, alreadySaved: d.already_saved === true, savedFeedback, feedbackFingerprint: d.feedback_fingerprint || null, retainedDifferent }
+              }
+              if (d.code === 'EVENT3_ASSIGNMENT_CHANGED') toast('تغيّر اللقاء؛ راجع البطاقة المحدّثة قبل الإرسال', { icon: '↻' })
+              else toast.error('تعذّر تأكيد حفظ التقييم. مسودتك ما زالت على هذا الجهاز؛ حاول مجدداً.')
+              return { ok: false }
             }}
           />
         )}
@@ -6751,7 +7270,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <p className="text-[10px] font-bold text-pink-300">{choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
               </div>
-              <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(timeLeft)}</span>
+              <span className={`font-mono text-sm font-black tabular-nums ${event3TimerTextClass(timeLeft, 'text-pink-200')}`}>{formatTime(timeLeft)}</span>
             </div>
 
             {/* Ice breaker phase — full screen centered */}
@@ -6762,8 +7281,40 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   <RockPaperScissors accent="pink" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
                 </motion.div>
               ) : (
-                <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-                  <JourneyCue accent="pink" eyebrow="الحوار" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
+                <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto w-full max-w-sm flex-1 space-y-3 p-3.5 sm:space-y-5 sm:p-5">
+                  {/* Redesigned partner reminder bar */}
+                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="relative overflow-hidden rounded-2xl border border-pink-700/30 bg-gradient-to-r from-pink-950/40 via-rose-950/30 to-pink-950/20 px-4 py-3">
+                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-pink-400/50 to-transparent"
+                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <motion.div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center"
+                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                          <Users size={15} className="text-pink-400" />
+                        </motion.div>
+                        <div>
+                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
+                          <p className="text-pink-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
+                        </div>
+                      </div>
+                      {data?.table_number && (
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
+                          className="flex items-center gap-2">
+                          {data?.is_backup && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">احتياطي</span>}
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
+                            <MapPin size={12} className="text-amber-400" />
+                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  <div className="flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-300/15 bg-pink-400/[0.055] px-3 text-right">
+                    <MessageSquare size={15} className="shrink-0 text-pink-300" />
+                    <p className="text-xs font-bold text-pink-50">ابدؤوا بالسؤال الظاهر <span className="font-medium text-pink-100/55">· يجيب كل منكما ثم التالي</span></p>
+                  </div>
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -6771,25 +7322,22 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <motion.div
                         initial={{ opacity: 0, y: -10, height: 0, scale: 0.95 }} animate={{ opacity: 1, y: 0, height: 'auto', scale: 1 }} exit={{ opacity: 0, y: -10, height: 0, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70 border border-red-500/30 backdrop-blur-md px-4 py-3 flex items-center gap-3"
-                        style={{ boxShadow: "0 0 20px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+                        className={`relative flex items-center gap-3 overflow-hidden rounded-2xl border px-4 py-3 backdrop-blur-md ${timeLeft <= 10 ? 'border-red-400/30 bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70' : 'border-amber-300/25 bg-gradient-to-br from-amber-950/75 via-orange-950/45 to-amber-950/55'}`}
                       >
-                        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}
-                          className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/30 to-rose-600/20 border border-red-400/30 flex items-center justify-center shrink-0"
-                          style={{ boxShadow: "0 0 12px rgba(239,68,68,0.3)" }}>
-                          <Timer size={16} className="text-red-300" />
+                        <motion.div animate={timeLeft <= 10 ? { scale: [1, 1.12, 1] } : undefined} transition={{ duration: 1.3, repeat: Infinity }}
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${timeLeft <= 10 ? 'border-red-400/30 bg-red-500/20' : 'border-amber-300/25 bg-amber-400/12'}`}>
+                          <Timer size={16} className={timeLeft <= 10 ? 'text-red-300' : 'text-amber-300'} />
                         </motion.div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
-                          <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
+                          <p className={`text-xs font-bold tracking-wide ${timeLeft <= 10 ? 'text-red-100' : 'text-amber-100'}`}>باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
+                          <p className={`mt-0.5 text-[10px] ${timeLeft <= 10 ? 'text-red-200/60' : 'text-amber-100/55'}`}>سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
                   <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="event3-icon-action flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-300/70 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
                         <motion.div
-                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-500 via-rose-500 to-red-400"
-                          style={{ boxShadow: "0 0 6px rgba(239,68,68,0.6)" }}
+                          className={`absolute bottom-0 left-0 right-0 h-[2px] ${timeLeft <= 10 ? 'bg-gradient-to-r from-red-500 via-rose-500 to-red-400' : 'bg-gradient-to-r from-amber-400 to-yellow-300'}`}
                           animate={{ width: `${(timeLeft / 60) * 100}%` }}
                           transition={{ duration: 1, ease: "linear" }}
                         />
@@ -6822,10 +7370,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
                   {/* Jump to feedback manually */}
                   <motion.button
-                    onClick={() => setView('feedback')}
+                    onClick={beginFeedback}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-pink-500/30 bg-gradient-to-r from-pink-700/80 to-rose-700/80 text-white shadow-lg shadow-pink-900/30"}`}
+                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.16] bg-white/[0.065] text-gray-100 hover:border-white/25 hover:bg-white/[0.09]" : "border-pink-500/30 bg-gradient-to-r from-pink-700/80 to-rose-700/80 text-white shadow-lg shadow-pink-900/30"}`}
                   >
                     <CheckCircle size={16} />
                     إنهاء اللقاء والبدء بالتقييم
@@ -6866,6 +7414,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
+  const [assignmentUpdated, setAssignmentUpdated] = useState(false)
+  const [feedbackAssignment, setFeedbackAssignment] = useState<Event3FeedbackAssignment | null>(null)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
   const isThirdChoice = matchSlot === 3
   const phaseKey = isThirdChoice ? "phase4" : "phase3"
@@ -6881,7 +7431,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const fetchReveal = useCallback(async () => {
     const d = await call(isThirdChoice ? "e3-get-phase4-reveal" : "e3-get-phase3-reveal", token)
-    if (d.error) throw new Error(d.error)
+    if (d.error || d.ready === false) {
+      if (d.code === 'EVENT3_MATCH_PENDING' || d.ready === false) throw new Error('نجهّز اسم الشريك والطاولة. التأخير تقني ولا يعكس اختياراً أو نتيجة.')
+      throw new Error('تعذّر تحديث بيانات اللقاء مؤقتاً. بياناتك لم تضِع؛ حاول مجدداً.')
+    }
     return d
   }, [token, isThirdChoice])
 
@@ -6893,12 +7446,43 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const choiceOnly = isChoiceOnlyEvent3(normalizeEvent3Format(data?.event_format, eventFormat))
   const meetingLabel = choiceOnly ? (isThirdChoice ? "لقاء الاختيار الثالث" : "لقاء الاختيار الثاني") : "لقاء اختيار النظام"
   const meetingKind = choiceOnly ? (isThirdChoice ? "الاختيار الثالث" : "الاختيار الثاني") : "اختيارنا لك"
+  const assignmentFingerprint = String(data?.assignment_revision || `${data?.partner_number ?? 'pending'}_${data?.table_number ?? 'pending'}`)
+  const previousAssignmentRef = useRef<string | null>(null)
+  const beginFeedback = useCallback(() => {
+    window.dispatchEvent(new Event(EVENT3_CLOSE_SUPPORT_EVENT))
+    if (data?.partner_number) {
+      setFeedbackAssignment({
+        revision: assignmentFingerprint,
+        partnerNumber: Number(data.partner_number),
+        partnerName: data.partner_first_name || null,
+      })
+    }
+    setView('feedback')
+  }, [assignmentFingerprint, data?.partner_number, data?.partner_first_name])
+  const feedbackAssignmentStale = !!feedbackAssignment && feedbackAssignment.revision !== assignmentFingerprint
 
   useEffect(() => {
-    setWordSubmitted(Boolean(data?.word_submitted))
+    if (!data?.partner_number || data?.table_number == null) return
+    const previous = previousAssignmentRef.current
+    previousAssignmentRef.current = assignmentFingerprint
+    if (!previous || previous === assignmentFingerprint) return
+    setWord("")
+    setWordSubmitted(false)
+    setFeedbackDone(false)
+    setAssignmentUpdated(true)
+    if (view !== 'feedback') {
+      setRevealed(false)
+      setTableRevealed(true)
+      setView('partner')
+    }
+    toast('تم تحديث شريكك أو طاولتك — راجع البطاقة الجديدة', { icon: '↻', duration: 6000 })
+  }, [assignmentFingerprint, data?.partner_number, data?.table_number, view])
+
+  useEffect(() => {
+    setWordSubmitted(current => current || Boolean(data?.word_submitted))
     if (data?.my_word) setWord(data.my_word)
-    setFeedbackDone(Boolean(data?.feedback_submitted))
-  }, [data?.partner_number, data?.word_submitted, data?.my_word, data?.feedback_submitted])
+    setFeedbackDone(current => current || Boolean(data?.feedback_submitted))
+  }, [assignmentFingerprint, data?.word_submitted, data?.my_word, data?.feedback_submitted])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -6919,7 +7503,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
-    const meetingKey = `${eventId}:${phaseKey}:${data.partner_number}`
+    const meetingKey = `${eventId}:${phaseKey}:${assignmentFingerprint}`
     if (rejoinContext.current === meetingKey) return
     const firstSync = rejoinContext.current === null
     rejoinContext.current = meetingKey
@@ -6927,16 +7511,16 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const now = correctedNow ? correctedNow() : Date.now()
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    const arrived = hasArrived(eventId, phaseKey)
+    const arrived = hasArrived(eventId, phaseKey, assignmentFingerprint)
     if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
-    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow, phaseKey])
+    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); beginFeedback() }
+    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); beginFeedback() }
+  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow, phaseKey, assignmentFingerprint, beginFeedback])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
-    if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
-  }, [timeLeft, view, timerActive])
+    if (view === 'session' && timerActive && timeLeft === 0) beginFeedback()
+  }, [timeLeft, view, timerActive, beginFeedback])
 
   // Auto-show tips on first entry to session view
   useScreenWakeLock(view === 'session')
@@ -6946,16 +7530,25 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const handleReveal = () => {
     if (!canArrive) return
-    setArrived(eventId, phaseKey)
+    setArrived(eventId, phaseKey, assignmentFingerprint)
     setRevealed(true)
     if (!reduceMotion) fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
   }
 
   const submitWord = async () => {
     if (!word.trim()) return false
-    const d = await call(isThirdChoice ? "e3-submit-phase4-word" : "e3-submit-phase3-word", token, { word: word.trim() })
+    if (!feedbackAssignment || feedbackAssignment.revision !== assignmentFingerprint) {
+      toast('تغيّر اللقاء؛ احتفظنا بالكلمة على جهازك ولم نرسلها', { icon: '↻' })
+      return false
+    }
+    const d = await call(isThirdChoice ? "e3-submit-phase4-word" : "e3-submit-phase3-word", token, {
+      word: word.trim(),
+      expected_partner: feedbackAssignment.partnerNumber,
+      expected_assignment_revision: feedbackAssignment.revision,
+    })
     if (!d.error) { setWordSubmitted(true); toast.success("تم حفظ كلمتك"); return true }
-    toast.error(d.error || "تعذّر حفظ الكلمة. تحقق من الاتصال وحاول مجدداً.")
+    if (d.code === 'EVENT3_ASSIGNMENT_CHANGED') toast('تغيّر اللقاء؛ احتفظنا بالكلمة ولم نرسلها للشريك الجديد', { icon: '↻' })
+    else toast.error("تعذّر حفظ الكلمة. احتفظنا بها على جهازك؛ حاول مجدداً.")
     return false
   }
 
@@ -6967,17 +7560,18 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   if (error && !data) return (
     <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
-      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-red-300/[0.13] p-6">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.08]">
-          <AlertTriangle className="text-red-300" size={27} />
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-cyan-300/[0.13] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08]">
+          <RefreshCw className="text-cyan-300" size={27} />
         </div>
         <div className="space-y-1">
-          <p className="font-black text-white">تعذّر تحميل بيانات الجلسة</p>
-          <p className="text-sm leading-6 text-gray-400">{error}</p>
+          <p className="font-black text-white">نراجع تفاصيل اللقاء</p>
+          <p className="text-sm leading-6 text-gray-300">{error}</p>
         </div>
-        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-sm font-black text-white">
+        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
           <RefreshCw size={16} /> إعادة المحاولة
         </button>
+        <OneToOneSupportButton />
       </GlassCard>
     </PageWrapper>
   )
@@ -6985,6 +7579,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   return (
     <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
+        {assignmentUpdated && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-amber-300/25 bg-amber-400/[0.08] px-3.5 py-3 text-right" role="status">
+            <RefreshCw size={16} className="mt-0.5 shrink-0 text-amber-300" />
+            <div><p className="text-sm font-black text-amber-100">تم تحديث اللقاء</p><p className="mt-0.5 text-xs leading-5 text-amber-100/70">طاولتك الآن {data?.table_number}. تأكد من اسم الشريك أدناه قبل الوصول.</p></div>
+            <button type="button" onClick={() => setAssignmentUpdated(false)} className="mr-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-amber-100/70" aria-label="إخفاء تنبيه تحديث اللقاء"><X size={15} /></button>
+          </div>
+        )}
         <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="pt-4 text-right">
           <p className="text-xs font-black text-purple-300">{meetingKind}</p>
           <h1 className="mt-1 text-2xl font-black text-white">لقاء فردي</h1>
@@ -7003,11 +7604,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <div className="event3-glass overflow-hidden rounded-2xl border border-purple-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${event3TimerTextClass(canArrive ? timeLeft : waitSeconds, "text-white")}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
-                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                    <motion.div className={`h-full ${event3TimerBarClass(canArrive ? timeLeft : waitSeconds, "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600")}`}
                       animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
@@ -7022,6 +7622,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
+
+              {timerActive && canArrive && timeLeft > 0 && timerDuration - timeLeft > 90 && (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.07] px-3.5 py-3 text-right" role="status">
+                  <Clock size={16} className="mt-0.5 shrink-0 text-cyan-300" />
+                  <div><p className="text-sm font-black text-cyan-100">يمكنك الانضمام الآن</p><p className="mt-0.5 text-xs leading-5 text-cyan-100/65">بدأ الوقت قبل وصولك، لكن هذه الطاولة ما زالت وجهتك. أكّد وصولك ثم ابدأ بالسؤال الظاهر.</p></div>
+                </div>
+              )}
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -7043,11 +7650,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <div className="event3-glass overflow-hidden rounded-2xl border border-purple-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${event3TimerTextClass(canArrive ? timeLeft : waitSeconds, "text-white")}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
-                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                    <motion.div className={`h-full ${event3TimerBarClass(canArrive ? timeLeft : waitSeconds, "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600")}`}
                       animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
@@ -7059,22 +7665,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2"><Trophy size={22} className="text-amber-400" /></div>
-                  <p className="text-amber-300 font-black text-base">مطابقة مثالية!</p>
-                  <p className="text-amber-400/70 text-xs mt-0.5">اخترت نفس الشخص الذي اختارته الخوارزمية</p>
+                  <p className="text-amber-200 font-black text-base">اتفق الاختياران</p>
+                  <p className="text-amber-100/65 text-xs mt-0.5">ظهر الشخص نفسه في اختيارك وترشيح النظام</p>
                 </motion.div>
               )}
 
-              <MeetingPass accent="purple" kind={meetingLabel} partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={!choiceOnly && data?.same_as_phase2 ? "تطابق مثالي" : null} />
-
-              {data && (
-                <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] text-right">
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-300">
-                    لمحة اختيارية قبل اللقاء
-                    <ChevronRight size={15} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
-                  </summary>
-                  <div className="px-3 pb-3"><PartnerInfoCard data={data} accent="purple" /></div>
-                </details>
-              )}
+              <MeetingPass accent="purple" kind={meetingLabel} partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={!choiceOnly && data?.same_as_phase2 ? "اتفق الاختياران" : null} />
+              <JourneyCue accent="purple" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
               <motion.button
                 type="button"
@@ -7108,11 +7705,43 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 <p className="text-[10px] font-bold text-violet-300">{meetingLabel} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
               </div>
-              <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
+              <span className={`font-mono text-sm font-black tabular-nums ${event3TimerTextClass(timeLeft, 'text-purple-200')}`}>{formatTime(timeLeft)}</span>
             </div>
 
-            <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-                  <JourneyCue accent="purple" eyebrow="الحوار" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
+            <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto w-full max-w-sm flex-1 space-y-3 p-3.5 sm:space-y-5 sm:p-5">
+                  {/* Redesigned partner reminder bar */}
+                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="relative overflow-hidden rounded-2xl border border-purple-700/30 bg-gradient-to-r from-purple-950/40 via-violet-950/30 to-purple-950/20 px-4 py-3">
+                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"
+                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <motion.div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center"
+                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                          {choiceOnly ? <Heart size={15} className="text-purple-400" /> : <Brain size={15} className="text-purple-400" />}
+                        </motion.div>
+                        <div>
+                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
+                          <p className="text-purple-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
+                        </div>
+                      </div>
+                      {data?.table_number && (
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
+                          className="flex items-center gap-2">
+                          {!choiceOnly && data?.same_as_phase2 && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">مطابقة</span>}
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
+                            <MapPin size={12} className="text-amber-400" />
+                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  <div className="flex min-h-11 items-center gap-2.5 rounded-xl border border-violet-300/15 bg-violet-400/[0.055] px-3 text-right">
+                    <MessageSquare size={15} className="shrink-0 text-violet-300" />
+                    <p className="text-xs font-bold text-violet-50">ابدؤوا بالسؤال الظاهر <span className="font-medium text-violet-100/55">· يجيب كل منكما ثم التالي</span></p>
+                  </div>
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -7120,25 +7749,22 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <motion.div
                         initial={{ opacity: 0, y: -10, height: 0, scale: 0.95 }} animate={{ opacity: 1, y: 0, height: 'auto', scale: 1 }} exit={{ opacity: 0, y: -10, height: 0, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70 border border-red-500/30 backdrop-blur-md px-4 py-3 flex items-center gap-3"
-                        style={{ boxShadow: "0 0 20px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+                        className={`relative flex items-center gap-3 overflow-hidden rounded-2xl border px-4 py-3 backdrop-blur-md ${timeLeft <= 10 ? 'border-red-400/30 bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70' : 'border-amber-300/25 bg-gradient-to-br from-amber-950/75 via-orange-950/45 to-amber-950/55'}`}
                       >
-                        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}
-                          className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/30 to-rose-600/20 border border-red-400/30 flex items-center justify-center shrink-0"
-                          style={{ boxShadow: "0 0 12px rgba(239,68,68,0.3)" }}>
-                          <Timer size={16} className="text-red-300" />
+                        <motion.div animate={timeLeft <= 10 ? { scale: [1, 1.12, 1] } : undefined} transition={{ duration: 1.3, repeat: Infinity }}
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${timeLeft <= 10 ? 'border-red-400/30 bg-red-500/20' : 'border-amber-300/25 bg-amber-400/12'}`}>
+                          <Timer size={16} className={timeLeft <= 10 ? 'text-red-300' : 'text-amber-300'} />
                         </motion.div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
-                          <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
+                          <p className={`text-xs font-bold tracking-wide ${timeLeft <= 10 ? 'text-red-100' : 'text-amber-100'}`}>باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
+                          <p className={`mt-0.5 text-[10px] ${timeLeft <= 10 ? 'text-red-200/60' : 'text-amber-100/55'}`}>سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
                   <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="event3-icon-action flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-300/70 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
                         <motion.div
-                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-500 via-rose-500 to-red-400"
-                          style={{ boxShadow: "0 0 6px rgba(239,68,68,0.6)" }}
+                          className={`absolute bottom-0 left-0 right-0 h-[2px] ${timeLeft <= 10 ? 'bg-gradient-to-r from-red-500 via-rose-500 to-red-400' : 'bg-gradient-to-r from-amber-400 to-yellow-300'}`}
                           animate={{ width: `${(timeLeft / 60) * 100}%` }}
                           transition={{ duration: 1, ease: "linear" }}
                         />
@@ -7170,10 +7796,10 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
                   {/* Jump to feedback */}
                   <motion.button
-                    onClick={() => setView('feedback')}
+                    onClick={beginFeedback}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-violet-500/30 bg-gradient-to-r from-purple-700/80 to-violet-700/80 text-white shadow-lg shadow-purple-900/30"}`}
+                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.16] bg-white/[0.065] text-gray-100 hover:border-white/25 hover:bg-white/[0.09]" : "border-violet-500/30 bg-gradient-to-r from-purple-700/80 to-violet-700/80 text-white shadow-lg shadow-purple-900/30"}`}
                   >
                     <CheckCircle size={16} />
                     إنهاء اللقاء والبدء بالتقييم
@@ -7188,23 +7814,47 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
       <AnimatePresence>
         {view === 'feedback' && (
           <FeedbackFlow
-            partnerName={data?.partner_first_name || null}
+            partnerName={feedbackAssignment?.partnerName || data?.partner_first_name || null}
+            draftKey={`e3_feedback_draft_v1_${eventId ?? 'unknown'}_${matchSlot}_${feedbackAssignment?.revision || assignmentFingerprint}`}
             word={word}
             wordSubmitted={wordSubmitted}
             done={feedbackDone}
+            initialSavedFeedback={data?.saved_feedback || null}
+            initialFeedbackFingerprint={data?.feedback_fingerprint || null}
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             backDisabled={feedbackLocked}
+            assignmentStale={feedbackAssignmentStale}
+            onAssignmentChanged={() => { setFeedbackAssignment(null); setWord(""); setWordSubmitted(false); setFeedbackDone(false); setRevealed(false); setTableRevealed(true); setAssignmentUpdated(true); setView('partner') }}
             onWordChange={setWord}
             onSubmitWord={submitWord}
             isLastSession={!choiceOnly || isThirdChoice}
             accent="purple"
             choiceOnly={choiceOnly}
             onSubmit={async (fbData) => {
-              const d = await call(isThirdChoice ? 'e3-submit-phase4-feedback' : 'e3-submit-phase3-feedback', token, { feedback: fbData })
-              if (!d.error) { toast.success('تم الحفظ'); return true }
-              toast.error(d.error || 'تعذّر حفظ التقييم. تحقق من الاتصال وحاول مجددًا.')
-              return false
+              if (!feedbackAssignment || feedbackAssignment.revision !== assignmentFingerprint) {
+                toast('تغيّر اللقاء؛ لم نرسل هذه المسودة', { icon: '↻' })
+                return { ok: false }
+              }
+              const d = await call(isThirdChoice ? 'e3-submit-phase4-feedback' : 'e3-submit-phase3-feedback', token, {
+                feedback: fbData,
+                expected_partner: feedbackAssignment.partnerNumber,
+                expected_assignment_revision: feedbackAssignment.revision,
+              })
+              if (d.code === 'EVENT3_FEEDBACK_CONFLICT' && d.saved_feedback) {
+                toast('وجدنا رداً محفوظاً سابقاً وأبقيناه كما هو', { icon: 'i' })
+                return { ok: true, alreadySaved: true, savedFeedback: d.saved_feedback, feedbackFingerprint: d.feedback_fingerprint || null, retainedDifferent: true }
+              }
+              if (!d.error) {
+                const savedFeedback = d.saved_feedback || fbData
+                const retainedDifferent = d.already_saved === true && !sameEvent3Feedback(fbData, savedFeedback)
+                if (retainedDifferent) toast('وجدنا رداً محفوظاً سابقاً وأبقيناه كما هو', { icon: 'i' })
+                else toast.success('تم الحفظ')
+                return { ok: true, alreadySaved: d.already_saved === true, savedFeedback, feedbackFingerprint: d.feedback_fingerprint || null, retainedDifferent }
+              }
+              if (d.code === 'EVENT3_ASSIGNMENT_CHANGED') toast('تغيّر اللقاء؛ راجع البطاقة المحدّثة قبل الإرسال', { icon: '↻' })
+              else toast.error('تعذّر تأكيد حفظ التقييم. مسودتك ما زالت على هذا الجهاز؛ حاول مجدداً.')
+              return { ok: false }
             }}
           />
         )}
@@ -7244,6 +7894,7 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
           <p className="mx-auto mt-3 max-w-xs text-sm leading-7 text-gray-400">
             لا تحتاج إلى إجراء أي شيء الآن. ابقَ في هذه الشاشة وسننقلك تلقائيًا عند جاهزية اللقاء.
           </p>
+          <p className="mx-auto mt-2 max-w-xs rounded-xl border border-cyan-300/10 bg-cyan-400/[0.045] px-3 py-2 text-xs leading-5 text-cyan-100/65">أي تأخير هنا تقني وتنظيمي فقط، ولا يعكس اختياراً أو نتيجة شخصية.</p>
           <div className="mt-5 flex items-center justify-center gap-1.5" aria-hidden="true">
             {[0, 1, 2].map(index => (
               <motion.span key={index} className={`h-1.5 rounded-full ${index === 1 ? "w-8 bg-gradient-to-r from-purple-400 to-cyan-300" : "w-1.5 bg-purple-300/40"}`} animate={{ opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.35, repeat: Infinity, delay: index * 0.22 }} />
@@ -7254,8 +7905,8 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
           eyebrow="الآن"
           title="استراحة قصيرة"
           description={isPhase2
-            ? `التالي: سنعرض ${choiceOnly ? "لقاءك المتبادل الأول" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
-            : `التالي: سنعرض ${choiceOnly ? (isPhase4 ? "لقاءك المتبادل الثالث مع شخص جديد" : "لقاءك المتبادل الثاني مع شخص جديد") : "ترشيح النظام"} ورقم طاولتك.`}
+            ? "التالي: سنعرض شريك لقائك ورقم طاولتك."
+            : `التالي: سنعرض ${choiceOnly ? (isPhase4 ? "شريك اللقاء الثالث" : "شريك اللقاء الثاني") : "شريك اللقاء"} ورقم طاولتك.`}
           steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
           currentStep={0}
           accent={isPhase2 ? "pink" : "purple"}
@@ -7380,8 +8031,15 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           onClick={onOpenGroupFeedback}
           className="event3-soft-action group mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300 hover:text-white"
         >
-          <PenLine size={16} className="text-purple-200" />
-          مراجعة تقييمات المجموعات
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/15 text-purple-200 transition group-hover:scale-105">
+            <PenLine size={19} />
+          </div>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-black text-white">راجع وعدّل تقييمات المجموعات</span>
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">أكمل من فاتك أو غيّر انطباعك السابق بخصوصية</span>
+          </span>
+          <span className="hidden shrink-0 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-200 min-[360px]:inline-flex">لا يراه المشاركون</span>
+          <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
         </motion.button>
 
         <details className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
@@ -7434,9 +8092,11 @@ function isFinalRevealRated(value: unknown): boolean {
   return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD
 }
 
-function finalRevealSpokenScore(value: unknown): string {
+function finalRevealSpokenScore(value: unknown, result?: any): string {
+  if (result && !event3FinalMeetingOccurred(result)) return event3OperationalMeetingLabel(result)
   const score = normalizedFinalRevealScore(value)
-  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD ? "وتتوفر له قراءة خاصة" : "من دون قراءة تحليلية"
+  if (score === null) return "درجة غير متاحة"
+  return score >= FINAL_REVEAL_RATING_THRESHOLD ? `بنسبة ${score} بالمئة` : "إشارة محدودة من الإجابات"
 }
 
 const FINAL_REVEAL_CARD_STYLES = {
@@ -7469,7 +8129,7 @@ const FINAL_REVEAL_CARD_STYLES = {
   },
 } as const
 
-function RevealCard({ icon, order, label, name, score, word, revealed, accent }: {
+function RevealCard({ icon, order, label, name, score, word, revealed, accent, meetingStatus = 'met', meetingOccurred = true }: {
   icon: "heart" | "brain"
   order: number
   label: string
@@ -7478,10 +8138,19 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent }:
   word: string | null
   revealed: boolean
   accent: keyof typeof FINAL_REVEAL_CARD_STYLES
+  meetingStatus?: Event3MeetingStatus
+  meetingOccurred?: boolean
 }) {
   const Icon = icon === "heart" ? Heart : Brain
   const palette = FINAL_REVEAL_CARD_STYLES[accent]
-  const rated = isFinalRevealRated(score)
+  const normalizedScore = normalizedFinalRevealScore(score)
+  const met = meetingOccurred !== false && meetingStatus === 'met'
+  const rated = met && isFinalRevealRated(normalizedScore)
+  const operationalLabel = meetingStatus === 'partner_absent'
+    ? 'لم يصل الطرف الآخر'
+    : meetingStatus === 'needed_help'
+      ? 'توقّف اللقاء لطلب مساعدة'
+      : 'لم يبدأ اللقاء'
   return (
     <div className="event3-reveal-card relative" style={{ perspective: "1200px" }}>
       <motion.div
@@ -7515,7 +8184,12 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent }:
             </div>
 
             <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-white/[0.07] pt-3">
-              {word ? (
+              {!met ? (
+                <div className="min-w-0 rounded-xl border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-2 text-cyan-100">
+                  <p className="text-[9px] font-bold text-cyan-100/50">حالة اللقاء</p>
+                  <p className="mt-0.5 truncate text-[10px] font-black">{operationalLabel}</p>
+                </div>
+              ) : word ? (
                 <div className={`min-w-0 rounded-xl border px-3 py-2 ${palette.word}`}>
                   <p className="text-[9px] font-bold text-white/35">الكلمة التي بقيت</p>
                   <p className="mt-0.5 truncate text-sm font-black">«{word}»</p>
@@ -7525,10 +8199,12 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent }:
               )}
               <div className={`rounded-xl border px-3 py-2 text-center ${palette.score}`}>
                 <p className="text-[9px] font-bold text-white/35">قراءة اللقاء</p>
-                {rated ? (
+                {!met ? (
+                  <p className="mt-0.5 text-[10px] font-black text-white/45">لا يوجد تقييم</p>
+                ) : rated ? (
                   <p className="mt-0.5 text-[10px] font-black">جاهزة</p>
                 ) : (
-                  <p className="mt-0.5 text-[10px] font-black text-white/45">غير متاحة</p>
+                  <p className="mt-0.5 text-[10px] font-black text-white/45">{normalizedScore !== null ? "إشارة محدودة من الإجابات" : "درجة غير متاحة"}</p>
                 )}
               </div>
             </div>
@@ -7562,16 +8238,23 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   const generate = async () => {
     if (analysis) { setShown(true); return }
     setGenerating(true)
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 12_000)
     try {
       const res = await fetch("/api/participant", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId, event3_context: true })
+        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId, event3_context: true }),
+        signal: controller.signal,
       })
       const d = await res.json()
       if (d.success) { setAnalysis(d.analysis); setShown(true) }
-      else toast.error("حدث خطأ أثناء التحليل")
-    } catch { toast.error("تعذّر الاتصال بالخادم") }
-    finally { setGenerating(false) }
+      else toast.error("تعذّرت القراءة الآن — يمكنك المحاولة مجدداً")
+    } catch (error) {
+      toast.error(error instanceof DOMException && error.name === "AbortError" ? "استغرقت القراءة وقتاً أطول من المتوقع — حاول مجدداً" : "تعذّر الاتصال بالخادم")
+    } finally {
+      window.clearTimeout(timeout)
+      setGenerating(false)
+    }
   }
 
   if (shown && analysis) {
@@ -7742,9 +8425,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   )
 
   const p2 = data.phase2, p3 = data.phase3, p4 = data.phase4
-  const p2Rated = isFinalRevealRated(p2?.compatibility_score)
-  const p3Rated = isFinalRevealRated(p3?.compatibility_score)
-  const p4Rated = isFinalRevealRated(p4?.compatibility_score)
+  const p2Rated = event3FinalMeetingOccurred(p2) && isFinalRevealRated(p2?.compatibility_score)
+  const p3Rated = event3FinalMeetingOccurred(p3) && isFinalRevealRated(p3?.compatibility_score)
+  const p4Rated = event3FinalMeetingOccurred(p4) && isFinalRevealRated(p4?.compatibility_score)
 
   if (screenMode === "questions") {
     return (
@@ -7855,8 +8538,8 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
         <p className="sr-only" aria-live="polite" aria-atomic="true">{revealed
           ? choiceOnly
-            ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيارك الثاني ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}، واختيارك الثالث ${p4?.partner_first_name} ${finalRevealSpokenScore(p4?.compatibility_score)}`
-            : `تم الكشف: اختيارك ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيار النظام ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}`
+            ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score, p2)}، واختيارك الثاني ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score, p3)}، واختيارك الثالث ${p4?.partner_first_name} ${finalRevealSpokenScore(p4?.compatibility_score, p4)}`
+            : `تم الكشف: اختيارك ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score, p2)}، واختيار النظام ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score, p3)}`
           : "جاري الكشف عن اللقاءات"}</p>
 
         <section className="event3-finale-reveals text-right" aria-labelledby="event3-reveal-list-title">
@@ -7872,14 +8555,14 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
           <div className="event3-finale-reveal-list grid grid-cols-1 gap-3">
             <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}>
-              <RevealCard icon="heart" order={1} label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealedCount >= 1} accent="pink" />
+              <RevealCard icon="heart" order={1} label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealedCount >= 1} accent="pink" meetingStatus={event3FinalMeetingStatus(p2)} meetingOccurred={event3FinalMeetingOccurred(p2)} />
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.26 }}>
-              <RevealCard icon={choiceOnly ? "heart" : "brain"} order={2} label={choiceOnly ? "الاختيار الثاني" : "ترشيح التجربة"} name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealedCount >= 2} accent="purple" />
+              <RevealCard icon={choiceOnly ? "heart" : "brain"} order={2} label={choiceOnly ? "الاختيار الثاني" : "ترشيح التجربة"} name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealedCount >= 2} accent="purple" meetingStatus={event3FinalMeetingStatus(p3)} meetingOccurred={event3FinalMeetingOccurred(p3)} />
             </motion.div>
             {choiceOnly && (
               <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.34 }}>
-                <RevealCard icon="heart" order={3} label="الاختيار الثالث" name={p4?.partner_first_name} score={p4?.compatibility_score} word={p4?.word} revealed={revealedCount >= 3} accent="cyan" />
+                <RevealCard icon="heart" order={3} label="الاختيار الثالث" name={p4?.partner_first_name} score={p4?.compatibility_score} word={p4?.word} revealed={revealedCount >= 3} accent="cyan" meetingStatus={event3FinalMeetingStatus(p4)} meetingOccurred={event3FinalMeetingOccurred(p4)} />
               </motion.div>
             )}
           </div>
@@ -7948,7 +8631,23 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
               aria-labelledby="pair-reading-title"
               className="space-y-3"
             >
-              <h2 id="pair-reading-title" className="sr-only">ملخص اللقاءات</h2>
+              <div className="event3-glass relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] px-4 py-4 text-right">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl" />
+                <div className="relative flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/10 text-purple-200 shadow-[0_0_25px_-10px_rgba(192,132,252,.9)]">
+                    <Sparkles size={19} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300/65">BEYOND THE SCORE</p>
+                    <h2 id="pair-reading-title" className="mt-0.5 text-lg font-black text-white">قراءة ما بين السطور</h2>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/[0.07] px-2 py-1 text-[9px] font-bold text-emerald-200/70">
+                    <ShieldCheck size={9} /> خاصة
+                  </span>
+                </div>
+                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">خلاصة أولية من معطيات محدودة، وليست حكماً على الشخص أو ضماناً لنجاح العلاقة. لا نعرض إجاباتكما أو طريقة الحساب.</p>
+              </div>
+
               <PairInsightCard result={p2} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />
               {!sameMatch && <PairInsightCard result={p3} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
               {choiceOnly && <PairInsightCard result={p4} label="اللقاء الثالث" order={3} accent="cyan" />}
@@ -7963,7 +8662,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
           </summary>
           <div className="space-y-3 border-t border-white/[0.06] p-3">
-            <p className="px-1 text-[11px] leading-5 text-gray-500">اطلب قراءة أطول لأي لقاء. تبقى الإجابات وطريقة الحساب مخفية، ولا يبدأ الطلب إلا عند اختيارك.</p>
+            <p className="px-1 text-[11px] leading-5 text-gray-500">اطلب قراءة أطول لأي لقاء. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة. لا يبدأ الطلب إلا عند اختيارك.</p>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
               {p2Rated && p2?.partner_number && (
                 <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title={`قراءة أعمق مع ${p2.partner_first_name}`} />
@@ -7992,45 +8691,45 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             <p className="mt-1 text-[11px] leading-5 text-gray-500">نستخدم الإجابة لتحسين التجربة فقط، ولا يراها أي شريك.</p>
           </div>
           {choiceOnly ? (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="الشخص المفضّل">
+            <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="الشخص المفضّل">
               {([
                 ["first", "أفضّل الاختيار الأول"],
                 ["second", "أفضّل الاختيار الثاني"],
                 ["third", "أفضّل الاختيار الثالث"],
               ] as const).map(([value, label]) => (
-                <button key={value} type="button" role="radio" aria-checked={matchPref === value} onClick={() => submitPref(value)} disabled={prefSubmitting || matchPref === value}
-                  className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === value ? "border-pink-500/50 bg-pink-600/30 text-pink-200" : "border-pink-800/40 bg-pink-950/30 text-pink-300 hover:bg-pink-950/50"}`}>
+                <label key={value} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-pink-200 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === value ? "border-pink-500/50 bg-pink-600/30 text-pink-200" : "border-pink-800/40 bg-pink-950/30 text-pink-300 hover:bg-pink-950/50"}`}>
+                  <input type="radio" className="sr-only" name="event3-final-preference" value={value} checked={matchPref === value} onChange={() => submitPref(value)} disabled={prefSubmitting} />
                   {matchPref === value ? "✓ " : ""}{label}
-                </button>
+                </label>
               ))}
-              <button type="button" role="radio" aria-checked={matchPref === "multiple"} onClick={() => submitPref("multiple")} disabled={prefSubmitting || matchPref === "multiple"}
-                className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all sm:col-span-3 ${matchPref === "multiple" ? "border-emerald-500/50 bg-emerald-600/30 text-emerald-300" : "border-gray-700/40 bg-gray-800/40 text-gray-300 hover:bg-gray-800/60"}`}>
+              <label className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 sm:col-span-3 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "multiple" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-gray-700/40 bg-gray-800/40 text-gray-300 hover:bg-gray-800/60"}`}>
+                <input type="radio" className="sr-only" name="event3-final-preference" value="multiple" checked={matchPref === "multiple"} onChange={() => submitPref("multiple")} disabled={prefSubmitting} />
                 {matchPref === "multiple" ? "✓ " : ""}أكثر من لقاء كان ممتازاً
-              </button>
-              <button type="button" role="radio" aria-checked={matchPref === "none"} onClick={() => submitPref("none")} disabled={prefSubmitting || matchPref === "none"}
-                className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all sm:col-span-3 ${matchPref === "none" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
+              </label>
+              <label className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 sm:col-span-3 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "none" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
+                <input type="radio" className="sr-only" name="event3-final-preference" value="none" checked={matchPref === "none"} onChange={() => submitPref("none")} disabled={prefSubmitting} />
                 {matchPref === "none" ? "✓ " : ""}لا أفضل أي لقاء الآن
-              </button>
-            </div>
+              </label>
+            </fieldset>
           ) : (
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="الشخص المفضّل">
-            <button type="button" role="radio" aria-checked={matchPref === "choice"} onClick={() => submitPref("choice")} disabled={prefSubmitting || matchPref === "choice"}
-              className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}>
+          <fieldset className="grid grid-cols-2 gap-2" aria-label="الشخص المفضّل">
+            <label className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "choice" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+              <input type="radio" className="sr-only" name="event3-final-preference" value="choice" checked={matchPref === "choice"} onChange={() => submitPref("choice")} disabled={prefSubmitting} />
               {matchPref === "choice" ? "✓ " : ""}{choiceOnly ? "أفضّل الاختيار الأول" : "أفضّل اختياري"}
-            </button>
-            <button type="button" role="radio" aria-checked={matchPref === "algorithm"} onClick={() => submitPref("algorithm")} disabled={prefSubmitting || matchPref === "algorithm"}
-              className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
+            </label>
+            <label className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "algorithm" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+              <input type="radio" className="sr-only" name="event3-final-preference" value="algorithm" checked={matchPref === "algorithm"} onChange={() => submitPref("algorithm")} disabled={prefSubmitting} />
               {matchPref === "algorithm" ? "✓ " : ""}{choiceOnly ? "أفضّل الاختيار الثاني" : "أفضّل الخوارزمية"}
-            </button>
-            <button type="button" role="radio" aria-checked={matchPref === "both"} onClick={() => submitPref("both")} disabled={prefSubmitting || matchPref === "both"}
-              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}>
+            </label>
+            <label className={`col-span-2 flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "both" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-gray-700/40 bg-gray-800/40 text-gray-300 hover:bg-gray-800/60"}`}>
+              <input type="radio" className="sr-only" name="event3-final-preference" value="both" checked={matchPref === "both"} onChange={() => submitPref("both")} disabled={prefSubmitting} />
               {matchPref === "both" ? "✓ " : ""}كلاهما ممتاز
-            </button>
-            <button type="button" role="radio" aria-checked={matchPref === "neither"} onClick={() => submitPref("neither")} disabled={prefSubmitting || matchPref === "neither"}
-              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "neither" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
+            </label>
+            <label className={`col-span-2 flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs font-bold transition-all focus-within:ring-2 focus-within:ring-violet-200 ${prefSubmitting ? 'cursor-wait opacity-60' : ''} ${matchPref === "neither" ? "border-violet-300/45 bg-violet-400/14 text-violet-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
+              <input type="radio" className="sr-only" name="event3-final-preference" value="neither" checked={matchPref === "neither"} onChange={() => submitPref("neither")} disabled={prefSubmitting} />
               {matchPref === "neither" ? "✓ " : ""}لا أفضل أحدهما الآن
-            </button>
-          </div>
+            </label>
+          </fieldset>
           )}
         </motion.div>
 
@@ -8331,24 +9030,20 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
           tabIndex={-1}
           className="event3-glass relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.1] focus:outline-none"
         >
-          <AnimatePresence>
-            {loading && (
-              <motion.button
-                ref={dismissButtonRef}
-                type="button"
-                onClick={dismiss}
-                aria-label="تخطّي الرسالة والدخول إلى الفعالية"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6, scale: 0.96 }}
-                transition={{ duration: 0.22 }}
-                className="event3-soft-action absolute left-4 top-4 z-30 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-[11px] font-bold text-gray-400 hover:text-purple-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-purple-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0718]"
-              >
-                <span>تخطّي</span>
-                <ArrowLeft size={12} aria-hidden="true" />
-              </motion.button>
-            )}
-          </AnimatePresence>
+          <motion.button
+            ref={dismissButtonRef}
+            type="button"
+            onClick={dismiss}
+            aria-label={loading ? "تخطّي الرسالة والدخول إلى الفعالية" : "متابعة الدخول إلى الفعالية"}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.22 }}
+            className="absolute left-4 top-4 z-30 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-white/[0.09] bg-white/[0.045] px-3.5 text-[11px] font-bold text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,.045),0_12px_28px_-22px_rgba(192,132,252,.65)] backdrop-blur-xl transition-all hover:border-purple-300/20 hover:bg-purple-300/[0.07] hover:text-purple-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0718]"
+          >
+            <span>{loading ? 'تخطّي' : 'متابعة'}</span>
+            <ArrowLeft size={12} aria-hidden="true" />
+          </motion.button>
+          {!loading && <p className="sr-only" role="status" aria-live="polite">{failed ? 'تعذّر تجهيز الترحيب، يمكنك متابعة الفعالية.' : 'تم تجهيز رسالة الترحيب.'}</p>}
           {/* Animated gradient border glow */}
           <motion.div
             className="absolute inset-0 rounded-[32px] pointer-events-none"
@@ -8805,9 +9500,9 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
   if (!pendingCheck) return null
 
   const options = [
-    { mood: "happy" as const, icon: <Smile size={26} />, label: "ممتاز", gradient: "from-emerald-500/80 to-teal-600/80", ring: "ring-emerald-400/60", glow: "shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]", textCls: "text-emerald-300", bgCls: "bg-emerald-500/15" },
-    { mood: "neutral" as const, icon: <Meh size={26} />, label: "عادي", gradient: "from-amber-500/80 to-yellow-600/80", ring: "ring-amber-400/60", glow: "shadow-[0_0_30px_-4px_rgba(245,158,11,0.4)]", textCls: "text-amber-300", bgCls: "bg-amber-500/15" },
-    { mood: "not_great" as const, icon: <Frown size={26} />, label: "مو مره", gradient: "from-red-500/80 to-rose-600/80", ring: "ring-red-400/60", glow: "shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]", textCls: "text-red-300", bgCls: "bg-red-500/15" },
+    { mood: "happy" as const, icon: <Smile size={26} />, label: "ممتاز" },
+    { mood: "neutral" as const, icon: <Meh size={26} />, label: "عادي" },
+    { mood: "not_great" as const, icon: <Frown size={26} />, label: "مو مره" },
   ]
 
   return (
@@ -8844,37 +9539,33 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
           </div>
 
           {/* Options */}
-          <div className="space-y-3">
+          <fieldset className="space-y-3" aria-label="كيف تشعر الآن">
             {options.map(opt => {
               const isSelected = selected === opt.mood
               return (
-                <motion.button type="button" key={opt.mood} whileTap={{ scale: 0.97 }}
-                  autoFocus={opt.mood === "happy"}
-                  disabled={submitting}
-                  aria-pressed={isSelected}
-                  aria-busy={submitting && isSelected}
-                  onClick={() => submit(opt.mood)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 ${
+                <motion.label key={opt.mood} whileTap={{ scale: 0.97 }} aria-busy={submitting && isSelected}
+                  className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all duration-200 focus-within:ring-2 focus-within:ring-violet-200 ${submitting ? 'cursor-wait opacity-60' : ''} ${
                     isSelected
-                      ? `${opt.bgCls} ring-2 ${opt.ring} ${opt.glow}`
+                      ? 'bg-violet-400/14 ring-2 ring-violet-300/45 shadow-[0_0_28px_-8px_rgba(139,92,246,.5)]'
                       : 'bg-white/[0.04] ring-1 ring-white/[0.06] hover:bg-white/[0.07]'
-                  }`}>
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${opt.gradient} flex items-center justify-center text-white shrink-0 transition-transform duration-200 ${isSelected ? 'scale-110' : 'scale-95 opacity-80'}`}>
+                    }`}>
+                  <input type="radio" className="sr-only" name="event3-current-mood" value={opt.mood} checked={isSelected} disabled={submitting} onChange={() => submit(opt.mood)} />
+                  <div className={`w-12 h-12 rounded-full border border-violet-300/20 bg-violet-400/12 flex items-center justify-center text-violet-100 shrink-0 transition-transform duration-200 ${isSelected ? 'scale-110' : 'scale-95 opacity-80'}`}>
                     {opt.icon}
                   </div>
                   <div className="flex-1 text-right">
-                    <p className={`font-bold text-base transition-colors ${isSelected ? opt.textCls : 'text-white'}`}>{opt.label}</p>
+                    <p className={`font-bold text-base transition-colors ${isSelected ? 'text-violet-100' : 'text-white'}`}>{opt.label}</p>
                   </div>
-                </motion.button>
+                </motion.label>
               )
             })}
-          </div>
+          </fieldset>
 
           <button type="button" onClick={() => submit("expired")} disabled={submitting} className="event3-tertiary-action mt-3 min-h-11 rounded-xl px-4 text-xs font-bold text-gray-400 hover:text-gray-200">
             ليس الآن
           </button>
 
-          <p className="text-gray-700 text-[10px] mt-6">سري · ما يطلع عليه أحد</p>
+          <p className="mt-5 rounded-xl border border-cyan-300/12 bg-cyan-400/[0.045] px-3 py-2 text-xs leading-5 text-cyan-100/65">يرى فريق التنظيم ردّك باسمك للاطمئنان عليك. لن يظهر للمشاركين.</p>
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -9182,8 +9873,8 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
           <span className="sr-only" aria-live="polite">{connectionState === "online" ? "الاتصال مستقر" : connectionState === "unstable" ? "الاتصال غير مستقر" : "لا يوجد اتصال"}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-3 py-2 text-xs font-black text-amber-100">طاولة {table}</span>}
-          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-xl border border-white/[0.07] bg-black/20 px-2.5 py-1.5 font-mono text-base font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-100"}`}>{formatTime(remaining)}</span>}
+          {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
+          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-lg border border-white/[0.07] bg-black/20 px-2 py-1 font-mono text-sm font-black tabular-nums ${event3TimerTextClass(remaining, "text-cyan-100")}`}>{formatTime(remaining)}</span>}
         </div>
       </div>
       {progressPercent != null && (
@@ -9242,6 +9933,11 @@ export default function Event3Page() {
   const eventContentRef = useRef<HTMLDivElement>(null)
   const phaseAnnouncementRef = useRef<HTMLDivElement>(null)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
+  const auxiliaryHeartbeatRef = useRef<Record<string, any>>({})
+
+  useEffect(() => {
+    auxiliaryHeartbeatRef.current = {}
+  }, [token])
 
   useEffect(() => {
     if (isImpersonating) {
@@ -9305,7 +10001,8 @@ export default function Event3Page() {
 
   const fetchState = useCallback(async () => {
     if (!token) throw new Error("No token")
-    const d = await call("e3-heartbeat", token)
+    const response = await call("e3-heartbeat", token)
+    const d = { ...response }
     if (d.error) {
       if (d.code === "EVENT3_TEST_MODE_LOCKED") setTestModeBlocked(true)
       // Only a structured, non-retriable authentication response proves the
@@ -9327,6 +10024,10 @@ export default function Event3Page() {
     setTokenError(false)
     if (typeof d.enrolled === "boolean") setEnrolled(d.enrolled)
     if (d.my_info && typeof d.my_info === "object") setMyInfo(d.my_info)
+    for (const key of ['sos_requests', 'mood_check', 'notification']) {
+      if (Object.prototype.hasOwnProperty.call(d, key)) auxiliaryHeartbeatRef.current[key] = d[key]
+      else if (Object.prototype.hasOwnProperty.call(auxiliaryHeartbeatRef.current, key)) d[key] = auxiliaryHeartbeatRef.current[key]
+    }
     return d
   }, [token, isImpersonating])
 
@@ -9639,7 +10340,7 @@ export default function Event3Page() {
           onBack={() => {}}
           onWordChange={() => {}}
           onSubmitWord={async () => true}
-          onSubmit={async () => true}
+          onSubmit={async feedback => ({ ok: true, savedFeedback: feedback })}
           choiceOnly
         />
       </main>
@@ -9803,7 +10504,7 @@ export default function Event3Page() {
     showAiWelcome,
   })
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
-  const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender
+  const showOrganizerSupport = enrolled === true
 
   return (
     <MotionConfig reducedMotion="user">
@@ -9854,11 +10555,11 @@ export default function Event3Page() {
 
       {/* Keep help-chat state mounted while higher-priority overlays are visible,
           so an unsent organizer message is restored instead of discarded. */}
-      {enrolled && showOrganizerSupport && (
+      {showOrganizerSupport && (
         <SOSButton
           token={token}
           sosRequests={eventState?.sos_requests}
-          triggerHidden={true}
+          triggerHidden={Boolean(rankingRoundToRender || oneToOneSessionOpen || feedbackOverlayOpen)}
           suppressed={projectorOpen}
         />
       )}

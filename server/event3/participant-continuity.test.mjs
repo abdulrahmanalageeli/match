@@ -36,8 +36,9 @@ test("Event3 heartbeat distinguishes invalid identity from retriable service fai
   assert.match(heartbeat, /if \(stateError\)[\s\S]*res\.status\(503\)/)
   assert.match(heartbeat, /if \(rosterError \|\| signupError\)[\s\S]*code: "EVENT3_ENROLLMENT_UNAVAILABLE"[\s\S]*retryable: true/)
   assert.match(heartbeat, /if \(assignmentError\)[\s\S]*code: "EVENT3_ASSIGNMENT_UNAVAILABLE"[\s\S]*retryable: true/)
-  assert.match(heartbeat, /const auxiliaryError = sosRes\.error \|\| moodRes\.error \|\| notifRes\.error/)
-  assert.match(heartbeat, /if \(auxiliaryError\)[\s\S]*code: "EVENT3_AUXILIARY_UNAVAILABLE"[\s\S]*retryable: true/)
+  assert.match(heartbeat, /Promise\.allSettled/)
+  assert.match(heartbeat, /buildEvent3AuxiliaryHeartbeat/)
+  assert.doesNotMatch(heartbeat, /code: "EVENT3_AUXILIARY_UNAVAILABLE"/)
 })
 
 test("Event3 standalone support, mood, and notification reads fail closed on transient database errors", async () => {
@@ -66,28 +67,54 @@ test("Event3 organizer help and broadcast actions stay in flow without covering 
   const route = await read("app/routes/event3.tsx")
   const support = between(route, "function SOSButton", "// ─── Phase 2 Reveal Screen")
   const supportMount = between(route, "{/* Keep help-chat state mounted", "{/* Mood check popup")
+  const ranking = between(route, "function RankingScreen", "// ─── Optional Group Reflection")
+  const groupReflection = between(route, "function GroupReflectionSheet", "function BreakGroupFeedbackSheet")
+  const breakFeedback = between(route, "function BreakGroupFeedbackSheet", "function BreakGroupFeedbackPreview")
+  const matchFeedback = between(route, "function FeedbackFlow", "// ─── SOS / Organizer Chat Box")
 
   assert.match(route, /fixed inset-0 z-\[220\][^\n]*h-\[100dvh\]/)
   assert.match(support, /<LifeBuoy size=\{17\}/)
   assert.match(support, /backdrop-blur-xl/)
   assert.match(route, /function OneToOneSupportButton\(\)/)
-  assert.match(route, /function OneToOneSupportButton\(\) \{\s*return null\s*\}/)
-  assert.equal((route.match(/<OneToOneSupportButton \/>/g) || []).length, 2)
-  assert.match(route, /triggerHidden=\{true\}/)
+  assert.doesNotMatch(route, /function OneToOneSupportButton\(\) \{\s*return null\s*\}/)
+  assert.match(route, /window\.dispatchEvent\(new Event\(EVENT3_OPEN_SUPPORT_EVENT\)\)/)
+  assert.match(route, /أحتاج مساعدة/)
+  for (const hiddenTriggerFlow of [ranking, groupReflection, breakFeedback, matchFeedback]) {
+    assert.match(hiddenTriggerFlow, /<OneToOneSupportButton \/>/)
+  }
+  assert.match(groupReflection, /useModalFocus\(\{[\s\S]*onEscape: onClose/)
+  assert.match(route, /triggerHidden=\{Boolean\(rankingRoundToRender \|\| oneToOneSessionOpen \|\| feedbackOverlayOpen\)\}/)
   assert.match(route, /onProjectorVisibilityChange=\{setProjectorOpen\}/)
   assert.match(supportMount, /suppressed=\{projectorOpen\}/)
   assert.match(route, /عرض سؤال الطاولة/)
   assert.doesNotMatch(route, /fixed inset-x-4 bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\] z-\[570\]/)
   assert.doesNotMatch(support, /fixed left-0 right-0|pointer-events-none fixed inset-x-4/)
   assert.match(support, /window\.addEventListener\(EVENT3_OPEN_SUPPORT_EVENT/)
+  assert.match(support, /window\.addEventListener\(EVENT3_CLOSE_SUPPORT_EVENT/)
+  assert.match(support, /if \(suppressed \|\| triggerHidden\) setOpen\(false\)/)
   assert.match(support, /fixed inset-0 z-\[700\]/)
   assert.match(support, /aria-modal="true"/)
   assert.match(support, /onClick=\{event => event\.stopPropagation\(\)\}/)
   assert.doesNotMatch(support, /x: '-50%'|left-1\/2 -translate-x-1\/2/)
   assert.equal((route.match(/pt-\[max\(1\.5rem,calc\(env\(safe-area-inset-top\)\+0\.5rem\)\)\]/g) || []).length, 2)
-  assert.match(route, /const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender/)
-  assert.match(supportMount, /enrolled && showOrganizerSupport/)
-  assert.doesNotMatch(supportMount, /final_reveal|phase === "break"|groupsOpen|feedbackOverlayOpen|canShowMoodCheck|canShowNotification/)
+  assert.match(route, /const showOrganizerSupport = enrolled === true/)
+  assert.match(supportMount, /\{showOrganizerSupport && \(/)
+  assert.doesNotMatch(supportMount, /final_reveal|phase === "break"|groupsOpen|canShowMoodCheck|canShowNotification/)
+})
+
+test("Event3 live reassignment clears partner-scoped words and keeps submitted feedback monotonic", async () => {
+  const route = await read("app/routes/event3.tsx")
+  const phase2 = between(route, "function Phase2RevealScreen", "function Phase3RevealScreen")
+  const phase3 = between(route, "function Phase3RevealScreen", "// ─── Break Screen")
+
+  for (const reveal of [phase2, phase3]) {
+    assert.match(reveal, /const beginFeedback = useCallback\(\(\) => \{[\s\S]*EVENT3_CLOSE_SUPPORT_EVENT/)
+    assert.match(reveal, /previous === assignmentFingerprint[\s\S]*setWord\(""\)[\s\S]*setWordSubmitted\(false\)[\s\S]*setFeedbackDone\(false\)/)
+    assert.match(reveal, /setFeedbackDone\(current => current \|\| Boolean\(data\?\.feedback_submitted\)\)/)
+    assert.doesNotMatch(reveal, /setFeedbackDone\(Boolean\(data\?\.feedback_submitted\)\)/)
+    assert.match(reveal, /\}, \[assignmentFingerprint,[^\]]*data\?\.feedback_submitted[^\]]*\]\)/)
+    assert.match(reveal, /onAssignmentChanged=\{\(\) => \{ setFeedbackAssignment\(null\); setWord\(""\); setWordSubmitted\(false\); setFeedbackDone\(false\)/)
+  }
 })
 
 test("Event3 transport failures are structured as retriable and polling retains prior data", async () => {

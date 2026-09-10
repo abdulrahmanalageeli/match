@@ -1,6 +1,14 @@
 export const EVENT3_CONTACT_MESSAGE_MAX_LENGTH = 240
 export const EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH = 300
 export const EVENT3_MEMORY_WORD_MAX_LENGTH = 32
+export const EVENT3_MEETING_STATUSES = Object.freeze([
+  'met',
+  'did_not_start',
+  'partner_absent',
+  'needed_help',
+])
+
+const EVENT3_MEETING_STATUS_SET = new Set(EVENT3_MEETING_STATUSES)
 
 function isObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -13,6 +21,33 @@ function messageLength(value) {
 export function normalizeEvent3FeedbackPayload(feedback) {
   if (!isObject(feedback)) {
     return { value: null, error: 'بيانات التقييم غير صالحة' }
+  }
+
+  // Old clients did not send a meeting status, so preserve their established
+  // rating flow. New clients can record a meeting that never happened without
+  // fabricating ratings or turning an absence into a rejection signal.
+  const meetingStatus = feedback.meetingStatus ?? 'met'
+  if (!EVENT3_MEETING_STATUS_SET.has(meetingStatus)) {
+    return { value: null, error: 'اختر ما إذا كان اللقاء قد تم' }
+  }
+
+  if (feedback.organizerImpression != null && typeof feedback.organizerImpression !== 'string') {
+    return { value: null, error: 'ملاحظة المنظم غير صالحة' }
+  }
+  const organizerImpression = String(feedback.organizerImpression || '').trim()
+  if (messageLength(organizerImpression) > EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH) {
+    return { value: null, error: `ملاحظة المنظم يجب ألا تتجاوز ${EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH} حرفاً` }
+  }
+
+  if (meetingStatus !== 'met') {
+    return {
+      value: {
+        meetingStatus,
+        meetingOccurred: false,
+        ...(organizerImpression ? { organizerImpression } : {}),
+      },
+      error: null,
+    }
   }
 
   if (feedback.sliderMoved !== true) {
@@ -37,18 +72,12 @@ export function normalizeEvent3FeedbackPayload(feedback) {
     return { value: null, error: 'اختر ما إذا كنت تريد التواصل لاحقاً' }
   }
 
-  if (feedback.organizerImpression != null && typeof feedback.organizerImpression !== 'string') {
-    return { value: null, error: 'ملاحظة المنظم غير صالحة' }
-  }
-  const organizerImpression = String(feedback.organizerImpression || '').trim()
-  if (messageLength(organizerImpression) > EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH) {
-    return { value: null, error: `ملاحظة المنظم يجب ألا تتجاوز ${EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH} حرفاً` }
-  }
-
   // Persist only fields collected by the current participant flow. This keeps
   // stale clients from injecting dead survey fields or arbitrary JSON into the
   // admin feedback view.
   const normalized = {
+    meetingStatus: 'met',
+    meetingOccurred: true,
     compatibilityRate: feedback.compatibilityRate,
     sliderMoved: true,
     conversationQuality: feedback.conversationQuality,
@@ -93,6 +122,47 @@ export function normalizeEvent3MemoryWord(value) {
     return { value: null, error: `الكلمة يجب ألا تتجاوز ${EVENT3_MEMORY_WORD_MAX_LENGTH} حرفاً` }
   }
   return { value: word, error: null }
+}
+
+// Reveal only the participant's own, currently supported feedback fields.
+// Organizer notes and unknown legacy keys remain server/admin-only.
+export function sanitizeEvent3SavedFeedback(feedback) {
+  if (!isObject(feedback)) return null
+  const hasFeedbackSignal = EVENT3_MEETING_STATUS_SET.has(feedback.meetingStatus)
+    || typeof feedback.meetingOccurred === 'boolean'
+    || feedback.sliderMoved === true
+    || Number.isInteger(feedback.compatibilityRate)
+    || Number.isInteger(feedback.conversationQuality)
+    || Number.isInteger(feedback.personalConnection)
+    || typeof feedback.wantConnect === 'boolean'
+  if (!hasFeedbackSignal) return null
+
+  const meetingStatus = EVENT3_MEETING_STATUS_SET.has(feedback.meetingStatus)
+    ? feedback.meetingStatus
+    : feedback.meetingOccurred === false ? 'did_not_start' : 'met'
+  if (meetingStatus !== 'met') return { meetingStatus, meetingOccurred: false }
+
+  const sanitized = { meetingStatus: 'met', meetingOccurred: true }
+  if (Number.isInteger(feedback.compatibilityRate) && feedback.compatibilityRate >= 0 && feedback.compatibilityRate <= 100) {
+    sanitized.compatibilityRate = feedback.compatibilityRate
+  }
+  if (feedback.sliderMoved === true) sanitized.sliderMoved = true
+  for (const field of ['conversationQuality', 'personalConnection']) {
+    if (Number.isInteger(feedback[field]) && feedback[field] >= 1 && feedback[field] <= 5) sanitized[field] = feedback[field]
+  }
+  if (typeof feedback.wantConnect !== 'boolean') return sanitized
+
+  sanitized.wantConnect = feedback.wantConnect
+  if (!feedback.wantConnect) return sanitized
+  const contactMethod = feedback.contactMethod === 'message' ? 'message' : 'phone'
+  sanitized.contactMethod = contactMethod
+  if (contactMethod === 'message'
+      && typeof feedback.contactMessage === 'string'
+      && feedback.contactMessage.trim()
+      && messageLength(feedback.contactMessage) <= EVENT3_CONTACT_MESSAGE_MAX_LENGTH) {
+    sanitized.contactMessage = feedback.contactMessage
+  }
+  return sanitized
 }
 
 export function buildEvent3MutualContactShare({ myFeedback, partnerFeedback, partnerPhone }) {

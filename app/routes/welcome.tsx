@@ -13263,6 +13263,8 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
           token,
           event_id: current.event_id,
           phase: current.phase,
+          expected_partner: current.expected_partner ?? current.partner_number,
+          expected_assignment_revision: current.expected_assignment_revision ?? null,
           feedback: { ...fb },
         }),
       })

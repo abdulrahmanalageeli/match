@@ -5122,7 +5122,9 @@ export default async function handler(req, res) {
           // 2. Fetch event3_matches
           const { data: matchRows, error: matchError } = await supabase
             .from("event3_matches")
-            .select("participant_number, phase2_partner, phase2_score, phase2_score_model_version, phase2_score_snapshot, phase2_score_content_hash, phase3_partner, phase3_score, phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash, phase2_word, phase3_word, phase2_feedback, phase3_feedback, match_preference")
+            // Memory words are participant-private reflection. Export only the
+            // operational match, score, consent, and feedback fields.
+            .select("participant_number, phase2_partner, phase2_score, phase2_score_model_version, phase2_score_snapshot, phase2_score_content_hash, phase3_partner, phase3_score, phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash, phase2_feedback, phase3_feedback, match_preference")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", eid)
             .in("participant_number", selectedNumbers)
@@ -5209,8 +5211,6 @@ export default async function handler(req, res) {
                   ...provenance,
                   a_feedback: rowIsA ? row.phase2_feedback : (partnerRow?.phase2_feedback || null),
                   b_feedback: rowIsA ? (partnerRow?.phase2_feedback || null) : row.phase2_feedback,
-                  a_word: rowIsA ? row.phase2_word : (partnerRow?.phase2_word || null),
-                  b_word: rowIsA ? (partnerRow?.phase2_word || null) : row.phase2_word,
                   a_match_preference: rowIsA ? (row.match_preference || null) : (partnerRow?.match_preference || null),
                   b_match_preference: rowIsA ? (partnerRow?.match_preference || null) : (row.match_preference || null),
                   event_id: eid,
@@ -5238,8 +5238,6 @@ export default async function handler(req, res) {
                   ...provenance,
                   a_feedback: rowIsA ? row.phase3_feedback : (partnerRow?.phase3_feedback || null),
                   b_feedback: rowIsA ? (partnerRow?.phase3_feedback || null) : row.phase3_feedback,
-                  a_word: rowIsA ? row.phase3_word : (partnerRow?.phase3_word || null),
-                  b_word: rowIsA ? (partnerRow?.phase3_word || null) : row.phase3_word,
                   a_match_preference: rowIsA ? (row.match_preference || null) : (partnerRow?.match_preference || null),
                   b_match_preference: rowIsA ? (partnerRow?.match_preference || null) : (row.match_preference || null),
                   event_id: eid,

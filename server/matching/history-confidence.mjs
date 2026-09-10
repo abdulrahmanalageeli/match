@@ -202,6 +202,12 @@ function feedbackSignal(feedback) {
   }
 }
 
+function feedbackRepresentsCompletedMeeting(feedback) {
+  if (!feedback || typeof feedback !== 'object') return true
+  if (feedback.meetingOccurred === false) return false
+  return !['did_not_start', 'partner_absent', 'needed_help'].includes(feedback.meetingStatus)
+}
+
 function structuredFeedbackDetails(feedback) {
   if (!feedback || typeof feedback !== 'object') return { submitted: false }
   const numberInRange = (key, min, max) => {
@@ -232,7 +238,8 @@ function collectPairFeedbackSignals(rows, currentEventId) {
     for (const phase of [2, 3]) {
       const target = Number(row?.[`phase${phase}_partner`])
       const feedback = row?.[`phase${phase}_feedback`]
-      const signal = feedbackSignal(feedback)
+      const meetingOccurred = feedbackRepresentsCompletedMeeting(feedback)
+      const signal = meetingOccurred ? feedbackSignal(feedback) : null
       if (!Number.isInteger(target) || target <= 0 || target === 9999) continue
       records.push({
         eventId,
@@ -240,8 +247,9 @@ function collectPairFeedbackSignals(rows, currentEventId) {
         target,
         phase,
         signal,
-        feedback: structuredFeedbackDetails(feedback),
-        hasFeedback: !!feedback && typeof feedback === 'object',
+        feedback: meetingOccurred ? structuredFeedbackDetails(feedback) : { submitted: false },
+        hasFeedback: meetingOccurred && !!feedback && typeof feedback === 'object',
+        meetingOccurred,
       })
     }
   }
@@ -407,7 +415,7 @@ function buildPairHistoryTimelines({ currentEventId, rankingRows, matchFeedbackR
       from: record.ranker,
       to: record.target,
       phase: record.phase,
-      met: true,
+      met: record.meetingOccurred,
       feedback: record.feedback,
       signal_score: record.signal ? round1(50 + (50 * record.signal.value)) : null,
       contributed_to_score: !!record.signal,

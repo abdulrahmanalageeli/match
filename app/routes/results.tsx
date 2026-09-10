@@ -6,10 +6,7 @@ import {
   Search, 
   Clock, 
   Heart, 
-  X, 
   Handshake, 
-  Home,
-  User,
   Phone,
   Mail,
   RefreshCcw,
@@ -17,9 +14,9 @@ import {
   ChevronDown,
   ChevronUp,
   Award,
-  Users,
   Brain,
-  Trophy
+  Info,
+  ShieldCheck
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow, parseScoreObject } from "~/lib/compatibility-model"
@@ -76,7 +73,7 @@ interface CompatibilityMetrics {
   intentValues: number
   intentMax: number
   oppositesModel?: boolean
-  dimensions?: Array<{ label: string; value: number; max: number; bar: string }>
+  dimensions?: Array<{ label: string; value: number; max: number }>
 }
 
 interface CompatibilityComponent {
@@ -111,6 +108,8 @@ interface MatchResult {
   partner_message?: string | null
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
   my_feedback?: {
+    meeting_status?: 'met' | 'did_not_start' | 'partner_absent' | 'needed_help' | null
+    meeting_occurred?: boolean | null
     compatibilityRate?: number | null
     conversationQuality?: number | null
     personalConnection?: number | null
@@ -166,6 +165,18 @@ interface ResultsData {
 }
 
 const CHOICE_ONLY_EVENT_FORMAT = 'choice_only_three_groups'
+function availableScore(match: MatchResult): number | null {
+  if (match.score === null || match.score === undefined) return null
+  const score = Number(match.score)
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : null
+}
+
+function questionnaireSignal(score: number | null) {
+  if (score === null) return 'القراءة غير متاحة'
+  if (score >= 76) return 'تشابه مرتفع في الإجابات'
+  if (score >= 68) return 'تشابه متوسط في الإجابات'
+  return 'تشابه محدود في الإجابات'
+}
 
 function isChoiceOnlyEventMatch(match: MatchResult | null | undefined) {
   return match?.event_format === CHOICE_ONLY_EVENT_FORMAT
@@ -189,7 +200,7 @@ function matchPreferenceStyle(preference: string | null | undefined) {
   if (preference === 'choice' || preference === 'first') return { box: 'bg-pink-500/10 border-pink-500/20', text: 'text-pink-300' }
   if (preference === 'algorithm' || preference === 'second') return { box: 'bg-purple-500/10 border-purple-500/20', text: 'text-purple-300' }
   if (preference === 'third') return { box: 'bg-violet-500/10 border-violet-500/20', text: 'text-violet-300' }
-  if (preference === 'both' || preference === 'multiple') return { box: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-300' }
+  if (preference === 'both' || preference === 'multiple') return { box: 'bg-cyan-500/10 border-cyan-500/20', text: 'text-cyan-200' }
   return { box: 'bg-gray-500/10 border-gray-500/20', text: 'text-gray-400' }
 }
 
@@ -203,8 +214,140 @@ function matchPreferenceLabel(preference: string, choiceOnly: boolean) {
   }
   if (preference === 'choice') return 'اخترت اختيارك الشخصي'
   if (preference === 'algorithm') return 'اخترت اختيار الخوارزمية'
-  if (preference === 'both') return 'كلاهما ممتاز'
+  if (preference === 'both') return 'فضّلت اللقاءين'
   return 'لم تفضّل أيهما'
+}
+
+type NonMeetingOutcome = 'did_not_start' | 'partner_absent' | 'needed_help'
+
+function getNonMeetingOutcome(match: MatchResult): NonMeetingOutcome | null {
+  const status = match.my_feedback?.meeting_status
+  if (status === 'did_not_start' || status === 'partner_absent' || status === 'needed_help') return status
+  return match.my_feedback?.meeting_occurred === false ? 'did_not_start' : null
+}
+
+function MeetingOperationalOutcomeCard({ outcome }: { outcome: NonMeetingOutcome }) {
+  const detail = outcome === 'partner_absent'
+    ? 'سُجّل عدم وصول الطرف الآخر. بقيت بيانات التواصل خاصة، ولم تُفسّر الحالة كتفضيل أو رفض.'
+    : outcome === 'needed_help'
+      ? 'سُجّل أنك احتجت إلى مساعدة. بقيت بيانات التواصل خاصة، ولم تُستخدم إجابات تقييم لهذا اللقاء.'
+      : 'سُجّل أن اللقاء لم يبدأ. بقيت بيانات التواصل خاصة، ولم تُستخدم إجابات تقييم لهذا اللقاء.'
+
+  return (
+    <section
+      aria-label="حالة اللقاء"
+      className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/[0.08] to-slate-950/25 p-4 sm:p-5"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/15 bg-violet-300/[0.08] text-violet-200">
+          <Info className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h4 className="text-sm font-black text-slate-100">سُجّل أن اللقاء لم يحدث</h4>
+          <p className="mt-1 text-xs leading-6 text-slate-300">{detail}</p>
+          <p className="mt-2 text-[11px] leading-5 text-slate-400">
+            هذه حالة تشغيلية للفعالية وليست نتيجة توافق بين شخصين.
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ContactOutcomeCard({ match }: { match: MatchResult }) {
+  const hasSharedMethod = Boolean(
+    match.mutual_match &&
+    (match.partner_phone || (match.partner_contact_method === 'message' && match.partner_contact_message))
+  )
+
+  if (hasSharedMethod) {
+    return (
+      <section
+        aria-label="نتيجة مشاركة التواصل"
+        className="relative overflow-hidden rounded-2xl border border-cyan-300/25 bg-gradient-to-br from-cyan-400/[0.14] via-violet-400/[0.08] to-transparent p-4 shadow-[0_20px_55px_-34px_rgba(34,211,238,.7)] sm:p-5"
+      >
+        <div className="pointer-events-none absolute -left-8 -top-10 h-28 w-28 rounded-full bg-violet-300/15 blur-3xl" />
+        <div className="relative mb-3 flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-cyan-100">
+            <Handshake className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h4 className="text-sm font-black text-cyan-50">اتفق الاختياران على مشاركة التواصل</h4>
+            <p className="mt-1 text-xs leading-5 text-cyan-100/70">
+              تظهر هنا فقط الوسيلة التي اختار الطرف الآخر مشاركتها.
+            </p>
+          </div>
+        </div>
+
+        <div className="relative grid gap-2 text-sm sm:grid-cols-2">
+          {match.partner_phone && (
+            <a
+              href={`tel:${String(match.partner_phone).replace(/[^+\d]/g, '')}`}
+              className="flex min-h-12 items-center gap-3 rounded-xl border border-white/[0.09] bg-slate-950/35 px-3 py-2.5 text-white transition hover:border-cyan-200/30 hover:bg-cyan-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              <Phone className="h-4 w-4 shrink-0 text-cyan-200" aria-hidden="true" />
+              <span className="min-w-0 text-right">
+                <span className="block text-[11px] font-medium text-cyan-100/65">رقم الجوال</span>
+                <span dir="ltr" className="block truncate font-bold">{match.partner_phone}</span>
+              </span>
+            </a>
+          )}
+
+          {match.partner_contact_method === 'message' && match.partner_contact_message && (
+            <div className="flex min-h-12 items-start gap-3 rounded-xl border border-white/[0.09] bg-slate-950/35 px-3 py-3 text-white sm:col-span-2">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-violet-200" aria-hidden="true" />
+              <div className="min-w-0 text-right">
+                <p className="text-[11px] font-medium text-violet-100/70">وسيلة التواصل المشتركة</p>
+                <p dir="auto" className="mt-1 whitespace-pre-wrap break-words text-sm font-bold leading-6">
+                  {match.partner_contact_message}
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                  عُرض النص كما كتبه الطرف الآخر، من دون إظهار رقم جواله.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  const copy = match.mutual_match
+    ? {
+        title: 'اتفق الاختياران على التواصل',
+        body: 'لم تُعرض وسيلة تواصل بعد. بقيت بياناتكما الخاصة مخفية.',
+      }
+    : match.wants_match === false
+      ? {
+          title: 'بقيت بيانات التواصل خاصة',
+          body: 'اخترت عدم مشاركة التواصل لهذا اللقاء، ولم تُشارك أي بيانات.',
+        }
+      : match.wants_match === true
+        ? {
+            title: 'لم يكتمل اتفاق مشاركة التواصل',
+            body: 'لا يكشف Blind Match اختيار أي طرف بعينه، وبقيت بيانات التواصل خاصة.',
+          }
+        : {
+            title: 'لا توجد مشاركة تواصل مسجّلة',
+            body: 'لم تُشارك أي بيانات تواصل لهذا اللقاء.',
+          }
+
+  return (
+    <section
+      aria-label="نتيجة مشاركة التواصل"
+      className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/[0.07] to-slate-900/20 p-4"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/15 bg-violet-300/[0.08] text-violet-200">
+          <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h4 className="text-sm font-bold text-slate-100">{copy.title}</h4>
+          <p className="mt-1 text-xs leading-5 text-slate-400">{copy.body}</p>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 export default function ResultsPage() {
@@ -251,12 +394,6 @@ export default function ResultsPage() {
     return `${n} جلسة`
   }
   
-  // Helper: show the final score exactly as stored (matches matrix)
-  const getOriginalScore = (match: MatchResult): number => {
-    const score = Number(match.score)
-    return Number.isFinite(score) ? Math.round(score) : 0
-  }
-
   // Function to convert technical compatibility reason to natural Arabic description
   // Enhanced to expose structured metrics for the new model (Synergy, Vibe, Lifestyle, Humor/Openness, Communication, Goals/Values)
   const formatLegacyCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
@@ -295,14 +432,12 @@ export default function ResultsPage() {
 
       const hasNewModel = [synergyScore, vibeNewScore, lifestyleNewScore, humorOpenScore, communicationNewScore, intentValuesNewScore].some(s => s > 0)
     
-    // Helper function to get strength level and color
+    // Use one neutral visual language: these are questionnaire signals, not grades.
     const getStrengthLevel = (score: number, maxScore: number) => {
       const percentage = (score / maxScore) * 100
-      if (percentage >= 80) return { level: "ممتاز", color: "text-emerald-400", bgColor: "bg-emerald-500/20", borderColor: "border-emerald-400/30" }
-      if (percentage >= 60) return { level: "جيد", color: "text-blue-400", bgColor: "bg-blue-500/20", borderColor: "border-blue-400/30" }
-      if (percentage >= 40) return { level: "متوسط", color: "text-yellow-400", bgColor: "bg-yellow-500/20", borderColor: "border-yellow-400/30" }
-      if (percentage >= 20) return { level: "ضعيف", color: "text-orange-400", bgColor: "bg-orange-500/20", borderColor: "border-orange-400/30" }
-      return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
+      if (percentage >= 75) return { level: "إشارة مرتفعة", color: "text-cyan-200", bgColor: "bg-cyan-400/10", borderColor: "border-cyan-300/20" }
+      if (percentage >= 45) return { level: "إشارة متوسطة", color: "text-violet-200", bgColor: "bg-violet-400/10", borderColor: "border-violet-300/20" }
+      return { level: "إشارة محدودة", color: "text-slate-300", bgColor: "bg-slate-400/10", borderColor: "border-slate-300/15" }
     }
     
     // New model rendering
@@ -321,20 +456,20 @@ export default function ResultsPage() {
         color: synergyStrength.color,
         bgColor: synergyStrength.bgColor,
         borderColor: synergyStrength.borderColor,
-        description: synergyScore >= 28 ? "انسجام عالٍ في الأدوار وعمق الحديث والراحة مع الصمت." :
-                     synergyScore >= 18 ? "انسجام جيد مع بعض الفروقات التي تحتاج تنسيق بسيط." :
-                     "اختلافات ملحوظة في أسلوب التفاعل تحتاج وقت للتأقلم."
+        description: synergyScore >= 28 ? "تشير الإجابات إلى تقارب مرتفع في الأدوار وعمق الحديث." :
+                     synergyScore >= 18 ? "تشير الإجابات إلى بعض التقارب في إيقاع التفاعل." :
+                     "تظهر الإجابات اختلافاً في أسلوب التفاعل؛ اللقاء الفعلي أدق من هذه الإشارة."
       })
 
       components.push({
-        name: "الطاقة والكيمياء",
+        name: "الإيقاع والطاقة",
         strength: vibeStrengthNew.level,
         color: vibeStrengthNew.color,
         bgColor: vibeStrengthNew.bgColor,
         borderColor: vibeStrengthNew.borderColor,
-        description: vibeNewScore >= 14 ? "كيمياء واضحة وتوافق في الإحساس العام والحماس." :
-                     vibeNewScore >= 8 ? "انسجام لطيف في الطاقة مع مساحة للنمو." :
-                     "إيقاعات مختلفة قد تحتاجان لبعض الوقت للتقارب."
+        description: vibeNewScore >= 14 ? "تظهر الإجابات تقارباً مرتفعاً في الإيقاع والحماس." :
+                     vibeNewScore >= 8 ? "تظهر بعض النقاط المشتركة في الطاقة الاجتماعية." :
+                     "تظهر الإجابات إيقاعات مختلفة، من دون أن تتنبأ بتجربة اللقاء."
       })
 
       components.push({
@@ -343,9 +478,9 @@ export default function ResultsPage() {
         color: lifestyleStrengthNew.color,
         bgColor: lifestyleStrengthNew.bgColor,
         borderColor: lifestyleStrengthNew.borderColor,
-        description: lifestyleNewScore >= 12 ? "روتين متقارب جداً في التوقيت والتخطيط والأنشطة." :
-                     lifestyleNewScore >= 8 ? "تشابه جيد في الروتين مع اختلافات بسيطة." :
-                     "إيقاعات يومية مختلفة قد تتطلب تنسيقاً."
+        description: lifestyleNewScore >= 12 ? "تعكس الإجابات تشابهاً في التوقيت والتخطيط والأنشطة." :
+                     lifestyleNewScore >= 8 ? "تظهر بعض التفاصيل المشتركة في الروتين." :
+                     "تظهر في الإجابات إيقاعات يومية مختلفة."
       })
 
       components.push({
@@ -354,9 +489,9 @@ export default function ResultsPage() {
         color: humorOpenStrength.color,
         bgColor: humorOpenStrength.bgColor,
         borderColor: humorOpenStrength.borderColor,
-        description: humorOpenScore >= 12 ? "حس فكاهي متقارب وارتياح جميل للانفتاح المبكر." :
-                     humorOpenScore >= 8 ? "انسجام جيد في الدعابة ومستوى الانفتاح." :
-                     "أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة."
+        description: humorOpenScore >= 12 ? "تعكس الإجابات تشابهاً في الدعابة ومستوى الانفتاح." :
+                     humorOpenScore >= 8 ? "تظهر بعض النقاط المشتركة في أسلوب المزاح." :
+                     "تظهر تفضيلات مختلفة في المزاح أو الانفتاح."
       })
 
       components.push({
@@ -365,9 +500,9 @@ export default function ResultsPage() {
         color: communicationStrengthNew.color,
         bgColor: communicationStrengthNew.bgColor,
         borderColor: communicationStrengthNew.borderColor,
-        description: communicationNewScore >= 8 ? "تفاهم سريع ولغة مشتركة واضحة." :
-                     communicationNewScore >= 5 ? "تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح." :
-                     "أساليب تواصل مختلفة قد تتطلب مرونة أكبر."
+        description: communicationNewScore >= 8 ? "تشير الإجابات إلى أساليب متقاربة في التواصل." :
+                     communicationNewScore >= 5 ? "توجد بعض النقاط المشتركة في أسلوب التعبير." :
+                     "تظهر الإجابات تفضيلات مختلفة في التواصل."
       })
 
       components.push({
@@ -376,9 +511,9 @@ export default function ResultsPage() {
         color: intentStrength.color,
         bgColor: intentStrength.bgColor,
         borderColor: intentStrength.borderColor,
-        description: intentValuesNewScore >= 4 ? "اتجاهات متشابهة في هدف اللقاء وما يعتبر مهماً." :
-                     intentValuesNewScore >= 2 ? "تقارب معقول في الأهداف أو القيم العامة." :
-                     "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
+        description: intentValuesNewScore >= 4 ? "تعكس الإجابات أهدافاً وأولويات متشابهة." :
+                     intentValuesNewScore >= 2 ? "تظهر بعض النقاط المشتركة في الأهداف العامة." :
+                     "تظهر في الإجابات توقعات مختلفة للقاء."
       })
 
       return { components, originalReason: reason, metrics: { newModel: true, synergyScore, synergyMax: 35, synergyPercent: Math.max(0, Math.min(100, Math.round((synergyScore / 35) * 100))), vibe: vibeNewScore, lifestyle: lifestyleNewScore, humorOpen: humorOpenScore, communication: communicationNewScore, intentValues: intentValuesNewScore } }
@@ -397,27 +532,27 @@ export default function ResultsPage() {
     
     if (mbtiScore > 0) {
       components.push({
-        name: "التوافق النفسي",
+        name: "أسلوب التفكير",
         strength: mbtiStrength.level,
         color: mbtiStrength.color,
         bgColor: mbtiStrength.bgColor,
         borderColor: mbtiStrength.borderColor,
-        description: mbtiScore >= 7 ? "عقلان يفكران بنفس الطريقة - تتفقان في طريقة اتخاذ القرارات وتنظيم الحياة" : 
-                    mbtiScore >= 5 ? "شخصيتان متكاملتان - بعض الاختلافات التي تجعل المحادثات أكثر إثارة" : 
-                    "أضداد تتجاذب - شخصيتان مختلفتان تماماً قد تتعلمان الكثير من بعضهما"
+        description: mbtiScore >= 4 ? "تشير الإجابات إلى تشابه في بعض تفضيلات التفكير واتخاذ القرار." :
+                    mbtiScore >= 3 ? "تظهر بعض نقاط التقارب وبعض الاختلاف في تفضيلات التفكير." :
+                    "تظهر الإجابات تفضيلات مختلفة في التفكير؛ ولا يحدد ذلك جودة اللقاء."
       })
     }
     
     if (attachmentScore > 0) {
       components.push({
-        name: "أسلوب التعلق",
+        name: "تفضيلات القرب",
         strength: attachmentStrength.level,
         color: attachmentStrength.color,
         bgColor: attachmentStrength.bgColor,
         borderColor: attachmentStrength.borderColor,
-        description: attachmentScore >= 12 ? "نفس احتياجات القرب والأمان - ستشعران بالراحة والثقة بسرعة" : 
-                    attachmentScore >= 8 ? "احتياجات عاطفية متقاربة - قليل من الصبر وستجدان التوازن المثالي" : 
-                    "احتياجات مختلفة للمساحة الشخصية - أحدكما يحب القرب والآخر يقدر الاستقلالية"
+        description: attachmentScore >= 4 ? "تعكس الإجابات تشابهاً في بعض تفضيلات القرب والمساحة الشخصية." :
+                    attachmentScore >= 3 ? "تظهر بعض نقاط التقارب في تفضيلات الطمأنة والمساحة." :
+                    "تظهر تفضيلات مختلفة للقرب والمساحة؛ وهذه ليست قراءة نفسية أو تشخيصاً."
       })
     }
     
@@ -428,9 +563,9 @@ export default function ResultsPage() {
         color: communicationStrength.color,
         bgColor: communicationStrength.bgColor,
         borderColor: communicationStrength.borderColor,
-        description: communicationScore >= 20 ? "تتكلمان نفس اللغة - تفهمان بعضكما من نظرة واحدة" : 
-                    communicationScore >= 15 ? "تواصل سهل وطبيعي - أحياناً تحتاجان لتوضيح أكثر لكن التفاهم موجود" : 
-                    "أساليب تواصل مختلفة - أحدكما مباشر والآخر يفضل الإشارات الخفية"
+        description: communicationScore >= 8 ? "تشير الإجابات إلى تفضيلات متقاربة في التواصل." :
+                    communicationScore >= 5 ? "تظهر بعض النقاط المشتركة في أسلوب التعبير." :
+                    "تظهر تفضيلات مختلفة في التواصل؛ التجربة الفعلية قد تكون مختلفة."
       })
     }
     
@@ -441,9 +576,9 @@ export default function ResultsPage() {
         color: lifestyleStrength.color,
         bgColor: lifestyleStrength.bgColor,
         borderColor: lifestyleStrength.borderColor,
-        description: lifestyleScore >= 12 ? "تعيشان نفس الإيقاع - نوم مبكر أم سهر؟ رياضة أم قراءة؟ أنتما متفقان" : 
-                    lifestyleScore >= 8 ? "روتين متشابه مع لمسات مختلفة - ستجدان أنشطة مشتركة تستمتعان بها" : 
-                    "عوالم مختلفة تماماً - أحدكما صباحي والآخر ليلي، لكن هذا قد يكون مثيراً"
+        description: lifestyleScore >= 12 ? "تعكس الإجابات تشابهاً في بعض تفاصيل الروتين اليومي." :
+                    lifestyleScore >= 8 ? "تظهر بعض التفاصيل المشتركة وبعض الاختلاف في الروتين." :
+                    "تظهر في الإجابات تفضيلات يومية مختلفة."
       })
     }
     
@@ -454,22 +589,22 @@ export default function ResultsPage() {
         color: coreValuesStrength.color,
         bgColor: coreValuesStrength.bgColor,
         borderColor: coreValuesStrength.borderColor,
-        description: coreValuesScore >= 16 ? "نفس المبادئ والأحلام - تتفقان على ما هو مهم في الحياة" : 
-                    coreValuesScore >= 12 ? "قيم متقاربة مع اختلافات بسيطة - ستثري نقاشاتكما بوجهات نظر جديدة" : 
-                    "أولويات مختلفة في الحياة - ما يهمك قد لا يهمه والعكس صحيح"
+        description: coreValuesScore >= 16 ? "تشير الإجابات إلى نقاط تقارب في بعض القيم والأولويات." :
+                    coreValuesScore >= 12 ? "تظهر بعض القيم المشتركة إلى جانب فروقات محدودة." :
+                    "تظهر في الإجابات أولويات مختلفة تحتاج حواراً مباشراً لفهمها."
       })
     }
     
     if (vibeScore > 0) {
       components.push({
-        name: "التوافق الشخصي",
+        name: "الإيقاع الاجتماعي",
         strength: vibeStrength.level,
         color: vibeStrength.color,
         bgColor: vibeStrength.bgColor,
         borderColor: vibeStrength.borderColor,
-        description: vibeScore >= 12 ? "كيمياء قوية - طاقة متشابهة وحس دعابة متقارب، ستستمتعان بصحبة بعضكما" : 
-                    vibeScore >= 8 ? "انسجام جيد - شخصيتان لطيفتان ستجدان أرضية مشتركة للمرح" : 
-                    "طاقات مختلفة - أحدكما هادئ والآخر نشيط، قد تحتاجان وقت للتعود على بعضكما"
+        description: vibeScore >= 12 ? "تعكس الإجابات تشابهاً في الطاقة الاجتماعية والدعابة." :
+                    vibeScore >= 8 ? "تظهر بعض نقاط التقارب في الإيقاع الاجتماعي." :
+                    "تظهر في الإجابات إيقاعات اجتماعية مختلفة."
       })
     }
     
@@ -491,19 +626,19 @@ export default function ResultsPage() {
 
     if (isOpposites) {
       const dimensions = [
-        { label: 'إيقاع التفاعل', value: Number(breakdown?.interactionSynergy ?? 0), max: 20, bar: 'from-emerald-500 to-teal-500' },
-        { label: 'توافق القيم', value: Number(breakdown?.coreValuesAlignment ?? 0), max: 17, bar: 'from-violet-500 to-indigo-500' },
-        { label: 'توافق التواصل', value: Number(breakdown?.communicationAlignment ?? 0), max: 5, bar: 'from-indigo-500 to-sky-500' },
-        { label: 'اختلاف نمط الحياة', value: Number(breakdown?.lifestyleDifference ?? 0), max: 12, bar: 'from-cyan-500 to-blue-500' },
-        { label: 'اختلاف الطاقة', value: Number(breakdown?.vibeDifference ?? 0), max: 12, bar: 'from-purple-500 to-pink-500' },
-        { label: 'اختلاف الدعابة', value: Number(breakdown?.humorDifference ?? 0), max: 10, bar: 'from-amber-500 to-orange-500' },
+        { label: 'إيقاع التفاعل', value: Number(breakdown?.interactionSynergy ?? 0), max: 20 },
+        { label: 'توافق القيم', value: Number(breakdown?.coreValuesAlignment ?? 0), max: 17 },
+        { label: 'توافق التواصل', value: Number(breakdown?.communicationAlignment ?? 0), max: 5 },
+        { label: 'اختلاف نمط الحياة', value: Number(breakdown?.lifestyleDifference ?? 0), max: 12 },
+        { label: 'اختلاف الطاقة', value: Number(breakdown?.vibeDifference ?? 0), max: 12 },
+        { label: 'اختلاف الدعابة', value: Number(breakdown?.humorDifference ?? 0), max: 10 },
       ]
       const components = dimensions.map(dimension => {
         const ratio = dimension.max > 0 ? dimension.value / dimension.max : 0
         return {
           name: dimension.label,
-          strength: ratio >= 0.8 ? 'مرتفع' : ratio >= 0.6 ? 'جيد' : ratio >= 0.4 ? 'متوسط' : 'منخفض',
-          color: ratio >= 0.6 ? 'text-violet-300' : 'text-slate-300',
+          strength: ratio >= 0.75 ? 'إشارة مرتفعة' : ratio >= 0.45 ? 'إشارة متوسطة' : 'إشارة محدودة',
+          color: ratio >= 0.75 ? 'text-cyan-200' : ratio >= 0.45 ? 'text-violet-200' : 'text-slate-300',
           bgColor: 'bg-violet-500/10',
           borderColor: 'border-violet-400/25',
           description: dimension.label.startsWith('اختلاف')
@@ -649,11 +784,9 @@ export default function ResultsPage() {
 
     const strength = (score: number, maximum: number) => {
       const percentage = maximum > 0 ? (score / maximum) * 100 : 0
-      if (percentage >= 80) return { level: 'ممتاز', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400/30' }
-      if (percentage >= 60) return { level: 'جيد', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400/30' }
-      if (percentage >= 40) return { level: 'متوسط', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400/30' }
-      if (percentage >= 20) return { level: 'ضعيف', color: 'text-orange-400', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-400/30' }
-      return { level: 'منخفض', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400/30' }
+      if (percentage >= 75) return { level: 'إشارة مرتفعة', color: 'text-cyan-200', bgColor: 'bg-cyan-400/10', borderColor: 'border-cyan-300/20' }
+      if (percentage >= 45) return { level: 'إشارة متوسطة', color: 'text-violet-200', bgColor: 'bg-violet-400/10', borderColor: 'border-violet-300/20' }
+      return { level: 'إشارة محدودة', color: 'text-slate-300', bgColor: 'bg-slate-400/10', borderColor: 'border-slate-300/15' }
     }
     const components: CompatibilityComponent[] = []
     const addComponent = (name: string, score: number, maximum: number, descriptions: [string, string, string]) => {
@@ -670,49 +803,49 @@ export default function ResultsPage() {
     }
 
     addComponent('السياق المشترك', sharedContext, 6, [
-      'تركيز واهتمامات حالية تمنحكما أرضية حديث قوية.',
-      'توجد نقاط مشتركة جيدة يمكن البناء عليها.',
-      'قد تحتاجان لاكتشاف موضوع مشترك أثناء اللقاء.',
+      'تشير الإجابات إلى نقاط مشتركة في بعض الاهتمامات الحالية.',
+      'تظهر بعض نقاط الحديث المشتركة في الإجابات.',
+      'لم تظهر نقاط مشتركة كثيرة في الإجابات المحدودة.',
     ])
     addComponent('التوافق الدلالي بالذكاء الاصطناعي', aiVibe, 12, [
-      'تقارب واضح في الاهتمامات والطاقة ووصف الشخصية.',
-      'تشابه جيد في الاهتمامات مع مساحة للاكتشاف.',
-      'اهتمامات مختلفة قد تصنع حواراً جديداً أو تحتاج وقتاً.',
+      'تعكس الإجابات تقارباً في بعض الاهتمامات ووصف الإيقاع الاجتماعي.',
+      'تظهر بعض نقاط التقارب في الاهتمامات.',
+      'تظهر اهتمامات مختلفة ضمن الإجابات المتاحة.',
     ])
     addComponent('الانسجام التفاعلي', interaction, 20, [
-      'انسجام عالٍ في المبادرة وعمق الحديث والراحة مع الصمت.',
-      'إيقاع تفاعل جيد مع فروقات بسيطة قابلة للتنسيق.',
-      'اختلافات ملحوظة في أسلوب التفاعل تحتاج وقتاً للتأقلم.',
+      'تشير الإجابات إلى تقارب في المبادرة وعمق الحديث.',
+      'تظهر بعض نقاط التقارب في إيقاع التفاعل.',
+      'تظهر تفضيلات مختلفة في أسلوب التفاعل.',
     ])
     addComponent('الدعابة والانفتاح', humorOpen, 10, [
-      'حس فكاهي متقارب وارتياح جميل للانفتاح المبكر.',
-      'انسجام جيد في الدعابة ومستوى الانفتاح.',
-      'أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة.',
+      'تعكس الإجابات تشابهاً في الدعابة ومستوى الانفتاح.',
+      'تظهر بعض نقاط التقارب في الدعابة.',
+      'تظهر تفضيلات مختلفة في المزاح أو الانفتاح.',
     ])
     addComponent('راحة التقارب', attachment, 8, [
-      'احتياجات متقاربة للقرب والطمأنة والمساحة الشخصية.',
-      'إيقاع تقارب متوازن مع بعض الاختلافات البسيطة.',
-      'احتياجات مختلفة للتقارب تستفيد من الوضوح والصبر.',
+      'تعكس الإجابات تفضيلات متقاربة للقرب والمساحة الشخصية.',
+      'تظهر بعض نقاط التقارب في تفضيلات القرب.',
+      'تظهر تفضيلات مختلفة للقرب؛ وهذه ليست قراءة نفسية.',
     ])
     addComponent('نمط الحياة', lifestyle, 12, [
-      'روتين متقارب جداً في التوقيت والتخطيط والأنشطة.',
-      'تشابه جيد في الروتين مع اختلافات بسيطة.',
-      'إيقاعات يومية مختلفة قد تتطلب تنسيقاً.',
+      'تعكس الإجابات تشابهاً في بعض تفاصيل الروتين.',
+      'تظهر بعض التفاصيل اليومية المشتركة.',
+      'تظهر تفضيلات يومية مختلفة في الإجابات.',
     ])
     addComponent('القيم والحدود ولغة التعبير', valuesLanguage, 17, [
-      'تقارب قوي في القيم والحدود وطريقة التعبير.',
-      'أساس قيمي جيد مع فروقات يمكن مناقشتها بوضوح.',
-      'اختلافات في الأولويات أو الحدود تحتاج فهماً مبكراً.',
+      'تشير الإجابات إلى نقاط تقارب في بعض القيم والحدود.',
+      'تظهر بعض النقاط المشتركة إلى جانب فروقات.',
+      'تظهر أولويات أو حدود مختلفة ضمن الإجابات المتاحة.',
     ])
     addComponent('التواصل وإدارة الاختلاف', communication, 10, [
-      'تفاهم سريع وأساليب متقاربة عند التواصل والاختلاف.',
-      'تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح.',
-      'أساليب تواصل مختلفة قد تتطلب مرونة أكبر.',
+      'تعكس الإجابات تفضيلات متقاربة في التواصل والاختلاف.',
+      'تظهر بعض نقاط التقارب في أسلوب التواصل.',
+      'تظهر تفضيلات مختلفة في التواصل.',
     ])
     addComponent('هدف اللقاء', intent, 5, [
-      'اتجاهات متشابهة بوضوح في هدف اللقاء.',
-      'تقارب معقول في التوقعات والهدف.',
-      'توقعات مختلفة تستفيد من الوضوح المبكر.',
+      'تعكس الإجابات أهدافاً متشابهة لهذا التعارف.',
+      'تظهر بعض نقاط التقارب في الهدف المعلن.',
+      'تظهر توقعات مختلفة ضمن الإجابات المتاحة.',
     ])
 
     return {
@@ -752,11 +885,15 @@ export default function ResultsPage() {
         return
       }
 
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000)
+
       try {
         const res = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-match-results", secure_token: token }),
+          signal: controller.signal,
         })
 
         if (!res.ok) {
@@ -788,12 +925,21 @@ export default function ResultsPage() {
           })
           setError(null)
         } else {
-          setError(data.error || "لم يتم العثور على بيانات المشارك أو الرمز غير صحيح")
+          setError(
+            res.status === 401 || res.status === 403
+              ? "تعذّر التحقق من صلاحية عرض هذه النتائج. ارجع للرابط الذي وصلك من المنظّم."
+              : res.status === 404
+                ? "لم نجد نتائج مكتملة مرتبطة بهذه المشاركة بعد."
+                : "تعذّر تجهيز النتائج الآن. لم يتغير أي اختيار ويمكنك المحاولة مجدداً."
+          )
         }
       } catch (err) {
         console.error("Error fetching results:", err)
-        setError("حدث خطأ أثناء جلب البيانات")
+        setError(err instanceof DOMException && err.name === 'AbortError'
+          ? "انتهت مهلة تحميل النتائج. لم يتغير أي اختيار ويمكنك المحاولة مجدداً."
+          : "تعذّر تحميل النتائج الآن. لم يتغير أي اختيار ويمكنك المحاولة مجدداً.")
       } finally {
+        window.clearTimeout(timeoutId)
         setLoading(false)
       }
     }
@@ -815,16 +961,19 @@ export default function ResultsPage() {
   }, [resultsData])
 
   const getMatchStatusText = (match: MatchResult) => {
+    if (getNonMeetingOutcome(match)) {
+      return { text: "اللقاء لم يحدث", color: "text-violet-200", bgColor: "bg-violet-500", icon: Info }
+    }
     if (match.wants_match === null || match.wants_match === undefined) {
-      return { text: "لم تقيم بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
+      return { text: "لا يوجد قرار تواصل مسجّل", color: "text-slate-300", bgColor: "bg-slate-500", icon: Clock }
     }
     if (match.mutual_match) {
-      return { text: "مطابقة متبادلة!", color: "text-emerald-500", bgColor: "bg-emerald-100", icon: Heart }
+      return { text: "اتفق الاختياران على التواصل", color: "text-cyan-100", bgColor: "bg-cyan-500", icon: Handshake }
     }
     if (match.wants_match === false) {
-      return { text: "لا توجد مطابقة", color: "text-red-500", bgColor: "bg-red-100", icon: X }
+      return { text: "بقي التواصل خاصاً", color: "text-slate-300", bgColor: "bg-slate-500", icon: ShieldCheck }
     }
-    return { text: "لم تتحقق مطابقة", color: "text-gray-500", bgColor: "bg-gray-100", icon: Clock }
+    return { text: "لم يكتمل اتفاق التواصل", color: "text-violet-200", bgColor: "bg-violet-500", icon: ShieldCheck }
   }
 
   const eventGroups = (() => {
@@ -889,9 +1038,10 @@ export default function ResultsPage() {
           <div className="flex items-center gap-4">
             <Link 
               to="/" 
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+              aria-label="العودة للصفحة الرئيسية"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </Link>
             
             {resultsData && (
@@ -913,7 +1063,7 @@ export default function ResultsPage() {
             )}
           </div>
           
-          <Link to="/" className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.045] px-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] sm:px-4">
+          <Link to="/" aria-label="الصفحة الرئيسية" className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.045] px-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:px-4">
               <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg">
                 <img src="/blindmatch-imprint.png" alt="" className="h-8 w-8 scale-[1.3] object-contain opacity-100" />
               </span>
@@ -952,25 +1102,39 @@ export default function ResultsPage() {
             </div>
           ) : error ? (
             <div className={`text-center py-8 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-              <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <p className="text-lg font-semibold mb-2">خطأ في تحميل البيانات</p>
+              <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-violet-300" />
+              <p className="mb-2 text-lg font-semibold">تعذّر تحميل النتائج</p>
               <p>{error}</p>
-              <Link to="/" className="mt-4 inline-block">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <div className="mt-5 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <Button onClick={() => window.location.reload()} className="min-h-11 bg-violet-600 text-white hover:bg-violet-500">
+                  <RefreshCcw className="ml-2 h-4 w-4" aria-hidden="true" />
+                  إعادة المحاولة
+                </Button>
+                <Link to="/" className="inline-block">
+                <Button variant="outline" className="min-h-11 w-full border-slate-600 text-slate-300 hover:bg-slate-700">
                   العودة للصفحة الرئيسية
                 </Button>
-              </Link>
+                </Link>
+              </div>
             </div>
           ) : !resultsData?.history?.length ? (
             <div className={`text-center py-8 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-              <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-lg font-semibold mb-2">لا توجد نتائج مطابقة</p>
-              <p>لم تشارك في أي جلسات مطابقة بعد، أو لم تكتمل النتائج.</p>
-              <Link to="/" className="mt-4 inline-block">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  العودة للصفحة الرئيسية
+              <Search className="mx-auto mb-4 h-12 w-12 text-violet-300" aria-hidden="true" />
+              <p className="mb-2 text-lg font-semibold">النتائج غير جاهزة للعرض بعد</p>
+              <p className="mx-auto max-w-md text-sm leading-6 text-slate-400">
+                قد تكون النتائج ما زالت قيد التجهيز أو لا توجد جلسات مكتملة في هذه الفعالية. هذا لا يعني رفضاً أو نتيجة شخصية.
+              </p>
+              <div className="mt-5 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <Button onClick={() => window.location.reload()} className="min-h-11 bg-violet-600 text-white hover:bg-violet-500">
+                  <RefreshCcw className="ml-2 h-4 w-4" aria-hidden="true" />
+                  التحقق مرة أخرى
                 </Button>
-              </Link>
+                <Link to="/" className="inline-block">
+                  <Button variant="outline" className="min-h-11 w-full border-slate-600 text-slate-300 hover:bg-slate-700">
+                    العودة للصفحة الرئيسية
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -985,8 +1149,12 @@ export default function ResultsPage() {
                       ? 'border-cyan-300/20 bg-gradient-to-br from-cyan-400/[0.075] via-blue-500/[0.045] to-purple-500/[0.075] shadow-[inset_0_1px_0_rgba(255,255,255,.04)]'
                       : (dark ? 'bg-slate-700/30 border-slate-600/50' : 'bg-gray-50 border-gray-200')
                   }`}>
-                    <div
-                      className="p-4 cursor-pointer"
+                    <button
+                      type="button"
+                      id={`event-results-trigger-${event_id}`}
+                      aria-expanded={Boolean(isEventExpanded)}
+                      aria-controls={`event-results-panel-${event_id}`}
+                      className="w-full cursor-pointer p-4 text-right transition hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300"
                       onClick={() => setExpandedEvents(prev => ({ ...prev, [event_id]: !prev[event_id] }))}
                     >
                       <div className="flex items-center justify-between">
@@ -1023,17 +1191,24 @@ export default function ResultsPage() {
                         </div>
 
                         {isEventExpanded ? (
-                          <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                          <ChevronUp aria-hidden="true" className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
                         ) : (
-                          <ChevronDown className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                          <ChevronDown aria-hidden="true" className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
                         )}
                       </div>
-                    </div>
+                    </button>
 
                     {isEventExpanded && (
-                      <div className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4">
+                      <div
+                        id={`event-results-panel-${event_id}`}
+                        role="region"
+                        aria-labelledby={`event-results-trigger-${event_id}`}
+                        className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4"
+                      >
                         <div className="pt-4 space-y-3">
                           {items.map(({ match, matchIndex }) => {
+                            const meetingOutcome = getNonMeetingOutcome(match)
+                            const canInterpretMeeting = meetingOutcome === null
                             const status = getMatchStatusText(match)
                             const StatusIcon = status.icon
                             const isExpanded = expandedMatches[matchIndex]
@@ -1042,8 +1217,12 @@ export default function ResultsPage() {
                             return (
                               <div key={matchIndex} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.025)] transition duration-200 hover:border-cyan-300/15 hover:bg-white/[0.05]">
                                 {/* Collapsible Header */}
-                                <div 
-                                  className="cursor-pointer p-3 sm:p-4"
+                                <button
+                                  type="button"
+                                  id={`match-results-trigger-${event_id}-${matchIndex}`}
+                                  aria-expanded={Boolean(isExpanded)}
+                                  aria-controls={`match-results-panel-${event_id}-${matchIndex}`}
+                                  className="w-full cursor-pointer p-3 text-right transition hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300 sm:p-4"
                                   onClick={() => setExpandedMatches(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}
                                 >
                                   <div className="flex items-center justify-between">
@@ -1093,21 +1272,18 @@ export default function ResultsPage() {
                                         
                                         <div className="flex items-center gap-2 flex-wrap">
                                           {/* Same match badge for event3 */}
-                                          {!choiceOnlyMatch && e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
-                                            <span className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold">
-                                              <Trophy className="w-3.5 h-3.5" />
-                                              مطابقة مثالية!
+                                          {canInterpretMeeting && !choiceOnlyMatch && e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
+                                            <span className="flex items-center gap-1.5 rounded-full border border-violet-300/20 bg-violet-400/10 px-3 py-1.5 text-xs font-bold text-violet-100">
+                                              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                                              اتفق اختيارك مع ترشيح النظام
                                             </span>
                                           )}
-                                          {/* Status Badge - Enhanced for Mutual Match */}
-                                          {match.mutual_match ? (
-                                            <div className="relative">
-                                              <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
-                                              <span className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-xs font-black text-white shadow-lg sm:px-4 sm:py-2 sm:text-sm">
-                                                <Handshake className="w-4 h-4 animate-pulse" />
-                                                مطابقة متبادلة!
-                                              </span>
-                                            </div>
+                                          {/* Factual contact status without exposing the other person's choice. */}
+                                          {canInterpretMeeting && match.mutual_match ? (
+                                            <span className="flex items-center gap-2 rounded-full border border-cyan-200/25 bg-gradient-to-r from-cyan-400/15 to-violet-400/15 px-3 py-1.5 text-xs font-black text-cyan-50 sm:px-4 sm:py-2 sm:text-sm">
+                                              <Handshake className="h-4 w-4" aria-hidden="true" />
+                                              اتفق الاختياران على التواصل
+                                            </span>
                                           ) : (
                                             <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
                                               dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
@@ -1118,23 +1294,14 @@ export default function ResultsPage() {
                                           )}
                                           
                                           {/* Score Badge */}
-                                          {!choiceOnlyMatch && (
-                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                                              getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
-                                              getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
-                                              'bg-red-500/10 border border-red-500/30'
-                                            }`}>
-                                              <Award className={`w-3.5 h-3.5 ${
-                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                                'text-red-500'
-                                              }`} />
-                                              <span className={`text-sm font-bold ${
-                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                                'text-red-500'
-                                              }`}>
-                                                {getOriginalScore(match)}%
+                                          {canInterpretMeeting && !choiceOnlyMatch && (
+                                            <div
+                                              aria-label={`قراءة تقريبية: ${questionnaireSignal(availableScore(match))}${availableScore(match) === null ? '' : `، ${availableScore(match)} بالمئة`}`}
+                                              className="flex items-center gap-1.5 rounded-full border border-violet-300/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/10 px-3 py-1.5"
+                                            >
+                                              <Award className="h-3.5 w-3.5 text-cyan-200" aria-hidden="true" />
+                                              <span className="text-sm font-bold text-violet-100">
+                                                {availableScore(match) === null ? '—' : `${availableScore(match)}%`}
                                               </span>
                                             </div>
                                           )}
@@ -1143,24 +1310,31 @@ export default function ResultsPage() {
                                     </div>
                                     
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                      {match.mutual_match && (
-                                        <Handshake className="w-5 h-5 text-emerald-500 animate-pulse" />
-                                      )}
                                       {isExpanded ? (
-                                        <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                                        <ChevronUp aria-hidden="true" className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
                                       ) : (
-                                        <ChevronDown className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                                        <ChevronDown aria-hidden="true" className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
                                       )}
                                     </div>
                                   </div>
-                                </div>
+                                </button>
 
                                 {/* Expanded Content */}
                                 {isExpanded && (
-                                  <div className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4">
+                                  <div
+                                    id={`match-results-panel-${event_id}-${matchIndex}`}
+                                    role="region"
+                                    aria-labelledby={`match-results-trigger-${event_id}-${matchIndex}`}
+                                    className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4"
+                                  >
                                     <div className="pt-4 space-y-4">
+                          {/* The person's actionable result comes before optional interpretation. */}
+                          {meetingOutcome
+                            ? <MeetingOperationalOutcomeCard outcome={meetingOutcome} />
+                            : <ContactOutcomeCard match={match} />}
+
                           {/* Event 3: Match word display */}
-                          {match.match_word && (
+                          {canInterpretMeeting && match.match_word && (
                             <div className={`p-3 rounded-xl border text-center ${
                               match.match_type === 'choice'
                                 ? 'bg-pink-500/10 border-pink-500/20'
@@ -1179,69 +1353,110 @@ export default function ResultsPage() {
                             </div>
                           )}
                           {/* Event 3: Match preference indicator */}
-                          {match.match_preference && match.match_type === 'choice' && (
+                          {canInterpretMeeting && match.match_preference && match.match_type === 'choice' && (
                             <div className={`p-3 rounded-xl border flex items-center gap-2 ${matchPreferenceStyle(match.match_preference).box}`}>
                               <span className={`text-xs font-medium ${matchPreferenceStyle(match.match_preference).text}`}>
                                 تفضيلك: {matchPreferenceLabel(match.match_preference, choiceOnlyMatch)}
                               </span>
                             </div>
                           )}
-                          {choiceOnlyMatch && (
+                          {canInterpretMeeting && choiceOnlyMatch && (
                             <div className="rounded-2xl border border-pink-400/15 bg-pink-500/[0.07] p-4 text-sm leading-6 text-pink-100/80">
                               هذا اللقاء جاء من ترتيبكما المتبادل فقط. درجات التوافق والخوارزمية لم تدخل في اختيار الشريك.
                             </div>
                           )}
                           {/* Compatibility Score */}
-                          {!choiceOnlyMatch && (
-                          <div className="rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5">
-                            <div className="flex justify-between items-center mb-3">
-                              <div className="flex items-center gap-2">
-                                <Award className={`w-5 h-5 ${
-                                  getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                  getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                  'text-red-500'
-                                }`} />
-                                <span className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                  درجة التوافق الإجمالية
-                                </span>
-                              </div>
-                              <span className={`font-bold text-2xl ${
-                                getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                getOriginalScore(match) >= 30 ? 'text-orange-500' :
-                                'text-red-500'
-                              }`}>
-                                {getOriginalScore(match)}%
-                              </span>
+                          {canInterpretMeeting && !choiceOnlyMatch && (
+                          <section className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/[0.08] via-slate-950/30 to-cyan-400/[0.06] p-4 sm:p-5" aria-label="القراءة التقريبية للتوافق">
+                            {(() => {
+                              const score = availableScore(match)
+                              if (score === null) {
+                                return (
+                                  <div className="flex items-start gap-3">
+                                    <Info className="mt-0.5 h-5 w-5 shrink-0 text-violet-200" aria-hidden="true" />
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-100">تعذّر تجهيز الدرجة التقريبية</h4>
+                                      <p className="mt-1 text-xs leading-5 text-slate-400">هذا خلل في عرض القراءة، ولا يغيّر نتيجة مشاركة التواصل أو اختيار أي طرف.</p>
+                                    </div>
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <>
+                                  <div className="mb-3 flex items-start justify-between gap-4">
+                                    <div className="flex min-w-0 items-start gap-2.5">
+                                      <Award className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" aria-hidden="true" />
+                                      <div>
+                                        <h4 className="text-sm font-bold text-slate-100">قراءة تقريبية من الإجابات</h4>
+                                        <p className="mt-0.5 text-xs text-violet-200">{questionnaireSignal(score)}</p>
+                                      </div>
+                                    </div>
+                                    <span className="shrink-0 text-2xl font-black tabular-nums text-cyan-100">{score}%</span>
+                                  </div>
+                                  <div
+                                    role="progressbar"
+                                    aria-label="درجة التشابه التقريبية في الإجابات"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={score}
+                                    className="h-2.5 w-full overflow-hidden rounded-full bg-slate-700/80"
+                                  >
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-400 to-cyan-400 transition-[width] duration-500"
+                                      style={{ width: `${score}%` }}
+                                    />
+                                  </div>
+                                </>
+                              )
+                            })()}
+                            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-2.5">
+                              <Info className="mt-0.5 h-4 w-4 shrink-0 text-violet-200" aria-hidden="true" />
+                              <p className="text-[11px] leading-5 text-slate-300 sm:text-xs">
+                                هذه قراءة تقريبية مبنية على إجابات محدودة؛ لا تقيس قيمة الشخص، ولا تضمن الانجذاب أو التوافق.
+                              </p>
                             </div>
-                            <div className={`w-full h-2.5 rounded-full ${dark ? 'bg-slate-600' : 'bg-gray-200'}`}>
-                              <div 
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  getOriginalScore(match) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                  getOriginalScore(match) >= 50 ? 'bg-gradient-to-r from-yellow-500 to-amber-500' :
-                                  getOriginalScore(match) >= 30 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
-                                  'bg-gradient-to-r from-red-500 to-pink-500'
-                                }`}
-                                style={{ width: `${getOriginalScore(match)}%` }}
-                              ></div>
-                            </div>
-                          </div>
+                          </section>
                           )}
 
                           {/* Match Analysis */}
-                          {!choiceOnlyMatch && (
+                          {canInterpretMeeting && !choiceOnlyMatch && (
                           <div className="rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4">
                             {(() => {
                               const formattedReason = formatCompatibilityReason(match)
+                              const score = availableScore(match)
+                              if (score === null) {
+                                return (
+                                  <div className="flex items-start gap-3">
+                                    <Info className="mt-0.5 h-5 w-5 shrink-0 text-violet-200" aria-hidden="true" />
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-100">تعذّر تجهيز القراءة التفصيلية</h4>
+                                      <p className="mt-1 text-sm leading-6 text-slate-300">
+                                        هذا تأخير تقني في القراءة الاختيارية، ولا يغيّر نتيجة مشاركة التواصل أو اختيار أي طرف.
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => window.location.reload()}
+                                        className="mt-3 min-h-11 rounded-xl border border-violet-300/20 bg-violet-400/10 px-4 text-xs font-bold text-violet-100 transition hover:bg-violet-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                                      >
+                                        إعادة محاولة تحميل القراءة
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              }
                               if (formattedReason.components.length === 0) {
                                 return (
-                                  <div>
-                                    <h4 className={`font-semibold text-sm mb-1 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                      تحليل التوافق
+                                  <div className="flex items-start gap-3">
+                                    <Info className="mt-0.5 h-5 w-5 shrink-0 text-violet-200" aria-hidden="true" />
+                                    <div>
+                                    <h4 className={`mb-1 text-sm font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                      لا تتوفر تفاصيل كافية لهذه القراءة
                                     </h4>
-                                    <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-                                      لا يوجد تحليل متوفر
+                                    <p className={`text-sm leading-6 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
+                                      بقيت الإشارة الإجمالية أعلاه كما هي. غياب التفاصيل لا يعني رفضاً أو حكماً على أي شخص.
                                     </p>
+                                    </div>
                                   </div>
                                 )
                               }
@@ -1261,8 +1476,8 @@ export default function ResultsPage() {
                                     if (!(m?.newModel || hasNumeric)) return null
                                     return (
                                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                                      <div className={`mb-2 rounded-lg border px-2 py-1 text-[10px] font-bold ${m.balancedModel ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : m.oppositesModel ? 'border-violet-400/25 bg-violet-500/10 text-violet-300' : 'border-amber-400/25 bg-amber-500/10 text-amber-300'}`}>
-                                        {m.balancedModel ? 'النموذج الشخصي الحالي · لقطة وقت المطابقة · الأبعاد تشخيصية' : m.oppositesModel ? 'وضع الأضداد الحالي · لقطة وقت المطابقة · 76→100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
+                                      <div className="mb-2 rounded-lg border border-violet-300/15 bg-violet-400/[0.08] px-2 py-1.5 text-[11px] font-bold leading-5 text-violet-100">
+                                        {m.balancedModel ? 'قراءة تقريبية من إجابات وقت المطابقة' : m.oppositesModel ? 'قراءة تقريبية لنقاط التشابه والاختلاف' : `قراءة تقريبية محفوظة من الفعالية${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
                                       </div>
                                       {/* Matrix-like detailed criteria with value/max and % */}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1278,41 +1493,40 @@ export default function ResultsPage() {
                                             ? m.dimensions
                                             : m.balancedModel
                                             ? [
-                                                { label: 'السياق المشترك', value: m.sharedContext, max: 6, bar: 'from-sky-500 to-cyan-500' },
-                                                { label: 'توافق AI', value: vibeVal, max: 12, bar: 'from-purple-500 to-pink-500' },
-                                                { label: 'التفاعل', value: synergyVal, max: 20, bar: 'from-emerald-500 to-teal-500' },
-                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 10, bar: 'from-amber-500 to-orange-500' },
-                                                { label: 'راحة التقارب', value: m.attachment, max: 8, bar: 'from-rose-500 to-pink-500' },
-                                                { label: 'نمط الحياة', value: lifestyleVal, max: 12, bar: 'from-cyan-500 to-blue-500' },
-                                                { label: 'القيم/الحدود/اللغة', value: m.valuesLanguage, max: 17, bar: 'from-violet-500 to-indigo-500' },
-                                                { label: 'التواصل/الاختلاف', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
-                                                { label: 'الهدف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                                                { label: 'السياق المشترك', value: m.sharedContext, max: 6 },
+                                                { label: 'تقارب الإجابات', value: vibeVal, max: 12 },
+                                                { label: 'التفاعل', value: synergyVal, max: 20 },
+                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 10 },
+                                                { label: 'تفضيلات القرب', value: m.attachment, max: 8 },
+                                                { label: 'نمط الحياة', value: lifestyleVal, max: 12 },
+                                                { label: 'القيم/الحدود/اللغة', value: m.valuesLanguage, max: 17 },
+                                                { label: 'التواصل/الاختلاف', value: communicationVal, max: 10 },
+                                                { label: 'الهدف', value: intentVal, max: 5 },
                                               ]
                                             : [
-                                                { label: 'التفاعل', value: synergyVal, max: m.synergyMax ?? 35, bar: 'from-emerald-500 to-teal-500' },
-                                                { label: 'الطاقة', value: vibeVal, max: 25, bar: 'from-purple-500 to-pink-500' },
-                                                { label: 'نمط الحياة', value: lifestyleVal, max: 10, bar: 'from-cyan-500 to-blue-500' },
-                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15, bar: 'from-amber-500 to-orange-500' },
-                                                { label: 'التواصل', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
-                                                { label: 'الأهداف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                                                { label: 'التفاعل', value: synergyVal, max: m.synergyMax ?? 35 },
+                                                { label: 'الطاقة', value: vibeVal, max: 25 },
+                                                { label: 'نمط الحياة', value: lifestyleVal, max: 10 },
+                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15 },
+                                                { label: 'التواصل', value: communicationVal, max: 10 },
+                                                { label: 'الأهداف', value: intentVal, max: 5 },
                                               ]
-                                          return items.map(({ label, value, max, bar }, i) => {
+                                          return items.map(({ label, value, max }, i) => {
                                             const safeMax = max > 0 ? max : 1
                                             const raw = typeof value === 'number' ? value : 0
                                             const displayScore = Number(raw.toFixed(1))
                                             const pct = Math.max(0, Math.min(100, Math.round((raw / safeMax) * 100)))
-                                            const pctColor = pct >= 80 ? 'text-emerald-400' : pct >= 70 ? 'text-green-400' : pct >= 60 ? 'text-yellow-400' : pct >= 40 ? 'text-orange-400' : 'text-red-400'
                                             return (
                                               <div key={i} className="rounded-lg border border-white/[0.055] bg-slate-950/35 p-2.5">
                                                 <div className="flex items-center justify-between mb-1">
                                                   <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{label}</span>
                                                   <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-mono text-slate-400">{displayScore}/{safeMax}</span>
-                                                    <span className={`text-[11px] font-bold ${pctColor}`}>{pct}%</span>
+                                                    <span className="text-[11px] font-bold text-cyan-200">{pct}%</span>
                                                   </div>
                                                 </div>
                                                 <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                                                  <div className={`h-full rounded-full bg-gradient-to-r ${bar}`} style={{ width: `${pct}%` }} />
+                                                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${pct}%` }} />
                                                 </div>
                                               </div>
                                             )
@@ -1322,7 +1536,7 @@ export default function ResultsPage() {
                                     </div>
                                     )
                                   })()}
-                                  <h4 className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>تحليل التوافق</h4>
+                                  <h4 className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>ما الذي ظهر في الإجابات؟</h4>
                                   <div className="grid grid-cols-1 gap-2">
                                     {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, compIndex: number) => (
                                       <div
@@ -1349,27 +1563,35 @@ export default function ResultsPage() {
                           </div>
                           )}
 
-                          {/* AI Vibe Analysis Button (if exists) */}
-                          {!choiceOnlyMatch && match.ai_personality_analysis && (
-                            <div>
-                              <Button
+                          {/* Optional AI wording stays visually secondary to contact and score. */}
+                          {canInterpretMeeting && !choiceOnlyMatch && match.ai_personality_analysis && (
+                            <section className="rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-3 sm:p-4" aria-label="قراءة إضافية بالذكاء الاصطناعي">
+                              <button
+                                type="button"
+                                aria-expanded={Boolean(showAiAnalysis[matchIndex])}
+                                aria-controls={`ai-analysis-${match.event_id ?? 0}-${matchIndex}`}
                                 onClick={() => setShowAiAnalysis(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}
-                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm"
+                                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-violet-300/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/[0.08] px-4 text-sm font-bold text-violet-50 transition hover:border-cyan-200/30 hover:bg-violet-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
                               >
-                                <Sparkles className="w-4 h-4 ml-2" />
-                                {showAiAnalysis[matchIndex] ? "إخفاء التحليل الذكي" : "اكتشف سبب توافقكما الرائع!"}
-                              </Button>
+                                <Sparkles className="ml-2 h-4 w-4 text-cyan-200" aria-hidden="true" />
+                                {showAiAnalysis[matchIndex] ? "إخفاء القراءة الإضافية" : "عرض قراءة إضافية بالذكاء الاصطناعي"}
+                              </button>
                               
                               {showAiAnalysis[matchIndex] && (
-                                <div className={`mt-3 p-4 rounded-lg border ${
-                                  dark ? 'bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-purple-400/30' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
-                                }`}>
+                                <div
+                                  id={`ai-analysis-${match.event_id ?? 0}-${matchIndex}`}
+                                  role="region"
+                                  className="mt-3 rounded-xl border border-white/[0.07] bg-slate-950/35 p-4"
+                                >
                                   <div className="flex items-center gap-2 mb-3">
-                                    <Sparkles className={`w-5 h-5 ${dark ? 'text-purple-300' : 'text-purple-600'}`} />
-                                    <h4 className={`font-bold ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
-                                      لماذا تتوافقان بشكل رائع؟
+                                    <Sparkles className="h-5 w-5 text-violet-200" aria-hidden="true" />
+                                    <h4 className="font-bold text-violet-100">
+                                      ملاحظات محتملة من الإجابات
                                     </h4>
                                   </div>
+                                  <p className="mb-3 rounded-lg border border-cyan-300/10 bg-cyan-400/[0.05] px-3 py-2 text-[11px] leading-5 text-cyan-50/70">
+                                    هذه صياغة آلية قد تخطئ أو تبالغ. اعتبرها نقطة للتأمل، لا وصفاً مؤكداً لكما ولا توصية بالاستمرار.
+                                  </p>
                                   <p className={`text-sm leading-relaxed whitespace-pre-line ${
                                     dark ? 'text-slate-200' : 'text-gray-700'
                                   }`}>
@@ -1377,57 +1599,7 @@ export default function ResultsPage() {
                                   </p>
                                 </div>
                               )}
-                            </div>
-                          )}
-
-                          {/* Partner Contact Info (if mutual match) */}
-                          {match.mutual_match && (match.partner_name || match.partner_phone || match.partner_contact_message) && (
-                            <div className="relative overflow-hidden rounded-2xl border border-emerald-300/25 bg-gradient-to-br from-emerald-400/[0.15] via-cyan-400/[0.08] to-transparent p-4 shadow-[0_20px_50px_-30px_rgba(52,211,153,.8)] sm:p-5">
-                              <div className="pointer-events-none absolute -left-8 -top-10 h-28 w-28 rounded-full bg-emerald-300/15 blur-3xl" />
-                              <div className="relative mb-3 flex items-center gap-2">
-                                <Handshake className={`w-4 h-4 ${dark ? 'text-emerald-200' : 'text-emerald-700'}`} />
-                                <h4 className={`font-bold text-sm ${dark ? 'text-emerald-200' : 'text-emerald-700'}`}>
-                                  معلومات التواصل - مطابقة متبادلة!
-                                </h4>
-                              </div>
-                              <div className="relative grid gap-2 text-sm sm:grid-cols-3">
-                                {match.partner_name && (
-                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100">
-                                    <User className="w-3 h-3" />
-                                    <span>الاسم: </span>
-                                    <span className="font-bold">{match.partner_name}</span>
-                                  </div>
-                                )}
-                                {match.partner_age && (
-                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100">
-                                    <Users className="w-3 h-3" />
-                                    <span>العمر: </span>
-                                    <span className="font-bold">{match.partner_age}</span>
-                                  </div>
-                                )}
-                                {match.partner_phone && (
-                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100" dir="ltr">
-                                    <Phone className="w-3 h-3" />
-                                    <span>رقم الجوال: </span>
-                                    <span className="font-bold">{match.partner_phone}</span>
-                                  </div>
-                                )}
-                                {match.partner_contact_method === 'message' && match.partner_contact_message && (
-                                  <div className="flex items-start gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-3 text-slate-100 sm:col-span-3">
-                                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                                    <div className="min-w-0 text-right">
-                                      <p className="mb-1 text-xs font-bold text-cyan-100">
-                                        وسيلة التواصل التي شاركها {match.partner_name || 'الطرف الآخر'}
-                                      </p>
-                                      <p dir="auto" className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-white">
-                                        {match.partner_contact_message}
-                                      </p>
-                                      <p className="mt-1 text-[10px] leading-5 text-cyan-100/60">تم عرض الرسالة كما كتبها الطرف الآخر، من دون مشاركة رقم جواله.</p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            </section>
                           )}
 
                     </div>

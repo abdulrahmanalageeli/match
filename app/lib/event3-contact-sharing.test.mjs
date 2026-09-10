@@ -6,6 +6,7 @@ import {
   buildEvent3MutualContactShare,
   normalizeEvent3FeedbackPayload,
   normalizeEvent3MemoryWord,
+  sanitizeEvent3SavedFeedback,
 } from './event3-contact-sharing.mjs'
 
 const validFeedback = (overrides = {}) => ({
@@ -25,6 +26,8 @@ test('normalizes the two contact-sharing choices without retaining stale data', 
     arbitrary: 'must-not-persist',
   })), {
     value: {
+      meetingStatus: 'met',
+      meetingOccurred: true,
       compatibilityRate: 65,
       sliderMoved: true,
       conversationQuality: 4,
@@ -42,6 +45,8 @@ test('normalizes the two contact-sharing choices without retaining stale data', 
     contactMessage: exactMessage,
   })), {
     value: {
+      meetingStatus: 'met',
+      meetingOccurred: true,
       compatibilityRate: 65,
       sliderMoved: true,
       conversationQuality: 4,
@@ -59,6 +64,8 @@ test('normalizes the two contact-sharing choices without retaining stale data', 
     contactMessage: '@must-not-leak',
   })), {
     value: {
+      meetingStatus: 'met',
+      meetingOccurred: true,
       compatibilityRate: 65,
       sliderMoved: true,
       conversationQuality: 4,
@@ -67,6 +74,26 @@ test('normalizes the two contact-sharing choices without retaining stale data', 
     },
     error: null,
   })
+})
+
+test('records a meeting that did not happen without inventing ratings or a contact rejection', () => {
+  for (const meetingStatus of ['did_not_start', 'partner_absent', 'needed_help']) {
+    assert.deepEqual(normalizeEvent3FeedbackPayload({
+      meetingStatus,
+      compatibilityRate: 0,
+      wantConnect: false,
+      organizerImpression: '  ملاحظة تشغيلية  ',
+    }), {
+      value: {
+        meetingStatus,
+        meetingOccurred: false,
+        organizerImpression: 'ملاحظة تشغيلية',
+      },
+      error: null,
+    })
+  }
+
+  assert.ok(normalizeEvent3FeedbackPayload({ meetingStatus: 'unknown' }).error)
 })
 
 test('rejects incomplete and out-of-range ratings before accepting contact choices', () => {
@@ -91,6 +118,39 @@ test('accepts exactly one bounded memory word', () => {
   assert.ok(normalizeEvent3MemoryWord('').error)
   assert.ok(normalizeEvent3MemoryWord('كلمتان هنا').error)
   assert.ok(normalizeEvent3MemoryWord('x'.repeat(EVENT3_MEMORY_WORD_MAX_LENGTH + 1)).error)
+})
+
+test('sanitizes saved feedback for participant reveal without organizer-only or unknown fields', () => {
+  assert.deepEqual(sanitizeEvent3SavedFeedback({
+    meetingStatus: 'met',
+    meetingOccurred: true,
+    compatibilityRate: 65,
+    sliderMoved: true,
+    conversationQuality: 4,
+    personalConnection: 3,
+    wantConnect: true,
+    contactMethod: 'message',
+    contactMessage: 'Telegram: person',
+    organizerImpression: 'private note',
+    arbitrary: 'must not leak',
+  }), {
+    meetingStatus: 'met',
+    meetingOccurred: true,
+    compatibilityRate: 65,
+    sliderMoved: true,
+    conversationQuality: 4,
+    personalConnection: 3,
+    wantConnect: true,
+    contactMethod: 'message',
+    contactMessage: 'Telegram: person',
+  })
+
+  assert.deepEqual(sanitizeEvent3SavedFeedback({
+    meetingStatus: 'partner_absent',
+    meetingOccurred: false,
+    organizerImpression: 'private note',
+  }), { meetingStatus: 'partner_absent', meetingOccurred: false })
+  assert.equal(sanitizeEvent3SavedFeedback({ match_preference: 'choice' }), null)
 })
 
 test('reveals only the partner-selected contact method after mutual consent', () => {

@@ -243,6 +243,36 @@ test('untouched default feedback does not create historical evidence', () => {
   assert.equal(result.history_review_recommendation, null)
 })
 
+test('an operational non-meeting record never changes matching evidence or rater reliability', () => {
+  const rankingRows = [
+    { event_id: 24, ranker_number: 1, ranked_number: 2, rank: 1, auto_saved: false },
+    { event_id: 24, ranker_number: 1, ranked_number: 3, rank: 2, auto_saved: false },
+  ]
+  const baselineRows = [{ event_id: 24, participant_number: 1, phase2_partner: 2, phase2_feedback: null }]
+  const nonMeetingRows = [{
+    event_id: 24,
+    participant_number: 1,
+    phase2_partner: 2,
+    phase2_feedback: { meetingStatus: 'partner_absent', meetingOccurred: false },
+  }]
+  const baselineProfiles = buildRaterReliabilityProfiles({ currentEventId: 25, rankingRows, matchFeedbackRows: baselineRows })
+  const nonMeetingProfiles = buildRaterReliabilityProfiles({ currentEventId: 25, rankingRows, matchFeedbackRows: nonMeetingRows })
+  assert.deepEqual(nonMeetingProfiles.get(1), baselineProfiles.get(1))
+
+  const common = {
+    currentEventId: 25,
+    participants: [participant(1, warm), participant(2, warm), participant(3, reserved)],
+    rankingRows,
+  }
+  const baseline = createHistoricalMatchAnalyzer({ ...common, matchFeedbackRows: baselineRows }).analyzePair(1, 2)
+  const nonMeeting = createHistoricalMatchAnalyzer({ ...common, matchFeedbackRows: nonMeetingRows }).analyzePair(1, 2)
+  assert.equal(nonMeeting.history_priority_adjustment, baseline.history_priority_adjustment)
+  assert.equal(nonMeeting.historical_outcome_score, baseline.historical_outcome_score)
+  const operationalEntry = nonMeeting.history_timeline.find(entry => entry.source === 'pair_feedback')
+  assert.equal(operationalEntry.met, false)
+  assert.equal(operationalEntry.contributed_to_score, false)
+})
+
 test('a direct encounter without submitted feedback remains visible in the timeline without affecting the score', () => {
   const analyzer = createHistoricalMatchAnalyzer({
     currentEventId: 25,

@@ -330,6 +330,42 @@ function hasAcceptedRecognizedLegalVersion(participant: any) {
     && Boolean(participant?.consented_at)
 }
 
+function getParticipantAge(participant: any): number | null {
+  const candidates = [
+    participant?.age,
+    participant?.survey_data?.age,
+    participant?.survey_data?.answers?.age,
+  ]
+  for (const candidate of candidates) {
+    if (candidate == null || String(candidate).trim() === "") continue
+    const age = Number(candidate)
+    if (Number.isFinite(age) && age > 0 && age <= 120) return age
+  }
+  return null
+}
+
+function getParticipantGender(participant: any): string {
+  const gender = [
+    participant?.gender,
+    participant?.survey_data?.gender,
+    participant?.survey_data?.answers?.gender,
+  ].find(candidate => String(candidate ?? "").trim().length > 0)
+  return String(gender ?? "").trim().toLowerCase()
+}
+
+function getParticipantNationality(participant: any): string {
+  const nationality = [
+    participant?.nationality,
+    participant?.survey_data?.nationality,
+    participant?.survey_data?.answers?.nationality,
+  ].find(candidate => String(candidate ?? "").trim().length > 0)
+  return String(nationality ?? "").trim()
+}
+
+function participantHasPhone(participant: any): boolean {
+  return String(participant?.phone_number ?? "").trim().length > 0
+}
+
 function getOppositesBreakdownForDisplay(data: any, result: any = data?.result || {}) {
   const snapshot = parseScoreObject(data?.score_snapshot ?? data?.scoreSnapshot)
   const snapshotBreakdown = parseScoreObject(snapshot?.scoreBreakdown) || {}
@@ -835,6 +871,11 @@ export default function AdminPage() {
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
   const [legalAcceptanceFilter, setLegalAcceptanceFilter] = useState("all") // "all", "accepted", "pending"
   const [editedProfilesFilter, setEditedProfilesFilter] = useState("all") // "all", "edited", "never_edited"
+  const [ageFilter, setAgeFilter] = useState("all") // "all", age bands, "unknown"
+  const [eventFilter, setEventFilter] = useState("all") // "all", "current", "next", "past", "unassigned"
+  const [contactFilter, setContactFilter] = useState("all") // "all", "with_phone", "without_phone"
+  const [exclusionFilter, setExclusionFilter] = useState("all") // "all", "included", "excluded"
+  const [arrivalFilter, setArrivalFilter] = useState("all") // "all", "arrived", "on_way", "late", "cancelled"
   const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
   const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, {
     count: number
@@ -4186,6 +4227,107 @@ const fetchParticipants = async () => {
     }
   }, [participants])
 
+  const excludedParticipantNumbers = useMemo(
+    () => new Set(excludedParticipants.map(participant => participant.participant_number)),
+    [excludedParticipants],
+  )
+
+  const resetParticipantFilters = () => {
+    setSearchTerm("")
+    setSearchByPhone(false)
+    setShowEligibleOnly(false)
+    setEligibleSubFilter("none")
+    setGenderFilter("all")
+    setPaymentFilter("all")
+    setConfirmationFilter("all")
+    setWhatsappFilter("all")
+    setMatchInsightsFilter("all")
+    setLegalAcceptanceFilter("all")
+    setEditedProfilesFilter("all")
+    setSignupFilter("all")
+    setAgeFilter("all")
+    setEventFilter("all")
+    setContactFilter("all")
+    setExclusionFilter("all")
+    setArrivalFilter("all")
+    setShowDuplicatePhones(false)
+    setSortBy("number")
+  }
+
+  const applyParticipantFilterPreset = (preset: "choice_ready" | "current" | "survey_follow_up" | "first_contact") => {
+    resetParticipantFilters()
+    setExclusionFilter("included")
+
+    if (preset === "choice_ready") {
+      setEventFilter("current")
+      setConfirmationFilter("confirmed")
+      setPaymentFilter("done")
+      setContactFilter("with_phone")
+    } else if (preset === "current") {
+      setEventFilter("current")
+    } else if (preset === "survey_follow_up") {
+      setShowEligibleOnly(true)
+      setMatchInsightsFilter("incomplete")
+      setContactFilter("with_phone")
+    } else {
+      setEventFilter("current")
+      setWhatsappFilter("not_sent")
+      setContactFilter("with_phone")
+    }
+  }
+
+  const participantAudienceCounts = useMemo(() => {
+    const eligible = (participant: any) => !excludedParticipantNumbers.has(participant.assigned_number) && (
+      participant.event_id === currentEventId
+      || participant.signup_for_next_event === true
+      || participant.auto_signup_next_event === true
+    )
+    return {
+      choiceReady: participants.filter(participant => (
+        !excludedParticipantNumbers.has(participant.assigned_number)
+        && participant.event_id === currentEventId
+        && participant.attendance_confirmed === true
+        && participant.PAID_DONE === true
+        && participantHasPhone(participant)
+      )).length,
+      current: participants.filter(participant => (
+        !excludedParticipantNumbers.has(participant.assigned_number)
+        && participant.event_id === currentEventId
+      )).length,
+      surveyFollowUp: participants.filter(participant => (
+        eligible(participant)
+        && participantHasPhone(participant)
+        && !getParticipantMatchInsightsCompletion(participant).complete
+      )).length,
+      firstContact: participants.filter(participant => (
+        !excludedParticipantNumbers.has(participant.assigned_number)
+        && participant.event_id === currentEventId
+        && participant.PAID !== true
+        && participantHasPhone(participant)
+      )).length,
+    }
+  }, [participants, excludedParticipantNumbers, currentEventId])
+
+  const activeParticipantFilterCount = [
+    searchTerm.trim() !== "",
+    showEligibleOnly,
+    eligibleSubFilter !== "none",
+    genderFilter !== "all",
+    paymentFilter !== "all",
+    confirmationFilter !== "all",
+    whatsappFilter !== "all",
+    matchInsightsFilter !== "all",
+    legalAcceptanceFilter !== "all",
+    editedProfilesFilter !== "all",
+    signupFilter !== "all",
+    ageFilter !== "all",
+    eventFilter !== "all",
+    contactFilter !== "all",
+    exclusionFilter !== "all",
+    arrivalFilter !== "all",
+    showDuplicatePhones,
+  ].filter(Boolean).length
+
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
     // Reset visible count when filters change to show first batch
@@ -4194,6 +4336,8 @@ const fetchParticipants = async () => {
     const filtered = participants.filter(p => {
       // Search term filter - using debounced search for better performance
       const s = (debouncedSearch || "").trim();
+      const participantAge = getParticipantAge(p)
+      const participantGender = getParticipantGender(p)
       let matchesSearch = true;
       if (s !== "") {
         if (searchByPhone && /^p\d+$/i.test(s)) {
@@ -4207,7 +4351,8 @@ const fetchParticipants = async () => {
             p.assigned_number.toString().includes(s) ||
             pName.includes(s.toLowerCase()) ||
             phone.includes(s.replace(/\D/g, "")) ||
-            (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
+            participantGender.includes(s.toLowerCase()) ||
+            String(participantAge ?? "").includes(s) ||
             (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))
           );
         } else {
@@ -4215,14 +4360,15 @@ const fetchParticipants = async () => {
           matchesSearch = (
             p.assigned_number.toString().includes(s) ||
             pName.includes(s.toLowerCase()) ||
-            (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
+            participantGender.includes(s.toLowerCase()) ||
+            String(participantAge ?? "").includes(s) ||
             (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))
           );
         }
       }
       
       // Check if participant is excluded from all matching
-      const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number)
+      const isExcluded = excludedParticipantNumbers.has(p.assigned_number)
       
       // Eligible participants filter (current event or signed up for next event or auto-signup)
       // When eligible filter is active, also exclude participants in the excluded list
@@ -4237,20 +4383,42 @@ const fetchParticipants = async () => {
       // Nationality-based subfilter when Eligible Only is active
       // "withNationality": must have nationality column filled (non-null, non-empty)
       // "withoutNationality": eligible but nationality missing/empty
-      const hasNationality = (() => {
-        if (p.nationality == null) return false
-        if (typeof p.nationality === 'string') return p.nationality.trim().length > 0
-        return true
-      })()
-      const matchesEligibleSub = !showEligibleOnly || eligibleSubFilter === "none" || (
+      const hasNationality = getParticipantNationality(p).length > 0
+      const matchesEligibleSub = eligibleSubFilter === "none" || (
         eligibleSubFilter === "withNationality" ? hasNationality : !hasNationality
       )
       
       // Gender filter
       const matchesGender = genderFilter === "all" || (
-        (genderFilter === "male" && (p.survey_data?.gender === "male" || p.survey_data?.answers?.gender === "male")) ||
-        (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
+        (genderFilter === "male" && participantGender === "male") ||
+        (genderFilter === "female" && participantGender === "female")
       )
+
+      const matchesAge = ageFilter === "all"
+        || (ageFilter === "unknown" && participantAge == null)
+        || (ageFilter === "18_24" && participantAge != null && participantAge >= 18 && participantAge <= 24)
+        || (ageFilter === "25_29" && participantAge != null && participantAge >= 25 && participantAge <= 29)
+        || (ageFilter === "30_34" && participantAge != null && participantAge >= 30 && participantAge <= 34)
+        || (ageFilter === "35_39" && participantAge != null && participantAge >= 35 && participantAge <= 39)
+        || (ageFilter === "40_plus" && participantAge != null && participantAge >= 40)
+
+      const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true
+      const matchesEvent = eventFilter === "all"
+        || (eventFilter === "current" && p.event_id === currentEventId)
+        || (eventFilter === "next" && isNextEvent)
+        || (eventFilter === "past" && p.event_id != null && p.event_id !== currentEventId)
+        || (eventFilter === "unassigned" && p.event_id == null && !isNextEvent)
+
+      const hasPhone = participantHasPhone(p)
+      const matchesContact = contactFilter === "all"
+        || (contactFilter === "with_phone" && hasPhone)
+        || (contactFilter === "without_phone" && !hasPhone)
+
+      const matchesExclusion = exclusionFilter === "all"
+        || (exclusionFilter === "included" && !isExcluded)
+        || (exclusionFilter === "excluded" && isExcluded)
+
+      const matchesArrival = arrivalFilter === "all" || p.arrival_status === arrivalFilter
       
       // Payment filter - PAID = WhatsApp sent, PAID_DONE = actually paid
       let matchesPayment = true
@@ -4310,7 +4478,7 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesAge && matchesEvent && matchesContact && matchesExclusion && matchesArrival && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -4346,10 +4514,16 @@ const fetchParticipants = async () => {
         const latestA = Date.parse(surveyChangeCounts[a.assigned_number]?.lastChangedAt || '') || 0
         const latestB = Date.parse(surveyChangeCounts[b.assigned_number]?.lastChangedAt || '') || 0
         return latestB - latestA || a.assigned_number - b.assigned_number
+      } else if (sortBy === "age_asc" || sortBy === "age_desc") {
+        const ageA = getParticipantAge(a)
+        const ageB = getParticipantAge(b)
+        if (ageA == null) return ageB == null ? a.assigned_number - b.assigned_number : 1
+        if (ageB == null) return -1
+        return sortBy === "age_asc" ? ageA - ageB : ageB - ageA
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipantNumbers, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -8537,14 +8711,14 @@ Proceed?`
               <button
                 onClick={() => setEligibleSubFilter(prev => prev === 'withNationality' ? 'none' : 'withNationality')}
                 className={`px-3 py-2 rounded-xl border text-sm transition-all ${eligibleSubFilter === 'withNationality' ? 'bg-blue-500/20 border-blue-400/50 text-blue-300' : 'bg-white/10 border-white/20 text-slate-300'}`}
-                title="Eligible + Nationality filled"
+                title="Nationality is filled"
               >
                 Nat ✓
               </button>
               <button
                 onClick={() => setEligibleSubFilter(prev => prev === 'withoutNationality' ? 'none' : 'withoutNationality')}
                 className={`px-3 py-2 rounded-xl border text-sm transition-all ${eligibleSubFilter === 'withoutNationality' ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'bg-white/10 border-white/20 text-slate-300'}`}
-                title="Eligible + No nationality"
+                title="Nationality is missing"
               >
                 Nat ✗
               </button>
@@ -8618,7 +8792,132 @@ Proceed?`
 
         {/* Filter Controls */}
         <div className={`${isCohost ? 'hidden md:block ' : ''}bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4`}>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="h-5 w-5 text-cyan-300" />
+                <h3 className="font-bold text-white">Filter participants</h3>
+                {activeParticipantFilterCount > 0 && (
+                  <span className="rounded-full border border-cyan-400/30 bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-200">
+                    {activeParticipantFilterCount} active
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">Build a recipient list, select the result, then review it before bulk sending.</p>
+            </div>
+            {activeParticipantFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={resetParticipantFilters}
+                className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          <div className="mb-4 rounded-xl border border-violet-400/20 bg-violet-500/[0.06] p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-violet-200">
+              <Zap className="h-3.5 w-3.5" />
+              Quick targets
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => applyParticipantFilterPreset("choice_ready")} title="Current event, confirmed, paid, has phone, and not excluded" className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                Choice-round ready · {participantAudienceCounts.choiceReady}
+              </button>
+              <button type="button" onClick={() => applyParticipantFilterPreset("current")} title="Everyone assigned to the current event who is not excluded" className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-500/20">
+                Current event · {participantAudienceCounts.current}
+              </button>
+              <button type="button" onClick={() => applyParticipantFilterPreset("survey_follow_up")} title="Eligible participants with a phone who still have new survey questions to complete" className="rounded-lg border border-teal-400/30 bg-teal-500/10 px-3 py-2 text-xs font-semibold text-teal-200 transition-colors hover:bg-teal-500/20">
+                Survey follow-up · {participantAudienceCounts.surveyFollowUp}
+              </button>
+              <button type="button" onClick={() => applyParticipantFilterPreset("first_contact")} title="Current-event participants with a phone who have not been marked as contacted" className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20">
+                Needs first contact · {participantAudienceCounts.firstContact}
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-4">
+            {/* Core audience filters */}
+            <div className="relative">
+              <select
+                value={eventFilter}
+                onChange={(event) => setEventFilter(event.target.value)}
+                aria-label="Filter by event"
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 ${eventFilter !== "all" ? "border-blue-400/50 bg-blue-500/20 text-blue-200 focus:ring-blue-400/40" : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"}`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Events</option>
+                <option value="current" className="bg-slate-800 text-white">Current Event</option>
+                <option value="next" className="bg-slate-800 text-white">Next Event Signup</option>
+                <option value="past" className="bg-slate-800 text-white">Other / Past Event</option>
+                <option value="unassigned" className="bg-slate-800 text-white">No Event Assigned</option>
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
+
+            <div className="relative">
+              <select
+                value={ageFilter}
+                onChange={(event) => setAgeFilter(event.target.value)}
+                aria-label="Filter by age"
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 ${ageFilter !== "all" ? "border-fuchsia-400/50 bg-fuchsia-500/20 text-fuchsia-200 focus:ring-fuchsia-400/40" : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"}`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Ages</option>
+                <option value="18_24" className="bg-slate-800 text-white">Age 18–24</option>
+                <option value="25_29" className="bg-slate-800 text-white">Age 25–29</option>
+                <option value="30_34" className="bg-slate-800 text-white">Age 30–34</option>
+                <option value="35_39" className="bg-slate-800 text-white">Age 35–39</option>
+                <option value="40_plus" className="bg-slate-800 text-white">Age 40+</option>
+                <option value="unknown" className="bg-slate-800 text-white">Age Missing</option>
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
+
+            <div className="relative">
+              <select
+                value={contactFilter}
+                onChange={(event) => setContactFilter(event.target.value)}
+                aria-label="Filter by phone availability"
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 ${contactFilter !== "all" ? "border-green-400/50 bg-green-500/20 text-green-200 focus:ring-green-400/40" : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"}`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Contactability</option>
+                <option value="with_phone" className="bg-slate-800 text-white">Has Phone</option>
+                <option value="without_phone" className="bg-slate-800 text-white">Missing Phone</option>
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
+
+            <div className="relative">
+              <select
+                value={exclusionFilter}
+                onChange={(event) => setExclusionFilter(event.target.value)}
+                aria-label="Filter by matching inclusion"
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 ${exclusionFilter !== "all" ? "border-red-400/50 bg-red-500/20 text-red-200 focus:ring-red-400/40" : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"}`}
+              >
+                <option value="all" className="bg-slate-800 text-white">Included + Excluded</option>
+                <option value="included" className="bg-slate-800 text-white">Not Excluded</option>
+                <option value="excluded" className="bg-slate-800 text-white">Excluded Only</option>
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
+
+            <div className="relative">
+              <select
+                value={arrivalFilter}
+                onChange={(event) => setArrivalFilter(event.target.value)}
+                aria-label="Filter by arrival status"
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 ${arrivalFilter !== "all" ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-200 focus:ring-cyan-400/40" : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"}`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Arrival Statuses</option>
+                <option value="arrived" className="bg-slate-800 text-white">Arrived</option>
+                <option value="on_way" className="bg-slate-800 text-white">On the Way</option>
+                <option value="late" className="bg-slate-800 text-white">Running Late</option>
+                <option value="cancelled" className="bg-slate-800 text-white">Cancelled</option>
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
+
             {/* Eligible Filter Toggle */}
             <button
               onClick={() => setShowEligibleOnly(!showEligibleOnly)}
@@ -8640,14 +8939,14 @@ Proceed?`
             <button
               onClick={() => setEligibleSubFilter(prev => prev === 'withNationality' ? 'none' : 'withNationality')}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${eligibleSubFilter === 'withNationality' ? 'bg-blue-500/20 border-blue-400/50 text-blue-300' : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'}`}
-              title="Eligible + Nationality filled"
+              title="Nationality is filled"
             >
               <span className="text-sm font-medium">Nat ✓</span>
             </button>
             <button
               onClick={() => setEligibleSubFilter(prev => prev === 'withoutNationality' ? 'none' : 'withoutNationality')}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${eligibleSubFilter === 'withoutNationality' ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'}`}
-              title="Eligible + No nationality"
+              title="Nationality is missing"
             >
               <span className="text-sm font-medium">Nat ✗</span>
             </button>
@@ -8800,6 +9099,8 @@ Proceed?`
                 <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
                 <option value="survey_updated" className="bg-slate-800 text-white">Sort by Survey Update</option>
                 <option value="signup_time" className="bg-slate-800 text-white">Sort by Signup Time</option>
+                <option value="age_asc" className="bg-slate-800 text-white">Age: Youngest First</option>
+                <option value="age_desc" className="bg-slate-800 text-white">Age: Oldest First</option>
                 <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most Changed</option>
                 <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least Changed</option>
               </select>
@@ -8833,10 +9134,11 @@ Proceed?`
               </button>
             )}
 
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || legalAcceptanceFilter !== "all" || editedProfilesFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
+            {activeParticipantFilterCount > 0 && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
-                <span className="text-green-300 text-sm">Filtered: </span>
+                <span className="text-green-300 text-sm">Showing </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
+                <span className="text-green-300 text-sm"> of {participants.length}</span>
               </div>
             )}
 
@@ -8844,7 +9146,6 @@ Proceed?`
             {filteredParticipants.length > 0 && (
               <button
                 onClick={() => {
-                  const allVisibleNumbers = new Set(filteredParticipants.map(p => p.assigned_number))
                   const areAllSelected = filteredParticipants.every(p => selectedParticipants.has(p.assigned_number))
                   
                   if (areAllSelected) {
@@ -8868,14 +9169,29 @@ Proceed?`
                 {filteredParticipants.every(p => selectedParticipants.has(p.assigned_number)) ? (
                   <>
                     <CheckSquare className="w-4 h-4" />
-                    <span className="text-sm font-medium">Deselect All ({filteredParticipants.length})</span>
+                    <span className="text-sm font-medium">Deselect Filtered ({filteredParticipants.length})</span>
                   </>
                 ) : (
                   <>
                     <Square className="w-4 h-4" />
-                    <span className="text-sm font-medium">Select All Visible ({filteredParticipants.length})</span>
+                    <span className="text-sm font-medium">Select Filtered ({filteredParticipants.length})</span>
                   </>
                 )}
+              </button>
+            )}
+
+            {!isCohost && filteredParticipants.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedParticipants(new Set(filteredParticipants.map(participant => participant.assigned_number)))
+                  setShowBulkWhatsAppModal(true)
+                }}
+                className="flex items-center gap-2 rounded-xl border border-green-400/40 bg-green-500/15 px-4 py-2 text-sm font-bold text-green-200 transition-colors hover:bg-green-500/25"
+                title="Replace the current selection with every filtered participant and open the bulk-send review"
+              >
+                <Send className="h-4 w-4" />
+                Review WhatsApp to {filteredParticipants.length}
               </button>
             )}
 
@@ -8999,6 +9315,10 @@ Proceed?`
               // Determine color-coded border based on status - PRIORITY SYSTEM
               const exclusionEntry = excludedParticipants.find(ep => ep.participant_number === p.assigned_number);
               const isExcluded = Boolean(exclusionEntry);
+              const participantAge = getParticipantAge(p);
+              const participantGender = getParticipantGender(p);
+              const participantNationality = getParticipantNationality(p);
+              const hasPhone = participantHasPhone(p);
               const isPaid = p.attendance_confirmed === true && p.PAID_DONE === true;
               const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
@@ -9211,6 +9531,27 @@ Proceed?`
                         </div>
                       </div>
                     )}
+
+                    <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${participantAge == null ? "border-amber-400/30 bg-amber-500/10 text-amber-200" : "border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-200"}`}>
+                        {participantAge == null ? "Age missing" : `Age ${participantAge}`}
+                      </span>
+                      {participantGender && (
+                        <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold capitalize text-blue-200">
+                          {participantGender}
+                        </span>
+                      )}
+                      {!isCohost && participantNationality && (
+                        <span className="max-w-full truncate rounded-full border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[10px] font-bold text-violet-200" title={participantNationality}>
+                          {participantNationality}
+                        </span>
+                      )}
+                      {!isCohost && !hasPhone && (
+                        <span className="rounded-full border border-red-400/30 bg-red-500/10 px-2 py-1 text-[10px] font-bold text-red-200">
+                          No phone
+                        </span>
+                      )}
+                    </div>
 
                     {/* Event-day Twilio status — deliberately compact on cards; full controls live in the Twilio tab. */}
                     {(p.attendance_confirmed || p.attendance_denied_at || p.arrival_status || p.age_flex_years > 0 || p.discount_interest) && (

@@ -843,6 +843,16 @@ function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; his
   )
 }
 
+interface ParticipantPreferenceScore {
+  number: number
+  like_score: number
+  dislike_score: number
+  received_rankings: number
+  first_place_rate: number
+  last_place_rate: number
+  events_count: number
+}
+
 export default function AdminPage() {
   const location = useLocation()
   const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
@@ -885,6 +895,8 @@ export default function AdminPage() {
     totalFieldsChanged: number
     lastChangedAt: string | null
   }>>({})
+  const [participantPreferenceScores, setParticipantPreferenceScores] = useState<Record<number, ParticipantPreferenceScore>>({})
+  const [participantPreferenceScoresLoading, setParticipantPreferenceScoresLoading] = useState(false)
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
   const [sortBy, setSortBy] = useState("number") // includes edit percentage ascending/descending
   const [copied, setCopied] = useState(false)
@@ -2140,6 +2152,27 @@ const fetchSurveyChangeCounts = useCallback(async () => {
   }
 }, [])
 
+const fetchParticipantPreferenceScores = useCallback(async () => {
+  setParticipantPreferenceScoresLoading(true)
+  try {
+    const response = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "e3-get-all-rankings" }),
+    })
+    const data = await response.json()
+    const overall = data?.dislike_rankings?.overall
+    if (!response.ok || !Array.isArray(overall)) return
+    setParticipantPreferenceScores(Object.fromEntries(
+      overall.map((entry: ParticipantPreferenceScore) => [Number(entry.number), entry])
+    ))
+  } catch {
+    // Preference scores are supplementary; the next page load retries them.
+  } finally {
+    setParticipantPreferenceScoresLoading(false)
+  }
+}, [])
+
 const fetchParticipants = async () => {
   if (fetchingParticipantsRef.current) return
   fetchingParticipantsRef.current = true
@@ -3308,6 +3341,7 @@ const fetchParticipants = async () => {
     if (!authenticated) return
 
     fetchParticipants()
+    if (!isCohost) void fetchParticipantPreferenceScores()
     fetchExcludedPairs()
     fetchExcludedParticipants()
     fetchGroupExcludedParticipants()
@@ -3366,7 +3400,7 @@ const fetchParticipants = async () => {
       clearInterval(attInterval)
       clearInterval(receiptInterval)
     }
-  }, [authenticated])
+  }, [authenticated, fetchParticipantPreferenceScores, isCohost])
 
   useEffect(() => {
     if (!authenticated) return
@@ -4514,6 +4548,23 @@ const fetchParticipants = async () => {
         const latestA = Date.parse(surveyChangeCounts[a.assigned_number]?.lastChangedAt || '') || 0
         const latestB = Date.parse(surveyChangeCounts[b.assigned_number]?.lastChangedAt || '') || 0
         return latestB - latestA || a.assigned_number - b.assigned_number
+      } else if (sortBy.startsWith("preference_")) {
+        const preferenceA = participantPreferenceScores[a.assigned_number]
+        const preferenceB = participantPreferenceScores[b.assigned_number]
+        if (!preferenceA) return preferenceB ? 1 : a.assigned_number - b.assigned_number
+        if (!preferenceB) return -1
+
+        const isLikedSort = sortBy.startsWith("preference_liked_")
+        const descending = sortBy.endsWith("_desc")
+        const scoreA = isLikedSort ? preferenceA.like_score : preferenceA.dislike_score
+        const scoreB = isLikedSort ? preferenceB.like_score : preferenceB.dislike_score
+        const placementRateA = isLikedSort ? preferenceA.first_place_rate : preferenceA.last_place_rate
+        const placementRateB = isLikedSort ? preferenceB.first_place_rate : preferenceB.last_place_rate
+        const direction = descending ? -1 : 1
+        return ((scoreA - scoreB) * direction)
+          || ((placementRateA - placementRateB) * direction)
+          || preferenceB.received_rankings - preferenceA.received_rankings
+          || a.assigned_number - b.assigned_number
       } else if (sortBy === "age_asc" || sortBy === "age_desc") {
         const ageA = getParticipantAge(a)
         const ageB = getParticipantAge(b)
@@ -4523,7 +4574,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipantNumbers, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipantNumbers, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts, participantPreferenceScores])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -9103,6 +9154,14 @@ Proceed?`
                 <option value="age_desc" className="bg-slate-800 text-white">Age: Oldest First</option>
                 <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most Changed</option>
                 <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least Changed</option>
+                {!isCohost && (
+                  <>
+                    <option value="preference_liked_desc" className="bg-slate-800 text-white">Most Liked · All Events</option>
+                    <option value="preference_liked_asc" className="bg-slate-800 text-white">Least Liked · All Events</option>
+                    <option value="preference_disliked_desc" className="bg-slate-800 text-white">Most Disliked · All Events</option>
+                    <option value="preference_disliked_asc" className="bg-slate-800 text-white">Least Disliked · All Events</option>
+                  </>
+                )}
               </select>
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
@@ -9319,6 +9378,9 @@ Proceed?`
               const participantGender = getParticipantGender(p);
               const participantNationality = getParticipantNationality(p);
               const hasPhone = participantHasPhone(p);
+              const participantPreferenceScore = participantPreferenceScores[p.assigned_number];
+              const isPreferenceSorting = sortBy.startsWith("preference_");
+              const isLikedPreferenceSorting = sortBy.startsWith("preference_liked_");
               const isPaid = p.attendance_confirmed === true && p.PAID_DONE === true;
               const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
@@ -9529,6 +9591,33 @@ Proceed?`
                             {p.name}
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {isPreferenceSorting && (
+                      <div className={`mb-3 rounded-lg border px-3 py-2 ${
+                        isLikedPreferenceSorting
+                          ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                          : 'border-rose-400/30 bg-rose-500/10 text-rose-200'
+                      }`}>
+                        {participantPreferenceScore ? (
+                          <>
+                            <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+                              <span>{isLikedPreferenceSorting ? 'Liked score' : 'Disliked score'} · all events</span>
+                              <span className="text-sm font-black tabular-nums">
+                                {isLikedPreferenceSorting ? participantPreferenceScore.like_score : participantPreferenceScore.dislike_score}
+                                <span className="text-[10px] font-medium opacity-70">/100</span>
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[10px] text-slate-400">
+                              {participantPreferenceScore.received_rankings} manual rankings · {participantPreferenceScore.events_count} event{participantPreferenceScore.events_count === 1 ? '' : 's'}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-slate-400">
+                            {participantPreferenceScoresLoading ? 'Loading preference score…' : 'No manual ranking data'}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -10325,6 +10414,7 @@ Proceed?`
                         </div>
                       </div>
                     )}
+
                   </div>
                 </div>
               </div>

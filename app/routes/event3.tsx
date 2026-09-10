@@ -1693,7 +1693,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
           <div className="space-y-3.5">
             <div className="space-y-1 text-right">
               <p className="text-[10px] font-black text-purple-300/65">الصورة كاملة</p>
-              <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] font-black leading-8 text-white focus:outline-none">الزبدة في ثلاث خطوات</h2>
+              <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] font-black leading-8 text-white focus:outline-none">شرح سريع في ثلاث خطوات</h2>
               <p className="text-xs leading-6 text-gray-400">التطبيق يقول لك وين تروح وش تسوي؛ وأنت خلك حاضر في السالفة.</p>
             </div>
             <div className="space-y-2">
@@ -2098,8 +2098,8 @@ function TutorialModeChooser({
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 py-1 text-[10px] font-black text-cyan-100/80">
               <Timer size={12} /> على حسب وقتك
             </span>
-            <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-[1.85rem] font-black leading-[1.25] text-white focus:outline-none">كيف ودّك تعرف الفعالية؟</h1>
-            <p className="mt-2 text-sm leading-7 text-gray-400">خذ الزبدة بسرعة، أو امش معنا خطوة بخطوة.</p>
+            <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-[1.85rem] font-black leading-[1.25] text-white focus:outline-none">اختر طريقة الشرح</h1>
+            <p className="mt-2 text-sm leading-7 text-gray-400">شرح سريع للمختصر، أو شرح شامل خطوة بخطوة.</p>
           </div>
 
           <div className="space-y-3">
@@ -2112,7 +2112,7 @@ function TutorialModeChooser({
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.08] text-cyan-100"><Clock size={21} /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[10px] font-black text-cyan-100/55">الخيار ١</span>
-                <span className="mt-0.5 block text-[16px] font-black text-white">الزبدة بسرعة</span>
+                <span className="mt-0.5 block text-[16px] font-black text-white">شرح سريع</span>
                 <span className="mt-1 block text-xs text-gray-400">٣ خطوات · أقل من دقيقة</span>
               </span>
               <ArrowLeft size={18} className="shrink-0 text-cyan-100/60 transition-transform group-hover:-translate-x-1" />
@@ -2140,11 +2140,11 @@ function TutorialModeChooser({
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-purple-100 backdrop-blur-md"><Sparkles size={18} /></span>
                 </span>
                 <span>
-                  <span className="block text-xl font-black text-white">الجولة الكاملة</span>
+                  <span className="block text-xl font-black text-white">شرح شامل</span>
                   <span className="mt-1.5 block max-w-[18rem] text-xs font-medium leading-6 text-white/70">شرح مرئي لكل شيء من أول طاولة لين كشف النتائج.</span>
                   <span className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
                     <span className="text-[9px] font-bold text-white/45">مشاهد تصوّرية مولّدة بالذكاء الاصطناعي</span>
-                    <span className="flex items-center gap-1 text-xs font-black text-purple-100">ابدأ الجولة <ArrowLeft size={15} className="transition-transform group-hover:-translate-x-1" /></span>
+                    <span className="flex items-center gap-1 text-xs font-black text-purple-100">ابدأ الشرح <ArrowLeft size={15} className="transition-transform group-hover:-translate-x-1" /></span>
                   </span>
                 </span>
               </span>
@@ -2217,7 +2217,7 @@ function ChoiceTutorialDeck({
       className="event3-choice-story relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{ "--event3-story-accent": slide.accent } as React.CSSProperties}
     >
-      <div className="event3-tutorial-progress h-1 w-full bg-gray-800/50" role="progressbar" aria-label="تقدم الجولة الكاملة" aria-valuemin={1} aria-valuemax={CHOICE_TUTORIAL_SLIDES.length} aria-valuenow={step + 1}>
+      <div className="event3-tutorial-progress h-1 w-full bg-gray-800/50" role="progressbar" aria-label="تقدم الشرح الشامل" aria-valuemin={1} aria-valuemax={CHOICE_TUTORIAL_SLIDES.length} aria-valuenow={step + 1}>
         <motion.div
           className="h-full bg-[rgb(var(--event3-story-accent))] shadow-[0_0_16px_rgba(var(--event3-story-accent),.7)]"
           animate={{ width: `${((step + 1) / CHOICE_TUTORIAL_SLIDES.length) * 100}%` }}
@@ -2236,7 +2236,7 @@ function ChoiceTutorialDeck({
           <ChevronRight size={15} className="rotate-180" />
           {step === 0 ? "اختيار الشرح" : "السابق"}
         </button>
-        <span className="flex items-center gap-1.5 text-[11px] font-black text-purple-100/80"><Sparkles size={12} /> الجولة الكاملة</span>
+        <span className="flex items-center gap-1.5 text-[11px] font-black text-purple-100/80"><Sparkles size={12} /> الشرح الشامل</span>
         <span dir="ltr" className="font-mono text-xs tabular-nums text-white/45">{step + 1} / {CHOICE_TUTORIAL_SLIDES.length}</span>
       </div>
 

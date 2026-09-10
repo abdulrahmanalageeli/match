@@ -2486,7 +2486,8 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             {showLogout && onLogout && (
               <ParticipantLogoutButton
                 onLogout={onLogout}
-                className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))]"
+                compact
+                className="!absolute left-[max(1rem,env(safe-area-inset-left))] top-[max(1rem,env(safe-area-inset-top))] z-20 h-11 w-11 rounded-full !px-0 !py-0"
               />
             )}
             <div className="flex w-full max-w-sm flex-col items-center">

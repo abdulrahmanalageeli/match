@@ -3936,7 +3936,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     setGroupActivityStage("warmup")
     setShowTutorial(false)
     setShowGroupParticipationNudge(false)
-    setParticipationNudgePending(false)
     lastPublishedSignatureRef.current = ""
     publishQueueRef.current = Promise.resolve()
   }, [])

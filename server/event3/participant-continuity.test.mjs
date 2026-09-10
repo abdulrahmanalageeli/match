@@ -63,6 +63,15 @@ test("Event3 client only clears identity for the explicit invalid-token code", a
   assert.match(fetchState, /if \(d\.my_info && typeof d\.my_info === "object"\) setMyInfo\(d\.my_info\)/)
 })
 
+test("Event3 RoundScreen resets the declared participation nudge state on mount", async () => {
+  const route = await read("app/routes/event3.tsx")
+  const round = between(route, "function RoundScreen", "// ─── Ranking Tutorial Overlay")
+  const reset = between(round, "const resetTableScopedUi = useCallback", "const applyCoordinationState")
+
+  assert.match(reset, /setShowGroupParticipationNudge\(false\)/)
+  assert.doesNotMatch(round, /setParticipationNudgePending/, "RoundScreen must not call an undeclared stale setter")
+})
+
 test("Event3 organizer help and broadcast actions stay in flow without covering session content", async () => {
   const route = await read("app/routes/event3.tsx")
   const support = between(route, "function SOSButton", "// ─── Phase 2 Reveal Screen")

@@ -3666,26 +3666,6 @@ export default function WelcomePage() {
             <ParticipantLogoutControl />
             </div>
           </nav>
-          {showRegistrationContent && secureToken && (
-            <button
-              onClick={() => {
-                window.location.href = `/welcome?token=${secureToken}&flow=returning`
-              }}
-              className="welcome-soft-action inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5"
-            >
-              <span className="text-[10px] font-medium text-slate-500">التفضيل</span>
-              <span className="text-[10px] font-bold text-blue-300">
-                {returningGenderPreference === 'same_gender'
-                  ? 'نفس الجنس'
-                  : returningGenderPreference === 'any_gender'
-                    ? 'أي جنس'
-                    : returningGenderPreference === 'opposite_gender'
-                      ? 'الجنس الآخر'
-                      : '...'}
-              </span>
-              <span className="text-[10px] text-slate-600">· تغيير</span>
-            </button>
-          )}
         </div>
       </div>
     );
@@ -7811,7 +7791,7 @@ export default function WelcomePage() {
         }}></div>
 
         {/* Main Content */}
-        <div className="welcome-scroll relative z-10 flex min-h-[100dvh] items-start justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="welcome-scroll relative z-10 flex min-h-[100dvh] items-start justify-center px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4">
           <div className="max-w-4xl w-full">
             {/* Initial Loading Animation */}
             <AnimatePresence mode="wait" initial={false}>
@@ -7848,14 +7828,14 @@ export default function WelcomePage() {
               >
                 <h1 className="sr-only">بلايند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
                 {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
-                <div className="h-24 sm:h-24" aria-hidden="true" />
+                <div className="h-20 sm:h-24" aria-hidden="true" />
 
                 {/* Upcoming event — intentionally kept as a slim companion to the existing boxes. */}
                 {(upcomingEventLoading || upcomingEvent) && (
                   <section
                     aria-label="معلومات الفعالية القادمة"
                     aria-busy={upcomingEventLoading}
-                    className="mx-3 mb-4 mt-3 max-w-5xl sm:mx-auto sm:mt-0"
+                    className="mx-0 mb-4 mt-3 max-w-5xl sm:mx-auto sm:mt-0"
                   >
                     <div className="welcome-event-card relative isolate overflow-hidden rounded-3xl border p-3 sm:p-4">
                       <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/75 to-transparent" aria-hidden="true" />
@@ -8004,8 +7984,425 @@ export default function WelcomePage() {
                   </section>
                 )}
 
+                {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
+                {false && !(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                    <div className="text-center mb-6">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
+                      <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    
+                    {/* Previous Participant Card */}
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                        <UserCheck className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشارك سابق</h3>
+                      
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
+                      
+                      <button
+                        onClick={handleAutoSignupNextEvent}
+                        disabled={nextEventSignupLoading || showNextEventSignup}
+                        className={`w-full border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-sm py-3 rounded-lg ${
+                          showNextEventSignup 
+                            ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                            : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
+                        } text-white`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          {nextEventSignupLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>جاري التسجيل...</span>
+                            </>
+                          ) : showNextEventSignup ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              <span>مسجل بالفعل ✓</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>سجل في الفعالية القادمة</span>
+                              <ChevronLeft className="w-4 h-4 transform rotate-180" />
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* New Player Card */}
+                    {!resultToken && !returningPlayerToken && (
+                      <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300" data-section="new-user">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                          <UserPlus className="w-6 h-6 text-white" />
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشترك جديد</h3>
+                        <p className="text-cyan-200 text-xs sm:text-sm mb-3">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                          <Button
+                            onClick={async () => {
+                              setLoading(true)
+                              try {
+                                const res = await fetch("/api/participant", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "create-token" }),
+                                })
+                                const data = await res.json()
+                                console.log("Token creation response:", data)
+                                
+                                if (res.status === 403) {
+                                  // Registration is closed
+                                  toast.error(data.message || "التسجيل مغلق حالياً")
+                                  return
+                                }
+                                
+                                if (res.ok && data.secure_token) {
+                                  setAssignedNumber(data.assigned_number)
+                                  // Mark just-created to show modal after redirect
+                                  sessionStorage.setItem('justCreatedToken', '1')
+                                  sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                                  saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
+                                  console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
+                                  // Try multiple redirect methods to ensure it works
+                                  try {
+                                    window.location.href = `/welcome?token=${data.secure_token}`
+                                  } catch (redirectError) {
+                                    console.error("Redirect failed, trying alternative:", redirectError)
+                                    window.location.replace(`/welcome?token=${data.secure_token}`)
+                                  }
+                                } else {
+                                  console.error("Token creation failed:", data)
+                                  toast.error("فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
+                                }
+                              } catch (err) {
+                                console.error("Error creating token:", err)
+                                // alert("❌ فشل في الحصول على رقم")
+                              } finally {
+                                setLoading(false)
+                              }
+                            }}
+                            disabled={loading || phase === "round_1"}
+                            className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
+                              phase === "round_1" 
+                                ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                                : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
+                            } text-white`}
+                          >
+                            {loading ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                جاري التخصيص...
+                              </div>
+                            ) : phase === "round_1" ? (
+                              "الجولة الفردية نشطة حالياً"
+                            ) : (
+                              "ابدأ رحلتك!"
+                            )}
+                          </Button>
+                      </div>
+                    )}
+
+                  </div>
+                  </div>
+                )}
+
+                {/* Pending Event3 Feedback Notification */}
+                {pendingFeedbacks.length > 0 && !showRemoteFeedback && (
+                  <div className="mx-auto mt-1 max-w-4xl px-0 animate-in slide-in-from-bottom-4 duration-1000 delay-900 sm:px-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 p-4 sm:p-5 shadow-lg shadow-amber-900/20"
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+                      {/* Pulsing glow */}
+                      <motion.div
+                        className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/20 blur-3xl"
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <div className="relative z-10 flex items-start gap-3">
+                        <motion.div
+                          animate={{ scale: [1, 1.08, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="w-10 h-10 rounded-xl bg-amber-500/25 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5"
+                        >
+                          <Bell className="w-5 h-5 text-amber-400" />
+                        </motion.div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-amber-300 text-sm font-black">لديك تقييمات غير مكتملة</h4>
+                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold rounded-full px-2 py-0.5">
+                              {pendingFeedbacks.length}
+                            </span>
+                          </div>
+                          <p className="text-gray-300 text-xs leading-relaxed">
+                            لديك {pendingFeedbacks.length} تقييم غير مكتمل من لقاءاتك. أكملها الآن لتحسين تجربتك المستقبلية.
+                          </p>
+                          {/* List of pending feedbacks */}
+                          <div className="space-y-1.5 mt-2">
+                            {pendingFeedbacks.slice(0, 3).map((pf, i) => (
+                              <div key={`${pf.event_id}-${pf.phase}`} className="flex items-center justify-between bg-white/[0.04] rounded-lg px-3 py-2 border border-white/[0.06]">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                                    pf.phase === "phase2"
+                                      ? "bg-pink-500/15 text-pink-300 border border-pink-500/20"
+                                      : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
+                                  }`}>
+                                    {pendingFeedbackPhaseLabel(pf)}
+                                  </span>
+                                  <span className="text-gray-400 text-xs">فعالية #{pf.event_id}</span>
+                                  <span className="text-gray-500 text-xs">·</span>
+                                  <span className="text-white/80 text-xs font-medium">{pf.partner_name}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {pendingFeedbacks.length > 3 && (
+                              <p className="text-gray-500 text-[10px] text-center">+ {pendingFeedbacks.length - 3} أخرى</p>
+                            )}
+                          </div>
+                          <motion.button
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => { console.log('[pending-feedbacks] Opening remote feedback modal, pending:', pendingFeedbacks); setRemoteFeedbackIndex(0); setShowRemoteFeedback(true) }}
+                            className="w-full mt-2 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Send className="w-4 h-4" />
+                            أكمل التقييمات الآن
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+
+                {showAutoSignupPrompt && showNextEventSignup && !autoSignupEnabled && (
+                  <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تفعيل التسجيل التلقائي" className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md">
+                    <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-emerald-300/20 bg-slate-900/95 p-6 text-center shadow-[0_30px_90px_-35px_rgba(52,211,153,.7)]" dir="rtl">
+                      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
+                      <button type="button" onClick={() => setShowAutoSignupPrompt(false)} aria-label="إغلاق" className="absolute left-4 top-4 rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white">
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10">
+                        <Sparkles className="h-7 w-7 text-emerald-300" />
+                      </div>
+                      <h3 className="relative text-xl font-black text-white">هل نُسجّلك تلقائياً؟</h3>
+                      <p className="relative mt-2 text-sm leading-6 text-slate-300">فعّل التسجيل التلقائي للفعاليات القادمة، ولن تحتاج إلى التسجيل يدوياً في كل مرة.</p>
+                      <div className="relative mt-5 grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setShowAutoSignupPrompt(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">لاحقاً</button>
+                        <button type="button" onClick={enableAutoSignup} disabled={nextEventSignupLoading} className="rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/30 transition hover:brightness-110 disabled:opacity-50">
+                          {nextEventSignupLoading ? 'جاري التفعيل...' : 'نعم، فعّله'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Navbar for Saved Data Users */}
+                {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <div className="mx-auto mt-0 max-w-5xl px-0 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                    <div className="welcome-actions-panel rounded-3xl p-2.5 sm:p-3">
+                      
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                        {/* Next Event Signup Card - Full Width Row 1 */}
+                        <div id="next-event-signup-card" className={`welcome-next-event-card relative col-span-1 rounded-2xl p-3 text-right group sm:col-span-2 ${
+                          showNextEventSignup 
+                            ? "welcome-next-event-card--registered"
+                            : "welcome-next-event-card--available"
+                        }`}
+                        >
+                          {!showNextEventSignup && !upcomingEvent?.seatsFull && (
+                            <button
+                              type="button"
+                              aria-label="التسجيل في الفعالية القادمة"
+                              className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                              onClick={handleAutoSignupNextEvent}
+                            />
+                          )}
+                          <UserCheck className={`h-5 w-5 text-emerald-200 ${showNextEventSignup ? "opacity-70" : ""}`} />
+                          <h4 className="text-sm font-bold text-white sm:text-base">
+                            {nextEventAttendanceConfirmed
+                              ? "حضورك مؤكد ✓"
+                              : showNextEventSignup
+                                ? "مسجل مبدئياً — غير مؤكد"
+                                : upcomingEvent?.seatsFull
+                                  ? "المقاعد مكتملة"
+                                  : "سجل للفعالية القادمة"}
+                          </h4>
+                          <p className="text-[11px] text-slate-400 sm:text-xs">
+                            {nextEventAttendanceConfirmed
+                              ? "دفعتك معتمدة ومقعدك محفوظ لهذه الفعالية"
+                              : showNextEventSignup
+                                ? "لم تُعتمد دفعة لهذه الفعالية، لذلك لا تتوجه إلى الموقع"
+                                : upcomingEvent?.seatsFull
+                                  ? "لا تتوفر مقاعد أو دفعات جديدة لهذه الفعالية"
+                                  : "سجل باستخدام حسابك الحالي"}
+                          </p>
+                          
+                          {!showNextEventSignup && !upcomingEvent?.seatsFull ? (
+                            <div className="flex items-center gap-1 text-emerald-300">
+                              <span className="text-xs font-medium">انقر للتسجيل</span>
+                              <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+                            </div>
+                          ) : showNextEventSignup ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {/* Unregister from Next Event Button */}
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const confirmed = window.confirm(
+                                    "هل أنت متأكد من إلغاء تسجيلك في الفعالية القادمة؟\n\nيمكنك التسجيل مرة أخرى لاحقاً."
+                                  );
+                                  if (!confirmed) return;
+                                  
+                                  setNextEventSignupLoading(true);
+                                  try {
+                                    const token = resultToken || returningPlayerToken;
+                                    const response = await fetch("/api/participant", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ 
+                                        action: "unregister-next-event",
+                                        secure_token: token
+                                      }),
+                                    });
+                                    
+                                    const data = await response.json();
+                                    if (response.ok) {
+                                      setShowNextEventSignup(false);
+                                      setNextEventAttendanceConfirmed(null);
+                                      toast.success("تم إلغاء تسجيلك في الفعالية القادمة بنجاح");
+                                    } else {
+                                      toast.error(`فشل إلغاء التسجيل: ${data.error}`);
+                                    }
+                                  } catch (error) {
+                                    toast.error(`خطأ في الشبكة: ${error}`);
+                                  }
+                                  setNextEventSignupLoading(false);
+                                }}
+                                disabled={nextEventSignupLoading}
+                                className="rounded-lg border border-orange-400/20 bg-orange-400/10 px-3 py-1.5 text-[11px] font-medium text-orange-200 transition-colors hover:bg-orange-400/15"
+                              >
+                                {nextEventSignupLoading ? "جاري الإلغاء..." : "إلغاء التسجيل"}
+                              </button>
+                              
+                              {/* Disable Auto-Signup Button (if enabled) */}
+                              {autoSignupEnabled ? (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const confirmed = window.confirm(
+                                      "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
+                                    );
+                                    if (!confirmed) return;
+                                    
+                                    setNextEventSignupLoading(true);
+                                    try {
+                                      const token = resultToken || returningPlayerToken;
+                                      const response = await fetch("/api/participant", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ 
+                                          action: "disable-auto-signup",
+                                          secure_token: token
+                                        }),
+                                      });
+                                      
+                                      const data = await response.json();
+                                      if (response.ok) {
+                                        setAutoSignupEnabled(false);
+                                        toast.success("تم إيقاف التسجيل التلقائي بنجاح");
+                                      } else {
+                                        toast.error(`فشل إيقاف التسجيل: ${data.error}`);
+                                      }
+                                    } catch (error) {
+                                      toast.error(`خطأ في الشبكة: ${error}`);
+                                    }
+                                    setNextEventSignupLoading(false);
+                                  }}
+                                  disabled={nextEventSignupLoading}
+                                  className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-400/15"
+                                >
+                                  إيقاف التسجيل التلقائي
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setShowAutoSignupPrompt(true)
+                                  }}
+                                  disabled={nextEventSignupLoading}
+                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/20 disabled:opacity-50"
+                                >
+                                  ✨ تفعيل التسجيل التلقائي
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Returning Player Button - Row 2 Left */}
+                        <button
+                          onClick={() => {
+                            const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
+                            if (token) {
+                              handleTokenNavigation(token);
+                            }
+                          }}
+                          className="welcome-action-card w-full rounded-2xl p-3"
+                          id="returning-player"
+                        >
+                          
+                          <RotateCcw className="h-5 w-5 text-violet-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">تعديل الاستبيان</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">
+                            عدّل بياناتك
+                          </p>
+                        </button>
+
+                        {/* Results Button - Row 2 Right */}
+                        <button
+                          onClick={() => {
+                            const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+                            if (token) {
+                              window.location.href = `/results?token=${token}`;
+                            }
+                          }}
+                          className="welcome-action-card w-full rounded-2xl p-3"
+                        >
+                          
+                          <Search className="h-5 w-5 text-cyan-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">نتائج التوافق</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">
+                            شاهد نتائجك
+                          </p>
+                        </button>
+
+                        {/* Groups Button - Full Width Row 3 */}
+                        <button
+                          onClick={() => {
+                            const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+                            if (t) window.location.href = `/event3?token=${t}`;
+                          }}
+                          className="welcome-action-card welcome-action-card--primary col-span-1 rounded-2xl p-3 sm:col-span-2"
+                        >
+                          
+                          <Users className="h-5 w-5 text-pink-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">{publicChoiceOnly ? 'اختياراتك الثلاثة' : 'اختيارك واختيارنا'}</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">افتح تجربة التوافق الأعمى</p>
+                        </button>
+                      </div>
+                      
+                      {/* Saved data info intentionally removed per design request */}
+                    </div>
+                  </div>
+                )}
+
                 {/* Process guide */}
-                <div className="welcome-process-panel relative mx-3 mb-4 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto">
+                <div className="welcome-process-panel relative mx-0 mb-4 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
                   <div className="relative z-[1] py-3 text-center sm:py-4">
                   <div className="mx-auto mb-3 max-w-3xl px-3 sm:px-5">
@@ -8228,424 +8625,7 @@ export default function WelcomePage() {
                   </div>
                   </div>
                 </div>
-                
 
-                {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
-                {false && !(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
-                    <div className="text-center mb-6">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
-                      <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    
-                    {/* Previous Participant Card */}
-                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                        <UserCheck className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشارك سابق</h3>
-                      
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
-                      
-                      <button
-                        onClick={handleAutoSignupNextEvent}
-                        disabled={nextEventSignupLoading || showNextEventSignup}
-                        className={`w-full border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-sm py-3 rounded-lg ${
-                          showNextEventSignup 
-                            ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                            : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
-                        } text-white`}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          {nextEventSignupLoading ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              <span>جاري التسجيل...</span>
-                            </>
-                          ) : showNextEventSignup ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              <span>مسجل بالفعل ✓</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>سجل في الفعالية القادمة</span>
-                              <ChevronLeft className="w-4 h-4 transform rotate-180" />
-                            </>
-                          )}
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* New Player Card */}
-                    {!resultToken && !returningPlayerToken && (
-                      <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300" data-section="new-user">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
-                          <UserPlus className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشترك جديد</h3>
-                        <p className="text-cyan-200 text-xs sm:text-sm mb-3">احصل على رقم مخصص وابدأ رحلة التوافق</p>
-                          <Button
-                            onClick={async () => {
-                              setLoading(true)
-                              try {
-                                const res = await fetch("/api/participant", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ action: "create-token" }),
-                                })
-                                const data = await res.json()
-                                console.log("Token creation response:", data)
-                                
-                                if (res.status === 403) {
-                                  // Registration is closed
-                                  toast.error(data.message || "التسجيل مغلق حالياً")
-                                  return
-                                }
-                                
-                                if (res.ok && data.secure_token) {
-                                  setAssignedNumber(data.assigned_number)
-                                  // Mark just-created to show modal after redirect
-                                  sessionStorage.setItem('justCreatedToken', '1')
-                                  sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
-                                  saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
-                                  console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
-                                  // Try multiple redirect methods to ensure it works
-                                  try {
-                                    window.location.href = `/welcome?token=${data.secure_token}`
-                                  } catch (redirectError) {
-                                    console.error("Redirect failed, trying alternative:", redirectError)
-                                    window.location.replace(`/welcome?token=${data.secure_token}`)
-                                  }
-                                } else {
-                                  console.error("Token creation failed:", data)
-                                  toast.error("فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
-                                }
-                              } catch (err) {
-                                console.error("Error creating token:", err)
-                                // alert("❌ فشل في الحصول على رقم")
-                              } finally {
-                                setLoading(false)
-                              }
-                            }}
-                            disabled={loading || phase === "round_1"}
-                            className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
-                              phase === "round_1" 
-                                ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                                : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
-                            } text-white`}
-                          >
-                            {loading ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                جاري التخصيص...
-                              </div>
-                            ) : phase === "round_1" ? (
-                              "الجولة الفردية نشطة حالياً"
-                            ) : (
-                              "ابدأ رحلتك!"
-                            )}
-                          </Button>
-                      </div>
-                    )}
-
-                  </div>
-                  </div>
-                )}
-
-                {/* Pending Event3 Feedback Notification */}
-                {pendingFeedbacks.length > 0 && !showRemoteFeedback && (
-                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-900">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 p-4 sm:p-5 shadow-lg shadow-amber-900/20"
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
-                      {/* Pulsing glow */}
-                      <motion.div
-                        className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/20 blur-3xl"
-                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <div className="relative z-10 flex items-start gap-3">
-                        <motion.div
-                          animate={{ scale: [1, 1.08, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="w-10 h-10 rounded-xl bg-amber-500/25 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5"
-                        >
-                          <Bell className="w-5 h-5 text-amber-400" />
-                        </motion.div>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-amber-300 text-sm font-black">لديك تقييمات غير مكتملة</h4>
-                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold rounded-full px-2 py-0.5">
-                              {pendingFeedbacks.length}
-                            </span>
-                          </div>
-                          <p className="text-gray-300 text-xs leading-relaxed">
-                            لديك {pendingFeedbacks.length} تقييم غير مكتمل من لقاءاتك. أكملها الآن لتحسين تجربتك المستقبلية.
-                          </p>
-                          {/* List of pending feedbacks */}
-                          <div className="space-y-1.5 mt-2">
-                            {pendingFeedbacks.slice(0, 3).map((pf, i) => (
-                              <div key={`${pf.event_id}-${pf.phase}`} className="flex items-center justify-between bg-white/[0.04] rounded-lg px-3 py-2 border border-white/[0.06]">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
-                                    pf.phase === "phase2"
-                                      ? "bg-pink-500/15 text-pink-300 border border-pink-500/20"
-                                      : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
-                                  }`}>
-                                    {pendingFeedbackPhaseLabel(pf)}
-                                  </span>
-                                  <span className="text-gray-400 text-xs">فعالية #{pf.event_id}</span>
-                                  <span className="text-gray-500 text-xs">·</span>
-                                  <span className="text-white/80 text-xs font-medium">{pf.partner_name}</span>
-                                </div>
-                              </div>
-                            ))}
-                            {pendingFeedbacks.length > 3 && (
-                              <p className="text-gray-500 text-[10px] text-center">+ {pendingFeedbacks.length - 3} أخرى</p>
-                            )}
-                          </div>
-                          <motion.button
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => { console.log('[pending-feedbacks] Opening remote feedback modal, pending:', pendingFeedbacks); setRemoteFeedbackIndex(0); setShowRemoteFeedback(true) }}
-                            className="w-full mt-2 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Send className="w-4 h-4" />
-                            أكمل التقييمات الآن
-                          </motion.button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </div>
-                )}
-
-                {showAutoSignupPrompt && showNextEventSignup && !autoSignupEnabled && (
-                  <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تفعيل التسجيل التلقائي" className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md">
-                    <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-emerald-300/20 bg-slate-900/95 p-6 text-center shadow-[0_30px_90px_-35px_rgba(52,211,153,.7)]" dir="rtl">
-                      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
-                      <button type="button" onClick={() => setShowAutoSignupPrompt(false)} aria-label="إغلاق" className="absolute left-4 top-4 rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white">
-                        <X className="h-4 w-4" />
-                      </button>
-                      <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10">
-                        <Sparkles className="h-7 w-7 text-emerald-300" />
-                      </div>
-                      <h3 className="relative text-xl font-black text-white">هل نُسجّلك تلقائياً؟</h3>
-                      <p className="relative mt-2 text-sm leading-6 text-slate-300">فعّل التسجيل التلقائي للفعاليات القادمة، ولن تحتاج إلى التسجيل يدوياً في كل مرة.</p>
-                      <div className="relative mt-5 grid grid-cols-2 gap-2">
-                        <button type="button" onClick={() => setShowAutoSignupPrompt(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">لاحقاً</button>
-                        <button type="button" onClick={enableAutoSignup} disabled={nextEventSignupLoading} className="rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/30 transition hover:brightness-110 disabled:opacity-50">
-                          {nextEventSignupLoading ? 'جاري التفعيل...' : 'نعم، فعّله'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Navbar for Saved Data Users */}
-                {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="mx-auto mt-0 max-w-5xl px-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000 sm:px-0">
-                    <div className="welcome-actions-panel rounded-3xl p-2.5 sm:p-3">
-                      
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div id="next-event-signup-card" className={`welcome-next-event-card relative col-span-2 rounded-2xl p-3 text-right group ${
-                          showNextEventSignup 
-                            ? "welcome-next-event-card--registered"
-                            : "welcome-next-event-card--available"
-                        }`}
-                        >
-                          {!showNextEventSignup && !upcomingEvent?.seatsFull && (
-                            <button
-                              type="button"
-                              aria-label="التسجيل في الفعالية القادمة"
-                              className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-                              onClick={handleAutoSignupNextEvent}
-                            />
-                          )}
-                          <UserCheck className={`h-5 w-5 text-emerald-200 ${showNextEventSignup ? "opacity-70" : ""}`} />
-                          <h4 className="text-sm font-bold text-white sm:text-base">
-                            {nextEventAttendanceConfirmed
-                              ? "حضورك مؤكد ✓"
-                              : showNextEventSignup
-                                ? "مسجل مبدئياً — غير مؤكد"
-                                : upcomingEvent?.seatsFull
-                                  ? "المقاعد مكتملة"
-                                  : "سجل للفعالية القادمة"}
-                          </h4>
-                          <p className="text-[11px] text-slate-400 sm:text-xs">
-                            {nextEventAttendanceConfirmed
-                              ? "دفعتك معتمدة ومقعدك محفوظ لهذه الفعالية"
-                              : showNextEventSignup
-                                ? "لم تُعتمد دفعة لهذه الفعالية، لذلك لا تتوجه إلى الموقع"
-                                : upcomingEvent?.seatsFull
-                                  ? "لا تتوفر مقاعد أو دفعات جديدة لهذه الفعالية"
-                                  : "سجل باستخدام حسابك الحالي"}
-                          </p>
-                          
-                          {!showNextEventSignup && !upcomingEvent?.seatsFull ? (
-                            <div className="flex items-center gap-1 text-emerald-300">
-                              <span className="text-xs font-medium">انقر للتسجيل</span>
-                              <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
-                            </div>
-                          ) : showNextEventSignup ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {/* Unregister from Next Event Button */}
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  const confirmed = window.confirm(
-                                    "هل أنت متأكد من إلغاء تسجيلك في الفعالية القادمة؟\n\nيمكنك التسجيل مرة أخرى لاحقاً."
-                                  );
-                                  if (!confirmed) return;
-                                  
-                                  setNextEventSignupLoading(true);
-                                  try {
-                                    const token = resultToken || returningPlayerToken;
-                                    const response = await fetch("/api/participant", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ 
-                                        action: "unregister-next-event",
-                                        secure_token: token
-                                      }),
-                                    });
-                                    
-                                    const data = await response.json();
-                                    if (response.ok) {
-                                      setShowNextEventSignup(false);
-                                      setNextEventAttendanceConfirmed(null);
-                                      toast.success("تم إلغاء تسجيلك في الفعالية القادمة بنجاح");
-                                    } else {
-                                      toast.error(`فشل إلغاء التسجيل: ${data.error}`);
-                                    }
-                                  } catch (error) {
-                                    toast.error(`خطأ في الشبكة: ${error}`);
-                                  }
-                                  setNextEventSignupLoading(false);
-                                }}
-                                disabled={nextEventSignupLoading}
-                                className="rounded-lg border border-orange-400/20 bg-orange-400/10 px-3 py-1.5 text-[11px] font-medium text-orange-200 transition-colors hover:bg-orange-400/15"
-                              >
-                                {nextEventSignupLoading ? "جاري الإلغاء..." : "إلغاء التسجيل"}
-                              </button>
-                              
-                              {/* Disable Auto-Signup Button (if enabled) */}
-                              {autoSignupEnabled ? (
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const confirmed = window.confirm(
-                                      "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
-                                    );
-                                    if (!confirmed) return;
-                                    
-                                    setNextEventSignupLoading(true);
-                                    try {
-                                      const token = resultToken || returningPlayerToken;
-                                      const response = await fetch("/api/participant", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ 
-                                          action: "disable-auto-signup",
-                                          secure_token: token
-                                        }),
-                                      });
-                                      
-                                      const data = await response.json();
-                                      if (response.ok) {
-                                        setAutoSignupEnabled(false);
-                                        toast.success("تم إيقاف التسجيل التلقائي بنجاح");
-                                      } else {
-                                        toast.error(`فشل إيقاف التسجيل: ${data.error}`);
-                                      }
-                                    } catch (error) {
-                                      toast.error(`خطأ في الشبكة: ${error}`);
-                                    }
-                                    setNextEventSignupLoading(false);
-                                  }}
-                                  disabled={nextEventSignupLoading}
-                                  className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-400/15"
-                                >
-                                  إيقاف التسجيل التلقائي
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setShowAutoSignupPrompt(true)
-                                  }}
-                                  disabled={nextEventSignupLoading}
-                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/20 disabled:opacity-50"
-                                >
-                                  ✨ تفعيل التسجيل التلقائي
-                                </button>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        {/* Returning Player Button - Row 2 Left */}
-                        <button
-                          onClick={() => {
-                            const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
-                            if (token) {
-                              handleTokenNavigation(token);
-                            }
-                          }}
-                          className="welcome-action-card w-full rounded-2xl p-3"
-                          id="returning-player"
-                        >
-                          
-                          <RotateCcw className="h-5 w-5 text-violet-200" />
-                          <h4 className="text-sm font-bold text-white sm:text-base">تعديل الاستبيان</h4>
-                          <p className="text-[10px] text-slate-500 sm:text-xs">
-                            عدّل بياناتك
-                          </p>
-                        </button>
-
-                        {/* Results Button - Row 2 Right */}
-                        <button
-                          onClick={() => {
-                            const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
-                            if (token) {
-                              window.location.href = `/results?token=${token}`;
-                            }
-                          }}
-                          className="welcome-action-card w-full rounded-2xl p-3"
-                        >
-                          
-                          <Search className="h-5 w-5 text-cyan-200" />
-                          <h4 className="text-sm font-bold text-white sm:text-base">نتائج التوافق</h4>
-                          <p className="text-[10px] text-slate-500 sm:text-xs">
-                            شاهد نتائجك
-                          </p>
-                        </button>
-
-                        {/* Groups Button - Full Width Row 3 */}
-                        <button
-                          onClick={() => {
-                            const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
-                            if (t) window.location.href = `/event3?token=${t}`;
-                          }}
-                          className="welcome-action-card welcome-action-card--primary col-span-2 rounded-2xl p-3"
-                        >
-                          
-                          <Users className="h-5 w-5 text-pink-200" />
-                          <h4 className="text-sm font-bold text-white sm:text-base">{publicChoiceOnly ? 'اختياراتك الثلاثة' : 'اختيارك واختيارنا'}</h4>
-                          <p className="text-[10px] text-slate-500 sm:text-xs">افتح تجربة التوافق الأعمى</p>
-                        </button>
-                      </div>
-                      
-                      {/* Saved data info intentionally removed per design request */}
-                    </div>
-                  </div>
-                )}
 
                 {/* Token Input Sections for Non-Saved Users */}
                 {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (

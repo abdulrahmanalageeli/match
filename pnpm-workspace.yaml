@@ -3,6 +3,7 @@ packages:
 
 allowBuilds:
   '@parcel/watcher': true
+  agent-browser: true
   esbuild: true
 
 minimumReleaseAgeExclude:

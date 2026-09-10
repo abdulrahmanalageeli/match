@@ -6503,13 +6503,13 @@ function OneToOneSupportButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
-      className="event3-action flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-violet-300/[0.16] bg-violet-400/[0.065] px-3.5 text-right text-violet-100 transition hover:border-violet-300/30 hover:bg-violet-400/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+      className="event3-action flex min-h-16 w-full items-center justify-between gap-4 rounded-2xl border border-violet-300/[0.16] bg-violet-400/[0.065] px-4 py-3 text-right text-violet-100 transition hover:border-violet-300/30 hover:bg-violet-400/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
     >
-      <span className="flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/15 bg-black/20"><LifeBuoy size={16} className="text-violet-200" /></span>
-        <span><span className="block text-sm font-black">أحتاج مساعدة</span><span className="block text-[11px] text-violet-100/55">رسالة خاصة أو مساعدة بعيداً عن الطاولة</span></span>
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-300/15 bg-black/20"><LifeBuoy size={16} className="text-violet-200" /></span>
+        <span className="min-w-0"><span className="block text-sm font-black leading-5">أحتاج مساعدة</span><span className="mt-0.5 block text-[11px] leading-5 text-violet-100/55">رسالة خاصة أو مساعدة بعيداً عن الطاولة</span></span>
       </span>
-      <ChevronRight size={16} className="rotate-180 text-violet-200/60" />
+      <ChevronRight size={16} className="shrink-0 rotate-180 text-violet-200/60" />
     </button>
   )
 }

@@ -1712,8 +1712,8 @@ html:not(.dark) .round-bg-pattern::before {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 22px 52px -29px rgba(var(--event3-purple), 0.78),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 16px 40px -32px rgba(var(--event3-purple), 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
     inset 0 -1px 0 rgba(0, 0, 0, 0.18);
   transform: translateZ(0);
   transition-property: transform, filter, border-color, background-color, box-shadow, opacity;
@@ -1727,6 +1727,25 @@ html:not(.dark) .round-bg-pattern::before {
 
 .event3-action:disabled {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+/* Primary actions belong to the same dark-glass system as the surrounding
+   Event3 surfaces. Accent colours stay in the border and glow instead of
+   turning the entire control into a saturated banner. */
+.event3-action.event3-primary-action {
+  border-color: rgba(216, 180, 254, 0.2);
+  background:
+    radial-gradient(circle at 84% -58%, rgba(var(--event3-purple), 0.26), transparent 54%),
+    radial-gradient(circle at 8% 145%, rgba(var(--event3-cyan), 0.08), transparent 48%),
+    linear-gradient(145deg, rgba(45, 31, 68, 0.94), rgba(17, 13, 28, 0.985) 72%);
+  color: rgb(250 245 255);
+  box-shadow:
+    0 18px 44px -34px rgba(var(--event3-purple), 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  backdrop-filter: blur(18px) saturate(120%);
+  filter: none;
 }
 
 /* One premium control language for secondary and icon actions. These controls
@@ -1828,9 +1847,22 @@ html:not(.dark) .round-bg-pattern::before {
   .event3-action:hover:not(:disabled) {
     border-color: rgba(233, 213, 255, 0.23);
     box-shadow:
-      0 24px 58px -28px rgba(var(--event3-purple), 0.9),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 20px 48px -32px rgba(var(--event3-purple), 0.62),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
       inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  }
+
+  .event3-action.event3-primary-action:hover:not(:disabled) {
+    border-color: rgba(216, 180, 254, 0.32);
+    background:
+      radial-gradient(circle at 84% -58%, rgba(var(--event3-purple), 0.34), transparent 54%),
+      radial-gradient(circle at 8% 145%, rgba(var(--event3-cyan), 0.11), transparent 48%),
+      linear-gradient(145deg, rgba(52, 36, 78, 0.96), rgba(20, 15, 33, 0.99) 72%);
+    box-shadow:
+      0 20px 48px -34px rgba(var(--event3-purple), 0.68),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+    filter: none;
   }
 
   .event3-soft-action:hover:not(:disabled) {
@@ -2027,12 +2059,13 @@ html:not(.dark) .round-bg-pattern::before {
 
 .event3-finale-cta {
   background:
-    radial-gradient(circle at 86% -80%, rgba(255, 255, 255, 0.26), transparent 55%),
-    linear-gradient(115deg, rgb(109, 40, 217), rgb(192, 38, 211) 54%, rgb(219, 39, 119));
+    radial-gradient(circle at 86% -70%, rgba(var(--event3-purple), 0.24), transparent 56%),
+    radial-gradient(circle at 4% 130%, rgba(var(--event3-cyan), 0.08), transparent 48%),
+    linear-gradient(145deg, rgba(43, 30, 66, 0.96), rgba(15, 12, 25, 0.99) 72%);
   box-shadow:
-    0 28px 64px -30px rgba(217, 70, 239, 0.88),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(55, 16, 86, 0.42);
+    0 20px 52px -38px rgba(var(--event3-purple), 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
 .event3-finale-cta::after {
@@ -2041,9 +2074,9 @@ html:not(.dark) .round-bg-pattern::before {
   z-index: -1;
   content: "";
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 43%, rgba(255, 255, 255, 0.16) 49%, transparent 55%);
+  background: linear-gradient(105deg, transparent 43%, rgba(255, 255, 255, 0.07) 49%, transparent 55%);
   transform: translate3d(38%, 0, 0);
-  animation: event3-finale-cta-sheen 4.8s 1.4s ease-in-out infinite;
+  animation: event3-finale-cta-sheen 7.2s 1.8s ease-in-out infinite;
 }
 
 @keyframes event3-finale-cta-sheen {

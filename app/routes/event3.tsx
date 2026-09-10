@@ -2300,7 +2300,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={onDone}
-                className="event3-action group relative isolate flex min-h-14 w-full items-center justify-center overflow-hidden rounded-[1.35rem] bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-4 py-3 text-white shadow-[0_22px_48px_-24px_rgba(168,85,247,.82)] transition-[filter,transform] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+                className="event3-action event3-primary-action group relative isolate flex min-h-14 w-full items-center justify-center overflow-hidden rounded-[1.35rem] bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-4 py-3 text-white shadow-[0_22px_48px_-24px_rgba(168,85,247,.82)] transition-[filter,transform] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
               >
                 <span className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-white/[0.13] blur-2xl" aria-hidden="true" />
                 <motion.span initial={{ x: "-125%" }} animate={{ x: reduceMotion ? "-125%" : "150%" }} transition={{ delay: 1.15, duration: 0.95, ease: "easeInOut" }} className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/[0.16] to-transparent" aria-hidden="true" />
@@ -2400,7 +2400,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 type="button"
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
-                className="event3-action w-full rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 py-3.5 text-base font-black text-white shadow-[0_16px_42px_-18px_rgba(168,85,247,.9)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                className="event3-action event3-primary-action w-full rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 py-3.5 text-base font-black text-white shadow-[0_16px_42px_-18px_rgba(168,85,247,.9)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 {step === WALK_SLIDES.length - 1
                   ? <span className="flex items-center justify-center gap-2">{showLogout ? "جاهز — تابع الفعالية" : "جاهز — ابدأ الفعالية"} <Sparkles size={16} /></span>
@@ -2687,7 +2687,7 @@ function PhoneEntry({
                 )}
               </AnimatePresence>
               <motion.button type="submit" disabled={loading} aria-busy={loading} whileTap={{ scale: 0.97 }}
-                className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#c026d3] via-[#7e22ce] to-[#4c1d95] px-4 py-4 text-lg font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
+                className="event3-action event3-primary-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#c026d3] via-[#7e22ce] to-[#4c1d95] px-4 py-4 text-lg font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
                 {loading ? (
                   <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />{isTokenLogin ? "جاري فحص الرمز..." : step === "phone" ? "جاري الإرسال..." : "جاري التحقق..."}</>
                 ) : (
@@ -2915,7 +2915,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         </div>
 
         <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-          className={`event3-action w-full shrink-0 rounded-xl bg-gradient-to-r py-3 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${grad} ${ctaText}`}>
+          className={`event3-action event3-primary-action w-full shrink-0 rounded-xl bg-gradient-to-r py-3 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${grad} ${ctaText}`}>
           {cta}
         </motion.button>
       </motion.div>
@@ -3151,7 +3151,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
           <button
             type="button"
             onClick={startBreaker}
-            className={`event3-action mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
+            className={`event3-action event3-primary-action mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-5 text-base font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
           >
             <Sparkles size={17} /> ابدأوا السؤال
           </button>
@@ -3241,7 +3241,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
           <button
             type="button"
             onClick={nextPerson}
-            className={`event3-action flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-4 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
+            className={`event3-action event3-primary-action flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-4 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] ${theme.bar}`}
           >
             {nextSpeaker ? <>الدور لـ {nextSpeaker.name} <ArrowLeft size={17} /></> : <>خلصنا — نختار النشاط <ArrowLeft size={17} /></>}
           </button>
@@ -3317,7 +3317,7 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
           onClick={() => setDone(true)}
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }}
           whileTap={{ scale: 0.97 }}
-          className={`event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-95 ${ac.btn} ${ac.glow}`}
+          className={`event3-action event3-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-95 ${ac.btn} ${ac.glow}`}
         >
           <CheckCircle size={16} /> خلّصنا التحدي — ابدأوا الجلسة
         </motion.button>
@@ -3656,7 +3656,7 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
         <p className="text-sm font-bold leading-7 text-white/65">
           {isMe ? "أنت الآن قائد الشاشة — اختر النشاط والسؤال وسنجهّز زر العرض للجميع." : `${leader.name} سيقود نشاط الطاولة. افتح سؤاله عندما تكون جاهزاً من داخل شاشة الأنشطة.`}
         </p>
-        <button type="button" autoFocus onClick={onContinue} className="event3-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
+        <button type="button" autoFocus onClick={onContinue} className="event3-action event3-primary-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
           {isMe ? <Megaphone size={19} /> : <Users size={19} />}
           {isMe ? "ابدأ قيادة الطاولة" : "متابعة إلى أنشطة الطاولة"}
         </button>
@@ -4455,7 +4455,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             onClick={openGroups}
             disabled={!assignment}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`event3-action group flex min-h-[4.5rem] w-full items-center gap-3 rounded-[1.4rem] border border-white/20 bg-gradient-to-r p-3.5 text-right text-white shadow-[0_24px_55px_-24px_rgba(168,85,247,.85)] ring-1 ring-white/10 transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
+            className={`event3-action event3-primary-action group flex min-h-[4.5rem] w-full items-center gap-3 rounded-[1.4rem] border border-white/20 bg-gradient-to-r p-3.5 text-right text-white shadow-[0_24px_55px_-24px_rgba(168,85,247,.85)] ring-1 ring-white/10 transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
           >
             <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/15 shadow-inner ring-1 ring-white/25">
               <Target size={19} />
@@ -5096,7 +5096,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         <p className="mt-4 text-xs font-black tracking-wide text-violet-300">مساحة خاصة</p>
         <h1 className="mt-1 text-xl font-black text-white">افتح ترتيبك بعيداً عن الأنظار</h1>
         <p className="mx-auto mt-2 max-w-xs text-sm leading-7 text-gray-300">ستظهر أسماء من قابلتهم وترتيبك السري. قرّب الشاشة منك قبل المتابعة.</p>
-        <button type="button" onClick={() => setPrivacyRevealed(true)} className="event3-action mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-600 via-purple-600 to-indigo-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200">
+        <button type="button" onClick={() => setPrivacyRevealed(true)} className="event3-action event3-primary-action mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-600 via-purple-600 to-indigo-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200">
           <Eye size={18} /> إظهار الترتيب
         </button>
       </div>
@@ -5438,7 +5438,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   إلغاء
                 </button>
                 <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0 || order.length === 0}
-                  className="event3-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-500 via-purple-500 to-indigo-500 py-3 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
+                  className="event3-action event3-primary-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-500 via-purple-500 to-indigo-500 py-3 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
                   {submitting ? <Spinner size={16} /> : <CheckCircle size={16} />}
                   اعتماد وإرسال
                 </button>
@@ -5704,7 +5704,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
           <footer className="relative z-20 flex shrink-0 gap-2 border-t border-white/[0.08] bg-[#09070e]/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5">
             <button type="button" onClick={onClose} className="event3-soft-action min-h-12 rounded-2xl px-5 text-sm font-bold text-gray-300">{reviewMode ? 'المجموعات' : 'تخطي'}</button>
             <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved || reviewedCount === 0} aria-busy={saving}
-              className="event3-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white disabled:opacity-60">
+              className="event3-action event3-primary-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white disabled:opacity-60">
               {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
               {saved ? 'تم الحفظ' : reviewedCount ? (reviewMode ? 'حفظ التعديلات' : `حفظ ${reviewedCount} تقييم`) : 'اختر تقييماً للبدء'}
             </motion.button>
@@ -6176,7 +6176,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
           <p className="mt-1 text-xs leading-5 text-violet-100/65">لن تظهر لشريكك. قد يطّلع عليها فريق التنظيم لدعم التجربة وعرضها لك في الكشف النهائي.</p>
           <div className="mt-3 flex gap-2">
             <input id={`${memoryWordId}-done`} value={word} onChange={event => updateMemoryWord(event.target.value)} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: مريح" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.09] bg-black/30 px-3 text-base text-white outline-none placeholder:text-gray-600 focus:border-violet-300/40" />
-            <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="event3-action min-h-12 rounded-xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-4 text-sm font-black text-white disabled:opacity-35">
+            <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="event3-action event3-primary-action min-h-12 rounded-xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-4 text-sm font-black text-white disabled:opacity-35">
               {submitting ? <Spinner size={16} /> : "حفظ"}
             </button>
           </div>
@@ -6267,7 +6267,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                   {meetingStatus === 'needed_help' && <OneToOneSupportButton />}
                   <div className="grid grid-cols-2 gap-2">
                     {!backDisabled && <button type="button" onClick={onBack} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-gray-200">العودة للقاء</button>}
-                    <button type="button" onClick={submitMeetingStatus} disabled={submitting} className="event3-action min-h-12 rounded-xl bg-gradient-to-l from-violet-500 to-indigo-600 px-3 text-xs font-black text-white disabled:opacity-40">{submitting ? 'جارٍ الإرسال...' : 'إرسال الحالة'}</button>
+                    <button type="button" onClick={submitMeetingStatus} disabled={submitting} className="event3-action event3-primary-action min-h-12 rounded-xl bg-gradient-to-l from-violet-500 to-indigo-600 px-3 text-xs font-black text-white disabled:opacity-40">{submitting ? 'جارٍ الإرسال...' : 'إرسال الحالة'}</button>
                   </div>
                 </div>
               )}
@@ -6466,24 +6466,24 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
               onClick={() => { if (!fb.sliderMoved) { toast.error('اختر أقرب وصف أولاً'); return } goNext() }}
               whileTap={{ scale: 0.97 }}
               disabled={!fb.sliderMoved}
-              className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition-all disabled:opacity-30">
+              className="event3-action event3-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition-all disabled:opacity-30">
               متابعة <ChevronRight size={16} />
             </motion.button>
           )}
           {step === 2 && (
-            <motion.button type="button" onClick={() => { setContactRevealed(false); goNext() }} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition disabled:opacity-30">
+            <motion.button type="button" onClick={() => { setContactRevealed(false); goNext() }} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="event3-action event3-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition disabled:opacity-30">
               متابعة <ChevronRight size={16} />
             </motion.button>
           )}
           {step === 3 && !contactRevealed && (
-            <button type="button" onClick={() => { setContactRevealed(true); window.setTimeout(() => stepHeadingRef.current?.focus(), 80) }} className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-l from-cyan-500 via-blue-500 to-violet-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+            <button type="button" onClick={() => { setContactRevealed(true); window.setTimeout(() => stepHeadingRef.current?.focus(), 80) }} className="event3-action event3-primary-action min-h-14 w-full rounded-2xl bg-gradient-to-l from-cyan-500 via-blue-500 to-violet-600 px-4 text-sm font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
               إظهار خيارات التواصل
             </button>
           )}
           {step === 3 && contactRevealed && (
             <div className="space-y-1.5">
               <p className="px-2 text-center text-[10px] leading-4 text-gray-300">راجع قرار التواصل؛ وبعد انتهاء المرحلة قد لا يتاح تعديل الرد.</p>
-              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action event3-primary-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
                 {submitting ? <><Spinner size={17} />جاري التأكيد...</> : <><Send size={17} />تأكيد وإرسال الرد</>}
               </motion.button>
             </div>
@@ -7068,7 +7068,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <p className="font-black text-white">نراجع تفاصيل اللقاء</p>
           <p className="text-sm leading-6 text-gray-300">{error}</p>
         </div>
-        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
+        <button onClick={retry} className="event3-action event3-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
           <RefreshCw size={16} /> إعادة المحاولة
         </button>
         <OneToOneSupportButton />
@@ -7095,7 +7095,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           {!tableRevealed ? (
             <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
-                className="event3-action w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 py-6 text-lg font-bold text-white">
+                className="event3-action event3-primary-action w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 py-6 text-lg font-bold text-white">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <MapPin size={24} /> اعرف طاولتك
                 </motion.span>
@@ -7134,7 +7134,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {canArrive ? (
                 <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-                  className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 px-4 py-4 text-lg font-bold text-white">
+                  className="event3-action event3-primary-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 px-4 py-4 text-lg font-bold text-white">
                   <span className="flex items-center justify-center gap-3">
                     <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
@@ -7192,7 +7192,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 type="button"
                 onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="event3-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
+                className="event3-action event3-primary-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
               >
                 وصلت — ابدأ اللقاء
                 <ArrowLeft size={17} />
@@ -7567,7 +7567,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <p className="font-black text-white">نراجع تفاصيل اللقاء</p>
           <p className="text-sm leading-6 text-gray-300">{error}</p>
         </div>
-        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
+        <button onClick={retry} className="event3-action event3-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-600 via-blue-600 to-violet-700 px-5 text-sm font-black text-white">
           <RefreshCw size={16} /> إعادة المحاولة
         </button>
         <OneToOneSupportButton />
@@ -7594,7 +7594,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           {!tableRevealed ? (
             <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
-                className="event3-action w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 py-6 text-lg font-bold text-white">
+                className="event3-action event3-primary-action w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 py-6 text-lg font-bold text-white">
                 <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <MapPin size={24} /> اعرف طاولتك
                 </motion.span>
@@ -7633,7 +7633,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {canArrive ? (
                 <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-                  className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 px-4 py-4 text-lg font-bold text-white">
+                  className="event3-action event3-primary-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 px-4 py-4 text-lg font-bold text-white">
                   <span className="flex items-center justify-center gap-3">
                     <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
@@ -7676,7 +7676,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 type="button"
                 onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="event3-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
+                className="event3-action event3-primary-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
               >
                 وصلت — ابدأ اللقاء
                 <ArrowLeft size={17} />
@@ -8482,7 +8482,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             <a href={resultsHref} className="event3-soft-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-bold text-amber-200">
               <Trophy size={17} /> النتائج
             </a>
-            <button onClick={() => setScreenMode("reveal")} className="event3-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
+            <button onClick={() => setScreenMode("reveal")} className="event3-action event3-primary-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
               <ChevronRight size={17} /> الكشف النهائي
             </button>
           </nav>
@@ -8602,9 +8602,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
                   <p className="mt-0.5 text-[10px] leading-5 text-white/35">لا تظهر معلومات التواصل إلا عندما تكون الموافقة متبادلة.</p>
                 </div>
               </div>
-              <a href={resultsHref} className="event3-action event3-finale-cta flex min-h-16 w-full items-center gap-3 rounded-2xl px-3.5 text-white">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,.12)]">
-                  <Trophy size={19} />
+              <a href={resultsHref} className="event3-action event3-primary-action event3-finale-cta flex min-h-16 w-full items-center gap-3 rounded-2xl px-3.5 text-white">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-200/10 bg-violet-300/[0.055] text-violet-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
+                  <Trophy size={17} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-black">فتح النتائج والتواصل</span>
@@ -9164,7 +9164,7 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                   transition={{ delay: 0.2 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={dismiss}
-                  className="event3-action mt-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 text-sm font-bold text-white"
+                  className="event3-action event3-primary-action mt-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 text-sm font-bold text-white"
                 >
                   يلا نبدأ ←
                 </motion.button>
@@ -9254,7 +9254,7 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                         <motion.button
                           whileTap={{ scale: 0.97 }}
                           onClick={dismiss}
-                          className="event3-action rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white transition-all hover:from-purple-500 hover:to-pink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                          className="event3-action event3-primary-action rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white transition-all hover:from-purple-500 hover:to-pink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                         >
                           يلا نبدأ ←
                         </motion.button>
@@ -9300,7 +9300,7 @@ function NotEnrolledScreen({ onUseAnotherNumber, onLogout }: { onUseAnotherNumbe
             <p className="mt-1 text-xs text-gray-500">تأكد من الرقم أو تواصل مع المنظم للمساعدة.</p>
           </div>
           <div className="flex flex-col gap-2.5">
-            <button type="button" onClick={onUseAnotherNumber} className="event3-action min-h-12 rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-5 text-sm font-black text-white transition hover:brightness-110">
+            <button type="button" onClick={onUseAnotherNumber} className="event3-action event3-primary-action min-h-12 rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-5 text-sm font-black text-white transition hover:brightness-110">
               الدخول برقم آخر
             </button>
             <ParticipantLogoutButton onLogout={onLogout} />
@@ -9424,7 +9424,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
             type="button"
             disabled={closing}
             onClick={dismiss}
-            className="event3-action min-h-12 w-full rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 py-3.5 text-sm font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
+            className="event3-action event3-primary-action min-h-12 w-full rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 py-3.5 text-sm font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
           >
             {closing ? "جارٍ التأكيد…" : notif.icon === 'alert' ? "استلمت التنبيه" : "تم"}
           </button>
@@ -10436,7 +10436,7 @@ export default function Event3Page() {
           <p className="font-black text-white">تعذّر تحميل بيانات الفعالية</p>
           <p className="text-sm text-gray-500">{stateError}</p>
         </div>
-        <button type="button" onClick={retryState} className="event3-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-5 py-2.5 text-sm font-black text-white">
+        <button type="button" onClick={retryState} className="event3-action event3-primary-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-5 py-2.5 text-sm font-black text-white">
           <RefreshCw size={16} />
           إعادة المحاولة
         </button>

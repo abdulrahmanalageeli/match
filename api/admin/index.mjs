@@ -105,6 +105,9 @@ const supabase = supabaseAdmin
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
+const PERSONALITY_FIT_REVIEW_STATUSES = new Set(["unreviewed", "approved", "needs_review", "not_suitable"])
+const PERSONALITY_FIT_DIMENSIONS = new Set(["communication", "disagreement", "curiosity", "intent", "completion"])
+const PERSONALITY_FIT_DIMENSION_REVIEW_VALUES = new Set(["unreviewed", "ok", "concern"])
 const TWILIO_MATCH_NOTIFICATION_V5_SID = "HX7c190833f357e2f6f2ed0c9e906b6517"
 const TWILIO_MATCH_CANCELLATION_SID = "HX466c880e6809cefe45123a5c02d49a61"
 const TWILIO_SURVEY_UPDATE_SID = "HX29303de3e62bac314552ee3056578c4f"
@@ -2055,6 +2058,86 @@ export default async function handler(req, res) {
           payment_waived: participant.payment_waived === true && Number(participant.payment_waived_event_id) === receiptEventId,
         }))
         return res.status(200).json({ participants: await attachEventReceipts(currentEventParticipants, receiptEventId), event_id: receiptEventId })
+      }
+
+      if (action === "get-personality-fit-reviews") {
+        const { data, error } = await supabase
+          .from("participant_personality_fit_reviews")
+          .select("participant_number,review_status,dimension_reviews,review_notes,fit_model_version,fit_score_snapshot,reviewed_at,updated_at")
+          .eq("match_id", STATIC_MATCH_ID)
+          .order("updated_at", { ascending: false })
+
+        if (error) {
+          const migrationRequired = ["42P01", "PGRST202", "PGRST205"].includes(error.code)
+            || String(error.message || "").includes("participant_personality_fit_reviews")
+          return res.status(migrationRequired ? 501 : 500).json({ error: error.message, migration_required: migrationRequired })
+        }
+
+        return res.status(200).json({ reviews: data || [] })
+      }
+
+      if (action === "update-personality-fit-review") {
+        const participantNumber = Number(req.body?.participant_number)
+        const reviewStatus = String(req.body?.review_status || "unreviewed")
+        const reviewNotes = String(req.body?.review_notes || "").trim()
+        const fitModelVersion = String(req.body?.fit_model_version || "").trim()
+        const fitScore = Number(req.body?.fit_score_snapshot)
+        const rawDimensionReviews = req.body?.dimension_reviews
+
+        if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) {
+          return res.status(400).json({ error: "Invalid participant_number" })
+        }
+        if (!PERSONALITY_FIT_REVIEW_STATUSES.has(reviewStatus)) {
+          return res.status(400).json({ error: "Invalid review_status" })
+        }
+        if (!fitModelVersion || fitModelVersion.length > 80) {
+          return res.status(400).json({ error: "Invalid fit_model_version" })
+        }
+        if (!Number.isFinite(fitScore) || fitScore < 0 || fitScore > 100) {
+          return res.status(400).json({ error: "Invalid fit_score_snapshot" })
+        }
+        if (reviewNotes.length > 2000) {
+          return res.status(400).json({ error: "Review notes must be 2000 characters or fewer" })
+        }
+        if (reviewStatus === "not_suitable" && reviewNotes.length < 10) {
+          return res.status(400).json({ error: "A concrete review reason of at least 10 characters is required for Do not invite" })
+        }
+        if (!rawDimensionReviews || typeof rawDimensionReviews !== "object" || Array.isArray(rawDimensionReviews)) {
+          return res.status(400).json({ error: "dimension_reviews must be an object" })
+        }
+
+        const dimensionReviews = {}
+        for (const [key, value] of Object.entries(rawDimensionReviews)) {
+          if (!PERSONALITY_FIT_DIMENSIONS.has(key) || !PERSONALITY_FIT_DIMENSION_REVIEW_VALUES.has(String(value))) {
+            return res.status(400).json({ error: `Invalid dimension review: ${key}` })
+          }
+          dimensionReviews[key] = String(value)
+        }
+
+        const now = new Date().toISOString()
+        const { data, error } = await supabase
+          .from("participant_personality_fit_reviews")
+          .upsert({
+            match_id: STATIC_MATCH_ID,
+            participant_number: participantNumber,
+            review_status: reviewStatus,
+            dimension_reviews: dimensionReviews,
+            review_notes: reviewNotes || null,
+            fit_model_version: fitModelVersion,
+            fit_score_snapshot: Math.round(fitScore),
+            reviewed_at: now,
+            updated_at: now,
+          }, { onConflict: "match_id,participant_number" })
+          .select("participant_number,review_status,dimension_reviews,review_notes,fit_model_version,fit_score_snapshot,reviewed_at,updated_at")
+          .single()
+
+        if (error) {
+          const migrationRequired = ["42P01", "PGRST202", "PGRST205"].includes(error.code)
+            || String(error.message || "").includes("participant_personality_fit_reviews")
+          return res.status(migrationRequired ? 501 : 500).json({ error: error.message, migration_required: migrationRequired })
+        }
+
+        return res.status(200).json({ success: true, review: data })
       }
 
       if (action === "legal-acceptance-report") {

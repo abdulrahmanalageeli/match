@@ -65,12 +65,21 @@ import WhatsAppChatModal from '~/components/WhatsAppChatModal';
 import BulkWhatsAppModal from '~/components/BulkWhatsAppModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
+import ParticipantPersonalityFitReviewModal from "~/components/ParticipantPersonalityFitReviewModal"
 import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import SurveyProgressTracker from "~/components/SurveyProgressTracker"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
+import {
+  assessParticipantPersonalityFit,
+  personalityFitMatchesFilter,
+  type ParticipantPersonalityFitReview,
+  type PersonalityFitDimensionKey,
+  type PersonalityFitDimensionReview,
+  type PersonalityFitReviewStatus,
+} from "~/lib/participant-personality-fit"
 import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
 import { LEGAL_DOCUMENT_VERSION, isAcceptedLegalBundle } from "~/lib/legal"
 import {
@@ -878,6 +887,7 @@ export default function AdminPage() {
   const [confirmationFilter, setConfirmationFilter] = useState("all") // "all", "confirmed", "awaiting_receipt", "declined"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
   const [matchInsightsFilter, setMatchInsightsFilter] = useState("all") // "all", "complete", "incomplete"
+  const [personalityFitFilter, setPersonalityFitFilter] = useState("all")
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
   const [legalAcceptanceFilter, setLegalAcceptanceFilter] = useState("all") // "all", "accepted", "pending"
   const [editedProfilesFilter, setEditedProfilesFilter] = useState("all") // "all", "edited", "never_edited"
@@ -897,6 +907,8 @@ export default function AdminPage() {
   }>>({})
   const [participantPreferenceScores, setParticipantPreferenceScores] = useState<Record<number, ParticipantPreferenceScore>>({})
   const [participantPreferenceScoresLoading, setParticipantPreferenceScoresLoading] = useState(false)
+  const [personalityFitReviews, setPersonalityFitReviews] = useState<Record<number, ParticipantPersonalityFitReview>>({})
+  const [personalityFitReviewsLoading, setPersonalityFitReviewsLoading] = useState(false)
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
   const [sortBy, setSortBy] = useState("number_asc") // includes edit percentage ascending/descending
   const [copied, setCopied] = useState(false)
@@ -1080,6 +1092,8 @@ export default function AdminPage() {
   // Full profile modal state
   const [profileModalParticipant, setProfileModalParticipant] = useState<any | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [personalityFitReviewParticipant, setPersonalityFitReviewParticipant] = useState<any | null>(null)
+  const [savingPersonalityFitReview, setSavingPersonalityFitReview] = useState(false)
   
   // Pre-cache state
   const [preCacheCount, setPreCacheCount] = useState(50);
@@ -2172,6 +2186,63 @@ const fetchParticipantPreferenceScores = useCallback(async () => {
     setParticipantPreferenceScoresLoading(false)
   }
 }, [])
+
+const fetchPersonalityFitReviews = useCallback(async () => {
+  if (isCohost) return
+  setPersonalityFitReviewsLoading(true)
+  try {
+    const response = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get-personality-fit-reviews" }),
+    })
+    const data = await response.json()
+    if (!response.ok || !Array.isArray(data.reviews)) return
+    setPersonalityFitReviews(Object.fromEntries(
+      data.reviews.map((review: ParticipantPersonalityFitReview) => [Number(review.participant_number), review])
+    ))
+  } catch {
+    // Manual review metadata is supplementary; the next dashboard load retries it.
+  } finally {
+    setPersonalityFitReviewsLoading(false)
+  }
+}, [isCohost])
+
+const savePersonalityFitReview = useCallback(async (input: {
+  reviewStatus: PersonalityFitReviewStatus
+  dimensionReviews: Partial<Record<PersonalityFitDimensionKey, PersonalityFitDimensionReview>>
+  reviewNotes: string
+}) => {
+  if (!personalityFitReviewParticipant || isCohost) return
+  const assessment = assessParticipantPersonalityFit(personalityFitReviewParticipant)
+  setSavingPersonalityFitReview(true)
+  try {
+    const response = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update-personality-fit-review",
+        participant_number: personalityFitReviewParticipant.assigned_number,
+        review_status: input.reviewStatus,
+        dimension_reviews: input.dimensionReviews,
+        review_notes: input.reviewNotes,
+        fit_model_version: assessment.modelVersion,
+        fit_score_snapshot: assessment.score,
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data.review) {
+      throw new Error(data.migration_required ? "Personality review migration has not been applied" : (data.error || "Failed to save review"))
+    }
+    const savedReview = data.review as ParticipantPersonalityFitReview
+    setPersonalityFitReviews(current => ({ ...current, [savedReview.participant_number]: savedReview }))
+    toast.success(`Personality review saved for #${savedReview.participant_number}`)
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Failed to save personality review")
+  } finally {
+    setSavingPersonalityFitReview(false)
+  }
+}, [isCohost, personalityFitReviewParticipant])
 
 const fetchParticipants = async () => {
   if (fetchingParticipantsRef.current) return
@@ -3341,7 +3412,10 @@ const fetchParticipants = async () => {
     if (!authenticated) return
 
     fetchParticipants()
-    if (!isCohost) void fetchParticipantPreferenceScores()
+    if (!isCohost) {
+      void fetchParticipantPreferenceScores()
+      void fetchPersonalityFitReviews()
+    }
     fetchExcludedPairs()
     fetchExcludedParticipants()
     fetchGroupExcludedParticipants()
@@ -3400,7 +3474,7 @@ const fetchParticipants = async () => {
       clearInterval(attInterval)
       clearInterval(receiptInterval)
     }
-  }, [authenticated, fetchParticipantPreferenceScores, isCohost])
+  }, [authenticated, fetchParticipantPreferenceScores, fetchPersonalityFitReviews, isCohost])
 
   useEffect(() => {
     if (!authenticated) return
@@ -4276,6 +4350,7 @@ const fetchParticipants = async () => {
     setConfirmationFilter("all")
     setWhatsappFilter("all")
     setMatchInsightsFilter("all")
+    setPersonalityFitFilter("all")
     setLegalAcceptanceFilter("all")
     setEditedProfilesFilter("all")
     setSignupFilter("all")
@@ -4351,6 +4426,7 @@ const fetchParticipants = async () => {
     confirmationFilter !== "all",
     whatsappFilter !== "all",
     matchInsightsFilter !== "all",
+    personalityFitFilter !== "all",
     legalAcceptanceFilter !== "all",
     editedProfilesFilter !== "all",
     signupFilter !== "all",
@@ -4361,6 +4437,13 @@ const fetchParticipants = async () => {
     arrivalFilter !== "all",
     showDuplicatePhones,
   ].filter(Boolean).length
+
+  const personalityFitAssessments = useMemo(() => new Map(
+    participants.map(participant => [
+      participant.assigned_number,
+      assessParticipantPersonalityFit(participant),
+    ])
+  ), [participants])
 
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
@@ -4488,6 +4571,13 @@ const fetchParticipants = async () => {
         matchInsightsFilter === "complete" ? insightsCompletion.complete : !insightsCompletion.complete
       )
 
+      const personalityFitAssessment = personalityFitAssessments.get(p.assigned_number)!
+      const matchesPersonalityFit = isCohost || personalityFitMatchesFilter(
+        personalityFitAssessment,
+        personalityFitReviews[p.assigned_number],
+        personalityFitFilter,
+      )
+
       const acceptedCurrentLegalVersion = hasAcceptedRecognizedLegalVersion(p)
       const matchesLegalAcceptance = legalAcceptanceFilter === "all" || (
         legalAcceptanceFilter === "accepted"
@@ -4514,7 +4604,7 @@ const fetchParticipants = async () => {
       
       const matchesSubmittedNumberSort = (sortBy !== "number_asc" && sortBy !== "number_desc") || hasParticipantHistory(p)
 
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesAge && matchesEvent && matchesContact && matchesExclusion && matchesArrival && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone && matchesSubmittedNumberSort
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesAge && matchesEvent && matchesContact && matchesExclusion && matchesArrival && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesPersonalityFit && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone && matchesSubmittedNumberSort
     })
 
     // Sort the filtered results
@@ -4541,6 +4631,12 @@ const fetchParticipants = async () => {
         const dateA = a.next_event_signup_timestamp ? new Date(a.next_event_signup_timestamp).getTime() : 0
         const dateB = b.next_event_signup_timestamp ? new Date(b.next_event_signup_timestamp).getTime() : 0
         return dateB - dateA
+      } else if (sortBy === "personality_fit_desc" || sortBy === "personality_fit_asc") {
+        const scoreA = personalityFitAssessments.get(a.assigned_number)?.score ?? 0
+        const scoreB = personalityFitAssessments.get(b.assigned_number)?.score ?? 0
+        return sortBy === "personality_fit_desc"
+          ? scoreB - scoreA || a.assigned_number - b.assigned_number
+          : scoreA - scoreB || a.assigned_number - b.assigned_number
       } else if (sortBy === "edit_percentage_desc" || sortBy === "edit_percentage_asc") {
         const percentageA = surveyChangeCounts[a.assigned_number]?.maxPercentage ?? 0
         const percentageB = surveyChangeCounts[b.assigned_number]?.maxPercentage ?? 0
@@ -4577,7 +4673,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipantNumbers, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts, participantPreferenceScores])
+  }, [participants, personalityFitAssessments, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, personalityFitFilter, personalityFitReviews, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipantNumbers, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts, participantPreferenceScores, isCohost])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -8815,6 +8911,29 @@ Proceed?`
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
+              {!isCohost && (
+                <div className="relative">
+                  <select
+                    value={personalityFitFilter}
+                    onChange={(event) => setPersonalityFitFilter(event.target.value)}
+                    disabled={personalityFitReviewsLoading}
+                    className={`w-full appearance-none rounded-xl border px-3 py-2 pr-8 text-sm focus:outline-none disabled:opacity-60 ${
+                      personalityFitFilter !== "all"
+                        ? "border-violet-400/50 bg-violet-500/20 text-violet-200"
+                        : "border-white/20 bg-white/10 text-white"
+                    }`}
+                  >
+                    <option value="all" className="bg-slate-800 text-white">All Personality Fit</option>
+                    <option value="pass" className="bg-slate-800 text-white">Fit: Pass</option>
+                    <option value="review" className="bg-slate-800 text-white">Fit: Review</option>
+                    <option value="insufficient" className="bg-slate-800 text-white">Fit: Needs Answers</option>
+                    <option value="manually_approved" className="bg-slate-800 text-white">Manual: Approved</option>
+                    <option value="manual_concern" className="bg-slate-800 text-white">Manual: Concern</option>
+                    <option value="unreviewed" className="bg-slate-800 text-white">Manual: Not Reviewed</option>
+                  </select>
+                  <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-violet-300" />
+                </div>
+              )}
               <div className="relative">
                 <select
                   value={editedProfilesFilter}
@@ -8838,6 +8957,8 @@ Proceed?`
                   <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most</option>
                   <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least</option>
                   <option value="survey_updated" className="bg-slate-800 text-white">Latest Survey Edit</option>
+                  {!isCohost && <option value="personality_fit_desc" className="bg-slate-800 text-white">Fit: Highest</option>}
+                  {!isCohost && <option value="personality_fit_asc" className="bg-slate-800 text-white">Fit: Lowest</option>}
                 </select>
                 <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-blue-300" />
               </div>
@@ -9084,6 +9205,32 @@ Proceed?`
               <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
+            {/* Personality fit and manual-review filter */}
+            {!isCohost && (
+              <div className="relative">
+                <select
+                  value={personalityFitFilter}
+                  onChange={(event) => setPersonalityFitFilter(event.target.value)}
+                  disabled={personalityFitReviewsLoading}
+                  className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 transition-colors disabled:opacity-60 ${
+                    personalityFitFilter !== "all"
+                      ? "border-violet-400/50 bg-violet-500/20 text-violet-200 focus:ring-violet-400/40"
+                      : "border-white/20 bg-white/10 text-slate-300 focus:ring-slate-400/50"
+                  }`}
+                  title="Filter by the automated personality-fit result or a saved manual review"
+                >
+                  <option value="all" className="bg-slate-800 text-white">All Personality Fit</option>
+                  <option value="pass" className="bg-slate-800 text-white">Fit: Pass / Provisional</option>
+                  <option value="review" className="bg-slate-800 text-white">Fit: Review Needed</option>
+                  <option value="insufficient" className="bg-slate-800 text-white">Fit: Insufficient Answers</option>
+                  <option value="manually_approved" className="bg-slate-800 text-white">Manual: Approved</option>
+                  <option value="manual_concern" className="bg-slate-800 text-white">Manual: Needs Review / Do Not Invite</option>
+                  <option value="unreviewed" className="bg-slate-800 text-white">Manual: Not Reviewed</option>
+                </select>
+                <ChevronRight className={`pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 ${personalityFitFilter !== "all" ? "text-violet-300" : "text-slate-400"}`} />
+              </div>
+            )}
+
             {/* Legal acceptance filter */}
             <div className="relative">
               <select
@@ -9165,6 +9312,8 @@ Proceed?`
                     <option value="preference_liked_asc" className="bg-slate-800 text-white">Least Liked · All Events</option>
                     <option value="preference_disliked_desc" className="bg-slate-800 text-white">Most Disliked · All Events</option>
                     <option value="preference_disliked_asc" className="bg-slate-800 text-white">Least Disliked · All Events</option>
+                    <option value="personality_fit_desc" className="bg-slate-800 text-white">Personality Fit: Highest First</option>
+                    <option value="personality_fit_asc" className="bg-slate-800 text-white">Personality Fit: Lowest First</option>
                   </>
                 )}
               </select>
@@ -9384,6 +9533,29 @@ Proceed?`
               const participantNationality = getParticipantNationality(p);
               const hasPhone = participantHasPhone(p);
               const participantPreferenceScore = participantPreferenceScores[p.assigned_number];
+              const personalityFitAssessment = personalityFitAssessments.get(p.assigned_number);
+              const personalityFitReview = personalityFitReviews[p.assigned_number];
+              const personalityFitStatusTone = personalityFitAssessment?.status === "pass"
+                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                : personalityFitAssessment?.status === "review"
+                  ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                  : personalityFitAssessment?.status === "careful_review"
+                    ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
+                    : "border-slate-500/30 bg-slate-500/10 text-slate-300";
+              const personalityFitReviewLabel = personalityFitReview?.review_status === "approved"
+                ? "Manual: approved"
+                : personalityFitReview?.review_status === "needs_review"
+                  ? "Manual: needs review"
+                  : personalityFitReview?.review_status === "not_suitable"
+                    ? "Manual: do not invite"
+                    : "Manual: not reviewed";
+              const personalityFitReviewTone = personalityFitReview?.review_status === "approved"
+                ? "text-emerald-300"
+                : personalityFitReview?.review_status === "needs_review"
+                  ? "text-amber-200"
+                  : personalityFitReview?.review_status === "not_suitable"
+                    ? "text-rose-200"
+                    : "text-slate-500";
               const isPreferenceSorting = sortBy.startsWith("preference_");
               const isLikedPreferenceSorting = sortBy.startsWith("preference_liked_");
               const isPaid = p.attendance_confirmed === true && p.PAID_DONE === true;
@@ -9624,6 +9796,45 @@ Proceed?`
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {!isCohost && personalityFitAssessment && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setPersonalityFitReviewParticipant(p)
+                        }}
+                        className={`mb-3 w-full rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 ${personalityFitStatusTone}`}
+                        aria-label={`Review personality fit for participant ${p.assigned_number}`}
+                        title="Open the full scored evidence and manual review checklist"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-black uppercase tracking-wide">Personality fit</div>
+                            <div className="mt-0.5 text-[10px] font-semibold opacity-80">
+                              {personalityFitAssessment.statusLabel} · {personalityFitAssessment.confidence} confidence
+                            </div>
+                          </div>
+                          <div className="shrink-0 font-mono text-xl font-black tabular-nums">
+                            {personalityFitAssessment.score}<span className="text-[10px] font-bold opacity-60">/100</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-current/10 pt-2">
+                          {personalityFitAssessment.dimensions.map(dimension => (
+                            <div key={dimension.key} className="flex items-center justify-between gap-2 text-[9px]">
+                              <span className="truncate opacity-75">{dimension.label}</span>
+                              <span className="shrink-0 font-mono font-black tabular-nums">{dimension.score}/{dimension.maxScore}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-current/10 pt-2 text-[9px] font-bold">
+                          <span className={personalityFitReviewTone}>
+                            {personalityFitReviewsLoading ? "Loading manual review…" : personalityFitReviewLabel}
+                          </span>
+                          <span className="opacity-70">Review details →</span>
+                        </div>
+                      </button>
                     )}
 
                     <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
@@ -11299,6 +11510,22 @@ Proceed?`
         onUpdate={updateParticipantLocally}
         onSurveyHistoryChange={fetchSurveyChangeCounts}
         cohostTheme={isCohost}
+      />
+
+      <ParticipantPersonalityFitReviewModal
+        participant={personalityFitReviewParticipant}
+        assessment={personalityFitReviewParticipant
+          ? personalityFitAssessments.get(personalityFitReviewParticipant.assigned_number) || assessParticipantPersonalityFit(personalityFitReviewParticipant)
+          : null}
+        review={personalityFitReviewParticipant
+          ? personalityFitReviews[personalityFitReviewParticipant.assigned_number]
+          : undefined}
+        isOpen={Boolean(personalityFitReviewParticipant)}
+        saving={savingPersonalityFitReview}
+        onClose={() => {
+          if (!savingPersonalityFitReview) setPersonalityFitReviewParticipant(null)
+        }}
+        onSave={savePersonalityFitReview}
       />
 
       {/* Group Debug Modal */}

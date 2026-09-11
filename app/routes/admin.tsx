@@ -898,7 +898,7 @@ export default function AdminPage() {
   const [participantPreferenceScores, setParticipantPreferenceScores] = useState<Record<number, ParticipantPreferenceScore>>({})
   const [participantPreferenceScoresLoading, setParticipantPreferenceScoresLoading] = useState(false)
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
-  const [sortBy, setSortBy] = useState("number") // includes edit percentage ascending/descending
+  const [sortBy, setSortBy] = useState("number_asc") // includes edit percentage ascending/descending
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -4285,7 +4285,7 @@ const fetchParticipants = async () => {
     setExclusionFilter("all")
     setArrivalFilter("all")
     setShowDuplicatePhones(false)
-    setSortBy("number")
+    setSortBy("number_asc")
   }
 
   const applyParticipantFilterPreset = (preset: "choice_ready" | "current" | "survey_follow_up" | "first_contact") => {
@@ -4512,13 +4512,16 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesAge && matchesEvent && matchesContact && matchesExclusion && matchesArrival && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone
+      const matchesSubmittedNumberSort = (sortBy !== "number_asc" && sortBy !== "number_desc") || hasParticipantHistory(p)
+
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesAge && matchesEvent && matchesContact && matchesExclusion && matchesArrival && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone && matchesSubmittedNumberSort
     })
 
     // Sort the filtered results
     return filtered.sort((a, b) => {
-      if (sortBy === "number") {
-        return a.assigned_number - b.assigned_number
+      if (sortBy === "number_asc" || sortBy === "number_desc") {
+        const direction = sortBy === "number_asc" ? 1 : -1
+        return (a.assigned_number - b.assigned_number) * direction
       } else if (sortBy === "name") {
         const nameA = a.name || ""
         const nameB = b.name || ""
@@ -6418,7 +6421,7 @@ Proceed?`
                 ❤ Show Groups
               </button>
               <button
-                onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
+                onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number_asc'); }}
                 className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm hover:bg-rose-700 transition-colors"
               >
                 Reset Defaults
@@ -8830,7 +8833,8 @@ Proceed?`
                   onChange={(event) => setSortBy(event.target.value)}
                   className="w-full appearance-none rounded-xl border border-blue-400/30 bg-blue-500/10 px-3 py-2 pr-8 text-sm text-blue-200 focus:outline-none"
                 >
-                  <option value="number" className="bg-slate-800 text-white">Number</option>
+                  <option value="number_asc" className="bg-slate-800 text-white">Number ↑ (Submitted)</option>
+                  <option value="number_desc" className="bg-slate-800 text-white">Number ↓ (Submitted)</option>
                   <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most</option>
                   <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least</option>
                   <option value="survey_updated" className="bg-slate-800 text-white">Latest Survey Edit</option>
@@ -9145,7 +9149,8 @@ Proceed?`
                 onChange={(e) => setSortBy(e.target.value)}
                 className="appearance-none bg-blue-500/10 backdrop-blur-sm border border-blue-400/30 rounded-xl px-4 py-2 pr-8 text-blue-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
               >
-                <option value="number" className="bg-slate-800 text-white">Sort by Number</option>
+                <option value="number_asc" className="bg-slate-800 text-white">Number: Low to High (Submitted)</option>
+                <option value="number_desc" className="bg-slate-800 text-white">Number: High to Low (Submitted)</option>
                 <option value="name" className="bg-slate-800 text-white">Sort by Name</option>
                 <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
                 <option value="survey_updated" className="bg-slate-800 text-white">Sort by Survey Update</option>

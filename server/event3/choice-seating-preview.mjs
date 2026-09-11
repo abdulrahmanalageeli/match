@@ -166,6 +166,8 @@ function protectedViolations(group, protectedPairs, round, tableNumber) {
 function warningKeys(metrics = {}) {
   const checks = [
     ["lockedPairs", "protected_pair"],
+    ["compatibilityCoverageIncomplete", "incomplete_compatibility_coverage"],
+    ["ageCoverageIncomplete", "incomplete_age_coverage"],
     ["depthMismatch", "depth_mismatch"],
     ["initiatorMissing", "missing_initiator"],
     ["ageRangeViolation", "wide_age_range"],
@@ -242,8 +244,8 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
   const assignments = assignmentsForPlan(plan, participantNumbers)
   const genderTargetRanges = genderTargets(participantNumbers, genderMap, plan.round1.length)
   const rounds = [
-    roundReport({ round: 1, lens: "spark", groups: plan.round1, groupScores: plan.round1Spark?.after?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
-    roundReport({ round: 2, lens: "depth", groups: plan.round2, groupScores: plan.round2Depth?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 1, lens: "compatibility", groups: plan.round1, groupScores: (plan.round1Compatibility || plan.round1Spark)?.after?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 2, lens: "age", groups: plan.round2, groupScores: (plan.round2Age || plan.round2Depth)?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
     roundReport({ round: 3, lens: "rhythm", groups: plan.round3, groupScores: plan.round3Rhythm?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
   ]
   const allTables = rounds.flatMap(round => round.tables.map(table => ({ round: round.round, ...table })))
@@ -279,6 +281,12 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
       assignment_count: assignments.length,
       overall_score: finiteLensScores.length ? rounded(finiteLensScores.reduce((sum, score) => sum + score, 0) / finiteLensScores.length) : null,
       lens_scores: lensScores,
+      round2_age: {
+        squared_gap_cost: rounded((plan.round2Age || plan.round2Depth)?.ageCost),
+        average_gap_years: rounded((plan.round2Age || plan.round2Depth)?.averageAgeGap),
+        maximum_gap_years: rounded((plan.round2Age || plan.round2Depth)?.maximumAgeGap),
+        maximum_table_range_years: rounded((plan.round2Age || plan.round2Depth)?.maximumAgeRange),
+      },
       weakest_tables: weakestTables,
       all_gender_balanced: allTables.every(table => table.gender.balanced),
       protected_pair_violations: violations.length,
@@ -566,6 +574,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     genderMap: context.genderMap,
     ageMap: context.ageMap,
     profileMap: lensProfileMap,
+    compatibilityProfileMap: context.profileMap,
     lockedPairsSet: context.lockedPairsSet,
     requireCompleteLensProfiles: false,
   }

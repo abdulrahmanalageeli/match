@@ -61,7 +61,7 @@ test("live seating scores preserve table numbers and recalculate every lens afte
   const before = buildEvent3LiveSeatingScores({ assignments: beforeAssignments, profiles })
   const after = buildEvent3LiveSeatingScores({ assignments: afterAssignments, profiles })
 
-  assert.deepEqual([before[1].lens, before[2].lens, before[3].lens], ["spark", "depth", "rhythm"])
+  assert.deepEqual([before[1].lens, before[2].lens, before[3].lens], ["compatibility", "age", "rhythm"])
   assert.deepEqual(Object.keys(after[1].tables), ["1", "2"])
   for (const round of [1, 2, 3]) {
     assert.equal(Number.isFinite(after[round].score), true)

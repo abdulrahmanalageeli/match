@@ -98,7 +98,7 @@ export function buildSevenBySixPlan(participantNumbers, genderMap = {}) {
 }
 
 function numericAge(ageMap, participantNumber) {
-  const value = Number(ageMap?.[participantNumber])
+  const value = Number(ageMap instanceof Map ? ageMap.get(participantNumber) : ageMap?.[participantNumber])
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
@@ -120,6 +120,73 @@ export function round2AgeCost(groups, ageMap = {}) {
 
 function groupAgeCost(group, ageMap) {
   return round2AgeCost([group], ageMap)
+}
+
+const agePairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
+
+export function round2AgePairClosenessScore(left, right, ageMap = {}) {
+  const leftAge = numericAge(ageMap, left)
+  const rightAge = numericAge(ageMap, right)
+  if (leftAge == null || rightAge == null) return 50
+  return Math.max(0, 100 - (Math.abs(leftAge - rightAge) * 5))
+}
+
+export function scoreRound2AgeGroup(group, { ageMap = {}, lockedPairsSet = new Set() } = {}) {
+  const ages = group.map(number => numericAge(ageMap, number))
+  const gaps = []
+  let ageCost = 0
+  let lockedPairs = 0
+  for (let left = 0; left < group.length; left++) {
+    for (let right = left + 1; right < group.length; right++) {
+      if (lockedPairsSet?.has(agePairKey(group[left], group[right]))) lockedPairs++
+      if (ages[left] == null || ages[right] == null) continue
+      const gap = Math.abs(ages[left] - ages[right])
+      gaps.push(gap)
+      ageCost += gap ** 2
+    }
+  }
+  const knownAges = ages.filter(age => age != null)
+  const averageAgeGap = gaps.length ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : null
+  const ageRange = knownAges.length > 1 ? Math.max(...knownAges) - Math.min(...knownAges) : 0
+  return {
+    score: averageAgeGap == null ? 50 : Math.max(0, 100 - (averageAgeGap * 5)),
+    qualityScore: averageAgeGap == null ? 50 : Math.max(0, 100 - (averageAgeGap * 5)),
+    ageCost,
+    totalAgeGap: gaps.reduce((sum, gap) => sum + gap, 0),
+    averageAgeGap,
+    maximumAgeGap: gaps.length ? Math.max(...gaps) : null,
+    averageAge: knownAges.length ? knownAges.reduce((sum, age) => sum + age, 0) / knownAges.length : null,
+    ageRange,
+    ageRangeViolation: knownAges.length === group.length && ageRange > 10,
+    knownAgeCount: knownAges.length,
+    agePairCount: gaps.length,
+    ageCoverageIncomplete: knownAges.length < group.length,
+    lockedPairs,
+  }
+}
+
+export function createRound2AgeGroupScorer(options = {}) {
+  return group => scoreRound2AgeGroup(group, options)
+}
+
+export function summarizeRound2AgeGroups(groupScores = []) {
+  const agePairCount = groupScores.reduce((sum, group) => sum + Number(group.agePairCount || 0), 0)
+  const totalAgeGap = groupScores.reduce((sum, group) => sum + Number(group.totalAgeGap || 0), 0)
+  const averageAgeGap = agePairCount ? totalAgeGap / agePairCount : null
+  return {
+    score: averageAgeGap == null ? 50 : Math.max(0, 100 - (averageAgeGap * 5)),
+    qualityScore: averageAgeGap == null ? 50 : Math.max(0, 100 - (averageAgeGap * 5)),
+    ageCost: groupScores.reduce((sum, group) => sum + Number(group.ageCost || 0), 0),
+    totalAgeGap,
+    averageAgeGap,
+    maximumAgeGap: groupScores.length ? Math.max(...groupScores.map(group => Number(group.maximumAgeGap || 0))) : null,
+    maximumAgeRange: groupScores.length ? Math.max(...groupScores.map(group => Number(group.ageRange || 0))) : null,
+    agePairCount,
+    ageCoverageIncomplete: groupScores.filter(group => group.ageCoverageIncomplete).length,
+    wideAgeRangeTables: groupScores.filter(group => group.ageRangeViolation).length,
+    lockedPairs: groupScores.reduce((sum, group) => sum + Number(group.lockedPairs || 0), 0),
+    groupScores,
+  }
 }
 
 // Improve the second round without changing any of its safety properties.
@@ -150,7 +217,9 @@ export function optimizeRound2ByAge(round1, round2, genderMap = {}, ageMap = {})
         for (let j = i + 1; j < originalGroup.length; j++) {
           const b = originalGroup[j]
           const ageB = numericAge(ageMap, b)
-          if (ageB == null || normalizedGender(genderMap[a]) !== normalizedGender(genderMap[b])) continue
+          const genderA = genderMap instanceof Map ? genderMap.get(a) : genderMap[a]
+          const genderB = genderMap instanceof Map ? genderMap.get(b) : genderMap[b]
+          if (ageB == null || normalizedGender(genderA) !== normalizedGender(genderB)) continue
 
           const tableA = destinationOf.get(a)
           const tableB = destinationOf.get(b)

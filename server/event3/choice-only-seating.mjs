@@ -1,5 +1,16 @@
-import { buildSevenBySixPlan, normalizedGender } from "./round2-age-optimizer.mjs"
-import { optimizeRound1SparkGroups } from "./round1-spark.mjs"
+import {
+  buildSevenBySixPlan,
+  createRound2AgeGroupScorer,
+  normalizedGender,
+  round2AgeCost,
+  round2AgePairClosenessScore,
+  summarizeRound2AgeGroups,
+} from "./round2-age-optimizer.mjs"
+import {
+  buildRound1TotalCompatibilityPairScoreMap,
+  createRound1TotalCompatibilityScorer,
+  optimizeRound1TotalCompatibilityGroups,
+} from "./round1-total-compatibility.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 import {
   buildFlexibleChoiceOnlySeatingCandidates,
@@ -10,7 +21,7 @@ const TABLE_COUNT = 7
 const GROUP_SIZE = 6
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
-export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v4-six-person-40-pass"
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "total-compatibility-age-rhythm-v1-six-person-40-pass"
 
 // Preview alternatives must feel like different complete plans, not the same
 // tables with different numbers. Replacing half of the 105 companion
@@ -315,18 +326,7 @@ function genderScore(groups, genderMap) {
 }
 
 function ageCost(groups, ageMap) {
-  let cost = 0
-  for (const group of groups) {
-    for (let left = 0; left < group.length; left++) {
-      const leftAge = Number(ageMap instanceof Map ? ageMap.get(group[left]) : ageMap?.[group[left]])
-      if (!Number.isFinite(leftAge) || leftAge <= 0) continue
-      for (let right = left + 1; right < group.length; right++) {
-        const rightAge = Number(ageMap instanceof Map ? ageMap.get(group[right]) : ageMap?.[group[right]])
-        if (Number.isFinite(rightAge) && rightAge > 0) cost += (leftAge - rightAge) ** 2
-      }
-    }
-  }
-  return cost
+  return round2AgeCost(groups, ageMap)
 }
 
 function average(values, fallback = 0) {
@@ -368,20 +368,6 @@ function repeatedBetweenShiftPairKeys(sourceRound, firstShifts, secondShifts) {
   })
 }
 
-function summarizeDepth(groupScores) {
-  return {
-    score: average(groupScores.map(group => group.score), 0),
-    lockedPairs: groupScores.reduce((sum, group) => sum + group.lockedPairs, 0),
-    incompleteDepthCoverage: groupScores.filter(group => group.depthCoverageIncomplete).length,
-    incompleteRoleCoverage: groupScores.filter(group => group.roleCoverageIncomplete).length,
-    incompleteCuriosityCoverage: groupScores.filter(group => group.curiosityCoverageIncomplete).length,
-    depthMismatches: groupScores.filter(group => group.depthMismatch).length,
-    missingInitiators: groupScores.filter(group => group.initiatorMissing).length,
-    missingCuriosityMixes: groupScores.filter(group => group.curiosityMixMissing).length,
-    groupScores,
-  }
-}
-
 function summarizeRhythm(groupScores) {
   return {
     score: average(groupScores.map(group => group.score), 0),
@@ -415,25 +401,22 @@ function canonicalRound1MembershipVector(groups) {
 }
 
 function round1ObjectiveVector(candidate) {
-  const fitness = candidate.spark?.metrics?.after || {}
+  const fitness = candidate.compatibility?.metrics?.after || {}
   return [
-    // The established unconstrained winner remains rank one for backwards
-    // compatibility. Every alternative is then ranked by exactly the old
-    // Spark priorities before the later-lens objective.
+    // The primary local optimum remains the reference plan. Every plan uses
+    // the same total-pair objective; alternatives exist for human choice.
     candidate.round1?.establishedBest === true ? 0 : 1,
     Number(fitness.lockedPairs || 0),
-    Number(fitness.depthMismatches || 0),
-    Number(fitness.missingInitiators || 0),
-    Number(fitness.ageRangeViolations || 0),
-    -Number(fitness.score || 0),
-    ...canonicalRound1MembershipVector(candidate.round1?.groups || []),
+    -Number(fitness.totalPairScore || 0),
+    -Number(fitness.minimumGroupScore || 0),
+    -Number(fitness.minimumPairScore || 0),
   ]
 }
 
 function jointPlanObjectiveVector(candidate) {
   const worstGenderSpread = Math.max(candidate.round2.gender.maximumSpread, candidate.round3.gender.maximumSpread)
   const worstGenderDeviation = Math.max(candidate.round2.gender.squaredDeviation, candidate.round3.gender.squaredDeviation)
-  const lockedPairs = candidate.round2.depth.lockedPairs + candidate.round3.rhythm.lockedPairs
+  const lockedPairs = candidate.round2.age.lockedPairs + candidate.round3.rhythm.lockedPairs
   return [
     ...round1ObjectiveVector(candidate),
     worstGenderSpread,
@@ -441,28 +424,21 @@ function jointPlanObjectiveVector(candidate) {
     candidate.round2.gender.squaredDeviation + candidate.round3.gender.squaredDeviation,
     worstGenderDeviation,
     lockedPairs,
-    candidate.round2.depth.lockedPairs,
-    candidate.round2.depth.incompleteDepthCoverage,
-    candidate.round2.depth.incompleteRoleCoverage,
-    candidate.round2.depth.incompleteCuriosityCoverage,
-    candidate.round2.depth.depthMismatches,
-    candidate.round2.depth.missingInitiators,
-    candidate.round2.depth.missingCuriosityMixes,
+    candidate.round2.age.lockedPairs,
+    candidate.round2.age.ageCost,
+    candidate.round2.age.maximumAgeRange,
+    candidate.round2.age.ageCoverageIncomplete,
+    -candidate.round2.age.score,
     candidate.round3.rhythm.incompleteRoleCoverage,
     candidate.round3.rhythm.incompleteCuriosityCoverage,
     candidate.round3.rhythm.missingInitiators,
     candidate.round3.rhythm.missingRoleTrios,
     candidate.round3.rhythm.missingCuriosityFlows,
     candidate.round3.rhythm.humorClashes,
-    -candidate.minimumLensQuality,
-    -candidate.quality,
-    -candidate.anchorMinimum,
-    -candidate.round2.quality,
     -candidate.round3.quality,
-    candidate.ageCost,
-    candidate.round3.ageCost,
     ...candidate.round2.shifts,
     ...candidate.round3.shifts,
+    ...canonicalRound1MembershipVector(candidate.round1?.groups || []),
   ]
 }
 
@@ -486,17 +462,29 @@ function normalizedParticipants(values) {
   return { participants }
 }
 
+function withPrecomputedCompatibility(values, options = {}) {
+  if (!Array.isArray(values)) return options
+  const numbers = values.map(value => Number(value?.participant_number ?? value?.assigned_number ?? value))
+  return {
+    ...options,
+    pairScoreMap: buildRound1TotalCompatibilityPairScoreMap(numbers, options),
+  }
+}
+
 /**
  * Build seven groups of six for three rounds. Round one starts from the
- * established gender-balanced Event3 grid, then improves its survey-only Spark
- * fit without changing any gender slot. Round two searches the minimum-repeat
- * layouts for Depth/Common Ground and strong Spark anchors. Round three keeps
- * the same repeat lower bound while optimizing Rhythm/Discovery.
+ * established gender-balanced Event3 grid, then maximizes the sum of the
+ * current total-compatibility score for every pair at each table without
+ * changing any gender slot. Round two searches the zero-repeat layouts for
+ * the closest age bands. Round three keeps the same repeat guarantee while
+ * optimizing the existing Rhythm/Discovery objective.
  */
 function buildChoiceOnlySeatingSearch(values, {
   genderMap = {},
   ageMap = {},
   profileMap = new Map(),
+  compatibilityProfileMap = profileMap,
+  pairScoreMap = new Map(),
   lockedPairsSet = new Set(),
   requireCompleteLensProfiles = false,
 } = {}, candidateCount = 1, {
@@ -521,25 +509,25 @@ function buildChoiceOnlySeatingSearch(values, {
   }
 
   const participantIndex = new Map(participants.map((number, index) => [number, index]))
-  let spark
+  let compatibility
   if (round1Source) {
-    spark = {
-      groups: round1Source.spark.groups.map(group => [...group]),
-      metrics: round1Source.spark.metrics,
+    compatibility = {
+      groups: round1Source.compatibility.groups.map(group => [...group]),
+      metrics: round1Source.compatibility.metrics,
     }
   } else {
     const genderObject = genderMap instanceof Map ? Object.fromEntries(genderMap) : genderMap
     const balanced = buildSevenBySixPlan(participants, genderObject)
     const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
       participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
-    spark = optimizeRound1SparkGroups(baselineRound1, {
+    compatibility = optimizeRound1TotalCompatibilityGroups(baselineRound1, {
       genderMap,
-      ageMap,
-      profileMap,
+      profileMap: compatibilityProfileMap,
+      pairScoreMap,
       lockedPairsSet,
     })
   }
-  const round1 = spark.groups
+  const round1 = compatibility.groups
   const round1Layout = {
     groups: round1,
     pairSignature: buildPairSignature(round1, participantIndex),
@@ -549,6 +537,12 @@ function buildChoiceOnlySeatingSearch(values, {
     variantKey: round1Source?.variantKey || "primary",
   }
   const lenses = createRoundLensScorer({ profileMap, lockedPairsSet })
+  const compatibilityScorer = createRound1TotalCompatibilityScorer({
+    profileMap: compatibilityProfileMap,
+    pairScoreMap,
+    lockedPairsSet,
+  })
+  const ageGroup = createRound2AgeGroupScorer({ ageMap, lockedPairsSet })
 
   const layoutCache = new Map()
   const layoutFor = shifts => {
@@ -569,15 +563,13 @@ function buildChoiceOnlySeatingSearch(values, {
   const round2For = shifts => {
     if (round2Cache.has(shifts)) return round2Cache.get(shifts)
     const layout = layoutFor(shifts)
-    const depth = summarizeDepth(layout.groups.map(lenses.depthGroup))
-    const anchors = anchorStats(repeatedSourcePairKeys(round1, shifts), lenses.sparkPairScore)
+    const age = summarizeRound2AgeGroups(layout.groups.map(ageGroup))
+    const anchors = anchorStats(repeatedSourcePairKeys(round1, shifts), compatibilityScorer.pairScore)
     const candidate = {
       ...layout,
-      depth,
+      age,
       anchors,
-      // Depth owns the table experience; the repeated Spark pair is a deliberate
-      // social anchor rather than an arbitrary structural duplicate.
-      quality: (depth.score * 0.75) + (anchors.average * 0.15) + (anchors.minimum * 0.10),
+      quality: age.score,
     }
     round2Cache.set(shifts, candidate)
     return candidate
@@ -590,7 +582,10 @@ function buildChoiceOnlySeatingSearch(values, {
     const candidate = {
       ...layout,
       rhythm: summarizeRhythm(layout.groups.map(lenses.rhythmGroup)),
-      sparkAnchors: anchorStats(repeatedSourcePairKeys(round1, shifts), lenses.sparkPairScore),
+      compatibilityAnchors: anchorStats(
+        repeatedSourcePairKeys(round1, shifts),
+        compatibilityScorer.pairScore,
+      ),
     }
     round3BaseCache.set(shifts, candidate)
     return candidate
@@ -601,48 +596,52 @@ function buildChoiceOnlySeatingSearch(values, {
     let best = null
     for (const [round2Shifts, round3Shifts] of getFeasibleShiftPairs()) {
       const round2Candidate = round2For(round2Shifts)
-      // Selecting the rounds together prevents a locally attractive Depth round
+      // Selecting the rounds together prevents a locally attractive age round
       // from stranding Rhythm without a gender-balanced, burden-one solution.
       const round3Base = round3BaseFor(round3Shifts)
       const diversityProbe = {
         round1: round1Layout,
-        spark,
+        compatibility,
         round2: round2Candidate,
         round3: round3Base,
       }
       if ([...excludedCandidates, ...bestCandidates]
         .some(selected => !isMateriallyDifferent(diversityProbe, selected, diversityRoundNumbers))) continue
 
-      const sparkAnchors = round3Base.sparkAnchors
-      const depthAnchors = anchorStats(
+      const compatibilityAnchors = round3Base.compatibilityAnchors
+      const ageAnchors = anchorStats(
         repeatedBetweenShiftPairKeys(round1, round2Shifts, round3Shifts),
-        lenses.depthPairScore,
+        (left, right) => round2AgePairClosenessScore(left, right, ageMap),
       )
-      const allAnchorMinimum = Math.min(sparkAnchors.minimum, depthAnchors.minimum)
+      const allAnchorMinimum = Math.min(compatibilityAnchors.minimum, ageAnchors.minimum)
       const round3Candidate = {
         ...round3Base,
         anchors: {
-          round1Spark: sparkAnchors,
-          round2Depth: depthAnchors,
+          round1Compatibility: compatibilityAnchors,
+          round2Age: ageAnchors,
+          // Historical aliases are retained for old report readers.
+          round1Spark: compatibilityAnchors,
+          round2Depth: ageAnchors,
           minimum: allAnchorMinimum,
         },
-        quality: (round3Base.rhythm.qualityScore * 0.75)
-          + (sparkAnchors.average * 0.10)
-          + (depthAnchors.average * 0.10)
-          + (allAnchorMinimum * 0.05),
+        quality: round3Base.rhythm.qualityScore,
       }
       const candidate = {
         round1: round1Layout,
-        spark,
+        compatibility,
         round2: round2Candidate,
         round3: round3Candidate,
-        quality: round2Candidate.quality + round3Candidate.quality,
-        minimumLensQuality: Math.min(round2Candidate.quality, round3Candidate.quality),
+        quality: compatibility.metrics.after.score + round2Candidate.quality + round3Candidate.quality,
+        minimumLensQuality: Math.min(
+          compatibility.metrics.after.score,
+          round2Candidate.quality,
+          round3Candidate.quality,
+        ),
         anchorMinimum: Math.min(round2Candidate.anchors.minimum, round3Candidate.anchors.minimum),
-        ageCost: round2Candidate.ageCost + round3Candidate.ageCost,
+        ageCost: round2Candidate.age.ageCost,
       }
-      const protectedPairViolations = Number(spark.metrics?.after?.lockedPairs || 0)
-        + Number(round2Candidate.depth?.lockedPairs || 0)
+      const protectedPairViolations = Number(compatibility.metrics?.after?.lockedPairs || 0)
+        + Number(round2Candidate.age?.lockedPairs || 0)
         + Number(round3Candidate.rhythm?.lockedPairs || 0)
       if (protectedPairViolations > 0) continue
       if (!best || compareJointPlans(candidate, best) < 0) best = candidate
@@ -650,7 +649,7 @@ function buildChoiceOnlySeatingSearch(values, {
     if (!best) {
       return {
         error: candidateCount === 1
-          ? "Could not construct conflict-free joint minimum-repeat Depth and Rhythm rounds"
+          ? "Could not construct conflict-free joint close-age and Rhythm rounds"
           : `Could not construct ${candidateCount} materially different conflict-free minimum-repeat seating candidates`,
       }
     }
@@ -662,12 +661,20 @@ function buildChoiceOnlySeatingSearch(values, {
 
 function serializeChoiceOnlyPlan({ participants }, best) {
   const round1 = best.round1.groups
-  const spark = best.spark
+  const compatibility = best.compatibility
   const round2 = best.round2.groups
   const round3 = best.round3.groups
   const repeatMetrics = choiceOnlySeatingMetrics(round1, round2, round3)
   const positionMap = {}
   round1.flat().forEach((number, index) => { positionMap[number] = index })
+  const round1Compatibility = compatibility.metrics
+  const round2Age = {
+    ...best.round2.age,
+    anchors: best.round2.anchors,
+    quality: best.round2.quality,
+    ageCost: best.round2.age.ageCost,
+    shifts: best.round2.shifts,
+  }
   return {
     round1,
     round2,
@@ -676,14 +683,12 @@ function serializeChoiceOnlyPlan({ participants }, best) {
     G: GROUP_SIZE,
     R: 0,
     positionMap,
-    round1Spark: spark.metrics,
-    round2Depth: {
-      ...best.round2.depth,
-      anchors: best.round2.anchors,
-      quality: best.round2.quality,
-      ageCost: best.round2.ageCost,
-      shifts: best.round2.shifts,
-    },
+    round1Compatibility,
+    round2Age,
+    // Retain the old property names so historical integrations can read the
+    // new metrics during a rolling deploy.
+    round1Spark: round1Compatibility,
+    round2Depth: round2Age,
     round3Rhythm: {
       ...best.round3.rhythm,
       anchors: best.round3.anchors,
@@ -701,12 +706,16 @@ function candidateIdentifier(candidate) {
 }
 
 function canonicalObjective(candidate) {
-  const sparkFitness = candidate.spark?.metrics?.after || {}
+  const compatibilityFitness = candidate.compatibility?.metrics?.after || {}
   return {
     version: CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
     sortKey: jointPlanObjectiveVector(candidate),
     establishedBest: candidate.round1.establishedBest === true,
-    round1SparkScore: sparkFitness.score ?? null,
+    round1CompatibilityScore: compatibilityFitness.score ?? null,
+    round1TotalPairScore: compatibilityFitness.totalPairScore ?? null,
+    round2AgeCost: candidate.round2.age.ageCost,
+    // Deprecated alias for cached clients that still inspect this field.
+    round1SparkScore: compatibilityFitness.score ?? null,
     quality: candidate.quality,
     minimumLensQuality: candidate.minimumLensQuality,
     anchorMinimum: candidate.anchorMinimum,
@@ -727,7 +736,7 @@ function round1VariantKey(groups) {
   return hash.toString(36)
 }
 
-function rawSparkResult(groups, scored) {
+function rawCompatibilityResult(groups, scored) {
   return {
     groups: groups.map(group => [...group]),
     metrics: {
@@ -740,36 +749,39 @@ function rawSparkResult(groups, scored) {
 
 function alternativeRound1Sources(seedCandidates, options) {
   const sources = []
-  const add = spark => sources.push({
-    spark,
-    variantKey: round1VariantKey(spark.groups),
+  const add = compatibility => sources.push({
+    compatibility,
+    variantKey: round1VariantKey(compatibility.groups),
   })
 
-  // The three already-ranked Depth layouts are pairwise diverse and retain
-  // the structural gender guarantees. Re-optimizing each one with the legacy
-  // Spark scorer produces high-quality alternative first rounds; the raw
+  // The three already-ranked age layouts are pairwise diverse and retain the
+  // structural gender guarantees. Re-optimizing each one with the same total
+  // compatibility scorer produces high-quality alternative first rounds; the raw
   // layout remains as a deterministic fallback if local optimization converges
   // back toward an earlier arrangement.
   for (const candidate of seedCandidates) {
     const seed = candidate.round2.groups.map(group => [...group])
-    const optimized = optimizeRound1SparkGroups(seed, options)
+    const optimized = optimizeRound1TotalCompatibilityGroups(seed, {
+      ...options,
+      profileMap: options.compatibilityProfileMap || options.profileMap,
+    })
     add(optimized)
-    add(rawSparkResult(seed, optimized))
+    add(rawCompatibilityResult(seed, optimized))
   }
   const unique = new Map()
   for (const source of sources) {
-    const key = round1MembershipKey(source.spark.groups)
+    const key = round1MembershipKey(source.compatibility.groups)
     if (!unique.has(key)) unique.set(key, source)
   }
   return [...unique.values()].sort((left, right) => compareNumberVectors(
-    round1ObjectiveVector({
-      round1: { groups: left.spark.groups, establishedBest: false },
-      spark: left.spark,
-    }),
-    round1ObjectiveVector({
-      round1: { groups: right.spark.groups, establishedBest: false },
-      spark: right.spark,
-    }),
+    [...round1ObjectiveVector({
+      round1: { groups: left.compatibility.groups, establishedBest: false },
+      compatibility: left.compatibility,
+    }), ...canonicalRound1MembershipVector(left.compatibility.groups)],
+    [...round1ObjectiveVector({
+      round1: { groups: right.compatibility.groups, establishedBest: false },
+      compatibility: right.compatibility,
+    }), ...canonicalRound1MembershipVector(right.compatibility.groups)],
   ))
 }
 
@@ -778,10 +790,10 @@ function alternativeRound1Sources(seedCandidates, options) {
  * the best plan materially different from rank one; rank three is the best
  * plan materially different from both earlier choices. All three use the same
  * objective and preserve the exact structural repeat guarantees while applying
- * the same gender, protected-pair, lens-quality, and age priorities.
+ * the same gender, protected-pair, compatibility, close-age, and Rhythm priorities.
  *
- * Rank one intentionally remains the established best Spark arrangement for
- * backwards compatibility. Ranks two and three use separately Spark-scored
+ * Rank one remains the primary total-compatibility arrangement. Ranks two and
+ * three use separately compatibility-scored
  * first rounds, then rebuild both later rounds from those grids. Material
  * diversity is enforced independently in all three rounds.
  */
@@ -789,17 +801,18 @@ export function buildChoiceOnlySeatingCandidates(values, options = {}) {
   if (Array.isArray(values) && values.length !== PARTICIPANT_COUNT) {
     return buildFlexibleChoiceOnlySeatingCandidates(values, options)
   }
-  const primarySearch = buildChoiceOnlySeatingSearch(values, options, 3, {
-    // These two extra fixed-Spark results only seed alternative Round 1 grids.
+  const scoredOptions = withPrecomputedCompatibility(values, options)
+  const primarySearch = buildChoiceOnlySeatingSearch(values, scoredOptions, 3, {
+    // These two extra fixed-Round-1 results only seed alternative grids.
     diversityRoundNumbers: [2, 3],
   })
   if (primarySearch.error) return primarySearch
 
   const bestCandidates = [primarySearch.bestCandidates[0]]
-  const sources = alternativeRound1Sources(primarySearch.bestCandidates, options)
+  const sources = alternativeRound1Sources(primarySearch.bestCandidates, scoredOptions)
   for (const round1Source of sources) {
     if (bestCandidates.length === 3) break
-    const search = buildChoiceOnlySeatingSearch(values, options, 1, {
+    const search = buildChoiceOnlySeatingSearch(values, scoredOptions, 1, {
       round1Source,
       excludedCandidates: bestCandidates,
     })
@@ -852,7 +865,7 @@ export function buildChoiceOnlySeatingPlan(values, options = {}) {
     const generated = buildFlexibleChoiceOnlySeatingCandidates(values, options)
     return generated.error ? generated : generated.candidates[0].plan
   }
-  const search = buildChoiceOnlySeatingSearch(values, options, 1)
+  const search = buildChoiceOnlySeatingSearch(values, withPrecomputedCompatibility(values, options), 1)
   if (search.error) return search
   return serializeChoiceOnlyPlan(search, search.bestCandidates[0])
 }

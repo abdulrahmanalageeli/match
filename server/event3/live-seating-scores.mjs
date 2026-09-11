@@ -1,9 +1,13 @@
-import { createRound1SparkGroupScorer, event3SparkPairKey } from "./round1-spark.mjs"
+import {
+  createRound1TotalCompatibilityGroupScorer,
+  event3CompatibilityPairKey,
+} from "./round1-total-compatibility.mjs"
+import { createRound2AgeGroupScorer } from "./round2-age-optimizer.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 
 const ROUND_LENSES = Object.freeze({
-  1: "spark",
-  2: "depth",
+  1: "compatibility",
+  2: "age",
   3: "rhythm",
 })
 
@@ -50,12 +54,16 @@ export function buildEvent3LiveSeatingScores({ assignments = [], profiles = [], 
     return [number, profile.age || survey?.answers?.age || survey?.age || null]
   }))
   const lockedPairsSet = new Set(protectedPairs.map(pairNumbers).map(([left, right]) =>
-    event3SparkPairKey(Number(left), Number(right))))
-  const sparkGroup = createRound1SparkGroupScorer({ profileMap: scoreProfileMap, ageMap, lockedPairsSet })
+    event3CompatibilityPairKey(Number(left), Number(right))))
+  const compatibilityGroup = createRound1TotalCompatibilityGroupScorer({
+    profileMap: fullProfileMap,
+    lockedPairsSet,
+  })
+  const ageGroup = createRound2AgeGroupScorer({ ageMap, lockedPairsSet })
   const lenses = createRoundLensScorer({ profileMap: scoreProfileMap, lockedPairsSet })
   const scorerByRound = {
-    1: group => sparkGroup(group),
-    2: group => lenses.depthGroup(group),
+    1: group => compatibilityGroup(group),
+    2: group => ageGroup(group),
     3: group => lenses.rhythmGroup(group),
   }
 

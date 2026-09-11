@@ -10655,8 +10655,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             })
           }
 
-          // Classic test mode skips fresh compatibility work. Choice-only mode
-          // uses the same deterministic survey-only three-lens path in test and live.
+          // Classic test mode skips fresh compatibility work. The choice-only
+          // preview path uses deterministic total compatibility, age, and Rhythm.
           const { data: tmState, error: seatingStateError } = await supabase.from("event_state")
             .select("current_event_id,phase,test_mode_active,test_mode_snapshot")
             .eq("match_id", EVENT3_MATCH_ID).maybeSingle()
@@ -10664,14 +10664,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const isTestMode = !!tmState?.test_mode_active
           const skipFreshCompute = isTestMode
 
-          // Choice-only uses deterministic survey-only Spark, Depth, and Rhythm scorers.
+          // Choice-only uses deterministic total compatibility, close age, and Rhythm scorers.
           // Classic test mode still skips compatibility work and shuffles.
           let orderedNumbers = participantNumbers
           const ageMap = {}
           let seatingProfileMap = new Map()
           let usedCompat = false
           if (choiceOnlySeating) {
-            console.log(`e3-generate-seating: ${isTestMode ? "TEST MODE — " : ""}using deterministic survey-only Spark/Depth/Rhythm rules`)
+            console.log(`e3-generate-seating: ${isTestMode ? "TEST MODE — " : ""}using deterministic total-compatibility/age/Rhythm rules`)
           } else if (isTestMode) {
             console.log(`e3-generate-seating: TEST MODE — skipping compatibility, using random shuffle`)
             const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
@@ -10841,9 +10841,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const groupSizes = R > 0 ? `${T - R}×${G} + ${R}×${G + 1}` : `${T}×${G}`
           const groupRoundLabel = round3 ? "ثلاث جولات" : "جولتان"
           const optimizationLabel = choiceOnlySeating
-            ? ' (الجولات مُحسَّنة بمعايير Spark / Depth / Rhythm)'
+            ? ' (الجولات مُحسَّنة بمعايير التوافق الكلي / تقارب العمر / إيقاع الحوار)'
             : usedCompat ? ' (مُحسَّنة بالتوافق)' : ''
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_spark: choiceOnlySeating ? plan.round1Spark : null, round2_depth: choiceOnlySeating ? plan.round2Depth : null, round3_rhythm: choiceOnlySeating ? plan.round3Rhythm : null })
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_compatibility: choiceOnlySeating ? plan.round1Compatibility : null, round2_age: choiceOnlySeating ? plan.round2Age : null, round1_spark: choiceOnlySeating ? plan.round1Spark : null, round2_depth: choiceOnlySeating ? plan.round2Depth : null, round3_rhythm: choiceOnlySeating ? plan.round3Rhythm : null })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {

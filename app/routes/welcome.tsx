@@ -302,7 +302,7 @@ const normalizeOtpEntry = (value: string): string => String(value ?? '')
   .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
   .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
   .replace(/\D/g, '')
-  .slice(0, 6)
+  .slice(0, 8)
 
 const normalizeGenderPreferenceAnswer = (
   value: unknown,
@@ -4492,7 +4492,7 @@ export default function WelcomePage() {
     }
   };
 
-  // Handle forgot token OTP via Twilio WhatsApp
+  // Handle forgot-token recovery through the shared Authentica SMS flow.
   const handleRequestOtp = useCallback(async (phoneOverride?: string) => {
     const phone = typeof phoneOverride === 'string' ? phoneOverride.trim() : forgotPhone.trim()
     if (!phone.replace(/\D/g, "")) {
@@ -4539,8 +4539,8 @@ export default function WelcomePage() {
   }, [handleRequestOtp])
 
   const handleVerifyOtp = async () => {
-    if (!/^\d{6}$/.test(forgotOtp.trim())) {
-      setForgotError("يرجى إدخال رمز التحقق المكون من 6 أرقام")
+    if (!/^\d{4,8}$/.test(forgotOtp.trim())) {
+      setForgotError("يرجى إدخال رمز التحقق الصحيح")
       return
     }
     if (otpVerificationInFlightRef.current) return

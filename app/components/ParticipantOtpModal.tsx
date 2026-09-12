@@ -176,10 +176,10 @@ export function ParticipantOtpModal({
                 value={otp}
                 onChange={(event) => onOtpChange(event.target.value)}
                 onKeyDown={handleOtpKeyDown}
-                placeholder="أدخل الرقم المكون من 6 أرقام"
+                placeholder="أدخل رمز التحقق"
                 className="w-full rounded-lg border border-slate-600 bg-slate-700/50 px-4 py-3 text-center text-lg tracking-widest text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
                 dir="ltr"
-                maxLength={6}
+                maxLength={8}
                 autoFocus
               />
             </div>

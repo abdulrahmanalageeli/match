@@ -18,7 +18,7 @@ export default function PrivacyRequest() {
     finally { setBusy(false) }
   }
 
-  const requestOtp = async () => { const data = await call("request-otp", { phone_number: phone }); if (data) setMessage("تم إرسال رمز التحقق عبر واتساب") }
+  const requestOtp = async () => { const data = await call("request-otp", { phone_number: phone }); if (data) setMessage("تم إرسال رمز التحقق عبر الرسائل النصية") }
   const verifyOtp = async () => { const data = await call("verify-otp", { phone_number: phone, otp }); if (data?.secure_token) { setToken(data.secure_token); setMessage("تم التحقق من هويتك") } }
   const exportData = async () => {
     const data = await call("export-my-data", { secure_token: token }); if (!data) return

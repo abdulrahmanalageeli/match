@@ -6251,7 +6251,7 @@ Please respond in JSON format:
     }
   }
 
-  // ── Forgot token / OTP recovery via Twilio Verify API ────────────────────
+  // ── Forgot token / OTP recovery via Authentica ──────────────────────────
   if (action === "request-otp") {
     if (!enforceRateLimit(req, res, { key: "request-otp", limit: 5, windowMs: 15 * 60_000 })) return
     try {
@@ -6277,37 +6277,18 @@ Please respond in JSON format:
         })
       }
       const participant = participants[0]
+      const verifiedPhone = participantPhoneToE164(participant.phone_number)
+      res.setHeader("Cache-Control", "no-store")
 
-      const accountSid = process.env.TWILIO_ACCOUNT_SID
-      const authToken = process.env.TWILIO_AUTH_TOKEN
-      const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID
-      if (!accountSid || !authToken || !verifyServiceSid) {
-        console.error("Twilio Verify not configured")
-        return res.status(500).json({ error: "إعدادات Twilio Verify غير مكتملة" })
-      }
-
-      // Normalize phone to E.164 format (Twilio Verify requires it)
-      const to = participantPhoneToE164(participant.phone_number)
-
-      // Call Twilio Verify API to send OTP via WhatsApp
-      const verifyUrl = `https://verify.twilio.com/v2/Services/${verifyServiceSid}/Verifications`
-      const body = new URLSearchParams()
-      body.append("To", to)
-      body.append("Channel", "sms")
-
-      const verifyRes = await fetch(verifyUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      })
-
-      const verifyData = await verifyRes.json()
-      if (!verifyRes.ok) {
-        console.error("Twilio Verify send error:", verifyData)
-        return res.status(500).json({ error: "فشل في إرسال رمز التحقق" })
+      try {
+        await sendAuthenticaOtp({ phone: verifiedPhone, method: "sms" })
+      } catch (error) {
+        logError("Authentica participant recovery OTP send", { code: error?.code, status: error?.status })
+        const configurationError = error?.code === "AUTHENTICA_NOT_CONFIGURED"
+        return res.status(configurationError ? 500 : 503).json({
+          error: configurationError ? "خدمة رمز التحقق غير مهيأة" : "تعذّر إرسال رمز التحقق. حاول مرة أخرى.",
+          retryable: !configurationError,
+        })
       }
 
       return res.status(200).json({ success: true, message: "تم إرسال رمز التحقق عبر الرسائل القصيرة" })
@@ -6322,6 +6303,8 @@ Please respond in JSON format:
     try {
       const { phone_number, otp, provisional_secure_token } = req.body
       if (!phone_number || !otp) return res.status(400).json({ error: "رقم الجوال والرمز مطلوبان" })
+      const normalizedOtp = String(otp).trim()
+      if (!/^\d{4,8}$/.test(normalizedOtp)) return res.status(400).json({ error: "أدخل رمز التحقق الصحيح" })
 
       if (!isPlausibleParticipantPhone(phone_number)) {
         return res.status(400).json({ error: "رقم غير صحيح" })
@@ -6337,35 +6320,21 @@ Please respond in JSON format:
         })
       }
       const participant = participants[0]
+      const verifiedPhone = participantPhoneToE164(participant.phone_number)
+      res.setHeader("Cache-Control", "no-store")
 
-      const accountSid = process.env.TWILIO_ACCOUNT_SID
-      const authToken = process.env.TWILIO_AUTH_TOKEN
-      const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID
-      if (!accountSid || !authToken || !verifyServiceSid) {
-        return res.status(500).json({ error: "إعدادات Twilio Verify غير مكتملة" })
-      }
-
-      // Normalize phone to E.164
-      const to = participantPhoneToE164(participant.phone_number)
-
-      // Call Twilio Verify API to check the OTP
-      const checkUrl = `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`
-      const body = new URLSearchParams()
-      body.append("To", to)
-      body.append("Code", String(otp).trim())
-
-      const checkRes = await fetch(checkUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      })
-
-      const checkData = await checkRes.json()
-      if (!checkRes.ok || checkData.status !== "approved") {
-        return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" })
+      try {
+        const verification = await verifyAuthenticaOtp({ phone: verifiedPhone, otp: normalizedOtp })
+        if (!verification.verified) {
+          return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" })
+        }
+      } catch (error) {
+        logError("Authentica participant recovery OTP verify", { code: error?.code, status: error?.status })
+        const configurationError = error?.code === "AUTHENTICA_NOT_CONFIGURED"
+        return res.status(configurationError ? 500 : 503).json({
+          error: configurationError ? "خدمة رمز التحقق غير مهيأة" : "تعذّر التحقق من الرمز. حاول مرة أخرى.",
+          retryable: !configurationError,
+        })
       }
 
       const provisional_discarded = await discardUnusedProvisionalParticipant(

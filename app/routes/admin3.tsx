@@ -148,9 +148,19 @@ type ChoiceSeatingTableReport = {
   weakest?: boolean
 }
 
+type ChoiceSeatingCriterion = "compatibility" | "age" | "rhythm"
+type ChoiceSeatingLegacyLens = "spark" | "depth" | "rhythm"
+type ChoiceSeatingMetricKey = ChoiceSeatingCriterion | ChoiceSeatingLegacyLens
+type ChoiceSeatingCriterionScores = Partial<Record<ChoiceSeatingCriterion, number>> & {
+  age_average_gap?: number
+  age_rms_gap?: number
+}
+type ChoiceSeatingLensScores = Partial<Record<ChoiceSeatingMetricKey, number>>
+
 type ChoiceSeatingRoundReport = {
   round: number
-  lens: "compatibility" | "age" | "rhythm" | "spark" | "depth" | string
+  criterion?: ChoiceSeatingCriterion | string
+  lens?: ChoiceSeatingMetricKey | string
   score: number
   tables: ChoiceSeatingTableReport[]
 }
@@ -169,14 +179,15 @@ type ChoiceSeatingReport = {
     participant_count?: number
     assignment_count?: number
     overall_score?: number
-    lens_scores?: { compatibility?: number; age?: number; rhythm?: number; spark?: number; depth?: number }
+    criterion_scores?: ChoiceSeatingCriterionScores
+    lens_scores?: ChoiceSeatingLensScores
     round2_age?: {
       squared_gap_cost?: number
       average_gap_years?: number
       maximum_gap_years?: number
       maximum_table_range_years?: number
     }
-    weakest_tables?: Array<{ round: number; lens: string; table_number: number; score: number; warnings?: string[] }>
+    weakest_tables?: Array<{ round: number; criterion?: string; lens?: string; table_number: number; score: number; warnings?: string[] }>
     all_gender_balanced?: boolean
     protected_pair_violations?: number
     missing_survey_field_count?: number
@@ -217,8 +228,9 @@ type ChoiceSeatingReport = {
       objective?: unknown
       diversity?: any
       overall_score?: number
-      lens_scores?: { compatibility?: number; age?: number; rhythm?: number; spark?: number; depth?: number }
-      weakest_tables?: Array<{ round?: number; lens?: string; table_number?: number; score?: number; warnings?: string[] }>
+      criterion_scores?: ChoiceSeatingCriterionScores
+      lens_scores?: ChoiceSeatingLensScores
+      weakest_tables?: Array<{ round?: number; criterion?: string; lens?: string; table_number?: number; score?: number; warnings?: string[] }>
       protected_pair_violations?: number
       all_gender_balanced?: boolean
       repeats?: {
@@ -287,12 +299,95 @@ const choiceCandidateLabels: Record<number, { english: string; arabic: string; s
   3: { english: "Alternative B", arabic: "البديل الثاني", style: "border-violet-500/50 bg-violet-950/30 text-violet-200" },
 }
 
-const choiceLensLabels: Record<string, { arabic: string; english: string; color: string }> = {
-  compatibility: { arabic: "التوافق الكلي", english: "Compatibility", color: "text-emerald-300" },
-  age: { arabic: "تقارب العمر", english: "Close age", color: "text-cyan-300" },
+const currentChoiceCriteria: readonly ChoiceSeatingCriterion[] = ["compatibility", "age", "rhythm"]
+const historicalChoiceLenses: readonly ChoiceSeatingLegacyLens[] = ["spark", "depth", "rhythm"]
+
+const choiceLensLabels: Record<ChoiceSeatingMetricKey, { arabic: string; english: string; color: string }> = {
+  compatibility: { arabic: "التوافق الكلي", english: "Total compatibility", color: "text-emerald-300" },
+  age: { arabic: "تقارب العمر", english: "Age", color: "text-cyan-300" },
+  rhythm: { arabic: "الإيقاع", english: "Rhythm", color: "text-violet-300" },
   spark: { arabic: "شرارة", english: "Spark", color: "text-amber-300" },
   depth: { arabic: "عمق", english: "Depth", color: "text-cyan-300" },
-  rhythm: { arabic: "إيقاع", english: "Rhythm", color: "text-violet-300" },
+}
+
+function isChoiceSeatingMetricKey(value: unknown): value is ChoiceSeatingMetricKey {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(choiceLensLabels, value)
+}
+
+function hasChoiceCriterionScores(scores?: ChoiceSeatingCriterionScores) {
+  return Boolean(scores && (Object.prototype.hasOwnProperty.call(scores, "compatibility")
+    || Object.prototype.hasOwnProperty.call(scores, "age")
+    || Object.prototype.hasOwnProperty.call(scores, "age_average_gap")
+    || Object.prototype.hasOwnProperty.call(scores, "age_rms_gap")))
+}
+
+function choiceReportUsesCurrentCriteria(report?: ChoiceSeatingReport | null) {
+  if (!report) return true
+  if (hasChoiceCriterionScores(report.summary?.criterion_scores)) return true
+  if (report.rounds?.some(round => round.criterion === "compatibility" || round.criterion === "age")) return true
+  if (report.rounds?.some(round => round.lens === "compatibility" || round.lens === "age")) return true
+  if (report.rounds?.some(round => round.lens === "spark" || round.lens === "depth")) return false
+  if (report.summary?.lens_scores?.compatibility != null || report.summary?.lens_scores?.age != null) return true
+  if (report.summary?.lens_scores?.spark != null || report.summary?.lens_scores?.depth != null) return false
+  return true
+}
+
+function choiceReportMetricKeys(report?: ChoiceSeatingReport | null): readonly ChoiceSeatingMetricKey[] {
+  return choiceReportUsesCurrentCriteria(report) ? currentChoiceCriteria : historicalChoiceLenses
+}
+
+function choiceRoundMetricKey(report: ChoiceSeatingReport | null | undefined, roundNumber: number): ChoiceSeatingMetricKey {
+  const round = report?.rounds?.find(item => Number(item.round) === Number(roundNumber))
+  if (isChoiceSeatingMetricKey(round?.criterion)) return round.criterion
+  if (isChoiceSeatingMetricKey(round?.lens)) return round.lens
+  const keys = choiceReportMetricKeys(report)
+  return keys[Math.max(0, Math.min(2, Number(roundNumber) - 1))] || "rhythm"
+}
+
+function choiceRoundScore(report: ChoiceSeatingReport | null | undefined, roundNumber: number) {
+  const index = Math.max(0, Math.min(2, Number(roundNumber) - 1))
+  const currentKey = currentChoiceCriteria[index] || "rhythm"
+  const historicalKey = historicalChoiceLenses[index] || "rhythm"
+  const round = report?.rounds?.find(item => Number(item.round) === Number(roundNumber))
+  if (!choiceReportUsesCurrentCriteria(report)) {
+    return round?.score ?? report?.summary?.lens_scores?.[historicalKey]
+  }
+  const currentScores = report?.summary?.criterion_scores
+  if (currentKey === "age") {
+    return currentScores?.age_average_gap
+      ?? report?.summary?.round2_age?.average_gap_years
+      ?? currentScores?.age
+      ?? currentScores?.age_rms_gap
+      ?? round?.score
+  }
+  return currentScores?.[currentKey]
+    ?? report?.summary?.lens_scores?.[currentKey]
+    ?? round?.score
+    ?? report?.summary?.lens_scores?.[historicalKey]
+}
+
+function choiceMetricScoreText(metricKey: ChoiceSeatingMetricKey, value: unknown) {
+  return metricKey === "age" && value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))
+    ? `${scoreText(value)} سنة`
+    : scoreText(value)
+}
+
+function choiceScoreSetMetricKeys(criterionScores?: ChoiceSeatingCriterionScores, lensScores?: ChoiceSeatingLensScores) {
+  if (hasChoiceCriterionScores(criterionScores)) return currentChoiceCriteria
+  if (lensScores?.compatibility != null || lensScores?.age != null) return currentChoiceCriteria
+  return lensScores?.spark != null || lensScores?.depth != null ? historicalChoiceLenses : currentChoiceCriteria
+}
+
+function choiceScoreSetRoundValue(
+  criterionScores: ChoiceSeatingCriterionScores | undefined,
+  lensScores: ChoiceSeatingLensScores | undefined,
+  roundNumber: number,
+) {
+  const index = Math.max(0, Math.min(2, Number(roundNumber) - 1))
+  const metricKeys = choiceScoreSetMetricKeys(criterionScores, lensScores)
+  const metricKey = metricKeys[index] || "rhythm"
+  if (metricKey === "age") return criterionScores?.age_average_gap ?? criterionScores?.age ?? criterionScores?.age_rms_gap ?? lensScores?.age
+  return criterionScores?.[metricKey as ChoiceSeatingCriterion] ?? lensScores?.[metricKey]
 }
 
 const seatingWarningLabels: Record<string, string> = {
@@ -316,17 +411,10 @@ const seatingWarningLabels: Record<string, string> = {
   missing_curiosity_flow: "تدفق الفضول غير مكتمل",
   humor_clash: "تعارض ملحوظ في أسلوب المزاح",
   age_spread: "فارق أعمار واسع",
+  missing_age_data: "بيانات العمر غير مكتملة",
   wide_age_range: "فارق أعمار واسع",
   incomplete_compatibility_coverage: "بيانات التوافق غير مكتملة",
   incomplete_age_coverage: "بيانات العمر غير مكتملة",
-}
-
-type ChoiceLensScores = NonNullable<ChoiceSeatingReport["summary"]>["lens_scores"]
-
-function choiceLensKeys(scores?: ChoiceLensScores) {
-  return scores && (scores.compatibility != null || scores.age != null)
-    ? ["compatibility", "age", "rhythm"]
-    : ["spark", "depth", "rhythm"]
 }
 
 function normalizedSeatingWarning(value: unknown) {
@@ -337,6 +425,7 @@ function normalizedSeatingWarning(value: unknown) {
 }
 
 function scoreText(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—"
   const score = Number(value)
   return Number.isFinite(score) ? score.toFixed(1).replace(/\.0$/, "") : "—"
 }
@@ -546,15 +635,16 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   const uniqueMinimumTarget = Math.max(0, capacity.uniqueMinimumCapacity - 1)
   const uniqueCoverageOnTarget = uniqueMinimum >= uniqueMinimumTarget && uniqueMaximum <= capacity.uniqueMaximumCapacity
   const allGenderBalanced = report.gender_balance?.all_tables_balanced ?? summary.all_gender_balanced
-  const lensKeys = choiceLensKeys(summary.lens_scores)
+  const currentCriteriaReport = choiceReportUsesCurrentCriteria(report)
+  const reportMetricKeys = choiceReportMetricKeys(report)
   const rounds: ChoiceSeatingRoundReport[] = [1, 2, 3].map(roundNumber => {
     const existing = report.rounds?.find(item => Number(item.round) === roundNumber)
     if (existing) return existing
-    const lens = lensKeys[roundNumber - 1]
+    const metricKey = reportMetricKeys[roundNumber - 1] || "rhythm"
     return {
       round: roundNumber,
-      lens,
-      score: Number(summary.lens_scores?.[lens as keyof ChoiceLensScores] || 0),
+      ...(currentCriteriaReport ? { criterion: metricKey } : { lens: metricKey }),
+      score: Number(choiceRoundScore(report, roundNumber) || 0),
       tables: choiceRoundGroups(candidate, roundNumber).map((participantNumbers, index) => ({
         table_number: index + 1,
         participant_numbers: participantNumbers,
@@ -564,7 +654,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   })
   const weakestTables = summary.weakest_tables || rounds.flatMap(round => round.tables
     .filter(table => table.weakest)
-    .map(table => ({ round: round.round, lens: round.lens, table_number: table.table_number, score: table.score, warnings: table.warnings || [] })))
+    .map(table => ({ round: round.round, criterion: round.criterion, lens: round.lens, table_number: table.table_number, score: table.score, warnings: table.warnings || [] })))
 
   return (
     <div className="space-y-4">
@@ -577,7 +667,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
               <p className="mt-1 text-[10px] leading-5 text-gray-400">تغيّرت {comparison.changedPairs} من علاقات الطاولة مقارنة بالأفضل، عبر {comparison.changedParticipantRounds} موضع مشارك/جولة.</p>
               <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                 {comparison.byRound.map(item => {
-                  const lensKey = rounds.find(round => round.round === item.round)?.lens || lensKeys[item.round - 1]
+                  const lensKey = choiceRoundMetricKey(report, item.round)
                   const lens = choiceLensLabels[lensKey]
                   return (
                     <div key={item.round} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 text-[9px] text-gray-400">
@@ -587,22 +677,24 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
                   )
                 })}
               </div>
-              {comparison.byRound[0]?.changedPairs === 0 && <p className="mt-2 text-[9px] text-red-300/80">هذا الخيار لا يغيّر جولة التوافق الكلي بما يكفي، لذلك لا ينبغي اعتماده كخيار مستقل.</p>}
+              {comparison.byRound[0]?.changedPairs === 0 && <p className="mt-2 text-[9px] text-red-300/80">هذا الخيار لا يغيّر جولة {choiceLensLabels[choiceRoundMetricKey(report, 1)].arabic} بما يكفي، لذلك لا ينبغي اعتماده كخيار مستقل.</p>}
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-        <div className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
-          <p className="text-lg font-black text-white">{scoreText(summary.overall_score)}</p>
-          <p className="text-[9px] text-gray-500">متوسط العرض</p>
-        </div>
-        {lensKeys.map(lensKey => (
+      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${currentCriteriaReport ? "xl:grid-cols-6" : "xl:grid-cols-7"}`}>
+        {!currentCriteriaReport && (
+          <div className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
+            <p className="text-lg font-black text-white">{scoreText(summary.overall_score)}</p>
+            <p className="text-[9px] text-gray-500">متوسط العرض</p>
+          </div>
+        )}
+        {reportMetricKeys.map((lensKey, index) => (
           <div key={lensKey} className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
-            <p className={`text-lg font-black ${choiceLensLabels[lensKey].color}`}>{scoreText(summary.lens_scores?.[lensKey as keyof ChoiceLensScores] ?? report.rounds?.find(round => round.lens === lensKey)?.score)}</p>
+            <p className={`text-lg font-black ${choiceLensLabels[lensKey].color}`}>{choiceMetricScoreText(lensKey, choiceRoundScore(report, index + 1))}</p>
             <p className="text-[9px] text-gray-500">{choiceLensLabels[lensKey].english} · {choiceLensLabels[lensKey].arabic}</p>
-            {lensKey === "age" && summary.round2_age?.average_gap_years != null && <p className="mt-0.5 text-[8px] text-cyan-400/70">متوسط الفارق {scoreText(summary.round2_age.average_gap_years)} سنة · أكبر مدى طاولة {scoreText(summary.round2_age.maximum_table_range_years)} سنة</p>}
+            {lensKey === "age" && <p className="mt-0.5 text-[8px] text-cyan-400/70">متوسط الفارق · الأقل أفضل{summary.round2_age?.maximum_table_range_years != null ? ` · أكبر مدى طاولة ${scoreText(summary.round2_age.maximum_table_range_years)} سنة` : ""}</p>}
           </div>
         ))}
         <div className={`rounded-xl border p-2.5 text-center ${repeatedInAllThree === 0 ? "border-emerald-800/40 bg-emerald-950/25" : "border-red-800/40 bg-red-950/20"}`}>
@@ -618,11 +710,11 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
         </div>
         <div className={`rounded-xl border p-2.5 text-center ${protectedViolations > 0 ? "border-red-800/40 bg-red-950/20" : missingSurveyParticipantCount > 0 ? "border-amber-800/40 bg-amber-950/20" : "border-emerald-800/40 bg-emerald-950/25"}`}>
           <p className={`text-lg font-black ${protectedViolations > 0 ? "text-red-300" : missingSurveyParticipantCount > 0 ? "text-amber-300" : "text-emerald-300"}`}>{protectedViolations}/{missingSurveyParticipantCount}</p>
-          <p className="text-[9px] text-gray-500">أزواج محمية / ملفات بعدسة محايدة</p>
+          <p className="text-[9px] text-gray-500">أزواج محمية / ملفات ببيانات معيار ناقصة</p>
         </div>
       </div>
 
-      <p className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[9px] leading-5 text-gray-500">ترتيب الخطة الأساسية ثم البديلين يأتي من الهدف الكامل للتوزيع وقيود الحماية والتوازن وجودة أضعف طاولة؛ «متوسط العرض» وحده ليس سبب الترتيب.</p>
+      <p className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[9px] leading-5 text-gray-500">ترتيب الخطة الأساسية ثم البديلين يأتي من الهدف الكامل للتوزيع وقيود الحماية والتوازن وجودة أضعف طاولة{currentCriteriaReport ? "." : "؛ «متوسط العرض» وحده ليس سبب الترتيب."}</p>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${allGenderBalanced === false ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
@@ -635,7 +727,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
         </div>
         <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${missingSurveyParticipantCount > 0 ? "border-amber-800/40 bg-amber-950/20 text-amber-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
           {missingSurveyParticipantCount > 0 ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
-          {missingSurveyParticipantCount > 0 ? `${missingSurveyParticipantCount} مشاركاً تنقصهم ${missingSurveyAnswerCount} إجابة عدسة؛ استُخدمت قيمة محايدة` : "بيانات عدسات التوزيع مكتملة"}
+          {missingSurveyParticipantCount > 0 ? `${missingSurveyParticipantCount} مشاركاً تنقصهم ${missingSurveyAnswerCount} حقول مطلوبة؛ خُفّضت دقة المعيار المتأثر` : "بيانات معايير التوزيع مكتملة"}
         </div>
       </div>
 
@@ -644,10 +736,12 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           <p className="flex items-center gap-2 text-xs font-bold text-amber-200"><AlertTriangle size={14} /> أضعف الطاولات التي تحتاج انتباهاً</p>
           <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
             {weakestTables.map((table, index) => {
-              const lens = choiceLensLabels[table.lens] || choiceLensLabels[lensKeys[table.round - 1]]
+              const explicitMetric = isChoiceSeatingMetricKey(table.criterion) ? table.criterion : isChoiceSeatingMetricKey(table.lens) ? table.lens : null
+              const metricKey = explicitMetric || choiceRoundMetricKey(report, table.round)
+              const lens = choiceLensLabels[metricKey]
               return (
                 <div key={`${table.round}-${table.table_number}-${index}`} className="rounded-lg border border-amber-800/25 bg-black/20 p-2.5 text-[10px]">
-                  <div className="flex items-center justify-between gap-2"><span className={`font-bold ${lens.color}`}>{lens.arabic} · طاولة {table.table_number}</span><span className="font-mono text-amber-300">{scoreText(table.score)}</span></div>
+                  <div className="flex items-center justify-between gap-2"><span className={`font-bold ${lens.color}`}>{lens.arabic} · طاولة {table.table_number}</span><span className="font-mono text-amber-300">{choiceMetricScoreText(metricKey, table.score)}</span></div>
                   <p className="mt-1 leading-5 text-gray-500">{table.warnings?.length ? table.warnings.map(normalizedSeatingWarning).join(" · ") : "الأضعف نسبياً ضمن هذا الخيار، من دون مخالفة صريحة"}</p>
                 </div>
               )
@@ -658,8 +752,8 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
 
       {missingSurveyFields.length > 0 && (
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-3">
-          <p className="text-xs font-bold text-amber-200">إجابات عدسات غير متاحة — لا تمنع اعتماد الخطة</p>
-          <p className="mt-1 text-[10px] leading-5 text-amber-100/65">احتُسب هؤلاء المشاركون بإشارة محايدة في العدسات الناقصة، لذلك تقل دقة ترتيب الخيارات قليلاً من دون استبعاد أي مشارك.</p>
+          <p className="text-xs font-bold text-amber-200">بيانات معايير غير متاحة — لا تمنع اعتماد الخطة</p>
+          <p className="mt-1 text-[10px] leading-5 text-amber-100/65">استُخدمت بيانات التوافق المتاحة وقيمة محايدة للإيقاع عند الحاجة، وتُركت فجوة العمر غير المتاحة خارج حساب العمر؛ لذلك تقل دقة ترتيب الخيارات قليلاً من دون استبعاد أي مشارك.</p>
           <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
             {missingSurveyFields.map(item => (
               <p key={item.participant_number} className="rounded-lg bg-black/20 px-2.5 py-2 text-[10px] text-amber-300">#{item.participant_number} · {item.fields.join("، ")}</p>
@@ -670,12 +764,13 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         {rounds.map(round => {
-          const lens = choiceLensLabels[round.lens] || choiceLensLabels[lensKeys[round.round - 1]]
+          const metricKey = choiceRoundMetricKey(report, round.round)
+          const lens = choiceLensLabels[metricKey]
           return (
             <section key={round.round} className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/45">
               <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.025] px-3 py-2.5">
-                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">{round.tables.length} طاولات · {capacity.minimumGroupSize === capacity.maximumGroupSize ? `${capacity.maximumGroupSize} أشخاص لكل طاولة` : `${capacity.minimumGroupSize}–${capacity.maximumGroupSize} أشخاص لكل طاولة`}</p></div>
-                <span className={`rounded-lg bg-black/25 px-2 py-1 font-mono text-sm font-black ${lens.color}`}>{scoreText(round.score)}</span>
+                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">{round.tables.length} طاولات · {capacity.minimumGroupSize === capacity.maximumGroupSize ? `${capacity.maximumGroupSize} أشخاص لكل طاولة` : `${capacity.minimumGroupSize}–${capacity.maximumGroupSize} أشخاص لكل طاولة`}{metricKey === "age" ? " · متوسط فارق العمر، الأقل أفضل" : ""}</p></div>
+                <span className={`rounded-lg bg-black/25 px-2 py-1 font-mono text-sm font-black ${lens.color}`}>{choiceMetricScoreText(metricKey, round.score)}</span>
               </div>
               <div className="space-y-2 p-2.5">
                 {(round.tables || []).slice().sort((left, right) => left.table_number - right.table_number).map(table => (
@@ -684,7 +779,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
                       <div className="flex items-center gap-1.5"><Table2 size={12} className="text-gray-500" /><span className="text-[10px] font-bold text-gray-300">طاولة {table.table_number}</span>{table.weakest && <span className="rounded-full bg-amber-900/40 px-1.5 py-0.5 text-[8px] font-bold text-amber-300">الأضعف</span>}</div>
                       <div className="flex items-center gap-1.5 text-[9px]">
                         {table.gender && <span className={table.gender.balanced === false ? "text-red-300" : "text-emerald-400"}>{table.gender.female ?? 0}♀ · {table.gender.male ?? 0}♂{table.gender.unknown ? ` · ${table.gender.unknown}?` : ""}</span>}
-                        <span className={`font-mono font-bold ${lens.color}`}>{scoreText(table.score)}</span>
+                      <span className={`font-mono font-bold ${lens.color}`}>{choiceMetricScoreText(metricKey, table.score)}</span>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -696,7 +791,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
                         return <span key={number} title={participant?.name || `#${number}`} className={`rounded-md border px-1.5 py-1 text-[9px] ${female ? "border-pink-800/30 bg-pink-950/20 text-pink-200" : male ? "border-blue-800/30 bg-blue-950/20 text-blue-200" : "border-gray-800 bg-gray-900 text-gray-300"}`}>#{number}{participant?.name ? ` ${participant.name}` : ""}</span>
                       })}
                     </div>
-                    {round.lens === "age" && table.metrics?.averageAgeGap != null && <p className="mt-1.5 text-[8px] text-cyan-300/65">متوسط الفارق {scoreText(table.metrics.averageAgeGap)} سنة · مدى الطاولة {scoreText(table.metrics.ageRange)} سنة</p>}
+                    {metricKey === "age" && table.metrics?.averageAgeGap != null && <p className="mt-1.5 text-[8px] text-cyan-300/65">متوسط الفارق {scoreText(table.metrics.averageAgeGap)} سنة · مدى الطاولة {scoreText(table.metrics.ageRange)} سنة</p>}
                     {table.warnings?.length ? <p className="mt-2 text-[9px] leading-5 text-amber-300/75">{table.warnings.map(normalizedSeatingWarning).join(" · ")}</p> : null}
                     {table.protected_pair_violations?.length ? <p className="mt-1 text-[9px] text-red-300">{table.protected_pair_violations.map(pair => `#${pair.participant_a} ↔ #${pair.participant_b}`).join(" · ")}</p> : null}
                   </div>
@@ -835,10 +930,7 @@ function ChoiceSeatingPreviewPanel({
           {candidates.map(candidate => {
             const label = choiceCandidateLabels[Number(candidate.rank)] || choiceCandidateLabels[3]
             const comparison = compareChoiceCandidates(candidate, best)
-            const scores = candidate.report?.summary?.lens_scores
-            const compatibilityScore = scores?.compatibility ?? scores?.spark
-            const ageScore = scores?.age ?? scores?.depth
-            const rhythmScore = candidate.report?.summary?.lens_scores?.rhythm
+            const metricKeys = choiceReportMetricKeys(candidate.report)
             const active = candidate.candidate_id === selected.candidate_id
             return (
               <button key={candidate.candidate_id} type="button" role="radio" aria-checked={active} onClick={() => onSelect(candidate.candidate_id)} className={`rounded-xl border p-3 text-right transition-all ${active ? `${label.style} ring-2 ring-white/10` : "border-gray-800 bg-gray-950/50 text-gray-400 hover:border-gray-700"}`}>
@@ -847,9 +939,12 @@ function ChoiceSeatingPreviewPanel({
                   {active ? <CheckCircle size={16} /> : <Circle size={16} />}
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                  <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-emerald-200">{scoreText(compatibilityScore)}</p><p className="text-[8px] opacity-60">Compatibility</p></div>
-                  <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-cyan-200">{scoreText(ageScore)}</p><p className="text-[8px] opacity-60">Close age</p></div>
-                  <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-violet-200">{scoreText(rhythmScore)}</p><p className="text-[8px] opacity-60">Rhythm</p></div>
+                  {metricKeys.map((metricKey, index) => (
+                    <div key={metricKey} className="rounded-lg bg-black/20 px-1.5 py-1.5">
+                      <p className={`font-mono text-sm font-bold ${choiceLensLabels[metricKey].color}`}>{choiceMetricScoreText(metricKey, choiceRoundScore(candidate.report, index + 1))}</p>
+                      <p className="text-[8px] opacity-60">{choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""}</p>
+                    </div>
+                  ))}
                 </div>
                 {candidate.rank === best.rank ? <p className="mt-2 text-[9px] font-bold text-emerald-300">الخطة الأساسية المرجعية</p> : <p className={`mt-2 text-[9px] leading-4 ${comparison.changedPairs > 0 ? "text-cyan-300/80" : "text-red-300"}`}>{comparison.changedPairs} علاقة طاولة مختلفة · {comparison.changedParticipantRounds} موضع مشارك/جولة تغير عن الخطة الأساسية</p>}
               </button>
@@ -880,6 +975,7 @@ const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ re
   if (!alternatives.length) return null
   const selectedId = String(context?.selected?.candidate_id || report.candidate?.id || "")
   const selectedRank = Number(context?.selected?.rank || report.candidate?.rank || 0)
+  const currentCriteriaReport = choiceReportUsesCurrentCriteria(report)
 
   return (
     <div className="border-t border-emerald-800/20 bg-black/10 p-4">
@@ -897,18 +993,21 @@ const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ re
           const weakestCount = option.weakest_tables?.length || 0
           const warningCount = (option.weakest_tables || []).reduce((sum, table) => sum + (table.warnings?.length || 0), 0)
           const previousComparison = option.diversity?.comparedWithEarlier?.find((comparison: any) => Number(comparison.rank) === Number(option.rank) - 1)
-          const modernObjectives = option.lens_scores?.compatibility != null || option.lens_scores?.age != null
+          const metricKeys = currentCriteriaReport ? currentChoiceCriteria : choiceScoreSetMetricKeys(option.criterion_scores, option.lens_scores)
           return (
             <div key={option.candidate_id || option.rank} className={`rounded-xl border p-3 ${selected ? "border-emerald-500/60 bg-emerald-950/30 ring-1 ring-emerald-400/15" : "border-gray-800 bg-gray-950/55"}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-black ${selected ? "bg-emerald-500/20 text-emerald-200" : "bg-gray-900 text-gray-500"}`}>#{option.rank}</span><div><p className={`text-xs font-black ${selected ? "text-emerald-200" : "text-gray-300"}`} dir="ltr">{label.english}</p><p className="text-[8px] text-gray-600">{label.arabic}</p></div></div>
                 <span className={`rounded-full border px-2 py-0.5 text-[8px] font-bold ${selected ? "border-emerald-600/45 bg-emerald-500/15 text-emerald-200" : "border-gray-800 bg-gray-900 text-gray-600"}`}>{selected ? "تم اعتماده" : "لم يُعتمد"}</span>
               </div>
-              <div className="mt-3 grid grid-cols-4 gap-1 text-center">
-                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-white">{scoreText(option.overall_score)}</p><p className="text-[7px] text-gray-600">Overall</p></div>
-                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-emerald-200">{scoreText(option.lens_scores?.compatibility ?? option.lens_scores?.spark)}</p><p className="text-[7px] text-gray-600">{modernObjectives ? "Compatibility" : "Spark"}</p></div>
-                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-cyan-200">{scoreText(option.lens_scores?.age ?? option.lens_scores?.depth)}</p><p className="text-[7px] text-gray-600">{modernObjectives ? "Close age" : "Depth"}</p></div>
-                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-violet-200">{scoreText(option.lens_scores?.rhythm)}</p><p className="text-[7px] text-gray-600">Rhythm</p></div>
+              <div className={`mt-3 grid gap-1 text-center ${currentCriteriaReport ? "grid-cols-3" : "grid-cols-4"}`}>
+                {!currentCriteriaReport && <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-white">{scoreText(option.overall_score)}</p><p className="text-[7px] text-gray-600">Overall</p></div>}
+                {metricKeys.map((metricKey, index) => (
+                  <div key={metricKey} className="rounded-lg bg-black/20 px-1.5 py-1.5">
+                    <p className={`font-mono text-sm font-bold ${choiceLensLabels[metricKey].color}`}>{choiceMetricScoreText(metricKey, choiceScoreSetRoundValue(option.criterion_scores, option.lens_scores, index + 1))}</p>
+                    <p className="text-[7px] text-gray-600">{choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""}</p>
+                  </div>
+                ))}
               </div>
               <div className="mt-2 flex flex-wrap gap-1 text-[8px]">
                 <span className={`rounded-md px-1.5 py-1 ${option.all_gender_balanced === false ? "bg-red-950/50 text-red-300" : "bg-emerald-950/45 text-emerald-300"}`}>{option.all_gender_balanced === false ? "توازن غير مكتمل" : "الجندر متوازن"}</span>
@@ -916,7 +1015,7 @@ const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ re
                 <span className="rounded-md bg-amber-950/35 px-1.5 py-1 text-amber-300">{weakestCount} أضعف · {warningCount} تنبيه</span>
                 {option.repeats && <span className="rounded-md bg-gray-900 px-1.5 py-1 text-gray-400">{option.repeats.round1_round2 ?? "—"}/{option.repeats.round1_round3 ?? "—"}/{option.repeats.round2_round3 ?? "—"} تكرار · {option.repeats.unique_partner_minimum ?? "—"}–{option.repeats.unique_partner_maximum ?? "—"} فريد</span>}
               </div>
-              {previousComparison && <p className="mt-2 text-[8px] leading-4 text-cyan-300/65">مقابل #{option.rank - 1}: تغيّر متوسط {scoreText(previousComparison.round1?.averageTablematesReplaced)} من 6 رفاق في {modernObjectives ? "Compatibility" : "Spark"}، و{scoreText(previousComparison.round2?.averageTablematesReplaced)} في {modernObjectives ? "Close age" : "Depth"}، و{scoreText(previousComparison.round3?.averageTablematesReplaced)} في Rhythm.</p>}
+              {previousComparison && <p className="mt-2 text-[8px] leading-4 text-cyan-300/65">مقابل #{option.rank - 1}: تغيّر متوسط {scoreText(previousComparison.round1?.averageTablematesReplaced)} من 6 رفاق في {choiceLensLabels[metricKeys[0] || "compatibility"].arabic}، و{scoreText(previousComparison.round2?.averageTablematesReplaced)} في {choiceLensLabels[metricKeys[1] || "age"].arabic}، و{scoreText(previousComparison.round3?.averageTablematesReplaced)} في {choiceLensLabels[metricKeys[2] || "rhythm"].arabic}.</p>}
             </div>
           )
         })}
@@ -4126,6 +4225,7 @@ export default function Admin3Page() {
               const seatingMatchKnown = typeof approvedChoiceSeatingReport.matches_current_seating === "boolean"
               const seatingMatchesApproval = approvedChoiceSeatingReport.matches_current_seating === true
               const seatingChangedAfterApproval = approvedChoiceSeatingReport.matches_current_seating === false
+              const approvedMetricKeys = choiceReportMetricKeys(approvedChoiceSeatingReport.report)
               return (
                 <section className={`overflow-hidden rounded-2xl border ${seatingChangedAfterApproval ? "border-amber-700/50 bg-amber-950/15" : "border-emerald-800/40 bg-emerald-950/15"}`}>
                   <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -4142,9 +4242,11 @@ export default function Admin3Page() {
                       {seatingChangedAfterApproval && <p className="mt-1 text-[10px] font-bold leading-5 text-amber-300">الطاولات أدناه هي النسخة غير القابلة للتغيير وقت الاعتماد وليست خريطة الجلسات الحالية{approvedChoiceSeatingReport.current_assignment_count != null ? ` · المسند حالياً ${approvedChoiceSeatingReport.current_assignment_count}/${approvedChoiceSeatingReport.report.summary?.assignment_count || ((approvedChoiceSeatingReport.report.summary?.participant_count || state?.participants_selected || 0) * 3)} مقعداً` : ""}.</p>}
                       {!seatingMatchKnown && <p className="mt-1 text-[9px] text-gray-600">لم تتوفر مقارنة تلقائية مع الجلسات الحالية لهذا التقرير القديم.</p>}
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[9px]">
-                        <span className="rounded-lg bg-black/20 px-2 py-1 text-emerald-200">{approvedSummary.lens_scores?.compatibility != null ? "Compatibility" : "Spark"} {scoreText(approvedSummary.lens_scores?.compatibility ?? approvedSummary.lens_scores?.spark)}</span>
-                        <span className="rounded-lg bg-black/20 px-2 py-1 text-cyan-200">{approvedSummary.lens_scores?.age != null ? "Close age" : "Depth"} {scoreText(approvedSummary.lens_scores?.age ?? approvedSummary.lens_scores?.depth)}</span>
-                        <span className="rounded-lg bg-black/20 px-2 py-1 text-violet-200">Rhythm {scoreText(approvedSummary.lens_scores?.rhythm)}</span>
+                        {approvedMetricKeys.map((metricKey, index) => (
+                          <span key={metricKey} className={`rounded-lg bg-black/20 px-2 py-1 ${choiceLensLabels[metricKey].color}`}>
+                            {choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""} {choiceMetricScoreText(metricKey, choiceRoundScore(approvedChoiceSeatingReport.report, index + 1))}
+                          </span>
+                        ))}
                         <span className={`rounded-lg px-2 py-1 ${approvedSummary.all_gender_balanced === false ? "bg-red-950/50 text-red-300" : "bg-emerald-950/50 text-emerald-300"}`}>{approvedSummary.all_gender_balanced === false ? "توازن جندري غير مكتمل" : "توازن جندري كامل"}</span>
                         <span className={`rounded-lg px-2 py-1 ${(approvedSummary.protected_pair_violations || 0) > 0 ? "bg-red-950/50 text-red-300" : "bg-emerald-950/50 text-emerald-300"}`}>{approvedSummary.protected_pair_violations || 0} مخالفة محمية</span>
                       </div>
@@ -4961,7 +5063,10 @@ export default function Admin3Page() {
                   {Object.keys(seating?.[mapRound] || {}).map(Number).sort((a, b) => a - b).map(table => {
                     const members: any[] = seating?.[mapRound]?.[table] || []
                     const tableLensScore = seatingScores?.[mapRound]?.tables?.[table]
-                    const tableLensLabel = seatingScores?.[mapRound]?.lens
+                    const tableMetricValue = seatingScores?.[mapRound]?.criterion ?? seatingScores?.[mapRound]?.lens
+                    const tableMetricKey: ChoiceSeatingMetricKey = isChoiceSeatingMetricKey(tableMetricValue)
+                      ? tableMetricValue
+                      : currentChoiceCriteria[Math.max(0, Math.min(2, Number(mapRound) - 1))] || "rhythm"
                     const groupLeader = groupLeaderByTable.get(`${mapRound}:${table}`)
                     const males = members.filter(m => choiceSeatingGender(m.gender) === "male").length
                     const females = members.filter(m => choiceSeatingGender(m.gender) === "female").length
@@ -5078,7 +5183,7 @@ export default function Admin3Page() {
                           <div className="flex items-center gap-1.5">
                             {tableLensScore?.score != null && (
                               <span className="flex items-center gap-1 rounded-lg border border-violet-800/40 bg-violet-950/30 px-2 py-1 text-[10px] font-bold text-violet-200" title="النتيجة الحية بعد آخر تبديل">
-                                <Sparkles size={10} /> {tableLensLabel === "compatibility" ? "Compatibility" : tableLensLabel === "age" ? "Close age" : tableLensLabel === "spark" ? "Spark" : tableLensLabel === "depth" ? "Depth" : "Rhythm"} {Number(tableLensScore.score).toFixed(1)}
+                                <Sparkles size={10} /> {choiceLensLabels[tableMetricKey].english}{tableMetricKey === "age" ? " ↓" : ""} {choiceMetricScoreText(tableMetricKey, tableLensScore.score)}
                               </span>
                             )}
                             {tableSos.length > 0 && (

@@ -11,6 +11,7 @@ import {
   checkAgeCompatibility,
   fetchAllCachedPairs,
   isCurrentVibeModel,
+  isDurableCurrentBalancedCacheRow,
   getParticipantDeltaCacheReason,
   getDeltaCacheReasonCounts,
   loadHistoricalMatchAnalyzer,
@@ -820,6 +821,7 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions
 const e3IsComplete = isParticipantComplete
 
 const setPreferredCurrentVibeCacheRow = (cacheRowsByPair, cacheRow, participantMap) => {
+  if (!isDurableCurrentBalancedCacheRow(cacheRow)) return false
   if (!isCurrentVibeModel(cacheRow?.model_used)) return false
   if (cacheRow?.score_model_version !== BALANCED_COMPATIBILITY_VERSION) return false
   const fallbackTag = String(cacheRow?.model_used || '').split('|').find(part => part.startsWith('fallback='))
@@ -10684,6 +10686,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               secret: cohostTokenSecret(),
               buildCandidates: buildChoiceOnlySeatingCandidates,
               buildCandidatesStep: buildChoiceOnlySeatingCandidatesStep,
+              loadCompatibilityScores: async profiles => {
+                const profileMap = new Map(profiles.map(profile => [Number(profile.assigned_number), profile]))
+                const { data, error } = await fetchAllCachedPairs("compatibility_cache", [...profileMap.keys()])
+                if (error) throw Object.assign(new Error("Failed to load current compatibility scores; try again"), { status: 503 })
+                const cache = new Map()
+                for (const row of data || []) setPreferredCurrentVibeCacheRow(cache, row, profileMap)
+                return new Map([...cache]
+                  .filter(([, row]) => row.total_compatibility_score != null && Number.isFinite(Number(row.total_compatibility_score)))
+                  .map(([key, row]) => [key, Number(row.total_compatibility_score)]))
+              },
             })
             return res.status(200).json(result)
           } catch (error) {
@@ -10754,7 +10766,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           let seatingProfileMap = new Map()
           let usedCompat = false
           if (choiceOnlySeating) {
-            console.log(`e3-generate-seating: ${isTestMode ? "TEST MODE — " : ""}using deterministic total-compatibility/age/Rhythm rules`)
+            console.log(`e3-generate-seating: ${isTestMode ? "TEST MODE — " : ""}using Compatibility/Age/Rhythm rules`)
           } else if (isTestMode) {
             console.log(`e3-generate-seating: TEST MODE — skipping compatibility, using random shuffle`)
             const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
@@ -10926,7 +10938,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const optimizationLabel = choiceOnlySeating
             ? ' (الجولات مُحسَّنة بمعايير التوافق الكلي / تقارب العمر / إيقاع الحوار)'
             : usedCompat ? ' (مُحسَّنة بالتوافق)' : ''
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_compatibility: choiceOnlySeating ? plan.round1Compatibility : null, round2_age: choiceOnlySeating ? plan.round2Age : null, round1_spark: choiceOnlySeating ? plan.round1Spark : null, round2_depth: choiceOnlySeating ? plan.round2Depth : null, round3_rhythm: choiceOnlySeating ? plan.round3Rhythm : null })
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_compatibility: choiceOnlySeating ? plan.round1Compatibility : null, round2_age: choiceOnlySeating ? plan.round2Age : null, round3_rhythm: choiceOnlySeating ? plan.round3Rhythm : null })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
@@ -10953,21 +10965,29 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             scoringQueries.push(
               supabase.from("locked_matches").select("participant1_number,participant2_number").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId),
               supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+              fetchAllCachedPairs("compatibility_cache", scoreNums),
             )
           }
-          const [profileResult, lockedResult, exclusionResult] = await Promise.all(scoringQueries)
-          if (profileResult.error || lockedResult?.error || exclusionResult?.error) {
-            return res.status(500).json({ error: profileResult.error?.message || lockedResult?.error?.message || exclusionResult?.error?.message })
+          const [profileResult, lockedResult, exclusionResult, compatibilityCacheResult] = await Promise.all(scoringQueries)
+          if (profileResult.error || lockedResult?.error || exclusionResult?.error || compatibilityCacheResult?.error) {
+            return res.status(500).json({ error: profileResult.error?.message || lockedResult?.error?.message || exclusionResult?.error?.message || compatibilityCacheResult?.error?.message })
           }
           const pdata = profileResult.data || []
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
           const seating = { 1: {}, 2: {}, 3: {}, 20: {}, 30: {}, 40: {} }
           for (const row of visibleRows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
+          const liveCompatibilityRows = new Map()
+          const liveProfileMap = new Map(pdata.map(profile => [Number(profile.assigned_number), profile]))
+          for (const row of compatibilityCacheResult?.data || []) setPreferredCurrentVibeCacheRow(liveCompatibilityRows, row, liveProfileMap)
+          const liveCompatibilityScores = new Map([...liveCompatibilityRows]
+            .filter(([, row]) => row.total_compatibility_score != null && Number.isFinite(Number(row.total_compatibility_score)))
+            .map(([key, row]) => [key, Number(row.total_compatibility_score)]))
           const groupScores = choiceOnlySeating ? buildEvent3LiveSeatingScores({
             assignments: rows || [],
             profiles: pdata,
             protectedPairs: [...(lockedResult?.data || []), ...(exclusionResult?.data || [])],
+            compatibilityScoreMap: liveCompatibilityScores,
           }) : null
           const seatingTestContext = Number(currentEventId) === Number(realEventId) ? await getEvent3TestContext() : null
           const coordinationSessionKey = seatingTestContext?.active ? `test:${seatingTestContext.startedAt || ""}` : "live"

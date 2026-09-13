@@ -44,7 +44,7 @@ function assignments(groupsByRound) {
     members.map(participantId => ({ round: Number(round), table_number: tableIndex + 1, participant_id: participantId }))))
 }
 
-test("live seating scores preserve table numbers and recalculate every lens after a swap", () => {
+test("live seating scores preserve table numbers and recalculate every criterion after a swap", () => {
   const profiles = [1, 2, 3, 4, 5, 6].map(number => profile(number))
   const beforeAssignments = assignments({
     1: [[1, 2, 5], [3, 4, 6]],
@@ -61,7 +61,9 @@ test("live seating scores preserve table numbers and recalculate every lens afte
   const before = buildEvent3LiveSeatingScores({ assignments: beforeAssignments, profiles })
   const after = buildEvent3LiveSeatingScores({ assignments: afterAssignments, profiles })
 
-  assert.deepEqual([before[1].lens, before[2].lens, before[3].lens], ["compatibility", "age", "rhythm"])
+  assert.deepEqual([before[1].criterion, before[2].criterion, before[3].criterion], ["compatibility", "age", "rhythm"])
+  assert.equal(before[2].unit, "years")
+  assert.equal(before[2].lower_is_better, true)
   assert.deepEqual(Object.keys(after[1].tables), ["1", "2"])
   for (const round of [1, 2, 3]) {
     assert.equal(Number.isFinite(after[round].score), true)
@@ -69,7 +71,7 @@ test("live seating scores preserve table numbers and recalculate every lens afte
   }
 })
 
-test("admin table map exposes a direct swap control and renders live lens scores", async () => {
+test("admin table map exposes a direct swap control and renders live criterion scores", async () => {
   const [adminApi, adminUi] = await Promise.all([
     readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8"),
     readFile(new URL("../../app/routes/admin3.tsx", import.meta.url), "utf8"),

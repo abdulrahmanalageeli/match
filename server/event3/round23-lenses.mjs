@@ -51,6 +51,7 @@ export const ROUND_LENS_REQUIRED_FIELDS = Object.freeze([
   "core_values_5",
   "conversation_depth_pref",
   "match_disagreement_style",
+  "match_similarity_preference",
   "communication_1",
   "communication_2",
   "communication_3",
@@ -61,6 +62,24 @@ export const ROUND_LENS_REQUIRED_FIELDS = Object.freeze([
   "lifestyle_3",
   "lifestyle_4",
   "lifestyle_5",
+  "conversational_role",
+  "curiosity_style",
+  "social_battery",
+  "humor_banter_style",
+  "humor_subtype",
+  "early_openness_comfort",
+  "conversation_initiative_preference",
+  "expression_language",
+  "minimum_partner_religious_commitment",
+  "social_relationship_style",
+  "attachment_1",
+  "attachment_3",
+  "attachment_4",
+  "silence_comfort",
+])
+
+export const ROUND3_RHYTHM_REQUIRED_FIELDS = Object.freeze([
+  "match_current_focus",
   "conversational_role",
   "curiosity_style",
   "social_battery",
@@ -76,6 +95,14 @@ export function getRoundLensProfileMissingFields(profile = {}) {
     key === "match_current_focus"
       ? ["current_focus"]
       : key === "conversation_depth_pref" ? ["vibe_4"] : [],
+  ))
+}
+
+export function getRound3RhythmProfileMissingFields(profile = {}) {
+  return ROUND3_RHYTHM_REQUIRED_FIELDS.filter(key => !hasAnswer(
+    profile,
+    key,
+    key === "match_current_focus" ? ["current_focus"] : [],
   ))
 }
 

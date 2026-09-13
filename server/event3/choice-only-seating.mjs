@@ -1,16 +1,6 @@
-import {
-  buildSevenBySixPlan,
-  createRound2AgeGroupScorer,
-  normalizedGender,
-  round2AgeCost,
-  round2AgePairClosenessScore,
-  summarizeRound2AgeGroups,
-} from "./round2-age-optimizer.mjs"
-import {
-  buildRound1TotalCompatibilityPairScoreMap,
-  createRound1TotalCompatibilityScorer,
-  optimizeRound1TotalCompatibilityGroups,
-} from "./round1-total-compatibility.mjs"
+import { buildSevenBySixPlan, normalizedGender } from "./round2-age-optimizer.mjs"
+import { optimizeRound1CompatibilityGroups } from "./round1-compatibility.mjs"
+import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 import {
   buildFlexibleChoiceOnlySeatingCandidates,
@@ -21,7 +11,7 @@ const TABLE_COUNT = 7
 const GROUP_SIZE = 6
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
-export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "total-compatibility-age-rhythm-v1-six-person-40-pass"
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "compatibility-age-rhythm-v1-six-person-40-pass"
 
 // Preview alternatives must feel like different complete plans, not the same
 // tables with different numbers. Replacing half of the 105 companion
@@ -326,48 +316,42 @@ function genderScore(groups, genderMap) {
 }
 
 function ageCost(groups, ageMap) {
-  return round2AgeCost(groups, ageMap)
+  let cost = 0
+  for (const group of groups) {
+    for (let left = 0; left < group.length; left++) {
+      const leftAge = Number(ageMap instanceof Map ? ageMap.get(group[left]) : ageMap?.[group[left]])
+      if (!Number.isFinite(leftAge) || leftAge <= 0) continue
+      for (let right = left + 1; right < group.length; right++) {
+        const rightAge = Number(ageMap instanceof Map ? ageMap.get(group[right]) : ageMap?.[group[right]])
+        if (Number.isFinite(rightAge) && rightAge > 0) cost += (leftAge - rightAge) ** 2
+      }
+    }
+  }
+  return cost
 }
 
 function average(values, fallback = 0) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback
 }
 
-function anchorStats(keys, scorePair) {
-  const scores = keys.map(key => {
-    const [left, right] = key.split("-").map(Number)
-    return scorePair(left, right)
-  })
+function summarizeAge(groupScores) {
+  const knownAgePairs = groupScores.reduce((sum, group) => sum + Number(group.knownAgePairs || 0), 0)
+  const ageCost = groupScores.reduce((sum, group) => sum + Number(group.ageCost || 0), 0)
+  const absoluteAgeGapTotal = groupScores.reduce((sum, group) => (
+    sum + (Number(group.averageAgeGap || 0) * Number(group.knownAgePairs || 0))
+  ), 0)
   return {
-    count: scores.length,
-    average: average(scores, 0),
-    minimum: scores.length ? Math.min(...scores) : 0,
+    score: knownAgePairs ? absoluteAgeGapTotal / knownAgePairs : null,
+    averageAgeGap: knownAgePairs ? absoluteAgeGapTotal / knownAgePairs : null,
+    absoluteAgeGapTotal,
+    rmsAgeGap: knownAgePairs ? Math.sqrt(ageCost / knownAgePairs) : null,
+    ageCost,
+    knownAgePairs,
+    missingAgePairs: groupScores.reduce((sum, group) => sum + Number(group.missingAgePairs || 0), 0),
+    lockedPairs: groupScores.reduce((sum, group) => sum + group.lockedPairs, 0),
+    groupScores,
   }
 }
-
-function repeatedSourcePairKeys(sourceRound, shifts) {
-  const columns = duplicateColumnPair(shifts)
-  if (!columns) return []
-  return sourceRound.map(group => {
-    const left = group[columns[0]]
-    const right = group[columns[1]]
-    return left < right ? `${left}-${right}` : `${right}-${left}`
-  })
-}
-
-function repeatedBetweenShiftPairKeys(sourceRound, firstShifts, secondShifts) {
-  const deltas = secondShifts.map((shift, column) => modulo(shift - firstShifts[column]))
-  const columns = duplicateColumnPair(deltas)
-  if (!columns) return []
-  const [leftColumn, rightColumn] = columns
-  const rightRowOffset = modulo(firstShifts[leftColumn] - firstShifts[rightColumn])
-  return sourceRound.map((group, leftRow) => {
-    const left = group[leftColumn]
-    const right = sourceRound[modulo(leftRow + rightRowOffset)][rightColumn]
-    return left < right ? `${left}-${right}` : `${right}-${left}`
-  })
-}
-
 function summarizeRhythm(groupScores) {
   return {
     score: average(groupScores.map(group => group.score), 0),
@@ -403,13 +387,11 @@ function canonicalRound1MembershipVector(groups) {
 function round1ObjectiveVector(candidate) {
   const fitness = candidate.compatibility?.metrics?.after || {}
   return [
-    // The primary local optimum remains the reference plan. Every plan uses
-    // the same total-pair objective; alternatives exist for human choice.
-    candidate.round1?.establishedBest === true ? 0 : 1,
     Number(fitness.lockedPairs || 0),
-    -Number(fitness.totalPairScore || 0),
+    -Number(fitness.pairScoreTotal || 0),
     -Number(fitness.minimumGroupScore || 0),
-    -Number(fitness.minimumPairScore || 0),
+    candidate.round1?.establishedBest === true ? 0 : 1,
+    ...canonicalRound1MembershipVector(candidate.round1?.groups || []),
   ]
 }
 
@@ -425,10 +407,9 @@ function jointPlanObjectiveVector(candidate) {
     worstGenderDeviation,
     lockedPairs,
     candidate.round2.age.lockedPairs,
-    candidate.round2.age.ageCost,
-    candidate.round2.age.maximumAgeRange,
-    candidate.round2.age.ageCoverageIncomplete,
-    -candidate.round2.age.score,
+    candidate.round2.age.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
+    candidate.round2.age.missingAgePairs,
+    candidate.round2.age.absoluteAgeGapTotal,
     candidate.round3.rhythm.incompleteRoleCoverage,
     candidate.round3.rhythm.incompleteCuriosityCoverage,
     candidate.round3.rhythm.missingInitiators,
@@ -438,7 +419,6 @@ function jointPlanObjectiveVector(candidate) {
     -candidate.round3.quality,
     ...candidate.round2.shifts,
     ...candidate.round3.shifts,
-    ...canonicalRound1MembershipVector(candidate.round1?.groups || []),
   ]
 }
 
@@ -462,15 +442,6 @@ function normalizedParticipants(values) {
   return { participants }
 }
 
-function withPrecomputedCompatibility(values, options = {}) {
-  if (!Array.isArray(values)) return options
-  const numbers = values.map(value => Number(value?.participant_number ?? value?.assigned_number ?? value))
-  return {
-    ...options,
-    pairScoreMap: buildRound1TotalCompatibilityPairScoreMap(numbers, options),
-  }
-}
-
 /**
  * Build seven groups of six for three rounds. Round one starts from the
  * established gender-balanced Event3 grid, then maximizes the sum of the
@@ -484,7 +455,7 @@ function buildChoiceOnlySeatingSearch(values, {
   ageMap = {},
   profileMap = new Map(),
   compatibilityProfileMap = profileMap,
-  pairScoreMap = new Map(),
+  compatibilityScoreMap = new Map(),
   lockedPairsSet = new Set(),
   requireCompleteLensProfiles = false,
 } = {}, candidateCount = 1, {
@@ -520,10 +491,11 @@ function buildChoiceOnlySeatingSearch(values, {
     const balanced = buildSevenBySixPlan(participants, genderObject)
     const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
       participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
-    compatibility = optimizeRound1TotalCompatibilityGroups(baselineRound1, {
+    compatibility = optimizeRound1CompatibilityGroups(baselineRound1, {
       genderMap,
-      profileMap: compatibilityProfileMap,
-      pairScoreMap,
+      profileMap,
+      compatibilityProfileMap,
+      compatibilityScoreMap,
       lockedPairsSet,
     })
   }
@@ -537,12 +509,11 @@ function buildChoiceOnlySeatingSearch(values, {
     variantKey: round1Source?.variantKey || "primary",
   }
   const lenses = createRoundLensScorer({ profileMap, lockedPairsSet })
-  const compatibilityScorer = createRound1TotalCompatibilityScorer({
+  const scoreAgeGroup = createRound2AgeGroupScorer({
+    ageMap,
     profileMap: compatibilityProfileMap,
-    pairScoreMap,
     lockedPairsSet,
   })
-  const ageGroup = createRound2AgeGroupScorer({ ageMap, lockedPairsSet })
 
   const layoutCache = new Map()
   const layoutFor = shifts => {
@@ -563,13 +534,11 @@ function buildChoiceOnlySeatingSearch(values, {
   const round2For = shifts => {
     if (round2Cache.has(shifts)) return round2Cache.get(shifts)
     const layout = layoutFor(shifts)
-    const age = summarizeRound2AgeGroups(layout.groups.map(ageGroup))
-    const anchors = anchorStats(repeatedSourcePairKeys(round1, shifts), compatibilityScorer.pairScore)
+    const age = summarizeAge(layout.groups.map(scoreAgeGroup))
     const candidate = {
       ...layout,
       age,
-      anchors,
-      quality: age.score,
+      quality: -(age.averageAgeGap ?? Number.MAX_SAFE_INTEGER),
     }
     round2Cache.set(shifts, candidate)
     return candidate
@@ -582,10 +551,6 @@ function buildChoiceOnlySeatingSearch(values, {
     const candidate = {
       ...layout,
       rhythm: summarizeRhythm(layout.groups.map(lenses.rhythmGroup)),
-      compatibilityAnchors: anchorStats(
-        repeatedSourcePairKeys(round1, shifts),
-        compatibilityScorer.pairScore,
-      ),
     }
     round3BaseCache.set(shifts, candidate)
     return candidate
@@ -596,7 +561,7 @@ function buildChoiceOnlySeatingSearch(values, {
     let best = null
     for (const [round2Shifts, round3Shifts] of getFeasibleShiftPairs()) {
       const round2Candidate = round2For(round2Shifts)
-      // Selecting the rounds together prevents a locally attractive age round
+      // Selecting the rounds together prevents a locally attractive Age round
       // from stranding Rhythm without a gender-balanced, burden-one solution.
       const round3Base = round3BaseFor(round3Shifts)
       const diversityProbe = {
@@ -608,22 +573,8 @@ function buildChoiceOnlySeatingSearch(values, {
       if ([...excludedCandidates, ...bestCandidates]
         .some(selected => !isMateriallyDifferent(diversityProbe, selected, diversityRoundNumbers))) continue
 
-      const compatibilityAnchors = round3Base.compatibilityAnchors
-      const ageAnchors = anchorStats(
-        repeatedBetweenShiftPairKeys(round1, round2Shifts, round3Shifts),
-        (left, right) => round2AgePairClosenessScore(left, right, ageMap),
-      )
-      const allAnchorMinimum = Math.min(compatibilityAnchors.minimum, ageAnchors.minimum)
       const round3Candidate = {
         ...round3Base,
-        anchors: {
-          round1Compatibility: compatibilityAnchors,
-          round2Age: ageAnchors,
-          // Historical aliases are retained for old report readers.
-          round1Spark: compatibilityAnchors,
-          round2Depth: ageAnchors,
-          minimum: allAnchorMinimum,
-        },
         quality: round3Base.rhythm.qualityScore,
       }
       const candidate = {
@@ -631,14 +582,6 @@ function buildChoiceOnlySeatingSearch(values, {
         compatibility,
         round2: round2Candidate,
         round3: round3Candidate,
-        quality: compatibility.metrics.after.score + round2Candidate.quality + round3Candidate.quality,
-        minimumLensQuality: Math.min(
-          compatibility.metrics.after.score,
-          round2Candidate.quality,
-          round3Candidate.quality,
-        ),
-        anchorMinimum: Math.min(round2Candidate.anchors.minimum, round3Candidate.anchors.minimum),
-        ageCost: round2Candidate.age.ageCost,
       }
       const protectedPairViolations = Number(compatibility.metrics?.after?.lockedPairs || 0)
         + Number(round2Candidate.age?.lockedPairs || 0)
@@ -649,7 +592,7 @@ function buildChoiceOnlySeatingSearch(values, {
     if (!best) {
       return {
         error: candidateCount === 1
-          ? "Could not construct conflict-free joint close-age and Rhythm rounds"
+          ? "Could not construct conflict-free joint minimum-repeat Age and Rhythm rounds"
           : `Could not construct ${candidateCount} materially different conflict-free minimum-repeat seating candidates`,
       }
     }
@@ -667,14 +610,6 @@ function serializeChoiceOnlyPlan({ participants }, best) {
   const repeatMetrics = choiceOnlySeatingMetrics(round1, round2, round3)
   const positionMap = {}
   round1.flat().forEach((number, index) => { positionMap[number] = index })
-  const round1Compatibility = compatibility.metrics
-  const round2Age = {
-    ...best.round2.age,
-    anchors: best.round2.anchors,
-    quality: best.round2.quality,
-    ageCost: best.round2.age.ageCost,
-    shifts: best.round2.shifts,
-  }
   return {
     round1,
     round2,
@@ -683,17 +618,15 @@ function serializeChoiceOnlyPlan({ participants }, best) {
     G: GROUP_SIZE,
     R: 0,
     positionMap,
-    round1Compatibility,
-    round2Age,
-    // Retain the old property names so historical integrations can read the
-    // new metrics during a rolling deploy.
-    round1Spark: round1Compatibility,
-    round2Depth: round2Age,
+    round1Compatibility: compatibility.metrics,
+    round2Age: {
+      ...best.round2.age,
+      quality: best.round2.quality,
+      shifts: best.round2.shifts,
+    },
     round3Rhythm: {
       ...best.round3.rhythm,
-      anchors: best.round3.anchors,
       quality: best.round3.quality,
-      ageCost: best.round3.ageCost,
       shifts: best.round3.shifts,
       repeatMetrics,
     },
@@ -712,14 +645,10 @@ function canonicalObjective(candidate) {
     sortKey: jointPlanObjectiveVector(candidate),
     establishedBest: candidate.round1.establishedBest === true,
     round1CompatibilityScore: compatibilityFitness.score ?? null,
-    round1TotalPairScore: compatibilityFitness.totalPairScore ?? null,
+    round1CompatibilityTotal: compatibilityFitness.pairScoreTotal ?? null,
     round2AgeCost: candidate.round2.age.ageCost,
-    // Deprecated alias for cached clients that still inspect this field.
-    round1SparkScore: compatibilityFitness.score ?? null,
-    quality: candidate.quality,
-    minimumLensQuality: candidate.minimumLensQuality,
-    anchorMinimum: candidate.anchorMinimum,
-    ageCost: candidate.ageCost,
+    round2AverageAgeGap: candidate.round2.age.averageAgeGap,
+    round3RhythmScore: candidate.round3.rhythm.qualityScore,
   }
 }
 
@@ -754,17 +683,14 @@ function alternativeRound1Sources(seedCandidates, options) {
     variantKey: round1VariantKey(compatibility.groups),
   })
 
-  // The three already-ranked age layouts are pairwise diverse and retain the
-  // structural gender guarantees. Re-optimizing each one with the same total
-  // compatibility scorer produces high-quality alternative first rounds; the raw
+  // The three already-ranked Age layouts are pairwise diverse and retain the
+  // structural gender guarantees. Re-optimizing each one for compatibility
+  // produces high-quality alternative first rounds; the raw
   // layout remains as a deterministic fallback if local optimization converges
   // back toward an earlier arrangement.
   for (const candidate of seedCandidates) {
     const seed = candidate.round2.groups.map(group => [...group])
-    const optimized = optimizeRound1TotalCompatibilityGroups(seed, {
-      ...options,
-      profileMap: options.compatibilityProfileMap || options.profileMap,
-    })
+    const optimized = optimizeRound1CompatibilityGroups(seed, options)
     add(optimized)
     add(rawCompatibilityResult(seed, optimized))
   }
@@ -774,14 +700,14 @@ function alternativeRound1Sources(seedCandidates, options) {
     if (!unique.has(key)) unique.set(key, source)
   }
   return [...unique.values()].sort((left, right) => compareNumberVectors(
-    [...round1ObjectiveVector({
+    round1ObjectiveVector({
       round1: { groups: left.compatibility.groups, establishedBest: false },
       compatibility: left.compatibility,
-    }), ...canonicalRound1MembershipVector(left.compatibility.groups)],
-    [...round1ObjectiveVector({
+    }),
+    round1ObjectiveVector({
       round1: { groups: right.compatibility.groups, establishedBest: false },
       compatibility: right.compatibility,
-    }), ...canonicalRound1MembershipVector(right.compatibility.groups)],
+    }),
   ))
 }
 
@@ -792,8 +718,8 @@ function alternativeRound1Sources(seedCandidates, options) {
  * objective and preserve the exact structural repeat guarantees while applying
  * the same gender, protected-pair, compatibility, close-age, and Rhythm priorities.
  *
- * Rank one remains the primary total-compatibility arrangement. Ranks two and
- * three use separately compatibility-scored
+ * Rank one is the strongest complete plan under the compatibility-first
+ * objective. Ranks two and three use separately compatibility-scored
  * first rounds, then rebuild both later rounds from those grids. Material
  * diversity is enforced independently in all three rounds.
  */
@@ -801,18 +727,17 @@ export function buildChoiceOnlySeatingCandidates(values, options = {}) {
   if (Array.isArray(values) && values.length !== PARTICIPANT_COUNT) {
     return buildFlexibleChoiceOnlySeatingCandidates(values, options)
   }
-  const scoredOptions = withPrecomputedCompatibility(values, options)
-  const primarySearch = buildChoiceOnlySeatingSearch(values, scoredOptions, 3, {
-    // These two extra fixed-Round-1 results only seed alternative grids.
+  const primarySearch = buildChoiceOnlySeatingSearch(values, options, 3, {
+    // These two extra fixed-compatibility results only seed alternative Round 1 grids.
     diversityRoundNumbers: [2, 3],
   })
   if (primarySearch.error) return primarySearch
 
   const bestCandidates = [primarySearch.bestCandidates[0]]
-  const sources = alternativeRound1Sources(primarySearch.bestCandidates, scoredOptions)
+  const sources = alternativeRound1Sources(primarySearch.bestCandidates, options)
   for (const round1Source of sources) {
     if (bestCandidates.length === 3) break
-    const search = buildChoiceOnlySeatingSearch(values, scoredOptions, 1, {
+    const search = buildChoiceOnlySeatingSearch(values, options, 1, {
       round1Source,
       excludedCandidates: bestCandidates,
     })
@@ -821,6 +746,7 @@ export function buildChoiceOnlySeatingCandidates(values, options = {}) {
   if (bestCandidates.length !== 3) {
     return { error: "Could not construct three materially different complete seating candidates" }
   }
+  bestCandidates.sort(compareJointPlans)
 
   const resultContext = { participants: primarySearch.participants }
   const ids = bestCandidates.map(candidateIdentifier)
@@ -865,7 +791,7 @@ export function buildChoiceOnlySeatingPlan(values, options = {}) {
     const generated = buildFlexibleChoiceOnlySeatingCandidates(values, options)
     return generated.error ? generated : generated.candidates[0].plan
   }
-  const search = buildChoiceOnlySeatingSearch(values, withPrecomputedCompatibility(values, options), 1)
+  const search = buildChoiceOnlySeatingSearch(values, options, 1)
   if (search.error) return search
   return serializeChoiceOnlyPlan(search, search.bestCandidates[0])
 }

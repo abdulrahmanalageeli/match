@@ -1,14 +1,6 @@
-import {
-  createRound2AgeGroupScorer,
-  normalizedGender,
-  round2AgeCost,
-  summarizeRound2AgeGroups,
-} from "./round2-age-optimizer.mjs"
-import {
-  buildRound1TotalCompatibilityPairScoreMap,
-  createRound1TotalCompatibilityGroupScorer,
-  summarizeRound1TotalCompatibilityGroups,
-} from "./round1-total-compatibility.mjs"
+import { normalizedGender } from "./round2-age-optimizer.mjs"
+import { createRound1CompatibilityGroupScorer } from "./round1-compatibility.mjs"
+import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const MIN_PARTICIPANTS = 6
@@ -21,7 +13,7 @@ const BALANCED_MAX_ROSTER_GENDER_COUNT = BALANCED_MAX_ROSTER_SIZE / 2
 const CONSTRAINED_ROUND_ATTEMPTS = 12
 const CONSTRAINED_ROUND_NODE_LIMIT = 100_000
 const PROTECTED_PAIR_RELABEL_ATTEMPTS = 2_048
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "total-compatibility-age-rhythm-v1-balanced-44-hard-zero-repeat"
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-rhythm-v1-balanced-44-hard-zero-repeat"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -37,13 +29,6 @@ function normalizeParticipants(values) {
     return { error: "Choice-only seating participant numbers must be unique" }
   }
   return { participants }
-}
-
-function withPrecomputedCompatibility(participants, options = {}) {
-  return {
-    ...options,
-    pairScoreMap: buildRound1TotalCompatibilityPairScoreMap(participants, options),
-  }
 }
 
 function seededRandom(seed) {
@@ -144,9 +129,41 @@ function genderCost(groups, genderMap) {
   return { maximumSpread, squaredDeviation }
 }
 
+function ageCost(groups, ageMap) {
+  let cost = 0
+  for (const group of groups) {
+    for (let left = 0; left < group.length; left++) {
+      const leftAge = Number(ageMap instanceof Map ? ageMap.get(group[left]) : ageMap?.[group[left]])
+      if (!Number.isFinite(leftAge) || leftAge <= 0) continue
+      for (let right = left + 1; right < group.length; right++) {
+        const rightAge = Number(ageMap instanceof Map ? ageMap.get(group[right]) : ageMap?.[group[right]])
+        if (Number.isFinite(rightAge) && rightAge > 0) cost += (leftAge - rightAge) ** 2
+      }
+    }
+  }
+  return cost
+}
+
 function aggregate(groupScores, lens) {
-  const scoreValues = groupScores.map(group => lens === "rhythm" ? group.qualityScore ?? group.score : group.score)
-  const score = scoreValues.reduce((sum, value) => sum + Number(value || 0), 0) / Math.max(1, scoreValues.length)
+  const scoreValues = groupScores
+    .map(group => lens === "rhythm" ? group.qualityScore ?? group.score : group.score)
+    .filter(value => value !== null && value !== undefined && value !== "")
+    .map(Number)
+    .filter(Number.isFinite)
+  const averageTableScore = scoreValues.length
+    ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
+    : null
+  const knownAgePairs = groupScores.reduce((sum, group) => sum + Number(group.knownAgePairs || 0), 0)
+  const ageCostTotal = groupScores.reduce((sum, group) => sum + Number(group.ageCost || 0), 0)
+  const pairScoreTotal = groupScores.reduce((sum, group) => sum + Number(group.pairScoreTotal || 0), 0)
+  const scoredPairs = groupScores.reduce((sum, group) => sum + Number(group.scoredPairs || 0), 0)
+  const absoluteAgeGapTotal = groupScores.reduce((sum, group) => (
+    sum + (Number(group.averageAgeGap || 0) * Number(group.knownAgePairs || 0))
+  ), 0)
+  const averageAgeGap = knownAgePairs ? absoluteAgeGapTotal / knownAgePairs : null
+  const score = lens === "compatibility" && scoredPairs
+    ? pairScoreTotal / scoredPairs
+    : lens === "age" ? averageAgeGap : averageTableScore
   return {
     score,
     qualityScore: score,
@@ -163,6 +180,16 @@ function aggregate(groupScores, lens) {
     missingRoleTrios: groupScores.filter(group => group.roleTrioMissing).length,
     missingCuriosityFlows: groupScores.filter(group => group.curiosityFlowMissing).length,
     humorClashes: groupScores.filter(group => group.humorClash).length,
+    pairScoreTotal,
+    scoredPairs,
+    cachedPairs: groupScores.reduce((sum, group) => sum + Number(group.cachedPairs || 0), 0),
+    fallbackPairs: groupScores.reduce((sum, group) => sum + Number(group.fallbackPairs || 0), 0),
+    ageCost: ageCostTotal,
+    absoluteAgeGapTotal,
+    averageAgeGap,
+    rmsAgeGap: knownAgePairs ? Math.sqrt(ageCostTotal / knownAgePairs) : null,
+    knownAgePairs,
+    missingAgePairs: groupScores.reduce((sum, group) => sum + Number(group.missingAgePairs || 0), 0),
     groupScores,
   }
 }
@@ -175,14 +202,7 @@ function compareVectors(left, right) {
   return 0
 }
 
-function evaluate(groups, {
-  previousPairSets,
-  groupScore,
-  genderMap,
-  ageMap,
-  objective = "quality",
-  prioritizeWeakest = false,
-}) {
+function evaluate(groups, { previousPairSets, groupScore, genderMap, ageMap, objective = "quality", prioritizeWeakest = false }) {
   const currentPairs = pairSet(groups)
   let repeats = 0
   for (const previous of previousPairSets) for (const key of currentPairs) if (previous.has(key)) repeats++
@@ -193,14 +213,23 @@ function evaluate(groups, {
   const protectedPairs = groupScores.reduce((sum, group) => sum + Number(group.lockedPairs || 0), 0)
   const gender = genderCost(groups, genderMap)
   const qualityValues = groupScores.map(group => Number(group.qualityScore ?? group.score ?? 0))
-  const quality = objective === "compatibility"
-    ? groupScores.reduce((sum, group) => sum + Number(group.totalPairScore || 0), 0)
-    : qualityValues.reduce((sum, value) => sum + value, 0)
+  const quality = qualityValues.reduce((sum, value) => sum + value, 0)
   const minimumQuality = qualityValues.length ? Math.min(...qualityValues) : 0
-  const currentAgeCost = round2AgeCost(groups, ageMap)
-  const maximumAgeRange = groupScores.length
-    ? Math.max(...groupScores.map(group => Number(group.ageRange || 0)))
-    : 0
+  const compatibilityTotal = groupScores.reduce((sum, group) => sum + Number(group.pairScoreTotal || 0), 0)
+  const knownAgePairs = groupScores.reduce((sum, group) => sum + Number(group.knownAgePairs || 0), 0)
+  const missingAgePairs = groupScores.reduce((sum, group) => sum + Number(group.missingAgePairs || 0), 0)
+  const totalAbsoluteAgeGap = groupScores.reduce((sum, group) => (
+    sum + (Number(group.averageAgeGap || 0) * Number(group.knownAgePairs || 0))
+  ), 0)
+  const objectiveVector = objective === "compatibility"
+    ? [-compatibilityTotal, -minimumQuality]
+    : objective === "age"
+      ? [
+          knownAgePairs ? totalAbsoluteAgeGap / knownAgePairs : Number.MAX_SAFE_INTEGER,
+          missingAgePairs,
+          totalAbsoluteAgeGap,
+        ]
+      : [...(prioritizeWeakest ? [-minimumQuality] : []), -quality, ageCost(groups, ageMap)]
   return {
     vector: [
       protectedPairs,
@@ -208,17 +237,12 @@ function evaluate(groups, {
       repeats,
       gender.maximumSpread,
       gender.squaredDeviation,
-      ...(objective === "age"
-        ? [currentAgeCost, maximumAgeRange, -minimumQuality]
-        : objective === "compatibility"
-          ? [-quality, -minimumQuality]
-          : [...(prioritizeWeakest ? [-minimumQuality] : []), -quality]),
+      ...objectiveVector,
     ],
     groupScores,
     gender,
     currentPairs,
     minimumQuality,
-    ageCost: currentAgeCost,
   }
 }
 
@@ -390,10 +414,9 @@ function buildConstrainedRound(participants, sizes, femaleTargets, {
 
 function assembleCandidate(participants, options, seed, round1, round2, round3) {
   const repeats = repeatMetrics(round1.groups, round2.groups, round3.groups)
-  const compatibilityBefore = summarizeRound1TotalCompatibilityGroups(round1.before.groupScores)
-  const compatibility = summarizeRound1TotalCompatibilityGroups(round1.evaluation.groupScores)
-  const ageBefore = summarizeRound2AgeGroups(round2.before.groupScores)
-  const age = summarizeRound2AgeGroups(round2.evaluation.groupScores)
+  const compatibility = aggregate(round1.evaluation.groupScores, "compatibility")
+  const compatibilityBefore = aggregate(round1.before.groupScores, "compatibility")
+  const age = aggregate(round2.evaluation.groupScores, "age")
   const rhythm = aggregate(round3.evaluation.groupScores, "rhythm")
   const positionMap = Object.fromEntries(round1.groups.flat().map((number, index) => [number, index]))
   const minimumRhythmQuality = round3.evaluation.minimumQuality
@@ -403,18 +426,16 @@ function assembleCandidate(participants, options, seed, round1, round2, round3) 
     repeats.maximumParticipantRepeatBurden,
     round1.evaluation.vector[0] + round2.evaluation.vector[0] + round3.evaluation.vector[0],
     Math.max(round1.evaluation.gender.maximumSpread, round2.evaluation.gender.maximumSpread, round3.evaluation.gender.maximumSpread),
-    -compatibility.totalPairScore,
-    -compatibility.minimumGroupScore,
-    age.ageCost,
-    age.maximumAgeRange,
+    -compatibility.pairScoreTotal,
+    age.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
+    age.missingAgePairs,
+    age.absoluteAgeGapTotal,
     -minimumRhythmQuality,
     -rhythm.qualityScore,
     ...round1.groups.flat(),
     ...round2.groups.flat(),
     ...round3.groups.flat(),
   ]
-  const round1Compatibility = { before: compatibilityBefore, after: compatibility, swaps: round1.swaps }
-  const round2Age = { ...age, before: ageBefore, shifts: [] }
   return {
     seed,
     sortKey,
@@ -426,17 +447,12 @@ function assembleCandidate(participants, options, seed, round1, round2, round3) 
       G: Math.max(...choiceOnlyTargetGroupSizes(participants.length)),
       R: repeats.totalRepeatedPairOccurrences,
       positionMap,
-      round1Compatibility,
-      round2Age,
-      // Legacy aliases keep older audit readers safe while new reports prefer
-      // the explicit objective names above.
-      round1Spark: round1Compatibility,
-      round2Depth: round2Age,
+      round1Compatibility: { before: compatibilityBefore, after: compatibility, swaps: round1.swaps },
+      round2Age: { ...age, shifts: [] },
       round3Rhythm: {
         ...rhythm,
         minimumQuality: minimumRhythmQuality,
         beforeMinimumQuality: round3.before.minimumQuality,
-        ageCost: round2AgeCost(round3.groups, options.ageMap),
         shifts: [],
         repeatMetrics: repeats,
       },
@@ -473,7 +489,7 @@ function buildBalanced44Candidate(participants, options, seed) {
   const firstTargets = balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, seed)
   if (!firstTargets) return null
   const lenses = createRoundLensScorer(options)
-  const compatibilityGroup = createRound1TotalCompatibilityGroupScorer(options)
+  const compatibilityGroup = createRound1CompatibilityGroupScorer(options)
   const ageGroup = createRound2AgeGroupScorer(options)
   const protectedPairs = new Set(options.lockedPairsSet || [])
 
@@ -565,7 +581,7 @@ function buildCandidate(participants, options, seed) {
   const balanced44Candidate = buildBalanced44Candidate(participants, options, seed)
   if (balanced44Candidate) return balanced44Candidate
   const lenses = createRoundLensScorer(options)
-  const compatibilityGroup = createRound1TotalCompatibilityGroupScorer(options)
+  const compatibilityGroup = createRound1CompatibilityGroupScorer(options)
   const ageGroup = createRound2AgeGroupScorer(options)
   const round1Start = initialGroups(participants, sizes, seed * 101 + 17, options.genderMap)
   const round1 = optimize(round1Start, {
@@ -636,6 +652,11 @@ function finalizeFlexibleCandidates(participants, rawCandidates, lockedPairsSet 
       participantCount: participants.length,
       tableCount: candidate.plan.T,
       sortKey: candidate.sortKey,
+      round1CompatibilityScore: candidate.plan.round1Compatibility.after.score,
+      round1CompatibilityTotal: candidate.plan.round1Compatibility.after.pairScoreTotal,
+      round2AgeCost: candidate.plan.round2Age.ageCost,
+      round2AverageAgeGap: candidate.plan.round2Age.averageAgeGap,
+      round3RhythmScore: candidate.plan.round3Rhythm.qualityScore,
     },
     diversity: index === 0 ? { round1Fixed: false, fromBest: null, comparedWithEarlier: [] } : {
       round1Fixed: false,
@@ -680,8 +701,7 @@ export function buildFlexibleChoiceOnlySeatingCandidatesStep(values, options = {
     ? checkpoint.candidates
     : []
   const candidates = [...previousCandidates]
-  const scoredOptions = withPrecomputedCompatibility(normalized.participants, options)
-  const candidate = buildCandidate(normalized.participants, scoredOptions, candidates.length + 1)
+  const candidate = buildCandidate(normalized.participants, options, candidates.length + 1)
   if (candidate?.error) {
     return {
       complete: true,
@@ -709,18 +729,17 @@ export function buildFlexibleChoiceOnlySeatingCandidatesStep(values, options = {
   return {
     complete: true,
     progress,
-    generated: finalizeFlexibleCandidates(normalized.participants, candidates, scoredOptions.lockedPairsSet),
+    generated: finalizeFlexibleCandidates(normalized.participants, candidates, options.lockedPairsSet),
   }
 }
 
 export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   const normalized = normalizeParticipants(values)
   if (normalized.error) return normalized
-  const scoredOptions = withPrecomputedCompatibility(normalized.participants, options)
   const candidates = Array.from({ length: CANDIDATE_BUILD_STEPS }, (_, index) => (
-    buildCandidate(normalized.participants, scoredOptions, index + 1)
+    buildCandidate(normalized.participants, options, index + 1)
   ))
-  return finalizeFlexibleCandidates(normalized.participants, candidates, scoredOptions.lockedPairsSet)
+  return finalizeFlexibleCandidates(normalized.participants, candidates, options.lockedPairsSet)
 }
 
 export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({

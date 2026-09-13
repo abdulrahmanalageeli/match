@@ -7,7 +7,7 @@ import {
   FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
 } from "./flexible-choice-seating.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
-import { getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
+import { getRound3RhythmProfileMissingFields, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 import { getOrBuildChoiceSeatingCandidates } from "./choice-seating-cache.mjs"
 
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
@@ -21,12 +21,27 @@ const FRESH_GENERATION_NONCE_PATTERN = /^[A-Za-z0-9_-]{8,96}$/
 
 const fail = (message, status = 409, details = {}) => Object.assign(new Error(message), { status, ...details })
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
-const rounded = value => Number.isFinite(Number(value)) ? Math.round(Number(value) * 100) / 100 : null
+const rounded = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))
+  ? Math.round(Number(value) * 100) / 100
+  : null
 
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue)
   if (!value || typeof value !== "object") return value
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]))
+}
+
+function compatibilityScoresHash(scoreSource) {
+  const entries = scoreSource instanceof Map
+    ? [...scoreSource]
+    : Object.entries(scoreSource || {})
+  const normalized = entries.flatMap(([key, score]) => {
+    if (score === null || score === undefined || score === "") return []
+    const numericScore = Number(score)
+    if (!Number.isFinite(numericScore)) return []
+    return [[String(key), Math.max(0, Math.min(100, numericScore))]]
+  }).sort(([left], [right]) => left.localeCompare(right))
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex")
 }
 
 function freshGenerationContext(body, context) {
@@ -166,18 +181,13 @@ function protectedViolations(group, protectedPairs, round, tableNumber) {
 function warningKeys(metrics = {}) {
   const checks = [
     ["lockedPairs", "protected_pair"],
-    ["compatibilityCoverageIncomplete", "incomplete_compatibility_coverage"],
-    ["ageCoverageIncomplete", "incomplete_age_coverage"],
-    ["depthMismatch", "depth_mismatch"],
     ["initiatorMissing", "missing_initiator"],
-    ["ageRangeViolation", "wide_age_range"],
     ["humorClash", "humor_clash"],
-    ["depthCoverageIncomplete", "incomplete_depth_coverage"],
     ["roleCoverageIncomplete", "incomplete_role_coverage"],
     ["curiosityCoverageIncomplete", "incomplete_curiosity_coverage"],
-    ["curiosityMixMissing", "missing_curiosity_mix"],
     ["roleTrioMissing", "missing_role_trio"],
     ["curiosityFlowMissing", "missing_curiosity_flow"],
+    ["missingAgePairs", "missing_age_data"],
   ]
   return checks.filter(([key]) => Number(metrics[key]) > 0 || metrics[key] === true).map(([, warning]) => warning)
 }
@@ -209,10 +219,12 @@ function uniquePartnerMetrics(assignments, participantNumbers) {
   }
 }
 
-function roundReport({ round, lens, groups, groupScores, genderMap, genderTargetRanges, protectedPairs }) {
+function roundReport({ round, criterion, groups, groupScores, roundScore, genderMap, genderTargetRanges, protectedPairs }) {
   const normalizedScores = groups.map((group, tableIndex) => {
     const metrics = groupScores?.[tableIndex] || {}
-    const score = lens === "rhythm" ? metrics.qualityScore ?? metrics.score : metrics.score
+    const score = criterion === "rhythm"
+      ? metrics.qualityScore ?? metrics.score
+      : criterion === "age" ? metrics.averageAgeGap : metrics.score
     const violations = protectedViolations(group, protectedPairs, round, tableIndex + 1)
     const warnings = [...new Set([
       ...warningKeys(metrics),
@@ -229,12 +241,16 @@ function roundReport({ round, lens, groups, groupScores, genderMap, genderTarget
     }
   })
   const finiteScores = normalizedScores.map(table => table.score).filter(Number.isFinite)
-  const minimum = finiteScores.length ? Math.min(...finiteScores) : null
-  for (const table of normalizedScores) table.weakest = minimum !== null && table.score === minimum
+  const weakestScore = finiteScores.length
+    ? (criterion === "age" ? Math.max(...finiteScores) : Math.min(...finiteScores))
+    : null
+  for (const table of normalizedScores) table.weakest = weakestScore !== null && table.score === weakestScore
   return {
     round,
-    lens,
-    score: finiteScores.length ? rounded(finiteScores.reduce((sum, score) => sum + score, 0) / finiteScores.length) : null,
+    criterion,
+    score: rounded(roundScore) ?? (finiteScores.length ? rounded(finiteScores.reduce((sum, score) => sum + score, 0) / finiteScores.length) : null),
+    unit: criterion === "age" ? "years" : "percent",
+    lower_is_better: criterion === "age",
     tables: normalizedScores,
   }
 }
@@ -244,9 +260,9 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
   const assignments = assignmentsForPlan(plan, participantNumbers)
   const genderTargetRanges = genderTargets(participantNumbers, genderMap, plan.round1.length)
   const rounds = [
-    roundReport({ round: 1, lens: "compatibility", groups: plan.round1, groupScores: (plan.round1Compatibility || plan.round1Spark)?.after?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
-    roundReport({ round: 2, lens: "age", groups: plan.round2, groupScores: (plan.round2Age || plan.round2Depth)?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
-    roundReport({ round: 3, lens: "rhythm", groups: plan.round3, groupScores: plan.round3Rhythm?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 1, criterion: "compatibility", groups: plan.round1, groupScores: plan.round1Compatibility?.after?.groupScores, roundScore: plan.round1Compatibility?.after?.score, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 2, criterion: "age", groups: plan.round2, groupScores: plan.round2Age?.groupScores, roundScore: plan.round2Age?.averageAgeGap, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 3, criterion: "rhythm", groups: plan.round3, groupScores: plan.round3Rhythm?.groupScores, roundScore: plan.round3Rhythm?.qualityScore ?? plan.round3Rhythm?.score, genderMap, genderTargetRanges, protectedPairs }),
   ]
   const allTables = rounds.flatMap(round => round.tables.map(table => ({ round: round.round, ...table })))
   const violations = allTables.flatMap(table => table.protected_pair_violations.map(pair => ({
@@ -255,11 +271,16 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
     ...pair,
   })))
   const repeatMetrics = plan.round3Rhythm?.repeatMetrics || {}
-  const lensScores = Object.fromEntries(rounds.map(round => [round.lens, round.score]))
-  const finiteLensScores = Object.values(lensScores).filter(Number.isFinite)
+  const criterionScores = {
+    compatibility: rounds[0].score,
+    age: rounds[1].score,
+    age_average_gap: rounded(plan.round2Age?.averageAgeGap ?? rounds[1].score),
+    age_rms_gap: rounded(plan.round2Age?.rmsAgeGap),
+    rhythm: rounds[2].score,
+  }
   const weakestTables = rounds.flatMap(round => round.tables.filter(table => table.weakest).map(table => ({
     round: round.round,
-    lens: round.lens,
+    criterion: round.criterion,
     table_number: table.table_number,
     score: table.score,
     warnings: table.warnings,
@@ -279,14 +300,8 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
     summary: {
       participant_count: participantNumbers.length,
       assignment_count: assignments.length,
-      overall_score: finiteLensScores.length ? rounded(finiteLensScores.reduce((sum, score) => sum + score, 0) / finiteLensScores.length) : null,
-      lens_scores: lensScores,
-      round2_age: {
-        squared_gap_cost: rounded((plan.round2Age || plan.round2Depth)?.ageCost),
-        average_gap_years: rounded((plan.round2Age || plan.round2Depth)?.averageAgeGap),
-        maximum_gap_years: rounded((plan.round2Age || plan.round2Depth)?.maximumAgeGap),
-        maximum_table_range_years: rounded((plan.round2Age || plan.round2Depth)?.maximumAgeRange),
-      },
+      overall_score: null,
+      criterion_scores: criterionScores,
       weakest_tables: weakestTables,
       all_gender_balanced: allTables.every(table => table.gender.balanced),
       protected_pair_violations: violations.length,
@@ -390,10 +405,25 @@ async function loadChoiceContext(db, eventId) {
       age: profile.age == null ? null : String(profile.age),
     }
   })
-  const missingSurveyFields = participantNumbers.map(participantNumber => ({
+  const missingRhythmFields = participantNumbers.map(participantNumber => ({
+    participant_number: participantNumber,
+    fields: getRound3RhythmProfileMissingFields(profileMap.get(participantNumber)),
+  })).filter(row => row.fields.length)
+  const missingCompatibilityFields = participantNumbers.map(participantNumber => ({
     participant_number: participantNumber,
     fields: getRoundLensProfileMissingFields(profileMap.get(participantNumber)),
   })).filter(row => row.fields.length)
+  const missingSurveyFields = participantNumbers.map(participantNumber => {
+    const compatibilityFields = missingCompatibilityFields.find(row => row.participant_number === participantNumber)?.fields || []
+    const rawAge = profileMap.get(participantNumber)?.age
+      ?? profileMap.get(participantNumber)?.survey_data?.answers?.age
+      ?? profileMap.get(participantNumber)?.survey_data?.age
+    const age = Number(rawAge)
+    return {
+      participant_number: participantNumber,
+      fields: [...compatibilityFields, ...(!Number.isFinite(age) || age <= 0 ? ["age"] : [])],
+    }
+  }).filter(row => row.fields.length)
   const genderMap = new Map(participantNumbers.map(number => {
     const profile = profileMap.get(number)
     const survey = profile.survey_data || {}
@@ -443,6 +473,7 @@ async function loadChoiceContext(db, eventId) {
     ageMap,
     protectedPairs,
     lockedPairsSet: new Set(protectedPairs.map(([left, right]) => pairKey(left, right))),
+    missingRhythmFields,
     missingSurveyFields,
     testMode,
     expectedStartedAt,
@@ -515,19 +546,34 @@ async function loadAppliedReport(db, body, eventId) {
   return withCurrentSeatingStatus(db, row, eventId)
 }
 
-export async function handleChoiceSeatingPreview({ db, action, body = {}, eventId, secret, buildCandidates, buildCandidatesStep }) {
+export async function handleChoiceSeatingPreview({
+  db,
+  action,
+  body = {},
+  eventId,
+  secret,
+  buildCandidates,
+  buildCandidatesStep,
+  loadCompatibilityScores,
+}) {
   if (action === "e3-get-choice-seating-report") return loadAppliedReport(db, body, eventId)
   validateExpectedRequest(body, eventId)
   const applying = action === "e3-apply-choice-seating-preview"
   const preview = applying ? readChoiceSeatingPreview(body.token, secret) : null
   const context = await loadChoiceContext(db, eventId)
   if (body.expected_test_mode !== context.testMode) throw fail("The Event3 live/test context changed; refresh the page")
+  const compatibilityScoreMap = typeof loadCompatibilityScores === "function"
+    ? await loadCompatibilityScores([...context.profileMap.values()])
+    : new Map()
+  const currentCompatibilityScoresHash = compatibilityScoresHash(compatibilityScoreMap)
 
   if (applying) {
     if (preview.event_id !== Number(eventId)
       || preview.test_mode !== context.testMode
       || preview.session_key !== context.sessionKey
       || (preview.expected_started_at ?? null) !== context.expectedStartedAt
+      || ![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION].includes(preview.generator_version)
+      || preview.compatibility_scores_hash !== currentCompatibilityScoresHash
       || preview.context_hash !== context.contextHash) {
       throw fail("The roster, surveys, protected pairs, or seating changed since this preview; generate three new options")
     }
@@ -568,17 +614,21 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   if (typeof buildCandidates !== "function" && typeof buildCandidatesStep !== "function") {
     throw fail("Choice seating candidate generation is unavailable", 503)
   }
-  const incompleteProfiles = new Set(context.missingSurveyFields.map(row => Number(row.participant_number)))
+  const incompleteProfiles = new Set(context.missingRhythmFields.map(row => Number(row.participant_number)))
   const lensProfileMap = new Map([...context.profileMap].filter(([participantNumber]) => !incompleteProfiles.has(participantNumber)))
   const generationOptions = {
     genderMap: context.genderMap,
     ageMap: context.ageMap,
     profileMap: lensProfileMap,
     compatibilityProfileMap: context.profileMap,
+    compatibilityScoreMap,
     lockedPairsSet: context.lockedPairsSet,
     requireCompleteLensProfiles: false,
   }
-  const generationContext = freshGenerationContext(body, context)
+  const scoreAwareContextHash = createHash("sha256")
+    .update(JSON.stringify([context.contextHash, currentCompatibilityScoresHash]))
+    .digest("hex")
+  const generationContext = freshGenerationContext(body, { ...context, contextHash: scoreAwareContextHash })
   const generationResult = await getOrBuildChoiceSeatingCandidates({
     contextHash: generationContext.cacheContextHash,
     eventId,
@@ -647,6 +697,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     objective: candidate.canonicalObjective || null,
     diversity: candidate.diversity || null,
     overall_score: report.summary.overall_score,
+    criterion_scores: report.summary.criterion_scores,
     lens_scores: report.summary.lens_scores,
     weakest_tables: report.summary.weakest_tables,
     protected_pair_violations: report.protected_pairs.total_violations,
@@ -677,6 +728,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
       session_key: context.sessionKey,
       expected_started_at: context.expectedStartedAt,
       context_hash: context.contextHash,
+      compatibility_scores_hash: currentCompatibilityScoresHash,
       candidate_id: String(candidate.id),
       candidate_rank: Number(candidate.rank),
       generator_version: String(generated.objectiveVersion || candidate.canonicalObjective?.version || "unknown"),

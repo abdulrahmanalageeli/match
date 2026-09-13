@@ -68,6 +68,15 @@ function profile(number) {
       match_current_focus: [`focus-${number % 5}`],
       intent_goal: ["A", "B", "C"][number % 3],
       match_disagreement_style: style,
+      match_similarity_preference: style,
+      conversation_initiative_preference: style,
+      expression_language: style,
+      minimum_partner_religious_commitment: style,
+      social_relationship_style: style,
+      humor_subtype: style,
+      attachment_1: style,
+      attachment_3: style,
+      attachment_4: style,
       communication_1: style,
       communication_2: style,
       communication_3: style,
@@ -198,15 +207,27 @@ test("report gender balance uses roster-relative targets for a skewed known rost
 
 test("previews three ranked read-only candidates and atomically applies only the signed selection", async () => {
   const { db, profiles, rpcCalls } = fixture()
+  let compatibilityScoresLoaded = false
+  let compatibilityScore = 97
   const request = {
     db,
     action: "e3-preview-choice-seating",
     body: { expected_event_id: EVENT_ID, expected_test_mode: false },
     eventId: EVENT_ID,
     secret: "test-secret",
-    buildCandidates: buildChoiceOnlySeatingCandidates,
+    loadCompatibilityScores: async loadedProfiles => {
+      compatibilityScoresLoaded = true
+      assert.equal(loadedProfiles.length, 42)
+      return new Map([["1-2", compatibilityScore]])
+    },
+    buildCandidates(participants, options) {
+      assert.equal(options.compatibilityScoreMap.get("1-2"), 97)
+      assert.equal(options.compatibilityProfileMap.size, 42)
+      return buildChoiceOnlySeatingCandidates(participants, options)
+    },
   }
   const preview = await handleChoiceSeatingPreview(request)
+  assert.equal(compatibilityScoresLoaded, true)
   assert.equal(preview.candidates.length, 3)
   assert.deepEqual(preview.candidates.map(candidate => candidate.rank), [1, 2, 3])
   assert.equal(new Set(preview.candidates.map(candidate => candidate.candidate_id)).size, 3)
@@ -215,8 +236,13 @@ test("previews three ranked read-only candidates and atomically applies only the
   for (const candidate of preview.candidates) {
     assert.equal(candidate.report.schema_version, "event3-choice-seating-report-v1")
     assert.equal(candidate.report.rounds.length, 3)
-    assert.deepEqual(candidate.report.rounds.map(round => round.lens), ["compatibility", "age", "rhythm"])
-    assert.equal(Number.isFinite(candidate.report.summary.round2_age.average_gap_years), true)
+    assert.deepEqual(candidate.report.rounds.map(round => round.criterion), ["compatibility", "age", "rhythm"])
+    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.compatibility), true)
+    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.age_average_gap), true)
+    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.age_rms_gap), true)
+    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.rhythm), true)
+    assert.equal(candidate.report.summary.overall_score, null)
+    assert.equal(candidate.report.summary.lens_scores, undefined)
     assert.deepEqual(candidate.report.rounds.map(round => round.tables.length), [7, 7, 7])
     assert.deepEqual([
       candidate.report.repeats.round1_round2,
@@ -233,6 +259,7 @@ test("previews three ranked read-only candidates and atomically applies only the
     })
     assert.equal(candidate.report.decision_context.alternatives_summary.length, 3)
     assert.deepEqual(candidate.report.decision_context.alternatives_summary.map(option => option.rank), [1, 2, 3])
+    assert.equal(Number.isFinite(candidate.report.decision_context.alternatives_summary[0].criterion_scores.age_average_gap), true)
     assert.equal(JSON.stringify(candidate.report.decision_context).includes("participant_numbers"), false)
   }
 
@@ -245,6 +272,9 @@ test("previews three ranked read-only candidates and atomically applies only the
   profiles[0].age++
   await assert.rejects(handleChoiceSeatingPreview(applyRequest), /changed since this preview/)
   profiles[0].age--
+  compatibilityScore = 96
+  await assert.rejects(handleChoiceSeatingPreview(applyRequest), /changed since this preview/)
+  compatibilityScore = 97
   const applied = await handleChoiceSeatingPreview(applyRequest)
   assert.equal(applied.success, true)
   assert.equal(applied.report_id, 91)

@@ -8,17 +8,13 @@ import {
   paymentReminderSentField,
   paymentReminderSentUpdate,
   paymentWindowLabels,
-  SEAT_PAYMENT_DEADLINE_WINDOW_MS,
+  SEAT_PAYMENT_DEADLINE_LABEL,
 } from "./payment-deadline.mjs"
 import { attendanceDeclineAccessState } from "./confirmation-policy.mjs"
 
-test("seat payment reminders expire one hour after send in Riyadh", () => {
-  assert.equal(SEAT_PAYMENT_DEADLINE_WINDOW_MS, 60 * 60 * 1000)
-  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-05T12:15:00Z")), "4:15 مساءً")
-})
-
-test("the one-hour seat deadline formats midnight rollover correctly", () => {
-  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-05T20:30:00Z")), "12:30 صباحًا")
+test("seat payment reminders use today's end-of-day 11:59 PM deadline", () => {
+  assert.equal(SEAT_PAYMENT_DEADLINE_LABEL, "11:59 مساءً اليوم")
+  assert.equal(formatSeatPaymentDeadline(), "11:59 مساءً اليوم")
 })
 
 test("payment reply windows follow the configured event cutoff", () => {

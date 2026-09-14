@@ -1,4 +1,4 @@
-export const SEAT_PAYMENT_DEADLINE_WINDOW_MS = 60 * 60 * 1000
+export const SEAT_PAYMENT_DEADLINE_LABEL = "11:59 مساءً اليوم"
 
 export function paymentWindowLabels(cutoffLabel) {
   const label = String(cutoffLabel || "").trim() || "الموعد المحدد"
@@ -8,27 +8,13 @@ export function paymentWindowLabels(cutoffLabel) {
   }
 }
 
-const RIYADH_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Riyadh",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-})
-
 const PAYMENT_REMINDER_SENT_FIELDS = {
   payment: "payment_reminder_sent",
   seat_payment_deadline: "seat_payment_reminder_sent",
 }
 
-export function formatSeatPaymentDeadline(now = new Date()) {
-  const currentTime = now instanceof Date ? now : new Date(now)
-  if (!Number.isFinite(currentTime.getTime())) throw new TypeError("Invalid seat payment deadline start time")
-
-  const deadline = new Date(currentTime.getTime() + SEAT_PAYMENT_DEADLINE_WINDOW_MS)
-  const parts = RIYADH_TIME_FORMATTER.formatToParts(deadline)
-  const value = type => parts.find(part => part.type === type)?.value
-  const period = String(value("dayPeriod") || "").toUpperCase() === "AM" ? "صباحًا" : "مساءً"
-  return `${value("hour")}:${value("minute")} ${period}`
+export function formatSeatPaymentDeadline() {
+  return SEAT_PAYMENT_DEADLINE_LABEL
 }
 
 export function isPaymentReminderTemplate(templateKey) {

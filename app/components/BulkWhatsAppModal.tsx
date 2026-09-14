@@ -225,7 +225,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
     if (templateType === 'seat_payment_deadline') {
       return {
         1: name,
-        2: '11:59 مساءً',
+        2: '11:59 مساءً اليوم',
       }
     }
 

@@ -26,6 +26,7 @@ import { QuestionSlideshow } from "~/components/QuestionSlideshow"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import { buildEvent3Uri, hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
+import { GROUP_COORDINATION_ENABLED } from "~/lib/event3-group-coordination.mjs"
 import { resolveEvent3PromptVisibility } from "~/lib/event3-overlay-policy.mjs"
 import {
   EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
@@ -4192,7 +4193,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   coordinatorCandidates.sort((a, b) => a.number - b.number)
   const coordinator = coordinatorCandidates.find(candidate => candidate.number === coordination?.coordinator_number) || null
   const coordinatorName = coordinator?.name || (coordination?.coordinator_number ? `المشارك #${coordination.coordinator_number}` : "منسّق الطاولة")
-  const isGroupCoordinator = Boolean(myInfo && coordination?.coordinator_number === myInfo.number)
+  const isGroupCoordinator = GROUP_COORDINATION_ENABLED && Boolean(myInfo && coordination?.coordinator_number === myInfo.number)
   const electionCandidates = coordination?.kind === "revolt"
     ? coordinatorCandidates.filter(candidate => candidate.number !== coordination.coordinator_number)
     : coordinatorCandidates
@@ -4204,7 +4205,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
         isMe: revealedCoordinator.number === myInfo?.number,
       }
     : null
-  const projectorVisible = coordination?.status === "elected"
+  const projectorVisible = GROUP_COORDINATION_ENABLED && coordination?.status === "elected"
     && Boolean(coordination.coordinator_number)
     && Boolean(coordination.active_content)
     && !isGroupCoordinator
@@ -4212,9 +4213,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     && !revealedCoordinator
     && !electionVisible
     && !showReelectionConfirm
-  const coordinationModalVisible = electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm
+  const coordinationModalVisible = GROUP_COORDINATION_ENABLED && (electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
   const groupsInteractive = showGroups && !coordinationModalVisible
-  const returnToBroadcastVisible = coordination?.status === "elected"
+  const returnToBroadcastVisible = GROUP_COORDINATION_ENABLED && coordination?.status === "elected"
     && Boolean(coordination.active_content)
     && !isGroupCoordinator
     && !syncEnabled
@@ -4246,6 +4247,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [])
 
   const applyCoordinationState = useCallback((incoming: GroupCoordinationState) => {
+    if (!GROUP_COORDINATION_ENABLED) return
     if (!incoming || !["idle", "voting", "elected"].includes(incoming.status)) return
     if (incoming.table_number != null && assignmentTableRef.current != null && Number(incoming.table_number) !== assignmentTableRef.current) return
     if (incoming.server_now) {
@@ -4270,6 +4272,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     setGroupActivityStage("activities")
     setGroupsHaveOpened(true)
     setCoordinationError("")
+    if (!GROUP_COORDINATION_ENABLED) return
     const data = await call("e3-open-group-election", token, { round })
     if (data.error) {
       setCoordinationError("تعذّر فتح انتخابات الطاولة. حاول مرة أخرى.")
@@ -4281,6 +4284,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [token, round, applyCoordinationState])
 
   const castCoordinatorVote = useCallback(async (candidateNumber: number) => {
+    if (!GROUP_COORDINATION_ENABLED) return
     if (!Number.isInteger(candidateNumber) || coordinationBusy) return
     setCoordinationBusy(true)
     setCoordinationError("")
@@ -4297,6 +4301,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     resolution: GroupCoordinatorQuickResolution,
     candidateNumber?: number,
   ) => {
+    if (!GROUP_COORDINATION_ENABLED) return
     if (coordinationBusy || (resolution === "direct" && !Number.isInteger(candidateNumber))) return
     setCoordinationBusy(true)
     setCoordinationError("")
@@ -4322,6 +4327,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [token, round, coordinationBusy, applyCoordinationState])
 
   const startCoordinatorReelection = useCallback(async () => {
+    if (!GROUP_COORDINATION_ENABLED) return
     if (coordinationBusy) return
     setCoordinationBusy(true)
     setCoordinationError("")
@@ -4359,7 +4365,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [isGroupCoordinator, token, round, applyCoordinationState])
 
   useEffect(() => {
-    if (!assignment?.table) return
+    if (!GROUP_COORDINATION_ENABLED || !assignment?.table) return
     let cancelled = false
     let nextPoll: ReturnType<typeof setTimeout> | null = null
     const poll = async () => {
@@ -4381,7 +4387,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [assignment?.assignment_revision, assignment?.table, token, round, applyCoordinationState])
 
   useEffect(() => {
-    if (coordination?.status !== "voting" || !coordination.election_version) {
+    if (!GROUP_COORDINATION_ENABLED || coordination?.status !== "voting" || !coordination.election_version) {
       setElectionVisible(false)
       return
     }
@@ -4394,7 +4400,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [coordination?.status, coordination?.election_version, coordination?.my_vote, dismissedElectionVersion])
 
   useEffect(() => {
-    if (coordination?.status !== "voting" || !coordination.election_deadline) return
+    if (!GROUP_COORDINATION_ENABLED || coordination?.status !== "voting" || !coordination.election_deadline) return
     const updateCountdown = () => {
       const deadline = Date.parse(coordination.election_deadline || "")
       const now = Date.now() + coordinationServerOffsetRef.current
@@ -4406,7 +4412,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [coordination?.status, coordination?.election_deadline])
 
   useEffect(() => {
-    if (coordination?.status !== "elected" || !coordination.coordinator_number || !coordination.election_version) return
+    if (!GROUP_COORDINATION_ENABLED || coordination?.status !== "elected" || !coordination.coordinator_number || !coordination.election_version) return
     setGroupActivityStage("activities")
     setGroupsHaveOpened(true)
     setShowGroups(true)
@@ -4738,7 +4744,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </GlassCard>
           )}
 
-          {coordination && (
+          {GROUP_COORDINATION_ENABLED && coordination && (
             <GroupCoordinatorStatusCard
               state={coordination}
               leaderName={coordinatorName}
@@ -4922,7 +4928,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {electionVisible && coordination?.status === "voting" && (
+        {GROUP_COORDINATION_ENABLED && electionVisible && coordination?.status === "voting" && (
           <GroupElectionOverlay
             state={coordination}
             candidates={electionCandidates}
@@ -4942,7 +4948,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {revealedCoordinator && revealedLeader && (
+        {GROUP_COORDINATION_ENABLED && revealedCoordinator && revealedLeader && (
           <CoordinatorRevealOverlay
             leader={revealedLeader}
             isMe={revealedLeader.isMe}
@@ -4977,7 +4983,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {showReelectionConfirm && coordination?.coordinator_number && (
+        {GROUP_COORDINATION_ENABLED && showReelectionConfirm && coordination?.coordinator_number && (
           <ReelectionConfirmOverlay
             coordinatorName={coordinatorName}
             busy={coordinationBusy}
@@ -5887,6 +5893,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
 
   const setExperience = (number: number, experience: string) => {
     setSaved(false)
+    if (experience === 'uncomfortable') setExpanded(number)
     setDrafts(current => ({
       ...current,
       [number]: { experience, tags: current[number]?.tags || [], organizer_note: current[number]?.organizer_note || '' },
@@ -6042,7 +6049,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
                       <AnimatePresence initial={false}>
                         {isExpanded && draft?.experience && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="border-t border-white/[0.05] px-3 pb-3 pt-2.5">
+                            <div className="flex flex-col border-t border-white/[0.05] px-3 pb-3 pt-2.5">
                               <p className="mb-2 text-xs font-bold text-gray-400">صفات اختيارية · حتى 3</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {tags.map(([value, label]) => {
@@ -6050,9 +6057,10 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
                                   return <button type="button" key={value} onClick={() => toggleTag(person.number, value)} aria-pressed={active} className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition ${active ? 'border-purple-400/35 bg-purple-500/15 text-purple-100' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}>{label}</button>
                                 })}
                               </div>
-                              <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/15 p-2.5">
-                                <div className="mb-1.5 flex items-center justify-between gap-3"><span className="text-xs font-bold text-gray-300">ملاحظة خاصة عن {person.first_name} للمنظم</span><span className="shrink-0 text-[10px] text-gray-500">{draft.organizer_note.length}/300</span></div>
-                                <textarea value={draft.organizer_note} rows={2} maxLength={300} aria-label={`ملاحظة خاصة عن ${person.first_name} للمنظم`} onChange={event => { const value = event.target.value; setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder={`اكتب ملاحظة عن ${person.first_name}...`} className="w-full resize-none bg-transparent text-base leading-relaxed text-gray-100 placeholder:text-gray-500 focus:outline-none sm:text-sm" />
+                              <div className={`${draft.experience === 'uncomfortable' ? 'order-first mb-3' : 'mt-3'} rounded-xl border border-white/[0.05] bg-black/15 p-2.5`}>
+                                <div className="mb-1.5 flex items-center justify-between gap-3"><label htmlFor={`${titleId}-note-${person.number}`} className="text-xs font-bold text-gray-300">{draft.experience === 'uncomfortable' ? 'وش خلاك تحس بعدم الارتياح؟ (اختياري)' : `ملاحظة خاصة عن ${person.first_name} للمنظم`}</label><span className="shrink-0 text-[10px] text-gray-500">{draft.organizer_note.length}/300</span></div>
+                                {draft.experience === 'uncomfortable' && <p id={`${titleId}-note-help-${person.number}`} className="mb-2 text-[11px] leading-relaxed text-gray-400">إذا حاب، شاركنا السبب. يطّلع عليه المنظّم فقط، وتقدر تحفظ تقييمك بدون كتابة سبب.</p>}
+                                <textarea id={`${titleId}-note-${person.number}`} value={draft.organizer_note} rows={2} maxLength={300} aria-describedby={draft.experience === 'uncomfortable' ? `${titleId}-note-help-${person.number}` : undefined} onChange={event => { const value = event.target.value; setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder={draft.experience === 'uncomfortable' ? 'اكتب السبب إذا حاب...' : `اكتب ملاحظة عن ${person.first_name}...`} className="w-full resize-none bg-transparent text-base leading-relaxed text-gray-100 placeholder:text-gray-500 focus:outline-none sm:text-sm" />
                               </div>
                             </div>
                           </motion.div>

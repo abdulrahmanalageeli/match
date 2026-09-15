@@ -1,0 +1,1 @@
+export const GROUP_COORDINATION_ENABLED: boolean

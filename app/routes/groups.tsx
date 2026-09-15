@@ -46,6 +46,7 @@ import PhoneEntry from "../components/groups/PhoneEntry";
 import ActivityArtwork from "../components/groups/ActivityArtwork";
 import LetsAgreeActivity from "../components/groups/LetsAgreeActivity";
 import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
+import { GROUP_COORDINATION_ENABLED } from "../lib/event3-group-coordination.mjs";
 import { animate } from "motion";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -2952,7 +2953,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             </div>
           </header>
 
-          <div className="relative z-20 px-4 pt-3">
+          {GROUP_COORDINATION_ENABLED && <div className="relative z-20 px-4 pt-3">
             <div className="mx-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border border-white/[0.09] bg-black/20 px-3 py-3 shadow-[0_18px_50px_-34px_rgba(0,0,0,.95)] backdrop-blur-xl">
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
                 <Sparkles className="h-4 w-4" />
@@ -2981,6 +2982,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             </div>
           </div>
 
+          }
           <div className="event3-scroll relative z-10 flex flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <div className="relative w-full max-w-sm">
               <AnimatePresence initial={false} mode="popLayout" custom={carouselDirection}>

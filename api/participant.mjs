@@ -28,6 +28,7 @@ import {
   isEvent3SignedUp,
 } from "../server/event3/enrollment.mjs"
 import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
+import { GROUP_COORDINATION_ENABLED } from "../app/lib/event3-group-coordination.mjs"
 import { getEvent3PhaseTimerSeconds } from "../server/event3/timing.mjs"
 import {
   sendAuthenticaOtp,
@@ -4723,6 +4724,12 @@ Please respond in JSON format:
         ["e3-clear-group-content", "clear"],
       ]).get(action)
       if (groupCoordinationOperation) {
+        if (!GROUP_COORDINATION_ENABLED) {
+          if (groupCoordinationOperation === "status") {
+            return res.status(200).json({ status: "idle", disabled: true, coordinator_number: null, active_content: null })
+          }
+          return res.status(503).json({ error: "انتخابات المجموعة متوقفة مؤقتاً. يمكنكم اختيار الأنشطة مباشرة.", code: "EVENT3_GROUP_COORDINATION_DISABLED", retryable: false })
+        }
         const requestedRound = Number(req.body.round)
         if (!Number.isInteger(requestedRound) || requestedRound < 1 || requestedRound > groupRoundCount) {
           return res.status(400).json({ error: "رقم جولة المجموعة غير صالح", code: "EVENT3_GROUP_COORDINATION_INVALID", retryable: false })

@@ -222,13 +222,14 @@ const createSeededRandom = (seedValue: string) => {
 
 const shuffleActivitiesForParticipant = (seedValue: string): Game[] => {
   const random = createSeededRandom(seedValue);
-  const shuffled = games.filter(game => game.id !== "imposter");
+  const shuffled = games.filter(game => game.id !== "lets-agree" && game.id !== "imposter");
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  const opening = games.find(game => game.id === "lets-agree");
   const imposter = games.find(game => game.id === "imposter");
-  return imposter ? [...shuffled, imposter] : shuffled;
+  return [...(opening ? [opening] : []), ...shuffled, ...(imposter ? [imposter] : [])];
 };
 
 // Premium visual themes per game for selection cards + gameplay surfaces
@@ -3227,11 +3228,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     const currentGame = games.find(g => g.id === selectedGameId);
     if (!currentGame) return null;
-    const activityCardClass = "modern-activity-card relative overflow-hidden bg-white/[0.045] backdrop-blur-xl border-white/10 rounded-[2rem] shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.04]";
+    const activityCardClass = "modern-activity-card activity-panel";
 
     if (gamePhase === "completed") {
       return (
-        <div className="space-y-6 py-8 text-center">
+        <div className="activity-panel mx-auto w-full max-w-md space-y-5 p-6 text-center">
           <motion.div
             initial={{ scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
@@ -3287,56 +3288,27 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     // Playing phase
     return (
-      <div className={disableOnboarding ? `event3-activity-play relative min-h-full space-y-4 pb-8 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3 [&_.modern-activity-card_button]:min-h-11 [&_.modern-activity-card_button]:rounded-2xl` : "space-y-6"}>
-        {disableOnboarding && (
-          <motion.section
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 24 }}
-            className="event3-activity-heading relative isolate overflow-hidden rounded-[2rem] border border-white/10 px-5 py-5"
-          >
-            <div className="relative z-10 flex items-center gap-3 text-right">
-              <div className="h-24 w-24 shrink-0">{currentGame.icon}</div>
-              <div className="min-w-0 flex-1">
-                <p className="mb-1 text-[10px] font-bold text-cyan-200/70">النشاط الآن</p>
-                <h2 className="text-2xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/75">
-                    {currentGame.energyAr}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/75">
-                    {currentGame.duration} دقائق
-                  </span>
-                </div>
-              </div>
-            </div>
-            <p className="relative z-10 mt-3 text-right text-xs font-medium leading-6 text-white/50">
-              اقرأوا المطلوب، ثم خلّوا الهاتف في المنتصف.
-            </p>
-            <div className="relative z-10 mt-4 flex items-center gap-2">
-              <button
-                onClick={() => setShowInstructions(prev => !prev)}
-                aria-expanded={showInstructions}
-                className={`event3-soft-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold ${showInstructions ? "border-white/20 text-white" : "text-white/70 hover:text-white"}`}
-              >
-                <Lightbulb className="h-4 w-4" />
-                {showInstructions ? "إخفاء الخطوات" : "إظهار الخطوات"}
-                <ChevronDown className={`h-4 w-4 transition-transform ${showInstructions ? "rotate-180" : ""}`} />
-              </button>
-              <button
-                onClick={returnToActivitySelection}
-                className="event3-soft-action flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white/70 hover:text-white"
-              >
-                <Shuffle className="h-4 w-4" /> تغيير النشاط
-              </button>
-            </div>
-          </motion.section>
-        )}
+      <div dir="rtl" className={`event3-activity-play mx-auto w-full max-w-md space-y-4 pb-4 text-right ${showInstructions ? "" : "[&_.instructions-block]:hidden"}`}>
+        <section className="event3-activity-heading flex items-center gap-3 rounded-3xl border border-white/10 p-3">
+          <div className="h-24 w-24 shrink-0">{currentGame.icon}</div>
+          <div className="min-w-0">
+            <p className="mb-1 text-[10px] font-bold text-cyan-200/70">النشاط الآن</p>
+            <h2 className="text-xl font-black text-white">{currentGame.nameAr}</h2>
+            <span className="mt-2 flex items-center gap-1.5 text-xs text-white/55"><Clock size={13} /> حوالي {currentGame.duration} دقائق</span>
+          </div>
+        </section>
+        <div className="flex items-center justify-between gap-2">
+          {currentGame.id !== "two-truths-lie" && <button type="button" onClick={() => currentGame.id === "imposter" ? setImposterShowTutorial(true) : setShowInstructions(prev => !prev)} aria-expanded={currentGame.id === "imposter" ? imposterShowTutorial : showInstructions} className="activity-help">
+            <Lightbulb size={14} /> {currentGame.id !== "imposter" && showInstructions ? "إخفاء الخطوات" : "طريقة اللعب"}
+            <ChevronDown size={14} className={showInstructions ? "rotate-180" : ""} />
+          </button>}
+          <button type="button" onClick={returnToActivitySelection} className="activity-help"><Shuffle size={14} /> تغيير النشاط</button>
+        </div>
 
         {currentGame.id === "discussion-questions" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-800/50 border-slate-700"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              <div className="activity-intro mb-4">
                 <h3 className="text-2xl font-bold text-white mb-4">
                   اختاروا سؤالاً يفتح السالفة
                 </h3>
@@ -3346,7 +3318,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </div>
               
               {/* Game Instructions */}
-              <div className="instructions-block bg-white/[0.03] rounded-xl p-4 mb-6 border border-white/[0.06]">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   الخطوات:
@@ -3360,10 +3332,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </ol>
               </div>
 
-              <div className="text-center">
+              <div className="activity-actions">
                 <Button 
                   onClick={() => setShowPromptTopicsModal(true)}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-white/10"
+                  className="event3-art-action activity-primary"
                 >
                   <Sparkles className="w-5 h-5 mr-2" />
                   اختر أسئلة للنقاش
@@ -3374,24 +3346,24 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "never-have-i-ever" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-violet-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 mb-3">
-                  <Target className="w-4 h-4 text-violet-300" />
-                  <span className="text-violet-200 text-xs font-bold">تجارب شخصية</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              <div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <Target className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">تجارب شخصية</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-2">قد سويتها؟</h3>
-                <p className="text-slate-300">شاركوا تجاربكم الشخصية العميقة</p>
+                <h3 className="text-2xl font-black text-white mb-2">قد سويتها؟</h3>
+                <p className="text-slate-300">ارفع يدك إذا قد سويتها، وشارك السالفة إذا ودّك.</p>
               </div>
 
               {/* Enhanced Game Instructions */}
-              <div className="instructions-block bg-gradient-to-r from-violet-700/30 to-fuchsia-700/30 rounded-xl p-6 mb-8 border border-violet-600/50">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-violet-300" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-teal-200" />
                   الخطوات:
                 </h4>
-                <ol className="text-violet-100/90 space-y-3 list-decimal list-inside">
+                <ol className="text-teal-200 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">اقرؤوا العبارة بصوت عالٍ</span>
                   </li>
@@ -3410,7 +3382,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </ol>
               </div>
 
-              <div className="bg-gradient-to-br from-violet-500/15 to-fuchsia-600/15 rounded-2xl p-6 mb-6 text-center border border-violet-500/30 shadow-xl">
+              <div className="activity-inset rounded-2xl mb-6 border">
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={currentPromptIndex}
@@ -3428,11 +3400,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </AnimatePresence>
               </div>
 
-              <div className="flex justify-center space-x-3 mt-8">
+              <div className="activity-actions">
                 <motion.div whileTap={{ scale: 0.97 }}>
                   <Button 
                     onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
-                    className="bg-gradient-to-r from-violet-600 to-fuchsia-700 hover:from-violet-700 hover:to-fuchsia-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    className="event3-art-action activity-primary"
                   >
                     <ChevronRight className="w-5 h-5 mr-2" />
                     السؤال التالي
@@ -3444,24 +3416,24 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "what-would-you-do" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-indigo-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 mb-3">
-                  <MessageSquare className="w-4 h-4 text-indigo-300" />
-                  <span className="text-indigo-200 text-xs font-bold">سيناريو</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              <div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <MessageSquare className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">سيناريو</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-2">وش بتسوي لو؟</h3>
-                <p className="text-indigo-100/90">سيناريوهات متوسطة إلى عميقة لتحفيز نقاش قيَمي وقرارات واعية</p>
+                <h3 className="text-2xl font-black text-white mb-2">وش بتسوي لو؟</h3>
+                <p className="text-teal-200">وش تختارون؟ كل شخص يشارك قراره والسبب وراه.</p>
               </div>
 
               {/* Game Instructions */}
-              <div className="instructions-block bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 mb-8 border border-indigo-600/50">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-indigo-300" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-teal-200" />
                   الخطوات:
                 </h4>
-                <ol className="text-indigo-100/90 space-y-3 list-decimal list-inside">
+                <ol className="text-teal-200 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">اقرؤوا السيناريو بصوت عالٍ. لا توجد إجابة صحيحة/خاطئة.</span>
                   </li>
@@ -3480,7 +3452,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </ol>
               </div>
 
-              <div className="bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border-2 border-indigo-500/40 rounded-2xl p-8 text-center shadow-2xl">
+              <div className="activity-inset rounded-2xl">
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={currentPromptIndex}
@@ -3497,13 +3469,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </AnimatePresence>
               </div>
 
-              <div className="flex justify-center mt-8">
+              <div className="activity-actions">
                 <Button
                   onClick={() => {
                     const len = (shuffledWhatWouldYouDo.length || whatWouldYouDoScenarios.length);
                     setCurrentPromptIndex(prev => (prev + 1) % len);
                   }}
-                  className="bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="event3-art-action activity-primary"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي
@@ -3514,37 +3486,42 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "two-truths-lie" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-800/50 border-slate-700"}>
-            <CardContent className="p-6 text-center">
-              <div className="space-y-4 text-slate-300">
-                <p>قل ثلاث عبارات عن نفسك:</p>
-                <ul className="list-disc list-inside space-y-2">
-                  <li>حقيقة أولى</li>
-                  <li>حقيقة ثانية</li>
-                  <li>كذبة واحدة</li>
-                </ul>
-                <p className="text-sm">على الآخرين تخمين أي عبارة كاذبة!</p>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              <div className="space-y-4">
+                <span className="inline-flex rounded-full border border-teal-300/15 bg-teal-300/10 px-3 py-1 text-xs font-bold text-teal-200">نكتشف بعض</span>
+                <h3 className="text-2xl font-black leading-relaxed text-white">أي وحدة هي الكذبة؟</h3>
+                <p className="text-white/65">كل شخص يقول ثلاث عبارات عن نفسه، والباقي يخمّنون.</p>
+                <ol className="space-y-2">
+                  {["حقيقة أولى", "حقيقة ثانية", "كذبة واحدة"].map((label, index) => (
+                    <li key={label} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-black/20 p-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-xs font-black text-teal-200">{index + 1}</span>
+                      <span className="text-sm text-white/85">{label}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="activity-inset text-sm text-teal-100/75">بعد التخمين، اكشفوا الجواب واسألوا عن القصة وراه. ثم ينتقل الدور للشخص التالي.</p>
               </div>
             </CardContent>
           </Card>
         )}
 
         {currentGame.id === "5-second-rule" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-orange-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 mb-3">
-                  <Timer className="w-4 h-4 text-orange-300" />
-                  <span className="text-orange-200 text-xs font-bold">تحدي السرعة</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              {!currentCategory && (<div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <Timer className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">تحدي السرعة</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-1">خمس ثواني</h3>
-                <p className="text-orange-100/90">سمّ 3 أشياء قبل انتهاء الوقت!</p>
-              </div>
+                <h3 className="text-2xl font-black text-white mb-1">خمس ثواني</h3>
+                <p className="text-teal-200">سمّ 3 أشياء قبل انتهاء الوقت!</p>
+              </div>)}
 
               {/* Game Instructions */}
-              <div className="instructions-block bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 mb-8 border border-orange-600/50">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-orange-400" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-teal-200" />
                   الخطوات:
                 </h4>
                 <ol className="text-slate-200 space-y-3 list-decimal list-inside">
@@ -3568,12 +3545,12 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Score Display */}
               <div className="flex justify-center mb-6">
-                <div className="bg-gradient-to-r from-orange-700/50 to-red-700/50 rounded-xl px-6 py-3 border border-orange-500/30 shadow-lg">
+                <div className="activity-inset rounded-xl px-6 py-3 border">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-orange-300">
+                    <div className="text-3xl font-bold text-teal-200">
                       {fiveSecondScore.success}/{fiveSecondScore.total}
                     </div>
-                    <div className="text-orange-200 text-sm font-medium">نجاحات</div>
+                    <div className="text-teal-200 text-sm font-medium">نجاحات</div>
                   </div>
                 </div>
               </div>
@@ -3581,20 +3558,20 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {/* Current Category Display */}
               {currentCategory && (
                 <div className="mb-8">
-                  <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/40 rounded-2xl p-8 text-center shadow-2xl">
+                  <div className="activity-inset rounded-2xl">
                     {/* Category Title */}
                     <div className="mb-6">
-                      <div className="inline-block bg-orange-500/30 px-4 py-2 rounded-full mb-3">
-                        <span className="text-orange-300 text-sm font-bold">{isReadingPhase ? 'اقرأ الفئة' : 'الفئة'}</span>
+                      <div className="inline-block bg-teal-300/10 px-4 py-2 rounded-full mb-3">
+                        <span className="text-teal-200 text-sm font-bold">{isReadingPhase ? 'اقرأ الفئة' : 'الفئة'}</span>
                       </div>
-                      <h4 className="text-4xl font-bold text-white mb-2">
+                      <h4 className="text-2xl font-black text-white mb-2">
                         {currentCategory}
                       </h4>
-                      <p className="text-orange-200 text-lg">{isReadingPhase ? 'استعد... سمّ 3 أشياء!' : 'سمّ 3 أشياء!'}</p>
+                      <p className="text-teal-200 text-lg">{isReadingPhase ? 'استعد... سمّ 3 أشياء!' : 'سمّ 3 أشياء!'}</p>
                     </div>
                     
                     {/* Timer Display */}
-                    <div className="mb-6">
+                    <div className="activity-timer mb-4">
                       {isReadingPhase ? (
                         // Reading phase timer
                         <>
@@ -3605,12 +3582,12 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.9, y: -6 }}
                               transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-                              className="text-6xl font-black text-blue-400 mb-2 drop-shadow-[0_0_10px_rgba(59,130,246,0.35)]"
+                              className="font-mono text-3xl font-black text-teal-200 mb-2"
                             >
                               {readingTimer}
                             </motion.div>
                           </AnimatePresence>
-                          <p className="text-blue-300 text-sm mb-2">ثانية للقراءة</p>
+                          <p className="text-teal-200 text-sm mb-2">ثانية للقراءة</p>
                           <Progress 
                             value={(readingTimer / 3) * 100} 
                             className="w-full mt-4 h-3"
@@ -3626,7 +3603,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.9, y: -8 }}
                               transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-                              className={`text-8xl font-black drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] ${
+                              className={`font-mono text-4xl font-black ${
                                 fiveSecondTimer <= 2 ? 'text-red-400' : 
                                 fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
                               }`}
@@ -3647,14 +3624,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <div className="flex justify-center gap-3 mt-6">
                         <Button 
                           onClick={fiveSecondSuccess}
-                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-2 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                          className="event3-art-action activity-primary"
                         >
                           <CheckCircle className="w-4 h-4 mr-1.5" />
                           نجح
                         </Button>
                         <Button 
                           onClick={fiveSecondFail}
-                          className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-4 py-2 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                          className="activity-secondary"
                         >
                           <XCircle className="w-4 h-4 mr-1.5" />
                           فشل
@@ -3667,10 +3644,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Start Round Button */}
               {!currentCategory || (!fiveSecondTimerActive && fiveSecondTimer === 0 && roundCompleted) ? (
-                <div className="text-center">
+                <div className="activity-actions">
                   <Button 
                     onClick={startFiveSecondRound}
-                    className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-10 py-5 text-2xl font-black rounded-2xl shadow-2xl hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-110 animate-pulse"
+                    className="event3-art-action activity-primary"
                   >
                     <Timer className="w-8 h-8 mr-3" />
                     {currentCategory ? 'الفئة التالية' : 'ابدأ اللعبة!'}
@@ -3689,8 +3666,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "imposter" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-fuchsia-600/30"}>
-            <CardContent className="p-6">
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
               {/* Phase indicator + actions */}
               {(() => {
                 const steps = [
@@ -3702,12 +3679,12 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 ] as const;
                 const activeIdx = steps.findIndex(s => s.key === imposterPhase);
                 return (
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="space-y-2 mb-4">
+                    <div className="grid grid-cols-5 gap-1.5">
                       {steps.map((s, i) => (
                         <div
                           key={s.key}
-                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${i <= activeIdx ? 'bg-fuchsia-500/20 border-fuchsia-400/40 text-fuchsia-100' : 'bg-white/5 border-white/10 text-slate-300'}`}
+                          className="activity-step" data-complete={i <= activeIdx} aria-current={i === activeIdx ? "step" : undefined}
                         >
                           {s.label}
                         </div>
@@ -3716,7 +3693,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <div className="flex sm:justify-end">
                       <button
                         onClick={() => setImposterShowTutorial(true)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs shrink-0"
+                        aria-label="تعليمات الأمبوستر"
+                        className="activity-help"
                       >
                         <BookOpen className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">تعليمات</span>
@@ -3729,16 +3707,16 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {imposterPhase === "setup" && (
                 <motion.div key="imposter-setup" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 mb-3">
-                      <Ghost className="w-4 h-4 text-fuchsia-300" />
-                      <span className="text-fuchsia-200 text-xs font-bold">لعبة تخمين</span>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                      <Ghost className="w-4 h-4 text-teal-200" />
+                      <span className="text-teal-200 text-xs font-bold">لعبة تخمين</span>
                     </div>
-                    <h3 className="text-3xl font-extrabold text-white mb-1">الأمبوستر</h3>
-                    <p className="text-fuchsia-100/90">أدخل الأسماء (4–6)، اختر فئة، ثم ابدأ الجولة</p>
+                    <h3 className="text-2xl font-black text-white mb-1">الأمبوستر</h3>
+                    <p className="text-teal-200">أدخل الأسماء (4–6)، اختر فئة، ثم ابدأ الجولة</p>
                   </div>
 
                   {/* Names input */}
-                  <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
+                  <div className="activity-inset space-y-4">
                     <h4 className="text-white font-bold mb-3">أسماء اللاعبين</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {imposterPlayers.map((n, i) => (
@@ -3777,7 +3755,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         type="button"
                         onClick={() => { if (imposterPlayers.length < 6) setImposterPlayers(prev => [...prev, ""]); setImposterError(null); }}
                         disabled={imposterPlayers.length >= 6}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50 w-full sm:w-auto"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-teal-300/10 text-teal-200 border border-teal-300/15 hover:bg-teal-300/10 disabled:opacity-50 w-full sm:w-auto"
                       >
                         <Plus className="w-4 h-4" />
                         أضف لاعباً
@@ -3794,15 +3772,15 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   )}
 
                   {/* Category */}
-                  <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
+                  <div className="activity-inset space-y-4">
                     <label htmlFor="imposter-category" className="block text-white font-bold mb-3">الفئة</label>
                     <div className="relative">
-                      <ChevronDown className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-300 pointer-events-none" />
+                      <ChevronDown className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-teal-200 pointer-events-none" />
                       <select
                         id="imposter-category"
                         name="imposter-category"
                         aria-describedby="imposter-category-help"
-                        className="w-full appearance-none pl-9 pr-3 py-2.5 rounded-xl bg-slate-800/70 border-2 border-fuchsia-400/30 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400/60 shadow-inner"
+                        className="w-full appearance-none pl-9 pr-3 py-2.5 rounded-xl bg-slate-800/70 border-2 border-teal-300/15 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-teal-300/15 shadow-inner"
                         value={imposterSelectedCategory}
                         onChange={(e) => { setImposterSelectedCategory(e.target.value); setImposterError(null); }}
                       >
@@ -3814,9 +3792,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <div id="imposter-category-help" className="text-xs text-slate-300">اختر فئة بكلمات يومية سهلة للتحدي الممتع</div>
                   </div>
 
-                  <div className="text-center">
+                  <div className="activity-actions">
                     <motion.div whileTap={{ scale: 0.97 }}>
-                      <Button onClick={startImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                      <Button onClick={startImposterRound} className="event3-art-action activity-primary">
                         ابدأ الجولة
                       </Button>
                     </motion.div>
@@ -3828,17 +3806,17 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <motion.div key="imposter-reveal" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
                     <h3 className="text-2xl font-extrabold text-white mb-1">كشف الأدوار</h3>
-                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[revealIndex]}</span></p>
+                    <p className="text-teal-200">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[revealIndex]}</span></p>
                   </div>
 
                   <div style={{ perspective: 1000 }}>
-                    <motion.div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                    <motion.div className="activity-inset space-y-4">
                       <AnimatePresence mode="wait">
                         {!revealShown ? (
                           <motion.div key="reveal-front" initial={{ rotateX: -90, opacity: 0 }} animate={{ rotateX: 0, opacity: 1 }} exit={{ rotateX: 90, opacity: 0 }} transition={{ duration: 0.28 }} className="space-y-4">
-                            <p className="text-fuchsia-100/90">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
+                            <p className="text-teal-200">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
                             <motion.div whileTap={{ scale: 0.97 }}>
-                              <Button onClick={nextReveal} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">اكشف الآن</Button>
+                              <Button onClick={nextReveal} className="event3-art-action activity-primary">اكشف الآن</Button>
                             </motion.div>
                           </motion.div>
                         ) : (
@@ -3850,13 +3828,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                               </>
                             ) : (
                               <>
-                                <div className="text-3xl font-extrabold text-white">كلمتك:</div>
-                                <div className="text-4xl font-black text-fuchsia-200">{imposterSecretWord}</div>
-                                <p className="text-fuchsia-100/90">قل كلمة ذات صلة بدون كشف مباشر</p>
+                                <div className="text-2xl font-black text-white">كلمتك:</div>
+                                <div className="text-4xl font-black text-teal-200">{imposterSecretWord}</div>
+                                <p className="text-teal-200">قل كلمة ذات صلة بدون كشف مباشر</p>
                               </>
                             )}
                             <motion.div whileTap={{ scale: 0.97 }}>
-                              <Button onClick={nextReveal} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">إخفاء وتسليم الهاتف ↗</Button>
+                              <Button onClick={nextReveal} className="event3-art-action activity-primary">إخفاء وتسليم الهاتف ↗</Button>
                             </motion.div>
                           </motion.div>
                         )}
@@ -3870,33 +3848,33 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <motion.div key="imposter-discussion" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center">
                     <h3 className="text-2xl font-extrabold text-white mb-2">أسئلة نعم/لا</h3>
-                    <p className="text-fuchsia-100/90">كل لاعب يسأل مرة ويُسأل مرة — بالتتابع وبترتيب عشوائي عادل</p>
+                    <p className="text-teal-200">كل لاعب يسأل مرة ويُسأل مرة — بالتتابع وبترتيب عشوائي عادل</p>
                   </div>
 
                   {qaPairs.length > 0 && (
                     <>
                       {/* Handover banner: who holds the phone */}
                       <div className="flex items-center justify-center mb-2">
-                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-xs text-fuchsia-100">
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 text-xs text-teal-200">
                           <Smartphone className="w-4 h-4" />
                           سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[qaPairs[qaIndex].asker] || `لاعب ${qaPairs[qaIndex].asker + 1}`}</span>
                         </span>
                       </div>
 
-                      <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                      <div className="activity-inset space-y-4">
                         {/* Clear direction: A asks B */}
                         <div className="text-center text-lg font-extrabold text-white mb-2">
-                          <span className="text-fuchsia-300">{imposterPlayers[qaPairs[qaIndex].asker]}</span>
+                          <span className="text-teal-200">{imposterPlayers[qaPairs[qaIndex].asker]}</span>
                           <span className="mx-2 text-slate-300">يسأل</span>
-                          <span className="text-purple-300">{imposterPlayers[qaPairs[qaIndex].target]}</span>
+                          <span className="text-teal-200">{imposterPlayers[qaPairs[qaIndex].target]}</span>
                         </div>
 
                         <div className="flex items-center justify-center gap-3 mb-3">
-                          <Badge className="bg-fuchsia-500/25 border-fuchsia-400/40 text-fuchsia-100 border">
+                          <Badge className="bg-teal-300/10 border-teal-300/15 text-teal-200 border">
                             السائل: {imposterPlayers[qaPairs[qaIndex].asker]}
                           </Badge>
                           <ChevronLeft className="w-4 h-4 text-slate-300" />
-                          <Badge className="bg-purple-500/25 border-purple-400/40 text-purple-100 border">
+                          <Badge className="bg-teal-300/10 border-teal-300/15 text-teal-200 border">
                             الهدف: {imposterPlayers[qaPairs[qaIndex].target]}
                           </Badge>
                         </div>
@@ -3904,11 +3882,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         <div className="text-slate-200 mb-4">اطرح سؤالاً قصيراً بنعم/لا دون كشف مباشر</div>
                         <div className="text-center">
                           {qaIndex < qaPairs.length - 1 ? (
-                            <Button onClick={() => setQAIndex(qaIndex + 1)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
+                            <Button onClick={() => setQAIndex(qaIndex + 1)} className="event3-art-action activity-primary">
                               بعد الإجابة • التالي
                             </Button>
                           ) : (
-                            <Button onClick={startVoting} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-bold">
+                            <Button onClick={startVoting} className="event3-art-action activity-primary">
                               ابدأ التصويت
                             </Button>
                           )}
@@ -3924,9 +3902,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <motion.div key="imposter-voting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
                     <h3 className="text-2xl font-extrabold text-white mb-1">تصويت سري</h3>
-                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[voteTurn]}</span> لاختيار المشتبه</p>
+                    <p className="text-teal-200">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[voteTurn]}</span> لاختيار المشتبه</p>
                   </div>
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                  <div className="activity-inset space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {imposterPlayers.map((n, idx) => (
                         idx === voteTurn ? null : (
@@ -3952,16 +3930,16 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-xl">
                         <CheckCircle className="w-10 h-10" />
                       </div>
-                      <h3 className="text-3xl font-extrabold text-white">أحسنتم! اكتشفتم الأمبوستر</h3>
-                      <p className="text-fuchsia-100/90">الكلمة كانت: <span className="text-white font-bold">{imposterSecretWord}</span></p>
+                      <h3 className="text-2xl font-black text-white">أحسنتم! اكتشفتم الأمبوستر</h3>
+                      <p className="text-teal-200">الكلمة كانت: <span className="text-white font-bold">{imposterSecretWord}</span></p>
                     </>
                   ) : (
                     <>
                       <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-rose-500 to-red-600 flex items-center justify-center text-white shadow-xl">
                         <XCircle className="w-10 h-10" />
                       </div>
-                      <h3 className="text-3xl font-extrabold text-white">فاز الأمبوستر هذه الجولة</h3>
-                      <p className="text-fuchsia-100/90">كان الأمبوستر: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
+                      <h3 className="text-2xl font-black text-white">فاز الأمبوستر هذه الجولة</h3>
+                      <p className="text-teal-200">كان الأمبوستر: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
                     </>
                   )}
 
@@ -3979,10 +3957,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
                   <div className="flex items-center justify-center gap-3 mt-4">
                     <motion.div whileTap={{ scale: 0.97 }}>
-                      <Button onClick={newImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">جولة جديدة</Button>
+                      <Button onClick={newImposterRound} className="event3-art-action activity-primary">جولة جديدة</Button>
                     </motion.div>
                     <motion.div whileTap={{ scale: 0.97 }}>
-                      <Button onClick={resetImposter} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">تعديل الأسماء/الفئة</Button>
+                      <Button onClick={resetImposter} className="event3-art-action activity-primary">تعديل الأسماء/الفئة</Button>
                     </motion.div>
                   </div>
                 </motion.div>
@@ -3998,18 +3976,18 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
           >
-            <div className="w-full max-w-sm bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-2xl p-5 text-white" dir="rtl">
+            <div className="activity-panel w-full max-w-sm p-5 text-white" dir="rtl">
               <div className="flex items-center justify-between mb-2">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-xs text-fuchsia-100">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 text-xs text-teal-200">
                   <HelpCircle className="w-3.5 h-3.5" /> دليل اللعبة
                 </div>
-                <button onClick={() => setImposterShowTutorial(false)} className="text-slate-300 hover:text-white">✕</button>
+                <button onClick={() => setImposterShowTutorial(false)} aria-label="إغلاق دليل اللعبة" className="activity-help">✕</button>
               </div>
               <div className="mb-3 font-extrabold text-lg">الأمبوستر — كيف نلعب؟</div>
               <div className="text-slate-200 text-sm min-h-[130px] space-y-2">
                 {imposterTutorialSlide === 0 && (
                   <div>
-                    <p>لعبة جماعية على هاتف واحد. توجد <span className="text-fuchsia-300 font-semibold">كلمة سرية</span> للجميع، وشخص واحد هو <span className="text-rose-300 font-semibold">الأمبوستر</span> لا يعرفها.</p>
+                    <p>لعبة جماعية على هاتف واحد. توجد <span className="text-teal-200 font-semibold">كلمة سرية</span> للجميع، وشخص واحد هو <span className="text-rose-300 font-semibold">الأمبوستر</span> لا يعرفها.</p>
                     <p>هدف المدنيين: اكتشاف الأمبوستر. هدف الأمبوستر: الاندماج دون انكشاف.</p>
                   </div>
                 )}
@@ -4047,25 +4025,25 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-1">
                   {[0,1,2,3].map(i => (
-                    <span key={i} className={`w-2 h-2 rounded-full ${imposterTutorialSlide === i ? 'bg-fuchsia-400' : 'bg-white/25'}`}></span>
+                    <span key={i} className={`w-2 h-2 rounded-full ${imposterTutorialSlide === i ? 'bg-teal-300' : 'bg-white/25'}`}></span>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
                   {imposterTutorialSlide > 0 && (
-                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide - 1)} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg border border-white/15">
+                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide - 1)} className="activity-secondary">
                       السابق
                     </Button>
                   )}
                   {imposterTutorialSlide < 3 ? (
-                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide + 1)} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-3 py-1 rounded-lg">
+                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide + 1)} className="event3-art-action activity-primary">
                       التالي
                     </Button>
                   ) : (
                     <>
-                      <Button onClick={() => { setImposterShowTutorial(false); }} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-3 py-1 rounded-lg">
+                      <Button onClick={() => { setImposterShowTutorial(false); }} className="event3-art-action activity-primary">
                         فهمت
                       </Button>
-                      <Button onClick={() => { try { localStorage.setItem('imposter_tutorial_seen', '1'); } catch {}; setImposterShowTutorial(false); }} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg border border-white/15">
+                      <Button onClick={() => { try { localStorage.setItem('imposter_tutorial_seen', '1'); } catch {}; setImposterShowTutorial(false); }} className="activity-secondary">
                         لا تظهر مرة أخرى
                       </Button>
                     </>
@@ -4077,14 +4055,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "would-you-rather" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-rose-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 mb-3">
-                  <Heart className="w-4 h-4 text-rose-300" />
-                  <span className="text-rose-200 text-xs font-bold">مفاضلة</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              <div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <Heart className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">مفاضلة</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-1">بين خيارين</h3>
+                <h3 className="text-2xl font-black text-white mb-1">بين خيارين</h3>
               </div>
 
               {/* Game Instructions */}
@@ -4102,9 +4080,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </ol>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <motion.div layout className="bg-gradient-to-br from-rose-500/15 to-red-600/10 border-2 border-rose-500/40 rounded-xl p-5 text-center shadow-lg">
-                  <div className="text-rose-300 font-bold mb-2">الخيار أ</div>
+              <div className="grid grid-cols-1 gap-3 mb-4">
+                <motion.div layout className="activity-inset rounded-xl">
+                  <div className="text-teal-200 font-bold mb-2">الخيار أ</div>
                   <AnimatePresence mode="wait">
                     <motion.p
                       key={`wya-${currentPromptIndex}`}
@@ -4121,8 +4099,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </motion.p>
                   </AnimatePresence>
                 </motion.div>
-                <motion.div layout className="bg-gradient-to-br from-sky-500/15 to-blue-600/10 border-2 border-sky-500/40 rounded-xl p-5 text-center shadow-lg">
-                  <div className="text-sky-300 font-bold mb-2">الخيار ب</div>
+                <motion.div layout className="activity-inset rounded-xl">
+                  <div className="text-teal-200 font-bold mb-2">الخيار ب</div>
                   <AnimatePresence mode="wait">
                     <motion.p
                       key={`wyb-${currentPromptIndex}`}
@@ -4141,11 +4119,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </motion.div>
               </div>
 
-              <div className="text-center">
+              <div className="activity-actions">
                 <motion.div whileTap={{ scale: 0.97 }}>
                   <Button 
                     onClick={nextPrompt} 
-                    className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    className="event3-art-action activity-primary"
                   >
                     <ChevronRight className="w-5 h-5 mr-2" />
                     السؤال التالي
@@ -4157,24 +4135,24 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "hot-seat" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-amber-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 mb-3">
-                  <Mic className="w-4 h-4 text-amber-300" />
-                  <span className="text-amber-200 text-xs font-bold">كرسي ساخن</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              {hotSeatParticipants.length === 0 && (<div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <Mic className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">كرسي ساخن</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-2">الكرسي الساخن</h3>
-                <p className="text-amber-100/90">لكل شخص دقيقة واحدة مع أسئلة ممتعة تكشف شخصيته وطريقة تواصله</p>
-              </div>
+                <h3 className="text-2xl font-black text-white mb-2">الكرسي الساخن</h3>
+                <p className="text-teal-200">لكل شخص دقيقة واحدة مع أسئلة ممتعة تكشف شخصيته وطريقة تواصله</p>
+              </div>)}
 
               {/* Game Instructions */}
-              <div className="instructions-block bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 mb-8 border border-amber-600/50">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-amber-300" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-teal-200" />
                   الخطوات:
                 </h4>
-                <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
+                <ol className="text-teal-200 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقة واحدة).</span>
                   </li>
@@ -4195,17 +4173,17 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <div className="space-y-4 mb-6">
                   {groupMembers.length > 0 ? (
                     <>
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
-                        <p className="text-amber-200 text-sm font-medium mb-2">تم التعرف على أفراد طاولتك تلقائياً:</p>
+                      <div className="bg-teal-300/10 border border-teal-300/15 rounded-xl p-4 text-center">
+                        <p className="text-teal-200 text-sm font-medium mb-2">تم التعرف على أفراد طاولتك تلقائياً:</p>
                         <div className="flex flex-wrap gap-2 justify-center">
                           {groupMembers.map((gm, i) => (
-                            <span key={i} className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-100 text-xs font-medium">
+                            <span key={i} className="px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 text-teal-200 text-xs font-medium">
                               {typeof gm === 'string' ? gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim() : String(gm)}
                             </span>
                           ))}
                         </div>
                       </div>
-                      <div className="text-center">
+                      <div className="activity-actions">
                         <Button
                           onClick={() => {
                             const names = groupMembers
@@ -4214,7 +4192,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                             setHotSeatParticipants(names);
                             setHotSeatIndex(0);
                           }}
-                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          className="event3-art-action activity-primary"
                         >
                           <Mic className="w-5 h-5 ml-2" />
                           ابدأ الكرسي الساخن
@@ -4247,7 +4225,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                                 });
                                 setHotSeatError(null);
                               }}
-                              className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
+                              className="w-full bg-slate-800/60 border border-teal-300/15 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-teal-300/15 focus:outline-none transition-colors"
                             />
                           </div>
                         ))}
@@ -4257,7 +4235,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                           {hotSeatError}
                         </p>
                       )}
-                      <div className="text-center">
+                      <div className="activity-actions">
                         <Button
                           onClick={() => {
                             const valid = hotSeatDraftParticipants.map(n => n.trim()).filter(n => n.length > 0);
@@ -4269,7 +4247,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                             setHotSeatParticipants(valid);
                             setHotSeatIndex(0);
                           }}
-                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          className="event3-art-action activity-primary"
                         >
                           <Mic className="w-5 h-5 ml-2" />
                           ابدأ الكرسي الساخن
@@ -4281,8 +4259,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               ) : (
                 <>
                   {/* Current person in hot seat */}
-                  <div className="bg-gradient-to-br from-amber-500/15 to-orange-600/15 rounded-2xl p-8 text-center border border-amber-500/30 shadow-xl mb-6">
-                    <div className="text-amber-300 text-sm font-bold mb-2">على الكرسي الساخن الآن</div>
+                  <div className="activity-inset mb-4">
+                    <div className="text-teal-200 text-sm font-bold mb-2">على الكرسي الساخن الآن</div>
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={hotSeatIndex}
@@ -4291,63 +4269,20 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         exit={{ opacity: 0, scale: 0.9, y: -10 }}
                         transition={{ duration: 0.3 }}
                       >
-                        <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg mb-3">
-                          <Mic className="w-10 h-10" />
-                        </div>
-                        <h4 className="text-2xl font-bold text-white">{hotSeatParticipants[hotSeatIndex]}</h4>
-                        <div className="text-slate-400 text-sm mt-1">الشخص {hotSeatIndex + 1} من {hotSeatParticipants.length}</div>
+                        <h4 className="text-xl font-black text-white">{hotSeatParticipants[hotSeatIndex]}</h4>
+                        <div className="text-white/45 text-xs mt-1">الشخص {hotSeatIndex + 1} من {hotSeatParticipants.length}</div>
                       </motion.div>
                     </AnimatePresence>
 
-                    {/* Timer */}
-                    <div className="mt-6">
-                      <div className={`text-5xl font-black ${hotSeatTimer <= 30 ? 'text-red-400' : 'text-amber-300'} mb-2`}>
-                        {Math.floor(hotSeatTimer / 60)}:{String(hotSeatTimer % 60).padStart(2, '0')}
-                      </div>
-                      <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-1000 ${hotSeatTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
-                          style={{ width: `${(hotSeatTimer / HOT_SEAT_DURATION_SECONDS) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Timer controls */}
-                    <div className="flex justify-center gap-3 mt-6">
-                      {!hotSeatTimerActive && hotSeatTimer > 0 ? (
-                        <Button
-                          onClick={() => setHotSeatTimerActive(true)}
-                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all hover:scale-105"
-                        >
-                          <Play className="w-4 h-4 ml-2" />
-                          ابدأ المؤقت
-                        </Button>
-                      ) : hotSeatTimerActive ? (
-                        <Button
-                          onClick={() => setHotSeatTimerActive(false)}
-                          className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all"
-                        >
-                          <Pause className="w-4 h-4 ml-2" />
-                          إيقاف
-                        </Button>
-                      ) : null}
-                      <Button
-                        onClick={() => { setHotSeatTimer(HOT_SEAT_DURATION_SECONDS); setHotSeatTimerActive(false); }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg transition-all"
-                      >
-                        <SkipForward className="w-4 h-4 ml-2" />
-                        إعادة
-                      </Button>
-                    </div>
                   </div>
 
                   {/* Suggested questions */}
-                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50 mb-6">
-                    <h4 className="text-white font-semibold mb-4 flex items-center">
-                      <Lightbulb className="w-4 h-4 ml-2 text-amber-300" />
-                      أسئلة مقترحة للكرسي الساخن:
+                  <div className="mb-4">
+                    <h4 className="text-white/55 text-xs font-bold mb-2 flex items-center">
+                      <Lightbulb className="w-4 h-4 ml-2 text-teal-200" />
+                      سؤال يفتح السالفة
                     </h4>
-                    <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-2 border-amber-500/40 rounded-2xl p-6 text-center shadow-lg mb-4">
+                    <div className="activity-inset rounded-2xl mb-4">
                       <AnimatePresence mode="wait">
                         <motion.p
                           key={hotSeatQuestionIndex}
@@ -4375,7 +4310,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                             return prev + 1;
                           });
                         }}
-                        className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-5 py-2 rounded-xl font-semibold shadow-lg transition-all hover:scale-105"
+                        className="activity-help w-full"
                       >
                         <ChevronRight className="w-4 h-4 mr-2" />
                         سؤال آخر
@@ -4383,8 +4318,26 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </div>
                   </div>
 
+                  <div className="activity-timer mb-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`font-mono text-3xl font-black ${hotSeatTimer <= 30 ? 'text-red-400' : 'text-teal-200'}`}>
+                        {Math.floor(hotSeatTimer / 60)}:{String(hotSeatTimer % 60).padStart(2, '0')}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {hotSeatTimer > 0 && <button type="button" onClick={() => setHotSeatTimerActive(active => !active)} className="activity-help">
+                          {hotSeatTimerActive ? <Pause size={14} /> : <Play size={14} />}
+                          {hotSeatTimerActive ? "إيقاف" : "ابدأ المؤقت"}
+                        </button>}
+                        <button type="button" onClick={() => { setHotSeatTimer(HOT_SEAT_DURATION_SECONDS); setHotSeatTimerActive(false); }} className="activity-help" aria-label="إعادة المؤقت"><SkipForward size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className={`h-full rounded-full transition-all duration-1000 ${hotSeatTimer <= 30 ? 'bg-red-400' : 'bg-teal-300'}`} style={{ width: `${(hotSeatTimer / HOT_SEAT_DURATION_SECONDS) * 100}%` }} />
+                    </div>
+                  </div>
+
                   {/* Next person */}
-                  <div className="text-center">
+                  <div className="activity-actions">
                     <Button
                       onClick={() => {
                         if (hotSeatIndex < hotSeatParticipants.length - 1) {
@@ -4396,7 +4349,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                           setGamePhase("completed");
                         }
                       }}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                      className="event3-art-action activity-primary"
                     >
                       {hotSeatIndex < hotSeatParticipants.length - 1 ? (
                         <>
@@ -4418,23 +4371,23 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "charades" && (
-          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-emerald-600/30"}>
-            <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 mb-3">
-                  <ThumbsUp className="w-4 h-4 text-emerald-300" />
-                  <span className="text-emerald-200 text-xs font-bold">تمثيل</span>
+          <Card className={activityCardClass}>
+            <CardContent className="activity-body p-5 sm:p-6">
+              {!currentCharadesWord && (<div className="activity-intro mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 mb-3">
+                  <ThumbsUp className="w-4 h-4 text-teal-200" />
+                  <span className="text-teal-200 text-xs font-bold">تمثيل</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-white mb-1">ولا كلمة</h3>
-              </div>
+                <h3 className="text-2xl font-black text-white mb-1">ولا كلمة</h3>
+              </div>)}
 
               {/* Game Instructions */}
-              <div className="instructions-block bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
+              <div className="instructions-block activity-inset mb-4">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-emerald-300" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-teal-200" />
                   الخطوات:
                 </h4>
-                <ol className="text-emerald-100/90 space-y-3 list-decimal list-inside">
+                <ol className="text-teal-200 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">شخص واحد يقرأ الكلمة سراً (لا يقولها بصوت عالٍ)</span>
                   </li>
@@ -4455,9 +4408,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Score Display */}
               <div className="flex justify-center mb-6">
-                <div className="bg-slate-700/50 rounded-lg px-6 py-3 border border-emerald-500/30 shadow-lg">
+                <div className="bg-slate-700/50 rounded-lg px-6 py-3 border border-teal-300/15 shadow-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-400">
+                    <div className="text-2xl font-bold text-teal-200">
                       {charadesScore.correct}/{charadesScore.total}
                     </div>
                     <div className="text-slate-300 text-sm">نقاط صحيحة</div>
@@ -4468,7 +4421,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {/* Current Word Display */}
               {currentCharadesWord && (
                 <div className="mb-8">
-                  <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center shadow-xl">
+                  <div className="activity-inset border rounded-xl">
                     <div className="mb-2">
                       <AnimatePresence mode="wait">
                         <motion.span
@@ -4477,7 +4430,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.95, opacity: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="text-emerald-300 text-sm font-medium bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-400/30"
+                          className="text-teal-200 text-sm font-medium bg-teal-300/10 px-3 py-1 rounded-full border border-teal-300/15"
                         >
                           {currentCharadesCategory}
                         </motion.span>
@@ -4497,8 +4450,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </AnimatePresence>
                     
                     {/* Timer */}
-                    <div className="mb-4">
-                      <div className={`text-2xl font-bold ${
+                    <div className="activity-timer mb-4">
+                      <div className={`font-mono text-3xl font-black ${
                         charadesTimer <= 15 ? 'text-red-400 animate-pulse drop-shadow-[0_0_8px_rgba(248,113,113,0.35)]' : 
                         charadesTimer <= 45 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]' : 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]'
                       }`}>
@@ -4515,7 +4468,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <Button 
                         onClick={charadesCorrect}
                         disabled={charadesTimer === 0}
-                        className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        className="event3-art-action activity-primary"
                       >
                         <ThumbsUp className="w-5 h-5 mr-2" />
                         صحيح!
@@ -4523,7 +4476,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <Button 
                         onClick={charadesSkip}
                         disabled={charadesTimer === 0}
-                        className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        className="activity-secondary"
                       >
                         <SkipForward className="w-5 h-5 mr-2" />
                         تخطي
@@ -4535,10 +4488,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Start/Next Round Button */}
               {!currentCharadesWord && (
-                <div className="text-center">
+                <div className="activity-actions">
                   <Button 
                     onClick={startCharadesRound}
-                    className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    className="event3-art-action activity-primary"
                   >
                     <Play className="w-6 h-6 mr-3" />
                     ابدأ الجولة
@@ -4548,10 +4501,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Next Round Button (when timer ends) */}
               {currentCharadesWord && charadesTimer === 0 && (
-                <div className="text-center mt-6">
+                <div className="activity-actions">
                   <Button 
                     onClick={startCharadesRound}
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    className="event3-art-action activity-primary"
                   >
                     <ChevronRight className="w-5 h-5 mr-2" />
                     الكلمة التالية

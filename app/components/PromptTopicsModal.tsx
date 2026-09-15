@@ -1432,31 +1432,37 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         role="dialog"
         aria-modal="true"
         aria-label="أسئلة المجموعة"
-        className={`relative w-full h-full overflow-hidden bg-gradient-to-b text-white flex flex-col ${roundTheme.shell} ${embedded ? "" : `sm:max-w-lg sm:h-[760px] sm:max-h-[92vh] sm:rounded-3xl sm:border sm:shadow-2xl ${roundTheme.border}`}`}
+        className={`relative w-full h-full overflow-hidden bg-gray-950 text-white flex flex-col ${embedded ? "" : "sm:max-w-lg sm:h-[760px] sm:max-h-[92vh] sm:rounded-3xl sm:border sm:border-white/10 sm:shadow-2xl"}`}
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
-          <div className={`absolute -right-24 -top-28 h-72 w-72 rounded-full blur-[95px] ${roundTheme.primaryOrb}`} />
-          <div className={`absolute -bottom-28 -left-20 h-64 w-64 rounded-full blur-[90px] ${roundTheme.secondaryOrb}`} />
+          <div className="absolute -left-24 -top-28 h-72 w-72 rounded-full bg-teal-400/10 blur-[95px]" />
         </div>
-        <header className={`relative z-10 flex items-center justify-between gap-3 border-b bg-gray-950/75 px-5 py-4 backdrop-blur-xl ${roundTheme.border}`}>
+        <header className="relative z-10 mx-auto flex w-full max-w-md items-center justify-between gap-3 px-5 pt-4">
           <div>
-            <p className="font-black text-base">سؤال يفتح السالفة</p>
-            <p className={`mt-0.5 text-[11px] font-bold ${roundTheme.text}`}>الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
+            <p className="text-xs font-bold text-white/55">الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center" aria-label="إغلاق">
             <X className="w-5 h-5" />
           </button>
         </header>
 
-        <main className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 py-6 flex flex-col">
-          <div className="flex items-center justify-center gap-2 mb-5">
+        <main className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 py-4">
+          <div className="mx-auto w-full max-w-md">
+          <div className="event3-activity-heading mb-4 flex items-center gap-3 rounded-3xl border border-white/10 p-3">
+            <ActivityArtwork activityId="discussion-questions" className="h-24 w-24 shrink-0" />
+            <div>
+              <p className="mb-1 text-[10px] font-bold text-cyan-200/70">النشاط الآن</p>
+              <h1 className="text-xl font-black text-white">أسئلة نقاش</h1>
+              <p className="mt-2 text-xs text-white/55">سؤال يفتح السالفة</p>
+            </div>
+          </div>
+          <div aria-label="عمق النقاش" className="mb-4 grid grid-cols-3 gap-1.5">
             {depthOrder.map(item => (
-              <span key={item} className={`h-1.5 rounded-full transition-all ${item === depth ? `w-10 bg-gradient-to-r ${depthColors[item]}` : "w-5 bg-gray-800"}`} />
+              <span key={item} className="activity-step" data-complete={depthOrder.indexOf(item) <= depthIndex} aria-current={item === depth ? "step" : undefined}>{item === "shallow" ? "بداية خفيفة" : item === "medium" ? "نعرف بعض" : "نقاش أعمق"}</span>
             ))}
           </div>
 
-          <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+          <div>
             <AnimatePresence mode="wait">
               <motion.section
                 key={`${index}-${currentQuestion}`}
@@ -1464,28 +1470,28 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -12, scale: 0.98 }}
                 transition={{ duration: 0.24 }}
-                className="event3-activity-heading relative rounded-[2rem] border border-white/10 p-6 text-center sm:p-8"
+                className="activity-panel p-5 text-right sm:p-6"
               >
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${depthColors[depth]} text-gray-950`}>{depthLabel}</span>
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <span className="rounded-full border border-teal-300/15 bg-teal-300/10 px-3 py-1 text-xs font-bold text-teal-200">{depthLabel}</span>
                   <span className="text-xs text-gray-500">السؤال {index + 1}</span>
                 </div>
 
-                <ActivityArtwork activityId="discussion-questions" className="mx-auto mb-3 h-28 w-28" />
-                <p className="text-2xl sm:text-3xl font-black leading-[1.65] text-white">{currentQuestion}</p>
+                <p className="text-2xl font-black leading-relaxed tracking-tight text-white">{currentQuestion}</p>
 
                 <div className="mt-7 pt-5 border-t border-white/[0.07] space-y-2">
-                  <p className={`text-sm font-bold flex items-center justify-center gap-2 ${roundTheme.text}`}><Users className="w-4 h-4" /> كل شخص يجيب باختصار</p>
+                  <p className="flex items-center gap-2 text-sm font-bold text-teal-200"><Users className="w-4 h-4" /> كل شخص يجيب باختصار</p>
                   <p className="text-xs text-gray-500">ابدؤوا بصاحب الرقم الأقل، ثم أكملوا بالدور</p>
                 </div>
               </motion.section>
             </AnimatePresence>
 
-            <p className="text-center text-xs text-gray-600 mt-4">المشاركة اختيارية — يمكن لأي شخص تخطي السؤال</p>
+            <p className="mt-3 text-center text-[11px] leading-6 text-white/40">المشاركة على راحتكم · تقدرون تتخطّون أي سؤال</p>
+          </div>
           </div>
         </main>
 
-        <footer className={`relative z-10 px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-gray-950/85 backdrop-blur-xl space-y-3 ${roundTheme.border}`}>
+        <footer className="activity-actions relative mx-auto w-[calc(100%-2.5rem)] max-w-md space-y-1 mb-[max(1rem,env(safe-area-inset-bottom))]">
           <button onClick={finishCurrentQuestion} className="event3-art-action w-full min-h-14 rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all font-black text-base flex items-center justify-center gap-2">
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
@@ -1516,7 +1522,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
                 <p className="mt-2 text-sm leading-7 text-gray-300">بعد كم سؤال، اختاروا معًا وتيرة النقاش المناسبة لكم.</p>
                 <div className="mt-5 grid gap-2">
                   <button onClick={() => continueDiscussion("shallow")} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 font-bold text-white">نخليها خفيفة</button>
-                  <button onClick={() => continueDiscussion(depth === "deep" ? "deep" : (depthOrder[depthIndex + 1] || "deep"))} className="min-h-12 rounded-2xl bg-gradient-to-r from-cyan-400 to-purple-400 font-bold text-gray-950">{depth === "deep" ? "نكمل بنفس العمق" : "نروح أعمق"}</button>
+                  <button onClick={() => continueDiscussion(depth === "deep" ? "deep" : (depthOrder[depthIndex + 1] || "deep"))} className="event3-art-action activity-primary">{depth === "deep" ? "نكمل بنفس العمق" : "نروح أعمق"}</button>
                   <button onClick={onClose} className="min-h-11 rounded-2xl text-sm font-medium text-gray-400">نغيّر النشاط</button>
                 </div>
               </motion.div>

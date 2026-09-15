@@ -2057,18 +2057,166 @@ html:not(.dark) .round-bg-pattern::before {
 }
 
 .event3-activity-play .modern-activity-card {
-  border-color: rgba(255, 255, 255, 0.1);
-  background:
-    radial-gradient(circle at 86% -18%, rgba(var(--event3-purple), 0.12), transparent 34%),
-    linear-gradient(155deg, rgba(255, 255, 255, 0.055), rgba(12, 11, 20, 0.9));
-  box-shadow:
-    0 28px 78px -48px rgba(var(--event3-purple), 0.58),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  overflow: visible;
+}
+
+.activity-panel {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(94 234 212 / 20%);
+  border-radius: 1.75rem;
+  background: radial-gradient(circle at 0 0, rgb(45 212 191 / 10%), transparent 55%),
+    linear-gradient(135deg, rgb(19 78 74 / 35%), rgb(17 24 39 / 90%) 50%, #030712);
+  box-shadow: 0 24px 70px -35px rgb(0 0 0 / 80%);
+  color: white;
+}
+
+.activity-body {
+  font-size: 15px;
+  line-height: 2;
+}
+
+.activity-intro h3 {
+  margin-bottom: .5rem;
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1.6;
+  letter-spacing: -.025em;
+}
+
+.activity-intro > p {
+  color: rgb(255 255 255 / 65%);
+  font-size: .875rem;
+  line-height: 1.8;
+}
+
+.activity-inset {
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgb(0 0 0 / 20%);
+  box-shadow: none;
+  text-align: right;
+}
+
+.activity-inset p {
+  line-height: 2;
+}
+
+.activity-primary,
+.activity-secondary {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  height: auto;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border-radius: 1rem;
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  font-weight: 900;
+  line-height: 1.5;
+  white-space: normal;
+  transition: filter .15s, background .15s;
+}
+
+.activity-primary:hover { filter: brightness(1.1); }
+
+.activity-secondary {
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(255 255 255 / 4%);
+  color: rgb(255 255 255 / 70%);
+  box-shadow: none;
+}
+
+.activity-secondary:hover { background: rgb(255 255 255 / 8%); }
+
+.activity-help {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: .375rem;
+  padding: .375rem .5rem;
+  border-radius: .75rem;
+  background: transparent;
+  box-shadow: none;
+  color: rgb(255 255 255 / 55%);
+  font-size: .75rem;
+}
+
+.activity-help:hover { color: white; background: rgb(255 255 255 / 4%); }
+
+.activity-secondary:focus-visible,
+.activity-help:focus-visible {
+  outline: 2px solid #99f6e4;
+  outline-offset: 3px;
+}
+
+.activity-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-top: 1rem;
+  padding: .5rem;
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: 1rem;
+  background: rgb(3 7 18 / 95%);
+  box-shadow: 0 -12px 30px -12px rgb(3 7 18 / 80%);
+  backdrop-filter: blur(24px);
 }
 
 .event3-activity-play .instructions-block {
-  border-color: rgba(var(--event3-cyan), 0.12);
-  background: rgba(255, 255, 255, 0.035);
+  border-color: rgb(94 234 212 / 15%);
+  background: rgb(94 234 212 / 6%);
+  font-size: .875rem;
+}
+
+.activity-timer {
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgb(0 0 0 / 20%);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-timer [role="progressbar"] { height: .375rem; }
+
+.activity-timer [role="progressbar"] > div { background: #5eead4; }
+
+.event3-activity-play input,
+.event3-activity-play select {
+  min-height: 2.75rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: .75rem;
+  background: rgb(0 0 0 / 20%);
+}
+
+.event3-activity-play select option { background: #111827; }
+
+.event3-activity-play input:focus-visible,
+.event3-activity-play select:focus-visible {
+  outline: 2px solid #99f6e4;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.activity-step {
+  min-width: 0;
+  border-top: 4px solid rgb(255 255 255 / 10%);
+  border-radius: 2px;
+  padding-top: .5rem;
+  color: rgb(255 255 255 / 35%);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.activity-step[data-complete="true"] {
+  border-color: #5eead4;
+  color: #99f6e4;
 }
 
 @keyframes event3-speaker-breathe {

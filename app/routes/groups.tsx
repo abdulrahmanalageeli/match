@@ -234,16 +234,19 @@ const createSeededRandom = (seedValue: string) => {
   };
 };
 
-const shuffleActivitiesForParticipant = (seedValue: string): Game[] => {
-  const random = createSeededRandom(seedValue);
-  const shuffled = games.filter(game => game.id !== "lets-agree" && game.id !== "imposter");
+const shuffleActivitiesForParticipant = (seedValue: string, round: number): Game[] => {
+  const random = createSeededRandom(`${seedValue}:${round}`);
+  const openingIds = round === 1
+    ? ["lets-agree", "conspiracy-theories"]
+    : [round === 2 || random() < 0.5 ? "conspiracy-theories" : "lets-agree"];
+  const openings = openingIds.flatMap(id => games.filter(game => game.id === id));
+  const shuffled = games.filter(game => !openingIds.includes(game.id) && game.id !== "imposter");
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  const opening = games.find(game => game.id === "lets-agree");
   const imposter = games.find(game => game.id === "imposter");
-  return [...(opening ? [opening] : []), ...shuffled, ...(imposter ? [imposter] : [])];
+  return [...openings, ...shuffled, ...(imposter ? [imposter] : [])];
 };
 
 // Premium visual themes per game for selection cards + gameplay surfaces
@@ -1586,8 +1589,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   const currentGame = games[currentGameIndex];
   const activityGames = useMemo(
-    () => shuffleActivitiesForParticipant(String(participantSeed ?? localActivitySeed)),
-    [participantSeed, localActivitySeed]
+    () => shuffleActivitiesForParticipant(String(participantSeed ?? localActivitySeed), round),
+    [participantSeed, localActivitySeed, round]
   );
 
   const shareContent = useCallback((content: SharedGroupContent | null) => {

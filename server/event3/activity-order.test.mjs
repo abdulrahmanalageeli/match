@@ -11,18 +11,27 @@ const algorithm = source.slice(source.indexOf('const hashActivitySeed'), source.
 const context = vm.createContext({ games: ids.map(id => ({ id })) });
 vm.runInContext(ts.transpileModule(`${algorithm}\nglobalThis.order = shuffleActivitiesForParticipant;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
 
-test('every round pins Let’s Agree first and Imposter last while shuffling all middle activities', () => {
+test('round-specific openings keep all activities, stable random choices, and Imposter last', () => {
   const middleOrders = new Set();
+  const roundThreeOpenings = new Set();
   for (let round = 1; round <= 3; round++) {
     for (let participant = 1; participant <= 100; participant++) {
-      const seed = `${round}:${participant}`;
-      const actual = Array.from(context.order(seed), game => game.id);
-      assert.equal(actual[0], 'lets-agree');
+      const seed = `participant:${participant}`;
+      const actual = Array.from(context.order(seed, round), game => game.id);
+      if (round === 1) {
+        assert.deepEqual(actual.slice(0, 2), ['lets-agree', 'conspiracy-theories']);
+      } else if (round === 2) {
+        assert.equal(actual[0], 'conspiracy-theories');
+      } else {
+        assert.ok(['lets-agree', 'conspiracy-theories'].includes(actual[0]));
+        roundThreeOpenings.add(actual[0]);
+      }
       assert.equal(actual.at(-1), 'imposter');
       assert.deepEqual([...actual].sort(), [...ids].sort());
-      assert.deepEqual(actual, Array.from(context.order(seed), game => game.id));
-      middleOrders.add(actual.slice(1, -1).join(','));
+      assert.deepEqual(actual, Array.from(context.order(seed, round), game => game.id));
+      middleOrders.add(actual.slice(round === 1 ? 2 : 1, -1).join(','));
     }
   }
   assert.ok(middleOrders.size > 100, 'middle activities must retain participant-specific variety');
+  assert.equal(roundThreeOpenings.size, 2, 'both activities must be possible round-three openers');
 });

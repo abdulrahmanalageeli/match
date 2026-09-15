@@ -24,7 +24,7 @@ const scenarios = evaluate(agree.slice(agree.indexOf('const PRIORITY_SCENARIO_CO
 const openingStart = discussion.indexOf('const openingQuestionsByDepth:')
 const openings = evaluate(discussion.slice(openingStart, discussion.indexOf('// Curated specifically', openingStart)), 'openingQuestionsByDepth')
 
-test('all 112 approved prompts are integrated, with choices and categories formatted for their UI', () => {
+test('approved question banks are integrated, with choices and categories formatted for their UI', () => {
   assert.equal(approved.length, 112)
   const expected = {
     neverHaveIEverQuestions: proposals('ق'),
@@ -43,14 +43,6 @@ test('all 112 approved prompts are integrated, with choices and categories forma
   }
   for (const question of proposals('ن')) assert.ok(Object.values(openings).flat().includes(question))
   assert.equal(Object.values(openings).flat().length, 32)
-  proposals('ت').forEach((text, index) => {
-    const [goal, twist] = text.split(' **المفاجأة:** ')
-    const scenario = scenarios.SCENARIOS[index]
-    assert.equal(scenario.goal, goal)
-    assert.equal(scenario.twist, twist)
-    assert.equal(scenario.choices.length, 3)
-    for (const field of ['title', 'setting', 'question', 'reflection']) assert.ok(scenario[field])
-  })
 })
 
 test('question shuffling exhausts the approved prefix before older content without losing or repeating entries', () => {
@@ -71,14 +63,24 @@ test('question shuffling exhausts the approved prefix before older content witho
   }
 })
 
-test('each group round sees all 16 new scenarios before the three older scenarios', () => {
+test('each group round keeps the six retained scenarios, with the original first scenario pinned first', () => {
   const bank = scenarios.SCENARIOS
-  assert.equal(bank.length, 19)
+  assert.deepEqual(Array.from(bank, scenario => scenario.title), [
+    'صندوق للمستقبل', 'هدية من المجموعة', 'فيلمنا القصير',
+    'أمسية على ذوقنا', 'ضيف في مدينتنا', 'جمعتنا الأولى',
+  ])
+  for (const [index, proposalIndex] of [0, 1, 7].entries()) {
+    const [goal, twist] = proposals('ت')[proposalIndex].split(' **المفاجأة:** ')
+    assert.equal(bank[index].goal, goal)
+    assert.equal(bank[index].twist, twist)
+    assert.equal(bank[index].choices.length, 3)
+    for (const field of ['title', 'setting', 'question', 'reflection']) assert.ok(bank[index][field])
+  }
   for (const round of [1, 2, 3]) {
     const order = scenarios.getScenariosForRound(round)
-    assert.equal(order[0], bank[round - 1], 'rounds keep distinct opening scenarios')
-    assert.deepEqual(new Set(order.slice(0, 16)), new Set(bank.slice(0, 16)))
-    assert.deepEqual(new Set(order.slice(16)), new Set(bank.slice(16)))
-    assert.equal(new Set(order).size, 19)
+    assert.equal(order[0], bank[0], 'the original first scenario must remain first in every round')
+    assert.deepEqual(new Set(order.slice(0, 3)), new Set(bank.slice(0, 3)))
+    assert.deepEqual(Array.from(order.slice(3)), Array.from(bank.slice(3)))
+    assert.equal(new Set(order).size, 6)
   }
 })

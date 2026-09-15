@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Navigate, useLocation } from "react-router";
 import {
   Clock,
@@ -45,6 +46,7 @@ import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
 import ActivityArtwork from "../components/groups/ActivityArtwork";
 import LetsAgreeActivity from "../components/groups/LetsAgreeActivity";
+import ConspiracyActivity from "../components/groups/ConspiracyActivity";
 import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
 import { GROUP_COORDINATION_ENABLED } from "../lib/event3-group-coordination.mjs";
 import { animate } from "motion";
@@ -89,6 +91,18 @@ const games: Game[] = [
     color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
+    id: "conspiracy-theories",
+    name: "Conspiracy Theories",
+    nameAr: "تصدّقها ولا لا؟",
+    description: "Discuss intriguing theories, examine evidence, and reconsider together",
+    descriptionAr: "نظريات تثير الفضول، آراء مختلفة، وأدلة تنكشف بعد ما تسمعون بعض.",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تعرفون كيف يفكّر كل شخص",
+    duration: 6,
+    icon: <ActivityArtwork activityId="conspiracy-theories" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
+  },
+  {
     id: "hot-seat",
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
@@ -129,9 +143,9 @@ const games: Game[] = [
     name: "Never Have I Ever",
     nameAr: "قد سويتها؟",
     description: "Share deep personal experiences",
-    descriptionAr: "عبارات تفتح قصصاً ومفاجآت؛ المشاركة دائماً على راحتكم.",
+    descriptionAr: "مواقف عن القرب، والاختيارات، والأشياء اللي غيّرتنا. شاركوا القصص على راحتكم.",
     energyAr: "متوازن",
-    fitAr: "مناسب للقصص الخفيفة والمواقف غير المتوقعة",
+    fitAr: "مناسب إذا تبغون تعرفون بعض من خلال تجاربكم",
     duration: 10,
     icon: <ActivityArtwork activityId="never-have-i-ever" />,
     color: "from-violet-500 via-cyan-400 to-teal-300"
@@ -363,23 +377,23 @@ const gameThemes: Record<string, {
 const PRIORITY_QUESTION_COUNT = 16;
 
 const neverHaveIEverQuestions = [
-  // Approved openings — September 16, 2026.
-  "قد كملت مسلسلًا بدون الشخص اللي وعدته تشوفونه مع بعض؟",
-  "قد رتّبت الغرفة بسرعة عن طريق نقل كل الكركبة للدولاب؟",
-  "قد تكلمت بحماس في مكالمة وأنت كاتم المايك؟",
-  "قد طلبت توصيلًا من مكان تقدر تروح له مشي؟",
-  "قد لبست نفس لبس شخص في مناسبة بالصدفة؟",
-  "قد زرعت شيئًا من بذرة وأكلت من محصوله؟",
-  "قد قفلت السيارة والمفتاح داخلها؟",
-  "قد تعلّمت خدعة سحرية بسيطة عشان توريها لأحد؟",
-  "قد لوّحت لشخص واكتشفت إنه كان يلوّح للي وراك؟",
-  "قد دورت على نظارتك وهي فوق رأسك؟",
-  "قد دخلت غرفة ونسيت وش كنت تبي منها؟",
-  "قد اشتريت مكونات وصفة، وبالأخير طلبت عشاء من برا؟",
-  "قد وصلت بدري جدًا لموعد وجلست تتمشى عشان ما تبين إنك بدري؟",
-  "قد كتبت ردًا كاملًا واكتشفت بعد ساعات إنك ما أرسلته؟",
-  "قد ناديت جهازًا باسم شخص من كثر ما كنت معصّب عليه؟",
-  "قد حطيت شيئًا في «مكان آمن» لدرجة إنك ما عاد لقيته؟",
+  // Reflective openings — revised to invite personal stories and connection.
+  "قد تغيّر انطباعك عن شخص تمامًا بعد ما سمعت قصته؟",
+  "قد احتجت مساعدة، لكن ما عرفت كيف تطلبها؟",
+  "قد حاولت تفرّح شخص بطريقتك، وبعدين اكتشفت إنه يحتاج شيئًا مختلفًا؟",
+  "قد حسب أحد هدوءك عدم اهتمام، وأنت كنت مهتم فعلًا؟",
+  "قد صارت جلسة عادية من أجمل ذكرياتك بسبب الشخص اللي كان معك؟",
+  "قد قلت رأيًا مختلفًا وأنت متردد، وتفاجأت إن الناس تقبّلوه؟",
+  "قد اخترت شيئًا يناسبك، حتى لو ما كان مبهرًا في عيون الناس؟",
+  "قد رجعت لشيء تحبه بعدما تركته لأنك كنت تخاف من حكم الناس؟",
+  "قد تذكّر أحد تفصيلًا صغيرًا قلته، وحسّسك إنك مهم عنده؟",
+  "قد حسّيت بالانتماء مع ناس حياتهم مختلفة جدًا عن حياتك؟",
+  "قد ارتحت لشخص لأنه أعطاك مساحة، بدل ما يحاول يخلّيك تتكلم؟",
+  "قد قلت «لا» لشيء تبغاه المجموعة عشان تكون صادقًا مع نفسك؟",
+  "قد فهمت كلام شخص بشكل سلبي، ثم اكتشفت إن مزاجك وقتها أثّر على فهمك؟",
+  "قد شكرت شخصًا على موقف قديم، واكتشفت إنه ما كان يدري وش كثر أثّر فيك؟",
+  "قد جرّبت شيئًا ما يهمك عشان تشارك شخص اهتمامه، وبعدين فهمته أكثر؟",
+  "قد وصلت لشيء كنت تتمناه، واكتشفت إن اللي يهمك تغيّر؟",
 
   // Original 50 questions
   "لم أفعل من قبل: غيرت مساري المهني أو الدراسي بشكل جذري",
@@ -1590,7 +1604,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   }, [shareContent]);
 
   const projectedActivityContent = useMemo<SharedGroupContent | null>(() => {
-    if (!selectedGameId || selectedGameId === "discussion-questions" || selectedGameId === "lets-agree") return null;
+    if (!selectedGameId || selectedGameId === "discussion-questions" || selectedGameId === "lets-agree" || selectedGameId === "conspiracy-theories") return null;
     const selectedGame = games.find(game => game.id === selectedGameId);
     if (!selectedGame) return null;
 
@@ -2790,6 +2804,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   const returnToActivitySelection = () => {
     activityFocusTargetRef.current = 'selection';
+    setShowPromptTopicsModal(false);
+    setImposterShowTutorial(false);
     setSelectedGameId(null);
     setGamePhase('intro');
     shareContent(null);
@@ -3209,6 +3225,15 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       />;
     }
 
+    if (selectedGameId === "conspiracy-theories") {
+      return <ConspiracyActivity
+        round={round}
+        participantNames={participantNames ?? groupMembers}
+        onSharedContentChange={isGroupCoordinator ? shareContent : undefined}
+        onFinish={returnToActivitySelection}
+      />;
+    }
+
     const currentGame = games.find(g => g.id === selectedGameId);
     if (!currentGame) return null;
     const activityCardClass = "modern-activity-card activity-panel";
@@ -3351,10 +3376,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <span className="font-medium">اقرؤوا العبارة بصوت عالٍ</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="font-medium">إذا فعلت هذا الشيء من قبل، ارفع يدك وشارك تجربتك (دقيقة واحدة)</span>
+                    <span className="font-medium">إذا مرّيت بالتجربة وحاب تشارك، ارفع يدك واحكِ منها اللي ترتاح له</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="font-medium">إذا لم تفعله من قبل، ابق صامتاً</span>
+                    <span className="font-medium">اسمعوا لبعض، وإذا صاحب القصة حاب يكمل، اسألوه: وش تعلّمت عن نفسك؟</span>
                   </li>
                   <li className="flex items-start">
                     <span className="font-medium">لا تجبروا أحداً على المشاركة إذا لم يرد</span>
@@ -3954,12 +3979,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {/* Imposter Tutorial Overlay */}
-        {selectedGameId === 'imposter' && imposterShowTutorial && (
+        {selectedGameId === 'imposter' && imposterShowTutorial && typeof document !== 'undefined' && createPortal(
           <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+            className="event3-shell fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           >
-            <div className="activity-panel w-full max-w-sm p-5 text-white" dir="rtl">
+            <div role="dialog" aria-modal="true" aria-label="دليل الأمبوستر" className="activity-panel max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain p-5 text-white" dir="rtl">
               <div className="flex items-center justify-between mb-2">
                 <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 text-xs text-teal-200">
                   <HelpCircle className="w-3.5 h-3.5" /> دليل اللعبة
@@ -4005,13 +4029,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
                 <div className="flex items-center gap-1">
                   {[0,1,2,3].map(i => (
                     <span key={i} className={`w-2 h-2 rounded-full ${imposterTutorialSlide === i ? 'bg-teal-300' : 'bg-white/25'}`}></span>
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 [&>button]:w-auto">
                   {imposterTutorialSlide > 0 && (
                     <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide - 1)} className="activity-secondary">
                       السابق
@@ -4034,7 +4058,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </div>
               </div>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {currentGame.id === "would-you-rather" && (

@@ -1,7 +1,7 @@
 const activityIds = new Set([
   "lets-agree", "hot-seat", "discussion-questions", "what-would-you-do",
   "never-have-i-ever", "two-truths-lie", "would-you-rather", "5-second-rule",
-  "charades", "imposter",
+  "charades", "imposter", "conspiracy-theories",
 ]);
 
 /** Decorative artwork: the adjacent activity title supplies its accessible name. */

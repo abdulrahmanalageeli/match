@@ -1496,7 +1496,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 min-[360px]:grid-cols-4 gap-2">
             <button onClick={() => setTableState(prev => ({ ...prev, index: Math.max(0, prev.index - 1) }))} disabled={index <= 0} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm disabled:opacity-30 flex items-center justify-center gap-1">
               <ChevronRight className="w-4 h-4" /> السابق
             </button>
@@ -1519,7 +1519,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         <AnimatePresence>
           {showPacingCheckIn && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
-              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-cyan-400/25 bg-gray-900 p-6 text-center shadow-2xl">
+              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="max-h-full w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-cyan-400/25 bg-gray-900 p-6 text-center shadow-2xl">
                 <MessageSquare className="mx-auto mb-3 h-8 w-8 text-cyan-300" />
                 <h2 className="text-lg font-black text-white">كيف تبغون تكملون؟</h2>
                 <p className="mt-2 text-sm leading-7 text-gray-300">بعد كم سؤال، اختاروا معًا وتيرة النقاش المناسبة لكم.</p>

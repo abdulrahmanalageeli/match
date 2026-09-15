@@ -1528,6 +1528,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [tableNumber, setTableNumber] = useState<number | null>(null);
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  // The event screen owns the current round's membership; legacy lookup is a fallback.
+  const hotSeatGroupNames = (participantNames ?? groupMembers)
+    .map(name => name.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim())
+    .filter(name => name.length > 0);
   // Group meta for onboarding visualization
   const [groupParticipantNumbers, setGroupParticipantNumbers] = useState<number[]>([]);
   const [groupParticipantGenders, setGroupParticipantGenders] = useState<("male" | "female" | null)[]>([]);
@@ -2751,23 +2755,6 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     setCurrentPromptIndex(0);
     setShowInstructions(false);
 
-    // Auto-populate hot seat participants from group members
-    if (gameId === "hot-seat" && groupMembers.length > 0) {
-      const names = groupMembers
-        .map(gm => {
-          if (typeof gm === 'string') {
-            // Strip "#123" prefix and "(age)" suffix for cleaner display
-            return gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim();
-          }
-          return String(gm);
-        })
-        .filter(n => n.length > 0);
-      if (names.length > 0) {
-        setHotSeatParticipants(names);
-        setHotSeatIndex(0);
-      }
-    }
-
     // Shuffle questions when starting the game
     if (gameId === "never-have-i-ever") {
       setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions, PRIORITY_QUESTION_COUNT));
@@ -2795,12 +2782,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
       setHotSeatTimerActive(false);
       setHotSeatQuestionIndex(0);
-      // Pre-fill participants from groupMembers if available
-      const names = (groupMembers && groupMembers.length > 0)
-        ? groupMembers
-        : [];
-      setHotSeatParticipants(names);
-      if (names.length === 0) setHotSeatDraftParticipants(["", "", "", "", ""]);
+      setHotSeatParticipants(hotSeatGroupNames);
+      if (hotSeatGroupNames.length === 0) setHotSeatDraftParticipants(["", "", "", "", ""]);
     }
     if (shouldFocusActivity) activityFocusTargetRef.current = gameId;
   };
@@ -4171,14 +4154,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {/* Participants setup */}
               {hotSeatParticipants.length === 0 ? (
                 <div className="space-y-4 mb-6">
-                  {groupMembers.length > 0 ? (
+                  {hotSeatGroupNames.length > 0 ? (
                     <>
                       <div className="bg-teal-300/10 border border-teal-300/15 rounded-xl p-4 text-center">
                         <p className="text-teal-200 text-sm font-medium mb-2">تم التعرف على أفراد طاولتك تلقائياً:</p>
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {groupMembers.map((gm, i) => (
+                          {hotSeatGroupNames.map((name, i) => (
                             <span key={i} className="px-3 py-1 rounded-full bg-teal-300/10 border border-teal-300/15 text-teal-200 text-xs font-medium">
-                              {typeof gm === 'string' ? gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim() : String(gm)}
+                              {name}
                             </span>
                           ))}
                         </div>
@@ -4186,10 +4169,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <div className="activity-actions">
                         <Button
                           onClick={() => {
-                            const names = groupMembers
-                              .map(gm => typeof gm === 'string' ? gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim() : String(gm))
-                              .filter(n => n.length > 0);
-                            setHotSeatParticipants(names);
+                            setHotSeatParticipants(hotSeatGroupNames);
                             setHotSeatIndex(0);
                           }}
                           className="event3-art-action activity-primary"

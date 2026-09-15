@@ -1496,15 +1496,18 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button onClick={() => setTableState(prev => ({ ...prev, index: Math.max(0, prev.index - 1) }))} disabled={index <= 0} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm disabled:opacity-30 flex items-center justify-center gap-1">
               <ChevronRight className="w-4 h-4" /> السابق
             </button>
             <button onClick={() => showNextQuestion()} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm flex items-center justify-center gap-1">
               <Shuffle className="w-4 h-4" /> تخطي
             </button>
-            <button onClick={() => changeDepth(depth === "deep" ? -1 : 1)} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm flex items-center justify-center gap-1">
-              <Sparkles className="w-4 h-4" /> {depth === "deep" ? "أخف" : "أعمق"}
+            <button onClick={() => changeDepth(-1)} disabled={depthIndex === 0} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm disabled:opacity-30 flex items-center justify-center gap-1">
+              <Sparkles className="w-4 h-4" /> أخف
+            </button>
+            <button onClick={() => changeDepth(1)} disabled={depthIndex === depthOrder.length - 1} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm disabled:opacity-30 flex items-center justify-center gap-1">
+              <Sparkles className="w-4 h-4" /> أعمق
             </button>
           </div>
 

@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
+﻿import ActivityArtwork from "../components/groups/ActivityArtwork";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { useId } from "react"
 import { GroupsPage, type SharedGroupContent } from "./groups"
 import { useSearchParams } from "react-router"
@@ -4018,9 +4019,7 @@ function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentV
               className={`relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] border p-7 text-center shadow-[0_40px_130px_-40px_rgba(139,92,246,.65)] ring-1 sm:p-10 ${isQuestion ? "border-fuchsia-300/25 bg-gradient-to-b from-fuchsia-950/55 via-[#13091e]/95 to-[#090610]/98 ring-fuchsia-300/10" : "border-cyan-300/25 bg-gradient-to-b from-cyan-950/45 via-[#0d101d]/95 to-[#070910]/98 ring-cyan-300/10"}`}
             >
               <div className={`pointer-events-none absolute left-1/2 top-0 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[70px] ${isQuestion ? "bg-fuchsia-500/25" : "bg-cyan-400/20"}`} />
-              <motion.div animate={reducedMotion ? undefined : { y: [0, -5, 0], rotate: isQuestion ? [0, -2, 2, 0] : 0 }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }} className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-[1.65rem] border ${isQuestion ? "border-fuchsia-300/25 bg-fuchsia-400/12 text-fuchsia-200" : "border-cyan-300/25 bg-cyan-400/12 text-cyan-200"}`}>
-                {isQuestion ? <MessageSquare size={34} strokeWidth={1.6} /> : <Sparkles size={34} strokeWidth={1.6} />}
-              </motion.div>
+              <ActivityArtwork activityId={content.activity_id} className="relative mx-auto h-32 w-32 sm:h-40 sm:w-40" />
               <p className={`relative mt-5 text-[10px] font-black tracking-[0.18em] ${isQuestion ? "text-fuchsia-200" : "text-cyan-200"}`}>{isQuestion ? "سؤال المجموعة" : "النشاط المختار"}</p>
               <h2 className={`relative mx-auto mt-3 max-w-xl font-black leading-[1.55] tracking-tight text-white ${isQuestion ? "text-3xl sm:text-5xl" : "text-3xl sm:text-4xl"}`}>{content.title}</h2>
               {content.body && <p className="relative mx-auto mt-5 max-w-lg text-sm font-bold leading-7 text-white/55 sm:text-base">{content.body}</p>}
@@ -4899,6 +4898,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                     round={round}
                     tableNumber={assignment?.table}
                     participantSeed={token}
+                    participantNames={coordinatorCandidates.map(candidate => candidate.name)}
                     isGroupCoordinator={isGroupCoordinator}
                     coordinatorName={coordinatorName}
                     onSharedContentChange={isGroupCoordinator ? publishSharedGroupContent : undefined}

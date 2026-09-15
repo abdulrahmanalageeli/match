@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { X, Magnet, Clock, Gamepad2, Sparkles, ChevronRight, Play, Target } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { animate } from "motion";
@@ -12,7 +12,7 @@ interface OnboardingModalProps {
   participantNumbers?: number[];           // Prefer numbers instead of names for display
   participantGenders?: ("male" | "female" | null)[]; // Aligned with participantNumbers
   selfParticipantNumber?: number | null;   // Highlight this participant
-  games?: { id: string; nameAr: string; color: string; icon?: JSX.Element }[]; // Optional games to show
+  games?: { id: string; nameAr: string; color: string; icon?: ReactNode }[]; // Optional games to show
 }
 
 export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, participantNumbers, participantGenders, selfParticipantNumber, games }: OnboardingModalProps) {
@@ -470,7 +470,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                       { id: 'would-you-rather', nameAr: 'ماذا تفضل', color: 'from-red-500 to-orange-500' }
                     ]).map((g, i) => (
                       <div key={g.id || i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
-                        <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-linear-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
+                        <div className="mx-auto mb-2 h-14 w-14"> {g.icon ?? null} </div>
                         <div className="font-semibold">{g.nameAr}</div>
                       </div>
                     ))}

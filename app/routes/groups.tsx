@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 import {
   Clock,
@@ -43,6 +43,8 @@ import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
+import ActivityArtwork from "../components/groups/ActivityArtwork";
+import LetsAgreeActivity from "../components/groups/LetsAgreeActivity";
 import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
 import { animate } from "motion";
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,7 +60,7 @@ interface Game {
   energyAr: "هادئ" | "متوازن" | "حماسي";
   fitAr: string;
   duration: number; // in minutes
-  icon: JSX.Element;
+  icon: ReactNode;
   color: string;
 }
 
@@ -74,6 +76,18 @@ const HOT_SEAT_DURATION_SECONDS = 60;
 // Conversational activities first, then game/party activities
 const games: Game[] = [
   {
+    id: "lets-agree",
+    name: "Let's Agree",
+    nameAr: "خلّونا نتفق",
+    description: "Build a plan together, hear every voice, and adapt to a surprise",
+    descriptionAr: "موقف واحد، أفكار مختلفة، وخطة تجمعكم… لين تجي المفاجأة!",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تكتشفون كيف تنسجمون مع بعض",
+    duration: 7,
+    icon: <ActivityArtwork activityId="lets-agree" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
+  },
+  {
     id: "hot-seat",
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
@@ -82,8 +96,8 @@ const games: Game[] = [
     energyAr: "متوازن",
     fitAr: "مناسب إذا تبغون تتعرّفون على الجميع بسرعة",
     duration: 6,
-    icon: <Mic className="w-6 h-6" />,
-    color: "from-amber-500 to-orange-600"
+    icon: <ActivityArtwork activityId="hot-seat" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "discussion-questions",
@@ -94,8 +108,8 @@ const games: Game[] = [
     energyAr: "هادئ",
     fitAr: "مناسب إذا جوّكم هادئ وتبغون حواراً أعمق",
     duration: 10,
-    icon: <Sparkles className="w-6 h-6" />,
-    color: "from-purple-500 to-pink-500"
+    icon: <ActivityArtwork activityId="discussion-questions" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "what-would-you-do",
@@ -106,8 +120,8 @@ const games: Game[] = [
     energyAr: "متوازن",
     fitAr: "مناسب إذا تبغون تكتشفون طريقة التفكير",
     duration: 10,
-    icon: <MessageSquare className="w-6 h-6" />,
-    color: "from-indigo-500 to-blue-600"
+    icon: <ActivityArtwork activityId="what-would-you-do" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "never-have-i-ever",
@@ -118,8 +132,8 @@ const games: Game[] = [
     energyAr: "متوازن",
     fitAr: "مناسب للقصص الخفيفة والمواقف غير المتوقعة",
     duration: 10,
-    icon: <Target className="w-6 h-6" />,
-    color: "from-blue-500 to-cyan-500"
+    icon: <ActivityArtwork activityId="never-have-i-ever" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "two-truths-lie",
@@ -130,8 +144,8 @@ const games: Game[] = [
     energyAr: "متوازن",
     fitAr: "مناسب لتعارف خفيف يكشف قصصاً غير متوقعة",
     duration: 8,
-    icon: <Smile className="w-6 h-6" />,
-    color: "from-violet-500 to-indigo-600"
+    icon: <ActivityArtwork activityId="two-truths-lie" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "would-you-rather",
@@ -142,8 +156,8 @@ const games: Game[] = [
     energyAr: "هادئ",
     fitAr: "مناسب لحوار خفيف يكشف الاختلافات",
     duration: 10,
-    icon: <Heart className="w-6 h-6" />,
-    color: "from-red-500 to-orange-500"
+    icon: <ActivityArtwork activityId="would-you-rather" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "5-second-rule",
@@ -154,8 +168,8 @@ const games: Game[] = [
     energyAr: "حماسي",
     fitAr: "مناسب إذا تبغون طاقة وضحكاً سريعاً",
     duration: 10,
-    icon: <Timer className="w-6 h-6" />,
-    color: "from-orange-500 to-red-500"
+    icon: <ActivityArtwork activityId="5-second-rule" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
     id: "charades",
@@ -166,8 +180,8 @@ const games: Game[] = [
     energyAr: "حماسي",
     fitAr: "مناسب إذا مجموعتكم تحب الحركة والضحك",
     duration: 10,
-    icon: <ThumbsUp className="w-6 h-6" />,
-    color: "from-green-500 to-teal-500"
+    icon: <ActivityArtwork activityId="charades" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
   }
 ];
 
@@ -181,8 +195,8 @@ games.push({
   energyAr: "حماسي",
   fitAr: "مناسب لمجموعة تحب التحدّي والشكوك اللطيفة",
   duration: 12,
-  icon: <Ghost className="w-6 h-6" />,
-  color: "from-fuchsia-600 to-purple-700"
+  icon: <ActivityArtwork activityId="imposter" />,
+  color: "from-violet-500 via-cyan-400 to-teal-300"
 })
 
 const hashActivitySeed = (value: string): number => {
@@ -233,6 +247,16 @@ const gameThemes: Record<string, {
   optionB?: string;
   scorePill?: string;
 }> = {
+  'lets-agree': {
+    cardBorder: "border-teal-400/30",
+    cardBorderHover: "hover:border-teal-300/60",
+    cardOverlay: "from-teal-500/15 via-emerald-500/10 to-transparent",
+    iconRing: "ring-2 ring-teal-300/30",
+    chip: "bg-teal-500/20 border border-teal-300/30 text-teal-100",
+    metaText: "text-teal-200",
+    cta: "from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700",
+    instruction: "rounded-2xl border border-teal-300/20 bg-teal-500/10 p-5",
+  },
   default: {
     cardBorder: "border-slate-700/50",
     cardBorderHover: "hover:border-slate-500/60",
@@ -333,7 +357,28 @@ const gameThemes: Record<string, {
 };
 
 
+// The approved prefix stays ahead of older content when each question bank is shuffled.
+const PRIORITY_QUESTION_COUNT = 16;
+
 const neverHaveIEverQuestions = [
+  // Approved openings — September 16, 2026.
+  "قد كملت مسلسلًا بدون الشخص اللي وعدته تشوفونه مع بعض؟",
+  "قد رتّبت الغرفة بسرعة عن طريق نقل كل الكركبة للدولاب؟",
+  "قد تكلمت بحماس في مكالمة وأنت كاتم المايك؟",
+  "قد طلبت توصيلًا من مكان تقدر تروح له مشي؟",
+  "قد لبست نفس لبس شخص في مناسبة بالصدفة؟",
+  "قد زرعت شيئًا من بذرة وأكلت من محصوله؟",
+  "قد قفلت السيارة والمفتاح داخلها؟",
+  "قد تعلّمت خدعة سحرية بسيطة عشان توريها لأحد؟",
+  "قد لوّحت لشخص واكتشفت إنه كان يلوّح للي وراك؟",
+  "قد دورت على نظارتك وهي فوق رأسك؟",
+  "قد دخلت غرفة ونسيت وش كنت تبي منها؟",
+  "قد اشتريت مكونات وصفة، وبالأخير طلبت عشاء من برا؟",
+  "قد وصلت بدري جدًا لموعد وجلست تتمشى عشان ما تبين إنك بدري؟",
+  "قد كتبت ردًا كاملًا واكتشفت بعد ساعات إنك ما أرسلته؟",
+  "قد ناديت جهازًا باسم شخص من كثر ما كنت معصّب عليه؟",
+  "قد حطيت شيئًا في «مكان آمن» لدرجة إنك ما عاد لقيته؟",
+
   // Original 50 questions
   "لم أفعل من قبل: غيرت مساري المهني أو الدراسي بشكل جذري",
   "لم أفعل من قبل: سافرت لوحدي لبلد لا أعرف فيه أحد",
@@ -469,6 +514,24 @@ const neverHaveIEverQuestions = [
 ];
 
 const wouldYouRatherQuestions = [
+  // Approved openings — September 16, 2026.
+  { optionA: "يوم راحة إضافي كل أسبوع", optionB: "تجمع نفس الأيام لإجازة طويلة مرة بالسنة" },
+  { optionA: "أربع طلعات بسيطة بالشهر", optionB: "طلعة واحدة مميزة بنفس الميزانية" },
+  { optionA: "ورشة قصيرة تطلع منها بشيء صنعته", optionB: "زيارة خلف الكواليس تشوف كيف يصنعه محترف" },
+  { optionA: "هدية تعرف بالضبط أنك تحتاجها", optionB: "مفاجأة اختارها شخص على ذوقه لك" },
+  { optionA: "ترجع لمكان تحبه مع شخص يزوره لأول مرة", optionB: "تكتشفون مكانًا جديدًا عليكم الاثنين" },
+  { optionA: "تعيش يومًا من رحلة جميلة مرة ثانية", optionB: "تشوف صورًا جديدة لذلك اليوم ما قد شفتها" },
+  { optionA: "تشارك في لعبة تعاونية يفوز فيها الجميع", optionB: "بطولة ودية لكل شخص فيها نتيجته" },
+  { optionA: "توصية من شخص يعرف ذوقك", optionB: "اختيار عشوائي من شيء ما جربته" },
+  { optionA: "تتعلم وصفة من صاحبها في بيته", optionB: "تتعلمها في مطبخ احترافي" },
+  { optionA: "تزور متحفًا مع مرشد", optionB: "تتمشى فيه وتخترع تفسيرك للأشياء قبل تقرأ عنها" },
+  { optionA: "أحد يصوّر لك اللحظات العفوية", optionB: "أنت تختار متى وكيف تنحفظ صورك" },
+  { optionA: "تذكار من رحلة تستخدمه كل يوم", optionB: "تذكار تعرضه وتحافظ عليه" },
+  { optionA: "تسكن أسبوعًا في بيت تاريخي فيه عيوب بسيطة", optionB: "بيت حديث ومريح لكنه بلا طابع مميز" },
+  { optionA: "تعرف سبب إعجاب شخص بك", optionB: "تعرف موقفًا واحدًا خلاه يغيّر رأيه عنك للأفضل" },
+  { optionA: "تسمع القصة من صاحبها", optionB: "تقرأ الرسائل والملاحظات اللي كتبها وقت حدوثها" },
+  { optionA: "تعزم صديقًا على تجربة تحبها أنت", optionB: "تطلب منه يأخذك لتجربة يحبها هو" },
+
   {
     optionA: "أن تعمل في وظيفة تحبها براتب قليل",
     optionB: "أن تعمل في وظيفة تكرهها براتب ضخم"
@@ -837,6 +900,24 @@ const wouldYouRatherQuestions = [
 
 // ماذا تفعل لو؟ – مواقف اجتماعية وعاطفية تكشف أسلوب التفكير والتواصل
 const whatWouldYouDoScenarios: string[] = [
+  // Approved openings — September 16, 2026.
+  "لو شخص ناداك باسم غلط طول الجلسة، وما انتبهت إلا متأخر إنه يقصدك، كيف تصحح له؟",
+  "لو اتفقتوا على تقسيم الفاتورة بالتساوي، وبعدين لاحظت إن شخصًا ما طلب إلا ماء، وش تقترح؟",
+  "لو صديق طلب ترشيحك لنشاط يحتاج مهارة ما تعرف مستواه فيها، وش تقول قبل ما ترشحه؟",
+  "لو وصلتك هدية واضحة العناية لكنها ما تناسب ذوقك، كيف تتعامل معها إذا سألك صاحبها عنها بعد فترة؟",
+  "لو تذكرت موقفًا بشكل مختلف عن صديقك، وكل واحد واثق من ذاكرته، كيف تكملون السالفة؟",
+  "لو اتفق اثنان على خطة وفهم أحدهما أنها وعد والآخر أنها مجرد اقتراح، كيف توضّح سوء الفهم لو كنت أحدهما؟",
+  "لو اقترحت فكرة واترفضت، وبعد شوي قالها شخص آخر وتحمّسوا لها، وش تسوي؟",
+  "لو مجموعة جديدة بنت سالفتها كلها على ذكريات ما عشتها معهم، كيف تدخل في الحوار؟",
+  "لو صديق أعطاك هدية غالية وأنت ما تقدر ترد بالمثل، هل تفتح الموضوع؟ وكيف؟",
+  "لو ربحت تذكرتين وعندك ثلاثة أصدقاء متحمسين بنفس القدر، كيف تختار مرافقك؟",
+  "لو أحد عرض عليك خدمة، ثم اكتشفت أنه يتوقع مقابلًا ما اتفقتوا عليه، كيف تتكلم معه؟",
+  "لو صديق طلب منك تصوّره طول الطلعة وأنت تبي تعيش اللحظة معه، كيف توصلون لحل؟",
+  "لو أحد بدأ يحكي نهاية فيلم تنتظر تشوفه، كيف توقفه بدون ما تطفّي حماسه؟",
+  "لو شخص جديد شرح لك موضوعًا تعرفه جيدًا وهو يظنك مبتدئًا، متى تقول له إن عندك خلفية؟",
+  "لو انضاف شخص متأخر للعبة وأنتم قرب النهاية، كيف تدخلونه في الجو؟",
+  "لو اكتشفت أن صديقًا يحب نفس هوايتك لكنه يحوّل كل جلسة إلى منافسة، كيف تقترح تجربة تستمتعون فيها أنتم الاثنين؟",
+
   // بدايات خفيفة تكسر الرسميات
   "ماذا تفعل لو أعطوكم رحلة مجانية الليلة لكن لازم تختارون الوجهة خلال خمس دقائق؟ كيف تحسمونها؟",
   "ماذا تفعل لو انقطع الإنترنت عنك يوماً كاملاً؟ كيف تقضي يومك ومن أول شخص تبحث عنه؟",
@@ -941,6 +1022,24 @@ const whatWouldYouDoScenarios: string[] = [
 
 // الكرسي الساخن — أسئلة ممتعة ومتدرجة تكشف الشخصية وأسلوب القرب
 const hotSeatQuestions: string[] = [
+  // Approved openings — September 16, 2026.
+  "وش الإيموجي اللي تستخدمه أكثر من اللازم؟",
+  "لو مهامك اليومية لها مسمى وظيفي مضحك، وش بيكون؟",
+  "عطنا معلومة غريبة تعرفها وما لقيت فرصة تقولها.",
+  "في أي شغلة منزلية تتوقع تفوز لو لها بطولة؟",
+  "لو شنطتك تقدر تشتكي منك، وش بتقول؟",
+  "لو فتحت محلًا صغيرًا، وش بتسميه؟",
+  "ترتّب ملفاتك بأسماء واضحة أو عندك «نهائي، نهائي٢، النهائي فعلًا»؟",
+  "وش التفصيل اللي يخليك تنقص نجمة من تقييم مكان؟",
+  "تسمع الرسائل الصوتية بسرعة عادية أو تسرّعها؟ وليش؟",
+  "كيف تحفظ اسم شخص تقابله لأول مرة؟",
+  "إذا شريت شيء يحتاج تركيب، تبدأ بالدليل أو بالقطع؟",
+  "وش عبارة من فيلم أو مسلسل دخلت في كلامك اليومي؟",
+  "تقرأ آخر صفحة من الكتاب قبل ما تخلصه أو تعتبرها جريمة؟",
+  "أي لعبة تخليك تتحوّل من هادئ إلى منافس جدًا؟",
+  "وش الشيء اللي تتأكد منه مرتين قبل تطلع من البيت؟",
+  "ترد على الرقم الغريب أو تنتظر يرسل رسالة؟",
+
   // خفيفة ومرحة
   "وش تفصيلة صغيرة تقدر تعدّل مزاجك بسرعة؟",
   "لو أصحابك بيعطونك لقباً من شخصيتك، وش تتوقع يكون؟",
@@ -1222,6 +1321,24 @@ const imposterCategories: Record<string, string[]> = {
 
 // 5-Second Rule Categories - Fun & Engaging!
 const fiveSecondRuleCategories = [
+  // Approved openings — September 16, 2026.
+  "أماكن تنتظر فيها دورك",
+  "أشياء لها أزرار",
+  "أشياء يمكن طيّها",
+  "أشياء تحتاج مفتاحًا",
+  "أشياء تصدر صوتًا في المطبخ",
+  "أشياء تذوب",
+  "أشياء نستخدمها لربط شيئين",
+  "أشياء لها عجلات وليست سيارات",
+  "أشياء ممكن تستعيرها من جار",
+  "أشياء لها مقبض",
+  "أشياء نفتحها بدون مفتاح",
+  "أشياء تتغير ألوانها",
+  "أشياء تستخدمها حتى لو انقطعت الكهرباء",
+  "أشياء تطير وليست طيورًا",
+  "أشياء تُباع بالأمتار",
+  "أشياء يُفضّل الاحتفاظ بها جافة",
+
   // Food & Drinks 🍕
   "حلويات سعودية", "مطاعم سريعة مشهورة", "فواكه استوائية", "أطعمة إيطالية", "حلويات عربية",
   "مشروبات ساخنة", "أكلات البيت اللي تحن لها", "أشياء تطلبها دايماً من المطعم", "وجبات سريعة تحبها",
@@ -1291,12 +1408,13 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber, participantSeed, isGroupCoordinator = false, coordinatorName, onSharedContentChange, onRequestReelection }: {
+export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber, participantSeed, participantNames, isGroupCoordinator = false, coordinatorName, onSharedContentChange, onRequestReelection }: {
   disableOnboarding?: boolean;
   onClose?: () => void;
   round?: number;
   tableNumber?: number;
   participantSeed?: string | number | null;
+  participantNames?: string[];
   isGroupCoordinator?: boolean;
   coordinatorName?: string | null;
   onSharedContentChange?: (content: SharedGroupContent | null) => void;
@@ -1466,7 +1584,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   }, [shareContent]);
 
   const projectedActivityContent = useMemo<SharedGroupContent | null>(() => {
-    if (!selectedGameId || selectedGameId === "discussion-questions") return null;
+    if (!selectedGameId || selectedGameId === "discussion-questions" || selectedGameId === "lets-agree") return null;
     const selectedGame = games.find(game => game.id === selectedGameId);
     if (!selectedGame) return null;
 
@@ -1554,7 +1672,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   }, [isGroupCoordinator, projectedActivityContent, shareContent]);
 
   // Shuffle array function
-  const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffleArray = <T,>(array: T[], priorityCount = 0): T[] => {
+    if (priorityCount > 0) {
+      return [
+        ...shuffleArray(array.slice(0, priorityCount)),
+        ...shuffleArray(array.slice(priorityCount)),
+      ];
+    }
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -2644,13 +2768,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     // Shuffle questions when starting the game
     if (gameId === "never-have-i-ever") {
-      setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
+      setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions, PRIORITY_QUESTION_COUNT));
     } else if (gameId === "would-you-rather") {
-      setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
+      setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions, PRIORITY_QUESTION_COUNT));
     } else if (gameId === "what-would-you-do") {
-      setShuffledWhatWouldYouDo(shuffleArray(whatWouldYouDoScenarios));
+      setShuffledWhatWouldYouDo(shuffleArray(whatWouldYouDoScenarios, PRIORITY_QUESTION_COUNT));
     } else if (gameId === "5-second-rule") {
-      setShuffledCategories(shuffleArray(fiveSecondRuleCategories));
+      setShuffledCategories(shuffleArray(fiveSecondRuleCategories, PRIORITY_QUESTION_COUNT));
       setCategoryIndex(0);
     } else if (gameId === "imposter") {
       // Show tutorial the first time only
@@ -2663,7 +2787,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         }
       } catch {}
     } else if (gameId === "hot-seat") {
-      setShuffledHotSeat(shuffleArray(hotSeatQuestions));
+      setShuffledHotSeat(shuffleArray(hotSeatQuestions, PRIORITY_QUESTION_COUNT));
       setHotSeatError(null);
       setHotSeatIndex(0);
       setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
@@ -2792,13 +2916,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       const prevActivity = () => moveActivity(-1);
 
       return (
-        <div className={`relative flex h-full min-h-full w-full flex-col bg-gradient-to-b ${roundTheme.shell}`}>
+        <div className="relative flex h-full min-h-full w-full flex-col bg-[#080f1c]">
           <motion.div
             key={`bg-${currentGame.id}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.45 }}
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 opacity-40"
           >
             <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
             <div className={`absolute -top-24 left-1/3 h-64 w-64 rounded-full blur-[90px] ${roundTheme.primaryOrb}`} />
@@ -2886,28 +3010,17 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   aria-describedby={`carousel-game-description-${currentGame.id}`}
                   className="event3-activity-card relative cursor-grab overflow-hidden rounded-[2rem] border border-white/[0.12] bg-gray-900/88 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.98)] ring-1 ring-white/[0.05] active:cursor-grabbing"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.16]`} />
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-black/35" />
-                  <div className={`absolute -right-16 -top-20 h-56 w-56 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`} />
-
                   <div className="event3-activity-card__content relative z-10 flex flex-col p-5 text-right">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-bold text-white/70">
-                        {carouselIndex + 1} من {activityGames.length}
+                    <div className="relative flex justify-center">
+                      <span dir="ltr" className="absolute right-0 top-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-bold tabular-nums text-white/50">
+                        {carouselIndex + 1} / {activityGames.length}
                       </span>
-                      <motion.div
-                        initial={{ scale: 0.72, rotate: -10 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                        className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
-                      >
-                        {currentGame.icon}
-                      </motion.div>
+                      <div className="event3-activity-hero">{currentGame.icon}</div>
                     </div>
 
-                    <div className="mt-5 flex flex-wrap justify-end gap-2">
-                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/70">{currentGame.energyAr}</span>
-                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/70">{currentGame.duration} دقائق</span>
+                    <div className="mt-2 flex flex-wrap justify-start gap-2">
+                      <span className="rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3 py-1 text-xs font-bold text-violet-200">{currentGame.energyAr}</span>
+                      <span className="flex items-center gap-1.5 rounded-full border border-cyan-300/10 bg-cyan-300/[0.04] px-3 py-1 text-xs font-bold text-cyan-100/70"><Clock className="h-3 w-3" />{currentGame.duration} دقائق</span>
                     </div>
 
                     <div className="flex-1 py-3">
@@ -2932,7 +3045,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       type="button"
                       whileTap={{ scale: 0.97 }}
                       onClick={() => startGame(currentGame.id)}
-                      className={`event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg hover:brightness-110`}
+                      className="event3-art-action event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-base font-black hover:brightness-110"
                     >
                       <Play className="h-4 w-4 fill-current" />
                       <span>ابدأوا هذا النشاط</span>
@@ -3045,7 +3158,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
                   <div className="relative z-10 flex items-start gap-4">
                     {/* Icon with aura */}
-                    <motion.div layoutId={`game-icon-${game.id}`} className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 ${theme.iconRing}`}>
+                    <motion.div layoutId={`game-icon-${game.id}`} className="h-20 w-20 shrink-0">
                       {game.icon}
                     </motion.div>
 
@@ -3101,6 +3214,15 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       return renderGameSelection();
     }
 
+    if (selectedGameId === "lets-agree") {
+      return <LetsAgreeActivity
+        round={round}
+        participantNames={participantNames ?? groupMembers}
+        onSharedContentChange={isGroupCoordinator ? shareContent : undefined}
+        onFinish={returnToActivitySelection}
+      />;
+    }
+
     const currentGame = games.find(g => g.id === selectedGameId);
     if (!currentGame) return null;
     const activityCardClass = "modern-activity-card relative overflow-hidden bg-white/[0.045] backdrop-blur-xl border-white/10 rounded-[2rem] shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.04]";
@@ -3125,7 +3247,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <button
                 type="button"
                 onClick={returnToActivitySelection}
-                className={`event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} px-5 text-base font-black text-white shadow-lg hover:brightness-110`}
+                className="event3-art-action event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-base font-black hover:brightness-110"
               >
                 <Shuffle className="h-5 w-5" /> اختيار نشاط آخر
               </button>
@@ -3169,26 +3291,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 24 }}
-            className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-gray-900/75 px-5 py-5 shadow-2xl shadow-black/30"
+            className="event3-activity-heading relative isolate overflow-hidden rounded-[2rem] border border-white/10 px-5 py-5"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
-            <motion.div
-              aria-hidden="true"
-              className={`absolute -top-20 -left-16 h-48 w-48 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`}
-              animate={{ scale: [1, 1.18, 1], x: [0, 12, 0], y: [0, 8, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <div className="relative z-10 flex items-start gap-4 text-right">
-              <motion.div
-                animate={{ y: [0, -4, 0], rotate: [0, 2, 0, -2, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
-              >
-                {currentGame.icon}
-              </motion.div>
+            <div className="relative z-10 flex items-center gap-3 text-right">
+              <div className="h-24 w-24 shrink-0">{currentGame.icon}</div>
               <div className="min-w-0 flex-1">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className={`text-xs font-black ${roundTheme.text}`}>النشاط الآن</span>
+                <p className="mb-1 text-[10px] font-bold text-cyan-200/70">النشاط الآن</p>
+                <h2 className="text-2xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-bold text-white/75">
                     {currentGame.energyAr}
                   </span>
@@ -3196,11 +3306,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     {currentGame.duration} دقائق
                   </span>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
-                <p className="mt-1 text-[15px] font-medium leading-7 text-white/65">{currentGame.descriptionAr}</p>
               </div>
             </div>
-            <p className="relative z-10 mt-4 rounded-2xl border border-white/[0.07] bg-black/20 px-3 py-2.5 text-right text-sm font-semibold leading-6 text-white/60">
+            <p className="relative z-10 mt-3 text-right text-xs font-medium leading-6 text-white/50">
               اقرأوا المطلوب، ثم خلّوا الهاتف في المنتصف.
             </p>
             <div className="relative z-10 mt-4 flex items-center gap-2">
@@ -4259,7 +4367,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                           setHotSeatQuestionIndex(prev => {
                             const len = shuffledHotSeat.length || hotSeatQuestions.length;
                             if (prev + 1 >= len) {
-                              setShuffledHotSeat(shuffleArray(hotSeatQuestions));
+                              setShuffledHotSeat(shuffleArray(hotSeatQuestions, PRIORITY_QUESTION_COUNT));
                               return 0;
                             }
                             return prev + 1;
@@ -4767,7 +4875,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
                     
                     <div className="relative z-10">
-                      <motion.div layoutId={`game-icon-${game.id}`} className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
+                      <motion.div layoutId={`game-icon-${game.id}`} className="mx-auto mb-3 h-24 w-24">
                         {game.icon}
                       </motion.div>
                       <h3 className="text-white font-bold text-sm mb-2 leading-tight group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
@@ -4922,7 +5030,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {/* Current Game Badge - Themed */}
               {selectedGameId && (
                 <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} transition-all`}>
-                  <motion.div layoutId={`game-icon-${selectedGameId}`} className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+                  <motion.div layoutId={`game-icon-${selectedGameId}`} className="h-10 w-10 shrink-0">
                     {games.find(g => g.id === selectedGameId)?.icon}
                   </motion.div>
                   <span className="text-sm font-medium text-white/90">
@@ -4942,7 +5050,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             const g = games.find(gm => gm.id === selectedGameId);
             if (!g) return null;
             return (
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40">
                 <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
                 <div className={`absolute -top-24 left-1/3 h-64 w-64 rounded-full blur-[90px] ${roundTheme.primaryOrb}`} />
                 <div className={`absolute inset-0 bg-gradient-to-br ${g.color} opacity-[0.06]`} />

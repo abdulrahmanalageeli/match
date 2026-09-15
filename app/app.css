@@ -2003,6 +2003,7 @@ html:not(.dark) .round-bg-pattern::before {
 .event3-activity-card {
   isolation: isolate;
   transform: translateZ(0);
+  background: linear-gradient(165deg, #0b1828, #08111f 58%, #111328);
   box-shadow:
     0 32px 92px -45px rgba(var(--event3-purple), 0.62),
     0 26px 62px -40px rgba(0, 0, 0, 0.98),
@@ -2011,13 +2012,44 @@ html:not(.dark) .round-bg-pattern::before {
 
 .event3-activity-card::after {
   position: absolute;
-  inset: -30% -70%;
+  inset: 0 15% auto;
   z-index: 12;
   pointer-events: none;
   content: "";
-  background: linear-gradient(105deg, transparent 43%, rgba(255, 255, 255, 0.12) 50%, transparent 57%);
-  transform: translate3d(-44%, 0, 0);
-  animation: event3-activity-sheen 920ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #a974ff80, #37e9d480, transparent);
+}
+
+.activity-artwork {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  /* Blend the original midnight backdrop into the surrounding surface. */
+  mix-blend-mode: screen;
+  mask-image: radial-gradient(ellipse at center, #000 56%, transparent 73%);
+}
+
+.event3-activity-hero {
+  width: clamp(8.5rem, 21vh, 11rem);
+  height: clamp(8.5rem, 21vh, 11rem);
+}
+
+.event3-activity-heading {
+  isolation: isolate;
+  background: linear-gradient(135deg, #0b1726, #0d1424 65%, #17142b);
+  box-shadow: 0 20px 55px -38px #7563e855, inset 0 1px 0 #ffffff08;
+}
+
+.event3-art-action {
+  color: #071824;
+  background: linear-gradient(105deg, #81b9ff, #59ddea 52%, #68efc6);
+  box-shadow: 0 8px 26px -12px #3ee9d655, inset 0 1px 0 #ffffff55;
+}
+
+.event3-art-action:focus-visible {
+  outline: 2px solid #a9f8e9;
+  outline-offset: 4px;
 }
 
 .event3-activity-card__content {

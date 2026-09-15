@@ -1,3 +1,4 @@
+import ActivityArtwork from "./groups/ActivityArtwork";
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain, Copy, Shuffle, Filter, Search, BookOpen } from "lucide-react";
@@ -1164,8 +1165,49 @@ type TableModeState = {
   contextKey?: string;
 };
 
-// v3 resets histories created by the previous per-device random selector.
-const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v3";
+// Reset older histories so the approved opening questions appear first.
+const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v4";
+
+const openingQuestionsByDepth: Record<DiscussionDepth, string[]> = {
+  shallow: [
+    "لو دخلنا مكانًا أنت اخترت كل تفاصيله، وش الشيء اللي بيكشف ذوقك فورًا؟ ومن وين جاء هذا الذوق؟",
+    "وش أول جملة في رواية خيالية بتخلّيك تترك اللي بيدك وتكمل القراءة؟ اخترعها لنا.",
+    "وش وجهة سياحية مشهورة ما تحس إنها لك؟ وش البديل الأقل شهرة اللي يشدّك أكثر؟",
+    "وش تفسير كنت مقتنع فيه وأنت صغير لشيء عادي، وبعدين اكتشفت إنك فاهمه بطريقة ثانية تمامًا؟",
+    "وش رائحة ترجعك فورًا لوقت أو مكان محدد؟ خذنا للمشهد.",
+    "لو تقدر تخترع جهاز يحل إزعاجًا صغيرًا يتكرر في يومك، وش بيكون؟",
+    "وش موضة أو ترند تحمّست له زمان، واليوم تضحك على حماسك له؟",
+    "وش مكان صرت ودّك تزوره بسبب فيلم أو رواية؟ وش تتخيل تحس إذا وصلت له؟",
+    "قبل مكالمة مهمة، تتمرّن على أول جملة أو تبدأ بعفوية؟ احك لنا عن مرة صار الحوار غير اللي جهّزته.",
+    "وش كلمة أو عبارة عندكم في البيت ما يفهم معناها أحد من برا؟ وش قصتها؟",
+    "وش رأي عندك في موضوع بسيط—مثل الأكل أو ترتيب البيت—تدافع عنه بحماس كأنه قضية كبيرة؟",
+  ],
+  medium: [
+    "لو أحد بيسافر معك لأول مرة، وش معلومة عن طباعك في السفر بتسهّل عليه الرحلة؟",
+    "لما تدخل مكانًا مع شخص وتلاحظون تفاصيل مختلفة تمامًا، وش تتوقع يلفت نظرك أنت أولًا؟",
+    "قد جهّزت مفاجأة بحماس، وبعدين اكتشفت إن الشخص ينبسط بشيء مختلف عن اللي توقعته؟ وش تعلمت عن ذوقه؟",
+    "وش شيء تفضّل تستعيره من شخص بدل ما تملكه، لأن تجربة الاستعارة نفسها لها طعم؟",
+    "لو اشتريت غرضًا مستعملًا، هل قصة صاحبه السابق تزيد قيمته عندك أو ما تفرق؟ وليش؟",
+    "لو صورتك المفضلة فيها عيب واضح، تصلحه أو تخليها مثل ما هي؟ وش اللي يخليك تتمسك بصورة؟",
+    "وش سؤال سألك إياه طفل واكتشفت إن جوابه أصعب مما توقعت؟",
+    "وش تفصيل عن يوميات مهنة غير مهنتك عرفته من صاحبها وخلاك تشوفها بصورة مختلفة؟",
+    "وش غرض بسيط محتفظ فيه، قيمته عندك أكبر بكثير من سعره؟ وش قصته؟",
+    "كيف تغيّرت دائرة أصدقائك خلال السنوات الماضية؟ وش نوع الأشخاص اللي صار يدخل حياتك اليوم؟",
+    "لو خيّروك بين ترقية شيء تستخدمه يوميًا، أو يوم إجازة إضافي كل شهر، وش تختار؟ وش يكشف اختيارك عن أولوياتك الآن؟",
+    "اختر شخصية من فيلم أو رواية: وش نصيحة تعطيها، وتتوقع إنها بترفض تسمعها؟",
+    "وش شيء مشترك اكتشفتوه بين اثنين أو أكثر على الطاولة، ما كان ممكن تعرفونه من أول نظرة؟",
+    "لو صارت طاولتنا ناديًا يجتمع مرة بالشهر، وش بيكون موضوعه؟ وكيف نخليه ممتعًا لشخص تختلف اهتماماته عن البقية؟",
+  ],
+  deep: [
+    "كيف تميّز بين شيء تحبه فعلًا وشيء تعوّدت تشوف الناس يمدحونه؟ عندك مثال؟",
+    "لما تعرف كيف انصنع فيلم أو طبق أو خدعة، تزيد متعتك فيه أو يروح جزء من سحره؟",
+    "هل نحتاج رأيًا في كل موضوع ينفتح قدامنا؟ متى تكون مرتاحًا تقول: «ما كوّنت رأيي للحين»؟",
+    "وش نصيحة مشهورة تشوفها ممتازة لناس كثير، لكنها ما تناسبك؟ وليش؟",
+    "لو أحد قدّم لك معروفًا وفضّل ما تعرف هويته، هل يكفيك أثر المعروف، أو يهمك تعرف صاحبه؟ وليش؟",
+    "وش تفصيل قاله أحد اليوم وخلّاك تبي تعرف قصته أكثر؟ اسأله عنه.",
+    "اختاروا موضوعًا خفيفًا اختلفتوا عليه: هل تقدرون تشرحون سبب اختيار الطرف الثاني بطريقة يقول عنها: «إيه، هذا قصدي»؟",
+  ],
+};
 
 // Curated specifically for a live group: inclusive, answerable by everyone,
 // likely to create follow-up conversation, and ordered from safe to revealing.
@@ -1258,11 +1300,23 @@ function getUnseenQuestion(
   tableNumber = 1,
   round = 1,
 ) {
+  // Keep the new questions ahead of the entire older bank. Shuffle this tier
+  // separately so a combined shuffle cannot bury the approved openings.
+  const openings = seededQuestionOrder(
+    openingQuestionsByDepth[depth],
+    discussionSeed(tableNumber, depth),
+  );
+  const openingMidpoint = Math.ceil(openings.length / 2);
+  const roundOpenings = round === 2
+    ? [...openings.slice(openingMidpoint), ...openings.slice(0, openingMidpoint)]
+    : openings;
+  const unseenOpening = roundOpenings.find(question => !history.includes(question));
+  if (unseenOpening) return unseenOpening;
+
   const pool = tableQuestionsByDepth[depth];
   if (!pool.length) return "اختاروا موضوعاً يهم الجميع، وليشارك كل شخص رأيه باختصار.";
 
-  // Put the curated live-table prompts first, remove duplicates, then create a
-  // stable order shared by every phone at the same table.
+  // Preserve the older bank's stable order after the opening questions.
   const combined = [...new Set([...priorityGroupQuestionsByDepth[depth], ...pool])];
   const ordered = seededQuestionOrder(combined, discussionSeed(tableNumber, depth));
 
@@ -1333,6 +1387,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
       }
       const question = getUnseenQuestion(requestedDepth, prev.history, tableNumber, round);
       return {
+        contextKey,
         depth: requestedDepth,
         history: [...prev.history.slice(0, prev.index + 1), question],
         index: prev.index + 1,
@@ -1386,7 +1441,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         </div>
         <header className={`relative z-10 flex items-center justify-between gap-3 border-b bg-gray-950/75 px-5 py-4 backdrop-blur-xl ${roundTheme.border}`}>
           <div>
-            <p className="font-black text-base">أسئلة المجموعة</p>
+            <p className="font-black text-base">سؤال يفتح السالفة</p>
             <p className={`mt-0.5 text-[11px] font-bold ${roundTheme.text}`}>الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center" aria-label="إغلاق">
@@ -1409,14 +1464,14 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -12, scale: 0.98 }}
                 transition={{ duration: 0.24 }}
-                className={`relative rounded-[2rem] border bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/30 ring-1 sm:p-8 ${roundTheme.border} ${roundTheme.ring}`}
+                className="event3-activity-heading relative rounded-[2rem] border border-white/10 p-6 text-center sm:p-8"
               >
                 <div className="flex items-center justify-center gap-2 mb-6">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${depthColors[depth]} text-gray-950`}>{depthLabel}</span>
                   <span className="text-xs text-gray-500">السؤال {index + 1}</span>
                 </div>
 
-                <MessageSquare className={`w-8 h-8 mx-auto mb-5 ${roundTheme.text}`} />
+                <ActivityArtwork activityId="discussion-questions" className="mx-auto mb-3 h-28 w-28" />
                 <p className="text-2xl sm:text-3xl font-black leading-[1.65] text-white">{currentQuestion}</p>
 
                 <div className="mt-7 pt-5 border-t border-white/[0.07] space-y-2">
@@ -1431,7 +1486,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         </main>
 
         <footer className={`relative z-10 px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-gray-950/85 backdrop-blur-xl space-y-3 ${roundTheme.border}`}>
-          <button onClick={finishCurrentQuestion} className={`w-full min-h-14 rounded-2xl bg-gradient-to-r hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg ${roundTheme.bar}`}>
+          <button onClick={finishCurrentQuestion} className="event3-art-action w-full min-h-14 rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all font-black text-base flex items-center justify-center gap-2">
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
 

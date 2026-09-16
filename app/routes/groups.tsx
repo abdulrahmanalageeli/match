@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import * as Dialog from "@radix-ui/react-dialog";
 import { Navigate, useLocation } from "react-router";
 import {
   Clock,
@@ -64,6 +65,7 @@ interface Game {
   energyAr: "هادئ" | "متوازن" | "حماسي";
   fitAr: string;
   duration: number; // in minutes
+  isNew?: boolean;
   icon: ReactNode;
   color: string;
 }
@@ -81,6 +83,7 @@ const HOT_SEAT_DURATION_SECONDS = 60;
 const games: Game[] = [
   {
     id: "lets-agree",
+    isNew: true,
     name: "Let's Agree",
     nameAr: "خلّونا نتفق",
     description: "Build a plan together, hear every voice, and adapt to a surprise",
@@ -93,6 +96,7 @@ const games: Game[] = [
   },
   {
     id: "conspiracy-theories",
+    isNew: true,
     name: "Conspiracy Theories",
     nameAr: "تصدّقها ولا لا؟",
     description: "Discuss intriguing theories, examine evidence, and reconsider together",
@@ -105,6 +109,7 @@ const games: Game[] = [
   },
   {
     id: "green-red-depends",
+    isNew: true,
     name: "Green / Red / Depends",
     nameAr: "أخضر، أحمر، أو يعتمد؟",
     description: "Vote privately on everyday habits, reveal the split, and discuss",
@@ -117,6 +122,7 @@ const games: Game[] = [
   },
   {
     id: "unwritten-rules",
+    isNew: true,
     name: "Unwritten Rules",
     nameAr: "قوانيننا غير المكتوبة",
     description: "Agree or disagree, discuss, and build your group's unofficial rulebook",
@@ -262,8 +268,10 @@ const createSeededRandom = (seedValue: string) => {
 const shuffleActivitiesForParticipant = (seedValue: string, round: number): Game[] => {
   const random = createSeededRandom(`${seedValue}:${round}`);
   const openingIds = round === 1
-    ? ["lets-agree", "conspiracy-theories"]
-    : [round === 2 || random() < 0.5 ? "conspiracy-theories" : "lets-agree"];
+    ? ["lets-agree", "conspiracy-theories", "green-red-depends", "unwritten-rules"]
+    : round === 2
+      ? ["conspiracy-theories", "lets-agree", "green-red-depends", "unwritten-rules"]
+      : ["green-red-depends", "unwritten-rules", "lets-agree", "conspiracy-theories"];
   const openings = openingIds.flatMap(id => games.filter(game => game.id === id));
   const shuffled = games.filter(game => !openingIds.includes(game.id) && game.id !== "imposter");
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -1471,6 +1479,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [gameStarted, setGameStarted] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [unwrittenRulebook, setUnwrittenRulebook] = useState<string[]>([]);
+  const [newActivitiesDismissedRound, setNewActivitiesDismissedRound] = useState<number | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
@@ -2863,6 +2872,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselDirection, setCarouselDirection] = useState(1);
 
+  useEffect(() => { setCarouselIndex(0); }, [round]);
+
   useEffect(() => {
     const indexChanged = previousCarouselIndexRef.current !== carouselIndex;
     previousCarouselIndexRef.current = carouselIndex;
@@ -3050,6 +3061,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </div>
 
                     <div className="mt-2 flex flex-wrap justify-start gap-2">
+                      {currentGame.isNew && <span className="flex items-center gap-1 rounded-full border border-teal-200/30 bg-teal-300/15 px-3 py-1 text-xs font-black text-teal-100"><Sparkles className="h-3 w-3" />جديد</span>}
                       <span className="rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3 py-1 text-xs font-bold text-violet-200">{currentGame.energyAr}</span>
                       <span className="flex items-center gap-1.5 rounded-full border border-cyan-300/10 bg-cyan-300/[0.04] px-3 py-1 text-xs font-bold text-cyan-100/70"><Clock className="h-3 w-3" />{currentGame.duration} دقائق</span>
                     </div>
@@ -3178,7 +3190,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       </div>
                     </div>
                   )}
-                  {game.id === 'what-would-you-do' && (
+                  {game.isNew && (
                     <div className="absolute top-2 left-2 z-10">
                       <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
                         <Star className="w-2.5 h-2.5 fill-current" />
@@ -4921,6 +4933,39 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   return (
     <>
+      <Dialog.Root open={!selectedGameId && !showOnboarding && newActivitiesDismissedRound !== round} onOpenChange={open => { if (!open) setNewActivitiesDismissedRound(round); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/75 backdrop-blur-sm" />
+          <Dialog.Content
+            dir="rtl"
+            onCloseAutoFocus={event => {
+              event.preventDefault();
+              activityContentRef.current?.focus({ preventScroll: true });
+            }}
+            className="fixed left-1/2 top-1/2 z-[201] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[1.75rem] border border-teal-200/20 bg-[#0b1424] p-5 text-right text-white shadow-2xl focus:outline-none sm:p-6"
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 rounded-full border border-teal-200/25 bg-teal-300/10 px-3 py-1.5 text-xs font-black text-teal-100"><Sparkles size={14} />أنشطة جديدة</span>
+              <Dialog.Close aria-label="إغلاق تنبيه الأنشطة الجديدة" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 text-white/60 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-200"><X size={18} /></Dialog.Close>
+            </div>
+            <Dialog.Title className="text-xl font-black leading-relaxed">اختاروا من الجديد!</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-6 text-white/65">ابدؤوا بأحد الأنشطة الجديدة لهذه الجولة، والمميّزة بعلامة «جديد».</Dialog.Description>
+            <div className="my-4 grid gap-2">
+              {activityGames.filter(game => game.isNew).map(game => <button
+                type="button"
+                key={game.id}
+                onClick={() => {
+                  setCarouselIndex(activityGames.findIndex(activity => activity.id === game.id));
+                  setNewActivitiesDismissedRound(round);
+                  if (!disableOnboarding) startGame(game.id);
+                }}
+                className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-right hover:border-teal-200/30 hover:bg-teal-300/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-200"
+              ><ActivityArtwork activityId={game.id} className="h-10 w-10 shrink-0" /><span className="flex-1 text-sm font-bold leading-6">{game.nameAr}</span><ChevronLeft size={16} className="shrink-0 text-teal-200" /></button>)}
+            </div>
+            <button type="button" onClick={() => { setCarouselIndex(0); setNewActivitiesDismissedRound(round); }} className="event3-art-action activity-primary">نستعرض الأنشطة الجديدة <ChevronLeft size={17} /></button>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       {/* Prompt Topics Modal - Available in both pre-game and during-game */}
       <PromptTopicsModal
         open={showPromptTopicsModal}

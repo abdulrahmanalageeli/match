@@ -13,25 +13,27 @@ vm.runInContext(ts.transpileModule(`${algorithm}\nglobalThis.order = shuffleActi
 
 test('round-specific openings keep all activities, stable random choices, and Imposter last', () => {
   const middleOrders = new Set();
-  const roundThreeOpenings = new Set();
   for (let round = 1; round <= 3; round++) {
     for (let participant = 1; participant <= 100; participant++) {
       const seed = `participant:${participant}`;
       const actual = Array.from(context.order(seed, round), game => game.id);
       if (round === 1) {
-        assert.deepEqual(actual.slice(0, 2), ['lets-agree', 'conspiracy-theories']);
+        assert.deepEqual(actual.slice(0, 4), ['lets-agree', 'conspiracy-theories', 'green-red-depends', 'unwritten-rules']);
       } else if (round === 2) {
-        assert.equal(actual[0], 'conspiracy-theories');
+        assert.deepEqual(actual.slice(0, 4), ['conspiracy-theories', 'lets-agree', 'green-red-depends', 'unwritten-rules']);
       } else {
-        assert.ok(['lets-agree', 'conspiracy-theories'].includes(actual[0]));
-        roundThreeOpenings.add(actual[0]);
+        assert.deepEqual(actual.slice(0, 4), ['green-red-depends', 'unwritten-rules', 'lets-agree', 'conspiracy-theories']);
       }
       assert.equal(actual.at(-1), 'imposter');
       assert.deepEqual([...actual].sort(), [...ids].sort());
       assert.deepEqual(actual, Array.from(context.order(seed, round), game => game.id));
-      middleOrders.add(actual.slice(round === 1 ? 2 : 1, -1).join(','));
+      middleOrders.add(actual.slice(4, -1).join(','));
     }
   }
   assert.ok(middleOrders.size > 100, 'middle activities must retain participant-specific variety');
-  assert.equal(roundThreeOpenings.size, 2, 'both activities must be possible round-three openers');
+});
+
+test('all four featured activities carry the new badge', () => {
+  const featuredIds = [...catalog.matchAll(/id: "([^"]+)",\s+isNew: true/g)].map(match => match[1]);
+  assert.deepEqual(featuredIds, ['lets-agree', 'conspiracy-theories', 'green-red-depends', 'unwritten-rules']);
 });

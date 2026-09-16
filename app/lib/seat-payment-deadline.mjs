@@ -1,5 +1,5 @@
 export function formatSeatPaymentDeadline(now = new Date()) {
-  const deadline = new Date(now.getTime() + 60 * 60 * 1000)
+  const deadline = new Date(now.getTime() + 15 * 60 * 1000)
   const time = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",

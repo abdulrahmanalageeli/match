@@ -11,13 +11,13 @@ import {
 } from "./payment-deadline.mjs"
 import { attendanceDeclineAccessState } from "./confirmation-policy.mjs"
 
-test("seat payment reminders use one hour from the current time in Riyadh", () => {
-  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T09:44:00Z")), "1:44 مساءً اليوم")
-  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T10:15:00Z")), "2:15 مساءً اليوم")
+test("seat payment reminders use 15 minutes from the current time in Riyadh", () => {
+  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T09:44:00Z")), "12:59 مساءً اليوم")
+  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T10:15:00Z")), "1:30 مساءً اليوم")
 })
 
 test("seat payment deadlines correctly roll into tomorrow", () => {
-  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T20:30:00Z")), "12:30 صباحًا غدًا")
+  assert.equal(formatSeatPaymentDeadline(new Date("2026-09-16T20:50:00Z")), "12:05 صباحًا غدًا")
 })
 
 test("payment reply windows follow the configured event cutoff", () => {

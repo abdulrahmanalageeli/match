@@ -69,6 +69,7 @@ import {
 import { buildEvent3ClassicRuntimeReadiness, buildEvent3RuntimeReadiness } from "../../server/event3/runtime-readiness.mjs"
 import { normalizeEvent3FeedbackPayload } from "../../app/lib/event3-contact-sharing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
+import { ADMIN_RESULT_SUMMARY_COLUMNS, deferredAdminResultSession } from "../../server/matching/admin-result-report.mjs"
 import { clearAdminSession, enforceRateLimit, recordSecurityEvent, requireAdmin } from "../../server/security/request-security.mjs"
 import {
   LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
@@ -8039,6 +8040,18 @@ export default async function handler(req, res) {
       }
     }
 
+    // Admin authentication above also protects this paginated score report.
+    if (action === "get-admin-result-pairs") {
+      const { sessionId, offset = 0 } = req.body
+      if (typeof sessionId !== 'string' || !sessionId || !Number.isSafeInteger(offset) || offset < 0 || offset > 2147483647) {
+        return res.status(400).json({ error: 'Invalid session or page offset' })
+      }
+      const { data, error } = await supabase.rpc('get_admin_result_pair_page', { p_session_id: sessionId, p_offset: offset })
+      if (error) return res.status(500).json({ error: 'Could not load score details' })
+      if (!data) return res.status(404).json({ error: 'Saved session not found' })
+      return res.status(200).json({ success: true, ...data })
+    }
+
     // GET ADMIN RESULTS ACTION - Retrieve saved match generation sessions
     if (action === "get-admin-results") {
       try {
@@ -8053,7 +8066,7 @@ export default async function handler(req, res) {
         
         let query = supabase
           .from("admin_results")
-          .select("*")
+          .select(ADMIN_RESULT_SUMMARY_COLUMNS + (sessionId ? ',match_results' : ''))
           .order("created_at", { ascending: false })
         
         if (eventId) {
@@ -8082,7 +8095,7 @@ export default async function handler(req, res) {
         console.log(`📊 Retrieved ${data.length} admin results sessions`)
         return res.status(200).json({ 
           success: true, 
-          sessions: data 
+          sessions: data.map(deferredAdminResultSession)
         })
         
       } catch (error) {
@@ -8109,7 +8122,7 @@ export default async function handler(req, res) {
         
         const { data, error } = await supabase
           .from("admin_results")
-          .select("*")
+          .select(ADMIN_RESULT_SUMMARY_COLUMNS + ',match_results')
           .eq("event_id", eventId)
           .eq("match_type", matchType)
           .eq("is_active", true)
@@ -8133,7 +8146,7 @@ export default async function handler(req, res) {
         console.log(`📊 Retrieved latest admin results: ${data.session_id}`)
         return res.status(200).json({ 
           success: true, 
-          session: data 
+          session: deferredAdminResultSession(data)
         })
         
       } catch (error) {

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "rea
 import { createPortal } from "react-dom"
 import { useLocation } from "react-router"
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
+import { loadAdminResultPairs } from "~/lib/admin-result-pairs.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from "~/hooks/useDebounce"
@@ -941,6 +942,7 @@ export default function AdminPage() {
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
+  const resultLoadSequence = useRef(0)
   const [lastMatchParams, setLastMatchParams] = useState<{matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[]} | null>(null)
   const [isFromCache, setIsFromCache] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
@@ -2031,6 +2033,15 @@ const loadFreshDatabaseResults = async (matchType: "individual" | "group") => {
 // Function to load specific session results
 const loadSessionResults = async (session: any) => {
   try {
+    if (!Array.isArray(session.match_results)) {
+      const response = await fetch('/api/admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-admin-results', sessionId: session.session_id, matchType: session.match_type, includeInactive: true }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data.sessions?.[0]) throw new Error('Saved results could not be loaded')
+      session = data.sessions[0]
+    }
     setCurrentSessionId(session.session_id)
     setCurrentSessionInfo({
       created_at: session.created_at,
@@ -2051,7 +2062,9 @@ const loadSessionResults = async (session: any) => {
         session.match_results, 
         session.total_matches, 
         session.match_type === 'group' ? 'group' : (session.generation_type === 'no-ai' ? 'no-ai' : 'ai'),
-        session.calculated_pairs || []
+        session.calculated_pairs || [],
+        {},
+        session.calculated_pairs_deferred ? session.session_id : undefined
       )
     } else if (session.is_test_mode) {
       await showParticipantResults([], 0, "ai", [])
@@ -2060,6 +2073,7 @@ const loadSessionResults = async (session: any) => {
     console.log(`✅ Loaded session: ${session.session_id}`)
   } catch (error) {
     console.error("Error loading session results:", error)
+    toast.error("Saved results could not be loaded. Please retry.")
   }
 }
 
@@ -4945,7 +4959,8 @@ const fetchParticipants = async () => {
     }
   }
 
-  const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = [], preloadedParticipantNames: any = {}) => {
+  const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = [], preloadedParticipantNames: any = {}, deferredSessionId?: string) => {
+    const loadSequence = ++resultLoadSequence.current
     // Store parameters for refresh
     setLastMatchParams({ matchResults, totalMatches, type, calculatedPairs })
     
@@ -5151,6 +5166,22 @@ const fetchParticipants = async () => {
       setCalculatedPairs(calculatedPairs)
       setIsFromCache(false)
       setShowResultsModal(true)
+      if (deferredSessionId) {
+        // Display the saved matches immediately; load the full report in small pages.
+        try {
+          const pairs = await loadAdminResultPairs(deferredSessionId, fetch, {
+            isCurrent: () => resultLoadSequence.current === loadSequence,
+          })
+          if (pairs) {
+            setCalculatedPairs(pairs)
+            setLastMatchParams({ matchResults, totalMatches, type, calculatedPairs: pairs })
+          }
+        } catch (error) {
+          if (resultLoadSequence.current === loadSequence) {
+            toast.error("Matches are saved and displayed. Score details could not load; reopen the saved session to retry.")
+          }
+        }
+      }
     } catch (err) {
       console.error("Error preparing participant results:", err)
       toast.error("Error preparing results display")
@@ -6973,7 +7004,7 @@ Proceed?`
                       alert(successMessage)
                       fetchParticipants()
                       // Show results modal with calculated pairs
-                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                     } else {
                       alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                     }
@@ -7034,7 +7065,7 @@ Proceed?`
 
                       alert(successMessage)
                       fetchParticipants()
-                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                     } else {
                       alert(`❌ Failed to generate opposites matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                     }
@@ -7077,7 +7108,7 @@ Proceed?`
                         }
                         alert(msg)
                         await fetchParticipants()
-                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                       } else {
                         alert(`❌ Failed to generate Same-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                       }
@@ -7125,7 +7156,7 @@ Proceed?`
                         }
                         alert(msg)
                         await fetchParticipants()
-                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                       } else {
                         alert(`❌ Failed to generate Opposite-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                       }
@@ -7179,7 +7210,7 @@ Proceed?`
                       setLoading(false)
                       if (res.ok) {
                         toast.success(`🧪 Preview complete. Matches: ${data.count}`, { duration: 4000 })
-                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                       } else {
                         toast.error("Failed to preview matches: " + (data.error || "Unknown error"))
                       }
@@ -8601,7 +8632,7 @@ Proceed?`
                       toast.success(successMessage, { duration: 5000 })
                       fetchParticipants()
                       // Show results modal with calculated pairs
-                      await showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])
+                      await showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [], {}, data.calculatedPairsDeferred ? data.sessionId : undefined)
                     } else {
                       toast.error("Failed to generate matches: " + (data.error || "Unknown error"))
                     }

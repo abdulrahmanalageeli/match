@@ -1,6 +1,7 @@
 import OpenAI from "openai"
 import { createHash } from "node:crypto"
-import { countPendingVibePairs } from "../../server/matching/pending-vibe-pairs.mjs"
+import { findMissingVibePairs } from "../../server/matching/pending-vibe-pairs.mjs"
+import { generatedPairReport } from "../../server/matching/admin-result-report.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 import {
@@ -901,6 +902,7 @@ async function autoSaveAdminResults(eventId, matchType, generationType, matchRes
     
     if (error) {
       console.error("Error auto-saving admin results:", error)
+      return null
     } else {
       console.log(`✅ Auto-saved admin results: ${sessionId}`)
     }
@@ -6483,19 +6485,30 @@ if (action === "cache-status-by-gender") {
         return res.status(503).json({ error: 'Could not verify AI cache readiness. Please retry.' })
       }
       generationCacheRows = queuedCacheRows || []
-      const pendingAiPairs = countPendingVibePairs(eligibleParticipants, queuedCacheRows || [], {
+      const missingAiPairs = findMissingVibePairs(eligibleParticipants, queuedCacheRows || [], {
         cacheKeyFor: generateCacheKey,
-        isPending: isPendingCurrentAiCacheRow,
         isReusable: isReusableBalancedVibeRow,
         isEligible: (a, b) => !isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)
           && (matchType === 'group' || checkGenderCompatibility(a, b))
           && checkNationalityHardGate(a, b) && checkAgeRangeHardGate(a, b)
           && checkInteractionStyleCompatibility(a, b),
       })
-      if (pendingAiPairs > 0) {
+      if (missingAiPairs.length > 0) {
+        // A completed sweep may be stale after edits/new signups. Queue a bounded
+        // repair wave before any match writes; never run paid AI in this request.
+        const entries = await Promise.all(missingAiPairs.slice(0, 250).map(async ([a, b]) => ({
+          participantA: a, participantB: b,
+          scores: await calculateFullCompatibilityWithCache(a, b, true, true, {
+            skipCacheLookup: true, skipCacheWrite: true, deferAIEnrichment: true,
+          }),
+        })))
+        const repair = await storeCachedCompatibilities(entries, { queueDeferredAI: true, eventId, matchId: match_id })
+        if (repair.failures.length) {
+          return res.status(503).json({ error: 'Could not queue missing AI scores. Matches were not changed; retry the batch cache.' })
+        }
         return res.status(409).json({
-          code: 'AI_CACHE_PENDING', pending_ai: pendingAiPairs,
-          error: `${pendingAiPairs} required pair scores are still awaiting AI. Open AI Queue in Admin to prioritize this event and follow progress, then generate again.`,
+          code: 'AI_CACHE_PENDING', pending_ai: missingAiPairs.length,
+          error: `${missingAiPairs.length} required pair scores are missing or awaiting AI. Open AI Queue to finish these scores${missingAiPairs.length > 250 ? ' and run the batch cache for the remaining pairs' : ''}, then generate again.`,
         })
       }
     }
@@ -9186,8 +9199,7 @@ if (action === "cache-status-by-gender") {
       count: finalMatches.length,
       results: finalMatches,
       performance: performance,
-      calculatedPairs: calculatedPairs,
-      sessionId: sessionId // Include session ID for reference
+      ...generatedPairReport(calculatedPairs, sessionId)
     })
 
   } catch (err) {

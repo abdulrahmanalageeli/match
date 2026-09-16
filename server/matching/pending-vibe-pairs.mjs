@@ -18,3 +18,22 @@ export function countPendingVibePairs(participants, rows, { cacheKeyFor, isPendi
   }
   return pending.size
 }
+
+// Check the participant pool, not just existing rows: a missing or stale row
+// otherwise slips through the pending check and starts foreground AI calls.
+export function findMissingVibePairs(participants, rows, { cacheKeyFor, isReusable, isEligible }) {
+  const identity = (a, b, hash) => `${Math.min(a, b)}-${Math.max(a, b)}-${hash}`
+  const ready = new Set(rows.filter(isReusable).map(row =>
+    identity(row.participant_a_number, row.participant_b_number, row.vibe_content_hash)))
+  const missing = []
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const a = participants[i], b = participants[j]
+      if (!isEligible(a, b)) continue
+      if (!ready.has(identity(a.assigned_number, b.assigned_number, cacheKeyFor(a, b).vibeHash))) {
+        missing.push([a, b])
+      }
+    }
+  }
+  return missing
+}

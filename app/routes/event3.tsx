@@ -1,4 +1,4 @@
-﻿import ActivityArtwork from "../components/groups/ActivityArtwork";
+import ActivityArtwork from "../components/groups/ActivityArtwork";
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import RankingDisclaimer from "../components/RankingDisclaimer"
 import GroupRoundRules from "../components/GroupRoundRules"
@@ -5043,8 +5043,9 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, onOpenGroupFeedback, onRankingResolved, onRankingDirty, eventFormat }: {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, onOpenGroupFeedback, onRankingResolved, onRankingDirty, eventFormat, extensionId }: {
   token: string
+  extensionId?: string
   completedRounds: number
   currentPhase: string
   timerActive: boolean
@@ -5077,7 +5078,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   // RankingScreen is keyed by round, so each round starts with the explanation.
-  const [showRankingDisclaimer, setShowRankingDisclaimer] = useState(true)
+  const [showRankingDisclaimer, setShowRankingDisclaimer] = useState(!extensionId)
   const [privacyRevealed, setPrivacyRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
@@ -5120,7 +5121,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     }
     setNotesStatus("loading")
     Promise.all([
-      call("e3-get-participants-met", token, { completed_rounds: completedRounds }),
+      call("e3-get-participants-met", token, { completed_rounds: completedRounds, extension_id: extensionId }),
       call("e3-get-notes", token),
     ]).then(([d, nd]) => {
       if (d.error) {
@@ -5163,7 +5164,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         setNotesStatus("error")
       }
     })
-  }, [token, completedRounds, reloadKey, onRankingResolved])
+  }, [token, completedRounds, reloadKey, onRankingResolved, extensionId])
 
   const retryNotes = async () => {
     setNotesStatus("loading")
@@ -5211,7 +5212,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration, correctedNow])
 
-  const rankingClosed = currentPhase !== `ranking${completedRounds}`
+  const rankingClosed = !extensionId && currentPhase !== `ranking${completedRounds}`
   const rankingExpired = timeLeft <= 0
 
   // Sync unfinished orders so phase advancement can finalize even sleeping phones.
@@ -5223,7 +5224,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     setDraftSync("saving")
     const sync = async () => {
       const d = await call("e3-save-ranking-draft", token, {
-        ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, revision,
+        ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, extension_id: extensionId, revision,
       })
       if (cancelled) return
       if (d.error) {
@@ -5240,7 +5241,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     }
     retry = setTimeout(sync, 150)
     return () => { cancelled = true; clearTimeout(retry) }
-  }, [token, completedRounds, order, loading, loadError, submitted, rankingClosed, rankingExpired, onRankingResolved])
+  }, [token, completedRounds, order, loading, loadError, submitted, rankingClosed, rankingExpired, onRankingResolved, extensionId])
 
   // Timer expiry and host advancement both resolve the ranking. Failed saves retry.
   useEffect(() => {
@@ -5255,7 +5256,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const revision = revisionRef.current = Math.max(Date.now(), revisionRef.current + 1)
       const d = await call('e3-submit-ranking', token, {
         ranked_list: orderRef.current, auto_saved: true,
-        completed_rounds: completedRounds, event_id: rankingEventRef.current, revision,
+        completed_rounds: completedRounds, event_id: rankingEventRef.current, extension_id: extensionId, revision,
       })
       savingRef.current = false
       if (cancelled) return
@@ -5270,11 +5271,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       submittedRef.current = true
       setSubmitted(true)
       onRankingResolved(completedRounds)
-      toast('تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
+      toast('انتهى الوقت — تم اعتماد آخر ترتيب محفوظ', { duration: 5000, icon: '⏰' })
     }
     doAutoSave()
     return () => { cancelled = true; clearTimeout(retry) }
-  }, [rankingExpired, rankingClosed, token, loading, loadError, order.length, submitted, submitting, completedRounds, onRankingResolved])
+  }, [rankingExpired, rankingClosed, token, loading, loadError, order.length, submitted, submitting, completedRounds, onRankingResolved, extensionId])
 
   useEffect(() => {
     if (timeLeft <= 0 || submitted || autoSaving) setShowConfirm(false)
@@ -5312,7 +5313,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     setSubmitting(true)
     savingRef.current = true
     const revision = revisionRef.current = Math.max(Date.now(), revisionRef.current + 1)
-    const d = await call("e3-submit-ranking", token, { ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, revision })
+    const d = await call("e3-submit-ranking", token, { ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, extension_id: extensionId, revision })
     savingRef.current = false
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
@@ -5320,7 +5321,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     submittedRef.current = true
     setSubmitted(true)
     onRankingResolved(completedRounds)
-    onOpenGroupFeedback(completedRounds as Event3GroupRound)
+    if (!extensionId) onOpenGroupFeedback(completedRounds as Event3GroupRound)
     toast.success(isFinalRanking ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
@@ -5487,6 +5488,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       <div className="mx-auto w-full max-w-md px-3.5 pb-5 pt-3 sm:px-4">
         {!submitted && (
           <>
+          {extensionId && <div role="status" className="mb-3 rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.06] p-4 text-right">
+            <p className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Clock size={16} /> وقت إضافي لك</p>
+            <p className="mt-1 text-xs leading-6 text-slate-300">المنظّم فتح لك الترتيب مجدداً. راجع الأسماء ثم احفظ، وبعدها ترجع للمرحلة الحالية مع الجميع. إذا انتهى الوقت نعتمد آخر ترتيب محفوظ.</p>
+          </div>}
           <JourneyCue
             accent="amber"
             eyebrow={isFinalRanking ? "قرارك النهائي" : "قرار هذه الجولة"}
@@ -10285,6 +10290,7 @@ export default function Event3Page() {
     timerStart: string | null
     timerDuration: number
   } | null>(null)
+  const [resolvedExtensionId, setResolvedExtensionId] = useState<string | null>(null)
   const [resolvedRankingRound, setResolvedRankingRound] = useState<number | null>(null)
   const [phaseTransition, setPhaseTransition] = useState<{ id: number; phase: string } | null>(null)
   const phaseTransitionSequenceRef = useRef(0)
@@ -10431,10 +10437,22 @@ export default function Event3Page() {
     }
   }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration, resolvedRankingRound])
 
+  const individualExtensionId = eventState?.ranking_extension?.id as string | undefined
+  const individualRankingExtension = individualExtensionId && individualExtensionId !== resolvedExtensionId
+    ? eventState.ranking_extension : null
   const handleRankingResolved = useCallback((round: number) => {
     setResolvedRankingRound(round)
     setRankingDraftContext(null)
-  }, [])
+    if (individualExtensionId) setResolvedExtensionId(individualExtensionId)
+    retryState()
+  }, [individualExtensionId, retryState])
+  useEffect(() => {
+    if (!individualExtensionId) return
+    setPendingGroupFeedbackRound(null)
+    setBreakFeedbackOpen(false)
+    setActiveMatchFeedbackSlot(null)
+    setPhaseTransition(null)
+  }, [individualExtensionId])
   const handleRankingDirty = useCallback(() => {
     const match = String(eventState?.phase || "").match(/^ranking([123])$/)
     if (!match) return
@@ -10823,9 +10841,13 @@ export default function Event3Page() {
   const isRound = /^round[123]$/.test(phase)
   const rankingMatch = phase.match(/^ranking([123])$/)
   const completedRounds = rankingMatch ? parseInt(rankingMatch[1]) : null
-  const rankingRoundToRender = completedRounds ?? rankingDraftContext?.round ?? null
-  const holdingRankingDraft = Boolean(!completedRounds && rankingDraftContext)
-  const rankingTimerProps = completedRounds || !rankingDraftContext
+  const rankingRoundToRender = individualRankingExtension?.completed_rounds ?? completedRounds ?? rankingDraftContext?.round ?? null
+  const holdingRankingDraft = Boolean(individualRankingExtension || (!completedRounds && rankingDraftContext))
+  const rankingTimerProps = individualRankingExtension ? {
+    timerActive: true, timerStart: individualRankingExtension.started_at,
+    timerDuration: Math.ceil((Date.parse(individualRankingExtension.expires_at) - Date.parse(individualRankingExtension.started_at)) / 1000),
+    correctedNow,
+  } : completedRounds || !rankingDraftContext
     ? timerProps
     : {
         timerActive: rankingDraftContext.timerActive,
@@ -10892,7 +10914,7 @@ export default function Event3Page() {
         <AnimatePresence>
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} onOpenWelcomeMessage={() => setShowAiWelcome(true)} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} onProjectorVisibilityChange={setProjectorOpen} eventFormat={eventFormat} />}
-          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
+          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}-${individualRankingExtension?.id || "normal"}`} extensionId={individualRankingExtension?.id} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 3 || (!activeMatchFeedbackSlot && phase === "phase4_reveal")) && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} onFeedbackOpenChange={trackThirdMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
@@ -10903,7 +10925,7 @@ export default function Event3Page() {
       </motion.div>
 
       <AnimatePresence>
-        {phaseTransition && (
+        {phaseTransition && !individualRankingExtension && (
           <EventPhaseTransition
             key={phaseTransition.id}
             transitionId={phaseTransition.id}

@@ -4341,6 +4341,12 @@ Please respond in JSON format:
         }),
       }
     }
+    const loadIndividualRanking = async (extra = {}) => supabase.rpc("resolve_event3_ranking_extension", {
+      p_event_id: currentEventId, p_ranker_number: myNumber,
+      p_expected_test_mode: requestTestMode,
+      p_expected_started_at: requestTestMode ? (expectedEvent3SessionKey || null) : null,
+      ...extra,
+    })
     const loadCanonicalEvent3Feedback = async column => {
       const { data, error } = await supabase.from("event3_matches")
         .select(column)
@@ -4476,6 +4482,13 @@ Please respond in JSON format:
         const fallbackTimerDuration = getEvent3PhaseTimerSeconds(phase)
         const baseResponse = { phase, event_id: activeEventId, event_format: eventFormat, group_round_count: groupRoundCount, event3_session_key: currentEvent3SessionKey, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? fallbackTimerDuration, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
 
+        if (participant) {
+          const individual = await loadIndividualRanking()
+          if (individual.error) return event3DependencyFailure(res, "Event3 individual ranking lookup", individual.error, {
+            code: "EVENT3_RANKING_EXTENSION_UNAVAILABLE", message: "تعذّر تحديث مهلة الترتيب مؤقتاً. حاول مجدداً.",
+          })
+          baseResponse.ranking_extension = individual.data?.extension || null
+        }
         // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
         if (action === "e3-heartbeat" && participant) {
           const [sosResult, moodResult, notificationResult] = await Promise.allSettled([
@@ -4871,13 +4884,19 @@ Please respond in JSON format:
           code: "EVENT3_RANKING_DRAFT_UNAVAILABLE",
           message: "تعذّر تحديث مسودة ترتيبك مؤقتاً. حاول مجدداً.",
         })
+        const individual = await loadIndividualRanking()
+        if (individual.error) return event3DependencyFailure(res, "Event3 individual ranking load", individual.error, {
+          code: "EVENT3_RANKING_EXTENSION_UNAVAILABLE", message: "تعذّر تحميل مهلة الترتيب مؤقتاً.",
+        })
+        const extension = individual.data?.extension?.completed_rounds === completedRounds ? individual.data.extension : null
+        if (req.body.extension_id && req.body.extension_id !== extension?.id) return res.status(200).json({ people: [], extension_closed: true, already_submitted: true, event_id: currentEventId })
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
         const pendingDraft = rankingState.phase === `ranking${completedRounds}` && draft && !draft.submitted
           && draft.ranked_numbers.length === nums.length && nums.every(n => draft.ranked_numbers.includes(n))
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap,
-          event_id: currentEventId, draft_order: pendingDraft ? draft.ranked_numbers : null, draft_revision: draft?.revision || 0,
-          already_submitted: !pendingDraft && nums.every(n => rankingMap[n] !== undefined) })
+          event_id: currentEventId, draft_order: extension?.ranked_numbers || (pendingDraft ? draft.ranked_numbers : null), draft_revision: extension?.revision || draft?.revision || 0,
+          already_submitted: !extension && !pendingDraft && nums.every(n => rankingMap[n] !== undefined) })
       }
 
       // Optional absolute feedback about individual tablemates. This is
@@ -5009,7 +5028,10 @@ Please respond in JSON format:
         if (req.body.event_id != null && Number(req.body.event_id) !== currentEventId) {
           return res.status(409).json({ error: "تغيّرت الفعالية. حدّث الصفحة قبل حفظ الترتيب.", code: "EVENT3_SESSION_CHANGED", retryable: true })
         }
-        const { data, error } = await supabase.rpc("save_event3_ranking_v2", {
+        const { data, error } = req.body.extension_id
+          ? await loadIndividualRanking({ p_extension_id: req.body.extension_id, p_ranked_numbers: normalizedRanking,
+              p_revision: revision, p_draft_only: action === "e3-save-ranking-draft" })
+          : await supabase.rpc("save_event3_ranking_v2", {
           p_match_id: E3_MATCH_ID, p_event_id: currentEventId, p_ranker_number: myNumber,
           p_completed_rounds: completedRounds, p_ranked_numbers: normalizedRanking,
           p_revision: revision, p_draft_only: action === "e3-save-ranking-draft", p_auto_saved: !!auto_saved,

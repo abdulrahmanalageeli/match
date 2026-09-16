@@ -1,3 +1,4 @@
+import RankingExtensionControl from "../components/RankingExtensionControl"
 import { memo, useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
@@ -5881,6 +5882,12 @@ export default function Admin3Page() {
                               >
                                 <Pencil size={12} /> {r.auto_saved ? "مراجعة الترتيب التلقائي" : "تعديل اختياراته"}
                               </button>
+                              {(r.auto_saved || r.ranking_extension) && <RankingExtensionControl name={r.name} extension={r.ranking_extension} disabled={!!loading || previewEventId != null} onGrant={async seconds => {
+                                const d = await api("e3-grant-ranking-extension", { participant_number: r.number, seconds })
+                                if (d.error) throw new Error(d.error)
+                                toast.success(d.message)
+                                await fetchRankStatus()
+                              }} />}
                               <details className="group mt-2 rounded-lg border border-gray-800 bg-black/15">
                                 <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 text-[10px] text-gray-600 transition-colors hover:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 [&::-webkit-details-marker]:hidden">
                                   <Shield size={11} />

@@ -47,6 +47,7 @@ import {
 } from "../../server/twilio/payment-deadline.mjs"
 
 export const config = { maxDuration: 60 }
+import { loadRankingExtensions } from "../../server/event3/ranking-extensions.mjs"
 import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
 import {
@@ -598,6 +599,7 @@ const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-attendee-details",
   "e3-cohost-rankings",
   "e3-cohost-set-ranking",
+  "e3-grant-ranking-extension",
   "e3-cohost-set-attendance",
   "e3-cohost-save-note",
   "e3-cohost-resolve-sos",
@@ -10005,6 +10007,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const reciprocalRank = buildReciprocalRankingLookup(scopedRows)
           const completion = await loadRankingCompletion(supabase, EVENT3_MATCH_ID, currentEventId, scopedRows)
           const rowByDirection = new Map(scopedRows.map(row => [`${Number(row.ranker_number)}:${Number(row.ranked_number)}`, row]))
+          const extensions = await loadRankingExtensions(supabase, currentEventId)
           const rankings = numbers.map(number => {
             const rows = (rowsByRanker.get(number) || []).sort((left, right) => Number(left.rank) - Number(right.rank))
             return {
@@ -10012,6 +10015,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               name: nameMap.get(number) || `#${number}`,
               ...completion(number),
               auto_saved: rows.some(row => row.auto_saved === true),
+              ranking_extension: extensions[number] || null,
               count: rows.length,
               ranked_list: rows.map(row => ({
                 number: Number(row.ranked_number),
@@ -12088,11 +12092,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             byRanker[r.ranker_number].push({ number: r.ranked_number, rank: r.rank, name: nameMap[r.ranked_number] || `#${r.ranked_number}` })
             if (r.auto_saved) autoSavedByRanker[r.ranker_number] = true
           }
+          const extensions = await loadRankingExtensions(supabase, currentEventId)
           const result = selected.map(n => ({
             number: n,
             name: nameMap[n] || `#${n}`,
             ...completion(n),
             auto_saved: !!autoSavedByRanker[n],
+            ranking_extension: extensions[n] || null,
             count: (byRanker[n] || []).length,
             ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
           }))
@@ -12763,6 +12769,21 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ...data,
             message: `Applied the reviewed Round-3 seating plan; table ${request.frozenTable} stayed frozen`,
           })
+        }
+        if (action === "e3-grant-ranking-extension") {
+          const participantNumber = Number(req.body.participant_number)
+          const seconds = Number(req.body.seconds)
+          if (!Number.isSafeInteger(participantNumber) || !Number.isInteger(seconds)) return res.status(400).json({ error: "Invalid participant or duration" })
+          const { data, error } = await supabase.rpc("grant_event3_ranking_extension", {
+            p_event_id: Number(currentEventId), p_ranker_number: participantNumber, p_seconds: seconds,
+            p_granted_by: isCohostRequest ? `cohost:${cohostSession.cohost_number}` : "admin",
+            ...displayedEvent3Context.params,
+          })
+          if (error) {
+            const failure = event3SessionRpcFailure(error, "grant_event3_ranking_extension")
+            return res.status(failure.status).json(failure.body)
+          }
+          return res.status(200).json({ extension: data, message: "تم فتح مهلة إضافية لهذا المشارك" })
         }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {

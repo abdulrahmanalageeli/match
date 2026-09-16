@@ -20,7 +20,7 @@ test("dragged ranking cards establish a stacking context", () => {
   assert.match(route, /whileDrag=\{submitted \? undefined : \{[\s\S]*?zIndex: 50/)
 })
 
-test("successful ranking submission opens feedback for the completed group round", () => {
+test("normal ranking submission opens feedback; an individual extension rejoins the event", () => {
   const submitStart = route.indexOf("  const submit = async () => {")
   const submitEnd = route.indexOf("  const personMap", submitStart)
   assert.notEqual(submitStart, -1, "ranking submit handler exists")
@@ -28,7 +28,7 @@ test("successful ranking submission opens feedback for the completed group round
   const submitHandler = route.slice(submitStart, submitEnd)
   assert.match(
     submitHandler,
-    /if \(d\.error\)[\s\S]*?onRankingResolved\(completedRounds\)\s+onOpenGroupFeedback\(completedRounds as Event3GroupRound\)/,
+    /if \(d\.error\)[\s\S]*?onRankingResolved\(completedRounds\)\s+if \(!extensionId\) onOpenGroupFeedback\(completedRounds as Event3GroupRound\)/,
   )
 })
 

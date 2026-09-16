@@ -5796,13 +5796,17 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <div className="flex gap-3 pt-1">
                 <button ref={rankingConfirmCancelRef} type="button" onClick={() => setShowConfirm(false)} disabled={autoSaving}
-                  className="event3-soft-action flex-1 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300">
+                  className="event3-soft-action shrink-0 rounded-2xl px-4 py-3 text-sm font-bold text-gray-300">
                   إلغاء
                 </button>
                 <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0 || order.length === 0}
-                  className="event3-action event3-primary-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-500 via-purple-500 to-indigo-500 py-3 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
-                  {submitting ? <Spinner size={16} /> : <CheckCircle size={16} />}
-                  اعتماد وإرسال
+                  className="event3-action event3-primary-action flex min-w-0 flex-1 items-center justify-center rounded-2xl bg-gradient-to-l from-violet-500 via-purple-500 to-indigo-500 px-3 py-3 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
+                  <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                    <span className="inline-flex shrink-0 items-center justify-center" aria-hidden="true">
+                      {submitting ? <Spinner size={16} /> : <CheckCircle size={16} />}
+                    </span>
+                    <span>اعتماد وإرسال</span>
+                  </span>
                 </button>
               </div>
             </motion.div>

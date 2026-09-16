@@ -12,7 +12,7 @@ const BALANCED_MAX_ROSTER_GENDER_COUNT = BALANCED_MAX_ROSTER_SIZE / 2
 const CONSTRAINED_ROUND_ATTEMPTS = 12
 const CONSTRAINED_ROUND_NODE_LIMIT = 100_000
 const PROTECTED_PAIR_RELABEL_ATTEMPTS = 2_048
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v3-46-hard-zero-repeat"
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v4-46-gender-first"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -621,7 +621,21 @@ function build46Candidate(participants, options, seed) {
   const femaleSlots = new Set([0, 2, 4, 6, 7, 11, 12, 13, 15, 19, 20, 22, 24, 27, 29, 30, 34, 35, 38, 39, 43, 44, 45])
   const females = participants.filter(number => participantGender(number, options.genderMap) === 'female')
   const males = participants.filter(number => participantGender(number, options.genderMap) === 'male')
-  const balanced = females.length === 23 && males.length === 23
+  // Every 46-person roster from 21/25 through 25/21 can have 3/3 at
+  // six-seat tables and 3/4 at seven-seat tables. Adjust the verified
+  // coloring BEFORE assigning people; never randomize a near-balanced roster.
+  const balanced = females.length + males.length === 46
+    && Math.min(females.length, males.length) >= 21
+  if (balanced && females.length !== femaleSlots.size) {
+    const minorityCount = Math.min(females.length, males.length)
+    const minoritySlots = new Set(minorityCount === 21
+      ? [1, 2, 5, 8, 9, 11, 14, 15, 17, 21, 22, 24, 26, 28, 29, 35, 37, 38, 42, 43, 44]
+      : [0, 4, 5, 6, 8, 10, 13, 15, 16, 19, 23, 24, 26, 28, 30, 32, 34, 36, 37, 43, 44, 45])
+    femaleSlots.clear()
+    cells.forEach((_, slot) => {
+      if (minoritySlots.has(slot) === (females.length < males.length)) femaleSlots.add(slot)
+    })
+  }
   const protectedPairs = new Set(options.lockedPairsSet || [])
   let rounds = null
   for (let attempt = 0; attempt < PROTECTED_PAIR_RELABEL_ATTEMPTS; attempt++) {

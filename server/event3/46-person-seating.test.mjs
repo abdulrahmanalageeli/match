@@ -37,6 +37,24 @@ test('46-person alternatives preserve capacities, gender balance, age objectives
   for (const candidate of result.candidates) assertPlan(candidate.plan, true)
 })
 
+test('46-person near-even rosters never fall back to gender-imbalanced random tables', () => {
+  for (const femaleTotal of [21, 22, 24, 25]) {
+    const genders = Object.fromEntries(participants.map(n => [n, n <= femaleTotal ? 'female' : 'male']))
+    const result = buildChoiceOnlySeatingCandidates(participants, { genderMap: genders, ageMap })
+    assert.equal(result.error, undefined, `${femaleTotal} women`)
+    for (const { plan } of result.candidates) {
+      assert.equal(choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3).totalRepeatedPairOccurrences, 0)
+      for (const round of [plan.round1, plan.round2, plan.round3]) {
+        assert.deepEqual(round.flat().sort((a,b) => a-b), participants)
+        for (const group of round) {
+          const women = group.filter(n => genders[n] === 'female').length
+          assert.ok(Math.abs(2 * women - group.length) <= 1, `${femaleTotal} women: ${women}/${group.length - women}`)
+        }
+      }
+    }
+  }
+})
+
 test('46-person no-repeat guarantee also holds without gender data and in resumed searches', () => {
   const result = buildChoiceOnlySeatingCandidates([...participants].reverse(), { ageMap, lockedPairsSet })
   assert.equal(result.error, undefined)

@@ -2139,8 +2139,7 @@ export default function Admin3Page() {
       const msg = newPending.length === 1
         ? `🆘 ${newPending[0].participant_name} (#${newPending[0].participant_number}) يطلب المنظم!`
         : `🆘 ${newPending.length} طلبات جديدة!`
-      toast(msg, { duration: 8000, style: { background: '#1f0505', color: '#fca5a5', border: '1px solid #7f1d1d', borderRadius: '12px' } })
-      setSosModalOpen(true)
+      toast(msg, { id: 'admin3-help', duration: 4000, style: { background: '#1f0505', color: '#fca5a5', border: '1px solid #7f1d1d', borderRadius: '12px' } })
     }
     setSosRequests(newRequests)
   }, [])
@@ -3316,6 +3315,18 @@ export default function Admin3Page() {
           </button>
         </div>
       </header>
+
+      {/* Help is announced without opening a dialog over the current task. */}
+      {previewEventId == null && !sosModalOpen && sosRequests.some(request => request.status !== 'resolved') && (
+        <div className="sticky top-0 z-40 border-b border-red-400/15 bg-gray-950 px-3 py-2 sm:px-6" role="status" aria-live="polite">
+          <button type="button" onClick={() => { setSelectedSosId(null); setSosModalOpen(true) }}
+            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-red-400/40 bg-gray-900 px-4 py-3 text-right shadow-xl">
+            <Bell size={20} className="shrink-0 text-red-300 motion-safe:animate-pulse" aria-hidden="true" />
+            <span className="min-w-0 flex-1 text-sm font-bold text-red-100">{sosRequests.filter(request => request.status !== 'resolved').length} طلب مساعدة نشط</span>
+            <span className="shrink-0 text-xs font-bold text-red-200">عرض</span>
+          </button>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
@@ -8462,20 +8473,21 @@ export default function Admin3Page() {
           const order: Record<string, number> = { pending: 0, seen: 1, replied: 2, resolved: 3 }
           return (order[a.status] ?? 9) - (order[b.status] ?? 9)
         })
-        const selected = sorted.find(r => r.id === selectedSosId) || sorted[0] || null
+        const selected = sorted.find(r => r.id === selectedSosId) || null
         const selId = selected?.id || null
         const chatHistory: { from: string; text: string; timestamp: string }[] = Array.isArray(selected?.chat_history) ? selected.chat_history : []
         const isOrganizerNeeded = selected?.request_type === 'organizer_needed'
         return (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
-          <div className="bg-gray-900 border border-gray-800 rounded-none sm:rounded-3xl w-full sm:max-w-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4" dir="rtl" onClick={() => setSosModalOpen(false)} onKeyDown={event => { if (event.key === "Escape") setSosModalOpen(false) }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="admin3-help-title" onClick={event => event.stopPropagation()}
+            className="flex h-[min(38rem,75dvh)] min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-2xl sm:rounded-3xl">
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white text-sm font-bold">ع</div>
-                <div>
-                  <h2 className="font-bold text-white text-sm leading-tight">طلبات المساعدة والرسائل</h2>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900 flex-shrink-0">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="hidden shrink-0 sm:flex w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-orange-600 items-center justify-center text-white text-sm font-bold">ع</div>
+                <div className="min-w-0">
+                  <h2 id="admin3-help-title" className="truncate font-bold text-white text-sm leading-tight">طلبات المساعدة والرسائل</h2>
                   <p className="text-gray-500 text-[10px] leading-tight">{sosRequests.filter(r => r.status !== 'resolved').length} نشط · {sosRequests.length} الإجمالي</p>
                 </div>
               </div>
@@ -8492,17 +8504,17 @@ export default function Admin3Page() {
                     حذف الكل
                   </button>
                 )}
-                <button onClick={() => setSosModalOpen(false)} className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <button type="button" autoFocus aria-label="إغلاق طلبات المساعدة" onClick={() => setSosModalOpen(false)} className="shrink-0 w-11 h-11 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
                   <X size={14} />
                 </button>
               </div>
             </div>
 
-            {/* Two-panel body — mobile: full-screen chat with back button, desktop: side-by-side */}
-            <div className="flex flex-1 overflow-hidden">
+            {/* Two-panel body — mobile switches between the list and conversation */}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
 
               {/* Conversation list — hidden on mobile when a chat is selected */}
-              <div className={`${selected ? 'hidden sm:flex' : 'flex'} sm:w-60 sm:border-l border-gray-800/60 flex-col flex-shrink-0`}>
+              <div className={`${selected ? 'hidden sm:flex' : 'flex'} w-full sm:w-60 sm:border-l border-gray-800/60 flex-col flex-shrink-0`}>
                 <div className="flex gap-1 px-2 py-2 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
                   {[
                     { id: 'all', label: 'الكل' },
@@ -8516,7 +8528,7 @@ export default function Admin3Page() {
                     </button>
                   ))}
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   {sorted.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-600 gap-2">
                       <div className="w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center">
@@ -8581,13 +8593,13 @@ export default function Admin3Page() {
                 </div>
               </div>
 
-              {/* Chat panel — full screen on mobile when selected */}
-              <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 flex-col`}>
+              {/* Chat panel — bounded to the available dialog height */}
+              <div className={`${selected ? 'flex' : 'hidden sm:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
                 {selected ? (
                   <>
                     {/* Chat header with back button for mobile */}
                     <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
-                      <button onClick={() => setSelectedSosId(null)} className="sm:hidden w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                      <button type="button" aria-label="العودة إلى طلبات المساعدة" onClick={() => setSelectedSosId(null)} className="sm:hidden w-11 h-11 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                         <ChevronRight size={16} />
                       </button>
                       <div className="relative flex-shrink-0">
@@ -8621,13 +8633,13 @@ export default function Admin3Page() {
                     </div>
 
                     {/* Messages from chat_history */}
-                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-2.5 bg-gray-950/30">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 py-3 space-y-2.5 bg-gray-950/30">
                       {chatHistory.length === 0 && (
                         <div className="text-center py-8 text-gray-600 text-xs">لا توجد رسائل</div>
                       )}
                       {chatHistory.map((msg, i) => (
                         <div key={i} className={`flex ${msg.from === 'user' ? 'justify-start' : 'justify-end'}`}>
-                          <div className="max-w-[80%]">
+                          <div className="min-w-0 max-w-[85%] break-words">
                             <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                               msg.from === 'user'
                                 ? 'bg-gray-800 text-gray-200 rounded-bl-md'
@@ -8654,13 +8666,15 @@ export default function Admin3Page() {
                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') } }}
                             placeholder="اكتب ردك..."
                             rows={1}
-                            className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600 max-h-24"
+                            aria-label="الرد على طلب المساعدة"
+                            className="min-w-0 flex-1 bg-gray-800 border border-gray-700 text-white rounded-2xl px-3.5 py-2.5 text-base focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600 max-h-24"
                             style={{ minHeight: '40px' }}
                           />
                           <button
                             onClick={() => { if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') }}
                             disabled={!replyText.trim()}
-                            className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-colors flex-shrink-0"
+                            aria-label="إرسال الرد"
+                            className="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-colors flex-shrink-0"
                           >
                             <Send size={15} />
                           </button>

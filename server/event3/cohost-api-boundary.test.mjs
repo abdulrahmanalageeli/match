@@ -91,7 +91,7 @@ test("help requests use an independent endpoint, poll, and refresh control", () 
   assert.doesNotMatch(dashboard, /from\("organizer_requests"\)/)
   assert.match(cohostSource, /cohostApi<CohostSupportResponse>\("e3-cohost-support-requests", token\)/)
   assert.match(cohostSource, /onClick=\{\(\) => fetchSupportRequests\(\)\}/)
-  assert.match(cohostSource, /setInterval\(\(\) => \{\s*if \(document\.visibilityState === "visible"\) fetchSupportRequests\(true\)\s*\}, 6000\)/)
+  assert.match(cohostSource, /setInterval\(\(\) => \{\s*if \(document\.visibilityState === "visible"\) fetchSupportRequests\(true\)\s*\}, 3000\)/)
 })
 
 test("a locked co-host cannot log in or reach any allowlisted Event3 action", () => {

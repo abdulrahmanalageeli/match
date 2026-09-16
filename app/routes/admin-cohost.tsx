@@ -1139,14 +1139,18 @@ export default function AdminCohostPage() {
     fetchSupportRequests()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchSupportRequests(true)
-    }, 6000)
+    }, 3000)
     const onVisible = () => {
       if (document.visibilityState === "visible") fetchSupportRequests(true)
     }
     document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", onVisible)
+    window.addEventListener("online", onVisible)
     return () => {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", onVisible)
+      window.removeEventListener("online", onVisible)
     }
   }, [agreementAccepted, fetchSupportRequests, panelLocked])
 
@@ -1911,6 +1915,19 @@ export default function AdminCohostPage() {
             </div>
           </div>
         </div>
+        {supportRequests.length > 0 || supportError ? (
+          <div className="mx-auto max-w-5xl px-4 pb-3" role="status" aria-live="polite" aria-atomic="true">
+            <button type="button" onClick={() => { setTab("support"); void fetchSupportRequests(true) }}
+              className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-red-400/40 bg-red-950/60 px-3 py-2 text-right">
+              <Bell size={22} className="shrink-0 text-red-200 motion-safe:animate-pulse" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-black text-red-100">{supportRequests.length ? `${supportRequests.length} طلب مساعدة يحتاج متابعة` : "تعذّر تحديث طلبات المساعدة"}</span>
+                <span className="mt-0.5 block text-[11px] text-red-200/80">{supportError ? "الاتصال متعثر · اضغطي لإعادة المحاولة" : "تحديث مباشر · اضغطي لعرض الطلبات"}</span>
+              </span>
+              <span className="shrink-0 text-xs font-black text-red-100">عرض</span>
+            </button>
+          </div>
+        ) : null}
       </header>
 
       <main className="mx-auto max-w-5xl space-y-4 px-4 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
@@ -1969,12 +1986,7 @@ export default function AdminCohostPage() {
               </button>
             </section>
 
-            {supportRequests.length ? (
-              <button onClick={() => setTab("support")} className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-red-400/30 bg-red-950/35 p-3 text-right">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-400/15"><Bell size={20} className="animate-pulse text-red-200" /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-black text-red-100">فيه {supportRequests.length} طلب مساعدة</span><span className="mt-1 block truncate text-[11px] text-red-200/70">افتحي الطلب وشوفي وش يحتاج</span></span>
-              </button>
-            ) : null}
+
 
             <section className="space-y-3">
               <SectionTitle icon={choiceOnly ? Heart : Sparkles} title={choiceOnly ? "لقاءات الاختيار الثاني جاهزة" : "اللقاءات الجاهزة"} detail={choiceOnly ? "هذه اللقاءات المعتمدة للاختيار الثاني، وكل شخص يقابل شريكاً مختلفاً عن اللقاء الأول." : "هنا تظهر اللقاءات المعتمدة، حتى لو ما توزعت الطاولات إلى الآن."} />
@@ -2300,7 +2312,7 @@ export default function AdminCohostPage() {
           </section>
         ) : tab === "support" ? (
           <section className="space-y-5">
-            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="طلبات المساعدة" detail="تتحدث الطلبات تلقائياً كل ٦ ثوانٍ وتظهر للحسابين." /><button onClick={() => fetchSupportRequests()} disabled={supportLoading} aria-label="تحديث طلبات المساعدة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={supportLoading ? "animate-spin" : ""} /></button></div>
+            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="طلبات المساعدة" detail="تتحدث الطلبات تلقائياً كل ٣ ثوانٍ في جميع الأقسام وتظهر للحسابين." /><button onClick={() => fetchSupportRequests()} disabled={supportLoading} aria-label="تحديث طلبات المساعدة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={supportLoading ? "animate-spin" : ""} /></button></div>
 
             <div className="space-y-2">
               <h3 className="text-xs font-black text-red-200">الطلبات المفتوحة · {supportRequests.length}</h3>
@@ -2385,8 +2397,8 @@ export default function AdminCohostPage() {
       <nav aria-label="أقسام لوحة المضيفة" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#080c13]/97 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] backdrop-blur-xl">
         <div role="tablist" className="mx-auto grid max-w-2xl grid-cols-6 gap-1">
           {tabs.map(item => (
-            <button key={item.value} role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)} className={`relative flex min-h-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold transition ${tab === item.value ? "bg-teal-300/12 text-teal-200" : "text-slate-400"}`}>
-              <item.icon size={19} />
+            <button key={item.value} role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)} className={`relative flex min-h-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold transition ${item.value === "support" && supportRequests.length ? "bg-red-500/15 text-red-100 ring-1 ring-inset ring-red-400/40" : tab === item.value ? "bg-teal-300/12 text-teal-200" : "text-slate-400"}`}>
+              <item.icon size={19} className={item.value === "support" && supportRequests.length ? "motion-safe:animate-pulse" : ""} />
               <span>{item.label}</span>
               {item.badge ? <span className={`absolute right-[calc(50%-18px)] top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[8px] font-black text-slate-950 ${item.badgeTone === "red" ? "bg-red-400 text-white" : "bg-amber-300"}`}>{item.badge > 99 ? "99+" : item.badge}</span> : null}
             </button>

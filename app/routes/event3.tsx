@@ -1490,7 +1490,7 @@ function PairInsightCard({ result, label, order, accent, token, currentEventId }
       ) : result?.partner_number ? (
         <div className="relative mt-4 space-y-3">
           <AiAnalysisCompact partnerNum={result.partner_number} token={token} currentEventId={currentEventId}
-            accent={accent === "pink" ? "pink" : "purple"} title="إعادة محاولة القراءة" autoStart />
+            accent={accent === "pink" ? "pink" : "purple"} title="قراءة ما بين السطور" />
           {result?.word && <p className="text-[11px] text-white/50">الانطباع الذي بقي · «{result.word}»</p>}
         </div>
       ) : (
@@ -8590,14 +8590,13 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent, m
   )
 }
 
-function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title, autoStart = false }: {
-  partnerNum: number; token: string; currentEventId: number; accent: "pink" | "purple"; title: string; autoStart?: boolean
+function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }: {
+  partnerNum: number; token: string; currentEventId: number; accent: "pink" | "purple"; title: string
 }) {
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [shown, setShown] = useState(false)
   const [readingError, setReadingError] = useState<string | null>(null)
-  const started = useRef(false)
   const isPink = accent === "pink"
 
   const generate = useCallback(async () => {
@@ -8634,13 +8633,6 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title, a
     }
   }, [analysis, token, partnerNum, currentEventId])
 
-  useEffect(() => {
-    if (autoStart && !started.current) {
-      started.current = true
-      void generate()
-    }
-  }, [autoStart, generate])
-
   if (shown && analysis) {
     return (
       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
@@ -8648,7 +8640,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title, a
         <div className={`px-4 py-3 border-b flex items-center justify-between ${isPink ? "border-pink-800/30" : "border-purple-800/30"}`}>
           <div className="flex items-center gap-2">
             <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
-            <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>قراءة بالذكاء الاصطناعي</span>
+            <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>قراءة ما بين السطور</span>
           </div>
           <button type="button" onClick={() => setShown(false)} aria-label="إغلاق التحليل الذكي" className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white"><X size={16} /></button>
         </div>
@@ -9034,7 +9026,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
                     <ShieldCheck size={9} /> خاصة
                   </span>
                 </div>
-                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">قراءة يولّدها الذكاء الاصطناعي لكل لقاء، مهما كانت النسبة. النموذج قيد التدريب، والقراءة ليست حكماً على التوافق. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة.</p>
+                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">اطلب قراءة أعمق لأي لقاء، مهما كانت النسبة. اضغط زر «قراءة ما بين السطور» لبدء التحليل. النموذج قيد التدريب، والقراءة ليست حكماً على التوافق. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة.</p>
               </div>
 
               {readingsOpen && <PairInsightCard result={p2} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p2?.partner_number}:${p2?.assignment_revision}`} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />}

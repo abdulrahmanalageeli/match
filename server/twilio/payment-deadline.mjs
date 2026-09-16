@@ -1,4 +1,4 @@
-export const SEAT_PAYMENT_DEADLINE_LABEL = "11:59 مساءً اليوم"
+export { formatSeatPaymentDeadline } from "../../app/lib/seat-payment-deadline.mjs"
 
 export function paymentWindowLabels(cutoffLabel) {
   const label = String(cutoffLabel || "").trim() || "الموعد المحدد"
@@ -11,10 +11,6 @@ export function paymentWindowLabels(cutoffLabel) {
 const PAYMENT_REMINDER_SENT_FIELDS = {
   payment: "payment_reminder_sent",
   seat_payment_deadline: "seat_payment_reminder_sent",
-}
-
-export function formatSeatPaymentDeadline() {
-  return SEAT_PAYMENT_DEADLINE_LABEL
 }
 
 export function isPaymentReminderTemplate(templateKey) {

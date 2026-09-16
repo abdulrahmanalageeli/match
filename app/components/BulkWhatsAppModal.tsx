@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap, RefreshCw } from "lucide-react"
 import { buildMatchTemplateVariables, resolveParticipantName } from "~/utils/twilioTemplateVariables"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
+import { formatSeatPaymentDeadline } from "~/lib/seat-payment-deadline.mjs"
 
 interface BulkWhatsAppModalProps {
   isOpen: boolean
@@ -225,7 +226,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
     if (templateType === 'seat_payment_deadline') {
       return {
         1: name,
-        2: '11:59 مساءً اليوم',
+        2: formatSeatPaymentDeadline(),
       }
     }
 

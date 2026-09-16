@@ -59,6 +59,7 @@ import MatchControlCenterModal from "~/components/MatchControlCenterModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModal"
 import BatchedCacheModal from "~/components/BatchedCacheModal"
+import AiQueueStatus from "~/components/AiQueueStatus"
 import VibeFixModal from "~/components/VibeFixModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import WhatsAppChatModal from '~/components/WhatsAppChatModal';
@@ -6773,6 +6774,7 @@ Proceed?`
       <div className="relative z-10 p-6 max-w-7xl mx-auto">
         {/* Action Bar */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+          {!isCohost && <div className="mb-4"><AiQueueStatus eventId={currentEventId} /></div>}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -6922,16 +6924,25 @@ Proceed?`
                     }
                     if (!confirm(confirmMessage)) return
                     setLoading(true)
+                    try {
                     const res = await fetch("/api/admin/trigger-match", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
+                      signal: AbortSignal.timeout(190_000),
                       body: JSON.stringify({ 
                         eventId: currentEventId,
                         excludedPairs: excludedPairs
                       }),
                     })
-                    const data = await res.json()
-                    setLoading(false)
+                    const data = await res.json().catch(() => null)
+                    if (!data) throw new Error(res.status === 504
+                      ? "Generation timed out. Check AI Queue progress before trying again."
+                      : "The server returned an unreadable response. Check AI Queue progress and retry.")
+                    if (data.code === "AI_CACHE_PENDING") {
+                      setShowBatchedCacheModal(true)
+                      toast.error(data.error, { duration: 8000 })
+                      return
+                    }
                     
                     if (res.ok) {
                       let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
@@ -6966,7 +6977,15 @@ Proceed?`
                     } else {
                       alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                     }
+                    } catch (error) {
+                      toast.error(error instanceof Error && error.name === 'TimeoutError'
+                        ? "Generation timed out. Check AI Queue progress before trying again."
+                        : error instanceof Error ? error.message : "Unable to generate matches.", { duration: 8000 })
+                    } finally {
+                      setLoading(false)
+                    }
                   }}
+                  disabled={loading}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
                 >
                   <RefreshCcw className="w-3.5 h-3.5" />

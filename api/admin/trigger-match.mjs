@@ -1,5 +1,6 @@
 import OpenAI from "openai"
 import { createHash } from "node:crypto"
+import { countPendingVibePairs } from "../../server/matching/pending-vibe-pairs.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 import {
@@ -4339,8 +4340,30 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
-  if (!enforceRateLimit(req, res, { key: "admin-match", limit: 40, windowMs: 60_000 })) return
+  const queueAction = ['ai-queue-status', 'ai-queue-prioritize'].includes(req.body?.action)
+  if (!enforceRateLimit(req, res, { key: queueAction ? "admin-ai-queue" : "admin-match", limit: 40, windowMs: 60_000 })) return
   if (!await requireAdmin(req, res, { action: "admin-trigger-match" })) return
+  if (queueAction) {
+    const queueEventId = Number(req.body.eventId)
+    if (!Number.isSafeInteger(queueEventId) || queueEventId <= 0) {
+      return res.status(400).json({ error: 'A valid eventId is required' })
+    }
+    try {
+      if (req.body.action === 'ai-queue-prioritize') {
+        const { error } = await supabase.from('compatibility_vibe_worker_control')
+          .update({ priority_event_id: queueEventId, updated_at: new Date().toISOString() })
+          .eq('singleton', true)
+        if (error) throw error
+      }
+      const { data, error } = await supabase.rpc('compatibility_vibe_queue_status', { p_event_id: queueEventId })
+      if (error) throw error
+      res.setHeader('Cache-Control', 'no-store')
+      return res.status(200).json({ success: true, queue: data })
+    } catch (error) {
+      console.error('AI queue status/control failed:', error)
+      return res.status(503).json({ error: 'AI queue controls are temporarily unavailable. Please refresh.' })
+    }
+  }
   // Reset per-request tolerance tracking
   AGE_TOLERANCE_MAP = new Map()
   // Reset forced gender mode (will be set below if matchType requires it)
@@ -6449,6 +6472,34 @@ if (action === "cache-status-by-gender") {
       }
     }
 
+    // A batch cache may have finished its local pass while AI is still queued.
+    // Stop before calculating or changing matches instead of duplicating that work.
+    let generationCacheRows = null
+    if (!skipAI && !preview && !manualMatch && !viewAllMatches && !action) {
+      const { data: queuedCacheRows, error: queuedCacheError } = await fetchAllCachedPairs(
+        'compatibility_cache', eligibleParticipants.map(p => p.assigned_number),
+      )
+      if (queuedCacheError) {
+        return res.status(503).json({ error: 'Could not verify AI cache readiness. Please retry.' })
+      }
+      generationCacheRows = queuedCacheRows || []
+      const pendingAiPairs = countPendingVibePairs(eligibleParticipants, queuedCacheRows || [], {
+        cacheKeyFor: generateCacheKey,
+        isPending: isPendingCurrentAiCacheRow,
+        isReusable: isReusableBalancedVibeRow,
+        isEligible: (a, b) => !isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)
+          && (matchType === 'group' || checkGenderCompatibility(a, b))
+          && checkNationalityHardGate(a, b) && checkAgeRangeHardGate(a, b)
+          && checkInteractionStyleCompatibility(a, b),
+      })
+      if (pendingAiPairs > 0) {
+        return res.status(409).json({
+          code: 'AI_CACHE_PENDING', pending_ai: pendingAiPairs,
+          error: `${pendingAiPairs} required pair scores are still awaiting AI. Open AI Queue in Admin to prioritize this event and follow progress, then generate again.`,
+        })
+      }
+    }
+
     // Event 21+ uses the Event3 ranking/review history as a separate,
     // confidence-weighted priority layer. It never rewrites the visible survey
     // compatibility percentage, and safely degrades to a no-op if a historical
@@ -7941,7 +7992,9 @@ if (action === "cache-status-by-gender") {
     console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
     const cacheStartTime = Date.now()
 
-    const { data: allCachedScores, error: cacheError } = await fetchAllCachedPairs('compatibility_cache', numbers)
+    const { data: allCachedScores, error: cacheError } = generationCacheRows
+      ? { data: generationCacheRows, error: null }
+      : await fetchAllCachedPairs('compatibility_cache', numbers)
     if (cacheError) {
       console.error("⚠️ Error fetching cached scores:", cacheError)
       console.log("⚠️ Continuing without cache optimization...")

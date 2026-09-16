@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import AiQueueStatus from "./AiQueueStatus"
 import { X, Database, Play, Pause, RefreshCw, Activity, CheckCircle2, AlertTriangle, Square } from "lucide-react"
 
 interface BatchedCacheModalProps {
@@ -617,6 +618,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
+          <div className="mb-4"><AiQueueStatus eventId={eventId} /></div>
           <SideCard
             title="حسب التفضيلات"
             subtitle="Mutual gender preferences (recommended)"

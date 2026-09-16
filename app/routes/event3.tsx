@@ -10303,7 +10303,7 @@ export default function Event3Page() {
   const phaseTransitionSequenceRef = useRef(0)
   const eventContentRef = useRef<HTMLDivElement>(null)
   const phaseAnnouncementRef = useRef<HTMLDivElement>(null)
-  const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
+  const autoWelcomeQueuedKeyRef = useRef<string | null>(null)
   const auxiliaryHeartbeatRef = useRef<Record<string, any>>({})
 
   useEffect(() => {
@@ -10396,6 +10396,9 @@ export default function Event3Page() {
     enabled: !!token && !tokenError,
     resetKey: token,
   })
+  const aiWelcomeSeenKey = token && eventState?.event_id != null
+    ? `e3_ai_welcome_seen_${eventState.event_id}_${token}`
+    : null
 
   const fetchPublicFormat = useCallback(async () => {
     const d = await call("e3-get-public-format", null)
@@ -10562,9 +10565,21 @@ export default function Event3Page() {
     setShowWelcome(false)
   }, [])
 
+  // Queue the personal greeting after entry; the overlay policy waits for a safe moment.
+  useEffect(() => {
+    if (!storageReady || showWelcome || enrolled !== true || !aiWelcomeSeenKey
+      || tokenError || testModeBlocked || publicFormatState?.participant_access_locked === true
+      || eventState?.phase !== "setup" || autoWelcomeQueuedKeyRef.current === aiWelcomeSeenKey) return
+    autoWelcomeQueuedKeyRef.current = aiWelcomeSeenKey
+    try {
+      if (localStorage.getItem(aiWelcomeSeenKey) === "1") return
+    } catch { /* Still welcome the participant when browser storage is unavailable. */ }
+    setShowAiWelcome(true)
+  }, [storageReady, showWelcome, enrolled, aiWelcomeSeenKey, tokenError, testModeBlocked, publicFormatState?.participant_access_locked, eventState?.phase])
+
   useEffect(() => {
     if (!showAiWelcome || !eventState?.phase || eventState.phase === "setup") return
-    if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
+    try { if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1") } catch {}
     setShowAiWelcome(false)
   }, [showAiWelcome, eventState?.phase, aiWelcomeSeenKey])
 
@@ -10957,9 +10972,9 @@ export default function Event3Page() {
         )}
       </AnimatePresence>
 
-      {/* The personalized welcome is opt-in from the setup screen. */}
+      {/* Auto-open once per event after joining; the setup button allows reopening. */}
       {canShowAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {
-        if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
+        try { if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1") } catch {}
         setShowAiWelcome(false)
       }} />}
     </div>

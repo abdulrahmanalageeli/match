@@ -27,14 +27,19 @@ test("participant login shows one method at a time with a plain fallback", () =>
   assert.doesNotMatch(login, /aria-label="طريقة تسجيل الدخول"/)
 })
 
-test("waiting screen keeps optional information and personalized welcome collapsed", () => {
+test("personalized welcome opens after joining while setup keeps a manual reopen button", () => {
   const setup = between("function SetupScreen", "// ─── One-popup reminder")
   assert.match(setup, /معلومات إضافية/)
   assert.match(setup, /onOpenWelcomeMessage/)
   assert.match(setup, /ستنتقل الشاشة تلقائياً/)
 
   const welcomeDone = between("const handleWelcomeDone", "useEffect(() => {\n    if (!showAiWelcome")
-  assert.doesNotMatch(welcomeDone, /setShowAiWelcome\(true\)/)
+  assert.match(welcomeDone, /setShowAiWelcome\(true\)/)
+  assert.match(welcomeDone, /showWelcome \|\| enrolled !== true/)
+  assert.match(welcomeDone, /eventState\?\.phase !== "setup"/)
+  assert.match(welcomeDone, /localStorage\.getItem\(aiWelcomeSeenKey\) === "1"/)
+  assert.match(welcomeDone, /autoWelcomeQueuedKeyRef\.current === aiWelcomeSeenKey/)
+  assert.ok(route.includes('`e3_ai_welcome_seen_${eventState.event_id}_${token}`'))
 })
 
 test("Event3 sends choice-mode participants directly to the complete story", () => {

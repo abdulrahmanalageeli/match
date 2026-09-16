@@ -4144,7 +4144,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [showTutorial, setShowTutorial] = useState(false)
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
   // RoundScreen is keyed by phase: every group round begins with the agreement.
-  const [showGroupRules, setShowGroupRules] = useState(true)
+  const [showGroupRules, setShowGroupRules] = useState(false)
   const groupRulesOverlayRef = useRef<HTMLDivElement>(null)
   const groupRulesDialogRef = useRef<HTMLDivElement>(null)
   const participationNudgeTimerRef = useRef<string | null>(null)

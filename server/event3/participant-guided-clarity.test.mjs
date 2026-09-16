@@ -79,7 +79,7 @@ test("Event3 sends choice-mode participants directly to the complete story", () 
 
 test("ranking uses explicit controls and hides routine sync chatter", () => {
   const ranking = between("function RankingScreen", "// ─── Optional Group Reflection")
-  assert.match(ranking, /ضع مَن تفضّله في المركز الأول/)
+  assert.match(ranking, /مين أول؟ ولو ما صار، مين بعده؟/)
   assert.match(ranking, /aria-label=\{`\$\{notes\[num\]/)
   assert.match(ranking, /draftSync !== "error".*className="sr-only"/s)
   assert.doesNotMatch(ranking, /سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين؛/)

@@ -1,5 +1,7 @@
 ﻿import ActivityArtwork from "../components/groups/ActivityArtwork";
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
+import RankingDisclaimer from "../components/RankingDisclaimer"
+import GroupRoundRules from "../components/GroupRoundRules"
 import { useId } from "react"
 import { GroupsPage, type SharedGroupContent } from "./groups"
 import { useSearchParams } from "react-router"
@@ -4168,6 +4170,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [showReelectionConfirm, setShowReelectionConfirm] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
+  // RoundScreen is keyed by phase: every group round begins with the agreement.
+  const [showGroupRules, setShowGroupRules] = useState(true)
+  const groupRulesOverlayRef = useRef<HTMLDivElement>(null)
+  const groupRulesDialogRef = useRef<HTMLDivElement>(null)
   const participationNudgeTimerRef = useRef<string | null>(null)
   const groupsDialogRef = useRef<HTMLDivElement>(null)
   const groupsOpenerRef = useRef<HTMLElement | null>(null)
@@ -4177,6 +4183,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const assignmentRef = useRef<any>(null)
   const assignmentTableRef = useRef<number | null>(null)
   const assignmentRequestRef = useRef(0)
+  const groupRulesVisible = showGroupRules && Boolean(assignment)
+  useModalFocus({
+    open: groupRulesVisible,
+    overlayRef: groupRulesOverlayRef,
+    dialogRef: groupRulesDialogRef,
+    initialFocusRef: groupRulesDialogRef,
+  })
   const coordinatorCandidates: GroupCoordinatorCandidate[] = []
   if (myInfo) {
     coordinatorCandidates.push({ number: myInfo.number, name: myInfo.name, gender: myInfo.gender, isMe: true })
@@ -4206,6 +4219,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       }
     : null
   const projectorVisible = GROUP_COORDINATION_ENABLED && coordination?.status === "elected"
+    && !showGroupRules
     && Boolean(coordination.coordinator_number)
     && Boolean(coordination.active_content)
     && !isGroupCoordinator
@@ -4214,7 +4228,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     && !electionVisible
     && !showReelectionConfirm
   const coordinationModalVisible = GROUP_COORDINATION_ENABLED && (electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
-  const groupsInteractive = showGroups && !coordinationModalVisible
+  const groupsInteractive = showGroups && !coordinationModalVisible && !showGroupRules
   const returnToBroadcastVisible = GROUP_COORDINATION_ENABLED && coordination?.status === "elected"
     && Boolean(coordination.active_content)
     && !isGroupCoordinator
@@ -4477,8 +4491,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     }
   }, [groupsInteractive, closeGroups])
   useEffect(() => {
-    onGroupsOpenChange?.(showGroups || showTutorial || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
-  }, [showGroups, showTutorial, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
+    onGroupsOpenChange?.(groupRulesVisible || showGroups || showTutorial || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
+  }, [groupRulesVisible, showGroups, showTutorial, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
+  useEffect(() => () => onGroupsOpenChange?.(false), [onGroupsOpenChange])
 
   useEffect(() => {
     onProjectorVisibilityChange?.(projectorVisible)
@@ -4815,6 +4830,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
           </AnimatePresence>
 
           {/* Contextual help is optional and never interrupts the live task. */}
+          <button type="button" onClick={() => setShowGroupRules(true)} className="event3-tertiary-action mx-auto flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-medium text-violet-200/80 hover:text-violet-100"><Users size={14} /> اتفاق الجلسة</button>
           {round === 1 && (
             <motion.button
               onClick={() => setShowTutorial(true)}
@@ -4828,6 +4844,19 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
         </div>
       </motion.div>
+
+      {/* Keep activities mounted under the agreement so reopening it preserves progress. */}
+      <AnimatePresence>
+        {groupRulesVisible && (
+          <motion.div ref={groupRulesOverlayRef} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-[#02030a]/90 p-3 backdrop-blur-md sm:p-6">
+            <div ref={groupRulesDialogRef} role="dialog" aria-modal="true" aria-label="اتفاق الجلسة قبل الجولة الجماعية" tabIndex={-1}
+              className="flex h-full max-h-full w-full max-w-lg items-center justify-center outline-none">
+              <GroupRoundRules round={round} secondsRemaining={timerActive ? timeLeft : undefined} onAgree={() => setShowGroupRules(false)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Tutorial Overlay ─────────────────────────────────────────── */}
       <AnimatePresence>
@@ -4928,7 +4957,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {GROUP_COORDINATION_ENABLED && electionVisible && coordination?.status === "voting" && (
+        {GROUP_COORDINATION_ENABLED && !showGroupRules && electionVisible && coordination?.status === "voting" && (
           <GroupElectionOverlay
             state={coordination}
             candidates={electionCandidates}
@@ -4948,7 +4977,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {GROUP_COORDINATION_ENABLED && revealedCoordinator && revealedLeader && (
+        {GROUP_COORDINATION_ENABLED && !showGroupRules && revealedCoordinator && revealedLeader && (
           <CoordinatorRevealOverlay
             leader={revealedLeader}
             isMe={revealedLeader.isMe}
@@ -4983,7 +5012,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       </AnimatePresence>
 
       <AnimatePresence>
-        {GROUP_COORDINATION_ENABLED && showReelectionConfirm && coordination?.coordinator_number && (
+        {GROUP_COORDINATION_ENABLED && !showGroupRules && showReelectionConfirm && coordination?.coordinator_number && (
           <ReelectionConfirmOverlay
             coordinatorName={coordinatorName}
             busy={coordinationBusy}
@@ -5007,27 +5036,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   )
 }
 
-// ─── Ranking Tutorial Overlay ────────────────────────────────────────────────
-function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceOnly: boolean }) {
-  return (
-    <OnePopup
-      onClose={onClose}
-      accent="amber"
-      label="التقييم والترتيب"
-      icon={<BarChart3 size={26} className="text-violet-300" />}
-      title="رتّب أولوية اللقاء"
-      cta="فهمت — ابدأ الترتيب"
-      points={[
-        { icon: <Trophy size={16} className="text-amber-300" />, text: <>ضع الشخص الذي ترغب بلقائه أكثر في المركز الأول. اسحب المقبض أو اضغط رقم المركز.</> },
-        { icon: <Heart size={16} className="text-emerald-300" />, text: <>اختياراتك سرية، واللقاء لا يعتمد على اختيار طرف واحد فقط.</> },
-        { icon: <Users size={16} className="text-pink-300" />, text: choiceOnly
-          ? <>سنستخدم الترتيب لتكوين ثلاثة لقاءات متبادلة مع أشخاص مختلفين.</>
-          : <>سنستخدم الترتيب لتكوين لقاء اختيارك ولقاء يرشحه النظام.</> },
-      ]}
-    />
-  )
-}
-
+// ─── Ranking Tutorial Overlay (now provided by RankingDisclaimer) ────────────
 function RankingReorderCard({
   value,
   disabled,
@@ -5096,7 +5105,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [noteSaveErrors, setNoteSaveErrors] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
-  const [showRankTutorial, setShowRankTutorial] = useState(false)
+  // RankingScreen is keyed by round, so each round starts with the explanation.
+  const [showRankingDisclaimer, setShowRankingDisclaimer] = useState(true)
   const [privacyRevealed, setPrivacyRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
@@ -5409,6 +5419,16 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     </PageWrapper>
   )
 
+  if (showRankingDisclaimer && !submitted) return (
+    <PageWrapper embedded className="flex items-center justify-center overflow-hidden px-3 py-4 sm:p-6">
+      <RankingDisclaimer
+        choiceOnly={choiceOnly}
+        secondsRemaining={timerActive ? timeLeft : undefined}
+        onContinue={() => setShowRankingDisclaimer(false)}
+      />
+    </PageWrapper>
+  )
+
   if (!privacyRevealed) return (
     <PageWrapper embedded className="flex items-center justify-center p-5 text-center">
       <div className="event3-glass w-full max-w-sm rounded-[1.75rem] border border-violet-300/[0.16] p-6 shadow-[0_28px_80px_-44px_rgba(139,92,246,.8)]">
@@ -5440,8 +5460,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 <BarChart3 size={15} className="text-violet-300" />
               </div>
               <div>
-                <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب من تفضّل</h1>
-                <p className="mt-1 text-xs leading-tight text-gray-400">الأكثر رغبة أولاً · {people.length} أسماء</p>
+                <h1 className="text-lg font-black leading-tight tracking-[-0.015em] text-white">رتّب كل اللي قابلتهم</h1>
+                <p className="mt-1 text-xs leading-tight text-gray-400">قائمة واحدة لكل الجولات · {people.length} أسماء</p>
               </div>
             </div>
 
@@ -5499,9 +5519,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           <JourneyCue
             accent="amber"
             eyebrow={isFinalRanking ? "قرارك النهائي" : "قرار هذه الجولة"}
-            title="ضع مَن تفضّله في المركز الأول"
-            description="اسحب المقبض، أو اضغط رقم المركز لاختيار مكانه. سيُحفظ الترتيب الظاهر تلقائياً عند انتهاء الوقت."
-            steps={["رتّب", "راجع الأعلى", "احفظ"]}
+            title="مين أول؟ ولو ما صار، مين بعده؟"
+            description="رتّب جميع الأسماء، مو بس أول ثلاثة. اسحب المقبض أو اضغط رقم المركز. سيُحفظ الترتيب الظاهر تلقائياً عند انتهاء الوقت."
+            steps={["رتّب", "راجع الجميع", "احفظ"]}
             currentStep={0}
             className="mb-3"
             aside={(
@@ -5510,6 +5530,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </button>
             )}
           />
+          <button type="button" onClick={() => setShowRankingDisclaimer(true)} className="mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-300/15 bg-violet-400/[0.04] px-3 text-xs font-bold text-violet-200"><Info size={14} /> كيف يتحدد لقائي؟</button>
           <div className="mb-3"><OneToOneSupportButton /></div>
           </>
         )}
@@ -5543,7 +5564,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               >
                 {startDrag => <>
                 <div className="flex touch-pan-y items-center justify-center gap-2.5 px-2.5 py-3 sm:px-3.5">
-                  {/* Rank badge with icon for top 3 */}
+                  {/* Every position stays visible and editable. */}
                   <button
                     type="button"
                     onClick={event => { event.stopPropagation(); setRankPickerNumber(num) }}
@@ -5742,11 +5763,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         )}
       </AnimatePresence>
 
-      {/* Ranking Tutorial Overlay */}
-      <AnimatePresence>
-        {showRankTutorial && <RankingTutorial choiceOnly={choiceOnly} onClose={() => { setShowRankTutorial(false); try { sessionStorage.setItem('e3_tut_ranking', "1") } catch {} }} />}
-      </AnimatePresence>
-
       {/* 90-second auto-lock warning popup */}
       <AnimatePresence>
         {showTimeWarning && !submitted && (
@@ -5773,7 +5789,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               ref={rankingConfirmDialogRef}
               initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
-              className="event3-glass event3-sheet w-full max-w-xs space-y-4 rounded-3xl border border-amber-500/20 p-6 text-center ring-1 ring-amber-500/10"
+              className="event3-glass event3-sheet flex max-h-[calc(100dvh-3rem)] w-full max-w-xs flex-col gap-4 overflow-y-auto rounded-3xl border border-amber-500/20 p-6 text-center ring-1 ring-amber-500/10"
               onClick={e => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -5782,11 +5798,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <div className="w-14 h-14 mx-auto rounded-2xl border border-violet-300/20 bg-violet-400/10 flex items-center justify-center">
                 <Send size={22} className="text-violet-300" />
               </div>
-              <h3 id="ranking-confirm-title" className="text-white font-black text-lg">احفظ هذا الترتيب؟</h3>
-              <p className="text-sm leading-6 text-gray-400">راجع أعلى ثلاثة، ثم أكّد الحفظ.</p>
-              {/* Top 3 podium preview */}
-              <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3.5 space-y-2">
-                  {order.slice(0, 3).map((num, i) => {
+              <h3 id="ranking-confirm-title" className="text-white font-black text-lg">راجعت ترتيب الجميع؟</h3>
+              <p className="text-sm leading-6 text-gray-400">كل اسم ممكن يصير أحد لقاءاتك. راجع القائمة كاملة، ثم أكّد الحفظ.</p>
+              {/* Full ranking review, including later choices. */}
+              <div className="min-h-24 max-h-[35dvh] shrink-0 overflow-y-auto rounded-2xl border border-white/[0.05] bg-white/[0.03] p-3.5 space-y-2">
+                  {order.map((num, i) => {
                     const p = personMap[num]
                     if (!p) return null
                     const rb = rankBadge(i)
@@ -5801,7 +5817,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                       </div>
                     )
                   })}
-                  {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1 text-center">+ {order.length - 3} آخرون</p>}
               </div>
               <div className="flex gap-3 pt-1">
                 <button ref={rankingConfirmCancelRef} type="button" onClick={() => setShowConfirm(false)} disabled={autoSaving}

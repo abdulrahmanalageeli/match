@@ -8053,7 +8053,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid session or page offset' })
       }
       const { data, error } = await supabase.rpc('get_admin_result_pair_page', { p_session_id: sessionId, p_offset: offset })
-      if (error) return res.status(500).json({ error: 'Could not load score details' })
+      if (error) {
+        console.error('[get-admin-result-pairs] Database page failed:', { code: error.code, offset })
+        return res.status(error.code === '57014' ? 503 : 500).json({ error: 'Could not load score details', retryable: true })
+      }
       if (!data) return res.status(404).json({ error: 'Saved session not found' })
       return res.status(200).json({ success: true, ...data })
     }

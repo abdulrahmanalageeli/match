@@ -21,6 +21,7 @@ test('report paging preserves details and order, limits bytes, and restricts acc
       create table admin_results(session_id text, calculated_pairs jsonb, created_at timestamptz default now());`)
     const sql = await readFile(new URL('../../supabase/migrations/20260916112651_paginate_admin_result_pairs.sql', import.meta.url), 'utf8')
     await db.exec(sql)
+    await db.exec(await readFile(new URL('../../supabase/migrations/20260916144824_optimize_admin_result_pair_paging.sql', import.meta.url), 'utf8'))
     const pairs = Array.from({ length: 321 }, (_, i) => ({ i, reason: 'ت'.repeat(6_000), nested: { score: i } }))
     await db.query('insert into admin_results(session_id, calculated_pairs) values ($1, $2)', ['test', JSON.stringify(pairs)])
     const offsets = []
@@ -41,6 +42,7 @@ test('report paging preserves details and order, limits bytes, and restricts acc
     assert.deepEqual(rows[0], { anon: false, authenticated: false, service: true })
     assert.equal((await db.query("select get_admin_result_pair_page('missing',0) as page")).rows[0].page, null)
     assert.deepEqual((await db.query("select get_admin_result_pair_page('test',321) as page")).rows[0].page.pairs, [])
+    assert.deepEqual((await db.query("select get_admin_result_pair_page('test',2147483647) as page")).rows[0].page.pairs, [])
     await db.query('insert into admin_results(session_id, calculated_pairs) values ($1, $2)', ['large', JSON.stringify(Array.from({length: 30}, (_, i) => ({ i, reason: 'x'.repeat(100_000) })))])
     const page = (await db.query("select get_admin_result_pair_page('large',0) as page")).rows[0].page
     assert.equal(page.nextOffset, 19)

@@ -8676,7 +8676,6 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
 function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChange, eventFormat }: { token: string; impersonating?: boolean; onQuestionViewerChange?: (open: boolean) => void; eventFormat: Event3Format }) {
   const reduceMotion = useReducedMotion()
   const [revealedCount, setRevealedCount] = useState(0)
-  const [readingsOpen, setReadingsOpen] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
@@ -8957,6 +8956,37 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           </div>
         </section>
 
+        {revealed && (
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.45 }}
+              aria-labelledby="pair-reading-title"
+              className="space-y-3 text-right"
+            >
+              <div className="event3-glass relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] px-4 py-4 text-right">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl" />
+                <div className="relative flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/10 text-purple-200 shadow-[0_0_25px_-10px_rgba(192,132,252,.9)]">
+                    <Sparkles size={19} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300/65">BEYOND THE SCORE</p>
+                    <h2 id="pair-reading-title" className="mt-0.5 text-lg font-black text-white">قراءة ما بين السطور</h2>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/[0.07] px-2 py-1 text-[9px] font-bold text-emerald-200/70">
+                    <ShieldCheck size={9} /> خاصة
+                  </span>
+                </div>
+                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">اطلب قراءة أعمق لأي لقاء، مهما كانت النسبة. اضغط زر «قراءة ما بين السطور» لبدء التحليل. النموذج قيد التدريب، والقراءة ليست حكماً على التوافق. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة.</p>
+              </div>
+
+              <PairInsightCard result={p2} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p2?.partner_number}:${p2?.assignment_revision}`} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />
+              {!sameMatch && <PairInsightCard result={p3} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p3?.partner_number}:${p3?.assignment_revision}`} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
+              {choiceOnly && <PairInsightCard result={p4} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p4?.partner_number}:${p4?.assignment_revision}`} label="اللقاء الثالث" order={3} accent="cyan" />}
+            </motion.section>
+        )}
+
         <AnimatePresence>
           {revealed && !choiceOnly && sameMatch && (
             <motion.div
@@ -8976,74 +9006,6 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             </motion.div>
           )}
         </AnimatePresence>
-
-        <AnimatePresence>
-          {revealed && (
-            <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: reduceMotion ? 0 : 0.38, duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-              className="event3-finale-next rounded-[1.5rem] border border-white/[0.09] p-2.5 text-right"
-            >
-              <div className="mb-2.5 flex items-start gap-2.5 px-1">
-                <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-300/70" />
-                <div>
-                  <p className="text-xs font-black text-white/75">الخطوة التالية لك وحدك</p>
-                  <p className="mt-0.5 text-[10px] leading-5 text-white/35">لا تظهر معلومات التواصل إلا عندما تكون الموافقة متبادلة.</p>
-                </div>
-              </div>
-              <a href={resultsHref} className="event3-action event3-primary-action event3-finale-cta flex min-h-16 w-full items-center gap-4 rounded-2xl px-4 py-3 text-right text-white">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/10 bg-violet-300/[0.055] text-violet-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
-                  <Trophy size={17} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black">فتح النتائج والتواصل</span>
-                  <span className="mt-0.5 block text-[11px] font-bold leading-5 text-white/50">شاهد القرار وافتح ما أصبح متاحاً لك</span>
-                </span>
-                <ArrowLeft size={18} className="shrink-0 text-white/60" />
-              </a>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {revealed && (
-          <details onToggle={event => setReadingsOpen(event.currentTarget.open)} className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
-              قراءة ما بين السطور
-              <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
-            </summary>
-            <div className="border-t border-white/[0.06] p-3">
-            <motion.section
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.45 }}
-              aria-labelledby="pair-reading-title"
-              className="space-y-3"
-            >
-              <div className="event3-glass relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] px-4 py-4 text-right">
-                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl" />
-                <div className="relative flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/10 text-purple-200 shadow-[0_0_25px_-10px_rgba(192,132,252,.9)]">
-                    <Sparkles size={19} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300/65">BEYOND THE SCORE</p>
-                    <h2 id="pair-reading-title" className="mt-0.5 text-lg font-black text-white">قراءة ما بين السطور</h2>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/[0.07] px-2 py-1 text-[9px] font-bold text-emerald-200/70">
-                    <ShieldCheck size={9} /> خاصة
-                  </span>
-                </div>
-                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">اطلب قراءة أعمق لأي لقاء، مهما كانت النسبة. اضغط زر «قراءة ما بين السطور» لبدء التحليل. النموذج قيد التدريب، والقراءة ليست حكماً على التوافق. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة.</p>
-              </div>
-
-              {readingsOpen && <PairInsightCard result={p2} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p2?.partner_number}:${p2?.assignment_revision}`} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />}
-              {readingsOpen && !sameMatch && <PairInsightCard result={p3} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p3?.partner_number}:${p3?.assignment_revision}`} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
-              {readingsOpen && choiceOnly && <PairInsightCard result={p4} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p4?.partner_number}:${p4?.assignment_revision}`} label="اللقاء الثالث" order={3} accent="cyan" />}
-            </motion.section>
-            </div>
-          </details>
-        )}
 
         <details hidden={!revealed} className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
@@ -9112,6 +9074,35 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           </div>
         </details>
 
+        <AnimatePresence>
+          {revealed && (
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: reduceMotion ? 0 : 0.38, duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+              className="event3-finale-next rounded-[1.5rem] border border-white/[0.09] p-2.5 text-right"
+            >
+              <div className="mb-2.5 flex items-start gap-2.5 px-1">
+                <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-300/70" />
+                <div>
+                  <p className="text-xs font-black text-white/75">الخطوة التالية لك وحدك</p>
+                  <p className="mt-0.5 text-[10px] leading-5 text-white/35">لا تظهر معلومات التواصل إلا عندما تكون الموافقة متبادلة.</p>
+                </div>
+              </div>
+              <a href={resultsHref} className="event3-action event3-primary-action event3-finale-cta flex min-h-16 w-full items-center gap-4 rounded-2xl px-4 py-3 text-right text-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/10 bg-violet-300/[0.055] text-violet-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
+                  <Trophy size={17} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black">فتح النتائج والتواصل</span>
+                  <span className="mt-0.5 block text-[11px] font-bold leading-5 text-white/50">شاهد القرار وافتح ما أصبح متاحاً لك</span>
+                </span>
+                <ArrowLeft size={18} className="shrink-0 text-white/60" />
+              </a>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Simple home link */}
         <motion.a hidden={!revealed} href="/welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
           className="inline-flex min-h-11 items-center gap-2 text-xs text-gray-400 transition-colors hover:text-gray-200">
@@ -9127,13 +9118,10 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
   const titleId = useId()
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [typed, setTyped] = useState("")
-  const [typing, setTyping] = useState(false)
-  const [done, setDone] = useState(false)
+  const done = Boolean(message)
   const [closing, setClosing] = useState(false)
   const [failed, setFailed] = useState(false)
   const [savingImage, setSavingImage] = useState(false)
-  const typingRunRef = useRef(0)
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const dismissButtonRef = useRef<HTMLButtonElement>(null)
@@ -9181,61 +9169,6 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
     })
     return () => { active = false; window.clearTimeout(timeoutId) }
   }, [token, previewMessage, previewFailed])
-
-  const finishTyping = useCallback(() => {
-    if (!message) return
-    typingRunRef.current += 1
-    setTyped(message)
-    setTyping(false)
-    setDone(true)
-  }, [message])
-
-  // Time-based and throttled so slow phones never have to render every character.
-  useEffect(() => {
-    if (!message) return
-    const runId = ++typingRunRef.current
-    setTyped("")
-    setTyping(true)
-    setDone(false)
-
-    if (reduceMotion) {
-      setTyped(message)
-      setTyping(false)
-      setDone(true)
-      return
-    }
-
-    const duration = Math.min(5200, Math.max(2200, message.length * 18))
-    let frame = 0
-    let startedAt = 0
-    let lastPaint = 0
-    const tick = (now: number) => {
-      if (typingRunRef.current !== runId) return
-      if (!startedAt) startedAt = now
-      const elapsed = now - startedAt
-      const nextIndex = Math.min(message.length, Math.floor((elapsed / duration) * message.length))
-
-      if (nextIndex >= message.length) {
-        setTyped(message)
-        setTyping(false)
-        setDone(true)
-        const compactScreen = window.matchMedia('(max-width: 639px)').matches
-        if (!reduceMotion) fireConfetti({ particleCount: compactScreen ? 36 : 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
-        return
-      }
-
-      if (now - lastPaint >= 50) {
-        lastPaint = now
-        setTyped(message.slice(0, nextIndex))
-      }
-      frame = window.requestAnimationFrame(tick)
-    }
-    frame = window.requestAnimationFrame(tick)
-    return () => {
-      typingRunRef.current += 1
-      window.cancelAnimationFrame(frame)
-    }
-  }, [message, reduceMotion])
 
   const dismiss = () => {
     if (closingRef.current) return
@@ -9560,18 +9493,19 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                       <span className="text-purple-300/70 text-[11px] font-bold tracking-wide">شيء خاص لك</span>
                     </div>
 
-                    {/* Message body with typewriter */}
-                    <div className="relative flex min-h-[96px] items-center justify-center sm:min-h-[120px]">
-                      <p className="whitespace-pre-wrap text-center text-sm font-medium leading-7 tracking-wide text-gray-100 sm:text-[15px] sm:leading-[2.2]">
-                        {typed}
-                        {typing && (
-                          <motion.span
-                            animate={{ opacity: [1, 0, 1] }}
-                            transition={{ duration: 0.6, repeat: Infinity }}
-                            className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 align-middle rounded-full"
-                          />
-                        )}
-                      </p>
+                    {/* Whole paragraphs stay readable while gently appearing. */}
+                    <div className="relative space-y-4 text-right" data-welcome-message>
+                      {message.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => (
+                        <motion.p
+                          key={index}
+                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.45, delay: index * 0.18, ease: "easeOut" }}
+                          className="whitespace-pre-wrap text-sm font-medium leading-7 text-gray-100 sm:text-[15px] sm:leading-[2.2]"
+                        >
+                          {paragraph}
+                        </motion.p>
+                      ))}
                     </div>
 
                     {/* Subtle footer label */}
@@ -9582,24 +9516,13 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                       className="relative flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/[0.04]"
                     >
                       <Sparkles size={10} className="text-purple-400/50" />
-                      <span className="text-purple-300/40 text-[10px] font-medium tracking-wider">كُتب خصيصاً لك بناءً على إجاباتك</span>
+                      <span className="text-purple-300/40 text-[10px] font-medium tracking-wider">رسالة لك، من التوافق الأعمى</span>
                       <Sparkles size={10} className="text-pink-400/50" />
                     </motion.div>
                   </motion.div>
                 </div>
 
-                {typing && (
-                  <div className="sticky bottom-0 z-20 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
-                    <button
-                      onClick={finishTyping}
-                      className="event3-soft-action w-full rounded-2xl py-3 text-sm font-bold text-purple-200"
-                    >
-                      عرض الرسالة كاملة
-                    </button>
-                  </div>
-                )}
-
-                {/* Dismiss button — appears after typing completes */}
+                {/* Actions are available as soon as the message arrives. */}
                 <AnimatePresence>
                   {done && (
                     <motion.div
@@ -10644,7 +10567,7 @@ export default function Event3Page() {
           token="preview"
           onDone={() => {}}
           previewFailed={questionPreview === "aiWelcomeFailed"}
-          previewMessage={questionPreview === "aiWelcome" ? "هذه رسالتك الخاصة: حضورك الهادئ وفضولك تجاه الناس يعطيانك فرصة جميلة لاكتشاف أشخاص يشبهونك بطرق لم تتوقعها. خذ وقتك، اسأل بصدق، ولا تشغل بالك بإعطاء الانطباع المثالي. أجمل الحوارات تبدأ عندما يكون كل شخص على طبيعته ويترك مساحة حقيقية للطرف الآخر." : undefined}
+          previewMessage={questionPreview === "aiWelcome" ? "يا هلا سارة! حلو إنك معنا الليلة 🤍 بما إنك تحبين الهايكنق، عندك موضوع نبي نسمع عنه: وش الطلعة اللي يستاهل الواحد يصحى الفجر عشانها؟\n\nيمكن أحد على طاولتك عنده اقتراح لطلعتك الجاية، أو سالفة عن مشوار ما ينساه. مبسوطين إنك جيتي، ومتحمسين للسوالف اللي بتبدأ الليلة!" : undefined}
         />
       </main>
     )

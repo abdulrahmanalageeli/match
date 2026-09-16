@@ -85,7 +85,7 @@ test("ranking uses explicit controls and hides routine sync chatter", () => {
   assert.doesNotMatch(ranking, /سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين؛/)
 })
 
-test("break and final result screens keep secondary content behind disclosure", () => {
+test("final reveal shows reading after percentages and puts results last", () => {
   const breakScreen = between("function BreakScreen", "// ─── Final Reveal Screen")
   assert.match(breakScreen, /ماذا سيحدث بعد الاستراحة؟/)
   assert.match(breakScreen, /event3-secondary-details/)
@@ -95,7 +95,11 @@ test("break and final result screens keep secondary content behind disclosure", 
   const revealCard = between("function RevealCard", "function AiAnalysisCompact")
   const primaryAction = finalReveal.indexOf("فتح النتائج والتواصل")
   const firstDisclosure = finalReveal.indexOf("event3-secondary-details")
-  assert.ok(primaryAction > -1 && firstDisclosure > primaryAction, "results must be the first post-reveal action")
+  const reading = finalReveal.indexOf('aria-labelledby="pair-reading-title"')
+  assert.ok(reading > finalReveal.indexOf('event3-finale-reveal-list'), "reading follows percentages")
+  assert.ok(firstDisclosure > reading && primaryAction > firstDisclosure, "results follow reading and optional sections")
+  assert.doesNotMatch(finalReveal, /readingsOpen|setReadingsOpen/)
+  assert.ok(primaryAction > finalReveal.indexOf('مواصلة الحوار بأسئلة إضافية'))
   assert.match(finalReveal, /<BinaryPopupFormation tone="amber" size="container" \/>/)
   assert.match(finalReveal, /setRevealedCount\(index \+ 1\)/)
   assert.match(finalReveal, /revealed=\{revealedCount >= 1\}/)

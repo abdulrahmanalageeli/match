@@ -1,3 +1,4 @@
+import { loadEvent3ResultsReleases, event3ResultsReleased } from "../../server/event3/results-release.mjs"
 import OpenAI from "openai"
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import {
@@ -4223,19 +4224,21 @@ export default async function handler(req, res) {
         // event whose phase is final_reveal or whose results_visible is explicitly true.
         const [{ data: mainState, error: mainErr }, { data: e3State, error: e3Err }] = await Promise.all([
           supabase.from("event_state").select("results_visible").eq("match_id", STATIC_MATCH_ID).maybeSingle(),
-          supabase.from("event_state").select("results_visible,phase").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          supabase.from("event_state").select("results_visible,phase,current_event_id,test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
         ])
 
         if (mainErr) console.error("Error getting main results visibility:", mainErr)
         if (e3Err) console.error("Error getting event3 results visibility:", e3Err)
 
         const mainVisible = mainState?.results_visible !== false
-        const e3Visible = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+        const releases = await loadEvent3ResultsReleases(supabase, EVENT3_MATCH_ID)
+        const e3Visible = event3ResultsReleased(e3State?.current_event_id, e3State, releases)
 
         // If no event3 state exists yet, default to main visibility.
         const visible = e3State ? (mainVisible || e3Visible) : mainVisible
 
-        return res.status(200).json({ visible })
+        res.setHeader("Cache-Control", "no-store")
+        return res.status(200).json({ visible, results_release_at: releases.get(Number(e3State?.current_event_id)) || null, server_time: new Date().toISOString() })
       } catch (err) {
         console.error("Error getting results visibility:", err)
         return res.status(200).json({ visible: true })

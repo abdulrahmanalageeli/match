@@ -1,6 +1,7 @@
 import ActivityArtwork from "../components/groups/ActivityArtwork";
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import RankingDisclaimer from "../components/RankingDisclaimer"
+import ResultsReleaseNotice from "../components/ResultsReleaseNotice"
 import GroupRoundRules from "../components/GroupRoundRules"
 import { useId } from "react"
 import { GroupsPage, type SharedGroupContent } from "./groups"
@@ -8711,7 +8712,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
     && (!choiceOnly || (data?.phase4?.partner_number && data?.phase4?.partner_first_name))
   )
   const sameMatch = !choiceOnly && Boolean(data?.same_match)
-  const resultsHref = `/results?token=${encodeURIComponent(token)}${impersonating ? "&impersonate=1" : ""}`
+  const resultsHref = "/welcome"
 
   useEffect(() => {
     if (finalResultsReady) {
@@ -9082,6 +9083,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
               transition={{ delay: reduceMotion ? 0 : 0.38, duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
               className="event3-finale-next rounded-[1.5rem] border border-white/[0.09] p-2.5 text-right"
             >
+              <ResultsReleaseNotice />
               <div className="mb-2.5 flex items-start gap-2.5 px-1">
                 <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-300/70" />
                 <div>
@@ -9094,8 +9096,8 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
                   <Trophy size={17} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black">فتح النتائج والتواصل</span>
-                  <span className="mt-0.5 block text-[11px] font-bold leading-5 text-white/50">شاهد القرار وافتح ما أصبح متاحاً لك</span>
+                  <span className="block text-sm font-black">النتائج على الصفحة الرئيسية</span>
+                  <span className="mt-0.5 block text-[11px] font-bold leading-5 text-white/50">العودة للرئيسية وعرض النتائج عند موعدها</span>
                 </span>
                 <ArrowLeft size={18} className="shrink-0 text-white/60" />
               </a>

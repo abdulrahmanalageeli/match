@@ -93,7 +93,7 @@ test("final reveal shows reading after percentages and puts results last", () =>
 
   const finalReveal = between("function FinalRevealScreen", "// ─── AI Welcome Popup")
   const revealCard = between("function RevealCard", "function AiAnalysisCompact")
-  const primaryAction = finalReveal.indexOf("فتح النتائج والتواصل")
+  const primaryAction = finalReveal.indexOf("النتائج على الصفحة الرئيسية")
   const firstDisclosure = finalReveal.indexOf("event3-secondary-details")
   const reading = finalReveal.indexOf('aria-labelledby="pair-reading-title"')
   assert.ok(reading > finalReveal.indexOf('event3-finale-reveal-list'), "reading follows percentages")

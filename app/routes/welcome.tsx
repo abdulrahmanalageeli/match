@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense, useMemo, useLayoutEffect, 
 import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router"
 import { X } from "lucide-react"
+import ResultsReleaseNotice from "../components/ResultsReleaseNotice"
 import toast, { Toaster } from 'react-hot-toast'
 
 import {
@@ -8344,6 +8345,7 @@ export default function WelcomePage() {
                           ) : null}
                         </div>
 
+                        <ResultsReleaseNotice />
                         {/* Returning Player Button - Row 2 Left */}
                         <button
                           onClick={() => {

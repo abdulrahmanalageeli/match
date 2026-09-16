@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import ResultsReleaseNotice from "../components/ResultsReleaseNotice"
 import { useSearchParams, Link } from "react-router"
 import { 
   ArrowLeft, 
@@ -871,6 +872,8 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
+    let disposed = false
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined
     const fetchResults = async () => {
       if (!token) {
         setError("لم يتم توفير رمز صحيح")
@@ -895,7 +898,13 @@ export default function ResultsPage() {
 
         const data = await res.json()
 
+        if (disposed) return
         if (data.success) {
+          // Use server time so a wrong device clock cannot release results early.
+          const releaseDelay = Date.parse(data.results_release_at) - Date.parse(data.server_time)
+          if (data.current_event_results_visible === false && releaseDelay > 0) {
+            releaseTimer = setTimeout(fetchResults, Math.min(releaseDelay + 100, 2_147_483_647))
+          }
           // Filter out matches with organizer (participant #9999)
           const filteredHistory = (data.history || []).filter((match: MatchResult) =>
             match.with !== 9999 &&
@@ -938,6 +947,7 @@ export default function ResultsPage() {
     }
 
     fetchResults()
+    return () => { disposed = true; clearTimeout(releaseTimer) }
   }, [token])
 
   useEffect(() => {
@@ -1064,19 +1074,20 @@ export default function ResultsPage() {
           </Link>
         </div>
 
+        <ResultsReleaseNotice />
         {/* Content */}
         <div className="rounded-[1.75rem] border border-white/[0.075] bg-slate-950/35 p-2.5 shadow-[0_28px_90px_-55px_rgba(56,189,248,.45)] backdrop-blur-xl sm:p-5">
           {error === "waiting" ? (
             <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
               <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>
               <h2 className={`text-2xl font-bold mb-4 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                النتائج قيد المراجعة
+                النتائج لم تُفتح بعد
               </h2>
               <p className="text-lg mb-4">
-                يتم حالياً مراجعة النتائج من قبل المنظمين
+                تظهر النتائج على الصفحة الرئيسية عند موعد نشرها.
               </p>
               <p className="text-sm opacity-75 mb-6">
-                سيتم عرض النتائج قريباً، يرجى الانتظار...
+                لا تظهر معلومات التواصل إلا عند الموافقة المتبادلة.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <Button 

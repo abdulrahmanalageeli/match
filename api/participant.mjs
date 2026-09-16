@@ -1,3 +1,4 @@
+import { loadEvent3ResultsReleases, event3ResultsReleased } from "../server/event3/results-release.mjs"
 import OpenAI from "openai"
 import {
   canAccessEvent3DuringTest,
@@ -1237,13 +1238,14 @@ export default async function handler(req, res) {
         .select("phase,current_event_id,results_visible,test_mode_active")
         .eq("match_id", E3_MATCH_ID)
         .maybeSingle()
-      const e3Finished = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+      const releases = await loadEvent3ResultsReleases(supabase, E3_MATCH_ID)
+      const e3Finished = event3ResultsReleased(e3State?.current_event_id, e3State, releases)
       const hiddenTestEventId = e3State?.test_mode_active === true
         ? Number(e3State?.current_event_id)
         : null
       console.log(`[resolve-token] Event3 state for #${data.assigned_number}:`, { phase: e3State?.phase, results_visible: e3State?.results_visible, e3Finished })
 
-      if (e3Finished) {
+      if (e3State) {
         let e3Matches = null
         let e3MatchErr = null
         try {
@@ -1272,6 +1274,7 @@ export default async function handler(req, res) {
         if (hiddenTestEventId) {
           e3Matches = (e3Matches || []).filter(match => Number(match.event_id) !== hiddenTestEventId)
         }
+        e3Matches = (e3Matches || []).filter(match => event3ResultsReleased(match.event_id, e3State, releases))
         if (e3Matches && e3Matches.length > 0) {
           const allPartnerNums = [...new Set(
             e3Matches.flatMap(m => [m.phase2_partner, m.phase3_partner, m.phase4_partner]).filter(Boolean)
@@ -2513,7 +2516,8 @@ export default async function handler(req, res) {
       // ── Fetch Event 3 (5.0) matches across ALL events ──
       // Completed editions remain visible after the admin starts a new event. Only rows
       // belonging to the active edition are withheld until its final reveal.
-      let currentEventResultsVisible = true
+      let currentEventResultsVisible = false
+      let currentEventResultsReleaseAt = null
       try {
         const E3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
         const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
@@ -2525,8 +2529,10 @@ export default async function handler(req, res) {
           .eq("match_id", E3_MATCH_ID)
           .maybeSingle()
 
-        const e3Finished = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+        const releases = await loadEvent3ResultsReleases(supabase, E3_MATCH_ID)
+        const e3Finished = event3ResultsReleased(e3State?.current_event_id, e3State, releases)
         currentEventResultsVisible = e3Finished
+        currentEventResultsReleaseAt = releases.get(Number(e3State?.current_event_id)) || null
         const activeEventId = Number(e3State?.current_event_id) || null
         const hiddenTestEventId = e3State?.test_mode_active === true
           ? Number(e3State?.current_event_id)
@@ -2569,7 +2575,7 @@ export default async function handler(req, res) {
           // Fail closed if the event state cannot be resolved. When it can, historical
           // rows are safe to return and only the active edition depends on the reveal.
           if (activeEventId === null) return false
-          return eventId !== activeEventId || e3Finished
+          return event3ResultsReleased(eventId, e3State, releases)
         })
 
         if (e3Matches && e3Matches.length > 0) {
@@ -2862,6 +2868,8 @@ export default async function handler(req, res) {
         event_id: participant.event_id,
         event_format: resultsEventFormat,
         current_event_results_visible: currentEventResultsVisible,
+        results_release_at: currentEventResultsReleaseAt,
+        server_time: new Date().toISOString(),
         history: history.map(protectPartnerPrivacy)
       });
 

@@ -10591,6 +10591,35 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           })
         }
 
+        if (action === "e3-get-choice-awards") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+          const { data: rewardState, error: rewardStateError } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).single()
+          if (rewardStateError) return res.status(503).json({ error: "تعذّر تحميل حالة الهدايا" })
+          const isTest = Number(currentEventId) === Number(realEventId) && rewardState.test_mode_active === true
+          const currentQuery = supabase.from("event3_choice_awards").select("id,event_id,participant_number,reward_code,first_choice_count,is_test_mode,redeemed_at")
+            .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("is_test_mode", isTest)
+            .eq("session_key", isTest ? (rewardState.test_mode_snapshot?.started_at || "legacy-test") : "live")
+          const previousQuery = isTest ? Promise.resolve({ data: [], error: null }) : supabase.from("event3_choice_awards").select("id,event_id,participant_number,reward_code,first_choice_count,is_test_mode,redeemed_at")
+            .eq("match_id", EVENT3_MATCH_ID).lt("event_id", currentEventId).eq("is_test_mode", false).is("redeemed_at", null).order("event_id", { ascending: false })
+          const [current, previous] = await Promise.all([currentQuery, previousQuery])
+          if (current.error || previous.error) return res.status(503).json({ error: "تعذّر تحميل الهدايا مؤقتاً" })
+          const awards = [...(current.data || []), ...(previous.data || [])]
+          const numbers = [...new Set(awards.map(row => row.participant_number))]
+          const { data: profiles, error: profileError } = numbers.length ? await supabase.from("participants").select("assigned_number,name").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers) : { data: [], error: null }
+          if (profileError) return res.status(503).json({ error: "تعذّر تحميل أسماء الفائزين" })
+          const names = new Map((profiles || []).map(row => [row.assigned_number, row.name]))
+          return res.status(200).json({ awards: awards.map(row => ({ ...row, name: names.get(row.participant_number) || `#${row.participant_number}` })) })
+        }
+        if (action === "e3-redeem-choice-award") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+          if (typeof req.body.award_id !== "string" || !/^[0-9a-f-]{36}$/i.test(req.body.award_id)) return res.status(400).json({ error: "Invalid award" })
+          const context = await loadE3AuxiliaryMutationContext()
+          if (!context.params || context.params.p_expected_test_mode) return res.status(409).json({ error: "استخدام الخصم متاح في الفعالية الفعلية فقط" })
+          const { data, error } = await supabase.rpc("redeem_event3_choice_award", { p_award_id: req.body.award_id, p_event_id: Number(currentEventId) })
+          if (error || !data) return res.status(409).json({ error: "الخصم مستخدم أو غير صالح لهذه الفعالية" })
+          return res.status(200).json({ success: true })
+        }
+
         // e3-get-state
         if (action === "e3-get-state") {
           const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id,cohost_locked,cohost_lock_updated_at,test_mode_active,event3_participant_access_locked,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).single()

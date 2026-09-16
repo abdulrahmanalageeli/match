@@ -9,10 +9,12 @@ export function resolveEvent3PromptVisibility({
   hasPendingMoodCheck = false,
   hasPendingNotification = false,
   hasUrgentNotification = false,
+  hasPendingChoiceAward = false,
   interactionOverlayOpen = false,
   showAiWelcome = false,
 }) {
   const isSafePromptMoment = !interactionOverlayOpen
+  const canShowChoiceAward = Boolean(hasPendingChoiceAward && phase === "break" && isSafePromptMoment && !hasPendingNotification)
   const canShowNotification = Boolean(
     hasPendingNotification
     && (hasUrgentNotification || isSafePromptMoment),
@@ -33,8 +35,10 @@ export function resolveEvent3PromptVisibility({
 
   return {
     isSafePromptMoment,
-    canShowMoodCheck,
+    // The private celebration arrives before optional mood questions.
+    canShowMoodCheck: canShowMoodCheck && !canShowChoiceAward,
     canShowNotification,
     canShowAiWelcome,
+    canShowChoiceAward,
   }
 }

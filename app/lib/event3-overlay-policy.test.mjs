@@ -3,6 +3,15 @@ import test from "node:test"
 
 import { resolveEvent3PromptVisibility } from "./event3-overlay-policy.mjs"
 
+test("choice rewards appear in the break, queue behind protected work and notices, and precede mood checks", () => {
+  const reward = { phase: "break", hasPendingChoiceAward: true, hasPendingMoodCheck: true }
+  assert.equal(resolveEvent3PromptVisibility(reward).canShowChoiceAward, true)
+  assert.equal(resolveEvent3PromptVisibility(reward).canShowMoodCheck, false)
+  for (const blockers of [{ interactionOverlayOpen: true }, { hasPendingNotification: true }, { phase: "ranking3" }, { phase: "phase2_processing" }]) {
+    assert.equal(resolveEvent3PromptVisibility({ ...reward, ...blockers }).canShowChoiceAward, false)
+  }
+})
+
 test("Event3 shows ordinary prompts during every phase when no protected interaction is open", () => {
   for (const phase of ["setup", "round1", "round2", "round3", "break", "phase2_processing", "phase2_reveal", "final_reveal"]) {
     const visibility = resolveEvent3PromptVisibility({

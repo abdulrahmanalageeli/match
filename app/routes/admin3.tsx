@@ -1,3 +1,4 @@
+import ChoiceRewardsAdmin from "../components/ChoiceRewardsAdmin"
 import RankingExtensionControl from "../components/RankingExtensionControl"
 import { memo, useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
@@ -3504,6 +3505,8 @@ export default function Admin3Page() {
             </div>
           </div>
         )}
+
+        {state && <ChoiceRewardsAdmin api={api} eventId={Number(state.event_id)} phase={state.phase} testMode={state.test_mode === true} disabled={previewEventId != null} />}
 
         {/* Stats Row */}
         {state && (

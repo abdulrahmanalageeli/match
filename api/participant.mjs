@@ -4498,6 +4498,16 @@ Please respond in JSON format:
           })
           baseResponse.ranking_extension = individual.data?.extension || null
         }
+        // Only the owner receives their reward, and only once the matching break opens.
+        if (action === "e3-heartbeat" && participant && phase === "break") {
+          const { data: award, error: awardError } = await supabase.from("event3_choice_awards")
+            .select("id,reward_code,discount_percent,tied_winners,is_test_mode,seen_at")
+            .eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber)
+            .eq("is_test_mode", activeTestMode).eq("session_key", activeTestMode ? currentEvent3SessionKey : "live")
+            .is("seen_at", null).maybeSingle()
+          if (awardError) logError("Event3 choice reward lookup", awardError)
+          else baseResponse.choice_award = award || null
+        }
         // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
         if (action === "e3-heartbeat" && participant) {
           const [sosResult, moodResult, notificationResult] = await Promise.allSettled([
@@ -4521,6 +4531,18 @@ Please respond in JSON format:
         }
 
         return res.status(200).json(baseResponse)
+      }
+
+      if (action === "e3-dismiss-choice-award") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        if (typeof req.body.award_id !== "string" || !/^[0-9a-f-]{36}$/i.test(req.body.award_id)) return res.status(400).json({ error: "Invalid award" })
+        const { data, error } = await supabase.rpc("acknowledge_event3_choice_award", {
+          p_award_id: req.body.award_id, p_participant_number: myNumber, p_event_id: Number(currentEventId),
+          p_expected_test_mode: requestTestMode,
+          p_expected_started_at: requestTestMode ? (expectedEvent3SessionKey || null) : null,
+        })
+        if (error) return res.status(409).json({ error: "تعذّر حفظ إغلاق المفاجأة. حاول مجدداً." })
+        return res.status(data ? 200 : 404).json({ success: data === true })
       }
 
       // Cached clients must not retain the former phone-only login behavior.

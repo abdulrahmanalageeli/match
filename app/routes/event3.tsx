@@ -1,3 +1,4 @@
+import TopChoiceSurprise from "../components/TopChoiceSurprise"
 import ActivityArtwork from "../components/groups/ActivityArtwork";
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import RankingDisclaimer from "../components/RankingDisclaimer"
@@ -10201,6 +10202,7 @@ export default function Event3Page() {
   const [showWelcome, setShowWelcome] = useState(true)
   const [storageReady, setStorageReady] = useState(false)
   const [showAiWelcome, setShowAiWelcome] = useState(false)
+  const [dismissedChoiceAward, setDismissedChoiceAward] = useState<string | null>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
@@ -10319,6 +10321,15 @@ export default function Event3Page() {
     enabled: !!token && !tokenError,
     resetKey: token,
   })
+  const choiceAward = eventState?.choice_award
+  const closeChoiceAward = useCallback(() => {
+    if (!choiceAward?.id) return
+    setDismissedChoiceAward(choiceAward.id)
+    try { localStorage.setItem(`e3_choice_award_seen_${choiceAward.id}`, "1") } catch {}
+    void call("e3-dismiss-choice-award", token, { award_id: choiceAward.id })
+  }, [choiceAward?.id, token])
+  let choiceAwardSeenLocally = false
+  try { choiceAwardSeenLocally = !!choiceAward?.id && localStorage.getItem(`e3_choice_award_seen_${choiceAward.id}`) === "1" } catch {}
   const aiWelcomeSeenKey = token && eventState?.event_id != null
     ? `e3_ai_welcome_seen_${eventState.event_id}_${token}`
     : null
@@ -10561,6 +10572,9 @@ export default function Event3Page() {
   }
   if (questionPreview === "login" || questionPreview === "loginToken") {
     return <PhoneEntry initialMethod={questionPreview === "loginToken" ? "token" : "sms"} onToken={() => {}} />
+  }
+  if (questionPreview === "choiceAward") {
+    return <TopChoiceSurprise award={{ id: "preview-award", reward_code: "PREVIEW", discount_percent: 50, tied_winners: 1, is_test_mode: true }} onClose={() => window.history.back()} />
   }
   if (questionPreview === "aiWelcome" || questionPreview === "aiWelcomeFailed") {
     return (
@@ -10808,11 +10822,12 @@ export default function Event3Page() {
     || oneToOneSessionOpen
     || phaseTransition,
   )
-  const { canShowMoodCheck, canShowNotification, canShowAiWelcome } = resolveEvent3PromptVisibility({
+  const { canShowMoodCheck, canShowNotification, canShowAiWelcome, canShowChoiceAward } = resolveEvent3PromptVisibility({
     phase,
     hasPendingMoodCheck,
     hasPendingNotification,
     hasUrgentNotification,
+    hasPendingChoiceAward: !!choiceAward && !choiceAward.seen_at && choiceAward.id !== dismissedChoiceAward && !choiceAwardSeenLocally,
     interactionOverlayOpen,
     showAiWelcome,
   })
@@ -10909,6 +10924,10 @@ export default function Event3Page() {
             onClose={() => setBreakFeedbackRound(null)}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {canShowChoiceAward && choiceAward && <TopChoiceSurprise key={choiceAward.id} award={choiceAward} onClose={closeChoiceAward} />}
       </AnimatePresence>
 
       {/* Auto-open once per event after joining; the setup button allows reopening. */}

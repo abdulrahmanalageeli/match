@@ -448,6 +448,7 @@ test("targets six-person tables and distributes every remainder into larger grou
     [22, [8, 7, 7]],
     [30, [6, 6, 6, 6, 6]],
     [44, [7, 7, 6, 6, 6, 6, 6]],
+    [46, [7, 7, 7, 7, 6, 6, 6]],
   ])
   for (const [count, sizes] of expectedSizes) {
     const flexibleParticipants = Array.from({ length: count }, (_, index) => index + 1)
@@ -467,9 +468,9 @@ test("targets six-person tables and distributes every remainder into larger grou
       }
     }
   }
-  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 4)).error, /even roster of 6 to 44/)
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 4)).error, /even roster of 6 to 46/)
   assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 7)).error, /even roster/)
-  assert.match(buildChoiceOnlySeatingPlan(Array.from({ length: 46 }, (_, index) => index + 1)).error, /6 to 44/)
+  assert.match(buildChoiceOnlySeatingPlan(Array.from({ length: 48 }, (_, index) => index + 1)).error, /6 to 46/)
   assert.match(buildChoiceOnlySeatingPlan([...participants.slice(0, 41), 41]).error, /unique/)
   assert.match(buildChoiceOnlySeatingPlan(participants, {
     requireCompleteLensProfiles: true,

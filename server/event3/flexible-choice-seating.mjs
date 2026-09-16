@@ -3,7 +3,7 @@ import { createRound1CompatibilityGroupScorer } from "./round1-compatibility.mjs
 import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
 
 const MIN_PARTICIPANTS = 6
-const MAX_PARTICIPANTS = 44
+const MAX_PARTICIPANTS = 46
 const TARGET_GROUP_SIZE = 6
 const CANDIDATE_BUILD_STEPS = 4
 const OPTIMIZATION_PASSES = 9
@@ -12,7 +12,7 @@ const BALANCED_MAX_ROSTER_GENDER_COUNT = BALANCED_MAX_ROSTER_SIZE / 2
 const CONSTRAINED_ROUND_ATTEMPTS = 12
 const CONSTRAINED_ROUND_NODE_LIMIT = 100_000
 const PROTECTED_PAIR_RELABEL_ATTEMPTS = 2_048
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v2-balanced-44-hard-zero-repeat"
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v3-46-hard-zero-repeat"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -574,6 +574,7 @@ function changedMemberships(leftGroups, rightGroups) {
 }
 
 function buildCandidate(participants, options, seed) {
+  if (participants.length === 46) return build46Candidate(participants, options, seed)
   const sizes = choiceOnlyTargetGroupSizes(participants.length)
   const balanced44Candidate = buildBalanced44Candidate(participants, options, seed)
   if (balanced44Candidate) return balanced44Candidate
@@ -604,6 +605,59 @@ function buildCandidate(participants, options, seed) {
     ageMap: options.ageMap,
   })
   return assembleCandidate(participants, options, seed, round1, round2, round3)
+}
+
+function build46Candidate(participants, options, seed) {
+  // Three parallel classes of the affine plane of order seven. Removing these
+  // three diagonal cells leaves four 7-seat and three 6-seat tables in EVERY
+  // round. Two different cells can share at most one of x, x+y, and x+2y.
+  const cells = []
+  for (let x = 0; x < 7; x++) for (let y = 0; y < 7; y++) {
+    if (x === y && x < 3) continue
+    cells.push([x, y])
+  }
+  // A verified 23/23 coloring: every six-seat table is 3/3 and every
+  // seven-seat table is 3/4 in all three parallel classes.
+  const femaleSlots = new Set([0, 2, 4, 6, 7, 11, 12, 13, 15, 19, 20, 22, 24, 27, 29, 30, 34, 35, 38, 39, 43, 44, 45])
+  const females = participants.filter(number => participantGender(number, options.genderMap) === 'female')
+  const males = participants.filter(number => participantGender(number, options.genderMap) === 'male')
+  const balanced = females.length === 23 && males.length === 23
+  const protectedPairs = new Set(options.lockedPairsSet || [])
+  let rounds = null
+  for (let attempt = 0; attempt < PROTECTED_PAIR_RELABEL_ATTEMPTS; attempt++) {
+    const attemptSeed = seed * 65_537 + attempt * 104_729
+    const women = shuffled(females, attemptSeed), men = shuffled(males, attemptSeed + 1)
+    const ordered = balanced
+      ? cells.map((_, slot) => femaleSlots.has(slot) ? women.pop() : men.pop())
+      : shuffled(participants, attemptSeed)
+    const candidate = [0, 1, 2].map(slope => Array.from({ length: 7 }, (_, table) =>
+      cells.flatMap(([x, y], slot) => (x + slope * y) % 7 === table ? [ordered[slot]] : []))
+      .sort((a, b) => b.length - a.length))
+    if (!candidate.some(round => [...pairSet(round)].some(key => protectedPairs.has(key)))) {
+      rounds = candidate
+      break
+    }
+  }
+  if (!rounds) return { error: 'Could not construct zero-repeat seating for 46 participants with these protected pairs' }
+  const compatibilityGroup = createRound1CompatibilityGroupScorer(options)
+  const ageGroup = createRound2AgeGroupScorer(options)
+  const optimized = []
+  for (let round = 0; round < 3; round++) {
+    const result = optimize(rounds[round], {
+      previousPairSets: rounds.filter((_, index) => index !== round).map(pairSet),
+      groupScore: round === 0 ? compatibilityGroup : ageGroup,
+      genderMap: options.genderMap, ageMap: options.ageMap,
+      objective: round === 0 ? 'compatibility' : 'age',
+    })
+    rounds[round] = result.groups
+    optimized.push(result)
+  }
+  const candidate = assembleCandidate(participants, options, seed, ...optimized)
+  if (candidate.plan.R !== 0 || candidateHasLockedPair(candidate, protectedPairs)
+    || (balanced && !rounds.every(round => matchesBalanced44Targets(round, options.genderMap)))) {
+    return { error: 'The 46-person seating plan failed its no-repeat or balance check' }
+  }
+  return candidate
 }
 
 function candidateHasLockedPair(candidate, lockedPairsSet) {

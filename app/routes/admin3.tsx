@@ -132,7 +132,7 @@ type Event3ReplayOption = {
   replay_ready: boolean
 }
 const CHOICE_ONLY_MIN_PARTICIPANTS = 6
-const CHOICE_ONLY_MAX_PARTICIPANTS = 44
+const CHOICE_ONLY_MAX_PARTICIPANTS = 46
 const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
   && Number(count) <= CHOICE_ONLY_MAX_PARTICIPANTS
   && Number(count) % 2 === 0
@@ -2762,7 +2762,7 @@ export default function Admin3Page() {
 
   const generateChoiceSeatingPreview = async (ignoreCached = false) => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
-    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 6 إلى 44 مشاركاً قبل إنشاء خيارات الجلسات"); return }
+    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 6 إلى 46 مشاركاً قبل إنشاء خيارات الجلسات"); return }
     const requestId = ++choicePreviewRequestGeneration.current
     const requestContext = choiceUiContextKeyRef.current
     const expectedContext = choiceSeatingExpectedContext()
@@ -2945,7 +2945,7 @@ export default function Admin3Page() {
   const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     const minimumParticipants = 4
     if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
-      return { error: `يجب اختيار عدد زوجي من 6 إلى 44 مشاركاً (تم اختيار ${selectedNumbers.size})` }
+      return { error: `يجب اختيار عدد زوجي من 6 إلى 46 مشاركاً (تم اختيار ${selectedNumbers.size})` }
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
       return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })

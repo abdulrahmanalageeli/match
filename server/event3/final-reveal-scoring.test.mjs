@@ -41,16 +41,18 @@ test("final reveal exposes only participant-safe meeting outcome metadata", asyn
   assert.doesNotMatch(revealPair, /saved_feedback|feedback_fingerprint|organizer|participantMessage|wantConnect|conversationQuality|personalConnection/)
 })
 
-test("final reveal distinguishes a limited real score from unavailable data without moving the threshold", async () => {
+test("final reveal shows available percentages as experimental matching estimates while preserving the insight threshold", async () => {
   const source = await readFile(event3RoutePath, "utf8")
   const start = source.indexOf('// ─── Final Reveal Screen')
   const end = source.indexOf('// ─── Main Event3 Component', start)
   const finalReveal = source.slice(start, end)
 
   assert.match(finalReveal, /FINAL_REVEAL_RATING_THRESHOLD = 60/)
-  assert.match(finalReveal, /if \(score === null\) return "درجة غير متاحة"/)
-  assert.match(finalReveal, /score >= FINAL_REVEAL_RATING_THRESHOLD \? `بنسبة \$\{score\} بالمئة` : "إشارة محدودة من الإجابات"/)
-  assert.match(finalReveal, /normalizedScore !== null \? "إشارة محدودة من الإجابات" : "درجة غير متاحة"/)
+  assert.match(finalReveal, /if \(score === null\) return "تقدير غير متاح"/)
+  assert.match(finalReveal, /احتمال ترشيحكما للمطابقة \$\{score\} بالمئة كتقدير تجريبي، وليس نسبة توافق/)
+  assert.match(finalReveal, /normalizedScore !== null \? \(/)
+  assert.match(finalReveal, />\{normalizedScore\}%</)
+  assert.match(finalReveal, /النموذج لا يزال قيد التدريب/)
   assert.match(source, /score !== null \? "إشارة محدودة من الإجابات" : "بيانات غير متاحة لقراءة"/)
   assert.doesNotMatch(source, /بيانات غير كافية/)
   assert.match(finalReveal, /score=\{p4\?\.compatibility_score\}/)

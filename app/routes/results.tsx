@@ -171,13 +171,6 @@ function availableScore(match: MatchResult): number | null {
   return Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : null
 }
 
-function questionnaireSignal(score: number | null) {
-  if (score === null) return 'القراءة غير متاحة'
-  if (score >= 76) return 'تشابه مرتفع في الإجابات'
-  if (score >= 68) return 'تشابه متوسط في الإجابات'
-  return 'تشابه محدود في الإجابات'
-}
-
 function isChoiceOnlyEventMatch(match: MatchResult | null | undefined) {
   return match?.event_format === CHOICE_ONLY_EVENT_FORMAT
 }
@@ -1365,9 +1358,9 @@ export default function ResultsPage() {
                               هذا اللقاء جاء من ترتيبكما المتبادل فقط. درجات التوافق والخوارزمية لم تدخل في اختيار الشريك.
                             </div>
                           )}
-                          {/* Compatibility Score */}
-                          {canInterpretMeeting && !choiceOnlyMatch && (
-                          <section className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/[0.08] via-slate-950/30 to-cyan-400/[0.06] p-4 sm:p-5" aria-label="القراءة التقريبية للتوافق">
+                          {/* Experimental match selection estimate */}
+                          {canInterpretMeeting && (
+                          <section className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/[0.08] via-slate-950/30 to-cyan-400/[0.06] p-4 sm:p-5" aria-label="احتمال ترشيحكما للمطابقة">
                             {(() => {
                               const score = availableScore(match)
                               if (score === null) {
@@ -1375,8 +1368,8 @@ export default function ResultsPage() {
                                   <div className="flex items-start gap-3">
                                     <Info className="mt-0.5 h-5 w-5 shrink-0 text-violet-200" aria-hidden="true" />
                                     <div>
-                                      <h4 className="text-sm font-bold text-slate-100">تعذّر تجهيز الدرجة التقريبية</h4>
-                                      <p className="mt-1 text-xs leading-5 text-slate-400">هذا خلل في عرض القراءة، ولا يغيّر نتيجة مشاركة التواصل أو اختيار أي طرف.</p>
+                                      <h4 className="text-sm font-bold text-slate-100">التقدير غير متاح لهذا اللقاء</h4>
+                                      <p className="mt-1 text-xs leading-5 text-slate-400">لا نعرض نسبة من دون بيانات متاحة، وهذا لا يغيّر نتيجة مشاركة التواصل أو اختيار أي طرف.</p>
                                     </div>
                                   </div>
                                 )
@@ -1388,15 +1381,15 @@ export default function ResultsPage() {
                                     <div className="flex min-w-0 items-start gap-2.5">
                                       <Award className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" aria-hidden="true" />
                                       <div>
-                                        <h4 className="text-sm font-bold text-slate-100">قراءة تقريبية من الإجابات</h4>
-                                        <p className="mt-0.5 text-xs text-violet-200">{questionnaireSignal(score)}</p>
+                                        <h4 className="text-sm font-bold text-slate-100">احتمال ترشيحكما للمطابقة</h4>
+                                        <p className="mt-0.5 text-xs text-violet-200">تقدير تجريبي · ليس نسبة توافق</p>
                                       </div>
                                     </div>
                                     <span className="shrink-0 text-2xl font-black tabular-nums text-cyan-100">{score}%</span>
                                   </div>
                                   <div
                                     role="progressbar"
-                                    aria-label="درجة التشابه التقريبية في الإجابات"
+                                    aria-label="احتمال ترشيحكما للمطابقة — تقدير تجريبي وليس نسبة توافق"
                                     aria-valuemin={0}
                                     aria-valuemax={100}
                                     aria-valuenow={score}
@@ -1413,7 +1406,7 @@ export default function ResultsPage() {
                             <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-2.5">
                               <Info className="mt-0.5 h-4 w-4 shrink-0 text-violet-200" aria-hidden="true" />
                               <p className="text-[11px] leading-5 text-slate-300 sm:text-xs">
-                                هذه قراءة تقريبية مبنية على إجابات محدودة؛ لا تقيس قيمة الشخص، ولا تضمن الانجذاب أو التوافق.
+                                <strong className="font-bold text-violet-100">النموذج لا يزال قيد التدريب.</strong> النسبة تقدير تجريبي لاحتمال ترشيحكما للمطابقة، وليست نسبة توافق بينكما أو احتمالاً إحصائياً مؤكداً. قد تتغيّر تقديرات النموذج مع التدريب، ولا تضمن الانسجام أو رغبة الطرف الآخر في التواصل.
                               </p>
                             </div>
                           </section>

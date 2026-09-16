@@ -15,7 +15,7 @@ test("results accordions expose native keyboard and screen-reader semantics", ()
 
 test("contact outcome is presented before optional scoring and AI interpretation", () => {
   const contact = resultsSource.indexOf("<ContactOutcomeCard match={match} />")
-  const score = resultsSource.indexOf("{/* Compatibility Score */}", contact)
+  const score = resultsSource.indexOf("{/* Experimental match selection estimate */}", contact)
   const ai = resultsSource.indexOf("{/* Optional AI wording", contact)
 
   assert.ok(contact >= 0)
@@ -24,8 +24,9 @@ test("contact outcome is presented before optional scoring and AI interpretation
 })
 
 test("score presentation is neutral and includes a visible limitation", () => {
-  assert.match(resultsSource, /هذه قراءة تقريبية مبنية على إجابات محدودة/)
-  assert.match(resultsSource, /لا تقيس قيمة الشخص/)
+  assert.match(resultsSource, /احتمال ترشيحكما للمطابقة/)
+  assert.match(resultsSource, /ليست نسبة توافق بينكما/)
+  assert.match(resultsSource, /النموذج لا يزال قيد التدريب/)
   assert.match(resultsSource, /from-violet-500 via-fuchsia-400 to-cyan-400/)
   assert.doesNotMatch(resultsSource, /مطابقة مثالية|اكتشف سبب توافقكما الرائع|لماذا تتوافقان بشكل رائع/)
   assert.doesNotMatch(resultsSource, /getOriginalScore\(match\) >=/)
@@ -65,7 +66,7 @@ test("non-meetings render as operational outcomes rather than rejection or conse
 test("non-meetings suppress normal contact, score, and AI interpretation", () => {
   assert.match(resultsSource, /const canInterpretMeeting = meetingOutcome === null/)
   assert.match(resultsSource, /meetingOutcome\s*\? <MeetingOperationalOutcomeCard outcome={meetingOutcome} \/>\s*:\s*<ContactOutcomeCard match={match} \/>/)
-  assert.match(resultsSource, /canInterpretMeeting && !choiceOnlyMatch && \(\s*<section[^>]+aria-label="القراءة التقريبية للتوافق"/)
+  assert.match(resultsSource, /canInterpretMeeting && \(\s*<section[^>]+aria-label="احتمال ترشيحكما للمطابقة"/)
   assert.match(resultsSource, /canInterpretMeeting && !choiceOnlyMatch && match\.ai_personality_analysis/)
   assert.doesNotMatch(resultsSource, /canInterpretMeeting && !choiceOnlyMatch && !match\.ai_personality_analysis/)
 })

@@ -39,8 +39,10 @@ test("pair insight changes with the pair's strongest signal", () => {
   assert.match(insight.body, /خالد/)
 })
 
-test("pair insight respects the 60 percent analysis threshold", () => {
-  assert.equal(buildEvent3PairInsight({ score: 59, partnerName: "سارة", breakdown: baseline }), null)
+test("pair insight supports all available scores", () => {
+  for (const score of [0, 30, 59, 60, 100]) {
+    assert.ok(buildEvent3PairInsight({ score, partnerName: "سارة", breakdown: baseline }))
+  }
   assert.equal(buildEvent3PairInsight({ score: null, partnerName: "سارة", breakdown: baseline }), null)
 })
 

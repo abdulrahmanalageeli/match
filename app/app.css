@@ -2582,6 +2582,8 @@ html:not(.dark) .round-bg-pattern::before {
 }
 
 .event3-reveal-card__back {
+  /* The unlayered glass rule overrides Tailwind's absolute utility. */
+  position: absolute;
   background:
     radial-gradient(circle at 50% 44%, rgba(var(--event3-purple), 0.12), transparent 30%),
     linear-gradient(155deg, rgba(25, 18, 40, 0.96), rgba(9, 7, 16, 0.98));

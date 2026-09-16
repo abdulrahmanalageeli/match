@@ -40,6 +40,7 @@ import {
   loadEvent3Format,
 } from "../server/event3/event-format.mjs"
 import { buildEvent3PairInsight } from "../server/event3/pair-insight.mjs"
+import { getOrGeneratePairReading } from "../server/event3/ai-pair-reading.mjs"
 import {
   buildEvent3AssignmentRevision,
   buildEvent3AuxiliaryHeartbeat,
@@ -3744,34 +3745,30 @@ export default async function handler(req, res) {
             scoreContentHash: event3Pairing?.[`${matchingSlot}_score_content_hash`],
             storedTotal: event3Pairing?.[`${matchingSlot}_score`],
           },
-        )
-        const aggregateInsight = aggregateBreakdown && buildEvent3PairInsight({
-          score: event3Pairing?.[`${matchingSlot}_score`],
-          breakdown: aggregateBreakdown,
-          partnerName: `المشارك رقم ${partner_number}`,
-        })
-        if (!aggregateInsight) {
-          return res.status(422).json({
-            error: "لا تتوفر إشارات مجمّعة كافية لقراءة مسؤولة لهذا اللقاء.",
-            code: "EVENT3_ANALYSIS_INSUFFICIENT",
-            retryable: false,
-          })
-        }
+        ) || await fetchParticipantBalancedCacheBreakdown(participant.assigned_number, partner_number)
 
-        // Event3 never sends either person's survey answers to the model. The
-        // participant receives only broad paired patterns already derived from
-        // the integrity-checked aggregate score snapshot.
-        return res.status(200).json({
-          success: true,
-          analysis: [
-            aggregateInsight.signal,
-            aggregateInsight.headline,
-            aggregateInsight.body,
-            aggregateInsight.prompt,
-          ].filter(Boolean).join("\n\n"),
-          cached: true,
-          aggregate_only: true,
-        })
+        // Only integrity-checked, whitelisted numerical aggregates reach the model.
+        // Authorization above applies equally to fresh and cached readings.
+        try {
+          const reading = await getOrGeneratePairReading({
+            supabase, openai, eventId: event_id,
+            participantA: participant.assigned_number, participantB: partner_number,
+            breakdown: aggregateBreakdown,
+          })
+          if (reading.unavailable) return res.status(422).json({
+            error: "لا تتوفر إشارات مجمّعة كافية لقراءة مسؤولة لهذا اللقاء.",
+            code: "EVENT3_ANALYSIS_INSUFFICIENT", retryable: false,
+          })
+          if (reading.pending) return res.status(202).json({ pending: true, retryable: true })
+          return res.status(200).json({
+            success: true, insight: reading.insight,
+            analysis: [reading.insight.signal, reading.insight.headline, reading.insight.body, reading.insight.prompt].join("\n\n"),
+            generation_id: reading.id, model: reading.model, cached: reading.cached, aggregate_only: true,
+          })
+        } catch (error) {
+          console.error("Event3 AI pair reading failed:", error?.code || error?.status || "generation_error")
+          return res.status(503).json({ error: "تعذّرت القراءة الآن. حاول مجدداً بعد قليل.", code: "EVENT3_ANALYSIS_UNAVAILABLE", retryable: true })
+        }
       }
 
       // 3. Check Cache (Avoid paying for OpenAI if analysis exists)

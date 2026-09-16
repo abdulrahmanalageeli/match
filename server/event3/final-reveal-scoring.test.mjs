@@ -41,19 +41,19 @@ test("final reveal exposes only participant-safe meeting outcome metadata", asyn
   assert.doesNotMatch(revealPair, /saved_feedback|feedback_fingerprint|organizer|participantMessage|wantConnect|conversationQuality|personalConnection/)
 })
 
-test("final reveal shows available percentages as experimental matching estimates while preserving the insight threshold", async () => {
+test("final reveal shows available percentages as experimental matching estimates with AI readings at every score", async () => {
   const source = await readFile(event3RoutePath, "utf8")
   const start = source.indexOf('// ─── Final Reveal Screen')
   const end = source.indexOf('// ─── Main Event3 Component', start)
   const finalReveal = source.slice(start, end)
 
-  assert.match(finalReveal, /FINAL_REVEAL_RATING_THRESHOLD = 60/)
+  assert.doesNotMatch(finalReveal, /FINAL_REVEAL_RATING_THRESHOLD|p[234]Rated/)
   assert.match(finalReveal, /if \(score === null\) return "تقدير غير متاح"/)
   assert.match(finalReveal, /احتمال ترشيحكما للمطابقة \$\{score\} بالمئة كتقدير تجريبي، وليس نسبة توافق/)
   assert.match(finalReveal, /normalizedScore !== null \? \(/)
   assert.match(finalReveal, />\{normalizedScore\}%</)
   assert.match(finalReveal, /النموذج لا يزال قيد التدريب/)
-  assert.match(source, /score !== null \? "إشارة محدودة من الإجابات" : "بيانات غير متاحة لقراءة"/)
+  assert.match(source, /<AiAnalysisCompact[\s\S]*autoStart/)
   assert.doesNotMatch(source, /بيانات غير كافية/)
   assert.match(finalReveal, /score=\{p4\?\.compatibility_score\}/)
   assert.match(finalReveal, /قراءة ما بين السطور/)
@@ -78,7 +78,7 @@ test("optional Event3 reading is authorized and uses only an integrity-checked a
   assert.match(analysis, /\.from\("event3_matches"\)/)
   assert.match(analysis, /matchingSlot/)
   assert.match(analysis, /participantBreakdownFromScoreSnapshot/)
-  assert.match(analysis, /buildEvent3PairInsight/)
+  assert.match(analysis, /getOrGeneratePairReading/)
   assert.match(analysis, /aggregate_only: true/)
   assert.match(analysis, /EVENT3_ANALYSIS_INSUFFICIENT/)
   const event3BranchStart = analysis.indexOf("const event3AggregateColumns")

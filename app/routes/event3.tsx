@@ -1433,15 +1433,6 @@ const PAIR_INSIGHT_STYLES = {
   },
 } as const
 
-function fallbackPairInsight(score: number | null, partnerName: string) {
-  return {
-    signal: score !== null ? "إشارة أولية" : "قراءة محدودة",
-    headline: "لمحة من هذا اللقاء",
-    body: `تلخّص هذه القراءة إشارات محدودة من لقاءك مع ${partnerName}. هي نقطة للتأمل، وليست حكماً على أي منكما أو ضماناً لما قد يحدث لاحقاً.`,
-    prompt: "إن رغبتما في لقاء آخر، اختارا تفصيلة لم تأخذ وقتها واسألا عنها.",
-  }
-}
-
 function event3FinalMeetingStatus(result: any): Event3MeetingStatus {
   return result?.meeting_status || result?.my_feedback?.meeting_status || 'met'
 }
@@ -1458,7 +1449,9 @@ function event3OperationalMeetingLabel(result: any) {
   return 'لم يبدأ اللقاء'
 }
 
-function PairInsightCard({ result, label, order, accent }: {
+function PairInsightCard({ result, label, order, accent, token, currentEventId }: {
+  token: string
+  currentEventId: number
   result: any
   label: string
   order: number
@@ -1467,9 +1460,6 @@ function PairInsightCard({ result, label, order, accent }: {
   const palette = PAIR_INSIGHT_STYLES[accent]
   const partnerName = String(result?.partner_first_name || "هذا الشخص")
   const meetingOccurred = event3FinalMeetingOccurred(result)
-  const rated = meetingOccurred && isFinalRevealRated(result?.compatibility_score)
-  const score = normalizedFinalRevealScore(result?.compatibility_score)
-  const insight = rated ? (result?.insight || fallbackPairInsight(score, partnerName)) : null
 
   return (
     <motion.article
@@ -1497,33 +1487,14 @@ function PairInsightCard({ result, label, order, accent }: {
           <p className="text-sm font-black text-cyan-100">{event3OperationalMeetingLabel(result)}</p>
           <p className="mt-1 text-[11px] leading-5 text-cyan-100/60">هذه حالة تشغيلية، لذلك لم نعرض تقييماً أو قراءة شخصية لهذا اللقاء.</p>
         </div>
-      ) : insight ? (
-        <>
-          <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.07] to-white/[0.015] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.045)]">
-            <div className="flex items-center gap-2">
-              <Sparkles size={14} className={palette.eyebrow} />
-              <span className={`text-[10px] font-black ${palette.eyebrow}`}>{insight.signal}</span>
-            </div>
-            <h4 className="mt-2 text-[17px] font-black leading-7 text-white">{insight.headline}</h4>
-            <p className="mt-2 text-[12px] font-medium leading-6 text-gray-300">{insight.body}</p>
-          </div>
-          <div className="relative mt-3 flex items-start gap-2.5 rounded-2xl border border-white/[0.06] bg-black/20 px-3.5 py-3">
-            <Lightbulb size={14} className={`mt-0.5 shrink-0 ${palette.eyebrow}`} />
-            <p className="text-[11px] leading-5 text-gray-400"><span className="font-black text-gray-200">أفضل مفتاح: </span>{insight.prompt}</p>
-          </div>
-          {result?.word && (
-            <div className="relative mt-3 flex justify-end">
-              <span className={`max-w-full truncate rounded-full border px-3 py-1.5 text-[10px] font-bold ${palette.chip}`}>الانطباع الذي بقي · «{result.word}»</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-5 text-center">
-          <p className="text-sm font-black text-white/70">{score !== null ? "إشارة محدودة من الإجابات" : "بيانات غير متاحة لقراءة"}</p>
-          <p className="mt-1 text-[11px] leading-5 text-white/40">{score !== null
-            ? "هذه إشارة فعلية من الإجابات، لكنها دون حد عرض قراءة مفصّلة ولا تحكم على جودة اللقاء أو قيمته."
-            : "لم تصلنا درجة لهذا اللقاء، لذلك لا نعرض قراءة شخصية أو نستنتج شيئاً عن جودته."}</p>
+      ) : result?.partner_number ? (
+        <div className="relative mt-4 space-y-3">
+          <AiAnalysisCompact partnerNum={result.partner_number} token={token} currentEventId={currentEventId}
+            accent={accent === "pink" ? "pink" : "purple"} title="إعادة محاولة القراءة" autoStart />
+          {result?.word && <p className="text-[11px] text-white/50">الانطباع الذي بقي · «{result.word}»</p>}
         </div>
+      ) : (
+        <p className="relative mt-4 text-xs leading-6 text-white/50">لا يوجد لقاء مسجّل لعرض قراءة.</p>
       )}
     </motion.article>
   )
@@ -5525,7 +5496,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             currentStep={0}
             className="mb-3"
             aside={(
-              <button type="button" onClick={() => setShowRankTutorial(true)} className="event3-soft-action min-h-10 rounded-xl px-3 text-xs font-bold text-gray-300">
+              <button type="button" onClick={() => setShowRankingDisclaimer(true)} className="event3-soft-action min-h-10 rounded-xl px-3 text-xs font-bold text-gray-300">
                 شرح
               </button>
             )}
@@ -8465,17 +8436,11 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
 }
 
 // ─── Final Reveal Screen ──────────────────────────────────────────────────────
-const FINAL_REVEAL_RATING_THRESHOLD = 60
 
 function normalizedFinalRevealScore(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null
   const score = Number(value)
   return Number.isFinite(score) ? Math.round(Math.max(0, Math.min(100, score))) : null
-}
-
-function isFinalRevealRated(value: unknown): boolean {
-  const score = normalizedFinalRevealScore(value)
-  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD
 }
 
 function finalRevealSpokenScore(value: unknown, result?: any): string {
@@ -8548,7 +8513,7 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent, m
         <div
           aria-hidden={!revealed}
           inert={!revealed}
-          className={`event3-reveal-card__face relative h-full overflow-hidden rounded-[1.55rem] border bg-gradient-to-l ${palette.wash} ${palette.border} ${palette.glow}`}
+          className={`event3-reveal-card__face relative overflow-hidden rounded-[1.55rem] border bg-gradient-to-l ${palette.wash} ${palette.border} ${palette.glow}`}
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
           <div className="event3-reveal-card__number" aria-hidden="true">{String(order).padStart(2, "0")}</div>
@@ -8615,35 +8580,56 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent, m
   )
 }
 
-function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }: {
-  partnerNum: number; token: string; currentEventId: number; accent: "pink" | "purple"; title: string
+function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title, autoStart = false }: {
+  partnerNum: number; token: string; currentEventId: number; accent: "pink" | "purple"; title: string; autoStart?: boolean
 }) {
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [shown, setShown] = useState(false)
+  const [readingError, setReadingError] = useState<string | null>(null)
+  const started = useRef(false)
   const isPink = accent === "pink"
 
-  const generate = async () => {
+  const generate = useCallback(async () => {
     if (analysis) { setShown(true); return }
     setGenerating(true)
+    setReadingError(null)
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 12_000)
+    const timeout = window.setTimeout(() => controller.abort(), 45_000)
     try {
-      const res = await fetch("/api/participant", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId, event3_context: true }),
-        signal: controller.signal,
-      })
-      const d = await res.json()
-      if (d.success) { setAnalysis(d.analysis); setShown(true) }
-      else toast.error("تعذّرت القراءة الآن — يمكنك المحاولة مجدداً")
+      while (!controller.signal.aborted) {
+        const res = await fetch("/api/participant", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId, event3_context: true }),
+          signal: controller.signal,
+        })
+        const d = await res.json()
+        if (res.status === 202 && d.pending) {
+          await new Promise(resolve => window.setTimeout(resolve, 2000))
+          continue
+        }
+        if (!res.ok || !d.success) throw new Error(d.error || "تعذّرت القراءة الآن — يمكنك المحاولة مجدداً")
+        setAnalysis(d.analysis)
+        setShown(true)
+        return
+      }
+      throw new Error("استغرقت القراءة وقتاً أطول من المتوقع — حاول مجدداً")
     } catch (error) {
-      toast.error(error instanceof DOMException && error.name === "AbortError" ? "استغرقت القراءة وقتاً أطول من المتوقع — حاول مجدداً" : "تعذّر الاتصال بالخادم")
+      setReadingError(error instanceof DOMException && error.name === "AbortError"
+        ? "استغرقت القراءة وقتاً أطول من المتوقع — حاول مجدداً"
+        : error instanceof Error ? error.message : "تعذّر الاتصال بالخادم")
     } finally {
       window.clearTimeout(timeout)
       setGenerating(false)
     }
-  }
+  }, [analysis, token, partnerNum, currentEventId])
+
+  useEffect(() => {
+    if (autoStart && !started.current) {
+      started.current = true
+      void generate()
+    }
+  }, [autoStart, generate])
 
   if (shown && analysis) {
     return (
@@ -8652,7 +8638,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
         <div className={`px-4 py-3 border-b flex items-center justify-between ${isPink ? "border-pink-800/30" : "border-purple-800/30"}`}>
           <div className="flex items-center gap-2">
             <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
-            <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>التحليل الذكي</span>
+            <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>قراءة بالذكاء الاصطناعي</span>
           </div>
           <button type="button" onClick={() => setShown(false)} aria-label="إغلاق التحليل الذكي" className="event3-icon-action flex h-11 w-11 items-center justify-center rounded-full text-gray-300 hover:text-white"><X size={16} /></button>
         </div>
@@ -8663,6 +8649,8 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   }
 
   return (
+    <div>
+    {readingError && <p role="alert" className="mb-3 text-xs leading-6 text-amber-100/80">{readingError}</p>}
     <motion.button type="button" onClick={generate} disabled={generating} aria-busy={generating} whileTap={{ scale: 0.97 }}
       className={`event3-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-400/[0.16] text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-400/[0.16] text-purple-300 hover:bg-purple-950/50"}`}>
       {generating ? (
@@ -8671,12 +8659,14 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
         <><Sparkles size={13} /> {title}</>
       )}
     </motion.button>
+    </div>
   )
 }
 
 function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChange, eventFormat }: { token: string; impersonating?: boolean; onQuestionViewerChange?: (open: boolean) => void; eventFormat: Event3Format }) {
   const reduceMotion = useReducedMotion()
   const [revealedCount, setRevealedCount] = useState(0)
+  const [readingsOpen, setReadingsOpen] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
@@ -8813,9 +8803,6 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   )
 
   const p2 = data.phase2, p3 = data.phase3, p4 = data.phase4
-  const p2Rated = event3FinalMeetingOccurred(p2) && isFinalRevealRated(p2?.compatibility_score)
-  const p3Rated = event3FinalMeetingOccurred(p3) && isFinalRevealRated(p3?.compatibility_score)
-  const p4Rated = event3FinalMeetingOccurred(p4) && isFinalRevealRated(p4?.compatibility_score)
 
   if (screenMode === "questions") {
     return (
@@ -9010,7 +8997,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         </AnimatePresence>
 
         {revealed && (
-          <details className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
+          <details onToggle={event => setReadingsOpen(event.currentTarget.open)} className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
               قراءة ما بين السطور
               <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
@@ -9037,37 +9024,16 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
                     <ShieldCheck size={9} /> خاصة
                   </span>
                 </div>
-                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">خلاصة أولية من معطيات محدودة، وليست حكماً على الشخص أو ضماناً لنجاح العلاقة. لا نعرض إجاباتكما أو طريقة الحساب.</p>
+                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-300">قراءة يولّدها الذكاء الاصطناعي لكل لقاء، مهما كانت النسبة. النموذج قيد التدريب، والقراءة ليست حكماً على التوافق. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة.</p>
               </div>
 
-              <PairInsightCard result={p2} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />
-              {!sameMatch && <PairInsightCard result={p3} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
-              {choiceOnly && <PairInsightCard result={p4} label="اللقاء الثالث" order={3} accent="cyan" />}
+              {readingsOpen && <PairInsightCard result={p2} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p2?.partner_number}:${p2?.assignment_revision}`} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />}
+              {readingsOpen && !sameMatch && <PairInsightCard result={p3} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p3?.partner_number}:${p3?.assignment_revision}`} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
+              {readingsOpen && choiceOnly && <PairInsightCard result={p4} token={token} currentEventId={currentEventId} key={`${currentEventId}:${p4?.partner_number}:${p4?.assignment_revision}`} label="اللقاء الثالث" order={3} accent="cyan" />}
             </motion.section>
             </div>
           </details>
         )}
-
-        <details hidden={!revealed} className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
-            قراءة شخصية أعمق <span className="font-medium text-gray-600">اختياري</span>
-            <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
-          </summary>
-          <div className="space-y-3 border-t border-white/[0.06] p-3">
-            <p className="px-1 text-[11px] leading-5 text-gray-500">اطلب قراءة أطول لأي لقاء. لا تظهر إجابات أحدكما للآخر، وتبقى طريقة الحساب غير معروضة. لا يبدأ الطلب إلا عند اختيارك.</p>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-              {p2Rated && p2?.partner_number && (
-                <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title={`قراءة أعمق مع ${p2.partner_first_name}`} />
-              )}
-              {p3Rated && p3?.partner_number && !sameMatch && (
-                <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={`قراءة أعمق مع ${p3.partner_first_name}`} />
-              )}
-              {choiceOnly && p4Rated && p4?.partner_number && (
-                <AiAnalysisCompact partnerNum={p4.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={`قراءة أعمق مع ${p4.partner_first_name}`} />
-              )}
-            </motion.div>
-          </div>
-        </details>
 
         <details hidden={!revealed} className="event3-secondary-details group rounded-[1.35rem] border border-white/[0.08] bg-white/[0.025] text-right">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">

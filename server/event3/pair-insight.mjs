@@ -1,5 +1,3 @@
-const MINIMUM_ANALYZED_SCORE = 60
-
 const DIMENSIONS = Object.freeze({
   commonGround: { source: "semanticCommonGround", maximum: 18 },
   interaction: { source: "interactionRhythm", maximum: 20 },
@@ -77,7 +75,7 @@ function signalForScore(score) {
 
 export function buildEvent3PairInsight({ score: rawScore, breakdown, partnerName }) {
   const score = normalizedScore(rawScore)
-  if (score === null || score < MINIMUM_ANALYZED_SCORE) return null
+  if (score === null) return null
 
   const safeName = String(partnerName || "هذا الشخص").trim().slice(0, 80) || "هذا الشخص"
   const ranked = []

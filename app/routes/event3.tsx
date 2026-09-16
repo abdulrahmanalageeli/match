@@ -6919,6 +6919,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
       let orgCount = 0
       let sequence = 0
       for (const r of sosRequests) {
+        if (r.status === 'resolved') continue
         const history = Array.isArray(r.chat_history) ? r.chat_history : []
         for (const msg of history) {
           const messageTime = Date.parse(msg.timestamp || '')
@@ -6961,7 +6962,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
       try { window.sessionStorage.setItem('sos_last_reply_count', String(orgCount)) } catch {}
       if (allMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
-      if (orgCount === 0 && allMsgs.length === 0) setHasUnread(false)
+      if (orgCount === 0) setHasUnread(false)
   }, [sosRequests])
 
   useEffect(() => {
@@ -7190,7 +7191,7 @@ function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = fal
                     {msg.from === 'user' && msg.status === 'seen' && (
                       <p className="text-white/50 text-[9px] mt-1">✓✓ تمت المشاهدة</p>
                     )}
-                    {msg.from === 'user' && (msg.status === 'replied' || msg.status === 'resolved') && (
+                    {msg.from === 'user' && msg.status === 'replied' && (
                       <p className="text-white/50 text-[9px] mt-1">✓✓ تم الرد</p>
                     )}
                     {msg.from === 'user' && msg.status === 'failed' && (

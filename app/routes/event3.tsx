@@ -9118,10 +9118,13 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
   const titleId = useId()
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const done = Boolean(message)
+  const [typed, setTyped] = useState("")
+  const [typing, setTyping] = useState(false)
+  const [done, setDone] = useState(false)
   const [closing, setClosing] = useState(false)
   const [failed, setFailed] = useState(false)
   const [savingImage, setSavingImage] = useState(false)
+  const typingRunRef = useRef(0)
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const dismissButtonRef = useRef<HTMLButtonElement>(null)
@@ -9169,6 +9172,61 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
     })
     return () => { active = false; window.clearTimeout(timeoutId) }
   }, [token, previewMessage, previewFailed])
+
+  const finishTyping = useCallback(() => {
+    if (!message) return
+    typingRunRef.current += 1
+    setTyped(message)
+    setTyping(false)
+    setDone(true)
+  }, [message])
+
+  // Time-based and throttled so slow phones never have to render every character.
+  useEffect(() => {
+    if (!message) return
+    const runId = ++typingRunRef.current
+    setTyped("")
+    setTyping(true)
+    setDone(false)
+
+    if (reduceMotion) {
+      setTyped(message)
+      setTyping(false)
+      setDone(true)
+      return
+    }
+
+    const duration = Math.min(5200, Math.max(2200, message.length * 18))
+    let frame = 0
+    let startedAt = 0
+    let lastPaint = 0
+    const tick = (now: number) => {
+      if (typingRunRef.current !== runId) return
+      if (!startedAt) startedAt = now
+      const elapsed = now - startedAt
+      const nextIndex = Math.min(message.length, Math.floor((elapsed / duration) * message.length))
+
+      if (nextIndex >= message.length) {
+        setTyped(message)
+        setTyping(false)
+        setDone(true)
+        const compactScreen = window.matchMedia('(max-width: 639px)').matches
+        if (!reduceMotion) fireConfetti({ particleCount: compactScreen ? 36 : 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
+        return
+      }
+
+      if (now - lastPaint >= 50) {
+        lastPaint = now
+        setTyped(message.slice(0, nextIndex))
+      }
+      frame = window.requestAnimationFrame(tick)
+    }
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      typingRunRef.current += 1
+      window.cancelAnimationFrame(frame)
+    }
+  }, [message, reduceMotion])
 
   const dismiss = () => {
     if (closingRef.current) return
@@ -9493,19 +9551,18 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                       <span className="text-purple-300/70 text-[11px] font-bold tracking-wide">شيء خاص لك</span>
                     </div>
 
-                    {/* Whole paragraphs stay readable while gently appearing. */}
-                    <div className="relative space-y-4 text-right" data-welcome-message>
-                      {message.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => (
-                        <motion.p
-                          key={index}
-                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.45, delay: index * 0.18, ease: "easeOut" }}
-                          className="whitespace-pre-wrap text-sm font-medium leading-7 text-gray-100 sm:text-[15px] sm:leading-[2.2]"
-                        >
-                          {paragraph}
-                        </motion.p>
-                      ))}
+                    {/* Message body with typewriter */}
+                    <div className="relative flex min-h-[96px] items-center justify-center sm:min-h-[120px]">
+                      <p className="whitespace-pre-wrap text-center text-sm font-medium leading-7 tracking-wide text-gray-100 sm:text-[15px] sm:leading-[2.2]">
+                        {typed}
+                        {typing && (
+                          <motion.span
+                            animate={{ opacity: [1, 0, 1] }}
+                            transition={{ duration: 0.6, repeat: Infinity }}
+                            className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 align-middle rounded-full"
+                          />
+                        )}
+                      </p>
                     </div>
 
                     {/* Subtle footer label */}
@@ -9516,13 +9573,24 @@ function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }
                       className="relative flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/[0.04]"
                     >
                       <Sparkles size={10} className="text-purple-400/50" />
-                      <span className="text-purple-300/40 text-[10px] font-medium tracking-wider">رسالة لك، من التوافق الأعمى</span>
+                      <span className="text-purple-300/40 text-[10px] font-medium tracking-wider">كُتب خصيصاً لك بناءً على إجاباتك</span>
                       <Sparkles size={10} className="text-pink-400/50" />
                     </motion.div>
                   </motion.div>
                 </div>
 
-                {/* Actions are available as soon as the message arrives. */}
+                {typing && (
+                  <div className="sticky bottom-0 z-20 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+                    <button
+                      onClick={finishTyping}
+                      className="event3-soft-action w-full rounded-2xl py-3 text-sm font-bold text-purple-200"
+                    >
+                      عرض الرسالة كاملة
+                    </button>
+                  </div>
+                )}
+
+                {/* Dismiss button — appears after typing completes */}
                 <AnimatePresence>
                   {done && (
                     <motion.div
@@ -10567,7 +10635,7 @@ export default function Event3Page() {
           token="preview"
           onDone={() => {}}
           previewFailed={questionPreview === "aiWelcomeFailed"}
-          previewMessage={questionPreview === "aiWelcome" ? "يا هلا سارة! حلو إنك معنا الليلة 🤍 بما إنك تحبين الهايكنق، عندك موضوع نبي نسمع عنه: وش الطلعة اللي يستاهل الواحد يصحى الفجر عشانها؟\n\nيمكن أحد على طاولتك عنده اقتراح لطلعتك الجاية، أو سالفة عن مشوار ما ينساه. مبسوطين إنك جيتي، ومتحمسين للسوالف اللي بتبدأ الليلة!" : undefined}
+          previewMessage={questionPreview === "aiWelcome" ? "هذه رسالتك الخاصة: حضورك الهادئ وفضولك تجاه الناس يعطيانك فرصة جميلة لاكتشاف أشخاص يشبهونك بطرق لم تتوقعها. خذ وقتك، اسأل بصدق، ولا تشغل بالك بإعطاء الانطباع المثالي. أجمل الحوارات تبدأ عندما يكون كل شخص على طبيعته ويترك مساحة حقيقية للطرف الآخر." : undefined}
         />
       </main>
     )

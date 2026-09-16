@@ -18,6 +18,7 @@ before(async () => {
   await db.exec(hardened.match(/create or replace function public\.assert_event3_auxiliary_session\([\s\S]*?\$\$;/)[0])
   await db.exec(await read("20260916124110_individual_ranking_extensions.sql"))
   await db.exec(await read("20260916133453_fix_ranking_extension_reset.sql"))
+  await db.exec(await read("20260916161810_limit_cohost_ranking_extension.sql"))
 })
 after(async () => db?.close())
 beforeEach(async () => {
@@ -35,6 +36,15 @@ const grant = (seconds=120,test=false,session=null) => scalar("select grant_even
 const resolve = (id=null,order=null,revision=0,draft=true,test=false,session=null) => scalar("select resolve_event3_ranking_extension(28,1,$1,$2,$3,$4,$5,$6) as result",[test,session,id,order,revision,draft])
 const ballot = async () => (await db.query("select ranked_number,auto_saved from participant_rankings where event_id=28 and ranker_number=1 order by rank")).rows
 const phase = value => db.query("update event_state set phase=$1",[value])
+
+test("co-host grants are exactly one minute and repeated grants do not stack", async () => {
+  const cohostGrant = seconds => scalar("select grant_event3_ranking_extension(28,1,$1,'cohost:4',false,null) as result", [seconds])
+  await assert.rejects(cohostGrant(120), /exactly one minute/)
+  await cohostGrant(60)
+  await cohostGrant(60)
+  const remaining = await scalar("select extract(epoch from expires_at-now()) as result from event3_ranking_extensions")
+  assert.ok(Number(remaining) > 55 && Number(remaining) <= 60)
+})
 
 test("a private timer keeps the auto-saved ballot and reopens only that person", async () => {
   const ext = await grant()

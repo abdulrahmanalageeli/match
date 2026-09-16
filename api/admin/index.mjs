@@ -12810,6 +12810,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const participantNumber = Number(req.body.participant_number)
           const seconds = Number(req.body.seconds)
           if (!Number.isSafeInteger(participantNumber) || !Number.isInteger(seconds)) return res.status(400).json({ error: "Invalid participant or duration" })
+          if (isCohostRequest && seconds !== 60) return res.status(400).json({ error: "الوقت الإضافي للمساعد دقيقة واحدة فقط" })
           const { data, error } = await supabase.rpc("grant_event3_ranking_extension", {
             p_event_id: Number(currentEventId), p_ranker_number: participantNumber, p_seconds: seconds,
             p_granted_by: isCohostRequest ? `cohost:${cohostSession.cohost_number}` : "admin",

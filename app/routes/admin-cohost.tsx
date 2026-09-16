@@ -2116,7 +2116,7 @@ export default function AdminCohostPage() {
                       {rankingPhaseActive && ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
                     </div>
 
-                    {(ranking.auto_saved || ranking.ranking_extension) && !isEditing && <RankingExtensionControl name={ranking.name} extension={ranking.ranking_extension} disabled={rankingSaving || editingRanker !== null} onGrant={async seconds => {
+                    {(ranking.auto_saved || ranking.ranking_extension) && !isEditing && <RankingExtensionControl oneMinuteOnly name={ranking.name} extension={ranking.ranking_extension} disabled={rankingSaving || editingRanker !== null} onGrant={async seconds => {
                       if (!token) return
                       await cohostApi("e3-grant-ranking-extension", token, { participant_number: ranking.number, seconds })
                       setNotice(`تم فتح مهلة إضافية لـ ${ranking.name}`)

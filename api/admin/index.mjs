@@ -18,7 +18,8 @@ import {
   processCompatibilityVibeEnrichmentBatch,
   verifyCompatibilityVibeWorkerRequest,
 } from "./trigger-match.mjs"
-import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
+import { buildWelcomePrompt, isCurrentWelcome } from "./ai-welcome-prompt.mjs"
+import { loadWelcomeHistories } from "../../server/event3/welcome-history.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 import {
@@ -14623,12 +14624,12 @@ ${alternativeLines}
 
           const [pInfosRes, welcomesRes] = await Promise.all([
             supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
-            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message,anchor_used").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
           ])
           if (pInfosRes.error) return res.status(500).json({ error: pInfosRes.error.message })
 
           const welcomeMap = {}
-          for (const w of (welcomesRes.data || [])) welcomeMap[w.participant_number] = w.welcome_message
+          for (const w of (welcomesRes.data || [])) welcomeMap[w.participant_number] = isCurrentWelcome(w) ? w.welcome_message : null
 
           const result = numbers.map(num => {
             const p = (pInfosRes.data || []).find(x => x.assigned_number === num)
@@ -14656,8 +14657,8 @@ ${alternativeLines}
 
           const [pInfosRes, currentWelcomesRes, priorWelcomesRes] = await Promise.all([
             supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums),
-            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums),
-            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message,anchor_used,event_id").eq("match_id", EVENT3_MATCH_ID).in("participant_number", nums).neq("event_id", currentEventId),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message,anchor_used").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message,anchor_used,event_id").eq("match_id", EVENT3_MATCH_ID).in("participant_number", nums).lt("event_id", currentEventId).order("event_id", { ascending: false }),
           ])
           if (pInfosRes.error) return res.status(500).json({ error: pInfosRes.error.message })
           if (currentWelcomesRes.error) return res.status(500).json({ error: currentWelcomesRes.error.message })
@@ -14681,7 +14682,7 @@ ${alternativeLines}
             }
 
             const cachedWelcome = currentWelcomeMap.get(num)
-            if (cachedWelcome?.welcome_message && !regenerate) {
+            if (isCurrentWelcome(cachedWelcome) && !regenerate) {
               resultByNumber.set(num, { number: num, name: p.name, status: "cached", welcome: cachedWelcome.welcome_message })
               continue
             }
@@ -14689,6 +14690,14 @@ ${alternativeLines}
             generationJobs.push({ num, p })
           }
 
+          let welcomeHistories = new Map()
+          if (generationJobs.length) {
+            try {
+              welcomeHistories = await loadWelcomeHistories(supabase, { participantNumbers: generationJobs.map(job => job.num), currentEventId, profileMatchId: STATIC_MATCH_ID, event3MatchId: EVENT3_MATCH_ID })
+            } catch (error) {
+              console.warn("Batch welcome history unavailable", error?.code || "read_failed")
+            }
+          }
           const generatedRows = []
           const generatedResults = new Map()
           const WELCOME_CONCURRENCY = 12
@@ -14710,12 +14719,13 @@ ${alternativeLines}
                 surveyData: sd,
                 priorAnchors,
                 priorMessages,
+                history: welcomeHistories.get(num) || null,
               })
 
               const completion = await openai.chat.completions.create({
                 model: "gpt-5.4-mini",
                 messages: [{ role: "user", content: prompt }],
-                max_completion_tokens: 400,
+                max_completion_tokens: 700,
                 temperature: 0.95,
                 presence_penalty: 0.8,
                 frequency_penalty: 0.5,

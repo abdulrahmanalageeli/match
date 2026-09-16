@@ -3,7 +3,8 @@ import {
   canAccessEvent3DuringTest,
   isEvent3TestImpersonation,
 } from "../server/event3/test-access.mjs"
-import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
+import { buildWelcomePrompt, isCurrentWelcome } from "./admin/ai-welcome-prompt.mjs"
+import { loadWelcomeHistories } from "../server/event3/welcome-history.mjs"
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit } from "../server/security/request-security.mjs"
 import { protectPartnerPrivacy } from "../server/participants/result-privacy.mjs"
@@ -5971,12 +5972,12 @@ Please respond in JSON format:
 
         // Check for cached welcome in dedicated table
         const { data: cachedRow } = await supabase.from("event3_ai_welcome_messages")
-          .select("welcome_message")
+          .select("welcome_message,anchor_used")
           .eq("match_id", E3_MATCH_ID)
           .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .maybeSingle()
-        if (cachedRow?.welcome_message) {
+        if (isCurrentWelcome(cachedRow)) {
           return res.status(200).json({ success: true, message: cachedRow.welcome_message, cached: true })
         }
 
@@ -5990,9 +5991,19 @@ Please respond in JSON format:
           .select("welcome_message,anchor_used,event_id")
           .eq("match_id", E3_MATCH_ID)
           .eq("participant_number", myNumber)
-          .neq("event_id", currentEventId)
+          .lt("event_id", currentEventId)
+          .order("event_id", { ascending: false })
+          .limit(3)
         const priorMessages = (priorWelcomes || []).map(w => w.welcome_message).filter(Boolean)
         const priorAnchors = [...new Set((priorWelcomes || []).flatMap(w => (w.anchor_used || "").split(",").filter(Boolean)))]
+
+        let history = null
+        try {
+          const histories = await loadWelcomeHistories(supabase, { participantNumbers: [myNumber], currentEventId, profileMatchId: MAIN_MATCH, event3MatchId: E3_MATCH_ID })
+          history = histories.get(Number(myNumber)) || null
+        } catch (error) {
+          console.warn("Welcome history unavailable", error?.code || "read_failed")
+        }
 
         // Build prompt using shared builder
         const { prompt, anchorsUsed } = buildWelcomePrompt({
@@ -6003,13 +6014,14 @@ Please respond in JSON format:
           surveyData: sd,
           priorAnchors,
           priorMessages,
+          history,
         })
 
         try {
           const completion = await openai.chat.completions.create({
             model: "gpt-5.4-mini",
             messages: [{ role: "user", content: prompt }],
-            max_completion_tokens: 400,
+            max_completion_tokens: 700,
             temperature: 0.95,
             presence_penalty: 0.8,
             frequency_penalty: 0.5,

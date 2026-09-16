@@ -9,7 +9,7 @@ let db
 before(async () => {
   db = new PGlite()
   await db.exec(`create role anon; create role authenticated; create role service_role;
-    create table event_state(match_id uuid primary key,current_event_id integer,phase text,test_mode_active boolean default false,test_mode_snapshot jsonb);
+    create table event_state(match_id uuid primary key,current_event_id integer,phase text,test_mode_active boolean default false,test_mode_snapshot jsonb,global_timer_active boolean default false,global_timer_start_time timestamptz,global_timer_duration integer);
     create table event3_participants(match_id uuid,event_id integer,participant_number integer);
     create table session_assignments(match_id uuid,event_id integer,round integer,table_number integer,participant_id integer);
     create table participant_rankings(id uuid default gen_random_uuid() primary key,match_id uuid,event_id integer,ranker_number integer,ranked_number integer,rank integer,auto_saved boolean default false,submitted_at timestamptz default now(),unique(match_id,event_id,ranker_number,ranked_number));`)
@@ -17,11 +17,12 @@ before(async () => {
   const hardened = await read("20260905125242_harden_event3_variable_test_runtime.sql")
   await db.exec(hardened.match(/create or replace function public\.assert_event3_auxiliary_session\([\s\S]*?\$\$;/)[0])
   await db.exec(await read("20260916124110_individual_ranking_extensions.sql"))
+  await db.exec(await read("20260916133453_fix_ranking_extension_reset.sql"))
 })
 after(async () => db?.close())
 beforeEach(async () => {
   await db.exec("truncate event3_ranking_extensions,event3_ranking_drafts,participant_rankings,event_state,session_assignments,event3_participants")
-  await db.query("insert into event_state values ($1,28,'ranking1',false,null)", [MATCH])
+  await db.query("insert into event_state(match_id,current_event_id,phase,test_mode_active,test_mode_snapshot) values ($1,28,'ranking1',false,null)", [MATCH])
   await db.query("insert into event3_participants values ($1,28,1)", [MATCH])
   for (const [round, numbers] of [[1,[1,2,3,4]],[2,[1,5,6,7]]]) {
     for (const n of numbers) await db.query("insert into session_assignments values ($1,28,$2,1,$3)", [MATCH,round,n])
@@ -125,4 +126,46 @@ test("attendee database roles cannot grant, read or resolve extensions", async (
       await assert.rejects(db.query("select * from event3_ranking_extensions"),/permission denied/)
     } finally { await db.exec("reset role") }
   }
+})
+
+test("resetting one ranking clears its finished extension and permits a new draft", async () => {
+  const ext = await grant()
+  await resolve(ext.id,[4,3,2],10,false)
+  await db.query("select clear_event3_participant_ranking_v2(28,1,false,null)")
+  assert.equal((await ballot()).length,0)
+  const draft=await scalar("select save_event3_ranking_v2($1,28,1,1,array[3,2,4],11,true,false,false,null) as result",[MATCH])
+  assert.equal(draft.saved,true)
+  assert.equal(draft.complete,false)
+  assert.equal((await db.query("select count(*)::int n from participant_rankings where event_id=28 and ranker_number=2")).rows[0].n,1)
+})
+
+test("reset all followed by backwards replay navigation does not recreate auto-saved ballots", async () => {
+  await grant()
+  await db.query("select clear_event3_rankings_v2(28,false,null)")
+  await phase("round1")
+  await phase("ranking1")
+  assert.equal((await ballot()).length,0)
+  assert.equal((await db.query("select count(*)::int n from event3_ranking_extensions")).rows[0].n,0)
+  const draft=await scalar("select save_event3_ranking_v2($1,28,1,1,array[3,2,4],11,true,false,false,null) as result",[MATCH])
+  assert.equal(draft.complete,false)
+  await phase("round2")
+  assert.deepEqual((await ballot()).map(r=>r.ranked_number),[3,2,4])
+})
+
+test("a fresh global ranking timer supersedes a completed private extension", async () => {
+  const ext=await grant()
+  await resolve(ext.id,[4,3,2],3,false)
+  await db.exec("update event_state set global_timer_active=true,global_timer_start_time=clock_timestamp(),global_timer_duration=180")
+  const draft=await scalar("select save_event3_ranking_v2($1,28,1,1,array[3,2,4],11,true,false,false,null) as result",[MATCH])
+  assert.equal(draft.saved,true)
+  assert.equal(draft.complete,false)
+})
+
+test("Modify remains available after submitting extra time while the ordinary timer is still open", async () => {
+  await db.exec("update event_state set global_timer_active=true,global_timer_start_time=clock_timestamp(),global_timer_duration=180")
+  const ext=await grant()
+  await resolve(ext.id,[4,3,2],3,false)
+  const draft=await scalar("select save_event3_ranking_v2($1,28,1,1,array[3,2,4],11,true,false,false,null) as result",[MATCH])
+  assert.equal(draft.saved,true)
+  assert.equal(draft.complete,false)
 })

@@ -4866,7 +4866,7 @@ Please respond in JSON format:
         })
         const nameMap = {}
         for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
-        const { data: existingRankings, error: rankingsError } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        const { data: existingRankings, error: rankingsError } = await supabase.from("participant_rankings").select("ranked_number,rank,auto_saved").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
         if (rankingsError) return event3DependencyFailure(res, "Event3 saved ranking lookup", rankingsError, {
           code: "EVENT3_RANKINGS_UNAVAILABLE",
           message: "تعذّر تحديث ترتيبك المحفوظ مؤقتاً. حاول مجدداً.",
@@ -4896,6 +4896,7 @@ Please respond in JSON format:
           && draft.ranked_numbers.length === nums.length && nums.every(n => draft.ranked_numbers.includes(n))
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap,
           event_id: currentEventId, draft_order: extension?.ranked_numbers || (pendingDraft ? draft.ranked_numbers : null), draft_revision: extension?.revision || draft?.revision || 0,
+          auto_saved: !extension && !pendingDraft && (existingRankings || []).some(row => row.auto_saved && nums.includes(row.ranked_number)),
           already_submitted: !extension && !pendingDraft && nums.every(n => rankingMap[n] !== undefined) })
       }
 

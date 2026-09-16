@@ -5064,6 +5064,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
   const [submitted, setSubmitted] = useState(false)
+  const [savedAutomatically, setSavedAutomatically] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -5114,6 +5115,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   })
 
   useEffect(() => {
+    let cancelled = false
     const notesScope = `${token}:${completedRounds}`
     if (notesScopeRef.current !== notesScope) {
       notesScopeRef.current = notesScope
@@ -5124,6 +5126,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       call("e3-get-participants-met", token, { completed_rounds: completedRounds, extension_id: extensionId }),
       call("e3-get-notes", token),
     ]).then(([d, nd]) => {
+      if (cancelled) return
       if (d.error) {
         setLoadError(d.error)
         setLoading(false)
@@ -5151,8 +5154,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       rankingEventRef.current = d.event_id
       revisionRef.current = Math.max(Date.now(), Number(d.draft_revision || 0) + 1)
       setOrder(d.draft_order || [...ranked.map(p => p.number), ...fresh.map(p => p.number)])
+      setSavedAutomatically(d.already_submitted && d.auto_saved === true)
+      setSubmitted(Boolean(d.already_submitted))
+      submittedRef.current = Boolean(d.already_submitted)
       if (d.already_submitted) {
-        setSubmitted(true)
         onRankingResolved(completedRounds)
       }
       setLoading(false)
@@ -5164,6 +5169,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         setNotesStatus("error")
       }
     })
+    return () => { cancelled = true }
   }, [token, completedRounds, reloadKey, onRankingResolved, extensionId])
 
   const retryNotes = async () => {
@@ -5268,6 +5274,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         return
       }
       autoSavedRef.current = true
+      setSavedAutomatically(true)
       submittedRef.current = true
       setSubmitted(true)
       onRankingResolved(completedRounds)
@@ -5320,6 +5327,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     setShowConfirm(false)
     submittedRef.current = true
     setSubmitted(true)
+    setSavedAutomatically(d.expired === true)
     onRankingResolved(completedRounds)
     if (!extensionId) onOpenGroupFeedback(completedRounds as Event3GroupRound)
     toast.success(isFinalRanking ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
@@ -5641,16 +5649,16 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               className="space-y-2.5 text-center"
             >
-              <div className={`flex flex-col items-center gap-2 rounded-2xl py-4 px-4 ${autoSavedRef.current ? 'bg-amber-900/15 border border-amber-800/25' : 'bg-emerald-900/15 border border-emerald-800/25'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${autoSavedRef.current ? 'bg-amber-500/15' : 'bg-emerald-500/15'}`}>
-                  {autoSavedRef.current ? <Lock size={18} className="text-amber-400" /> : <CheckCircle size={18} className="text-emerald-400" />}
+              <div className={`flex flex-col items-center gap-2 rounded-2xl py-4 px-4 ${savedAutomatically ? 'bg-amber-900/15 border border-amber-800/25' : 'bg-emerald-900/15 border border-emerald-800/25'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${savedAutomatically ? 'bg-amber-500/15' : 'bg-emerald-500/15'}`}>
+                  {savedAutomatically ? <Lock size={18} className="text-amber-400" /> : <CheckCircle size={18} className="text-emerald-400" />}
                 </div>
-                <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  {autoSavedRef.current ? 'تم قفل التصنيف بانتهاء الوقت' : 'تم إرسال تصنيفك بنجاح'}
+                <span className={`font-bold text-xs ${savedAutomatically ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {savedAutomatically ? 'تم حفظ تصنيفك تلقائياً' : 'تم إرسال تصنيفك بنجاح'}
                 </span>
-                {autoSavedRef.current && (
+                {savedAutomatically && (
                   <p className="text-amber-500/40 text-[10px] leading-relaxed">
-                    تم حفظ ترتيبك الحالي تلقائياً — لا يمكن التعديل
+                    {rankingExpired || rankingClosed ? "انتهى وقت الترتيب. اطلب وقتاً إضافياً من المنظّم إذا احتجت تعديله." : "يمكنك مراجعته وتعديله ما دام وقت الترتيب مفتوحاً."}
                   </p>
                 )}
               </div>
@@ -5663,8 +5671,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 تقييم أفراد المجموعة {completedRounds}
               </motion.button>
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
-              {!autoSavedRef.current && (
-                <button onClick={() => { submittedRef.current = false; setSubmitted(false); onRankingDirty() }} disabled={submitting || rankingClosed || rankingExpired}
+              {!rankingClosed && !rankingExpired && (
+                <button onClick={() => { submittedRef.current = false; autoSavedRef.current = false; setSubmitted(false); setSavedAutomatically(false); setShowRankingDisclaimer(false); onRankingDirty() }} disabled={submitting || rankingClosed || rankingExpired}
                   className="event3-tertiary-action min-h-10 rounded-xl px-3 text-[10px] font-bold text-gray-500 hover:text-gray-300">
                   تعديل التصنيف
                 </button>
@@ -10428,11 +10436,11 @@ export default function Event3Page() {
         timerStart: eventState?.timer_start || null,
         timerDuration: Number(eventState?.timer_duration || 0),
       })
-    } else if (eventState?.phase === "setup") {
+    } else if (eventState?.phase === "setup" || (/^round[123]$/.test(eventState?.phase || "") && rankingDraftContext && Number(eventState.phase.slice(-1)) <= rankingDraftContext.round)) {
       setRankingDraftContext(null)
       setResolvedRankingRound(null)
     }
-  }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration, resolvedRankingRound])
+  }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration, resolvedRankingRound, rankingDraftContext?.round])
 
   const individualExtensionId = eventState?.ranking_extension?.id as string | undefined
   const individualRankingExtension = individualExtensionId && individualExtensionId !== resolvedExtensionId

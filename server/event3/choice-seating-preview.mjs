@@ -262,7 +262,7 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
   const rounds = [
     roundReport({ round: 1, criterion: "compatibility", groups: plan.round1, groupScores: plan.round1Compatibility?.after?.groupScores, roundScore: plan.round1Compatibility?.after?.score, genderMap, genderTargetRanges, protectedPairs }),
     roundReport({ round: 2, criterion: "age", groups: plan.round2, groupScores: plan.round2Age?.groupScores, roundScore: plan.round2Age?.averageAgeGap, genderMap, genderTargetRanges, protectedPairs }),
-    roundReport({ round: 3, criterion: "rhythm", groups: plan.round3, groupScores: plan.round3Rhythm?.groupScores, roundScore: plan.round3Rhythm?.qualityScore ?? plan.round3Rhythm?.score, genderMap, genderTargetRanges, protectedPairs }),
+    roundReport({ round: 3, criterion: "age", groups: plan.round3, groupScores: plan.round3Age?.groupScores, roundScore: plan.round3Age?.averageAgeGap, genderMap, genderTargetRanges, protectedPairs }),
   ]
   const allTables = rounds.flatMap(round => round.tables.map(table => ({ round: round.round, ...table })))
   const violations = allTables.flatMap(table => table.protected_pair_violations.map(pair => ({
@@ -270,13 +270,14 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
     table_number: table.table_number,
     ...pair,
   })))
-  const repeatMetrics = plan.round3Rhythm?.repeatMetrics || {}
+  const repeatMetrics = plan.round3Age?.repeatMetrics || {}
   const criterionScores = {
     compatibility: rounds[0].score,
     age: rounds[1].score,
     age_average_gap: rounded(plan.round2Age?.averageAgeGap ?? rounds[1].score),
     age_rms_gap: rounded(plan.round2Age?.rmsAgeGap),
-    rhythm: rounds[2].score,
+    round3_age_average_gap: rounds[2].score,
+    round3_age_rms_gap: rounded(plan.round3Age?.rmsAgeGap),
   }
   const weakestTables = rounds.flatMap(round => round.tables.filter(table => table.weakest).map(table => ({
     round: round.round,

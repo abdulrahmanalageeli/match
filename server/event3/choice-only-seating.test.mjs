@@ -13,7 +13,6 @@ import {
   ROUND1_COMPATIBILITY_OPTIMIZATION_PASSES,
 } from "./round1-compatibility.mjs"
 import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
-import { createRoundLensScorer } from "./round23-lenses.mjs"
 import {
   choiceOnlyTargetGroupSizes,
   FLEXIBLE_CHOICE_SEATING_LIMITS,
@@ -149,7 +148,7 @@ test("creates three complete rounds of seven groups of exactly six", () => {
   }
 })
 
-test("returns three deterministic Compatibility, Age, and Rhythm preview candidates", () => {
+test("returns three deterministic Compatibility and two Age preview candidates", () => {
   const preview = basePreview()
   const repeated = buildChoiceOnlySeatingCandidates([...participants])
   assert.equal(preview.error, undefined)
@@ -180,7 +179,7 @@ test("orders every preview by the same canonical objective", () => {
     assert.equal(candidate.canonicalObjective.round1CompatibilityTotal, candidate.plan.round1Compatibility.after.pairScoreTotal)
     assert.equal(candidate.canonicalObjective.round2AgeCost, candidate.plan.round2Age.ageCost)
     assert.equal(candidate.canonicalObjective.round2AverageAgeGap, candidate.plan.round2Age.averageAgeGap)
-    assert.equal(candidate.canonicalObjective.round3RhythmScore, candidate.plan.round3Rhythm.qualityScore)
+    assert.equal(candidate.canonicalObjective.round3AverageAgeGap, candidate.plan.round3Age.averageAgeGap)
     assert.equal(candidate.plan.round1Spark, undefined)
     assert.equal(candidate.plan.round2Depth, undefined)
   }
@@ -296,7 +295,7 @@ test("uses the seven-table geometry to avoid every repeated tablemate", () => {
   assert.equal(plan.round2Age.knownAgePairs, 0)
   assert.equal(plan.round2Age.missingAgePairs, 105)
   assert.equal(plan.round2Age.ageCost, 0)
-  assert.deepEqual(plan.round3Rhythm.repeatMetrics, metrics)
+  assert.deepEqual(plan.round3Age.repeatMetrics, metrics)
 })
 
 test("balances a 21/21 roster into three women and three men per table", () => {
@@ -315,7 +314,7 @@ test("balances a 21/21 roster into three women and three men per table", () => {
   assert.equal([...burden.values()].filter(value => value === 0).length, 42)
 })
 
-test("reports Compatibility, Age, and Rhythm metrics from the selected layouts", () => {
+test("reports Compatibility and both Age metrics from the selected layouts", () => {
   const genderMap = Object.fromEntries(participants.map(number => [number, number <= 21 ? "female" : "male"]))
   const profiles = participants.map(number => richProfile(number, genderMap[number]))
   const profileMap = new Map(profiles.map(value => [value.assigned_number, value]))
@@ -328,10 +327,9 @@ test("reports Compatibility, Age, and Rhythm metrics from the selected layouts",
   })
   const compatibilityGroup = createRound1CompatibilityGroupScorer({ profileMap })
   const ageGroup = createRound2AgeGroupScorer({ profileMap, ageMap })
-  const rhythmGroup = createRoundLensScorer({ profileMap }).rhythmGroup
   const compatibilityScores = plan.round1.map(compatibilityGroup)
   const ageScores = plan.round2.map(ageGroup)
-  const rhythmScores = plan.round3.map(rhythmGroup)
+  const thirdAgeScores = plan.round3.map(ageGroup)
   const expectedPairTotal = compatibilityScores.reduce((sum, group) => sum + group.pairScoreTotal, 0)
   const expectedPairCount = compatibilityScores.reduce((sum, group) => sum + group.scoredPairs, 0)
   const expectedAgeCost = ageScores.reduce((sum, group) => sum + group.ageCost, 0)
@@ -340,8 +338,8 @@ test("reports Compatibility, Age, and Rhythm metrics from the selected layouts",
     (sum, group) => sum + (group.averageAgeGap * group.knownAgePairs),
     0,
   ) / expectedKnownAgePairs
-  const expectedRhythmScore = rhythmScores.reduce((sum, group) => sum + group.score, 0) / rhythmScores.length
-  const expectedRhythmQuality = rhythmScores.reduce((sum, group) => sum + group.qualityScore, 0) / rhythmScores.length
+  const thirdAgePairs = thirdAgeScores.reduce((sum, group) => sum + group.knownAgePairs, 0)
+  const expectedThirdAgeGap = thirdAgeScores.reduce((sum, group) => sum + group.averageAgeGap * group.knownAgePairs, 0) / thirdAgePairs
 
   assert.equal(plan.round1Compatibility.after.pairScoreTotal, expectedPairTotal)
   assert.equal(plan.round1Compatibility.after.score, expectedPairTotal / expectedPairCount)
@@ -351,9 +349,8 @@ test("reports Compatibility, Age, and Rhythm metrics from the selected layouts",
   assert.equal(plan.round2Age.missingAgePairs, 0)
   assert.ok(Math.abs(plan.round2Age.averageAgeGap - expectedAverageAgeGap) < 1e-12)
   assert.ok(Math.abs(plan.round2Age.rmsAgeGap - Math.sqrt(expectedAgeCost / expectedKnownAgePairs)) < 1e-12)
-  assert.equal(plan.round3Rhythm.score, expectedRhythmScore)
-  assert.equal(plan.round3Rhythm.qualityScore, expectedRhythmQuality)
-  assert.equal(plan.round3Rhythm.quality, expectedRhythmQuality)
+  assert.equal(plan.round3Age.averageAgeGap, expectedThirdAgeGap)
+  assert.equal(plan.round3Age.quality, -expectedThirdAgeGap)
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
   assert.equal(metrics.totalRepeatedPairOccurrences, 0)
   assert.equal(metrics.maximumParticipantRepeatBurden, 0)
@@ -379,7 +376,7 @@ test("keeps avoidable locked pairs apart in every lens round", () => {
   }
   assert.equal(plan.round1Compatibility.after.lockedPairs, 0)
   assert.equal(plan.round2Age.lockedPairs, 0)
-  assert.equal(plan.round3Rhythm.lockedPairs, 0)
+  assert.equal(plan.round3Age.lockedPairs, 0)
 })
 
 test("keeps the real #7 and #312 exclusion apart in every generated option", () => {
@@ -407,7 +404,7 @@ test("is deterministic, including gender and age tie-breaking", () => {
   assert.deepEqual(second, first)
 })
 
-test("optimizes Round 2 for age closeness after repeat and gender constraints", () => {
+test("optimizes rounds 2 and 3 for age closeness after repeat and gender constraints", () => {
   const ageMap = Object.fromEntries(participants.map(number => [
     number,
     18 + ((number + 3 * number ** 2) % 47),
@@ -424,6 +421,8 @@ test("optimizes Round 2 for age closeness after repeat and gender constraints", 
 
   assert.ok(ageCost(ageAware.round2) < ageCost(baseline.round2))
   assert.equal(ageAware.round2Age.ageCost, ageCost(ageAware.round2))
+  assert.ok(ageCost(ageAware.round3) < ageCost(baseline.round3))
+  assert.equal(ageAware.round3Age.ageCost, ageCost(ageAware.round3))
   assert.equal(choiceOnlySeatingMetrics(
     ageAware.round1,
     ageAware.round2,
@@ -587,11 +586,12 @@ test("hard-balances a 22/22 maximum roster while keeping repeats and exclusions 
   })
   assert.equal(rhythmStep.complete, false)
   const rhythmPlan = rhythmStep.checkpoint.candidates[0].plan
-  const rhythmScores = rhythmPlan.round3Rhythm.groupScores
-    .map(group => group.qualityScore ?? group.score)
-  assert.equal(rhythmPlan.round3Rhythm.minimumQuality, Math.min(...rhythmScores))
-  assert.ok(rhythmPlan.round3Rhythm.minimumQuality
-    >= rhythmPlan.round3Rhythm.beforeMinimumQuality)
+  const ageScores = rhythmPlan.round3Age.groupScores
+  const knownPairs = ageScores.reduce((sum, group) => sum + group.knownAgePairs, 0)
+  const averageGap = ageScores.reduce((sum, group) => sum + group.averageAgeGap * group.knownAgePairs, 0) / knownPairs
+  assert.equal(rhythmPlan.round3Age.averageAgeGap, averageGap)
+  assert.ok(rhythmPlan.round3Age.averageAgeGap <= rhythmPlan.round3Age.beforeAverageAgeGap)
+
 })
 
 test("refuses an impossible flexible group exclusion instead of seating the pair together", () => {

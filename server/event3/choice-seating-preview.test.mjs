@@ -236,11 +236,11 @@ test("previews three ranked read-only candidates and atomically applies only the
   for (const candidate of preview.candidates) {
     assert.equal(candidate.report.schema_version, "event3-choice-seating-report-v1")
     assert.equal(candidate.report.rounds.length, 3)
-    assert.deepEqual(candidate.report.rounds.map(round => round.criterion), ["compatibility", "age", "rhythm"])
+    assert.deepEqual(candidate.report.rounds.map(round => round.criterion), ["compatibility", "age", "age"])
     assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.compatibility), true)
     assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.age_average_gap), true)
     assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.age_rms_gap), true)
-    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.rhythm), true)
+    assert.equal(Number.isFinite(candidate.report.summary.criterion_scores.round3_age_average_gap), true)
     assert.equal(candidate.report.summary.overall_score, null)
     assert.equal(candidate.report.summary.lens_scores, undefined)
     assert.deepEqual(candidate.report.rounds.map(round => round.tables.length), [7, 7, 7])

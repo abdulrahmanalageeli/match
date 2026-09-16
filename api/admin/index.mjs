@@ -10936,9 +10936,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const groupSizes = R > 0 ? `${T - R}×${G} + ${R}×${G + 1}` : `${T}×${G}`
           const groupRoundLabel = round3 ? "ثلاث جولات" : "جولتان"
           const optimizationLabel = choiceOnlySeating
-            ? ' (الجولات مُحسَّنة بمعايير التوافق الكلي / تقارب العمر / إيقاع الحوار)'
+            ? ' (الجولات مُحسَّنة بمعايير التوافق الكلي / تقارب العمر / تقارب العمر)'
             : usedCompat ? ' (مُحسَّنة بالتوافق)' : ''
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_compatibility: choiceOnlySeating ? plan.round1Compatibility : null, round2_age: choiceOnlySeating ? plan.round2Age : null, round3_rhythm: choiceOnlySeating ? plan.round3Rhythm : null })
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_compatibility: choiceOnlySeating ? plan.round1Compatibility : null, round2_age: choiceOnlySeating ? plan.round2Age : null, round3_age: choiceOnlySeating ? plan.round3Age : null })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {

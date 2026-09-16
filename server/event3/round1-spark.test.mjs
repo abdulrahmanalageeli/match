@@ -206,13 +206,13 @@ test("Spark-optimized Round 1 preserves all three-round structural guarantees", 
   assert.equal(metrics.repeatedInAllThree, 0)
 })
 
-test("choice-only live and test seating expose Compatibility, Age, and Rhythm criteria", async () => {
+test("choice-only live and test seating expose Compatibility and two Age criteria", async () => {
   const source = await readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8")
   assert.match(source, /if \(choiceOnlySeating\) \{[\s\S]*?using Compatibility\/Age\/Rhythm rules[\s\S]*?\} else if \(isTestMode\)/)
   assert.match(source, /buildChoiceOnlySeatingPlan\(orderedNumbers, \{[\s\S]*?profileMap: seatingProfileMap,[\s\S]*?lockedPairsSet/)
   assert.match(source, /round1_compatibility: choiceOnlySeating \? plan\.round1Compatibility : null/)
   assert.match(source, /round2_age: choiceOnlySeating \? plan\.round2Age : null/)
-  assert.match(source, /round3_rhythm: choiceOnlySeating \? plan\.round3Rhythm : null/)
+  assert.match(source, /round3_age: choiceOnlySeating \? plan\.round3Age : null/)
   assert.match(source, /requireCompleteLensProfiles:\s*false/)
   assert.doesNotMatch(source, /calculateRound1SparkPairScore/)
   assert.doesNotMatch(source, /pairScoreMap: seatingPairScoreMap/)

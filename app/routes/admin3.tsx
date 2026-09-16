@@ -154,6 +154,8 @@ type ChoiceSeatingMetricKey = ChoiceSeatingCriterion | ChoiceSeatingLegacyLens
 type ChoiceSeatingCriterionScores = Partial<Record<ChoiceSeatingCriterion, number>> & {
   age_average_gap?: number
   age_rms_gap?: number
+  round3_age_average_gap?: number
+  round3_age_rms_gap?: number
 }
 type ChoiceSeatingLensScores = Partial<Record<ChoiceSeatingMetricKey, number>>
 
@@ -299,7 +301,7 @@ const choiceCandidateLabels: Record<number, { english: string; arabic: string; s
   3: { english: "Alternative B", arabic: "البديل الثاني", style: "border-violet-500/50 bg-violet-950/30 text-violet-200" },
 }
 
-const currentChoiceCriteria: readonly ChoiceSeatingCriterion[] = ["compatibility", "age", "rhythm"]
+const currentChoiceCriteria: readonly ChoiceSeatingCriterion[] = ["compatibility", "age", "age"]
 const historicalChoiceLenses: readonly ChoiceSeatingLegacyLens[] = ["spark", "depth", "rhythm"]
 
 const choiceLensLabels: Record<ChoiceSeatingMetricKey, { arabic: string; english: string; color: string }> = {
@@ -333,7 +335,12 @@ function choiceReportUsesCurrentCriteria(report?: ChoiceSeatingReport | null) {
 }
 
 function choiceReportMetricKeys(report?: ChoiceSeatingReport | null): readonly ChoiceSeatingMetricKey[] {
-  return choiceReportUsesCurrentCriteria(report) ? currentChoiceCriteria : historicalChoiceLenses
+  return choiceReportUsesCurrentCriteria(report)
+    ? currentChoiceCriteria.map((key, index) => {
+        const criterion = report?.rounds?.find(round => Number(round.round) === index + 1)?.criterion
+        return isChoiceSeatingMetricKey(criterion) ? criterion : key
+      })
+    : historicalChoiceLenses
 }
 
 function choiceRoundMetricKey(report: ChoiceSeatingReport | null | undefined, roundNumber: number): ChoiceSeatingMetricKey {
@@ -346,7 +353,7 @@ function choiceRoundMetricKey(report: ChoiceSeatingReport | null | undefined, ro
 
 function choiceRoundScore(report: ChoiceSeatingReport | null | undefined, roundNumber: number) {
   const index = Math.max(0, Math.min(2, Number(roundNumber) - 1))
-  const currentKey = currentChoiceCriteria[index] || "rhythm"
+  const currentKey = choiceRoundMetricKey(report, roundNumber)
   const historicalKey = historicalChoiceLenses[index] || "rhythm"
   const round = report?.rounds?.find(item => Number(item.round) === Number(roundNumber))
   if (!choiceReportUsesCurrentCriteria(report)) {
@@ -354,13 +361,14 @@ function choiceRoundScore(report: ChoiceSeatingReport | null | undefined, roundN
   }
   const currentScores = report?.summary?.criterion_scores
   if (currentKey === "age") {
+    if (index === 2) return round?.score ?? currentScores?.round3_age_average_gap
     return currentScores?.age_average_gap
       ?? report?.summary?.round2_age?.average_gap_years
       ?? currentScores?.age
       ?? currentScores?.age_rms_gap
       ?? round?.score
   }
-  return currentScores?.[currentKey]
+  return currentScores?.[currentKey as ChoiceSeatingCriterion]
     ?? report?.summary?.lens_scores?.[currentKey]
     ?? round?.score
     ?? report?.summary?.lens_scores?.[historicalKey]
@@ -373,7 +381,8 @@ function choiceMetricScoreText(metricKey: ChoiceSeatingMetricKey, value: unknown
 }
 
 function choiceScoreSetMetricKeys(criterionScores?: ChoiceSeatingCriterionScores, lensScores?: ChoiceSeatingLensScores) {
-  if (hasChoiceCriterionScores(criterionScores)) return currentChoiceCriteria
+  if (hasChoiceCriterionScores(criterionScores)) return criterionScores?.round3_age_average_gap !== undefined
+    ? currentChoiceCriteria : ["compatibility", "age", "rhythm"] as const
   if (lensScores?.compatibility != null || lensScores?.age != null) return currentChoiceCriteria
   return lensScores?.spark != null || lensScores?.depth != null ? historicalChoiceLenses : currentChoiceCriteria
 }
@@ -386,6 +395,7 @@ function choiceScoreSetRoundValue(
   const index = Math.max(0, Math.min(2, Number(roundNumber) - 1))
   const metricKeys = choiceScoreSetMetricKeys(criterionScores, lensScores)
   const metricKey = metricKeys[index] || "rhythm"
+  if (metricKey === "age" && index === 2) return criterionScores?.round3_age_average_gap
   if (metricKey === "age") return criterionScores?.age_average_gap ?? criterionScores?.age ?? criterionScores?.age_rms_gap ?? lensScores?.age
   return criterionScores?.[metricKey as ChoiceSeatingCriterion] ?? lensScores?.[metricKey]
 }
@@ -691,10 +701,10 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           </div>
         )}
         {reportMetricKeys.map((lensKey, index) => (
-          <div key={lensKey} className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
+          <div key={`${index}-${lensKey}`} className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
             <p className={`text-lg font-black ${choiceLensLabels[lensKey].color}`}>{choiceMetricScoreText(lensKey, choiceRoundScore(report, index + 1))}</p>
             <p className="text-[9px] text-gray-500">{choiceLensLabels[lensKey].english} · {choiceLensLabels[lensKey].arabic}</p>
-            {lensKey === "age" && <p className="mt-0.5 text-[8px] text-cyan-400/70">متوسط الفارق · الأقل أفضل{summary.round2_age?.maximum_table_range_years != null ? ` · أكبر مدى طاولة ${scoreText(summary.round2_age.maximum_table_range_years)} سنة` : ""}</p>}
+            {lensKey === "age" && <p className="mt-0.5 text-[8px] text-cyan-400/70">متوسط الفارق · الأقل أفضل{index === 1 && summary.round2_age?.maximum_table_range_years != null ? ` · أكبر مدى طاولة ${scoreText(summary.round2_age.maximum_table_range_years)} سنة` : ""}</p>}
           </div>
         ))}
         <div className={`rounded-xl border p-2.5 text-center ${repeatedInAllThree === 0 ? "border-emerald-800/40 bg-emerald-950/25" : "border-red-800/40 bg-red-950/20"}`}>
@@ -940,7 +950,7 @@ function ChoiceSeatingPreviewPanel({
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
                   {metricKeys.map((metricKey, index) => (
-                    <div key={metricKey} className="rounded-lg bg-black/20 px-1.5 py-1.5">
+                    <div key={`${index}-${metricKey}`} className="rounded-lg bg-black/20 px-1.5 py-1.5">
                       <p className={`font-mono text-sm font-bold ${choiceLensLabels[metricKey].color}`}>{choiceMetricScoreText(metricKey, choiceRoundScore(candidate.report, index + 1))}</p>
                       <p className="text-[8px] opacity-60">{choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""}</p>
                     </div>
@@ -993,7 +1003,7 @@ const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ re
           const weakestCount = option.weakest_tables?.length || 0
           const warningCount = (option.weakest_tables || []).reduce((sum, table) => sum + (table.warnings?.length || 0), 0)
           const previousComparison = option.diversity?.comparedWithEarlier?.find((comparison: any) => Number(comparison.rank) === Number(option.rank) - 1)
-          const metricKeys = currentCriteriaReport ? currentChoiceCriteria : choiceScoreSetMetricKeys(option.criterion_scores, option.lens_scores)
+          const metricKeys = choiceScoreSetMetricKeys(option.criterion_scores, option.lens_scores)
           return (
             <div key={option.candidate_id || option.rank} className={`rounded-xl border p-3 ${selected ? "border-emerald-500/60 bg-emerald-950/30 ring-1 ring-emerald-400/15" : "border-gray-800 bg-gray-950/55"}`}>
               <div className="flex items-center justify-between gap-2">
@@ -1003,7 +1013,7 @@ const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ re
               <div className={`mt-3 grid gap-1 text-center ${currentCriteriaReport ? "grid-cols-3" : "grid-cols-4"}`}>
                 {!currentCriteriaReport && <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-white">{scoreText(option.overall_score)}</p><p className="text-[7px] text-gray-600">Overall</p></div>}
                 {metricKeys.map((metricKey, index) => (
-                  <div key={metricKey} className="rounded-lg bg-black/20 px-1.5 py-1.5">
+                  <div key={`${index}-${metricKey}`} className="rounded-lg bg-black/20 px-1.5 py-1.5">
                     <p className={`font-mono text-sm font-bold ${choiceLensLabels[metricKey].color}`}>{choiceMetricScoreText(metricKey, choiceScoreSetRoundValue(option.criterion_scores, option.lens_scores, index + 1))}</p>
                     <p className="text-[7px] text-gray-600">{choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""}</p>
                   </div>
@@ -4243,7 +4253,7 @@ export default function Admin3Page() {
                       {!seatingMatchKnown && <p className="mt-1 text-[9px] text-gray-600">لم تتوفر مقارنة تلقائية مع الجلسات الحالية لهذا التقرير القديم.</p>}
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[9px]">
                         {approvedMetricKeys.map((metricKey, index) => (
-                          <span key={metricKey} className={`rounded-lg bg-black/20 px-2 py-1 ${choiceLensLabels[metricKey].color}`}>
+                          <span key={`${index}-${metricKey}`} className={`rounded-lg bg-black/20 px-2 py-1 ${choiceLensLabels[metricKey].color}`}>
                             {choiceLensLabels[metricKey].english}{metricKey === "age" ? " ↓" : ""} {choiceMetricScoreText(metricKey, choiceRoundScore(approvedChoiceSeatingReport.report, index + 1))}
                           </span>
                         ))}

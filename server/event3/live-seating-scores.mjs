@@ -1,11 +1,10 @@
 import { createRound1CompatibilityGroupScorer, event3CompatibilityPairKey } from "./round1-compatibility.mjs"
 import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
-import { createRoundLensScorer, getRound3RhythmProfileMissingFields } from "./round23-lenses.mjs"
 
 const ROUND_CRITERIA = Object.freeze({
   1: "compatibility",
   2: "age",
-  3: "rhythm",
+  3: "age",
 })
 
 function parseSurveyData(value) {
@@ -45,11 +44,6 @@ export function buildEvent3LiveSeatingScores({
     ...profile,
     survey_data: parseSurveyData(profile.survey_data),
   }]))
-  const incompleteProfiles = new Set(participantNumbers.filter(number => {
-    const profile = fullProfileMap.get(number)
-    return !profile || getRound3RhythmProfileMissingFields(profile).length > 0
-  }))
-  const scoreProfileMap = new Map([...fullProfileMap].filter(([number]) => !incompleteProfiles.has(number)))
   const ageMap = new Map(participantNumbers.map(number => {
     const profile = fullProfileMap.get(number) || {}
     const survey = profile.survey_data || {}
@@ -63,11 +57,10 @@ export function buildEvent3LiveSeatingScores({
     lockedPairsSet,
   })
   const ageGroup = createRound2AgeGroupScorer({ profileMap: fullProfileMap, ageMap, lockedPairsSet })
-  const lenses = createRoundLensScorer({ profileMap: scoreProfileMap, lockedPairsSet })
   const scorerByRound = {
     1: group => compatibilityGroup(group),
     2: group => ageGroup(group),
-    3: group => lenses.rhythmGroup(group),
+    3: group => ageGroup(group),
   }
 
   const result = {}
@@ -83,12 +76,10 @@ export function buildEvent3LiveSeatingScores({
     for (const [tableNumber, members] of [...tables].sort(([left], [right]) => left - right)) {
       const metrics = scorerByRound[round](members)
       tableMetrics.push(metrics)
-      const score = round === 3
-        ? metrics.qualityScore ?? metrics.score
-        : round === 2 ? metrics.averageAgeGap : metrics.score
+      const score = round >= 2 ? metrics.averageAgeGap : metrics.score
       scoredTables[tableNumber] = {
         score: rounded(score),
-        ...(round === 2 ? {
+        ...(round >= 2 ? {
           average_age_gap: rounded(metrics.averageAgeGap),
           rms_age_gap: rounded(metrics.rmsAgeGap),
           missing_age_pairs: Number(metrics.missingAgePairs || 0),
@@ -100,14 +91,14 @@ export function buildEvent3LiveSeatingScores({
     const knownAgePairs = tableMetrics.reduce((sum, metrics) => sum + Number(metrics.knownAgePairs || 0), 0)
     const weightedScore = round === 1 && scoredPairs
       ? tableMetrics.reduce((sum, metrics) => sum + Number(metrics.pairScoreTotal || 0), 0) / scoredPairs
-      : round === 2 && knownAgePairs
+      : round >= 2 && knownAgePairs
         ? tableMetrics.reduce((sum, metrics) => sum + (Number(metrics.averageAgeGap || 0) * Number(metrics.knownAgePairs || 0)), 0) / knownAgePairs
         : scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null
     result[round] = {
       criterion: ROUND_CRITERIA[round],
       score: rounded(weightedScore),
-      unit: round === 2 ? "years" : "percent",
-      lower_is_better: round === 2,
+      unit: round >= 2 ? "years" : "percent",
+      lower_is_better: round >= 2,
       tables: scoredTables,
     }
   }

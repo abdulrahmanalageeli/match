@@ -1,7 +1,7 @@
 import { buildSevenBySixPlan, normalizedGender } from "./round2-age-optimizer.mjs"
 import { optimizeRound1CompatibilityGroups } from "./round1-compatibility.mjs"
 import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
-import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
+import { getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 import {
   buildFlexibleChoiceOnlySeatingCandidates,
   buildFlexibleChoiceOnlySeatingCandidatesStep,
@@ -11,7 +11,7 @@ const TABLE_COUNT = 7
 const GROUP_SIZE = 6
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
-export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "compatibility-age-rhythm-v1-six-person-40-pass"
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v2-six-person-40-pass"
 
 // Preview alternatives must feel like different complete plans, not the same
 // tables with different numbers. Replacing half of the 105 companion
@@ -330,10 +330,6 @@ function ageCost(groups, ageMap) {
   return cost
 }
 
-function average(values, fallback = 0) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback
-}
-
 function summarizeAge(groupScores) {
   const knownAgePairs = groupScores.reduce((sum, group) => sum + Number(group.knownAgePairs || 0), 0)
   const ageCost = groupScores.reduce((sum, group) => sum + Number(group.ageCost || 0), 0)
@@ -352,22 +348,6 @@ function summarizeAge(groupScores) {
     groupScores,
   }
 }
-function summarizeRhythm(groupScores) {
-  return {
-    score: average(groupScores.map(group => group.score), 0),
-    compositionBonus: average(groupScores.map(group => group.compositionBonus), 0),
-    qualityScore: average(groupScores.map(group => group.qualityScore), 0),
-    lockedPairs: groupScores.reduce((sum, group) => sum + group.lockedPairs, 0),
-    incompleteRoleCoverage: groupScores.filter(group => group.roleCoverageIncomplete).length,
-    incompleteCuriosityCoverage: groupScores.filter(group => group.curiosityCoverageIncomplete).length,
-    missingInitiators: groupScores.filter(group => group.initiatorMissing).length,
-    missingRoleTrios: groupScores.filter(group => group.roleTrioMissing).length,
-    missingCuriosityFlows: groupScores.filter(group => group.curiosityFlowMissing).length,
-    humorClashes: groupScores.filter(group => group.humorClash).length,
-    groupScores,
-  }
-}
-
 function compareNumberVectors(left, right) {
   const length = Math.max(left.length, right.length)
   for (let index = 0; index < length; index++) {
@@ -398,7 +378,7 @@ function round1ObjectiveVector(candidate) {
 function jointPlanObjectiveVector(candidate) {
   const worstGenderSpread = Math.max(candidate.round2.gender.maximumSpread, candidate.round3.gender.maximumSpread)
   const worstGenderDeviation = Math.max(candidate.round2.gender.squaredDeviation, candidate.round3.gender.squaredDeviation)
-  const lockedPairs = candidate.round2.age.lockedPairs + candidate.round3.rhythm.lockedPairs
+  const lockedPairs = candidate.round2.age.lockedPairs + candidate.round3.age.lockedPairs
   return [
     ...round1ObjectiveVector(candidate),
     worstGenderSpread,
@@ -410,13 +390,9 @@ function jointPlanObjectiveVector(candidate) {
     candidate.round2.age.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
     candidate.round2.age.missingAgePairs,
     candidate.round2.age.absoluteAgeGapTotal,
-    candidate.round3.rhythm.incompleteRoleCoverage,
-    candidate.round3.rhythm.incompleteCuriosityCoverage,
-    candidate.round3.rhythm.missingInitiators,
-    candidate.round3.rhythm.missingRoleTrios,
-    candidate.round3.rhythm.missingCuriosityFlows,
-    candidate.round3.rhythm.humorClashes,
-    -candidate.round3.quality,
+    candidate.round3.age.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
+    candidate.round3.age.missingAgePairs,
+    candidate.round3.age.absoluteAgeGapTotal,
     ...candidate.round2.shifts,
     ...candidate.round3.shifts,
   ]
@@ -448,7 +424,7 @@ function normalizedParticipants(values) {
  * current total-compatibility score for every pair at each table without
  * changing any gender slot. Round two searches the zero-repeat layouts for
  * the closest age bands. Round three keeps the same repeat guarantee while
- * optimizing the existing Rhythm/Discovery objective.
+ * optimizing age closeness as well.
  */
 function buildChoiceOnlySeatingSearch(values, {
   genderMap = {},
@@ -508,7 +484,6 @@ function buildChoiceOnlySeatingSearch(values, {
     establishedBest: !round1Source,
     variantKey: round1Source?.variantKey || "primary",
   }
-  const lenses = createRoundLensScorer({ profileMap, lockedPairsSet })
   const scoreAgeGroup = createRound2AgeGroupScorer({
     ageMap,
     profileMap: compatibilityProfileMap,
@@ -550,7 +525,7 @@ function buildChoiceOnlySeatingSearch(values, {
     const layout = layoutFor(shifts)
     const candidate = {
       ...layout,
-      rhythm: summarizeRhythm(layout.groups.map(lenses.rhythmGroup)),
+      age: summarizeAge(layout.groups.map(scoreAgeGroup)),
     }
     round3BaseCache.set(shifts, candidate)
     return candidate
@@ -562,7 +537,7 @@ function buildChoiceOnlySeatingSearch(values, {
     for (const [round2Shifts, round3Shifts] of getFeasibleShiftPairs()) {
       const round2Candidate = round2For(round2Shifts)
       // Selecting the rounds together prevents a locally attractive Age round
-      // from stranding Rhythm without a gender-balanced, burden-one solution.
+      // from stranding round three without a gender-balanced, burden-one solution.
       const round3Base = round3BaseFor(round3Shifts)
       const diversityProbe = {
         round1: round1Layout,
@@ -575,7 +550,7 @@ function buildChoiceOnlySeatingSearch(values, {
 
       const round3Candidate = {
         ...round3Base,
-        quality: round3Base.rhythm.qualityScore,
+        quality: -(round3Base.age.averageAgeGap ?? Number.MAX_SAFE_INTEGER),
       }
       const candidate = {
         round1: round1Layout,
@@ -585,14 +560,14 @@ function buildChoiceOnlySeatingSearch(values, {
       }
       const protectedPairViolations = Number(compatibility.metrics?.after?.lockedPairs || 0)
         + Number(round2Candidate.age?.lockedPairs || 0)
-        + Number(round3Candidate.rhythm?.lockedPairs || 0)
+        + Number(round3Candidate.age?.lockedPairs || 0)
       if (protectedPairViolations > 0) continue
       if (!best || compareJointPlans(candidate, best) < 0) best = candidate
     }
     if (!best) {
       return {
         error: candidateCount === 1
-          ? "Could not construct conflict-free joint minimum-repeat Age and Rhythm rounds"
+          ? "Could not construct conflict-free joint minimum-repeat age-based rounds"
           : `Could not construct ${candidateCount} materially different conflict-free minimum-repeat seating candidates`,
       }
     }
@@ -624,8 +599,8 @@ function serializeChoiceOnlyPlan({ participants }, best) {
       quality: best.round2.quality,
       shifts: best.round2.shifts,
     },
-    round3Rhythm: {
-      ...best.round3.rhythm,
+    round3Age: {
+      ...best.round3.age,
       quality: best.round3.quality,
       shifts: best.round3.shifts,
       repeatMetrics,
@@ -648,7 +623,8 @@ function canonicalObjective(candidate) {
     round1CompatibilityTotal: compatibilityFitness.pairScoreTotal ?? null,
     round2AgeCost: candidate.round2.age.ageCost,
     round2AverageAgeGap: candidate.round2.age.averageAgeGap,
-    round3RhythmScore: candidate.round3.rhythm.qualityScore,
+    round3AgeCost: candidate.round3.age.ageCost,
+    round3AverageAgeGap: candidate.round3.age.averageAgeGap,
   }
 }
 
@@ -716,7 +692,7 @@ function alternativeRound1Sources(seedCandidates, options) {
  * the best plan materially different from rank one; rank three is the best
  * plan materially different from both earlier choices. All three use the same
  * objective and preserve the exact structural repeat guarantees while applying
- * the same gender, protected-pair, compatibility, close-age, and Rhythm priorities.
+ * the same gender, protected-pair, compatibility, and close-age priorities.
  *
  * Rank one is the strongest complete plan under the compatibility-first
  * objective. Ranks two and three use separately compatibility-scored

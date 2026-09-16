@@ -1,7 +1,6 @@
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 import { createRound1CompatibilityGroupScorer } from "./round1-compatibility.mjs"
 import { createRound2AgeGroupScorer } from "./round2-age-lens.mjs"
-import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const MIN_PARTICIPANTS = 6
 const MAX_PARTICIPANTS = 44
@@ -13,7 +12,7 @@ const BALANCED_MAX_ROSTER_GENDER_COUNT = BALANCED_MAX_ROSTER_SIZE / 2
 const CONSTRAINED_ROUND_ATTEMPTS = 12
 const CONSTRAINED_ROUND_NODE_LIMIT = 100_000
 const PROTECTED_PAIR_RELABEL_ATTEMPTS = 2_048
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-rhythm-v1-balanced-44-hard-zero-repeat"
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "compatibility-age-age-v2-balanced-44-hard-zero-repeat"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -417,9 +416,8 @@ function assembleCandidate(participants, options, seed, round1, round2, round3) 
   const compatibility = aggregate(round1.evaluation.groupScores, "compatibility")
   const compatibilityBefore = aggregate(round1.before.groupScores, "compatibility")
   const age = aggregate(round2.evaluation.groupScores, "age")
-  const rhythm = aggregate(round3.evaluation.groupScores, "rhythm")
+  const thirdAge = aggregate(round3.evaluation.groupScores, "age")
   const positionMap = Object.fromEntries(round1.groups.flat().map((number, index) => [number, index]))
-  const minimumRhythmQuality = round3.evaluation.minimumQuality
   const sortKey = [
     repeats.repeatedInAllThree,
     repeats.totalRepeatedPairOccurrences,
@@ -430,8 +428,9 @@ function assembleCandidate(participants, options, seed, round1, round2, round3) 
     age.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
     age.missingAgePairs,
     age.absoluteAgeGapTotal,
-    -minimumRhythmQuality,
-    -rhythm.qualityScore,
+    thirdAge.averageAgeGap ?? Number.MAX_SAFE_INTEGER,
+    thirdAge.missingAgePairs,
+    thirdAge.absoluteAgeGapTotal,
     ...round1.groups.flat(),
     ...round2.groups.flat(),
     ...round3.groups.flat(),
@@ -449,10 +448,9 @@ function assembleCandidate(participants, options, seed, round1, round2, round3) 
       positionMap,
       round1Compatibility: { before: compatibilityBefore, after: compatibility, swaps: round1.swaps },
       round2Age: { ...age, shifts: [] },
-      round3Rhythm: {
-        ...rhythm,
-        minimumQuality: minimumRhythmQuality,
-        beforeMinimumQuality: round3.before.minimumQuality,
+      round3Age: {
+        ...thirdAge,
+        beforeAverageAgeGap: aggregate(round3.before.groupScores, "age").averageAgeGap,
         shifts: [],
         repeatMetrics: repeats,
       },
@@ -488,7 +486,6 @@ function buildBalanced44Candidate(participants, options, seed) {
   const sizes = choiceOnlyTargetGroupSizes(canonicalParticipants.length)
   const firstTargets = balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, seed)
   if (!firstTargets) return null
-  const lenses = createRoundLensScorer(options)
   const compatibilityGroup = createRound1CompatibilityGroupScorer(options)
   const ageGroup = createRound2AgeGroupScorer(options)
   const protectedPairs = new Set(options.lockedPairsSet || [])
@@ -552,10 +549,10 @@ function buildBalanced44Candidate(participants, options, seed) {
     })
     const round3 = optimize(safeRound3, {
       previousPairSets: [round1.evaluation.currentPairs, round2.evaluation.currentPairs],
-      groupScore: lenses.rhythmGroup,
+      groupScore: ageGroup,
+      objective: "age",
       genderMap: options.genderMap,
       ageMap: options.ageMap,
-      prioritizeWeakest: true,
     })
 
     const candidate = assembleCandidate(canonicalParticipants, options, seed, round1, round2, round3)
@@ -580,7 +577,6 @@ function buildCandidate(participants, options, seed) {
   const sizes = choiceOnlyTargetGroupSizes(participants.length)
   const balanced44Candidate = buildBalanced44Candidate(participants, options, seed)
   if (balanced44Candidate) return balanced44Candidate
-  const lenses = createRoundLensScorer(options)
   const compatibilityGroup = createRound1CompatibilityGroupScorer(options)
   const ageGroup = createRound2AgeGroupScorer(options)
   const round1Start = initialGroups(participants, sizes, seed * 101 + 17, options.genderMap)
@@ -602,7 +598,8 @@ function buildCandidate(participants, options, seed) {
   const round3Start = initialGroups(participants, sizes, seed * 307 + 43, options.genderMap)
   const round3 = optimize(round3Start, {
     previousPairSets: [round1.evaluation.currentPairs, round2.evaluation.currentPairs],
-    groupScore: lenses.rhythmGroup,
+    groupScore: ageGroup,
+    objective: "age",
     genderMap: options.genderMap,
     ageMap: options.ageMap,
   })
@@ -625,7 +622,7 @@ function finalizeFlexibleCandidates(participants, rawCandidates, lockedPairsSet 
     return { error: "Could not construct three seating plans without placing a conflict-of-interest exclusion at the same table" }
   }
   const repeatSafeCandidates = allCandidates
-    .filter(candidate => candidate.plan.round3Rhythm.repeatMetrics.repeatedInAllThree === 0)
+    .filter(candidate => candidate.plan.round3Age.repeatMetrics.repeatedInAllThree === 0)
   const pool = repeatSafeCandidates.length >= 3 ? repeatSafeCandidates : allCandidates
   const selected = []
   const seen = new Set()
@@ -656,7 +653,8 @@ function finalizeFlexibleCandidates(participants, rawCandidates, lockedPairsSet 
       round1CompatibilityTotal: candidate.plan.round1Compatibility.after.pairScoreTotal,
       round2AgeCost: candidate.plan.round2Age.ageCost,
       round2AverageAgeGap: candidate.plan.round2Age.averageAgeGap,
-      round3RhythmScore: candidate.plan.round3Rhythm.qualityScore,
+      round3AgeCost: candidate.plan.round3Age.ageCost,
+      round3AverageAgeGap: candidate.plan.round3Age.averageAgeGap,
     },
     diversity: index === 0 ? { round1Fixed: false, fromBest: null, comparedWithEarlier: [] } : {
       round1Fixed: false,

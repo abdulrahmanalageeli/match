@@ -61,9 +61,11 @@ test("live seating scores preserve table numbers and recalculate every criterion
   const before = buildEvent3LiveSeatingScores({ assignments: beforeAssignments, profiles })
   const after = buildEvent3LiveSeatingScores({ assignments: afterAssignments, profiles })
 
-  assert.deepEqual([before[1].criterion, before[2].criterion, before[3].criterion], ["compatibility", "age", "rhythm"])
+  assert.deepEqual([before[1].criterion, before[2].criterion, before[3].criterion], ["compatibility", "age", "age"])
   assert.equal(before[2].unit, "years")
   assert.equal(before[2].lower_is_better, true)
+  assert.equal(before[3].unit, "years")
+  assert.equal(before[3].lower_is_better, true)
   assert.deepEqual(Object.keys(after[1].tables), ["1", "2"])
   for (const round of [1, 2, 3]) {
     assert.equal(Number.isFinite(after[round].score), true)

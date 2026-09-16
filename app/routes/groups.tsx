@@ -47,6 +47,7 @@ import PhoneEntry from "../components/groups/PhoneEntry";
 import ActivityArtwork from "../components/groups/ActivityArtwork";
 import LetsAgreeActivity from "../components/groups/LetsAgreeActivity";
 import ConspiracyActivity from "../components/groups/ConspiracyActivity";
+import SocialVoteActivity from "../components/groups/SocialVoteActivity";
 import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
 import { GROUP_COORDINATION_ENABLED } from "../lib/event3-group-coordination.mjs";
 import { animate } from "motion";
@@ -100,6 +101,30 @@ const games: Game[] = [
     fitAr: "مناسب إذا تبغون تعرفون كيف يفكّر كل شخص",
     duration: 6,
     icon: <ActivityArtwork activityId="conspiracy-theories" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
+  },
+  {
+    id: "green-red-depends",
+    name: "Green / Red / Depends",
+    nameAr: "أخضر، أحمر، أو يعتمد؟",
+    description: "Vote privately on everyday habits, reveal the split, and discuss",
+    descriptionAr: "مواقف يومية، تصويت مخفي، وآراء تنكشف وتفتح السالفة. ٣٠ موقف بدون إجابة نموذجية.",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تكتشفون اختلافاتكم بروح خفيفة",
+    duration: 8,
+    icon: <ActivityArtwork activityId="green-red-depends" />,
+    color: "from-violet-500 via-cyan-400 to-teal-300"
+  },
+  {
+    id: "unwritten-rules",
+    name: "Unwritten Rules",
+    nameAr: "قوانيننا غير المكتوبة",
+    description: "Agree or disagree, discuss, and build your group's unofficial rulebook",
+    descriptionAr: "نتفق أو نختلف؟ ٣٠ قاعدة للنقاش، ودفتر نجمع فيه القوانين اللي تشبهنا.",
+    energyAr: "متوازن",
+    fitAr: "مناسب إذا تبغون تعرفون وش يهم كل شخص في المجموعة",
+    duration: 8,
+    icon: <ActivityArtwork activityId="unwritten-rules" />,
     color: "from-violet-500 via-cyan-400 to-teal-300"
   },
   {
@@ -1445,6 +1470,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [unwrittenRulebook, setUnwrittenRulebook] = useState<string[]>([]);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
@@ -1607,7 +1633,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   }, [shareContent]);
 
   const projectedActivityContent = useMemo<SharedGroupContent | null>(() => {
-    if (!selectedGameId || selectedGameId === "discussion-questions" || selectedGameId === "lets-agree" || selectedGameId === "conspiracy-theories") return null;
+    if (!selectedGameId || selectedGameId === "discussion-questions" || selectedGameId === "lets-agree" || selectedGameId === "conspiracy-theories" || selectedGameId === "green-red-depends" || selectedGameId === "unwritten-rules") return null;
     const selectedGame = games.find(game => game.id === selectedGameId);
     if (!selectedGame) return null;
 
@@ -3232,6 +3258,19 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       return <ConspiracyActivity
         round={round}
         participantNames={participantNames ?? groupMembers}
+        onSharedContentChange={isGroupCoordinator ? shareContent : undefined}
+        onFinish={returnToActivitySelection}
+      />;
+    }
+
+    if (selectedGameId === "green-red-depends" || selectedGameId === "unwritten-rules") {
+      return <SocialVoteActivity
+        key={`${selectedGameId}:${round}`}
+        activityId={selectedGameId}
+        round={round}
+        participantNames={participantNames ?? groupMembers}
+        rulebook={unwrittenRulebook}
+        onRulebookChange={setUnwrittenRulebook}
         onSharedContentChange={isGroupCoordinator ? shareContent : undefined}
         onFinish={returnToActivitySelection}
       />;

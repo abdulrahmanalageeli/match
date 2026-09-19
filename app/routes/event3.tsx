@@ -6584,7 +6584,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
   return (
     <motion.div ref={node => { feedbackOverlayRef.current = node; feedbackDialogRef.current = node }} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="event3-shell event3-stage event3-feedback-view fixed inset-0 z-[240] flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
+      className="event3-shell event3-feedback-view fixed inset-0 z-[240] isolate flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-80 h-80 bg-pink-600/20 rounded-full blur-[100px]" />
         <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-purple-600/15 rounded-full blur-[90px]" />

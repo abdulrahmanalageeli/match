@@ -6561,6 +6561,7 @@ Proceed?`
                 ❤ Load Matches
               </button>
               <button
+                style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                 onClick={fetchGroupAssignments}
                 className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-200 text-sm hover:bg-rose-500/30 border border-rose-400/30 transition-colors"
                 title="Show current groups"
@@ -6581,7 +6582,7 @@ Proceed?`
       {/* Phase Control */}
       <div className="relative z-30 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${currentPhaseConfig.bg} border border-white/20`}>
               <currentPhaseConfig.icon className={`w-4 h-4 ${currentPhaseConfig.color}`} />
               <span className={`font-medium ${currentPhaseConfig.color}`}>
@@ -7530,6 +7531,7 @@ Proceed?`
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">View & Manage</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
+                    style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                     onClick={fetchGroupAssignments}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm"
                   >
@@ -7584,6 +7586,7 @@ Proceed?`
                   </button>
 
                   <button
+                    style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                     onClick={async () => {
                       if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers to locked/pinned matches for BOTH rounds\n   • Round 1 (same-gender): tables 1, 2, 3...\n   • Round 2 (opposite-gender): restarts at 1, 2, 3...\n   (rounds run sequentially, so table numbers may repeat across rounds)")) return
                       const res = await fetch("/api/admin", {
@@ -7615,6 +7618,7 @@ Proceed?`
                 <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">Danger Zone</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
+                    style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                     onClick={cleanSlate}
                     disabled={loading}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
@@ -7628,6 +7632,7 @@ Proceed?`
                   </button>
 
                   <button
+                    style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                     onClick={resetGroups}
                     disabled={loading}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
@@ -7705,6 +7710,7 @@ Proceed?`
 
                   {/* Groups Page Lock Control */}
                   <button
+                    style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                     onClick={async () => {
                       try {
                         const newLocked = !groupsLocked
@@ -8785,7 +8791,7 @@ Proceed?`
       <div className="relative z-10 flex-1 overflow-hidden">
         <div className="max-w-6xl mx-auto p-6">
           {/* Participants List (hide rounds for co-host) */}
-          {!isCohost && (
+          {!isCohost && !mutualChoiceEvent && (
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-4">

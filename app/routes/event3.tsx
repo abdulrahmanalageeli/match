@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
+import MutualChoiceRound, { MutualChoiceWelcome, MutualChoicePreview, type MutualChoiceState } from "~/components/MutualChoiceRound"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import { buildEvent3Uri, hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
@@ -166,7 +167,7 @@ async function createAiWelcomeImage(message: string): Promise<Blob> {
 
 const API = "/api/participant"
 
-type Event3Format = "classic" | "choice_only_three_groups"
+type Event3Format = "classic" | "choice_only_three_groups" | "mutual_choice_six_rounds"
 type Event3GroupRound = 1 | 2 | 3
 type Event3MeetingStatus = "met" | "did_not_start" | "partner_absent" | "needed_help"
 type Event3FeedbackDraft = {
@@ -210,9 +211,11 @@ type GroupReflectionGroup = {
 }
 
 const CHOICE_ONLY_EVENT3_FORMAT: Event3Format = "choice_only_three_groups"
+const MUTUAL_CHOICE_EVENT3_FORMAT: Event3Format = "mutual_choice_six_rounds"
 
 function normalizeEvent3Format(...values: unknown[]): Event3Format {
-  const firstDefinedFormat = values.find(value => value === "classic" || value === CHOICE_ONLY_EVENT3_FORMAT)
+  const firstDefinedFormat = values.find(value => value === "classic" || value === CHOICE_ONLY_EVENT3_FORMAT || value === MUTUAL_CHOICE_EVENT3_FORMAT)
+  if (firstDefinedFormat === MUTUAL_CHOICE_EVENT3_FORMAT) return MUTUAL_CHOICE_EVENT3_FORMAT
   return firstDefinedFormat === CHOICE_ONLY_EVENT3_FORMAT
     ? CHOICE_ONLY_EVENT3_FORMAT
     : "classic"
@@ -9887,6 +9890,14 @@ const EVENT_PHASE_LABELS: Record<string, string> = {
 }
 
 const EVENT3_QA_PREVIEWS = [
+  ["mutualWelcome", "شرح الاختيار المتبادل"],
+  ["mutualSetup", "انتظار البداية · الاختيار المتبادل"],
+  ["mutualGroup", "المجموعة · الاختيار المتبادل"],
+  ["mutualPair", "اللقاء · الاختيار المتبادل"],
+  ["mutualBreak", "مساحة خفيفة · الاختيار المتبادل"],
+  ["mutualPaused", "توقف الوقت · الاختيار المتبادل"],
+  ["mutualFinal", "الجولة السادسة · الاختيار المتبادل"],
+  ["mutualComplete", "ختام الاختيار المتبادل"],
   ["welcome", "الترحيب"],
   ["login", "تسجيل الدخول"],
   ["breakScreen", "شاشة الاستراحة"],
@@ -9917,6 +9928,11 @@ const EVENT_PHASE_GUIDANCE: Record<string, string> = {
 }
 
 function event3PhaseLabel(phase: string, eventFormat: Event3Format) {
+  if (eventFormat === MUTUAL_CHOICE_EVENT3_FORMAT) {
+    if (phase === "setup") return "الاختيار المتبادل · بانتظار البداية"
+    if (phase === "final_reveal") return "اكتملت الجولات الست"
+    return "الاختيار المتبادل"
+  }
   if (isChoiceOnlyEvent3(eventFormat)) {
     const choiceOnlyLabels: Record<string, string> = {
       ranking2: "ترتيب الجولة الثانية",
@@ -9933,6 +9949,11 @@ function event3PhaseLabel(phase: string, eventFormat: Event3Format) {
 }
 
 function event3PhaseGuidance(phase: string, eventFormat: Event3Format) {
+  if (eventFormat === MUTUAL_CHOICE_EVENT3_FORMAT) {
+    if (phase === "setup") return "تظهر مجموعتك تلقائياً عند البداية"
+    if (phase === "final_reveal") return "شكراً لكل سالفة شاركتنا فيها"
+    return "وجهتك ووقتك هنا، واختيارك يبقى خاصاً"
+  }
   if (isChoiceOnlyEvent3(eventFormat)) {
     const choiceOnlyGuidance: Record<string, string> = {
       ranking2: "حدّث ترتيبك بعد المجموعة الثانية، ثم احفظ",
@@ -10124,6 +10145,8 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
   const phase = eventState?.phase || "setup"
   const eventFormat = normalizeEvent3Format(eventState?.event_format)
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
+  const mutualChoice = eventFormat === MUTUAL_CHOICE_EVENT3_FORMAT
+  const mutualState: MutualChoiceState | undefined = eventState?.mutual_choice
   const progress: Record<string, string> = choiceOnly ? {
     round1: "1 من 7", ranking1: "1 من 7", round2: "2 من 7", ranking2: "2 من 7", round3: "3 من 7", ranking3: "3 من 7",
     phase2_processing: "4 من 7", phase2_reveal: "4 من 7",
@@ -10139,7 +10162,8 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
     const elapsed = Math.floor((now - new Date(eventState.timer_start).getTime()) / 1000)
     remaining = Math.max(0, Number(eventState.timer_duration || 0) - elapsed)
   }
-  const table = eventState?.my_assignment?.table
+  if (mutualChoice) remaining = null
+  const table = mutualChoice ? null : eventState?.my_assignment?.table
   const safeTopClass = impersonating ? "" : "pt-[env(safe-area-inset-top)]"
   const secondsSinceSuccess = lastSuccessAt ? Math.max(0, Math.floor((Date.now() - lastSuccessAt) / 1000)) : 0
   const connectionState = isOffline ? "offline" : (pollError || secondsSinceSuccess > 15) ? "unstable" : "online"
@@ -10149,7 +10173,7 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
       ? `الاتصال غير مستقر${lastSuccessAt ? ` — آخر تحديث قبل ${Math.max(1, secondsSinceSuccess)}ث` : ""}`
       : "متصل بالفعالية"
   const phaseGuidance = event3PhaseGuidance(phase, eventFormat)
-  const progressParts = (progress[phase] || "").split(" من ").map(Number)
+  const progressParts = (mutualChoice ? "" : progress[phase] || "").split(" من ").map(Number)
   const progressPercent = progressParts.length === 2 && progressParts.every(Number.isFinite)
     ? Math.max(0, Math.min(100, (progressParts[0] / progressParts[1]) * 100))
     : null
@@ -10159,8 +10183,8 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
       <div className="mx-auto flex max-w-md items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate text-sm font-black tracking-[-0.01em] text-white">{event3PhaseLabel(phase, eventFormat)}</span>
-            {progress[phase] && <span className="whitespace-nowrap text-xs font-bold text-purple-200/60">{progress[phase]}</span>}
+            <span className="truncate text-sm font-black tracking-[-0.01em] text-white">{mutualChoice && mutualState?.session.status === "paused" ? "الفعالية متوقفة مؤقتاً" : event3PhaseLabel(phase, eventFormat)}</span>
+            {!mutualChoice && progress[phase] && <span className="whitespace-nowrap text-xs font-bold text-purple-200/60">{progress[phase]}</span>}
           </div>
           <p className="mt-0.5 truncate text-xs font-medium text-gray-400">{phaseGuidance}</p>
           {connectionState !== "online" && <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-amber-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />{connectionLabel}</p>}
@@ -10346,6 +10370,21 @@ export default function Event3Page() {
   const eventFormat = normalizeEvent3Format(
     eventState?.event_format ?? publicFormatState?.event_format,
   )
+  const mutualChoiceMode = eventFormat === MUTUAL_CHOICE_EVENT3_FORMAT
+  const mutualChoiceState = eventState?.mutual_choice as MutualChoiceState | undefined
+  const mutualRoundKey = mutualChoiceMode
+    ? `${mutualChoiceState?.event3_session_key || "pending"}:${mutualChoiceState?.session.round_number || 0}:${mutualChoiceState?.session.status === "complete" ? "complete" : mutualChoiceState?.assignment?.kind || "setup"}:${mutualChoiceState?.assignment?.table_number || 0}`
+    : null
+  const saveMutualChoice = useCallback(async (chosenNumber: number | null): Promise<MutualChoiceState> => {
+    const result = await call("e3-mutual-choice", token, {
+      round_number: mutualChoiceState?.session.round_number,
+      chosen_number: chosenNumber,
+      expected_event3_session_key: mutualChoiceState?.event3_session_key,
+    })
+    if (result.error) throw new Error(result.error)
+    retryState()
+    return result.mutual_choice || result
+  }, [token, mutualChoiceState?.session.round_number, mutualChoiceState?.event3_session_key, retryState])
 
   // Clock skew correction: offset between server time and local Date.now()
   const clockOffsetRef = useRef(0)
@@ -10422,7 +10461,7 @@ export default function Event3Page() {
     eventContentRef.current?.scrollTo({ top: 0, behavior: "auto" })
     const focusTimer = window.setTimeout(() => phaseAnnouncementRef.current?.focus(), 80)
     return () => window.clearTimeout(focusTimer)
-  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot, phaseTransition])
+  }, [eventState?.phase, mutualRoundKey, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot, phaseTransition])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -10554,6 +10593,9 @@ export default function Event3Page() {
         </div>
       </main>
     )
+  }
+  if (questionPreview?.startsWith("mutual")) {
+    return <MutualChoicePreview key={questionPreview} mode={questionPreview} />
   }
   if (questionPreview === "welcome") {
     return <WelcomeScreen onDone={() => {}} eventFormat={CHOICE_ONLY_EVENT3_FORMAT} />
@@ -10720,7 +10762,9 @@ export default function Event3Page() {
     </PageWrapper>
   )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
+  if (showWelcome) return mutualChoiceMode
+    ? <MutualChoiceWelcome onDone={handleWelcomeDone} onLogout={token && !isImpersonating ? handleLogout : undefined} />
+    : <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
 
   if (testModeBlocked || publicFormatState?.participant_access_locked === true) return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
@@ -10827,7 +10871,7 @@ export default function Event3Page() {
     hasPendingMoodCheck,
     hasPendingNotification,
     hasUrgentNotification,
-    hasPendingChoiceAward: !!choiceAward && !choiceAward.seen_at && choiceAward.id !== dismissedChoiceAward && !choiceAwardSeenLocally,
+    hasPendingChoiceAward: !mutualChoiceMode && !!choiceAward && !choiceAward.seen_at && choiceAward.id !== dismissedChoiceAward && !choiceAwardSeenLocally,
     interactionOverlayOpen,
     showAiWelcome,
   })
@@ -10851,12 +10895,14 @@ export default function Event3Page() {
       {showStatusHeader && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} />}
 
       <div ref={phaseAnnouncementRef} tabIndex={-1} className="sr-only" aria-live="polite">
-        {`المرحلة الحالية: ${event3PhaseLabel(phase, eventFormat)}`}
+        {mutualChoiceMode && mutualChoiceState?.session.status !== "setup" && mutualChoiceState?.session.status !== "complete"
+          ? `الجولة ${mutualChoiceState?.session.round_number} من ٦. ${mutualChoiceState?.assignment?.kind === "pair" ? "لقاء فردي باختيار متبادل" : mutualChoiceState?.assignment?.kind === "break" ? "مساحة خفيفة لك" : "مجموعتك الجديدة جاهزة"}`
+          : `المرحلة الحالية: ${event3PhaseLabel(phase, eventFormat)}`}
       </div>
 
       {/* Screen content fills available space */}
       <motion.div ref={eventContentRef} layoutScroll className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
-        <AnimatePresence>
+        {mutualChoiceMode ? <MutualChoiceRound key={mutualRoundKey} state={mutualChoiceState} myInfo={myInfo} correctedNow={correctedNow} onChoose={saveMutualChoice} onRoundEnd={retryState} onActivityOpenChange={setGroupsOpen} /> : <AnimatePresence>
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} onOpenWelcomeMessage={() => setShowAiWelcome(true)} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} onProjectorVisibilityChange={setProjectorOpen} eventFormat={eventFormat} />}
           {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}-${individualRankingExtension?.id || "normal"}`} extensionId={individualRankingExtension?.id} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
@@ -10866,7 +10912,7 @@ export default function Event3Page() {
           {!holdingRankingDraft && !activeMatchFeedbackSlot && (phase === "phase2_processing" || phase === "phase3_processing" || phase === "phase4_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} onOpenGroupFeedback={() => { setBreakFeedbackRound(null); setBreakFeedbackOpen(true) }} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} impersonating={isImpersonating} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
-        </AnimatePresence>
+        </AnimatePresence>}
       </motion.div>
 
       <AnimatePresence>

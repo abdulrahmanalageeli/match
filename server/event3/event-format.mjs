@@ -1,15 +1,15 @@
 export const EVENT3_FORMAT_CLASSIC = "classic"
 export const EVENT3_FORMAT_CHOICE_ONLY = "choice_only_three_groups"
+export const EVENT3_FORMAT_MUTUAL_CHOICE = "mutual_choice_six_rounds"
 
 export const EVENT3_FORMATS = Object.freeze([
   EVENT3_FORMAT_CLASSIC,
   EVENT3_FORMAT_CHOICE_ONLY,
+  EVENT3_FORMAT_MUTUAL_CHOICE,
 ])
 
 export function normalizeEvent3Format(value) {
-  return value === EVENT3_FORMAT_CHOICE_ONLY
-    ? EVENT3_FORMAT_CHOICE_ONLY
-    : EVENT3_FORMAT_CLASSIC
+  return EVENT3_FORMATS.includes(value) ? value : EVENT3_FORMAT_CLASSIC
 }
 
 export function isChoiceOnlyEvent3(value) {
@@ -17,7 +17,11 @@ export function isChoiceOnlyEvent3(value) {
 }
 
 export function event3GroupRoundCount(value) {
-  return isChoiceOnlyEvent3(value) ? 3 : 2
+  return isMutualChoiceEvent3(value) ? 6 : isChoiceOnlyEvent3(value) ? 3 : 2
+}
+
+export function isMutualChoiceEvent3(value) {
+  return normalizeEvent3Format(value) === EVENT3_FORMAT_MUTUAL_CHOICE
 }
 
 export async function loadEvent3Format(supabase, matchId, eventId) {

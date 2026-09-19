@@ -80,7 +80,18 @@ test("co-host bootstrap reads do not require a mutation context and expose a sta
     assert.match(contextGate, new RegExp(action))
   }
   const dashboard = between(adminSource, 'if (action === "e3-cohost-dashboard")', 'if (action === "e3-cohost-rankings")')
-  assert.equal((dashboard.match(/test_session_key: testModeActive \? testSessionKey : "live"/g) || []).length, 2)
+  assert.equal((dashboard.match(/test_session_key: testModeActive \? testSessionKey : "live"/g) || []).length, 3)
+})
+
+test("co-host mutual sessions expose current assignments but no ballot or host controls", () => {
+  const allowlist = between(adminSource, "const EVENT3_COHOST_ACTIONS", "function getEvent3ActiveTableRound")
+  assert.match(allowlist, /"e3-mutual-state"/)
+  assert.doesNotMatch(allowlist, /"e3-mutual-(?:start|control)"/)
+  const mutualDashboard = between(adminSource, 'if (cohostEventFormat === "mutual_choice_six_rounds")', 'if (numbers.length === 0)')
+  assert.match(mutualDashboard, /projectMutualRuntime\(snapshot, \{ admin: true, sessionKey \}\)/)
+  assert.match(mutualDashboard, /mutual_assignment: seat/)
+  assert.match(mutualDashboard, /"mutual_complete" : "mutual_round"/)
+  assert.doesNotMatch(mutualDashboard, /from\("session_assignments"\)|snapshot\.(choices|history)/)
 })
 
 test("help requests use an independent endpoint, poll, and refresh control", () => {

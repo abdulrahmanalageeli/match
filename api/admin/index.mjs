@@ -1,4 +1,5 @@
 import { loadEvent3ResultsReleases, event3ResultsReleased } from "../../server/event3/results-release.mjs"
+import { readMutualRuntime, startMutualRuntime, controlMutualRuntime, projectMutualRuntime, mutualSessionKey, mutualRuntimeError } from "../../server/event3/mutual-runtime.mjs"
 import OpenAI from "openai"
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import {
@@ -55,6 +56,7 @@ import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-membe
 import {
   EVENT3_FORMAT_CHOICE_ONLY,
   EVENT3_FORMAT_CLASSIC,
+  EVENT3_FORMATS,
   event3GroupRoundCount,
   isChoiceOnlyEvent3,
   loadEvent3Format,
@@ -597,6 +599,7 @@ const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-agreement",
   "e3-cohost-accept-agreement",
   "e3-cohost-dashboard",
+  "e3-mutual-state",
   "e3-cohost-support-requests",
   "e3-cohost-attendee-details",
   "e3-cohost-rankings",
@@ -4312,14 +4315,16 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         console.log(`Setting current event ID to: ${event_id}`)
         
-        if (!event_id || event_id < 1) {
+        if (!Number.isInteger(Number(event_id)) || Number(event_id) < 1) {
           return res.status(400).json({ error: "Invalid event_id. Must be a positive integer." })
         }
+        if (req.body.event_format != null && !EVENT3_FORMATS.includes(req.body.event_format)) return res.status(400).json({ error: "Unknown event format" })
 
         // One database transaction updates both pointers and resets Event3
         // only when the event actually changes. Any failure rolls everything back.
-        const { error } = await supabase.rpc("set_current_event_with_event3_sync", {
+        const { data: eventChange, error } = await supabase.rpc("set_current_event_with_event3_sync_v2", {
           p_event_id: Number(event_id),
+          p_new_event_format: req.body.event_format || null,
         })
         if (error) {
           console.error("Error setting current event ID:", error)
@@ -4337,7 +4342,7 @@ export default async function handler(req, res) {
         }
 
         console.log(`Successfully set current event ID to: ${event_id}`)
-        return res.status(200).json({ message: `Current event ID set to ${event_id}` })
+        return res.status(200).json({ message: `Current event ID set to ${event_id}`, event_format: eventChange.event_format, event_created: eventChange.event_created })
       } catch (err) {
         console.error("Error setting current event ID:", err)
         return res.status(500).json({ error: "Failed to set current event ID" })
@@ -4415,7 +4420,7 @@ export default async function handler(req, res) {
               maxEventId = Math.max(maxEventId, groupMatchesResult.data.event_id)
             }
 
-            return res.status(200).json({ current_event_id: maxEventId })
+            return res.status(200).json({ current_event_id: maxEventId, event_format: await loadEvent3Format(supabase, EVENT3_MATCH_ID, maxEventId) })
           }
           
           return res.status(500).json({ error: error.message })
@@ -4423,7 +4428,7 @@ export default async function handler(req, res) {
 
         const currentEventId = data?.current_event_id || 1
         console.log(`Current event ID retrieved: ${currentEventId}`)
-        return res.status(200).json({ current_event_id: currentEventId })
+        return res.status(200).json({ current_event_id: currentEventId, event_format: await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId) })
       } catch (err) {
         console.error("Error getting current event ID:", err)
         return res.status(500).json({ error: "Failed to get current event ID" })
@@ -9554,7 +9559,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         const requiresDisplayedEvent3Context = !action.startsWith("e3-get-")
           && !["e3-cohost-dashboard", "e3-cohost-support-requests", "e3-cohost-rankings", "e3-cohost-attendee-details"].includes(action)
-          && action !== "e3-run-diagnostics"
+          && action !== "e3-run-diagnostics" && action !== "e3-mutual-state"
           && action !== "e3-generate-report"
           && action !== "e3-ai-welcome-list"
           && !action.startsWith("e3-preview-")
@@ -9564,6 +9569,38 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (!displayedEvent3Context.params) {
             return res.status(displayedEvent3Context.status).json({ error: displayedEvent3Context.error, code: "EVENT3_SESSION_CHANGED" })
           }
+        }
+        if (action.startsWith("e3-mutual-")) {
+          if (Number(currentEventId) !== Number(realEventId)) return res.status(409).json({ error: "Open the active event to use mutual sessions" })
+          try {
+            if (action === "e3-mutual-state" && req.body.expected_event_id != null) {
+              const readContext = await loadE3AuxiliaryMutationContext()
+              if (!readContext.params) return res.status(readContext.status).json({ error: readContext.error, code: "EVENT3_SESSION_CHANGED" })
+            }
+            const { data: runtimeState, error } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot,event3_runtime_generation").eq("match_id", EVENT3_MATCH_ID).single()
+            if (error) throw error
+            const sessionKey = mutualSessionKey(runtimeState, currentEventId)
+            if ((action !== "e3-mutual-state" && req.body.expected_event3_session_key !== sessionKey)
+              || (req.body.expected_event3_session_key != null && req.body.expected_event3_session_key !== sessionKey)) {
+              return res.status(409).json({ error: "The mutual session changed. Refresh before continuing.", code: "EVENT3_SESSION_CHANGED" })
+            }
+            const context = { eventId: currentEventId, sessionKey }
+            let snapshot
+            if (action === "e3-mutual-start") {
+              const durationSeconds = Number(req.body.duration_seconds)
+              if (!Number.isInteger(durationSeconds) || durationSeconds < 60 || durationSeconds > 3600) return res.status(400).json({ error: "Session duration must be 1 to 60 minutes" })
+              snapshot = await startMutualRuntime(supabase, { ...context, durationSeconds })
+            } else if (action === "e3-mutual-control") {
+              snapshot = await controlMutualRuntime(supabase, { ...context, command: req.body.command })
+            } else if (action === "e3-mutual-state") {
+              snapshot = await readMutualRuntime(supabase, context)
+            } else return res.status(400).json({ error: "Unknown mutual session action" })
+            return res.status(200).json(projectMutualRuntime(snapshot, { admin: true, sessionKey }))
+          } catch (error) { const failure = mutualRuntimeError(error); return res.status(failure.status).json(failure.body) }
+        }
+        const legacyMutualControls = new Set(["e3-set-phase", "e3-start-timer", "e3-stop-timer", "e3-adjust-timer", "e3-generate-seating", "e3-apply-seating-alternative", "e3-apply-round3-seating", "e3-swap-table-numbers", "e3-swap-seating", "e3-swap-match-partner", "e3-replace-participant", "e3-trigger-phase2-matching", "e3-trigger-phase3-matching", "e3-trigger-phase4-matching", "e3-toggle-phase2-exclusion", "e3-clear-test-data", "e3-start-replay-test-mode"])
+        if (legacyMutualControls.has(action) && await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId) === "mutual_choice_six_rounds") {
+          return res.status(409).json({ error: "Use the mutual session controls for this event format" })
         }
         const getCohostRosterSet = async () => {
           if (!isCohostRequest) return null
@@ -9690,7 +9727,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
         if (action === "e3-cohost-dashboard") {
           const [{ data: stateRow, error: stateError }, { data: eventParticipants, error: eventParticipantsError }] = await Promise.all([
-            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,test_mode_active,current_event_id,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
+            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,test_mode_active,current_event_id,event3_runtime_generation,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
             supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true }),
           ])
           if (stateError) return res.status(500).json({ error: stateError.message })
@@ -9707,6 +9744,32 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             event_format: cohostEventFormat,
             group_round_count: event3GroupRoundCount(cohostEventFormat),
             test_mode_active: testModeActive,
+          }
+          if (cohostEventFormat === "mutual_choice_six_rounds") {
+            const sessionKey = mutualSessionKey(stateRow, currentEventId)
+            const [snapshot, profileResult, attendanceResult, notesResult] = await Promise.all([
+              readMutualRuntime(supabase, { eventId: currentEventId, sessionKey }),
+              numbers.length ? supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers) : { data: [], error: null },
+              numbers.length ? supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).in("participant_number", numbers) : { data: [], error: null },
+              supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false }),
+            ])
+            const dependencyError = [profileResult, attendanceResult, notesResult].find(result => result.error)?.error
+            if (dependencyError) throw dependencyError
+            const mutual = projectMutualRuntime(snapshot, { admin: true, sessionKey })
+            const profiles = new Map((profileResult.data || []).map(row => [row.assigned_number, row]))
+            const seats = new Map(mutual.assignments.map(row => [row.participant_number, row]))
+            const participants = numbers.map(number => {
+              const profile = profiles.get(number) || {}
+              const seat = seats.get(number) || null
+              const attendance = (attendanceResult.data || []).filter(row => row.participant_number === number && row.attended)
+              const previousCount = new Set(attendance.filter(row => Number(row.event_id) !== Number(currentEventId)).map(row => row.event_id)).size
+              return { number, name: profile.name || `#${number}`, age: profile.age || null, attended: attendance.some(row => Number(row.event_id) === Number(currentEventId)), previous_event_count: previousCount, first_time: previousCount === 0, ranking_submitted: false, tables: seat?.table_number ? { [mutual.session.round_number]: seat.table_number } : {}, mutual_assignment: seat, phase2_partner: null, phase3_partner: null, phase4_partner: null, phase3_locked: false, phase3_source: null }
+            })
+            return res.status(200).json({
+              event_id: currentEventId, server_now: mutual.session.server_now, test_mode: testModeActive, test_session_key: testModeActive ? testSessionKey : "live",
+              state: { ...dashboardState, phase: mutual.session.status === "setup" ? "setup" : mutual.session.status === "complete" ? "mutual_complete" : "mutual_round", global_timer_active: mutual.session.status === "running", global_timer_start_time: mutual.session.ends_at ? new Date(Date.parse(mutual.session.ends_at) - mutual.session.duration_seconds * 1000).toISOString() : null, global_timer_duration: mutual.session.duration_seconds, global_timer_round: mutual.session.round_number, server_now: mutual.session.server_now },
+              mutual_choice: mutual, participants, locked_phase3_pairs: [], choice_pairs: [], algorithm_pairs: [], third_choice_pairs: [], group_leaders: [], algorithm_conflicting_locks: 0, notes: notesResult.data || [],
+            })
           }
           if (numbers.length === 0) {
             const { data: emptyRosterNotes, error: emptyRosterNotesError } = await supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false })
@@ -10147,9 +10210,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         // e3-set-current-event — switch to a different event (e.g. 20 → 21)
         if (action === "e3-set-current-event") {
           const { event_id } = req.body
-          if (!event_id || typeof event_id !== "number") return res.status(400).json({ error: "event_id (number) required" })
-          const { error: switchError } = await supabase.rpc("set_current_event_with_event3_sync", {
+          if (!Number.isInteger(event_id) || event_id < 1) return res.status(400).json({ error: "event_id (positive integer) required" })
+          if (req.body.event_format != null && !EVENT3_FORMATS.includes(req.body.event_format)) return res.status(400).json({ error: "Unknown event format" })
+          const { data: eventChange, error: switchError } = await supabase.rpc("set_current_event_with_event3_sync_v2", {
             p_event_id: event_id,
+            p_new_event_format: req.body.event_format || null,
           })
           if (switchError) {
             const migrationRequired = switchError.code === "PGRST202"
@@ -10167,7 +10232,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             cohost_lock_updated_by: "event-switch",
           }).eq("match_id", EVENT3_MATCH_ID)
           if (lockResetError) return res.status(500).json({ error: lockResetError.message })
-          return res.status(200).json({ message: `Switched to event ${event_id}`, current_event_id: event_id })
+          return res.status(200).json({ message: `Switched to event ${event_id}`, current_event_id: event_id, event_format: eventChange.event_format, event_created: eventChange.event_created })
         }
 
         // Event-scoped format switch. Existing editions have no settings row
@@ -10177,8 +10242,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (!hasAdminAccess) return res.status(403).json({ error: "Admin access required" })
           if (Number(currentEventId) !== Number(realEventId)) return res.status(409).json({ error: "Switch to the current event before changing its format" })
           const requestedFormat = String(req.body?.event_format || "")
-          if (![EVENT3_FORMAT_CLASSIC, EVENT3_FORMAT_CHOICE_ONLY].includes(requestedFormat)) {
-            return res.status(400).json({ error: "event_format must be classic or choice_only_three_groups" })
+          if (![EVENT3_FORMAT_CLASSIC, EVENT3_FORMAT_CHOICE_ONLY, "mutual_choice_six_rounds"].includes(requestedFormat)) {
+            return res.status(400).json({ error: "Unknown event format" })
           }
           const { error: settingsError } = await supabase.rpc("set_event3_event_format", {
             p_match_id: EVENT3_MATCH_ID,
@@ -10628,6 +10693,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id,cohost_locked,cohost_lock_updated_at,test_mode_active,event3_participant_access_locked,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).single()
           if (stateError) return res.status(503).json({ error: "Event state is temporarily unavailable" })
           const eventFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
+          if (eventFormat === "mutual_choice_six_rounds") {
+            const { data: generationState, error: generationError } = await supabase.from("event_state").select("event3_runtime_generation").eq("match_id", EVENT3_MATCH_ID).single()
+            if (generationError) throw generationError
+            const sessionKey = mutualSessionKey({ ...stateRow, ...generationState }, currentEventId)
+            const snapshot = await readMutualRuntime(supabase, { eventId: currentEventId, sessionKey })
+            const mutual = projectMutualRuntime(snapshot, { admin: true, sessionKey })
+            const { count, error: countError } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+            if (countError) throw countError
+            return res.status(200).json({ phase: mutual.session.status === "setup" ? "setup" : mutual.session.status === "complete" ? "final_reveal" : "round1", event_id: currentEventId, current_event_id: currentEventId, event_format: eventFormat, group_round_count: 6, participants_selected: count || 0, seating_generated: mutual.session.status !== "setup", rankings_submitted: 0, phase2_matches_done: false, phase3_matches_done: false, timer_active: mutual.session.status === "running", timer_duration: mutual.session.duration_seconds, server_now: mutual.session.server_now, test_mode: stateRow.test_mode_active === true, test_session_key: stateRow.test_mode_active ? stateRow.test_session_started_at || "legacy-test" : "live", event3_participant_access_locked: stateRow.event3_participant_access_locked === true, cohost_locked: stateRow.cohost_locked === true, cohost_lock_updated_at: stateRow.cohost_lock_updated_at || null, mutual_choice: mutual })
+          }
           const stateChoiceOnly = isChoiceOnlyEvent3(eventFormat)
           const [participantResult, seatingResult, matchResult, rankingResult] = await Promise.all([
             supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -10691,6 +10766,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return res.status(400).json({ error: "Participant numbers must be unique positive integers" })
           }
           const participantFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
+          if (participantFormat === "mutual_choice_six_rounds") {
+            const { error } = await supabase.rpc("event3_mutual_roster", { p_event_id: Number(currentEventId), p_participant_numbers: participant_numbers, ...displayedEvent3Context.params })
+            if (error) { const failure = mutualRuntimeError(error); return res.status(failure.status).json(failure.body) }
+            return res.status(200).json({ message: "Participants selected successfully", event_format: participantFormat })
+          }
           if (isChoiceOnlyEvent3(participantFormat) && !validEvent3ChoiceRosterSize(participant_numbers.length)) {
             return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 6 to 46 participants" })
           }
@@ -14222,7 +14302,13 @@ ${alternativeLines}
         // keep cache misses read-only, and restore the pre-test runtime on exit
         if (action === "e3-start-test-mode") {
           const testEventFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
-          const choiceOnlyTest = isChoiceOnlyEvent3(testEventFormat)
+          const mutualTest = testEventFormat === "mutual_choice_six_rounds"
+          const choiceOnlyTest = isChoiceOnlyEvent3(testEventFormat) || mutualTest
+          if (mutualTest) {
+            const { data: mutualState, error: mutualStateError } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot,event3_runtime_generation,phase").eq("match_id", EVENT3_MATCH_ID).single()
+            if (mutualStateError) throw mutualStateError
+            if (mutualState.phase !== "setup") return res.status(409).json({ error: "Reset the mutual sessions before starting test mode" })
+          }
           // 1. Fetch every profile. Choice-only test mode deliberately ignores
           // the saved live roster and selects its own eligible pool.
           const allParticipantResult = await supabase.from("participants")

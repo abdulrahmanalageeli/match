@@ -93,6 +93,13 @@ import {
 } from "~/lib/compatibility-model"
 
 type DeltaCacheRunStatus = 'running' | 'paused' | 'completed' | 'failed'
+type AdminEventFormat = 'classic' | 'choice_only_three_groups' | 'mutual_choice_six_rounds'
+const eventFormatLabels: Record<AdminEventFormat, string> = {
+  mutual_choice_six_rounds: 'Mutual choice · 6 synchronized rounds',
+  choice_only_three_groups: '3 groups · 3 choice sessions',
+  classic: 'Classic',
+}
+const normalizeAdminEventFormat = (value: unknown): AdminEventFormat => value === 'mutual_choice_six_rounds' || value === 'choice_only_three_groups' ? value : 'classic'
 
 interface DeltaCacheRunProgress {
   status: DeltaCacheRunStatus
@@ -931,6 +938,10 @@ export default function AdminPage() {
   const [resultsVisible, setResultsVisible] = useState(true)
   const [currentEventId, setCurrentEventId] = useState(1)
   const [maxEventId, setMaxEventId] = useState(1)
+  const [currentEventFormat, setCurrentEventFormat] = useState<AdminEventFormat>('classic')
+  const [newEventFormat, setNewEventFormat] = useState<AdminEventFormat>('mutual_choice_six_rounds')
+  const [switchingEvent, setSwitchingEvent] = useState(false)
+  const mutualChoiceEvent = currentEventFormat === 'mutual_choice_six_rounds'
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [groupsLocked, setGroupsLocked] = useState(false)
   const [eventFinished, setEventFinished] = useState(false)
@@ -2424,6 +2435,7 @@ const fetchParticipants = async () => {
         body: JSON.stringify({ action: "get-current-event-id" }),
       })
       const currentEventData = await currentEventRes.json()
+      setCurrentEventFormat(normalizeAdminEventFormat(currentEventData.event_format))
       const fetchedEventId = currentEventData.current_event_id || 1
       if (currentEventData.current_event_id) {
         setCurrentEventId(currentEventData.current_event_id)
@@ -2644,8 +2656,10 @@ const fetchParticipants = async () => {
   }
 
   const updateCurrentEventId = async (newEventId: number) => {
+    if (switchingEvent || loading) return
+    setSwitchingEvent(true)
     try {
-      if (newEventId < 1) {
+      if (!Number.isSafeInteger(newEventId) || newEventId < 1) {
         toast.error("Event ID must be at least 1")
         return
       }
@@ -2655,14 +2669,17 @@ const fetchParticipants = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "set-current-event-id", 
-          event_id: newEventId
+          event_id: newEventId,
+          ...(newEventId > maxEventId ? { event_format: newEventFormat } : {}),
         }),
       })
       
-      if (res.ok) {
+      const result = await res.json().catch(() => ({}))
+      if (res.ok && !result.error) {
         setCurrentEventId(newEventId)
+        setCurrentEventFormat(normalizeAdminEventFormat(result.event_format))
         setMaxEventId(Math.max(maxEventId, newEventId))
-        toast.success(`Current event ID set to ${newEventId}. New participants will be assigned to Event ${newEventId}`)
+        toast.success(result.event_created ? `Created Event ${newEventId} · ${eventFormatLabels[normalizeAdminEventFormat(result.event_format)]}` : `Switched to Event ${newEventId} and refreshed its organizer data`)
         
         // Refresh event finished state for the new event
         const eventFinishedRes = await fetch("/api/admin", {
@@ -2673,13 +2690,13 @@ const fetchParticipants = async () => {
         const eventFinishedData = await eventFinishedRes.json()
         setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) for new events
       } else {
-        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
-        console.error("API Error:", errorData)
-        toast.error(`Failed to update current event ID: ${errorData.error || 'Unknown error'}`)
+        toast.error(`Failed to update current event ID: ${result.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error updating current event ID:", err)
       toast.error("Error updating current event ID")
+    } finally {
+      setSwitchingEvent(false)
     }
   }
 
@@ -6455,6 +6472,8 @@ Proceed?`
 
       <div className={adminWorkspace === 'twilio' ? 'hidden' : ''}>
 
+      {!isCohost && mutualChoiceEvent && <section className="relative z-20 mx-auto w-full max-w-[1500px] px-3 pt-3 sm:px-5 lg:px-6"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-400/25 bg-teal-950/40 px-4 py-3"><div><p className="text-sm font-bold text-teal-100">Event {currentEventId} · Mutual choice</p><p className="mt-1 text-xs text-teal-200/70">Six synchronized rounds. Manage groups, mutual sessions, and the shared timer in the live event dashboard.</p></div><a href="/admin3" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-300 px-4 py-2 text-xs font-bold text-teal-950 hover:bg-teal-200">Open live event controls <ChevronRight size={15} /></a></div></section>}
+
       <section className="relative z-20 mx-auto w-full max-w-[1500px] px-3 pt-3 sm:px-5 lg:px-6" aria-label="Paid participant gender balance">
         <div className="grid gap-2 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2.5 shadow-lg shadow-slate-950/20 backdrop-blur-xl sm:grid-cols-[auto_minmax(280px,1fr)_auto] sm:items-center sm:gap-3">
           <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-start">
@@ -6894,7 +6913,7 @@ Proceed?`
             <div className="space-y-3" style={{ display: isCohost ? 'none' : undefined }}>
               
               {/* Section 1: Match Generation */}
-              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Match Generation</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -8075,7 +8094,7 @@ Proceed?`
         </div>
 
         {/* Manual Match Creation */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6" style={{ display: isCohost ? 'none' : undefined }}>
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6" style={{ display: isCohost || mutualChoiceEvent ? 'none' : undefined }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-500/20 rounded-lg">
               <Users className="w-5 h-5 text-blue-400" />
@@ -8391,7 +8410,7 @@ Proceed?`
       <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10" style={{ display: isCohost ? 'none' : undefined }}>
         <div className={`max-w-6xl mx-auto ${isCohost ? 'p-4 md:p-6' : 'p-6'}`}>
           {/* Timer Control Section */}
-          <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-6">
+          <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-6" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -8473,13 +8492,13 @@ Proceed?`
                   <Settings className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-purple-300">Phase Control</h3>
-                  <p className="text-slate-400 text-sm">Manage event phases</p>
+                  <h3 className="font-semibold text-purple-300">{mutualChoiceEvent ? 'Event Setup' : 'Phase Control'}</h3>
+                  <p className="text-slate-400 text-sm">{mutualChoiceEvent ? 'Current edition and future event format' : 'Manage event phases'}</p>
                 </div>
               </div>
               
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${currentPhaseConfig.bg} border border-white/20 flex-1`}>
                     <currentPhaseConfig.icon className={`w-4 h-4 ${currentPhaseConfig.color}`} />
                     <span className={`font-medium ${currentPhaseConfig.color}`}>
@@ -8511,6 +8530,7 @@ Proceed?`
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateCurrentEventId(Math.max(1, currentEventId - 1))}
+                      disabled={switchingEvent || loading || currentEventId <= 1}
                       className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
                       title="Switch to previous event"
                     >
@@ -8521,6 +8541,7 @@ Proceed?`
                     </span>
                     <button
                       onClick={() => updateCurrentEventId(currentEventId + 1)}
+                      disabled={switchingEvent || loading}
                       className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
                       title="Create/switch to next event"
                     >
@@ -8532,6 +8553,13 @@ Proceed?`
                   </div>
                 </div>
                 
+                <div className="space-y-3 rounded-xl border border-teal-400/20 bg-slate-950/40 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-slate-400">Current event format</span><span className="text-xs font-semibold text-teal-200">{eventFormatLabels[currentEventFormat]}</span></div>
+                  <a href="/admin3" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-teal-300 hover:text-teal-100">Open event controls and format settings <ChevronRight size={14} /></a>
+                  <label className="block text-xs text-slate-300">Format for the next new event<select value={newEventFormat} onChange={event => setNewEventFormat(event.target.value as AdminEventFormat)} disabled={switchingEvent} className="mt-2 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"><option value="mutual_choice_six_rounds">Mutual choice · 6 rounds (default)</option><option value="choice_only_three_groups">3 groups · 3 choice sessions</option><option value="classic">Classic</option></select></label>
+                  <p className="text-[11px] leading-5 text-slate-500">Applied when creating a new event number. Switching to an existing event keeps its saved format.</p>
+                </div>
+
                 <div className="text-slate-400 text-xs bg-slate-800/50 rounded-lg p-2">
                   <div className="flex items-center gap-1 mb-1">
                     <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
@@ -8539,11 +8567,11 @@ Proceed?`
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span>All existing participants are Event 1</span>
+                    <span>Previous events keep their participants and saved format</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
                   <span className="text-slate-300 text-sm">Total Rounds:</span>
                   <div className="flex items-center gap-2">
                     <button
@@ -8599,6 +8627,7 @@ Proceed?`
                 </button>
 
                 <button
+                  style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                   onClick={async () => {
                     let confirmMessage = "Generate matches using complete v12 archetype + AI chemistry scores?"
                     if (excludedParticipants.length > 0) {

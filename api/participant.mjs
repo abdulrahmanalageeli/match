@@ -1,4 +1,5 @@
 import { loadEvent3ResultsReleases, event3ResultsReleased } from "../server/event3/results-release.mjs"
+import { readMutualRuntime, projectMutualRuntime, saveMutualChoice, mutualRuntimeError } from "../server/event3/mutual-runtime.mjs"
 import OpenAI from "openai"
 import {
   canAccessEvent3DuringTest,
@@ -4295,6 +4296,28 @@ Please respond in JSON format:
       })
     }
     const activeEvent3Phase = String(e3EventState?.phase || "setup")
+    const mutualMode = eventFormat === "mutual_choice_six_rounds"
+    const loadMyMutualState = async () => {
+      if (!participant) throw { code: "42501", message: "A participant session is required" }
+      const { data: enrollment, error } = await supabase.from("event3_participants").select("participant_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+      if (error) throw error
+      if (!enrollment) throw { code: "42501", message: "Participant is not enrolled in this event" }
+      const snapshot = await readMutualRuntime(supabase, { eventId: currentEventId, sessionKey: currentEvent3SessionKey })
+      return projectMutualRuntime(snapshot, { participantNumber: myNumber, sessionKey: currentEvent3SessionKey })
+    }
+    if (action === "e3-mutual-state" || action === "e3-mutual-choice") {
+      if (!participant) return res.status(401).json({ error: "Invalid token" })
+      if (!mutualMode) return res.status(409).json({ error: "This event does not use mutual choice" })
+      try {
+        if (action === "e3-mutual-choice") {
+          if (!Number.isInteger(req.body.round_number) || (req.body.chosen_number !== null && (!Number.isInteger(req.body.chosen_number) || req.body.chosen_number <= 0)) || expectedEvent3SessionKey !== currentEvent3SessionKey) {
+            return res.status(400).json({ error: "A current session, round and valid choice are required" })
+          }
+          await saveMutualChoice(supabase, { eventId: currentEventId, sessionKey: currentEvent3SessionKey, participantNumber: myNumber, roundNumber: req.body.round_number, chosenNumber: req.body.chosen_number })
+        }
+        return res.status(200).json(await loadMyMutualState())
+      } catch (error) { const failure = mutualRuntimeError(error); return res.status(failure.status).json(failure.body) }
+    }
     const reachedGroupRounds = event3ReachedGroupRounds(activeEvent3Phase, groupRoundCount)
     const saveEvent3MatchInteraction = async ({ slot, partner, operation, payload }) => {
       const rpcResult = await supabase.rpc("save_event3_match_interaction_v2", {
@@ -4407,6 +4430,7 @@ Please respond in JSON format:
         }
 
         let myAssignment = null
+        let mutualEnrolled = false
         if (participant) {
           const [{ data: ep, error: rosterError }, { data: currentSignup, error: signupError }] = await Promise.all([
             supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle(),
@@ -4423,6 +4447,7 @@ Please respond in JSON format:
           }
           const signedUp = isEvent3SignedUp(currentSignup || participant, activeEventId)
           const enrolledInActiveRoster = Boolean(ep)
+          mutualEnrolled = enrolledInActiveRoster
           // A roster row covers selected and swapped-in participants. A completed
           // payment for this exact event also grants entry if roster selection has
           // not caught up yet; payments from older events never carry forward.
@@ -4491,7 +4516,23 @@ Please respond in JSON format:
         const fallbackTimerDuration = getEvent3PhaseTimerSeconds(phase)
         const baseResponse = { phase, event_id: activeEventId, event_format: eventFormat, group_round_count: groupRoundCount, event3_session_key: currentEvent3SessionKey, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? fallbackTimerDuration, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
 
-        if (participant) {
+        if (mutualMode) {
+          baseResponse.enrolled = mutualEnrolled
+          if (!mutualEnrolled) baseResponse.my_assignment = { enrolled: false }
+        }
+        if (mutualMode && participant && mutualEnrolled) {
+          try {
+            const mutual = await loadMyMutualState()
+            baseResponse.mutual_choice = mutual
+            baseResponse.my_assignment = { enrolled: true, round: mutual.session.round_number, table: mutual.assignment?.table_number || null, assignment_revision: `${currentEvent3SessionKey}:${mutual.session.round_number}:${mutual.assignment?.table_number || "break"}` }
+            baseResponse.phase = mutual.session.status === "setup" ? "setup" : mutual.session.status === "complete" ? "final_reveal" : "round1"
+            baseResponse.timer_active = mutual.session.status === "running"
+            baseResponse.timer_duration = mutual.session.duration_seconds
+            baseResponse.timer_start = mutual.session.ends_at ? new Date(Date.parse(mutual.session.ends_at) - mutual.session.duration_seconds * 1000).toISOString() : null
+            baseResponse.server_time = mutual.session.server_now
+          } catch (error) { const failure = mutualRuntimeError(error); return res.status(failure.status).json(failure.body) }
+        }
+        if (participant && !mutualMode) {
           const individual = await loadIndividualRanking()
           if (individual.error) return event3DependencyFailure(res, "Event3 individual ranking lookup", individual.error, {
             code: "EVENT3_RANKING_EXTENSION_UNAVAILABLE", message: "تعذّر تحديث مهلة الترتيب مؤقتاً. حاول مجدداً.",
@@ -5824,7 +5865,15 @@ Please respond in JSON format:
         const phase = stateRow?.phase || "setup"
         let tableInfo = phase
         const roundMatch = phase.match(/^round(\d)$/)
-        if (roundMatch) {
+        if (mutualMode) {
+          try {
+            const snapshot = await readMutualRuntime(supabase, { eventId: currentEventId, sessionKey: currentEvent3SessionKey, advance: false })
+            const mutual = projectMutualRuntime(snapshot, { participantNumber: myNumber, sessionKey: currentEvent3SessionKey })
+            tableInfo = mutual.session.status === "setup" ? "بانتظار بدء الجلسات"
+              : mutual.session.status === "complete" ? "بعد انتهاء الجلسات"
+              : `الجلسة ${mutual.session.round_number} · ${mutual.assignment?.table_number ? `طاولة ${mutual.assignment.table_number}` : "مساحة الاستراحة"}`
+          } catch (error) { const failure = mutualRuntimeError(error); return res.status(failure.status).json(failure.body) }
+        } else if (roundMatch) {
           const { data: sa, error: supportSeatError } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", parseInt(roundMatch[1])).eq("participant_id", myNumber).maybeSingle()
           if (supportSeatError) return event3DependencyFailure(res, "Event3 support group seat lookup", supportSeatError, {
             code: "EVENT3_SUPPORT_UNAVAILABLE",

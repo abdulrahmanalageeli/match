@@ -1,4 +1,5 @@
 import ChoiceRewardsAdmin from "../components/ChoiceRewardsAdmin"
+import MutualChoiceAdmin from "../components/MutualChoiceAdmin"
 import RankingExtensionControl from "../components/RankingExtensionControl"
 import { memo, useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
@@ -124,7 +125,7 @@ function finalMatchPreferenceLabel(value: unknown, choiceOnly: boolean) {
   return finalMatchPreferenceLabels[preference] || preference
 }
 
-type Event3Format = "classic" | "choice_only_three_groups"
+type Event3Format = "classic" | "choice_only_three_groups" | "mutual_choice_six_rounds"
 type Event3ReplayOption = {
   event_id: number
   event_format: Event3Format
@@ -1192,6 +1193,7 @@ function setEvent3DisplayedMutationContext(context: Event3DisplayedMutationConte
 function event3ActionRequiresDisplayedContext(action: string) {
   if (!action.startsWith("e3-")) return false
   return !action.startsWith("e3-get-")
+    && action !== "e3-mutual-state"
     && action !== "e3-run-diagnostics"
     && action !== "e3-generate-report"
     && action !== "e3-ai-welcome-list"
@@ -1532,7 +1534,8 @@ export default function Admin3Page() {
   const [password, setPassword] = useState("")
 
   const [state, setState] = useState<any>(null)
-  const eventFormat: Event3Format = state?.event_format === "choice_only_three_groups" ? "choice_only_three_groups" : "classic"
+  const eventFormat: Event3Format = state?.event_format === "mutual_choice_six_rounds" ? "mutual_choice_six_rounds" : state?.event_format === "choice_only_three_groups" ? "choice_only_three_groups" : "classic"
+  const mutualChoice = eventFormat === "mutual_choice_six_rounds"
   const choiceOnly = eventFormat === "choice_only_three_groups"
   const phases = choiceOnly ? CHOICE_ONLY_PHASES : CLASSIC_PHASES
   const groupRounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
@@ -1631,6 +1634,9 @@ export default function Admin3Page() {
   const [genderFilter, setGenderFilter] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
   const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance" | "aiwelcome">("control")
+  useEffect(() => {
+    if (mutualChoice && !["control", "seating", "attendance"].includes(activeTab)) setActiveTab("control")
+  }, [mutualChoice, activeTab])
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
@@ -2721,7 +2727,7 @@ export default function Admin3Page() {
   }
 
   const getNextStep = (): { label: string; action: () => void; ready: boolean } | null => {
-    if (!state) return null
+    if (!state || mutualChoice) return null
     const ph = state.phase || "setup"
     const hasSeating = state.seating_generated
     const ranked = state.rankings_submitted || 0
@@ -2943,7 +2949,7 @@ export default function Admin3Page() {
     })
   }
 
-  const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
+  const saveParticipants = () => { if (mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode)) { toast.error("قائمة المشاركين مقفلة أثناء الجولات"); return } if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     const minimumParticipants = 4
     if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
       return { error: `يجب اختيار عدد زوجي من 6 إلى 46 مشاركاً (تم اختيار ${selectedNumbers.size})` }
@@ -3058,7 +3064,9 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
-    const testModePrompt = choiceOnly
+    const testModePrompt = mutualChoice
+      ? "بدء اختبار الاختيار المتبادل؟ سيُجهّز النظام قائمة تجريبية متوازنة، ويمكنك تشغيل الجولات الست ثم استعادة بيانات الفعالية الأصلية عند الانتهاء."
+      : choiceOnly
       ? "بدء وضع الاختبار؟ سيختار النظام تلقائياً أكبر عدد متوازن من المشاركين الذين أكملوا جميع الأسئلة، من دون الحاجة إلى حفظ قائمة مسبقاً. يمكنك استعادة البيانات عند الانتهاء."
       : "بدء وضع الاختبار بـ36 مشاركاً (18 رجلاً و18 امرأة)؟ سيُختار أكبر قدر متاح من النتائج المحفوظة، وتبقى أي حسابات ناقصة مؤقتة داخل الاختبار. يمكنك استعادة بيانات الفعالية عند الانتهاء."
     if (!confirm(testModePrompt)) return
@@ -3147,6 +3155,7 @@ export default function Admin3Page() {
   }
 
   const toggleParticipant = (num: number) => {
+    if (mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode)) return
     if (choiceOnly && !selectedNumbers.has(num) && selectedNumbers.size >= CHOICE_ONLY_MAX_PARTICIPANTS) {
       toast.error(`الحد الأقصى لهذه الفعالية ${CHOICE_ONLY_MAX_PARTICIPANTS} مشاركاً`)
       return
@@ -3270,6 +3279,7 @@ export default function Admin3Page() {
   const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
   const participantAccessLocked = state?.event3_participant_access_locked === true
   const canEditEventFormat = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
+  const mutualRosterLocked = mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode || !!loading)
   const selectedReplayEvent = replayEvents.find(option => option.event_id === Number(replaySourceEventId)) || null
 
   return (
@@ -3433,18 +3443,21 @@ export default function Admin3Page() {
                 <div className="flex items-center gap-2">
                   <Layers size={16} className="text-purple-400" />
                   <h2 className="text-sm font-semibold text-gray-200">نظام هذه الفعالية</h2>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${choiceOnly ? "border-pink-700/50 bg-pink-950/40 text-pink-300" : "border-gray-700 bg-gray-800 text-gray-400"}`}>
-                    {choiceOnly ? "اختيارات فقط" : "كلاسيكي"}
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${mutualChoice ? "border-teal-700/50 bg-teal-950/40 text-teal-300" : choiceOnly ? "border-pink-700/50 bg-pink-950/40 text-pink-300" : "border-gray-700 bg-gray-800 text-gray-400"}`}>
+                    {mutualChoice ? "اختيار متبادل" : choiceOnly ? "اختيارات فقط" : "كلاسيكي"}
                   </span>
                 </div>
                 <p className="mt-1 text-[10px] leading-5 text-gray-500">
-                  {choiceOnly
+                  {mutualChoice
+                    ? "6 جولات متزامنة: مجموعات ولقاءات فردية باختيار متبادل، مع حرية تخطّي الاختيار والعودة للمجموعات."
+                    : choiceOnly
                     ? "3 جولات مجموعات تستهدف 6 أشخاص، وتستوعب الباقي بالتساوي، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
                     : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
                 </p>
               </div>
-              <div className="flex rounded-xl border border-gray-700 bg-gray-950/60 p-1">
+              <div className="flex flex-wrap rounded-xl border border-gray-700 bg-gray-950/60 p-1">
                 {([
+                  { id: "mutual_choice_six_rounds", label: "6 جولات · اختيار متبادل" },
                   { id: "classic", label: "النظام الكلاسيكي" },
                   { id: "choice_only_three_groups", label: "3 مجموعات · 3 اختيارات فردية" },
                 ] as Array<{ id: Event3Format; label: string }>).map(option => (
@@ -3462,6 +3475,7 @@ export default function Admin3Page() {
                 ))}
               </div>
             </div>
+            <p className="mt-2 text-[10px] leading-5 text-teal-300/70">الاختيار المتبادل هو النظام الافتراضي للفعاليات الجديدة. تحتفظ كل فعالية سابقة بنظامها المحفوظ.</p>
             {!canEditEventFormat && (
               <p className="mt-2 text-[9px] text-amber-500/70">
                 {previewEventId != null ? "المعاينة للقراءة فقط." : testMode ? "أنهِ وضع الاختبار لتغيير النظام." : "يمكن تغيير النظام أثناء الإعداد وقبل توليد خطة الجلسات فقط."}
@@ -3470,6 +3484,23 @@ export default function Admin3Page() {
           </div>
         )}
 
+        {mutualChoice && activeTab === "control" && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-800/35 bg-amber-950/20 p-4"><div><p className="text-xs font-bold text-amber-200">{testMode ? "اختبار منفصل عن الفعالية الأصلية" : "تجربة الجولات قبل الفعالية"}</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">{testMode ? "عند الانتهاء تُستعاد بيانات الفعالية الأصلية." : "جهّز قائمة تجريبية، ثم جرّب الجولات الست من لوحة التشغيل أدناه."}</p></div><button type="button" onClick={testMode ? endTestMode : startTestMode} disabled={!!loading || testModeLoading || (!testMode && state?.phase !== "setup")} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-700/40 bg-amber-900/30 px-4 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900/50 disabled:opacity-40">{testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}{testMode ? "إنهاء الاختبار واستعادة الفعالية" : "بدء وضع الاختبار"}</button></div>}
+
+        {mutualChoice && activeTab === "control" && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4"><div><p className="text-xs font-bold text-gray-200">دخول المشاركين: {participantAccessLocked ? "مغلق" : "مفتوح"}</p><p className="mt-1 text-[10px] text-gray-500">افتح الدخول عندما تكون مستعداً لاستقبال المشاركين.</p></div><button type="button" onClick={toggleParticipantAccessLock} disabled={participantAccessLoading || !!loading} aria-pressed={participantAccessLocked} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-teal-700/40 bg-teal-900/20 px-4 py-2 text-xs font-bold text-teal-200 disabled:opacity-40">{participantAccessLoading ? <Loader2 size={14} className="animate-spin" /> : participantAccessLocked ? <Eye size={14} /> : <EyeOff size={14} />}{participantAccessLocked ? "فتح دخول المشاركين" : "إغلاق دخول المشاركين"}</button></div>}
+
+        {mutualChoice && activeTab === "control" && <MutualChoiceAdmin
+          key={`mutual-${state?.event_id}-${state?.test_session_key}-${previewEventId}`}
+          api={api}
+          eventId={Number(state?.current_event_id ?? state?.event_id)}
+          testMode={state?.test_mode === true}
+          testSessionKey={String(state?.test_session_key || "live")}
+          selectedCount={Number(state?.participants_selected || 0)}
+          participants={participants}
+          readOnly={previewEventId != null || !!loading}
+          onChanged={fetchState}
+        />}
+
+        {!mutualChoice && <>
         {/* Live phase selector — every known phase is directly reachable. */}
         {previewEventId == null && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
@@ -4033,6 +4064,8 @@ export default function Admin3Page() {
           </div>
         )}
 
+        </>}
+
         {/* Tabs */}
         <div className="flex gap-1 sm:gap-2 border-b border-gray-800 overflow-x-auto scrollbar-thin">
           {[
@@ -4044,7 +4077,7 @@ export default function Admin3Page() {
             { id: "feedback",     label: "التقييمات",   icon: Star },
             { id: "attendance",   label: "الحضور",      icon: CheckCircle },
             { id: "aiwelcome",    label: "ترحيب AI",     icon: Sparkles },
-          ].map(tab => (
+          ].filter(tab => !mutualChoice || ["control", "seating", "attendance"].includes(tab.id)).map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
@@ -4126,7 +4159,7 @@ export default function Admin3Page() {
                   })()}
                   <button
                     onClick={saveParticipants}
-                    disabled={(choiceOnly ? !choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size < 6) || !!loading || previewEventId != null}
+                    disabled={(choiceOnly ? !choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size < 6) || !!loading || previewEventId != null || mutualRosterLocked}
                     className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1"
                   >
                     {loading === "save-participants" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -4163,7 +4196,7 @@ export default function Admin3Page() {
                 </select>
                 <button
                   onClick={selectAllPaid}
-                  disabled={previewEventId != null}
+                  disabled={previewEventId != null || mutualRosterLocked}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1.5 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <CheckCircle size={14} />
@@ -4176,7 +4209,7 @@ export default function Admin3Page() {
                   <button
                     key={p.number}
                     onClick={() => toggleParticipant(p.number)}
-                    disabled={previewEventId != null}
+                    disabled={previewEventId != null || mutualRosterLocked}
                     className={`flex items-center gap-2 p-2 rounded-lg border text-right text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                       selectedNumbers.has(p.number)
                         ? "border-purple-500 bg-purple-900/30 text-white"
@@ -4200,6 +4233,7 @@ export default function Admin3Page() {
               </div>
             </div>
 
+            {!mutualChoice && <>
             {choiceOnly && loading === "seating" && choiceSeatingProgressStartedAt != null && (
               <ChoiceSeatingGenerationProgress elapsedMs={choiceSeatingProgressElapsedMs} checkpoint={choiceSeatingCheckpointProgress} />
             )}
@@ -4819,11 +4853,24 @@ export default function Admin3Page() {
                 </button>
               </div>
             </div>
+            </>}
           </div>
         )}
 
         {/* TAB: SEATING MAP ──────────────────────────────────────────────────── */}
-        {activeTab === "seating" && (
+        {mutualChoice && activeTab === "seating" && <MutualChoiceAdmin
+          key={`mutual-map-${state?.event_id}-${state?.test_session_key}-${previewEventId}`}
+          api={api}
+          eventId={Number(state?.current_event_id ?? state?.event_id)}
+          testMode={state?.test_mode === true}
+          testSessionKey={String(state?.test_session_key || "live")}
+          selectedCount={Number(state?.participants_selected || 0)}
+          participants={participants}
+          readOnly={true}
+          seatingOnly
+          onChanged={fetchState}
+        />}
+        {!mutualChoice && activeTab === "seating" && (
           <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -5350,7 +5397,7 @@ export default function Admin3Page() {
         )}
 
         {/* TAB: PARTICIPANTS ───────────────────────────────────────────────── */}
-        {activeTab === "participants" && (() => {
+        {!mutualChoice && activeTab === "participants" && (() => {
           const selected = participants.filter(p => p.selected)
           const getPairFor = (pairs: any[], num: number) => pairs.find((mp: any) => mp.a === num || mp.b === num)
           const getMatchFor = (num: number) => getPairFor(matchPairs, num)
@@ -5495,7 +5542,7 @@ export default function Admin3Page() {
         })()}
 
         {/* TAB: RANKING ─────────────────────────────────────────────────────── */}
-        {activeTab === "ranking" && (() => {
+        {!mutualChoice && activeTab === "ranking" && (() => {
           const filteredRankings = allRankings.filter((r: any) => {
             if (rankSearch) {
               const q = rankSearch.toLowerCase()
@@ -6621,7 +6668,7 @@ export default function Admin3Page() {
       })()}
 
       {/* TAB: OVERVIEW ─────────────────────────────────────────── */}
-      {activeTab === "overview" && (() => {
+      {!mutualChoice && activeTab === "overview" && (() => {
         const pts: any[] = overviewData?.participants || []
         const matrix: Record<string, { score: number | null; bothComplete: boolean }> = overviewData?.matrix || {}
         const getEntry = (a: number, b: number) => { const k = a < b ? `${a}-${b}` : `${b}-${a}`; return matrix[k] || null }
@@ -7677,7 +7724,7 @@ export default function Admin3Page() {
       })()}
 
       {/* TAB: FEEDBACK ──────────────────────────────────────────── */}
-      {activeTab === "feedback" && (
+      {!mutualChoice && activeTab === "feedback" && (
         <div className="space-y-4">
           {/* Header */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -9161,7 +9208,7 @@ export default function Admin3Page() {
       })()}
 
       {/* TAB: AI WELCOME ─────────────────────────────────────────────── */}
-      {activeTab === "aiwelcome" && (() => {
+      {!mutualChoice && activeTab === "aiwelcome" && (() => {
         const generated = aiWelcomeData.filter((p: any) => p.has_welcome).length
         const missing = aiWelcomeData.length - generated
         const filtered = aiWelcomeData.filter((p: any) => {

@@ -1,4 +1,5 @@
 import RankingExtensionControl from "../components/RankingExtensionControl"
+import MutualChoiceAdmin from "../components/MutualChoiceAdmin"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
@@ -60,7 +61,7 @@ import {
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
 const COHOST_WRITE_TIMEOUT_MS = 20_000
-const COHOST_READ_ACTION = /^(e3-get-|e3-cohost-(dashboard|support-requests|rankings|attendee-details)$)/
+const COHOST_READ_ACTION = /^(e3-get-|e3-mutual-state$|e3-cohost-(dashboard|support-requests|rankings|attendee-details)$)/
 
 let cohostDisplayedMutationContext: Event3DisplayedMutationContext | null = null
 
@@ -79,11 +80,12 @@ type RankingFilter = "all" | "submitted" | "pending"
 type MoodAudience = "person" | "table" | "all_tables"
 type FeedbackKind = "group" | "individual"
 type FeedbackFilter = "missing" | "submitted" | "all"
-type Event3Format = "classic" | "choice_only_three_groups"
+type Event3Format = "classic" | "choice_only_three_groups" | "mutual_choice_six_rounds"
 
 const CHOICE_ONLY_EVENT_FORMAT: Event3Format = "choice_only_three_groups"
 
 function normalizeEventFormat(...values: unknown[]): Event3Format {
+  if (values.some(value => value === "mutual_choice_six_rounds")) return "mutual_choice_six_rounds"
   return values.some(value => value === CHOICE_ONLY_EVENT_FORMAT) ? CHOICE_ONLY_EVENT_FORMAT : "classic"
 }
 
@@ -1156,6 +1158,7 @@ export default function AdminCohostPage() {
 
   useEffect(() => {
     if (!agreementAccepted || panelLocked || (tab !== "home" && tab !== "feedback")) return
+    if (normalizeEventFormat(dashboard?.event_format, dashboard?.state.event_format) === "mutual_choice_six_rounds") return
     fetchFeedbackData()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchFeedbackData(true)
@@ -1168,7 +1171,7 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [agreementAccepted, fetchFeedbackData, panelLocked, tab])
+  }, [agreementAccepted, dashboard?.event_format, dashboard?.state.event_format, fetchFeedbackData, panelLocked, tab])
 
   useEffect(() => {
     if (!agreementAccepted || panelLocked || (tab !== "support" && tab !== "messages")) return
@@ -1188,12 +1191,13 @@ export default function AdminCohostPage() {
 
   useEffect(() => {
     if (!agreementAccepted || panelLocked || tab !== "rankings" || editingRanker !== null) return
+    if (normalizeEventFormat(dashboard?.event_format, dashboard?.state.event_format) === "mutual_choice_six_rounds") return
     fetchRankings()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchRankings(true)
     }, 10000)
     return () => window.clearInterval(interval)
-  }, [agreementAccepted, editingRanker, fetchRankings, panelLocked, tab])
+  }, [agreementAccepted, dashboard?.event_format, dashboard?.state.event_format, editingRanker, fetchRankings, panelLocked, tab])
 
   useEffect(() => {
     if (isRankingPhase(dashboard?.state.phase) || editingRanker === null) return
@@ -1252,6 +1256,19 @@ export default function AdminCohostPage() {
 
   const participants = dashboard?.participants || EMPTY_PARTICIPANTS
   const eventFormat = normalizeEventFormat(dashboard?.event_format, dashboard?.state.event_format)
+  const mutualChoice = eventFormat === "mutual_choice_six_rounds"
+  useEffect(() => {
+    if (mutualChoice && (tab === "rankings" || tab === "feedback")) setTab("home")
+  }, [mutualChoice, tab])
+  const mutualReadApi = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
+    if (action !== "e3-mutual-state") return { error: "هذه اللوحة تعرض الجلسات للقراءة فقط" }
+    try {
+      return await cohostApi(action, token, extra)
+    } catch (requestError) {
+      handleRequestError(requestError, "تعذر تحديث الجلسات الحالية")
+      return { error: requestError instanceof Error ? requestError.message : "تعذر تحديث الجلسات الحالية" }
+    }
+  }, [handleRequestError, token])
   const choiceOnly = eventFormat === CHOICE_ONLY_EVENT_FORMAT
   const rankingPhaseActive = isRankingPhase(dashboard?.state.phase)
   const selectedAttendee = participants.find(participant => participant.number === viewingParticipant)
@@ -1891,14 +1908,14 @@ export default function AdminCohostPage() {
                 </div>
                 <div className={`mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold ${connectionIssue ? "text-amber-200" : "text-teal-300"}`}>
                   <Wifi size={11} />
-                  <span>{connectionIssue ? "الاتصال ضعيف · نعرض آخر تحديث وصلنا" : phaseLabel(dashboard?.state.phase, choiceOnly)}</span>
+                  <span>{connectionIssue ? "الاتصال ضعيف · نعرض آخر تحديث وصلنا" : mutualChoice ? "اختيار متبادل · 6 جولات متزامنة" : phaseLabel(dashboard?.state.phase, choiceOnly)}</span>
                   {lastUpdated ? <span className="font-normal text-slate-500">· تحديث {formatTime(lastUpdated.toISOString())}</span> : null}
                   {cohostIdentity ? <span className="font-normal text-slate-400">· {cohostIdentity.displayName} #{cohostIdentity.number}</span> : null}
                 </div>
               </div>
             </div>
             <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
-              {dashboard?.state.global_timer_active ? (
+              {!mutualChoice && dashboard?.state.global_timer_active ? (
                 <div className={`me-auto flex min-h-11 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-black sm:me-0 ${timerRemaining <= 60 ? "border-red-400/30 bg-red-950/40 text-red-200" : "border-white/10 bg-white/[0.04] text-slate-100"}`} title={timerRemaining > 0 ? "الوقت المتبقي حسب ساعة الخادم" : "انتهى وقت المرحلة"}>
                   <Clock3 size={14} /> <span className={timerRemaining > 0 ? "font-mono" : ""}>{timerRemaining > 0 ? formatTimer(timerRemaining) : "انتهى الوقت"}</span>
                 </div>
@@ -1953,6 +1970,19 @@ export default function AdminCohostPage() {
 
         {loading && !dashboard ? (
           <div className="flex min-h-[55vh] flex-col items-center justify-center gap-3 text-slate-400"><Loader2 size={28} className="animate-spin text-teal-300" /><p className="text-sm">جاري تجهيز لوحة المضيفة…</p></div>
+        ) : mutualChoice && (tab === "home" || tab === "tables" || tab === "rankings" || tab === "feedback") && dashboard ? (
+          <MutualChoiceAdmin
+            key={`${dashboard.event_id}:${dashboard.test_session_key || "live"}`}
+            api={mutualReadApi}
+            eventId={dashboard.event_id}
+            testMode={testMode}
+            testSessionKey={dashboard.test_session_key || "live"}
+            selectedCount={participants.length}
+            participants={participants}
+            readOnly
+            seatingOnly
+            onChanged={() => {}}
+          />
         ) : tab === "home" ? (
           <>
             {choiceOnly && dashboard ? <ChoiceCohostOperationsGuide phase={dashboard.state.phase} timerActive={dashboard.state.global_timer_active} timerStarted={Boolean(dashboard.state.global_timer_start_time)} timerRemaining={timerRemaining} /> : null}
@@ -2047,11 +2077,11 @@ export default function AdminCohostPage() {
                   <article key={participant.number} className={`rounded-2xl border p-3 ${participant.attended ? "border-teal-300/20 bg-teal-950/20" : "border-white/[0.07] bg-white/[0.03]"}`}>
                     <button type="button" onClick={() => setViewingParticipant(participant.number)} aria-label={`عرض ملف ${participant.name}`} className="flex min-h-14 w-full items-start gap-3 rounded-xl text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">
                       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-sm font-black ${participant.attended ? "border-teal-300/25 bg-teal-300/10 text-teal-200" : "border-white/10 bg-black/20 text-slate-400"}`}>#{participant.number}</div>
-                      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black">{participant.name}</h3>{participant.first_time ? <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">أول فعالية</span> : null}</div><p className="mt-1 text-[10px] text-slate-400">{participant.age ? `${participant.age} سنة` : "العمر غير متاح"} · {participant.ranking_submitted ? "أرسل ترتيبه" : "لسه ما أرسل ترتيبه"}</p></div>
+                      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black">{participant.name}</h3>{participant.first_time ? <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">أول فعالية</span> : null}</div><p className="mt-1 text-[10px] text-slate-400">{participant.age ? `${participant.age} سنة` : "العمر غير متاح"}{!mutualChoice && <> · {participant.ranking_submitted ? "أرسل ترتيبه" : "لسه ما أرسل ترتيبه"}</>}</p></div>
                       <ChevronDown size={18} className="mt-3 shrink-0 -rotate-90 text-teal-200" />
                     </button>
                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
-                      {Object.entries(participant.tables || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([tableRound, table]) => <span key={tableRound} className="rounded-lg bg-amber-300/10 px-2 py-1 text-amber-100">{roundLabel(Number(tableRound), choiceOnly)}: {table}</span>)}
+                      {Object.entries(participant.tables || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([tableRound, table]) => <span key={tableRound} className="rounded-lg bg-amber-300/10 px-2 py-1 text-amber-100">{mutualChoice ? `الجولة ${tableRound} · طاولة` : roundLabel(Number(tableRound), choiceOnly)}: {table}</span>)}
                       {phase2Partner ? <span className="rounded-lg bg-pink-300/10 px-2 py-1 text-pink-100">{choiceOnly ? "الاختيار الأول" : "اختيار"}: {firstName(phase2Partner.name)}</span> : null}
                       {phase3Partner ? <span className="rounded-lg bg-violet-300/10 px-2 py-1 text-violet-100">{choiceOnly ? "الاختيار الثاني" : "خوارزمية"}: {firstName(phase3Partner.name)}</span> : null}
                       {choiceOnly && phase4PartnerLabel ? <span className="rounded-lg bg-cyan-300/10 px-2 py-1 text-cyan-100">الاختيار الثالث: {firstName(phase4PartnerLabel)}</span> : null}
@@ -2395,8 +2425,8 @@ export default function AdminCohostPage() {
       </main>
 
       <nav aria-label="أقسام لوحة المضيفة" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#080c13]/97 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] backdrop-blur-xl">
-        <div role="tablist" className="mx-auto grid max-w-2xl grid-cols-6 gap-1">
-          {tabs.map(item => (
+        <div role="tablist" className={`mx-auto grid max-w-2xl ${mutualChoice ? "grid-cols-4" : "grid-cols-6"} gap-1`}>
+          {tabs.filter(item => !mutualChoice || (item.value !== "rankings" && item.value !== "feedback")).map(item => (
             <button key={item.value} role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)} className={`relative flex min-h-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold transition ${item.value === "support" && supportRequests.length ? "bg-red-500/15 text-red-100 ring-1 ring-inset ring-red-400/40" : tab === item.value ? "bg-teal-300/12 text-teal-200" : "text-slate-400"}`}>
               <item.icon size={19} className={item.value === "support" && supportRequests.length ? "motion-safe:animate-pulse" : ""} />
               <span>{item.label}</span>

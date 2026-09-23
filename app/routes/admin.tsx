@@ -6826,6 +6826,17 @@ Proceed?`
         {/* Action Bar */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
           {!isCohost && <div className="mb-4"><AiQueueStatus eventId={currentEventId} /></div>}
+          {!isCohost && mutualChoiceEvent && (
+            <button
+              onClick={() => setShowBatchedCacheModal(true)}
+              disabled={loading}
+              className="mb-4 flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-700 px-3 py-1.5 text-sm text-white shadow-lg transition-all duration-300 hover:from-indigo-700 hover:to-violet-800 disabled:opacity-50"
+              title="Prepare compatibility scores for pairs allowed by current standing preferences"
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Batched Compatibility Cache
+            </button>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="relative">

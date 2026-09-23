@@ -603,7 +603,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             <div>
               <h2 className="text-lg font-bold text-white">Batched Pre-Cache</h2>
               <p className="text-xs text-white/60">
-                Fast v12 cache for mutual preferences; required AI chemistry finalizes in the background.
+                Shared survey-model cache for mutual preferences; AI diagnostics finish in the background.
               </p>
             </div>
           </div>

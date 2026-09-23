@@ -90,7 +90,7 @@ test('canonical checked-in schemas describe the runtime provenance contract', as
   assert.match(metadata, /scope\.score_model_version/)
   assert.match(metadata, /event_enrolled_at/)
   assert.match(metadata, /next_event_signup_timestamp/)
-  assert.match(metadata, /2026-09-03-v12-event26-archetype-ai-chemistry-100/)
+  assert.match(metadata, /2026-09-23-v14-shared-connection-75-25-min-100/)
   assert.match(metadata, /drop function if exists public\.record_cache_session\([\s\S]*numeric, text[\s\S]*\);/)
   assert.match(metadata, /then 'STALE_MODEL'/)
   assert.match(matches, /score_snapshot jsonb null/)

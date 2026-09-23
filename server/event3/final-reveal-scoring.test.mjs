@@ -19,6 +19,7 @@ test("choice-only final reveal returns validated scores for all three matches", 
   assert.match(finalReveal, /phase4: choiceOnlyReveal \? revealPair\(\{[^}]*storedScore: null, breakdown: phase4Breakdown/s)
   assert.doesNotMatch(revealPair, /\n\s+score_model_version:/)
   assert.doesNotMatch(revealPair, /\n\s+breakdown:/)
+  assert.match(revealPair, /score_meaning: breakdown\?\.personalized\?\.scoreMeaning === 'relative-ranking-not-probability'/)
   assert.doesNotMatch(finalReveal, /compatibility_score: isChoiceOnlyEvent3\(eventFormat\) \? null/)
 })
 
@@ -41,7 +42,7 @@ test("final reveal exposes only participant-safe meeting outcome metadata", asyn
   assert.doesNotMatch(revealPair, /saved_feedback|feedback_fingerprint|organizer|participantMessage|wantConnect|conversationQuality|personalConnection/)
 })
 
-test("final reveal shows available percentages as experimental matching estimates with AI readings at every score", async () => {
+test("final reveal distinguishes relative ranking indices from historical scores with AI readings at every score", async () => {
   const source = await readFile(event3RoutePath, "utf8")
   const start = source.indexOf('// ─── Final Reveal Screen')
   const end = source.indexOf('// ─── Main Event3 Component', start)
@@ -49,9 +50,14 @@ test("final reveal shows available percentages as experimental matching estimate
 
   assert.doesNotMatch(finalReveal, /FINAL_REVEAL_RATING_THRESHOLD|p[234]Rated/)
   assert.match(finalReveal, /if \(score === null\) return "تقدير غير متاح"/)
-  assert.match(finalReveal, /احتمال ترشيحكما للمطابقة \$\{score\} بالمئة كتقدير تجريبي، وليس نسبة توافق/)
+  assert.match(finalReveal, /مؤشر الترشيح \$\{score\} من 100/)
+  assert.match(finalReveal, /النتيجة المحفوظة \$\{score\} من 100/)
+  assert.match(finalReveal, /ترتيب نسبي، وليس احتمالًا للتواصل أو نسبة توافق/)
   assert.match(finalReveal, /normalizedScore !== null \? \(/)
-  assert.match(finalReveal, />\{normalizedScore\}%</)
+  assert.match(finalReveal, /\{normalizedScore\}\{scoreMeaning === "relative-ranking-not-probability" \? "\/100" : "%"\}/)
+  for (const phase of [2, 3, 4]) {
+    assert.ok(finalReveal.includes(`scoreMeaning={p${phase}?.score_meaning}`))
+  }
   assert.match(finalReveal, /النموذج لا يزال قيد التدريب/)
   assert.match(source, /<AiAnalysisCompact[\s\S]*title="قراءة ما بين السطور"/)
   const deepAnalysis = source.slice(source.indexOf("function AiAnalysisCompact"), source.indexOf("function FinalRevealScreen"))

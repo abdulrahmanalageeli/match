@@ -8470,7 +8470,9 @@ function finalRevealSpokenScore(value: unknown, result?: any): string {
   if (result && !event3FinalMeetingOccurred(result)) return event3OperationalMeetingLabel(result)
   const score = normalizedFinalRevealScore(value)
   if (score === null) return "تقدير غير متاح"
-  return `احتمال ترشيحكما للمطابقة ${score} بالمئة كتقدير تجريبي، وليس نسبة توافق. النموذج لا يزال قيد التدريب`
+  return result?.score_meaning === "relative-ranking-not-probability"
+    ? `مؤشر الترشيح ${score} من 100. ترتيب نسبي، وليس احتمالًا للتواصل أو نسبة توافق.`
+    : `النتيجة المحفوظة ${score} من 100. تقدير تاريخي لا يضمن التوافق.`
 }
 
 const FINAL_REVEAL_CARD_STYLES = {
@@ -8503,7 +8505,7 @@ const FINAL_REVEAL_CARD_STYLES = {
   },
 } as const
 
-function RevealCard({ icon, order, label, name, score, word, revealed, accent, meetingStatus = 'met', meetingOccurred = true }: {
+function RevealCard({ icon, order, label, name, score, word, revealed, accent, meetingStatus = 'met', meetingOccurred = true, scoreMeaning }: {
   icon: "heart" | "brain"
   order: number
   label: string
@@ -8514,6 +8516,7 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent, m
   accent: keyof typeof FINAL_REVEAL_CARD_STYLES
   meetingStatus?: Event3MeetingStatus
   meetingOccurred?: boolean
+  scoreMeaning?: string | null
 }) {
   const Icon = icon === "heart" ? Heart : Brain
   const palette = FINAL_REVEAL_CARD_STYLES[accent]
@@ -8571,13 +8574,13 @@ function RevealCard({ icon, order, label, name, score, word, revealed, accent, m
                 <div className="min-w-0 px-1 text-[10px] font-bold text-white/25">ذكرى خاصة من اللقاء</div>
               )}
               <div className={`max-w-40 rounded-xl border px-2.5 py-1.5 text-center ${palette.score}`}>
-                <p className="text-[10px] font-bold leading-4 text-white/65">احتمال ترشيحكما للمطابقة</p>
+                <p className="text-[10px] font-bold leading-4 text-white/65">{scoreMeaning === "relative-ranking-not-probability" ? "مؤشر الترشيح" : "النتيجة المحفوظة"}</p>
                 {!met ? (
                   <p className="mt-0.5 text-[10px] font-black text-white/45">لا يوجد تقييم</p>
                 ) : normalizedScore !== null ? (
                   <>
-                    <p className="mt-1 text-2xl font-black tabular-nums" dir="ltr">{normalizedScore}%</p>
-                    <p className="mt-1 text-[10px] leading-4 text-white/65">تقدير تجريبي · ليس نسبة توافق</p>
+                    <p className="mt-1 text-2xl font-black tabular-nums" dir="ltr">{normalizedScore}{scoreMeaning === "relative-ranking-not-probability" ? "/100" : "%"}</p>
+                    <p className="mt-1 text-[10px] leading-4 text-white/65">{scoreMeaning === "relative-ranking-not-probability" ? "ترتيب نسبي · ليس احتمالًا" : "تقدير تاريخي · لا يضمن التوافق"}</p>
                   </>
                 ) : (
                   <p className="mt-0.5 text-[10px] font-black text-white/45">تقدير غير متاح</p>
@@ -8944,18 +8947,18 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
           <div className="mb-3 rounded-2xl border border-amber-300/15 bg-amber-400/[0.06] px-3.5 py-3 text-right">
             <p className="text-xs font-black text-amber-100">النموذج لا يزال قيد التدريب</p>
-            <p className="mt-1 text-xs leading-6 text-amber-100/75">النسبة تقدير تجريبي لاحتمال ترشيحكما للمطابقة، وليست نسبة توافق بينكما أو احتمالاً إحصائياً مؤكداً. قد تتغيّر تقديرات النموذج مع التدريب، ولا تضمن الانسجام أو رغبة الطرف الآخر في التواصل.</p>
+            <p className="mt-1 text-xs leading-6 text-amber-100/75">مؤشر الترشيح ترتيب نسبي من 100، وليس احتمالًا للتواصل أو نسبة توافق. تبقى النتائج التاريخية كما حُفظت. قد تتغيّر تقديرات النموذج مع التدريب، ولا تضمن الانسجام أو رغبة الطرف الآخر في التواصل.</p>
           </div>
           <div className="event3-finale-reveal-list grid grid-cols-1 gap-2">
             <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}>
-              <RevealCard icon="heart" order={1} label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealedCount >= 1} accent="pink" meetingStatus={event3FinalMeetingStatus(p2)} meetingOccurred={event3FinalMeetingOccurred(p2)} />
+              <RevealCard icon="heart" order={1} label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} scoreMeaning={p2?.score_meaning} word={p2?.word} revealed={revealedCount >= 1} accent="pink" meetingStatus={event3FinalMeetingStatus(p2)} meetingOccurred={event3FinalMeetingOccurred(p2)} />
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.26 }}>
-              <RevealCard icon={choiceOnly ? "heart" : "brain"} order={2} label={choiceOnly ? "الاختيار الثاني" : "ترشيح التجربة"} name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealedCount >= 2} accent="purple" meetingStatus={event3FinalMeetingStatus(p3)} meetingOccurred={event3FinalMeetingOccurred(p3)} />
+              <RevealCard icon={choiceOnly ? "heart" : "brain"} order={2} label={choiceOnly ? "الاختيار الثاني" : "ترشيح التجربة"} name={p3?.partner_first_name} score={p3?.compatibility_score} scoreMeaning={p3?.score_meaning} word={p3?.word} revealed={revealedCount >= 2} accent="purple" meetingStatus={event3FinalMeetingStatus(p3)} meetingOccurred={event3FinalMeetingOccurred(p3)} />
             </motion.div>
             {choiceOnly && (
               <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.34 }}>
-                <RevealCard icon="heart" order={3} label="الاختيار الثالث" name={p4?.partner_first_name} score={p4?.compatibility_score} word={p4?.word} revealed={revealedCount >= 3} accent="cyan" meetingStatus={event3FinalMeetingStatus(p4)} meetingOccurred={event3FinalMeetingOccurred(p4)} />
+                <RevealCard icon="heart" order={3} label="الاختيار الثالث" name={p4?.partner_first_name} score={p4?.compatibility_score} scoreMeaning={p4?.score_meaning} word={p4?.word} revealed={revealedCount >= 3} accent="cyan" meetingStatus={event3FinalMeetingStatus(p4)} meetingOccurred={event3FinalMeetingOccurred(p4)} />
               </motion.div>
             )}
           </div>

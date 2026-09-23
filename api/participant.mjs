@@ -24,6 +24,7 @@ import {
   BALANCED_VIBE_MODEL_TAG,
   buildBalancedCacheIdentity,
   getBalancedCacheBreakdown,
+  isCurrentBalancedScoreSnapshot,
   isCurrentOppositesScoreSnapshot,
 } from "../server/matching/balanced-compatibility.mjs"
 import {
@@ -259,6 +260,8 @@ function participantBreakdownFromScoreSnapshot(snapshotValue, {
   if (
     !rowScoreModelVersion
     || !rowScoreContentHash
+    || storedTotal === null || storedTotal === undefined || storedTotal === ""
+    || (snapshot.totalScore ?? snapshot.total_score) === ""
     || scoreModelVersion !== rowScoreModelVersion
     || snapshotContentHash !== rowScoreContentHash
     || !Number.isFinite(snapshotTotal)
@@ -294,7 +297,13 @@ function participantBreakdownFromScoreSnapshot(snapshotValue, {
   const questionScores = parseJsonObject(snapshot.questionScores ?? snapshot.question_scores)
   const vibeAxes = parseJsonObject(snapshot.vibeAxes ?? snapshot.vibe_axes)
   if (
-    !questionScores
+    !isCurrentBalancedScoreSnapshot({
+      modelVersion: rowScoreModelVersion,
+      contentHash: rowScoreContentHash,
+      snapshot,
+      persistedTotal: storedTotal,
+    })
+    || !questionScores
     || !vibeAxes
     || snapshot.vibeModel !== BALANCED_VIBE_MODEL
     || snapshot.vibeModelVersion !== BALANCED_VIBE_VERSION
@@ -335,11 +344,9 @@ function formatParticipantBreakdownReason(breakdown) {
   }
   const value = key => Number(breakdown?.[key] ?? 0)
   const personalized = breakdown.personalized || {}
-  const base = Number(personalized.totalScore ?? breakdown.personalizedBase ?? 0)
-  const adjustment = Number(breakdown.aiChemistryAdjustment ?? 0)
   const finalScore = Number(breakdown.finalScore ?? breakdown.total ?? 0)
   const chemistry = breakdown.aiChemistryReady === true
-    ? `${adjustment >= 0 ? "+" : ""}${adjustment}`
+    ? breakdown.aiChemistryBand
     : "pending"
   const diagnostics = [
     `Common Ground: ${value("semanticCommonGround")}/18`,
@@ -351,7 +358,7 @@ function formatParticipantBreakdownReason(breakdown) {
     `Communication/Disagreement: ${value("communicationDisagreement")}/10`,
     `Intent: ${value("intent")}/5`,
   ].join(" + ")
-  return `Archetype base: ${base}% + AI chemistry: ${chemistry} = ${finalScore}% | Diagnostics: ${diagnostics}`
+  return `Shared connection index: ${finalScore}/100 (relative ranking, not probability) | A→B: ${personalized.aToB?.score ?? 0}/100; B→A: ${personalized.bToA?.score ?? 0}/100; mutual: minimum | AI chemistry: ${chemistry} (diagnostic only) | Diagnostics: ${diagnostics}`
 }
 
 async function fetchParticipantBalancedCacheBreakdown(participantA, participantB) {
@@ -5733,6 +5740,8 @@ Please respond in JSON format:
             word: word || null,
             ...event3FeedbackMeetingMetadata(meetingFeedback),
             compatibility_score: compatibilityScore,
+            score_meaning: breakdown?.personalized?.scoreMeaning === 'relative-ranking-not-probability'
+              ? 'relative-ranking-not-probability' : null,
             insight: buildEvent3PairInsight({ score: compatibilityScore, breakdown, partnerName }),
             assignment_revision: buildEvent3AssignmentRevision({ eventId: currentEventId, round, participantNumber: myNumber, partnerNumber }),
           }

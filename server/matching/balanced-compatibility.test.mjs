@@ -88,7 +88,7 @@ test('balanced weights are immutable, explicit, and total exactly 100', () => {
   assert.equal(BALANCED_WEIGHTS.curiosityStyle, 4)
 })
 
-test('a fully aligned complementary pair retains a 100-point diagnostic budget while v12 supplies the learned total', () => {
+test('a fully aligned complementary pair retains a 100-point diagnostic budget while v14 supplies the learned total', () => {
   const a = participant({ conversation_initiative_preference: 'A', curiosity_style: 'A' })
   const b = participant({ conversation_initiative_preference: 'C', curiosity_style: 'B' })
   const result = calculateBalancedCompatibility(a, b, { vibeScore: 12 })
@@ -105,6 +105,9 @@ test('a fully aligned complementary pair retains a 100-point diagnostic budget w
     aiChemistryAdjustment,
     aiChemistryBand,
     aiChemistryReady,
+    aiChemistryApplied,
+    aiChemistrySuggestedAdjustment,
+    scoringMethod,
     finalScore,
     ...diagnostics
   } = result.scoreBreakdown
@@ -126,6 +129,9 @@ test('a fully aligned complementary pair retains a 100-point diagnostic budget w
   assert.equal(aiChemistryAdjustment, 0)
   assert.equal(aiChemistryBand, 'pending')
   assert.equal(aiChemistryReady, false)
+  assert.equal(aiChemistryApplied, false)
+  assert.equal(aiChemistrySuggestedAdjustment, 0)
+  assert.equal(scoringMethod, 'shared-connection-survey-only')
   assert.equal(finalScore, result.totalScore)
   assert.deepEqual(result.compositeRules, [])
   assert.equal(result.compositeAdjustment, 0)
@@ -320,7 +326,7 @@ test('AI vibe normalization confidence-shrinks every axis toward neutral and rej
   }), /Invalid current_curiosity score/)
 })
 
-test('v12 applies only the validated AI chemistry bands to the archetype base', () => {
+test('v14 retains validated AI chemistry bands as diagnostics without changing the learned total', () => {
   const high = normalizeBalancedVibeAxes({
     current_curiosity: { score: 5, confidence: 1, evidence: 'shared curiosity' },
     hobbies: { score: 3, confidence: 1, evidence: 'shared hobbies' },
@@ -346,8 +352,14 @@ test('v12 applies only the validated AI chemistry bands to the archetype base', 
   const penalized = calculateBalancedCompatibility(participant(), participant(), {
     vibeScore: calculateBalancedVibeScore(low), vibeAxes: low,
   })
-  assert.equal(boosted.totalScore, Math.min(100, base.totalScore + 12))
-  assert.equal(penalized.totalScore, Math.max(0, base.totalScore - 8))
+  assert.equal(boosted.totalScore, base.totalScore)
+  assert.equal(penalized.totalScore, base.totalScore)
+  assert.equal(boosted.scoreBreakdown.aiChemistryAdjustment, 0)
+  assert.equal(penalized.scoreBreakdown.aiChemistryAdjustment, 0)
+  assert.equal(boosted.scoreBreakdown.aiChemistrySuggestedAdjustment, 12)
+  assert.equal(penalized.scoreBreakdown.aiChemistrySuggestedAdjustment, -8)
+  assert.equal(boosted.scoreBreakdown.aiChemistryApplied, false)
+  assert.equal(penalized.scoreBreakdown.aiChemistryApplied, false)
 })
 
 test('vibe metadata round-trips axis scores and identifies only the current balanced model', () => {

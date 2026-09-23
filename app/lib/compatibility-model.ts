@@ -1,4 +1,5 @@
-export const CURRENT_BALANCED_SCORE_MODEL = "2026-09-03-v12-event26-archetype-ai-chemistry-100" as const
+export const CURRENT_BALANCED_SCORE_MODEL = "2026-09-23-v14-shared-connection-75-25-min-100" as const
+export const CURRENT_BALANCED_SOURCE_ARTIFACT = "b14be564cf25d5cfecbb88858a2e480f8bd8d32828a67a3a4be4136e3eeb021d" as const
 export const CURRENT_OPPOSITES_SCORE_MODEL = `${CURRENT_BALANCED_SCORE_MODEL}|opposites-flip-v1` as const
 export const CURRENT_BALANCED_VIBE_MODEL = "gpt-5.4-mini" as const
 export const CURRENT_BALANCED_VIBE_VERSION = "balanced-vibe12-v1" as const
@@ -55,8 +56,13 @@ export type PersonalizedDirection = {
 export type PersonalizedCompatibility = {
   scoreModelVersion: string
   totalScore: number
+  priorityScore?: number
+  rawMutualUtility?: number
+  sourceArtifactSha256?: string
+  personalHistoryApplied?: boolean
   calibration?: string
   mutualFormula?: string
+  scoreMeaning?: string
   aToB: PersonalizedDirection
   bToA: PersonalizedDirection
 }
@@ -65,6 +71,8 @@ export type AiChemistryDisplay = {
   ready: boolean
   score: number | null
   adjustment: number
+  suggestedAdjustment: number
+  applied: false
   band: "high" | "neutral" | "low" | "pending"
   baseScore: number
   finalScore: number
@@ -126,18 +134,28 @@ function scorePayloadForDisplay(row: any) {
 
 function isPersonalizedPayload(value: any): value is PersonalizedCompatibility {
   if (!value || value.scoreModelVersion !== CURRENT_BALANCED_SCORE_MODEL) return false
-  const total = Number(value.totalScore)
-  const aToB = Number(value.aToB?.score)
-  const bToA = Number(value.bToA?.score)
-  return Number.isFinite(total)
+  const total = value.totalScore
+  const aToB = value.aToB?.score
+  const bToA = value.bToA?.score
+  return value.mutualFormula === "minimum"
+    && value.sourceArtifactSha256 === CURRENT_BALANCED_SOURCE_ARTIFACT
+    && value.personalHistoryApplied === false
+    && value.calibration === "events26-28-shared-connection-reference-percentile"
+    && value.scoreMeaning === "relative-ranking-not-probability"
+    && Number.isFinite(total)
+    && Number.isFinite(value.aToB?.rawUtility)
+    && Number.isFinite(value.bToA?.rawUtility)
     && Number.isFinite(aToB)
     && Number.isFinite(bToA)
     && aToB >= 0 && aToB <= 100
     && bToA >= 0 && bToA <= 100
-    && Math.abs(total - Math.round(Math.sqrt(aToB * bToA) * 1e6) / 1e6) <= 1e-6
+    && value.priorityScore === total
+    && Number.isFinite(value.rawMutualUtility)
+    && Math.abs(value.rawMutualUtility - Math.min(value.aToB.rawUtility, value.bToA.rawUtility)) <= 1e-6
+    && Math.abs(total - Math.round(Math.min(aToB, bToA) * 1e6) / 1e6) <= 1e-6
 }
 
-/** Directional, archetype-aware evidence behind the current base percentage. */
+/** Directional survey scores behind the relative ranking index, not probabilities. */
 export function personalizedCompatibilityForDisplay(row: any): PersonalizedCompatibility | null {
   const { breakdown, snapshot } = scorePayloadForDisplay(row)
   const direct = parseScoreObject(
@@ -163,7 +181,7 @@ export function aiChemistryForDisplay(row: any): AiChemistryDisplay | null {
     ? Math.round((0.5 * (Math.max(0, Math.min(5, Number(curiosity.score))) / 5)
       + 0.5 * (Math.max(0, Math.min(3, Number(hobbies.score))) / 3)) * 1e6) / 1e6
     : null
-  const adjustment = score === null
+  const suggestedAdjustment = score === null
     ? 0
     : score >= AI_CHEMISTRY_HIGH_THRESHOLD
       ? AI_CHEMISTRY_BOOST
@@ -172,22 +190,26 @@ export function aiChemistryForDisplay(row: any): AiChemistryDisplay | null {
         : 0
   const band: AiChemistryDisplay["band"] = score === null
     ? "pending"
-    : adjustment > 0
+    : suggestedAdjustment > 0
       ? "high"
-      : adjustment < 0
+      : suggestedAdjustment < 0
         ? "low"
         : "neutral"
   const baseScore = personalized.totalScore
-  const finalScore = Math.round(Math.max(0, Math.min(100, baseScore + adjustment)) * 1e6) / 1e6
+  const adjustment = 0
+  const finalScore = baseScore
   const almostEqual = (left: unknown, right: number) => Number.isFinite(Number(left))
     && Math.abs(Number(left) - right) <= 1e-6
-  if (!almostEqual(breakdown.personalizedBase, baseScore)
+  if (breakdown.scoringMethod !== "shared-connection-survey-only"
+    || breakdown.aiChemistryApplied !== false
+    || !almostEqual(breakdown.aiChemistrySuggestedAdjustment, suggestedAdjustment)
+    || !almostEqual(breakdown.personalizedBase, baseScore)
     || !almostEqual(breakdown.aiChemistryAdjustment, adjustment)
     || breakdown.aiChemistryReady !== ready
     || breakdown.aiChemistryBand !== band
     || (score === null ? breakdown.aiChemistryScore !== null : !almostEqual(breakdown.aiChemistryScore, score))
     || !almostEqual(breakdown.finalScore, finalScore)) return null
-  return { ready, score, adjustment, band, baseScore, finalScore }
+  return { ready, score, adjustment, suggestedAdjustment, applied: false, band, baseScore, finalScore }
 }
 
 /**
@@ -212,7 +234,7 @@ export function compatibilityTotalForDisplay(row: any, fallback: number | null =
   )
 }
 
-/** Legacy expert diagnostics retained alongside the learned percentage. */
+/** Legacy expert diagnostics retained alongside the learned ranking index. */
 export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
   if (!isCurrentBalancedScoreRow(row)) return null
   const { breakdown, questions } = scorePayloadForDisplay(row)

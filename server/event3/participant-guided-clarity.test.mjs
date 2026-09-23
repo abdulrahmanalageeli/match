@@ -85,7 +85,7 @@ test("ranking uses explicit controls and hides routine sync chatter", () => {
   assert.doesNotMatch(ranking, /سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين؛/)
 })
 
-test("final reveal shows reading after percentages and puts results last", () => {
+test("final reveal shows reading after ranking indices and puts results last", () => {
   const breakScreen = between("function BreakScreen", "// ─── Final Reveal Screen")
   assert.match(breakScreen, /ماذا سيحدث بعد الاستراحة؟/)
   assert.match(breakScreen, /event3-secondary-details/)
@@ -96,7 +96,7 @@ test("final reveal shows reading after percentages and puts results last", () =>
   const primaryAction = finalReveal.indexOf("النتائج على الصفحة الرئيسية")
   const firstDisclosure = finalReveal.indexOf("event3-secondary-details")
   const reading = finalReveal.indexOf('aria-labelledby="pair-reading-title"')
-  assert.ok(reading > finalReveal.indexOf('event3-finale-reveal-list'), "reading follows percentages")
+  assert.ok(reading > finalReveal.indexOf('event3-finale-reveal-list'), "reading follows scores")
   assert.ok(firstDisclosure > reading && primaryAction > firstDisclosure, "results follow reading and optional sections")
   assert.doesNotMatch(finalReveal, /readingsOpen|setReadingsOpen/)
   assert.ok(primaryAction > finalReveal.indexOf('مواصلة الحوار بأسئلة إضافية'))
@@ -107,10 +107,11 @@ test("final reveal shows reading after percentages and puts results last", () =>
   assert.match(finalReveal, /revealed=\{revealedCount >= 3\}/)
   assert.match(finalReveal, /ثلاثة لقاءات حقيقية، وثلاث كلمات بقيت في الذاكرة/)
   assert.match(finalReveal, /لا تظهر معلومات التواصل إلا عندما تكون الموافقة متبادلة/)
-  assert.match(revealCard, /احتمال ترشيحكما للمطابقة/)
+  assert.match(revealCard, /scoreMeaning === "relative-ranking-not-probability" \? "مؤشر الترشيح" : "النتيجة المحفوظة"/)
   assert.doesNotMatch(revealCard, /مؤشر الانسجام/)
-  assert.match(revealCard, />\{normalizedScore\}%</)
-  assert.match(revealCard, /تقدير تجريبي · ليس نسبة توافق/)
+  assert.match(revealCard, /\{normalizedScore\}\{scoreMeaning === "relative-ranking-not-probability" \? "\/100" : "%"\}/)
+  assert.match(revealCard, /ترتيب نسبي · ليس احتمالًا/)
+  assert.match(revealCard, /تقدير تاريخي · لا يضمن التوافق/)
   assert.match(finalReveal, /قراءة ما بين السطور/)
   assert.match(finalReveal, /خيارات إضافية/)
 })

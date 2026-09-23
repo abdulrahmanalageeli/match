@@ -505,7 +505,7 @@ test("v12 completeness requires AI enrichment except for a genuinely incomplete 
   assert.equal(isPendingCurrentAiCacheRow(pending), true)
 })
 
-test("v12 final percentage applies the validated AI chemistry correction", () => {
+test("v14 shared connection index keeps AI chemistry diagnostic only", () => {
   const a = synergyParticipant(61, "A")
   const b = synergyParticipant(62, "C")
   const highAxes = {
@@ -523,8 +523,10 @@ test("v12 final percentage applies the validated AI chemistry correction", () =>
   })
 
   assert.equal(pending.aiChemistryAdjustment, 0)
-  assert.equal(enriched.aiChemistryAdjustment, 12)
-  assert.equal(enriched.totalScore, Math.min(100, pending.totalScore + 12))
+  assert.equal(enriched.aiChemistryAdjustment, 0)
+  assert.equal(enriched.scoreBreakdown.aiChemistrySuggestedAdjustment, 12)
+  assert.equal(enriched.scoreBreakdown.aiChemistryApplied, false)
+  assert.equal(enriched.totalScore, pending.totalScore)
 })
 
 test("persisted score provenance keeps the model and snapshot total inseparable", async () => {

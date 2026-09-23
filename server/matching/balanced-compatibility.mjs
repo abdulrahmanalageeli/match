@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
 import {
-  PERSONALIZED_COMPATIBILITY_VERSION,
-  calculatePersonalizedCompatibility,
-  isPersonalizedCompatibilityPayload,
-} from './personalized-compatibility.mjs'
+  CONNECTION_COMPATIBILITY_VERSION,
+  calculateConnectionCompatibility,
+  isConnectionCompatibilityPayload,
+} from './connection-score.mjs'
+import { connectionProfileFingerprint, prepareConnectionParticipants } from './connection-compatibility.mjs'
 
-// v12 starts with the Event 26 archetype-personalized mutual percentile, then
-// applies the validated AI semantic-chemistry correction. The legacy 100-point
-// components remain in the payload as explainable diagnostics.
-export const BALANCED_COMPATIBILITY_VERSION = PERSONALIZED_COMPATIBILITY_VERSION
+// The frozen shared model learns directional connection utility from surveys.
+// The weaker direction sets the pair's relative index. Legacy components and
+// AI semantics remain diagnostics; they do not alter this model's score.
+export const BALANCED_COMPATIBILITY_VERSION = CONNECTION_COMPATIBILITY_VERSION
 export const OPPOSITES_COMPATIBILITY_VERSION = `${BALANCED_COMPATIBILITY_VERSION}|opposites-flip-v1`
 export const BALANCED_VIBE_VERSION = 'balanced-vibe12-v1'
 export const BALANCED_VIBE_MODEL = 'gpt-5.4-mini'
@@ -499,7 +500,8 @@ export function calculateBalancedVibeScore(vibeAxes) {
 
 /**
  * Convert the two semantic axes that improved reciprocal Event 26 validation
- * into a bounded correction of the archetype-personalized base score.
+ * into the legacy bounded chemistry suggestion. V14 records it as a diagnostic
+ * and does not apply it to the shared connection index.
  * Missing/deferred AI is deliberately neutral so provisional cache rows can be
  * stored without pretending that AI evidence was evaluated.
  */
@@ -525,6 +527,11 @@ export function calculateAiChemistryAdjustment(vibeAxes) {
     return Object.freeze({ ready: true, score, adjustment: -AI_CHEMISTRY_PENALTY, band: 'low' })
   }
   return Object.freeze({ ready: true, score, adjustment: 0, band: 'neutral' })
+}
+
+function connectionChemistryDiagnostics(vibeAxes) {
+  const diagnostic = calculateAiChemistryAdjustment(vibeAxes)
+  return { ...diagnostic, suggestedAdjustment: diagnostic.adjustment, adjustment: 0, applied: false }
 }
 
 export function encodeBalancedVibeModelUsed({ vibeAxes = null, fallbackReason = null } = {}) {
@@ -579,7 +586,8 @@ const BALANCED_CACHE_KEYS = Object.freeze([
 
 export function getBalancedCacheContent(participant) {
   const prepared = getPreparedBalancedParticipant(participant)
-  if (prepared.cacheContent) return prepared.cacheContent
+  const connectionContent = connectionProfileFingerprint(participant)
+  if (prepared.cacheContent) return `${prepared.cacheContent}|connection:${connectionContent}`
   const answers = BALANCED_CACHE_KEYS.map(key => {
     const value = getBalancedAnswer(participant, key)
     const canonical = Array.isArray(value)
@@ -588,11 +596,12 @@ export function getBalancedCacheContent(participant) {
     return `${key}:${canonical}`
   })
   prepared.cacheContent = [...answers, `vibe:${JSON.stringify(buildBalancedVibeProfile(participant))}`].join('|')
-  return prepared.cacheContent
+  return `${prepared.cacheContent}|connection:${connectionContent}`
 }
 
 /** Prime normalized score inputs and immutable content identities once per roster. */
 export function prepareBalancedParticipants(participants) {
+  prepareConnectionParticipants(participants)
   for (const participant of participants || []) {
     if (participant && typeof participant === 'object' && !PREPARED_BALANCED_PARTICIPANTS.has(participant)) {
       PREPARED_BALANCED_PARTICIPANTS.set(participant, {
@@ -757,9 +766,12 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     expectedBreakdown.language,
   ].reduce((total, value) => total + value, 0))
   const personalized = parseJsonObject(scoreBreakdown.personalized)
-  if (!isPersonalizedCompatibilityPayload(personalized)) return null
+  if (!isConnectionCompatibilityPayload(personalized)) return null
   const personalizedBaseScore = Number(personalized.totalScore)
-  const aiChemistry = calculateAiChemistryAdjustment(vibeAxes)
+  const aiChemistry = connectionChemistryDiagnostics(vibeAxes)
+  if (scoreBreakdown.scoringMethod !== 'shared-connection-survey-only'
+    || scoreBreakdown.aiChemistryApplied !== false
+    || !nearlyEqual(scoreBreakdown.aiChemistrySuggestedAdjustment, aiChemistry.suggestedAdjustment)) return null
   const totalScore = round(clamp(personalizedBaseScore + aiChemistry.adjustment, 0, 100))
   if (!nearlyEqual(scoreBreakdown.personalizedBase, personalizedBaseScore)) return null
   if (!nearlyEqual(scoreBreakdown.aiChemistryAdjustment, aiChemistry.adjustment)) return null
@@ -877,8 +889,9 @@ export function isCurrentBalancedScoreSnapshot(payload) {
   if (payload?.modelVersion !== BALANCED_COMPATIBILITY_VERSION || !hasExactSnapshotEnvelope(payload)) return false
   const breakdown = payload.snapshot.scoreBreakdown
   const personalized = breakdown?.personalized
-  if (!isPersonalizedCompatibilityPayload(personalized)) return false
-  const chemistry = calculateAiChemistryAdjustment(payload.snapshot.vibeAxes)
+  if (!isConnectionCompatibilityPayload(personalized)) return false
+  if (breakdown.scoringMethod !== 'shared-connection-survey-only' || breakdown.aiChemistryApplied !== false) return false
+  const chemistry = connectionChemistryDiagnostics(payload.snapshot.vibeAxes)
   const base = Number(personalized.totalScore)
   const finalScore = round(clamp(base + chemistry.adjustment, 0, 100))
   const persistedTotal = Number(payload.persistedTotal)
@@ -886,6 +899,7 @@ export function isCurrentBalancedScoreSnapshot(payload) {
     || nearlyEqual(persistedTotal, round(finalScore, 2))
     || nearlyEqual(persistedTotal, Math.round(finalScore))
   return nearlyEqual(breakdown.personalizedBase, base)
+    && nearlyEqual(breakdown.aiChemistrySuggestedAdjustment, chemistry.suggestedAdjustment)
     && nearlyEqual(breakdown.aiChemistryAdjustment, chemistry.adjustment)
     && breakdown.aiChemistryReady === chemistry.ready
     && breakdown.aiChemistryBand === chemistry.band
@@ -1071,9 +1085,9 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     + questionScores.intent
     + languageScore
   )
-  const personalized = calculatePersonalizedCompatibility(participantA, participantB)
+  const personalized = calculateConnectionCompatibility(participantA, participantB)
   const personalizedBaseScore = personalized.totalScore
-  const aiChemistry = calculateAiChemistryAdjustment(vibeAxes)
+  const aiChemistry = connectionChemistryDiagnostics(vibeAxes)
   const totalScore = round(clamp(personalizedBaseScore + aiChemistry.adjustment, 0, 100))
 
   return {
@@ -1091,6 +1105,9 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     aiChemistryReady: aiChemistry.ready,
     questionScores,
     scoreBreakdown: {
+      scoringMethod: 'shared-connection-survey-only',
+      aiChemistryApplied: false,
+      aiChemistrySuggestedAdjustment: aiChemistry.suggestedAdjustment,
       semanticCommonGround: semanticCommonGroundScore,
       aiSemantic: safeVibeScore,
       sharedContext: sharedContextScore,
@@ -1175,7 +1192,7 @@ export function getBalancedCacheBreakdown(cacheRow) {
     const language = finite(stored.language)
     return {
       total: finite(cacheRow?.total_compatibility_score),
-      personalized: isPersonalizedCompatibilityPayload(stored.personalized)
+      personalized: isConnectionCompatibilityPayload(stored.personalized)
         ? JSON.parse(JSON.stringify(stored.personalized))
         : null,
       semanticCommonGround: finite(stored.semanticCommonGround, aiSemantic + sharedContext),

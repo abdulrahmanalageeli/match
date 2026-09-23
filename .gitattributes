@@ -1,0 +1,4 @@
+# Keep the frozen model byte-identical to its published research hash.
+server/matching/connection-model-config.json -text whitespace=cr-at-eol
+# The original encoder hash is recorded in that model artifact.
+scripts/survey-search/nonlinear.py text eol=lf

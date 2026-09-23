@@ -3,8 +3,12 @@ import test from "node:test"
 
 import {
   BALANCED_COMPATIBILITY_VERSION,
+  buildBalancedCacheIdentity,
   buildBalancedScoreSnapshot,
+  calculateBalancedCompatibility,
+  createNeutralVibeAxes,
 } from "../matching/balanced-compatibility.mjs"
+import { connectionUtilityToIndex } from "../matching/connection-score.mjs"
 import {
   choosePreparedTestPairs,
   validatePreparedTestAlgorithmRows,
@@ -21,30 +25,36 @@ const profiles = Object.freeze([
 ])
 const pairKey = ({ a, b }) => [a, b].sort((x, y) => x - y).join("-")
 
-function storedRow(a, b, score = 76) {
-  const scoreContentHash = `prepared-${a}-${b}`
-  const personalized = {
-    scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
-    totalScore: score,
-    aToB: { score },
-    bToA: { score },
+function storedRow(a, b, { rawUtilityOverride = null } = {}) {
+  const participantA = profile(a, "male")
+  const participantB = profile(b, "female")
+  const scoreContentHash = buildBalancedCacheIdentity(participantA, participantB).combinedContentHash
+  let result = calculateBalancedCompatibility(participantA, participantB, { vibeAxes: createNeutralVibeAxes() })
+  if (rawUtilityOverride !== null) {
+    // Inject raw inference only for the zero-boundary case. The real V14 scale,
+    // mirrored directions, minimum rule, evidence and no-AI envelope remain.
+    const score = Math.round((connectionUtilityToIndex(rawUtilityOverride) + Number.EPSILON) * 1e6) / 1e6
+    const original = result.personalizedCompatibility
+    const personalized = {
+      ...original,
+      totalScore: score,
+      priorityScore: score,
+      rawMutualUtility: rawUtilityOverride,
+      aToB: { ...original.aToB, rawUtility: rawUtilityOverride, score },
+      bToA: { ...original.bToA, rawUtility: rawUtilityOverride, score },
+    }
+    result = {
+      ...result,
+      totalScore: score,
+      priorityScore: score,
+      baseCompatibilityScore: score,
+      personalizedBaseScore: score,
+      personalizedCompatibility: personalized,
+      scoreBreakdown: { ...result.scoreBreakdown, personalized, personalizedBase: score, finalScore: score },
+    }
   }
-  const scoreSnapshot = buildBalancedScoreSnapshot({
-    totalScore: score,
-    scoreBreakdown: {
-      sharedContext: 14,
-      interactionRhythm: 15,
-      personalized,
-      personalizedBase: score,
-      aiChemistryScore: null,
-      aiChemistryAdjustment: 0,
-      aiChemistryReady: false,
-      aiChemistryBand: "pending",
-      finalScore: score,
-    },
-    questionScores: { currentFocus: 3, similarityPreference: 1 },
-    vibeAxes: {},
-  }, { combinedContentHash: scoreContentHash })
+  const score = result.totalScore
+  const scoreSnapshot = buildBalancedScoreSnapshot(result, { combinedContentHash: scoreContentHash })
   return Object.freeze({
     id: `test-${a}-${b}`,
     match_id: EVENT3_MATCH_ID,
@@ -62,7 +72,7 @@ function storedRow(a, b, score = 76) {
   })
 }
 
-const preparedRows = () => Object.freeze([storedRow(1, 3), storedRow(2, 4, 82)])
+const preparedRows = () => Object.freeze([storedRow(1, 3), storedRow(2, 4)])
 const context = (overrides = {}) => ({
   eventId: EVENT_ID,
   participantNumbers: [1, 2, 3, 4],
@@ -179,7 +189,10 @@ test("prepared rows reject stale, missing or inconsistent immutable score proven
 })
 
 test("prepared zero scores remain valid but missing totals must not coerce to zero", () => {
-  const rows = [storedRow(1, 3, 0), storedRow(2, 4)]
+  const rawUtility = -1e12
+  assert.ok(connectionUtilityToIndex(rawUtility) > 0)
+  assert.ok(connectionUtilityToIndex(rawUtility) < 0.0000005)
+  const rows = [storedRow(1, 3, { rawUtilityOverride: rawUtility }), storedRow(2, 4)]
   assert.equal(validatePreparedTestAlgorithmRows(rows, context())[0].score, 0)
   for (const compatibility_score of [null, undefined, "", Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => validatePreparedTestAlgorithmRows([{ ...rows[0], compatibility_score }, rows[1]], context()))

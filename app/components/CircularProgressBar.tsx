@@ -5,6 +5,8 @@ interface CircularProgressBarProps {
   size?: number;
   strokeWidth?: number;
   dark?: boolean;
+  label?: string;
+  suffix?: string;
 }
 
 const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
@@ -12,6 +14,8 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
   size = 150,
   strokeWidth = 15,
   dark = true,
+  label = "التوافق",
+  suffix = "%",
 }) => {
   const [animatedProgress, setAnimatedProgress] = useState(0);
 
@@ -77,11 +81,11 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <span className={`text-4xl font-bold ${scoreColor} transition-colors duration-300`}>
-            {Math.round(animatedProgress)}%
+          <span dir="ltr" className={`inline-block text-4xl font-bold ${scoreColor} transition-colors duration-300`}>
+            {Math.round(animatedProgress)}<span className={suffix === "/100" ? "text-sm" : undefined}>{suffix}</span>
           </span>
           <span className={`block text-sm font-medium ${dark ? 'text-slate-400' : 'text-gray-500'}`}>
-            التوافق
+            {label}
           </span>
         </div>
       </div>
@@ -89,4 +93,4 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
   );
 };
 
-export default CircularProgressBar; 
+export default CircularProgressBar;

@@ -42,10 +42,10 @@ test('manual pair test mode calculates fresh without reading or writing compatib
   assert.match(adminSource, /Test Mode Only \(fresh, no cache\)/)
 })
 
-test('individual match generation cannot bypass required v12 AI chemistry', async () => {
+test('individual match generation retains the required AI analysis workflow', async () => {
   const source = await read('api/admin/trigger-match.mjs')
   assert.match(source, /if \(skipAI && matchType !== "group"\)/)
-  assert.match(source, /v12 individual matching requires AI chemistry/)
+  assert.match(source, /Current individual matching requires AI chemistry/)
 })
 
 test('every individual cache and vibe-retry scope excludes pairs blocked by the existing interaction gate', async () => {
@@ -332,12 +332,11 @@ test('historical match payloads expose provenance only when version, hash, and t
   assert.match(participantSource, /snapshot\.vibeModelTag !== BALANCED_VIBE_MODEL_TAG/)
 })
 
-test('UI model detection requires exact persisted provenance and Event3 never applies retired maxima', async () => {
+test('UI model detection requires exact persisted provenance and Event3 distinguishes the current index', async () => {
   const [modelSource, event3Source] = await Promise.all([
     read('app/lib/compatibility-model.ts'),
     read('app/routes/event3.tsx'),
   ])
-  const breakdownBlock = between(event3Source, 'function CompatibilityBreakdown', 'function DemoButton')
   const groupedDimensionsBlock = between(
     modelSource,
     'export function currentBalancedGroupedDimensionsForDisplay',
@@ -347,16 +346,15 @@ test('UI model detection requires exact persisted provenance and Event3 never ap
   assert.match(modelSource, /snapshot\.combinedContentHash === contentHash/)
   assert.match(modelSource, /snapshot\.vibeModelTag === CURRENT_BALANCED_VIBE_TAG/)
   assert.match(modelSource, /snapshotTotal === storedTotal/)
-  assert.match(modelSource, /2026-09-03-v12-event26-archetype-ai-chemistry-100/)
+  assert.match(modelSource, /2026-09-23-v14-shared-connection-75-25-min-100/)
   assert.doesNotMatch(modelSource, /CURRENT_BALANCED_NEUTRAL_BASELINE|expectedEvidence/)
-  assert.doesNotMatch(breakdownBlock, /max:\s*(?:30|25|15)\b/)
-  assert.match(breakdownBlock, /currentBalancedGroupedDimensionsForDisplay\(dimensionSource\)/)
-  assert.match(event3Source, /breakdown=\{p2\.breakdown\} scoreRow=\{p2\}/)
-  assert.match(event3Source, /breakdown=\{p3\.breakdown\} scoreRow=\{p3\}/)
+  assert.match(event3Source, /score_meaning === "relative-ranking-not-probability"/)
+  assert.match(event3Source, /scoreMeaning=\{p2\?\.score_meaning\}/)
+  assert.match(event3Source, /scoreMeaning=\{p3\?\.score_meaning\}/)
   for (const maximum of [18, 20, 10, 8, 12, 17, 10, 5]) {
     assert.match(groupedDimensionsBlock, new RegExp(`max: ${maximum}\\b`))
   }
-  assert.match(breakdownBlock, /نعرض المجموع التاريخي فقط/)
+  assert.match(event3Source, /النتيجة المحفوظة/)
 })
 
 test('organizer result views never merge a historical total with a current cache breakdown', async () => {

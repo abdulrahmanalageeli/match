@@ -37,9 +37,6 @@ import {
   prepareBalancedParticipants,
 } from "../../server/matching/balanced-compatibility.mjs"
 import {
-  preparePersonalizedParticipants,
-} from "../../server/matching/personalized-compatibility.mjs"
-import {
   createDisabledHistoricalMatchAnalyzer,
   createHistoricalMatchAnalyzer,
   HISTORY_CONFIDENCE_MIN_EVENT_ID,
@@ -183,7 +180,6 @@ const DEFERRED_AI_VIBE_REASON = 'deferred_ai'
 
 function prepareCompatibilityParticipants(participants) {
   prepareBalancedParticipants(participants)
-  preparePersonalizedParticipants(participants)
   return participants
 }
 
@@ -577,11 +573,11 @@ function buildCompatibilityCacheRow(participantA, participantB, scores, cachedAt
       use_count: 1
   }
 
-  // v12 may persist a provisional base-only row while durable AI enrichment is
+  // The current model may persist a provisional base-only row while durable AI enrichment is
   // queued. Hydration validates its internal formula; durability is decided
   // separately so provisional rows never count as complete cache hits.
   if (!hydrateBalancedCompatibilityFromCacheRow(row)) {
-    return { row: null, key: null, reason: 'Compatibility payload is not a complete current v12 score' }
+    return { row: null, key: null, reason: 'Compatibility payload is not a complete current-model score' }
   }
 
   return {
@@ -610,7 +606,7 @@ async function storeDeferredVibeRowsAndJobs(items, { eventId, matchId }) {
     vibe_content_hash: item.row.vibe_content_hash,
     score_model_version: item.row.score_model_version,
   }))
-  const { error } = await cacheUpsertRetry('Deferred v12 cache and AI queue atomic bulk store', () => supabase
+  const { error } = await cacheUpsertRetry('Deferred current-model cache and AI queue atomic bulk store', () => supabase
     .rpc('store_deferred_v11_compatibility_cache', {
       p_cache_rows: items.map(item => item.row),
       p_jobs: jobs,
@@ -2119,17 +2115,16 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
 function formatBalancedScoreReason(result) {
   const breakdown = result?.scoreBreakdown || {}
   const personalized = breakdown.personalized || result?.personalizedCompatibility || {}
-  const chemistryAdjustment = Number(breakdown.aiChemistryAdjustment ?? result?.aiChemistryAdjustment ?? 0)
   const chemistryScoreValue = breakdown.aiChemistryScore ?? result?.aiChemistryScore
   const chemistryScore = chemistryScoreValue === null || chemistryScoreValue === undefined
     ? Number.NaN
     : Number(chemistryScoreValue)
   return [
-    `Archetype base: ${Math.round(Number(personalized.totalScore ?? result?.baseCompatibilityScore ?? 0))}%`,
-    `A→B: ${Math.round(Number(personalized.aToB?.score ?? 0))}%`,
-    `B→A: ${Math.round(Number(personalized.bToA?.score ?? 0))}%`,
-    `AI chemistry: ${Number.isFinite(chemistryScore) ? `${Math.round(chemistryScore * 100)}%` : 'pending'} (${chemistryAdjustment >= 0 ? '+' : ''}${chemistryAdjustment})`,
-    `Final: ${Math.round(Number(result?.totalScore ?? breakdown.finalScore ?? 0))}%`,
+    'Shared connection model (relative ranking, not probability)',
+    `A→B: ${Math.round(Number(personalized.aToB?.score ?? 0))}/100`,
+    `B→A: ${Math.round(Number(personalized.bToA?.score ?? 0))}/100`,
+    `AI chemistry: ${Number.isFinite(chemistryScore) ? `${Math.round(chemistryScore * 100)}/100` : 'pending'} (diagnostic only)`,
+    `Mutual minimum: ${Math.round(Number(result?.totalScore ?? breakdown.finalScore ?? 0))}/100`,
     'Diagnostic components',
     `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround ?? 0))}/18`,
     `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm ?? 0))}/20`,
@@ -4191,7 +4186,7 @@ async function finalizeCompatibilityCacheMetadataAfterAi({ eventId, matchId }) {
     p_duration_ms: 0,
     p_ai_calls: 0,
     p_cache_hit_rate: 100,
-    p_notes: 'v12 durable AI chemistry enrichment complete',
+    p_notes: 'Current-model durable AI chemistry enrichment complete',
     p_score_model_version: COMPATIBILITY_SCORE_VERSION,
   })
   if (metadataError) throw metadataError
@@ -6290,7 +6285,7 @@ if (action === "cache-status-by-gender") {
   }
   if (skipAI && matchType !== "group") {
     return res.status(400).json({
-      error: "v12 individual matching requires AI chemistry; run or resume batch pre-cache instead of bypassing AI",
+      error: "Current individual matching requires AI chemistry; run or resume batch pre-cache instead of bypassing AI",
     })
   }
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
@@ -8284,12 +8279,11 @@ if (action === "cache-status-by-gender") {
             [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
             null)
         
-        // v12 combines the mutual archetype base with the validated AI
-        // chemistry correction. The old categories remain diagnostics.
+        // V14 uses the lower shared-model direction. AI chemistry and the
+        // old categories remain diagnostics without changing its score.
         const personalized = scoreBreakdown.personalized || compatibilityResult.personalizedCompatibility || {}
-        const chemistryAdjustment = Number(scoreBreakdown.aiChemistryAdjustment ?? compatibilityResult.aiChemistryAdjustment ?? 0)
         const chemistryScore = scoreBreakdown.aiChemistryScore
-        let reason = `الأساس الشخصي: ${Math.round(Number(personalized.totalScore ?? compatibilityResult.baseCompatibilityScore ?? totalScore))}% (${Math.round(Number(personalized.aToB?.score ?? 0))}% →، ${Math.round(Number(personalized.bToA?.score ?? 0))}% ←) + كيمياء الذكاء الاصطناعي: ${chemistryScore == null ? 'قيد الانتظار' : `${Math.round(Number(chemistryScore) * 100)}%`} (${chemistryAdjustment >= 0 ? '+' : ''}${chemistryAdjustment}) = ${Math.round(totalScore)}% — تشخيص الأسئلة: الأرضية المشتركة ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/18 + إيقاع التفاعل ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/20 + الدعابة/الانفتاح ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/10 + راحة التقارب ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/8 + نمط الحياة ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود ${Math.round(scoreBreakdown.valuesBoundaries ?? 0)}/13 + التواصل/الاختلاف ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/10 + الهدف ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + لغة التعبير ${Math.round(scoreBreakdown.language ?? 0)}/4`
+        let reason = `مؤشر الترشيح المشترك: ${Math.round(totalScore)}/100 (الأقل بين الاتجاهين: ${Math.round(Number(personalized.aToB?.score ?? 0))}/100 →، ${Math.round(Number(personalized.bToA?.score ?? 0))}/100 ←؛ ترتيب نسبي وليس احتمالاً) | كيمياء الذكاء الاصطناعي: ${chemistryScore == null ? 'قيد الانتظار' : `${Math.round(Number(chemistryScore) * 100)}/100`} (تشخيصية فقط) — تشخيص الأسئلة: الأرضية المشتركة ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/18 + إيقاع التفاعل ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/20 + الدعابة/الانفتاح ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/10 + راحة التقارب ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/8 + نمط الحياة ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود ${Math.round(scoreBreakdown.valuesBoundaries ?? 0)}/13 + التواصل/الاختلاف ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/10 + الهدف ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + لغة التعبير ${Math.round(scoreBreakdown.language ?? 0)}/4`
 
         // Append age tolerance indicator if used
         const ageTolerance = getAgeTolerance(a.assigned_number, b.assigned_number)
@@ -9225,4 +9219,3 @@ if (action === "cache-status-by-gender") {
     })
   }
 }
-

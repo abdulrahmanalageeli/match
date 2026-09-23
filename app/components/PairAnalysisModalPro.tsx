@@ -180,12 +180,6 @@ const CORE_VALUES_QUESTIONS: Record<string, { label: string, options: Record<str
 // Visual helpers
 const getTierName = (p: number) => (p >= 85 ? 'ممتاز' : p >= 70 ? 'جيد جدًا' : p >= 55 ? 'جيد' : p >= 40 ? 'مقبول' : 'ضعيف')
 const getInitial = (s: string) => { const t = (s || '').replace(/^#/, '').trim(); return t ? t[0].toUpperCase() : '—' }
-const getArchetypeLabel = (direction: any) => {
-  const key = String(direction?.archetype?.key || '')
-  if (key === 'adaptive_explorers') return 'المستكشفون المتكيّفون'
-  if (key === 'depth_warmth_seekers') return 'باحثو العمق والدفء'
-  return direction?.archetype?.label || '—'
-}
 const computeTopSynergyDrivers = (details: Array<{ label: string, scaled: number }>) => details.slice().sort((a,b)=> (b.scaled||0)-(a.scaled||0)).filter(d=> (d.scaled||0)>0).slice(0,2)
 function ScoreBar({ label, value, max, color, icon }: { label: string, value: number, max: number, color: string, icon?: React.ReactNode }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
@@ -480,7 +474,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     const raw = compatibilityTotalForDisplay(pair) ?? 0
     const value = Number(raw)
     if (!Number.isFinite(value)) return 0
-    return Math.round(value > 0 && value <= 1 ? value * 100 : value)
+    return Math.round(isLegacy && value > 0 && value <= 1 ? value * 100 : value)
   })()
   // Show unbonused percentage (divide out multipliers) if any multiplier applied
   const intentApplied = isLegacy && !!pair?.intent_boost_applied
@@ -964,21 +958,21 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
                 <div className="bg-gradient-to-br from-cyan-500/10 via-slate-900/50 to-fuchsia-500/10 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-3xl">
                   <div className="hidden md:flex items-center justify-center mb-3">
-                    <CircularProgressBar progress={overallPercent} size={148} strokeWidth={12} />
+                    <CircularProgressBar progress={overallPercent} size={148} strokeWidth={12} label={isBalanced ? "مؤشر الترشيح" : undefined} suffix={isBalanced ? "/100" : undefined} />
                   </div>
                   <div className="md:hidden flex items-center justify-between">
                     <div>
-                      <div className="text-slate-300 text-xs">التوافق الإجمالي</div>
-                      <div className="text-3xl font-extrabold text-white">{overallPercent}%</div>
+                      <div className="text-slate-300 text-xs">{isBalanced ? 'مؤشر الترشيح' : 'التوافق الإجمالي'}</div>
+                      <div className="text-3xl font-extrabold text-white" dir="ltr">{overallPercent}{isBalanced ? '/100' : '%'}</div>
                     </div>
-                    <CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} />
+                    <CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} label={isBalanced ? "مؤشر الترشيح" : undefined} suffix={isBalanced ? "/100" : undefined} />
                   </div>
                   {unbonusedPercent !== null && (
                     <div className="mt-1 text-[11px] text-slate-400 text-center md:text-right">(بدون مكافآت: {unbonusedPercent}%)</div>
                   )}
                   <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${isBalanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200' : isOpposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-200' : 'border-amber-400/25 bg-amber-500/10 text-amber-200'}`}>
                     {isBalanced
-                      ? 'النموذج الشخصي الحالي · تعلّم من ترتيبات الفعالية 26'
+                      ? 'نموذج الترشيح المشترك · تعلّم من تقييمات التواصل والترتيبات في الفعاليات 26–28'
                       : isOpposites
                         ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100'
                         : `عرض تاريخي موروث${scoreModelVersion ? ` · ${scoreModelVersion}` : ''}`}
@@ -987,20 +981,18 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                     <div className="mt-3 grid grid-cols-1 gap-2 text-[11px]">
                       <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-cyan-100">تفضيل {aNameLabel} لـ {bNameLabel}</span>
-                          <span className="font-black text-cyan-300">{Math.round(Number(aToBPersonalized.score))}%</span>
+                          <span className="font-semibold text-cyan-100">مؤشر {aNameLabel} تجاه {bNameLabel}</span>
+                          <span className="font-black text-cyan-300" dir="ltr">{Math.round(Number(aToBPersonalized.score))}/100</span>
                         </div>
-                        <div className="mt-0.5 text-slate-400">النمط: {getArchetypeLabel(aToBPersonalized)}</div>
                       </div>
                       <div className="rounded-lg border border-fuchsia-400/20 bg-fuchsia-500/[0.08] px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-fuchsia-100">تفضيل {bNameLabel} لـ {aNameLabel}</span>
-                          <span className="font-black text-fuchsia-300">{Math.round(Number(bToAPersonalized.score))}%</span>
+                          <span className="font-semibold text-fuchsia-100">مؤشر {bNameLabel} تجاه {aNameLabel}</span>
+                          <span className="font-black text-fuchsia-300" dir="ltr">{Math.round(Number(bToAPersonalized.score))}/100</span>
                         </div>
-                        <div className="mt-0.5 text-slate-400">النمط: {getArchetypeLabel(bToAPersonalized)}</div>
                       </div>
                       <div className="px-1 text-slate-500 leading-relaxed">
-                        النسبة الإجمالية هي المتوسط الهندسي للاتجاهين. أشرطة الأسئلة أدناه تشخيصية وليست جمعًا للنسبة.
+                        المؤشر الإجمالي هو الأقل بين الاتجاهين ويعبّر عن ترتيب نسبي، وليس احتمالًا للتواصل. أشرطة الأسئلة وتحليل AI تشخيصية ولا تغيّر المؤشر.
                       </div>
                     </div>
                   )}
@@ -1046,7 +1038,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                       <div className="flex flex-wrap gap-2 text-xs md:text-sm">
                         {isBalanced && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200">
-                            <BadgeCheck className="w-4 h-4" /> النسبة شخصية ومتبادلة؛ الأبعاد أدلة تشخيصية فقط
+                            <BadgeCheck className="w-4 h-4" /> مؤشر نسبي من الاستبيان؛ يعتمد على الاتجاه الأقل
                           </span>
                         )}
                         {isOpposites && (

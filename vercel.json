@@ -15,6 +15,18 @@
     {
       "source": "/apple-touch-icon-precomposed.png",
       "destination": "/blindmatch.png"
+    },
+    {
+      "source": "/circle/",
+      "destination": "/circle/index.html"
+    },
+    {
+      "source": "/api/circle-event",
+      "destination": "https://xytwdgiihfmxiflwuxti.supabase.co/functions/v1/circle-event"
+    },
+    {
+      "source": "/api/circle-dealbreakers",
+      "destination": "https://xytwdgiihfmxiflwuxti.supabase.co/functions/v1/circle-dealbreakers"
     }
   ],
   "headers": [
@@ -54,6 +66,13 @@
           "value": "off"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/circle",
+      "destination": "/circle/",
+      "permanent": false
     }
   ]
 }

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#281c16">
+  <meta name="description" content="شارك الديل بريكر عندك مع The Circle، بدون اسم أو حساب.">
+  <title>وش الديل بريكر عندك؟ — The Circle</title>
+  <link rel="preload" href="./assets/tajawal-arabic-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./assets/tajawal-arabic-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./anonymous.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="brand" aria-label="The Circle">
+      <span class="brand-wordmark" dir="ltr">THE CIRCLE</span>
+      <span class="brand-line" aria-hidden="true"></span>
+      <span class="brand-caption">مساحة للكلام الصريح</span>
+    </header>
+
+    <main id="main-content">
+      <div class="intro">
+        <p class="eyebrow"><span aria-hidden="true"></span>بدون أسماء. بدون أحكام.</p>
+        <h1>وش الديل بريكر<br><em>عندك؟</em></h1>
+        <p class="intro-copy">وش الشيء اللي يصعب عليك تتقبّله في العلاقة؟<br>اكتبه بطريقتك، وبكل صراحة.</p>
+      </div>
+
+      <section class="participation-card" aria-label="مشاركة بدون اسم">
+        <div id="form-view">
+          <form id="submission-form" novalidate>
+            <div class="field-heading">
+              <label for="dealbreaker">مشاركتك</label>
+              <span class="field-caption">بدون اسم أو حساب</span>
+            </div>
+            <textarea id="dealbreaker" name="text" rows="5" maxlength="600" minlength="3" required
+              placeholder="شيء ما تقدر تتعايش معه في العلاقة…" aria-describedby="field-hint character-count form-error"
+              spellcheck="true" enterkeyhint="enter"></textarea>
+            <div class="field-details">
+              <span id="field-hint">٣ أحرف على الأقل</span>
+              <span id="character-count" aria-label="عدد الأحرف"><bdi id="count-value">٠</bdi><span aria-hidden="true"> / </span><bdi>٦٠٠</bdi></span>
+            </div>
+            <div class="honeypot" aria-hidden="true">
+              <label for="website">Website</label>
+              <input type="text" id="website" name="website" autocomplete="off" tabindex="-1">
+            </div>
+            <p id="offline-notice" class="notice" role="status" hidden>أنت بدون اتصال حاليًا. مشاركتك هنا؛ أرسلها لما يرجع الاتصال.</p>
+            <p id="form-error" class="form-error" role="alert" hidden></p>
+            <button id="submit-button" class="primary-button" type="submit">
+              <span id="submit-label">أرسل مشاركتك</span>
+              <span class="button-arrow" aria-hidden="true">←</span>
+              <span class="spinner" aria-hidden="true" hidden></span>
+            </button>
+            <p class="card-note">اكتب الفكرة بدون أسماء أو تفاصيل تعرّف بأحد.</p>
+          </form>
+        </div>
+
+        <div id="success-view" class="success-view" hidden>
+          <div class="success-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="m11 21 6 6 13-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <p class="success-eyebrow">شكرًا على صراحتك</p>
+          <h2 id="success-heading" tabindex="-1">وصلت مشاركتك</h2>
+          <p class="success-copy">كل وجهة نظر تضيف للنقاش.<br>مشاركتك وصلت بدون اسم.</p>
+          <button id="another-button" class="primary-button" type="button"><span>أضف مشاركة ثانية</span><span aria-hidden="true">+</span></button>
+        </div>
+      </section>
+
+      <p class="privacy-note"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none"><rect x="3.5" y="7" width="9" height="7" rx="1.5" stroke="currentColor"/><path d="M5.5 7V4.5a2.5 2.5 0 0 1 5 0V7" stroke="currentColor"/><path d="M8 10v1" stroke="currentColor" stroke-linecap="round"/></svg><span>مشاركتك بدون اسم — حتى عند عرضها في اللقاء.</span></p>
+      <noscript><p class="noscript-message">فعّل JavaScript في المتصفح عشان تقدر ترسل مشاركتك.</p></noscript>
+    </main>
+
+    <footer class="page-footer"><span>كلنا مختلفين.</span><span class="footer-dot" aria-hidden="true"></span><a href="./" class="back-to-vote">ارجع للتصويت ←</a></footer>
+  </div>
+</body>
+</html>
+
+

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#281c16"><title>The Circle — شاركنا رأيك</title>
+<link rel="preload" href="./assets/tajawal-arabic-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="./assets/tajawal-arabic-700.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="./guest.css"><script src="./guest.js" defer></script>
+</head>
+<body><div class="guest-shell">
+<header class="brand"><span class="wordmark" dir="ltr">THE CIRCLE</span><span class="brand-tag">مساحة للكلام الصريح</span></header>
+<p id="connection-notice" class="notice" role="status" hidden></p>
+<main>
+<section id="loading-view" class="loading-view" aria-label="جاري الاتصال"><span class="loader" aria-hidden="true"></span><p>لحظة، نجهّز لك المساحة…</p></section>
+<section id="auth-view" hidden>
+<div class="intro"><p class="eyebrow">أهلًا في الدائرة</p><h1>خلّنا نسمع<br><em>وجهة نظرك.</em></h1><p>كلنا مختلفين، ولكل واحد حدوده.</p></div>
+<div class="card auth-card">
+<div class="tabs" role="tablist" aria-label="طريقة الدخول"><button id="join-tab" type="button" role="tab" aria-selected="true" aria-controls="join-panel">أول مرة</button><button id="login-tab" type="button" role="tab" aria-selected="false" aria-controls="login-panel" tabindex="-1">عندي رمز دخول</button></div>
+<div id="join-panel" role="tabpanel" aria-labelledby="join-tab"><form id="join-form" novalidate><label for="guest-name">وش نناديك؟</label><input id="guest-name" name="name" type="text" minlength="2" maxlength="40" autocomplete="given-name" enterkeyhint="go" placeholder="الاسم اللي تحب تظهر فيه" aria-describedby="name-note auth-error" required><p id="name-note" class="field-note">اسمك يظهر مع اختياراتك في اللقاء والتقرير. الديل بريكرز المكتوبة تبقى مجهولة.</p><button class="primary" id="join-button" type="submit">انضم للفعالية <span aria-hidden="true">←</span></button></form></div>
+<div id="login-panel" role="tabpanel" aria-labelledby="login-tab" hidden><form id="login-form" novalidate><label for="login-code">رمز دخولك الشخصي</label><input id="login-code" name="code" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" dir="ltr" placeholder="أدخل الرمز" aria-describedby="code-note auth-error" required><p id="code-note" class="field-note">استخدم الرمز اللي حفظته أو أعطاك إياه المنظّم.</p><button class="primary" id="login-button" type="submit">ادخل الفعالية <span aria-hidden="true">←</span></button></form></div>
+<p id="auth-error" class="error" role="alert" hidden></p></div></section>
+<section id="recovery-view" hidden><div class="intro"><p class="eyebrow">صار لك مكان بيننا</p><h1>أهلًا،<br><em id="welcome-name"></em></h1></div><div class="card recovery-card"><h2>هذا رمز دخولك</h2><p>احتفظ فيه عشان ترجع من أي جهاز.<br>الرمز خاص فيك؛ لا تشاركه مع أحد.</p><div class="recovery-code" id="personal-code" dir="ltr" tabindex="0" aria-label="رمز دخولك الشخصي"></div><button id="copy-code" class="secondary" type="button">انسخ الرمز</button><p id="copy-status" class="field-note" role="status"></p><button id="enter-event" class="primary" type="button">ادخل الفعالية <span aria-hidden="true">←</span></button></div></section>
+<section id="live-view" hidden>
+<div class="participant-line"><span>أهلًا، <strong id="participant-name"></strong></span><span class="live-status"><i aria-hidden="true"></i>معكم في الدائرة</span></div><p class="event-title" id="event-title">الحدود والديل بريكرز</p>
+<article class="card question-card"><div class="question-meta"><span id="question-label">ننتظر البداية</span><span id="countdown" class="countdown" hidden aria-label="الوقت المتبقي"><span aria-hidden="true">◷</span><bdi id="countdown-value">00:00</bdi></span></div><h1 id="question-title">خذ راحتك…<br>بنبدأ مع بعض.</h1><p id="question-note" class="question-note">تابع شاشة الفعالية، والسؤال بيظهر هنا تلقائيًا.</p></article>
+<div id="vote-options" class="vote-options" aria-label="اختيارك" hidden><button type="button" data-choice="1" aria-pressed="false"><span>أتقبّل</span><span class="choice-mark" aria-hidden="true"></span></button><button type="button" data-choice="2" aria-pressed="false"><span>أتقبّل بشروط</span><span class="choice-mark" aria-hidden="true"></span></button><button type="button" data-choice="3" aria-pressed="false"><span>صعب أتنازل</span><span class="choice-mark" aria-hidden="true"></span></button><button type="button" data-choice="4" aria-pressed="false"><span>خط أحمر</span><span class="choice-mark" aria-hidden="true"></span></button></div><p id="vote-status" class="vote-status" role="status"></p><p id="vote-error" class="error live-error" role="alert" hidden></p>
+</section>
+</main><footer><a href="./anonymous.html">عندك ديل بريكر؟ شاركه بدون اسم <span aria-hidden="true">↗</span></a></footer><noscript><p class="notice">فعّل JavaScript في المتصفح عشان تشارك معنا.</p></noscript>
+</div></body></html>

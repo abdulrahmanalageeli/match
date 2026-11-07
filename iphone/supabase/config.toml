@@ -1,0 +1,46 @@
+project_id = "blindmatch-marriage"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_confirmations = true
+
+# Both handlers explicitly verify identity: Supabase Auth + current session for
+# member claims, Apple-signed notification for callbacks. Publishable keys are
+# not JWTs and Apple's servers cannot send a Supabase access JWT.
+[functions.verify-membership]
+verify_jwt = false
+
+[functions.apple-notifications]
+verify_jwt = false
+
+# Validates Supabase Auth and the live auth.sessions row through its checked RPC.
+[functions.voice-token]
+verify_jwt = false
+
+[functions.pair-test]
+verify_jwt = false
+
+# Signup/recovery validates managed credentials and server-only rate-limit RPCs.
+[functions.guardian-access]
+verify_jwt = false
+
+# Checked RPC authenticates live member sessions or scoped, expiring tester tokens.
+[functions.manual-verification]
+verify_jwt = false

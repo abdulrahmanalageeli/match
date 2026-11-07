@@ -1,0 +1,41 @@
+{
+  "releasedOn": "2026-11-06",
+  "status": "Foreground call implementation deployed; native web assets synchronized. Real device audio verification pending.",
+  "preview": "https://nisfayn-preview.vercel.app",
+  "deploymentId": "dpl_2sZKTZ5BY9DyZmTv3xNzno3WFTYT",
+  "demo": "Explicitly labeled simulation. No microphone, Agora connection or call API request.",
+  "backend": {
+    "project": "wupkifqbwhhebwrgvwai",
+    "migration": "20261106102227_marriage_private_voice_calls.sql",
+    "function": "voice-token",
+    "functionVersion": 2,
+    "secretNames": ["AGORA_APP_ID", "AGORA_APP_CERTIFICATE"],
+    "authorization": "Confirmed live Auth session, accepted conversation, both paid and eligible participants, no block; recipient acceptance required before credentials",
+    "tokenTtlSeconds": 120,
+    "renewEverySeconds": 60,
+    "directTableReads": "Denied to anon and authenticated; RLS enabled",
+    "liveEndpointChecks": "Missing and invalid Bearer tokens return 401; no-store; no credential in errors",
+    "advisor": "Only informational RLS-without-policy findings, intentional for private tables accessed through checked functions",
+    "advisorReference": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+    "blindMatch": "Untouched"
+  },
+  "features": ["Incoming, outgoing, accept, decline and hangup", "Mute and iPhone speaker control", "Duration, connection state, minimize and return", "Private Realtime wakeups and repair polling", "Timeouts, busy handling, call limits and per-participant leases", "Immediate local audio teardown on hangup, logout, background and revoked access", "Late async responses cannot reopen cancelled calls"],
+  "versions": {"agoraWeb": "4.24.9", "agoraAudioIOS": "4.7.0", "agoraServerToken": "2.0.7"},
+  "verification": {
+    "sqlTestsPassed": 37,
+    "edgeTestsPassed": 4,
+    "transportTestsPassed": 11,
+    "providerRaceTestsPassed": 6,
+    "mobileBrowserWidths": [320, 390],
+    "liveDemoCallJourney": "Passed with zero runtime errors, microphone requests, live call requests or horizontal overflow",
+    "runtimeDependencyAudit": "0 vulnerabilities",
+    "productionWebBuild": true,
+    "capacitorSync": true,
+    "nativeProjectAndOfficialSDKSignatures": "Statically checked",
+    "nativeBinaryBuilt": false,
+    "realTwoDeviceAudioVerified": false,
+    "certificateInSourceOrAppBundle": false
+  },
+  "remaining": ["Compile and sign with Xcode on macOS; run two-device iPhone microphone/audio/renewal/routing tests", "Verify Agora certificate authentication and Co-host authentication settings for provider-side publish privilege enforcement", "Implement PushKit/CallKit and background incoming-call delivery before claiming locked-screen calling"],
+  "limits": "Foreground only. Already issued provider tokens may remain usable for up to 120 seconds after server revocation; clients leave immediately on ended state. Calls are not recorded by this implementation."
+}

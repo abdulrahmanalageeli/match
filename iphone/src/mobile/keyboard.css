@@ -1,0 +1,26 @@
+/* Keep Safari from zooming small fields on focus; user pinch zoom remains available. */
+@media (any-pointer: coarse) {
+  html body :is(.fb-field input, .fb-field select, .fb-composer textarea) {
+    font-size: max(16px, 1rem);
+  }
+}
+.nf-keyboard-dismiss { display: none; }
+html[data-nf-keyboard] .nf-keyboard-dismiss {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding: 8px 12px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--accent); font: inherit; font-size: .82rem;
+}
+html[data-nf-keyboard] :is(.nf-intake-actions, .nf-studio-actions) { bottom: var(--nf-keyboard-inset, 0px); padding-bottom: 8px; }
+html[data-nf-keyboard] :is(.nf-support-dialog, .fb-preparation) {
+  position: fixed; top: calc(var(--nf-visual-top, 0px) + 12px); bottom: auto;
+  margin-block: 0; max-height: calc(var(--nf-visual-height, 100dvh) - 24px);
+  overscroll-behavior: contain;
+}
+html[data-nf-keyboard] .fb-chat:has(.fb-composer textarea:focus) {
+  position: fixed; top: var(--nf-visual-top, 0px); inset-inline: 0; z-index: 70;
+  width: 100%; max-width: var(--app-width); margin-inline: auto;
+  height: var(--nf-visual-height, 100dvh); min-height: 0; border-radius: 0;
+}
+html[data-nf-keyboard] .fb-chat-header .nf-keyboard-dismiss { padding-inline: 8px; flex: none; }
+html[data-nf-keyboard] .fb-chat-header .nf-keyboard-dismiss span { display: none; }
+html[data-nf-keyboard] .fb-chat:has(.fb-composer textarea:focus) :is(.fb-chat-header, .fb-chat-privacy, .fb-chat-tools) { flex: none; }

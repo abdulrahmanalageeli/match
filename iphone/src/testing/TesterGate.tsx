@@ -1,0 +1,15 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { LockKeyhole, ArrowLeft } from 'lucide-react';
+import App from '../App';
+import { Brand } from '../Brand';
+import { testProfile,testRequest,testStorage,type Actor,type TestSession } from './pair';
+import './testing.css';
+export function TesterGate(){
+ const [account,setAccount]=useState<TestSession|null>(null),[actor,setActor]=useState<Actor>('abdulrahman'),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{let alive=true;const raw=sessionStorage.getItem(testStorage);if(raw){setBusy(true);try{const saved=JSON.parse(raw);void testRequest<any>('state',saved.session).then(data=>{if(alive)setAccount({...saved,actor:data.actor,profileRevision:data.profileRevision,profile:testProfile(data.actor,data.profiles[data.actor])});}).catch(()=>sessionStorage.removeItem(testStorage)).finally(()=>{if(alive)setBusy(false);});}catch{sessionStorage.removeItem(testStorage);setBusy(false);}}return()=>{alive=false};},[]);
+ async function login(e:FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');try{const result=await testRequest<any>('login','',{}, {actor,password});const next={actor:result.actor,session:result.session,profileRevision:result.profileRevision,profile:testProfile(result.actor,result.profiles[result.actor])};sessionStorage.setItem(testStorage,JSON.stringify({actor:next.actor,session:next.session}));setPassword('');setAccount(next);}catch(e){setError(e instanceof Error?e.message:'تعذّر الدخول.');}finally{setBusy(false);}}
+ const exit=()=>{if(account)void testRequest('logout',account.session).catch(()=>{});sessionStorage.removeItem(testStorage);setAccount(null);};
+ if(account)return <App key={account.session} tester={account} onTesterExit={exit}/>;
+ return <main className="nf-test-gate" dir="rtl"><Brand/><div className="nf-test-lock"><LockKeyhole size={25}/></div><p className="nf-test-eyebrow">مساحة الاختبار الخاصة</p><h1>أهلًا بكما في نصفين</h1><p>اختارا الحساب للبدء. عبدالرحمن ورهام متوافقان بالفعل. اتفقا على ميثاق الجدية لبدء التعارف.</p>
+ <form onSubmit={login}><fieldset disabled={busy}><legend>الدخول باسم</legend><div className="nf-test-choices">{(['abdulrahman','reham'] as const).map(id=><button type="button" key={id} aria-pressed={actor===id} onClick={()=>{setActor(id);setError('');}}><b>{id==='reham'?'رهام':'عبدالرحمن'}</b><small>{id==='reham'?'تجربة العضوة':'تجربة المشرف'}</small></button>)}</div></fieldset>{actor==='abdulrahman'&&<><label htmlFor="tester-password">كلمة مرور الاختبار</label><input id="tester-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required disabled={busy}/></>}{error&&<p role="alert" className="form-error">{error}</p>}<button className="btn-primary" disabled={busy||(actor==='abdulrahman'&&!password)}>{busy?'جارٍ الدخول…':'دخول التجربة'}<ArrowLeft size={18}/></button></form><small>حسابات اختبار منفصلة عن الأعضاء الحقيقيين. التفاصيل الأولية أمثلة قابلة للتعديل.</small><a className="nf-demo-link" href="?family=1">جسر الأهل · دخول وليّ الأمر أو أحد الأهل</a></main>;
+}

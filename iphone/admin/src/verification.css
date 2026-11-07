@@ -1,0 +1,27 @@
+.av-workspace .af-intro{background:linear-gradient(115deg,#f8f2e9,#f1e6e4)}
+.av-filter-label{display:flex;align-items:center;gap:9px;font-size:11px;color:#80656f}
+.av-filter-label select{font:inherit;border:1px solid #e5d8d2;border-radius:10px;background:#fffaf5;color:var(--burgundy);padding:9px 12px;min-height:41px;max-width:220px;outline-offset:3px}
+.av-summary-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:23px;font-size:11px;color:#80656f}
+.av-claim{padding:20px;background:#f7f0e9;border:1px solid #e8dbd4;border-radius:14px}
+.av-claim h3,.av-evidence-section h3{font-size:15px;margin-bottom:10px}
+.av-claim dl{margin:0;display:grid;gap:14px}
+.av-claim dl>div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px}
+.av-claim dt{font-size:12px;color:#80656f}
+.av-claim dd{font-size:14px;font-weight:700;overflow-wrap:anywhere;color:var(--burgundy);margin:0}
+.av-evidence-section{margin-top:26px}
+.av-evidence-section>p{font-size:12px;color:#80656f;margin-bottom:15px}
+.av-evidence{padding:15px 0;border-top:1px solid var(--border)}
+.av-file{display:flex;align-items:center;gap:10px;color:#946574}
+.av-file>span{display:grid;gap:3px;flex:1;min-width:0}
+.av-file strong{font-size:12px;color:var(--ink);overflow-wrap:anywhere;font-weight:400}
+.av-file small{font-size:10px;color:#80656f}
+.av-file button{font-size:11px;padding:7px 10px;min-height:37px;flex-shrink:0}
+.av-preview{margin-top:14px;padding:10px;background:#f4ece6;border:1px solid #e5d7cf;border-radius:12px;overflow:hidden}
+.av-preview img{display:block;max-height:420px;margin:auto;object-fit:contain}
+.av-preview iframe{display:block;width:100%;height:420px;border:0;border-radius:6px;background:white}
+.av-preview>a{font-size:12px;width:100%;text-decoration:none}
+.av-preview>small{display:block;text-align:center;font-size:10px;color:#80656f;line-height:1.8}
+.av-sheet .af-link-identity .badge{margin-inline-start:auto}
+.av-sheet .af-link-identity h3{font-size:21px}
+.av-sheet .quiet-box{color:#80656f}
+@media(max-width:600px){.av-filter-label{width:100%;justify-content:space-between}.av-filter-label select{flex:1}.av-claim{padding:17px}.av-claim dl>div{grid-template-columns:90px minmax(0,1fr)}.av-claim dd{font-size:13px}.av-file{gap:8px}.av-file button{font-size:10px;padding:7px 8px}.av-sheet .af-link-identity{flex-wrap:wrap}.av-sheet .af-link-identity .badge{margin-inline-start:0}.av-preview iframe{height:360px}}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" fill="none">
+  <defs>
+    <linearGradient id="thread" x1="0" y1="62" x2="430" y2="165" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A86B7B" stop-opacity=".3"/>
+      <stop offset=".38" stop-color="#CBA77D" stop-opacity=".46"/>
+      <stop offset="1" stop-color="#F6EADF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="80" x2="440" y2="155" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8C8C9" stop-opacity=".11"/>
+      <stop offset=".45" stop-color="#E4C6A3" stop-opacity=".17"/>
+      <stop offset="1" stop-color="#FAF6EE" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M-30 176C35 81 76 45 137 70c70 29 93 97 179 85 62-9 114-49 198-19v18c-88-27-129 12-199 15-91 4-117-64-181-84C77 66 32 102-30 184Z" fill="url(#sheen)"/>
+  <path d="M-30 176C35 81 76 45 137 70c70 29 93 97 179 85 62-9 114-49 198-19" stroke="url(#thread)" stroke-width=".85"/>
+</svg>

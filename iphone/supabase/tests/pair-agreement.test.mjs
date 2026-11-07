@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createDatabase,asService} from './harness.mjs';
+test('seriousness gate: roles, signed proposal versions, expiry, mutual family step and reset',async()=>{
+ const db=await createDatabase();try{
+ const rpc=(action,session='',payload={})=>asService(db,()=>db.query('select public.nisfayn_test_rpc($1,$2,$3) as value',[action,session,payload]).then(r=>r.rows[0].value));
+ const a='a'.repeat(64),b='b'.repeat(64),id='10000000-0000-4000-8000-000000000031';
+ await rpc('login',a,{actor:'abdulrahman'});await rpc('login',b,{actor:'reham'});
+ await rpc('permission_invite',a);await rpc('permission_accept',b);
+ assert.equal((await rpc('state',a)).seriousness.status,'none');
+ await assert.rejects(rpc('send',a,{clientId:id,body:'blocked'}));
+ await assert.rejects(rpc('call_start',a,{clientId:id}));
+ await assert.rejects(rpc('media_reserve',b,{id,mime:'image/jpeg',size:100}));
+ await assert.rejects(rpc('agreement_propose',a,{days:7,signed:true}));
+ await assert.rejects(rpc('agreement_propose',b,{days:7,signed:false}));
+ await assert.rejects(rpc('agreement_propose',b,{days:100,signed:true}));
+ let s=await rpc('agreement_propose',b,{days:7,signed:true}),stale=s.seriousness.proposalId;
+ s=await rpc('agreement_propose',b,{days:14,signed:true});const proposalId=s.seriousness.proposalId;
+ assert.equal(s.seriousness.version,'2026-11-06-v1');assert.notEqual(proposalId,stale);
+ await assert.rejects(rpc('agreement_accept',a,{proposalId:stale,signed:true}));
+ await assert.rejects(rpc('agreement_accept',b,{proposalId,signed:true}));
+ await assert.rejects(rpc('agreement_accept',a,{proposalId,signed:false}));
+ s=await rpc('agreement_accept',a,{proposalId,signed:true});
+ assert.equal(s.seriousness.status,'accepted');assert.ok(s.seriousness.womanSignedAt&&s.seriousness.manSignedAt);
+ assert.equal((Date.parse(s.seriousness.deadline)-Date.parse(s.seriousness.manSignedAt))/86400000,14);
+ await assert.rejects(rpc('agreement_propose',b,{days:30,signed:true}));
+ await rpc('send',a,{clientId:id,body:'after mutual agreement'});
+ s=await rpc('call_start',a,{clientId:id});const callId=s.call.id;
+ await rpc('call_accept',b,{callId});
+ await db.exec("update nisfayn_test.room set data=jsonb_set(data,'{seriousness,deadline}',to_jsonb(now()-interval '1 second')) where id");
+ s=await rpc('state',a);assert.equal(s.seriousness.status,'expired');assert.equal(s.call.status,'ended');
+ await assert.rejects(rpc('token',a,{callId}));await assert.rejects(rpc('send',a,{clientId:id,body:'blocked again'}));
+ await rpc('read',b,{id});
+ await assert.rejects(rpc('agreement_family',b,{confirmed:false}));
+ s=await rpc('agreement_family',b,{confirmed:true});assert.equal(s.seriousness.status,'expired');
+ await assert.rejects(rpc('call_start',a,{clientId:id}));
+ s=await rpc('agreement_family',a,{confirmed:true});assert.equal(s.seriousness.status,'family');
+ const next='10000000-0000-4000-8000-000000000032';await rpc('send',b,{clientId:next,body:'family next step'});
+ await assert.rejects(rpc('reset',b));s=await rpc('reset',a);assert.equal(s.seriousness.status,'none');assert.equal(s.messages.length,2);assert.equal(s.callPermission.status,'accepted');
+ }finally{await db.close();}
+});

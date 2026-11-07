@@ -1,0 +1,134 @@
+{
+  "releasedOn": "2026-11-06",
+  "status": "Appearance feature and reference-matched niqab revision7 deployed and verified; native web assets synchronized",
+  "preview": "https://nisfayn-preview.vercel.app",
+  "publicOptionalAnswers": {
+    "skinTone": "Eight self-selected swatches; no inference from photographs, names, or avatar selection",
+    "dressStyle": [
+      "hijab",
+      "niqab",
+      "uncovered"
+    ],
+    "dressFlexibility": {
+      "keep": "Keep current choice",
+      "open_to_discussion": "Open to discussion without a commitment to change",
+      "open_to_change": "Open to changing if personally convinced",
+      "prefer_not_to_say": "Prefer not to disclose"
+    }
+  },
+  "privatePartnerCriteria": "Skin tone and current dress support acceptable-choice sets; openness supports discussion or change. Each has any/prefer/require modes. A discussion-only answer never satisfies a requirement for openness to change. Willingness does not override a current-dress requirement. No skin-tone proximity ranking or preferred shade is built in.",
+  "avatars": {
+    "format": "Front-facing semi-realistic portraits with average proportions and warm ivory architecture. Niqab revision7 follows the user garment reference: wide straight sewn black forehead band covering brows, narrow illustrated-eye opening, separate flat face veil with defined gently curved upper-chest hem, black headscarf and abaya. Hijab revision5 and uncovered revision6 artwork unchanged.",
+    "component": "src/avatars/AvatarPortrait.tsx",
+    "catalog": "src/compatibility/appearance.ts",
+    "styles": 3,
+    "skinTones": 8,
+    "combinations": 24,
+    "colors": [
+      "#F1D3BA",
+      "#E3B899",
+      "#CF9B77",
+      "#B97F59",
+      "#9E6343",
+      "#7E4A34",
+      "#603827",
+      "#42261F"
+    ],
+    "selection": "Optional women's onboarding chapter. Explicit selection only; independent of self-reported appearance. Can be skipped or cleared. Saved avatar appears in discovery, profile, requests, chat and self-settings.",
+    "performance": "24 local800x1000 WebP portraits total 1,209,620 bytes. Niqab and uncovered quality92; hijab quality88. Local assets with SVG fallback and reduced-motion-aware fade.",
+    "artworkNotes": "semi-realistic-avatars.json",
+    "accuracy": "User chooses a shade; illustration lighting and device displays affect perceived color. No claim of measured skin color or photographic likeness. Niqab eyes/brows are fictional illustration details and are not derived from any member or photograph.",
+    "artworkRevision": 7,
+    "changedAssets": 8,
+    "unchangedAssets": 16,
+    "delivery": {
+      "dimensions": [
+        800,
+        1000
+      ],
+      "totalBytes": 1209620,
+      "styles": {
+        "hijab": {
+          "count": 8,
+          "revision": 5,
+          "webpQuality": 88,
+          "totalBytes": 461352,
+          "changedInRevision7": false
+        },
+        "niqab": {
+          "count": 8,
+          "revision": 7,
+          "webpQuality": 92,
+          "totalBytes": 248834,
+          "changedInRevision7": true
+        },
+        "uncovered": {
+          "count": 8,
+          "revision": 6,
+          "webpQuality": 92,
+          "totalBytes": 499434,
+          "changedInRevision7": false
+        }
+      }
+    }
+  },
+  "photos": "Personal photo uploads remain optional and private; temporary sharing is controlled within accepted conversations. Avatar selection never changes photo grants or publishes a personal photo.",
+  "compatibility": "Appearance choices participate in existing private preference comparison only when selected. Avatar appearance is not used for matching. Personality compatibility remains separate.",
+  "backwardCompatibility": "appearance-v1 distinguishes current full-object edits from older clients; omitted new fields are preserved for older clients. publicAvatar omission preserves, explicit null clears.",
+  "database": {
+    "project": "wupkifqbwhhebwrgvwai",
+    "migrations": [
+      "20261106081722_explicit_appearance_and_public_avatars.sql",
+      "20261106082738_explicit_dress_change_preference.sql"
+    ],
+    "privacy": "Avatar table uses RLS with no direct client reads. Checked profile/card/admin functions expose permitted fields. Private partner criteria remain excluded from public cards/admin details.",
+    "blindMatch": "No event data modified"
+  },
+  "deployments": {
+    "preview": "dpl_6NZrDxLgBEBxSSYD6zooyJeat49S",
+    "admin": "dpl_84eJQeCifZjgogDB2mxkpznJHhfR",
+    "verifiedArtworkRevision": 5
+  },
+  "verification": [
+    "All sixteen revision 6 outputs visually inspected; both final tone_4 exported masters inspected",
+    "All twenty-four current local WebP files decode at 800x1000 and total 1,221,254 bytes",
+    "Revision 6 original-copy hashes, exact prompts, input lineage and delivery hashes recorded in per-style provenance",
+    "Revision 6 live preview: all 24 portraits decoded, three styles selected, discovery and picker passed without runtime errors or overflow; native web bundle synchronized",
+    "Revision7 niqab: all8 generated assets and matching SVG fallback updated; live picker/discovery and native web sync passed"
+  ],
+  "remaining": [
+    "Signed physical-iPhone review before App Store release"
+  ],
+  "artworkRelease": {
+    "revision": 7,
+    "status": "DEPLOYED_VERIFIED",
+    "changedAssets": 8,
+    "unchangedAssets": 16,
+    "livePreviewVerified": true,
+    "nativeSyncVerified": true
+  },
+  "previousFeatureVerification": [
+    "31 database tests passed",
+    "17 onboarding/draft tests passed",
+    "Consumer and admin TypeScript checks passed",
+    "All 24 illustrations visually inspected",
+    "320px/390px picker selection, back, save/reopen, clear and no-photo paths passed",
+    "Discovery/chat/settings avatar integration checked",
+    "Hosted migration, RLS, direct-read denial and explicit-change normalization verified",
+    "Live deployed preview passed appearance/avatar save-reopen and private change-preference checks with zero runtime errors, failed assets or external requests"
+  ],
+  "avatarRevision6Deployment": {
+    "status": "READY",
+    "url": "https://nisfayn-preview.vercel.app",
+    "id": "dpl_2sZKTZ5BY9DyZmTv3xNzno3WFTYT",
+    "nativeWebSync": true,
+    "livePickerAndDiscoveryVerified": true
+  },
+  "avatarRevision7Deployment": {
+    "url": "https://nisfayn-preview.vercel.app",
+    "id": "dpl_6NZrDxLgBEBxSSYD6zooyJeat49S",
+    "status": "READY",
+    "environment": "Isolated fictional-data demonstration",
+    "artworkRevision": 7
+  }
+}

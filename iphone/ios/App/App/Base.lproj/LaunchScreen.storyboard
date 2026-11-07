@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17105"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="snD-IY-ifK">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" image="NisfaynHorizon" translatesAutoresizingMaskIntoConstraints="NO" id="nsh-VW-art">
+                                <rect key="frame" x="0.0" y="480.0" width="375" height="187"/>
+                            </imageView>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="NisfaynLockup" translatesAutoresizingMaskIntoConstraints="NO" id="bmM-rk-img">
+                                <rect key="frame" x="91.5" y="186.0" width="192" height="202.0"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" secondItem="bmM-rk-img" secondAttribute="height" multiplier="96:101" id="bmW-idt-h01"/>
+                                    <constraint firstAttribute="height" constant="202" priority="750" id="bmH-eig-h01"/>
+                                </constraints>
+                            </imageView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="توافق ذكي للزواج" textAlignment="center" lineBreakMode="wordWrap" baselineAdjustment="alignBaselines" translatesAutoresizingMaskIntoConstraints="NO" id="nst-VW-tag">
+                                <rect key="frame" x="24" y="399" width="327" height="26"/>
+                                <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="18"/>
+                                <color key="textColor" red="0.35294" green="0.05882" blue="0.15686" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" red="0.98039" green="0.96471" blue="0.93333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="bmM-rk-img" firstAttribute="centerX" secondItem="snD-IY-ifK" secondAttribute="centerX" id="bmC-en-x01"/>
+                            <constraint firstItem="bmM-rk-img" firstAttribute="centerY" secondItem="snD-IY-ifK" secondAttribute="centerY" multiplier="0.86" id="bmC-en-y01"/>
+                            <constraint firstItem="bmM-rk-img" firstAttribute="height" relation="lessThanOrEqual" secondItem="snD-IY-ifK" secondAttribute="height" multiplier="0.33" id="nsl-sm-max"/>
+                            <constraint firstItem="nst-VW-tag" firstAttribute="top" secondItem="bmM-rk-img" secondAttribute="bottom" constant="11" id="nst-top-gap"/>
+                            <constraint firstItem="nst-VW-tag" firstAttribute="leading" secondItem="snD-IY-ifK" secondAttribute="leading" constant="24" id="nst-lf-pos"/>
+                            <constraint firstAttribute="trailing" secondItem="nst-VW-tag" secondAttribute="trailing" constant="24" id="nst-rt-pos"/>
+                            <constraint firstItem="nsh-VW-art" firstAttribute="leading" secondItem="snD-IY-ifK" secondAttribute="leading" id="nsh-lf-pos"/>
+                            <constraint firstAttribute="trailing" secondItem="nsh-VW-art" secondAttribute="trailing" id="nsh-rt-pos"/>
+                            <constraint firstAttribute="bottom" secondItem="nsh-VW-art" secondAttribute="bottom" id="nsh-bm-pos"/>
+                            <constraint firstItem="nsh-VW-art" firstAttribute="height" secondItem="snD-IY-ifK" secondAttribute="height" multiplier="0.28" id="nsh-ht-pro"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="NisfaynLockup" width="172" height="182"/>
+        <image name="NisfaynHorizon" width="390" height="170"/>
+    </resources>
+</document>

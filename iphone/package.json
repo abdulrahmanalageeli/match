@@ -1,0 +1,37 @@
+{
+  "name": "marriage-introductions-iphone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --experimental-vm-modules --test tests/*.test.mjs tests/chat-viewport.test.cjs tests/swipe-reply.test.cjs src/compatibility/*.test.mjs src/beena/*.test.mjs src/onboarding/*.test.mjs src/community/*.test.mjs src/testing/*.test.mjs src/verification/*.test.mjs",
+    "ios:sync": "npm run build && cap sync ios",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@supabase/supabase-js": "2.112.3",
+    "agora-rtc-sdk-ng": "4.24.9",
+    "lucide-react": "0.525.0",
+    "openai": "5.23.2",
+    "qrcode": "1.5.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

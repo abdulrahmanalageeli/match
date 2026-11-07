@@ -1,0 +1,10 @@
+.nf-avatar-portrait { display: block; width: 100%; height: 100%; overflow: hidden; flex: none; }
+.nf-avatar-render { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-avatar-render { transition: opacity 120ms ease-out; }
+}
+.df-selected-avatar { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cm-avatar.cm-avatar-illustrated { padding: 0; overflow: hidden; background: #eddbcf; border: 1px solid #d8b7bb; box-shadow: inset 0 0 0 1px #fff8ed; }
+.cm-avatar-illustrated .nf-avatar-portrait { transform: scale(1.27); transform-origin: 50% 40%; }
+.st-profile-monogram.st-profile-illustrated { padding: 0; overflow: hidden; background: #eddbcf; }
+.st-profile-illustrated .nf-avatar-portrait { transform: scale(1.2); transform-origin: 50% 40%; }

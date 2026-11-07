@@ -1,0 +1,34 @@
+{
+  "releasedOn": "2026-11-06",
+  "supersededBy": "marriage-criteria-release.json",
+  "status": "Implemented, native bundle synchronized, reviewed migration applied to the dedicated Nisfayn database, and fictional-data web preview deployed.",
+  "demoUrl": "https://nisfayn-preview.vercel.app",
+  "demoProject": "prj_Ucec4gPCxXWUEp5PLeoqaIYNRqbL",
+  "entry": "Discovery opens first for eligible members and demo visitors. Curated introductions remain accessible in their tab.",
+  "profile": ["Biography", "Partner preferences", "Values and essential needs", "Shared-life description", "Education", "Marriage intention", "Family involvement preference", "Interests", "Occupation and city"],
+  "privacy": "New public text is optional and explicitly labeled visible. Changes require existing profile re-review. Older clients preserve new details and do not newly publish family involvement. Private assessment answers, contact information and private photo URLs are not published.",
+  "compatibility": {
+    "meaning": "Priority-weighted reciprocal preference alignment from both members' assessments.",
+    "method": "Existing transparent matching algorithm; no learned AI inference or generative relationship prediction is enabled.",
+    "gate": "Percentage is null unless both members have all 30 valid answers and current marriage-v1 assessments.",
+    "explanation": "Shared strengths, topics to discuss and assessment coverage remain visible.",
+    "limits": "The percentage is an alignment index, not a calibrated probability of marriage success. Weekly discovery and private-chat eligibility limits remain unchanged."
+  },
+  "portraits": {
+    "count": 10,
+    "purpose": "Fictional demo identities only; no real member profiles were seeded.",
+    "generator": "Built-in image_gen tool",
+    "filesAndExactPrompts": "public/demo/portraits/provenance.json",
+    "format": "1122x1402 WebP, 1.22 MB total",
+    "delivery": "First visible portrait loads eagerly; later portraits load lazily with reserved layout space."
+  },
+  "deployment": {
+    "migration": "20261106065553_rich_discovery_profiles.sql",
+    "project": "wupkifqbwhhebwrgvwai",
+    "admin": "https://nisfayn-admin.vercel.app",
+    "previewIsolation": "Dedicated demo build; live cloud client disabled and Content-Security-Policy connect-src restricted to self. No production service credentials.",
+    "blindMatch": "Event data was not modified."
+  },
+  "verification": ["All 20 database tests passed", "300 independent varied SQL/TypeScript score comparisons matched", "Live demo tested: feed, filters, portraits, rich profile, and both demo pools", "Public profile fields saved and persisted through demo editor round-trip", "320px and 390px layouts, reduced motion, scroll restoration", "Packaged native outgoing and incoming match, sound and chat regression passed", "No external requests, failed assets, CSP errors or runtime errors in final browser checks", "Production dependency audit returned zero findings"],
+  "remaining": ["Physical signed iPhone review before App Store release", "A learned AI compatibility model would require a separately validated training and evaluation pipeline"]
+}

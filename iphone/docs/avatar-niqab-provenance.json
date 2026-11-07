@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "artRevision": 7,
+  "style": "niqab",
+  "toolMode": "built-in",
+  "tool": "image_gen.imagegen",
+  "intent": "edit",
+  "createdAt": "2026-11-06T11:06:30.903123+00:00",
+  "referenceRole": "User photograph is garment-construction reference only; no identity or pose copied. Wide sewn straight forehead band covering brows, narrow opening with fictional illustrated eyes, separate flat face veil with defined upper-chest hem.",
+  "processing": "Original PNGs copied byte-for-byte; delivery normalized to800x1000, WebP quality92 method6. All creative edits made by built-in image_gen; no programmatic recoloring or retouching.",
+  "previousProvenance": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\avatar-niqab-provenance-v6.json",
+  "masterLineage": {
+    "revision": 7,
+    "master": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png",
+    "tone": 4,
+    "hex": "#B97F59",
+    "reference": "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png",
+    "steps": [
+      {
+        "inputPaths": [
+          "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/niqab-tone_4.webp",
+          "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png"
+        ],
+        "prompt": "Use case: precise-object-edit. Edit target: Image 1 is our existing fictional Nisfayn avatar; preserve its centered straight FRONT-FACING pose, natural average proportions, calm simple illustrated brown eyes, warm medium tan skin (tone_4 base approximately #B97F59), head-and-shoulders framing, black abaya, premium semi-realistic illustration style, soft warm ivory arch-and-lantern background and lighting. Clothing construction reference ONLY: Image 2 supplied by the user shows the exact Saudi niqab construction requested. Replace the niqab in Image 1 to closely match the GARMENT in Image 2. A distinct WIDE STRAIGHT matte-black sewn rectangular forehead band wraps horizontally around the forehead, with subtle neat top/bottom stitching and a clean horizontal lower edge covering the eyebrows. Below it is a slim horizontal eye opening showing only the two existing fictional illustrated brown eyes and a narrow strip of skin, not the eyebrows or forehead. A SEPARATE smooth black FACE VEIL hangs freely from just under the eyes down to the upper chest: broad straight side edges and a softly curved almost-horizontal visible bottom hem, a flat loose panel with natural cloth weight and slight folds, visually separate from the black head scarf/abaya beneath. Match the reference's correct proportions and separate panel construction. Do not integrate the veil into a gathered chin wrap or looping scarf. Preserve the existing avatar identity and straight-on pose; do not copy the reference woman's identity, makeup, pose, room, labels, or logos. No visible nose, mouth, hair or neck. No text or added objects. One polished high-resolution portrait, 4:5 composition, opaque background.",
+        "output": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-52291d1e-5b37-448c-ae45-49b3fcfc78ca.png",
+        "inputHashesSha256": {
+          "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/niqab-tone_4.webp": "d96e306bb612bef8acf2af3ba487720bfbf525aa01e0e15445e7ad746a04e02b",
+          "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png": "5cc0452d0500faab0cf123b64a46a6a7a0201a29c5730e08d98746067ed96868"
+        },
+        "sourceSha256": "eddf03b9c91a48455c26f27453bb1f8fc9c5b27e7b63408dd5456bbd2ecede17"
+      },
+      {
+        "prompt": "Use case: precise-object-edit. Image 1 is the new fictional Nisfayn avatar edit target. Image 2 is the user's garment reference only. Make one precise adjustment: shorten the hanging black face-veil panel in Image 1 to the same natural proportion as Image 2. Its bottom hem must finish at the UPPER CHEST, approximately 73 percent of the full image height instead of the current 89 percent. Keep the same straight upper edge immediately below the eyes, broad flat loose black cloth, gently curved stitched lower hem, and separate visible black headscarf/abaya beneath it. The shortened panel should have believable natural fabric weight and no ballooning or gathering under the chin. Preserve EVERYTHING else exactly: wide straight forehead band and stitching, eye slit, same two fictional brown illustrated eyes, skin shade, pose, head proportions, shoulders, 4:5 framing, warm ivory architecture and lanterns, background and lighting. Do not copy the reference woman's face or pose; no text/logos. One final high-resolution premium semi-realistic portrait.",
+        "output": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png",
+        "inputPaths": [
+          "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-52291d1e-5b37-448c-ae45-49b3fcfc78ca.png",
+          "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png"
+        ],
+        "inputHashesSha256": {
+          "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-52291d1e-5b37-448c-ae45-49b3fcfc78ca.png": "eddf03b9c91a48455c26f27453bb1f8fc9c5b27e7b63408dd5456bbd2ecede17",
+          "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png": "5cc0452d0500faab0cf123b64a46a6a7a0201a29c5730e08d98746067ed96868"
+        },
+        "sourceSha256": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      }
+    ]
+  },
+  "visualReview": {
+    "reviewedAllVariants": true,
+    "result": "All eight generated variants inspected; consistent front-facing fictional eyes, sewn band, separate veil panel and ivory background. Only visible skin shade varies."
+  },
+  "assets": [
+    {
+      "tone": 1,
+      "hex": "#F1D3BA",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_1 with target natural base #F1D3BA, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-35361831-d8e3-40c9-b447-f45c9bb7649c.png",
+      "replacesDeliverySha256": "df46b957d94ce1548331f5a9fe4a2998b1e275a9b010c562955f3f2b62a37ce5",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_1.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_1.webp",
+      "sourceSha256": "639b25025e6f517d094da27acaa2fb91e36e7557c19a0f28334c2605d11badd2",
+      "originalCopySha256": "639b25025e6f517d094da27acaa2fb91e36e7557c19a0f28334c2605d11badd2",
+      "deliverySha256": "df46b957d94ce1548331f5a9fe4a2998b1e275a9b010c562955f3f2b62a37ce5",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 32004,
+      "originalBytes": 1628988
+    },
+    {
+      "tone": 2,
+      "hex": "#E3B899",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_2 with target natural base #E3B899, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-fcde5008-51da-49b1-a507-f964fe599eb8.png",
+      "replacesDeliverySha256": "94083cb641e13482bb6e86ee7f43f28da9d3faae80cd07e87cedc8eda33cafbe",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_2.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_2.webp",
+      "sourceSha256": "88f7094c1455b43471b78ccb92b752bb88f66ad6bb204a7a31330fa1ee98ce14",
+      "originalCopySha256": "88f7094c1455b43471b78ccb92b752bb88f66ad6bb204a7a31330fa1ee98ce14",
+      "deliverySha256": "94083cb641e13482bb6e86ee7f43f28da9d3faae80cd07e87cedc8eda33cafbe",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 31434,
+      "originalBytes": 1623920
+    },
+    {
+      "tone": 3,
+      "hex": "#CF9B77",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_3 with target natural base #CF9B77, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-f9de1a69-cc26-490d-b968-09ed725166db.png",
+      "replacesDeliverySha256": "ccee174eb1c1fecb88fc34194df6ed4bb876ce2c977514002192c981fe92fdc1",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_3.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_3.webp",
+      "sourceSha256": "6c6e8a42a587e66ca4ac598fb4aa8e142607a0e81a8969295512d9cf4c275b52",
+      "originalCopySha256": "6c6e8a42a587e66ca4ac598fb4aa8e142607a0e81a8969295512d9cf4c275b52",
+      "deliverySha256": "ccee174eb1c1fecb88fc34194df6ed4bb876ce2c977514002192c981fe92fdc1",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 31328,
+      "originalBytes": 1617980
+    },
+    {
+      "tone": 4,
+      "hex": "#B97F59",
+      "prompt": "Use case: precise-object-edit. Image 1 is the new fictional Nisfayn avatar edit target. Image 2 is the user's garment reference only. Make one precise adjustment: shorten the hanging black face-veil panel in Image 1 to the same natural proportion as Image 2. Its bottom hem must finish at the UPPER CHEST, approximately 73 percent of the full image height instead of the current 89 percent. Keep the same straight upper edge immediately below the eyes, broad flat loose black cloth, gently curved stitched lower hem, and separate visible black headscarf/abaya beneath it. The shortened panel should have believable natural fabric weight and no ballooning or gathering under the chin. Preserve EVERYTHING else exactly: wide straight forehead band and stitching, eye slit, same two fictional brown illustrated eyes, skin shade, pose, head proportions, shoulders, 4:5 framing, warm ivory architecture and lanterns, background and lighting. Do not copy the reference woman's face or pose; no text/logos. One final high-resolution premium semi-realistic portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-52291d1e-5b37-448c-ae45-49b3fcfc78ca.png",
+        "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png"
+      ],
+      "source": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png",
+      "replacesDeliverySha256": "d96e306bb612bef8acf2af3ba487720bfbf525aa01e0e15445e7ad746a04e02b",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-52291d1e-5b37-448c-ae45-49b3fcfc78ca.png": "eddf03b9c91a48455c26f27453bb1f8fc9c5b27e7b63408dd5456bbd2ecede17",
+        "C:/Users/timgo/AppData/Local/Temp/codex-clipboard-6c7216cf-0b9b-4bb1-829d-17e398ab8563.png": "5cc0452d0500faab0cf123b64a46a6a7a0201a29c5730e08d98746067ed96868"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_4.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_4.webp",
+      "sourceSha256": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401",
+      "originalCopySha256": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401",
+      "deliverySha256": "d96e306bb612bef8acf2af3ba487720bfbf525aa01e0e15445e7ad746a04e02b",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 31598,
+      "originalBytes": 1689363
+    },
+    {
+      "tone": 5,
+      "hex": "#9E6343",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_5 with target natural base #9E6343, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-a004cb53-5a8a-41f3-afa4-ada2c42c3327.png",
+      "replacesDeliverySha256": "69b81fba5e3451968a87e6c9a1afd28a445348ac80c36e95ff29b0869cfdddb2",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_5.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_5.webp",
+      "sourceSha256": "6bb90f0d4a05283021b85a2b3ce5224d570726eddba594c2b47d6f3d75b3e735",
+      "originalCopySha256": "6bb90f0d4a05283021b85a2b3ce5224d570726eddba594c2b47d6f3d75b3e735",
+      "deliverySha256": "69b81fba5e3451968a87e6c9a1afd28a445348ac80c36e95ff29b0869cfdddb2",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 31406,
+      "originalBytes": 1608055
+    },
+    {
+      "tone": 6,
+      "hex": "#7E4A34",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_6 with target natural base #7E4A34, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-e7a9de4d-7365-4e6a-a5ea-1911fa95d8bd.png",
+      "replacesDeliverySha256": "35336e9463e0b9162213ca74b2243ddf96aa5e65e126cd13b890c6e22ded8474",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_6.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_6.webp",
+      "sourceSha256": "bbe6a9598762f13179c39531c18e77ea914b2df470410757fb82beda0545f9e3",
+      "originalCopySha256": "bbe6a9598762f13179c39531c18e77ea914b2df470410757fb82beda0545f9e3",
+      "deliverySha256": "35336e9463e0b9162213ca74b2243ddf96aa5e65e126cd13b890c6e22ded8474",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 31034,
+      "originalBytes": 1607002
+    },
+    {
+      "tone": 7,
+      "hex": "#603827",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved fictional Nisfayn revision 7 niqab avatar. Change ONLY the narrow visible skin strip around the eyes to palette tone_7 with target natural base #603827, gently shaded under the exact existing warm lighting. Preserve the SAME two fictional simple illustrated brown eyes, iris color, gaze, eyelids, lashes, eye placement, size and expression exactly; do not add eyebrows or expose more skin. Preserve the niqab construction EXACTLY: distinct wide sewn straight matte-black horizontal forehead band with its straight lower edge covering the eyebrows, subtle neat stitching, narrow horizontal eye opening, and SEPARATE flat loose black face-veil panel hanging from just below the eyes with broad straight sides and a softly curved nearly horizontal stitched lower hem ending at the upper chest. Keep the panel length, width and visible separate hem unchanged; do not lengthen the panel or turn it into an integrated chin wrap, looping scarf, gathered drape, rigid bib or different garment. Preserve all black fabric folds, headscarf/abaya underneath, shoulders, natural average head proportions, centered upright FRONT-FACING pose, ivory arch/lantern background, warm lighting and 4:5 framing exactly. Do not modify any non-skin region. No new identity, altered eyes, visible nose, mouth, brows, forehead, hair or neck; no text, logos, makeup, jewelry or extra objects. One polished premium semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-4883bf05-321f-4292-9e3b-e11120fab410.png",
+      "replacesDeliverySha256": "a1948aa71efebbbe1c2e4eeeac20ac65904819b865fcb45111d880171dbe6154",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_7.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_7.webp",
+      "sourceSha256": "3bd1844315758166a9f72b81c45d4cd4cf5727f8eb9545abe6a2413a1b1e879d",
+      "originalCopySha256": "3bd1844315758166a9f72b81c45d4cd4cf5727f8eb9545abe6a2413a1b1e879d",
+      "deliverySha256": "a1948aa71efebbbe1c2e4eeeac20ac65904819b865fcb45111d880171dbe6154",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 30482,
+      "originalBytes": 1624916
+    },
+    {
+      "tone": 8,
+      "hex": "#42261F",
+      "prompt": "Use case: precise-object-edit. The input is the approved fictional Nisfayn niqab avatar. Change ONLY the small visible skin strip in the narrow eye opening to skin tone_8, a rich deep brown with natural base approximately #42261F and subtle existing warm lighting. Preserve the exact same illustrated brown eyes, gaze, iris color, eyelids, lashes, eye spacing and calm expression. Preserve the exact SAME entire clothing construction and proportions: wide straight sewn black forehead band covering the brows, narrow eye opening, separate flat hanging black face-veil panel with visible curved stitched bottom hem at upper chest, black headscarf and black abaya. No lengthening or shortening of the veil, no changed folds, no exposed eyebrows, no chin-wrap gathering. Preserve perfectly the front-facing pose, average head shape, centered shoulders, matte fabric details, warm ivory arch and lantern background, lighting, crop, resolution and framing. Only the eye-region skin shade changes. No text or logos. High-quality semi-realistic illustrated portrait.",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png"
+      ],
+      "source": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-e434eead-570a-4dd7-9e7d-fa094df27614.png",
+      "replacesDeliverySha256": "534641eef35f334135363418c734abbe713c9ea3b3f4326b724b279273278329",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-5ac70b3d-c483-45da-b638-de90bbf8d300.png": "54469f57fcbc304c773972f73e736ad95b9c6070291bf29253962a1ef1228401"
+      },
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "style": "niqab",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v7\\niqab-tone_8.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\avatars\\semi-realistic\\niqab-tone_8.webp",
+      "sourceSha256": "83a4422cdb7fd6cac0831e7db1d793fa944b1e291c473e2d350a8a4cd64869a6",
+      "originalCopySha256": "83a4422cdb7fd6cac0831e7db1d793fa944b1e291c473e2d350a8a4cd64869a6",
+      "deliverySha256": "534641eef35f334135363418c734abbe713c9ea3b3f4326b724b279273278329",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "deliveryBytes": 29548,
+      "originalBytes": 1586919
+    }
+  ]
+}

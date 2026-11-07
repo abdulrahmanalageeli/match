@@ -1,0 +1,93 @@
+{
+  "createdOn": "2026-11-06",
+  "status": "Reference-matched niqab revision7 deployed, live-verified and synchronized into iPhone web assets",
+  "revision": 7,
+  "artDirection": "Front-facing semi-realistic portraits with average proportions and warm ivory architecture. Niqab revision7 follows the user garment reference: wide straight sewn black forehead band covering brows, narrow illustrated-eye opening, separate flat face veil with defined gently curved upper-chest hem, black headscarf and abaya. Hijab revision5 and uncovered revision6 artwork unchanged.",
+  "generator": "Built-in image_gen.imagegen; one generation/edit call per asset. No external image-generation API keys or CLI.",
+  "assetDirectory": "public/avatars/semi-realistic/",
+  "assetPattern": "{hijab|niqab|uncovered}-tone_{1..8}.webp",
+  "count": 24,
+  "dimensions": [
+    800,
+    1000
+  ],
+  "totalBytes": 1209620,
+  "promptSetsAndHashes": [
+    "avatar-hijab-provenance.json",
+    "avatar-niqab-provenance.json",
+    "avatar-uncovered-provenance.json"
+  ],
+  "originals": {
+    "hijab": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v5/",
+    "niqab": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v7/",
+    "uncovered": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/"
+  },
+  "deliveryProcessing": "Eight revision7 niqab assets generated with built-in image_gen, normalized to800x1000 and WebP quality92 method6. Other16 assets unchanged. No programmatic recoloring or retouching.",
+  "rendering": "Same accessible SVG wrapper and avatar selection data. Generated image appears after shared-resource Image.decode() succeeds, including cached remounts; a keyed component and cancellation guard prevent a previous selection flashing during changes. Existing SVG supplies a matching fallback during delay or failure. Transition respects reduced motion.",
+  "colorLimits": "Skin shades are approximate art-direction targets interpreted under warm light. Only the narrow eye-region skin is exposed by the reference niqab. Fictional illustrated eyes remain; brows are covered. No identity copied from the reference photograph.",
+  "scope": "Only eight niqab assets, niqab SVG fallback/cache version and artwork documentation changed.",
+  "verification": [
+    "All eight generated niqab variants visually inspected against the garment reference",
+    "All eight800x1000 delivery assets decoded successfully; original copies verified by SHA256",
+    "Targeted TypeScript check passed; niqab cachev7 and existing other-style cachev6",
+    "Production TypeScript/web build and Capacitor iOS sync passed",
+    "Live preview: all24 assets decoded; three-style picker, tone8 selection and discovery passed with no runtime errors, failed assets or overflow"
+  ],
+  "remaining": [
+    "Signed physical-iPhone review before App Store release"
+  ],
+  "changedAssets": 8,
+  "unchangedAssets": 16,
+  "styles": {
+    "hijab": {
+      "count": 8,
+      "revision": 5,
+      "webpQuality": 88,
+      "totalBytes": 461352,
+      "changedInRevision7": false
+    },
+    "niqab": {
+      "count": 8,
+      "revision": 7,
+      "webpQuality": 92,
+      "totalBytes": 248834,
+      "changedInRevision7": true
+    },
+    "uncovered": {
+      "count": 8,
+      "revision": 6,
+      "webpQuality": 92,
+      "totalBytes": 499434,
+      "changedInRevision7": false
+    }
+  },
+  "lastVerifiedDeployment": {
+    "url": "https://nisfayn-preview.vercel.app",
+    "id": "dpl_6NZrDxLgBEBxSSYD6zooyJeat49S",
+    "status": "READY",
+    "environment": "Isolated fictional-data demonstration",
+    "artworkRevision": 7
+  },
+  "deployment": {
+    "url": "https://nisfayn-preview.vercel.app",
+    "id": "dpl_6NZrDxLgBEBxSSYD6zooyJeat49S",
+    "status": "READY",
+    "environment": "Isolated fictional-data demonstration",
+    "artworkRevision": 7
+  },
+  "previousRevisionVerification": [
+    "All sixteen revision 6 generated outputs visually inspected, including final niqab/uncovered tone_4 WebP exports",
+    "All twenty-four local WebP assets decode successfully at 800x1000; measured aggregate size is 1,221,254 bytes",
+    "Revision 6 original PNG copies match generated-source SHA256 hashes; exact prompts, input lineage and delivery hashes are in the per-style provenance records",
+    "Eight hijab assets retain revision 5 artwork and quality 88; eight niqab and eight uncovered assets use revision 6 artwork and quality 92",
+    "Live preview: all 24 assets loaded and decoded; three styles and eighth shade selected; discovery and picker passed with no runtime/asset errors or horizontal overflow",
+    "Production web build and Capacitor sync passed; all revised assets included in iPhone bundle"
+  ],
+  "previousVerifiedDeployment": {
+    "url": "https://nisfayn-preview.vercel.app",
+    "id": "dpl_2sZKTZ5BY9DyZmTv3xNzno3WFTYT",
+    "status": "READY",
+    "environment": "Isolated fictional-data demonstration",
+    "artworkRevision": 6
+  }
+}

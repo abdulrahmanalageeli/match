@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "artRevision": 6,
+  "style": "uncovered",
+  "toolMode": "built-in",
+  "tool": "image_gen.imagegen",
+  "intent": "edit",
+  "createdAt": "2026-11-06T10:10:45.067Z",
+  "referenceRole": "Revision 5 uncovered tone_4 rendering refined, then face/neck skin cleaned with a targeted second built-in edit. All other tones are skin-only edits of the cleaned revision 6 master.",
+  "processing": "Original PNGs copied byte-for-byte. Delivery only: proportional LANCZOS resize to 800x1000 and WebP encoding quality 92 method 6. No code-generated visual changes, recoloring or compositing.",
+  "previousProvenance": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v5/avatar-uncovered-provenance-v5.json",
+  "visualReview": {
+    "reviewedAllVariants": true,
+    "result": "All eight outputs visually inspected: clean smooth featureless face/neck shading, detailed brown wavy hair, same average face proportions and frontal pose, burgundy modest top and ivory arch/lantern backdrop. Skin tones progress from light to dark. Palette hexes are target base colors interpreted under warm light."
+  },
+  "assets": [
+    {
+      "style": "uncovered",
+      "tone": 1,
+      "hex": "#F1D3BA",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_1 with natural base #F1D3BA under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-71099fe8-45cf-4ab5-a4a7-8035f6618ca9.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_1.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_1.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "d75936e6ea0604c0255c680a9fc796e097ed6f346e05f36cb3ca76971c989b11",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "6266643f9e45b3de50d9fdd712dc9596eb99b17ef1d304c7630bd64b262a9f70",
+      "originalCopySha256": "6266643f9e45b3de50d9fdd712dc9596eb99b17ef1d304c7630bd64b262a9f70",
+      "deliverySha256": "41492743f9e44a8998dffe92e555c90e3bd1dcc74794e1854e015a50195be08b",
+      "originalBytes": 1835797,
+      "deliveryBytes": 64118
+    },
+    {
+      "style": "uncovered",
+      "tone": 2,
+      "hex": "#E3B899",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_2 with natural base #E3B899 under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-b62e01b8-f348-4632-b9fb-b7ee7e3c50a3.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_2.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_2.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "6542159dbd51e279ec56bb422a207cac5106a105a82886105c4122842b90d979",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "6fbb20c4a9cc4a7a94da1d749620ca2ce13be1e6f22229ef000fbdb067b8f4b9",
+      "originalCopySha256": "6fbb20c4a9cc4a7a94da1d749620ca2ce13be1e6f22229ef000fbdb067b8f4b9",
+      "deliverySha256": "f1c18ec96509410e4bea79f4170548f8aed79d7c1c8b57f77540da244ffb5457",
+      "originalBytes": 1797028,
+      "deliveryBytes": 62590
+    },
+    {
+      "style": "uncovered",
+      "tone": 3,
+      "hex": "#CF9B77",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_3 with natural base #CF9B77 under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-2ebd892f-8580-4c99-92a3-db9399a18318.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_3.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_3.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "a0d243cb21dd537f4130db4784b50854aef7f26e581555e759e55f3b9abd28d1",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "62a83a93e92305df54c4081636b4e7b98fde168bffeee41ecfda9cc6365b269d",
+      "originalCopySha256": "62a83a93e92305df54c4081636b4e7b98fde168bffeee41ecfda9cc6365b269d",
+      "deliverySha256": "b264c0216a3b42835d13316b8fbd2397be123e63dffee9c7b9b3edf6c7899a7f",
+      "originalBytes": 1810602,
+      "deliveryBytes": 62434
+    },
+    {
+      "style": "uncovered",
+      "tone": 4,
+      "hex": "#B97F59",
+      "prompt": "Use case: precise-object-edit. Targeted surface cleanup of Image 1. Replace ONLY the entire blank face skin surface and neck skin surface with perfectly CLEAN SMOOTH softly airbrushed color gradients, preserving the exact tone_4 warm tan skin color, edge shading, light direction and face/neck color match. There must be ZERO skin texture: no pores, grain, swirls, whorls, embossed or etched patterns, scratches, stippling, veins, decorative detail, or bumpy appearance at any scale. The face is a naturally shaded featureless illustration, not a textured photograph. Keep it completely blank: NO eyes, eyebrows, nose, mouth, lips, feature-shaped shadows. Keep exact face shape, normal average width/length, front-facing orientation, rounded cheeks and chin, hairline and all proportions. Preserve every non-skin detail exactly, particularly the detailed brown wavy hair and individual fibers, burgundy closed-neck top, shoulders and ivory arch/lantern background. Do not blur hair or clothing. Only clean and smooth the face/neck skin; no other changes. Output one high-quality 4:5 portrait.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-a1f33171-95de-48d6-9381-1d99c5d8cb6f.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_4.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_4.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "bdf45c3b89a368ad4c8cae7fc6fb96bfed402f5a3c9d77ddea528c3c509668d0",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-a1f33171-95de-48d6-9381-1d99c5d8cb6f.png": "3ba87f5a03477aeab34506785ae392a2eb48cd41f46a6399304005b397e8cb62"
+      },
+      "sourceSha256": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb",
+      "originalCopySha256": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb",
+      "deliverySha256": "e267f859371ec17a448fa44ab1a02650d30234414c33be155cc47aa465af5b88",
+      "originalBytes": 1916031,
+      "deliveryBytes": 65552
+    },
+    {
+      "style": "uncovered",
+      "tone": 5,
+      "hex": "#9E6343",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_5 with natural base #9E6343 under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-dfd5a69c-9e43-4013-9d40-6c0100a8df3b.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_5.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_5.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "af3245dd096f6217e63cea58233009563a032a0fbb43526c6f30ecf5017a9482",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "c71d8cee8ca219784c1b3099b13afe6d4c6d5bd7255939b15e4f65020ab06e47",
+      "originalCopySha256": "c71d8cee8ca219784c1b3099b13afe6d4c6d5bd7255939b15e4f65020ab06e47",
+      "deliverySha256": "3029a86f7f37b78b81f0b0ab6f43e7952932d227040c7d3a53afe0fe9a3e5e1c",
+      "originalBytes": 1806860,
+      "deliveryBytes": 63458
+    },
+    {
+      "style": "uncovered",
+      "tone": 6,
+      "hex": "#7E4A34",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_6 with natural base #7E4A34 under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-1ccbf43c-67e7-4723-9fbe-1c8ec4810dc6.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_6.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_6.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "df81c8e65c4b8b1a9d99ee2640a71b6c83c33e6e27fd5c1f2fa3b518c3b6a5a9",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "2df853a56adf05a32ee78035b8403c81be45530700ddad86c0e31829a05f071a",
+      "originalCopySha256": "2df853a56adf05a32ee78035b8403c81be45530700ddad86c0e31829a05f071a",
+      "deliverySha256": "5106cf39337f52a106410cd351b4d6a097d57ce3f0bc6683c7cd47027df8a7b1",
+      "originalBytes": 1800911,
+      "deliveryBytes": 59674
+    },
+    {
+      "style": "uncovered",
+      "tone": 7,
+      "hex": "#603827",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_7 with natural base #603827 under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-9012dc0a-34e4-4b13-9b26-4012e0e1fa01.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_7.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_7.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "d481f16882a1df7f784a2381ba9009d2cf8884716d67575d02906c64ceac2763",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "ee142149ac4f03f4ee1bd4bf7b415fe69f2dfa37b7b0082348d5f36ccd0503d8",
+      "originalCopySha256": "ee142149ac4f03f4ee1bd4bf7b415fe69f2dfa37b7b0082348d5f36ccd0503d8",
+      "deliverySha256": "5385ec1b003a36389041519cad7a38c290f0d6854f3d6780ac5c6b50b244eee4",
+      "originalBytes": 1794585,
+      "deliveryBytes": 60106
+    },
+    {
+      "style": "uncovered",
+      "tone": 8,
+      "hex": "#42261F",
+      "prompt": "Use case: precise-object-edit. Image 1 is the approved high-quality fictional Nisfayn uncovered-hair avatar. Change ONLY all visible skin color, meaning the entire smooth featureless face AND visible neck, to palette tone_8 with natural base #42261F under the existing warm light. Face and neck must match naturally. Preserve EXACT face geometry: normal average face width and length, softly rounded cheeks, modest rounded jaw/chin, frontal upright orientation and centered pose. Preserve the CLEAN SMOOTH softly airbrushed skin gradients; ZERO skin texture, pores, grain, stippling, embossed patterns, swirls, etched lines or decorative surface detail. Face remains fully blank: NO eyes, eyebrows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Preserve the detailed dark-brown wavy shoulder-length hair, individual fibers, part, hairline, highlights and full silhouette exactly; preserve burgundy modest closed-neck garment, body, shoulders, ivory arch and lantern background, warm lighting, all composition and 4:5 framing. Do not recolor or change any non-skin area. Do not slim, lengthen, widen, turn or tilt the face. One polished semi-realistic illustrated portrait, no added objects or text.",
+      "inputPaths": [
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png"
+      ],
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-00ca406a-9b35-4401-bbe6-448c1e2747f5.png",
+      "toolMode": "built-in",
+      "transparentBackground": false,
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_8.png",
+      "delivery": "C:/Users/timgo/Downloads/BlindComp/my-project/match/iphone/public/avatars/semi-realistic/uncovered-tone_8.webp",
+      "sourceDimensions": [
+        1122,
+        1402
+      ],
+      "replacesDeliverySha256": "9bee2f5e52a0b1fae7b45f7fdfb4845b53985275c42dd8fc03f48dd58c27897f",
+      "deliveryDimensions": [
+        800,
+        1000
+      ],
+      "inputHashesSha256": {
+        "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-78217771-f9e0-4230-be36-01319e45948e.png": "73b67c85570a6991a148b1fa1d7d1b7c40e0cec34a739dcd75cbfd3d45ba0bfb"
+      },
+      "sourceSha256": "c8bd0b3b24adc23f99b93da12ad0d06b076e9ea05099d6d44139f81492e2c0df",
+      "originalCopySha256": "c8bd0b3b24adc23f99b93da12ad0d06b076e9ea05099d6d44139f81492e2c0df",
+      "deliverySha256": "4596c567f78b9b58759d0b7485684b7361674d92bab55a3236511b874ded1000",
+      "originalBytes": 1813769,
+      "deliveryBytes": 61502
+    }
+  ],
+  "editHistory": [
+    {
+      "style": "uncovered",
+      "inputPaths": [
+        "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v5/uncovered-tone_4.png"
+      ],
+      "prompt": "Use case: precise-object-edit. Refine the rendering quality of this exact Nisfayn fictional adult female avatar without redesigning it. Preserve the current fully FRONT-FACING upright centered head and shoulder pose, NORMAL AVERAGE face width and length, softly round cheeks, modest rounded jaw and rounded chin, original hairline, body proportions and camera framing. Keep the entire face completely FEATURELESS with NO eyes, brows, lashes, nose, nose marks, mouth, lips or feature-shaped shadows. Improve the skin into beautifully clean smooth softly shaded skin, removing all embossed patterns, swirling texture, artificial grain, stippling, pore-pattern artifacts or decorative surface lines. Keep face and visible neck in matching natural tone_4 base approximately #B97F59 under the same warm light. Refine the natural dark-brown shoulder-length wavy hair into precise softly varied individual fibers and realistic gentle highlights, maintaining the identical part, length, waves and outer silhouette. Preserve the modest burgundy closed-neck top, shoulders, softly blurred ivory architectural arch and lantern background and composition. High-quality semi-realistic editorial illustration, clean polished detail without plastic shine or oversharpening. Do not slim, elongate, widen, turn or tilt the face. No face features, no black garment, no scarf, no text, no logos or added objects. Output one finished high-detail 4:5 portrait.",
+      "tone": 4,
+      "hex": "#B97F59",
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1afd5-e172-7653-8a4a-8ac977b97c45\\exec-a1f33171-95de-48d6-9381-1d99c5d8cb6f.png",
+      "role": "Rendering refinement before targeted skin cleanup",
+      "originalCopy": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v6/uncovered-tone_4-before-skin-cleanup.png",
+      "sourceSha256": "3ba87f5a03477aeab34506785ae392a2eb48cd41f46a6399304005b397e8cb62",
+      "originalCopySha256": "3ba87f5a03477aeab34506785ae392a2eb48cd41f46a6399304005b397e8cb62",
+      "inputHashesSha256": {
+        "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v5/uncovered-tone_4.png": "79fb423cb91b39d8f44a2b017e204cbb7e996f376bb7a2670a2a61fc2ff4ed6f"
+      }
+    }
+  ]
+}

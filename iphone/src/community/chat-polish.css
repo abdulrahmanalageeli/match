@@ -1,0 +1,63 @@
+/* A quiet conversation surface: identity, one plan rail, messages, composer. */
+.cm-chat .cm-chat-head { gap: 7px; padding: 10px 14px; min-height: 72px; border-bottom: 0; background: var(--surface); }
+.cm-chat-head .cm-chat-person-copy strong { font-size: 1rem; }
+.cm-chat-head .cm-chat-person-copy small { font-size: .66rem; }
+.cm-chat-head .cm-chat-person .cm-avatar { width: 39px; height: 42px; }
+.cm-chat .cm-chat-plan[data-ready] { display: flex; align-items: center; flex: none; gap: 8px; padding: 6px 16px 9px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.cm-chat-plan:not([data-ready]) { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
+.cm-chat-plan:not([data-ready]) .cm-end-visible { align-self: flex-end; margin: 0 18px 10px; }
+.cm-chat .cm-chat-plan .cm-journey-summary { flex: 1; min-width: 0; width: auto; margin: 0; padding: 6px 0; border: 0; border-radius: 0; background: none; gap: 7px; min-height: 44px; }
+.cm-chat-plan .cm-journey-summary > span:not(.cm-plan-mark) { min-width: 0; }
+.cm-chat-plan .cm-journey-summary strong { font-size: 12px; }
+.cm-chat-plan .cm-journey-summary small { display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-size: 11px; color: var(--muted); }
+.cm-chat .cm-plan-mark { flex: none; width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px; background: var(--blush); color: var(--accent-fill); }
+.cm-chat-plan .cm-journey-summary[data-pending] .cm-plan-mark { background: var(--accent-fill); color: var(--accent-ink); }
+.cm-chat-plan .cm-journey-summary[data-pending] small { color: var(--accent-fill); font-weight: 600; }
+.cm-chat-plan .cm-agreement-summary { flex: none; border: 0; padding: 0; background: transparent; }
+.cm-chat-plan .cm-agreement-summary > button { flex-direction: column; gap: 3px; padding: 4px 7px; min-height: 44px; font-size: 10px; color: var(--muted); border-inline: 1px solid var(--line); }
+.cm-end-visible { flex: none; min-height: 44px; border: 0; padding: 0 0 0 2px; background: transparent; color: var(--accent-fill); font: inherit; font-size: 11px; white-space: nowrap; }
+.cm-chat .cm-chat-log { padding: 12px 16px 18px; gap: 6px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.cm-chat-log::-webkit-scrollbar { width: 3px; }
+.cm-chat-log::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.cm-chat-log::-webkit-scrollbar-button { display: none; }
+.cm-chat-log:focus-visible { outline: 1px solid var(--rose); outline-offset: -2px; }
+.cm-chat .cm-bubble { padding: 9px 13px 6px; border-radius: 18px 18px 18px 5px; box-shadow: none; }
+.cm-chat .cm-bubble.self { border-radius: 18px 18px 5px 18px; }
+.cm-chat .cm-bubble p { line-height: 1.65; font-size: .93rem; }
+.cm-chat .cm-message-meta { margin-top: 3px; font-size: .6rem; }
+.cm-chat .cm-chat-day { padding: 8px 35px 13px; font-size: .62rem; }
+.cm-chat .cm-chat-compose { padding: 10px 12px max(12px,env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.cm-chat .cm-composer-surface { align-items: flex-end; box-shadow: none; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); padding: 3px; }
+.cm-chat-compose textarea { flex: 1; min-width: 0; width: 100%; overflow-y: auto; scrollbar-width: none; line-height: 22px; }
+.cm-chat-compose textarea::-webkit-scrollbar { display: none; }
+.cm-chat-compose textarea::-webkit-scrollbar-button { display: none; }
+.cm-chat-compose .cm-count { display: block; padding-inline: 12px; font-size: 10px; text-align: end; }
+.cm-chat .cm-chat-tools { display: grid; }
+.cm-chat-tools > button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; padding: 17px 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); font: inherit; }
+.cm-chat-tools > button:last-child { border-bottom: 0; }
+.cm-chat-tools > button > span { flex: 1; display: grid; gap: 4px; }
+.cm-chat-tools strong { font-size: 14px; font-weight: 600; }
+.cm-chat-tools small, .cm-tools-intro { color: var(--muted); font-size: 12px; }
+.cm-agreement-dialog { text-align: center; }
+.cm-agreement-dialog .cm-agreement-close { margin-inline-start: auto; display: flex; }
+.cm-agreement-dialog h2 { color: var(--ink); font-size: 1.4rem; margin: 18px 0 8px; }
+.cm-agreement-dialog p { line-height: 1.9; font-size: .85rem; }
+.cm-agreement-dialog .cm-agreement-deadline { color: var(--accent-fill); font-weight: 600; }
+.cm-agreement-dialog small { display: block; margin-top: 16px; line-height: 1.8; color: var(--muted); font-size: .72rem; }
+.cm-chat-plan button:focus-visible, .cm-chat-tools button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; border-radius: 8px; }
+@media (max-width:360px) { .cm-chat .cm-chat-plan[data-ready] { padding-inline: 10px; gap: 6px; } .cm-chat .cm-plan-mark { display: none; } }
+@media (prefers-reduced-motion:no-preference) {
+  html:not([data-nf-motion="reduced"]) .cm-chat-tools > button { transition: color 160ms ease, background-color 160ms ease; }
+  html:not([data-nf-motion="reduced"]) .cm-chat-tools > button:active { background: var(--blush); }
+}
+.cm-chat { isolation: isolate; }
+.cm-chat[data-private-hidden] > :not(.cm-chat-privacy-cover) { visibility: hidden; }
+.cm-chat-privacy-cover { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: var(--accent-fill); background: var(--paper); font-size: .95rem; }
+.cm-chat .cm-delete-action { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 5px; margin: -5px 0; border: 0; border-radius: 50%; color: inherit; background: transparent; opacity: .65; }
+.cm-chat .cm-delete-action:hover, .cm-chat .cm-delete-action:focus-visible { opacity: 1; background: #c5838f21; }
+.cm-chat .cm-deleted-message { display: flex; align-items: center; gap: 7px; font-size: .8rem; font-style: italic; opacity: .7; }
+.cm-delete-confirm { text-align: center; padding: 3px 0 20px; }
+.cm-delete-emblem { width: 58px; height: 58px; display: grid; place-items: center; margin: 5px auto 18px; border-radius: 20px; color: var(--accent-fill); background: var(--blush); }
+.cm-delete-confirm p { font-size: .9rem; line-height: 1.9; }
+.cm-delete-confirm small { display: block; color: var(--muted); font-size: .74rem; line-height: 1.9; }
+@media print { .cm-chat, .cm-photo-viewer { visibility: hidden!important; } }

@@ -1,0 +1,100 @@
+{
+  "generatedOn": "2026-11-06",
+  "generator": "Built-in image_gen.imagegen",
+  "mode": "generate; one separate call per portrait",
+  "purpose": "Fictional adult profiles for the Nisfayn demo only. Not photographs of real members, endorsements or verified identities.",
+  "visualReview": "Each generated portrait was inspected for an adult single subject, modest clothing, natural appearance and no text/watermark.",
+  "encoding": "WebP quality 84, original dimensions preserved, no retouching or compositing.",
+  "assets": [
+    {
+      "file": "fahad.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 73846,
+      "sha256": "4c3b58849578fb18db4a19bd5e9f309ac79545381edf4691bdb99f6ae05cd375",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Fahad, clearly adult 32-year-old Saudi man, warm medium olive skin, short dark hair, neatly trimmed full short beard, warm brown eyes, slight smile. Wearing a crisp off-white Saudi thobe with a simple collar, no headdress. Standing in a softly sunlit sandstone courtyard with a blurred olive tree. Dignified and warm."
+    },
+    {
+      "file": "sarah.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 133494,
+      "sha256": "c47ee80b7ac94b1b78634ec62307282e168fad97a14e0e21bcb3ca18d456a097",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Sarah, clearly adult 28-year-old Saudi woman, warm medium olive skin, dark brown eyes, gently rounded face with natural brows and a relaxed small smile. Wearing a simple dusty taupe hijab covering hair and neck and a modest cream blouse. Standing near a limestone garden wall with softly blurred greenery. Natural minimal makeup, sincere everyday elegance."
+    },
+    {
+      "file": "saud.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 152084,
+      "sha256": "62ce0ce7c4bb8c0a8c53de4e709f53cb0287bde7de65a973768bba871ef93523",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Saud, clearly adult 30-year-old Saudi man, rich medium-brown skin, broad calm face, short black hair, neatly groomed close beard, kind dark brown eyes, subtle genuine smile. Wearing a muted olive open overshirt over an ivory crew neck shirt. Seated upright at a shaded modern garden terrace, blurred pale stone and a little greenery. Different appearance from a conventional advertising model, approachable and sincere."
+    },
+    {
+      "file": "yasser.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 148648,
+      "sha256": "20dbe9979d1dfe535958d3838819f83380a8ee3ba97afae5a80426fd75f1e609",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Yasser, clearly adult 29-year-old Saudi man, light olive skin, slender oval face, wavy black hair with a natural side part, short neat moustache and light stubble, understated thin dark round eyeglasses, calm slight smile. Wearing a sand-colored cotton overshirt over a white shirt. Softly blurred warm ivory contemporary library shelves in daylight, no readable text. Confident and thoughtful, natural ordinary appearance."
+    },
+    {
+      "file": "lulwa.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 81726,
+      "sha256": "9b88a2ac3912d0dbf088d456fb2e939269eddf4aaab3c1e90cd456e80df66ab2",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Lulwa, clearly adult 29-year-old Saudi woman, rich medium-brown skin, soft oval face, warm dark eyes and gently smiling mouth, natural brows. Wearing a muted olive hijab covering hair and neck and a loose modest warm ivory abaya. Pale stone shaded garden terrace behind her with a soft small patch of foliage, calm direct gaze. Minimal makeup, natural skin texture."
+    },
+    {
+      "file": "noura.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 188030,
+      "sha256": "80109090e4df6c8e55e788ef1d6e2246f4d1667729833a35803f4e03b9762a42",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Noura, clearly adult 27-year-old Saudi woman, light warm olive skin, softly angular face, expressive dark-brown eyes, natural thick brows and a sincere slight smile. Wearing a muted dusty rose hijab covering hair and neck and a simple modest oatmeal jacket. Standing near a blurred warm plaster wall and soft window daylight, contemporary airy studio or quiet café background without signs. Minimal natural makeup, realistic everyday features."
+    },
+    {
+      "file": "nawaf.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 71918,
+      "sha256": "4c3800aed2f87bb7b41cdc768d914bd067f0510d4d7485db4e0c69618a7a4b34",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Nawaf, clearly adult 35-year-old Saudi man with deep brown skin, a long slender face, close cropped black hair, a short neat black beard, expressive dark eyes and a quietly confident smile. Wearing a clean warm white Saudi thobe. Softly blurred pale sandstone wall and muted olive foliage under a shaded pergola, authentic natural everyday portrait."
+    },
+    {
+      "file": "abdullah.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 163474,
+      "sha256": "64f62b186f8e373b06c17d7b5c357d697ea5d5b349080dee364a797640171365",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Abdullah, clearly adult 31-year-old Saudi man with light olive skin, a broader round face, short straight black hair, clean-shaven cheeks with only a neat dark moustache, dark eyes and gentle smile. Wearing a simple dark navy polo shirt with no logos. Natural shade on a quiet warm ivory terrace, subtle greenery in background. Approachable ordinary professional, distinct face and build."
+    },
+    {
+      "file": "hind.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 89682,
+      "sha256": "b3db4607343fdf0b3c15250adacb0164a2ef46a5bbaba1a9b64f38280f501039",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Hind, clearly adult 34-year-old Saudi woman with medium brown skin, a long narrow face, thoughtful dark eyes, a gently prominent natural nose, small dark oval eyeglasses, and a calm sincere smile. Wearing a warm charcoal hijab fully covering hair and neck and a modest muted sand blouse. Soft daylight by a blurred ivory plaster wall and a subtle indoor green plant. Minimal makeup, realistic skin."
+    },
+    {
+      "file": "manal.webp",
+      "fictional": true,
+      "width": 1122,
+      "height": 1402,
+      "bytes": 117700,
+      "sha256": "532c1cd9e574fdc2c5e26e8b6de77f00df7755a46d8de956cfbe63e898aeb0fe",
+      "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Manal, clearly adult 30-year-old Saudi woman with light olive skin, a round face with soft cheeks, warm hazel-brown eyes, natural dark eyebrows, a friendly relaxed smile. Wearing a cream hijab covering hair and neck and a loose modest muted burgundy blouse. Standing beside a softly blurred sandstone wall and gentle garden greenery. Minimal makeup, natural realistic everyday appearance."
+    }
+  ]
+}

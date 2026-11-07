@@ -1,0 +1,37 @@
+{
+  "releasedOn": "2026-11-07",
+  "status": "Member and admin deployments published to their existing production aliases; mobile review database changes applied.",
+  "member": {
+    "url": "https://nisfayn-preview.vercel.app",
+    "deploymentId": "dpl_DrdaDmJtykPbAQQkbpjwmBJ1SFwo",
+    "entryAsset": "index-C6r5J4IT.js",
+    "mode": "Existing build:demo restriction retained"
+  },
+  "admin": {
+    "url": "https://nisfayn-admin.vercel.app",
+    "deploymentId": "dpl_Zf48BVpoyYrFMowMfBJMUAeMp7hN",
+    "entryAsset": "index-C0pkNyBX.js"
+  },
+  "database": {
+    "project": "wupkifqbwhhebwrgvwai",
+    "migrations": [
+      { "localVersion": "20261107103336", "remoteVersion": "20261107111712", "name": "member_profile_lifecycle" },
+      { "localVersion": "20261107103404", "remoteVersion": "20261107111719", "name": "matching_filter_request_outcomes" },
+      { "localVersion": "20261107103440", "remoteVersion": "20261107111727", "name": "member_guardian_support" },
+      { "localVersion": "20261107103456", "remoteVersion": "20261107111736", "name": "family_room_personal_leave" }
+    ],
+    "verification": "All eight expected columns, nine functions and closure trigger present. Support tables have RLS and deny direct anon/authenticated/service access. Only authenticated callers can execute the support RPC; session and role checks remain inside it.",
+    "securityAdvisors": "Informational RLS-without-policy findings match the private RPC-only schema. The existing Auth leaked-password-protection configuration is still reported as a warning; this release did not change Auth settings."
+  },
+  "validation": [
+    "Both hosted builds READY and promoted successfully",
+    "Both public aliases returned the exact new entry asset",
+    "30 targeted PostgreSQL tests passed before migration",
+    "Prior production build and 26 targeted frontend regression tests passed"
+  ],
+  "remaining": [
+    "Physical iPhone keyboard and haptic verification, Xcode signing, and native binary distribution require the native release workflow",
+    "Questionnaire changes remain deferred by request",
+    "Real member password recovery requires a live-mode HTTPS callback and verified email delivery; the existing hosted demo restriction remains"
+  ]
+}

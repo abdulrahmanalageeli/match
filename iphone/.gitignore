@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.npm-cache/
+.env
+.env.*
+!.env.example
+*.log
+.tmp/
+artifacts/
+*.tsbuildinfo
+supabase/tests/.tmp-*
+.vercel/
+
+.vercel
+.env*

@@ -1,0 +1,98 @@
+.nf-marriage-fields { display: grid; gap: 14px; min-width: 0; outline: none; }
+.nf-detail-intro { display: flex; align-items: flex-start; gap: 11px; padding: 4px 1px 8px; color: var(--accent); }
+.nf-detail-intro > svg { flex: none; margin-top: 4px; }
+.nf-detail-intro p { display: grid; gap: 4px; margin: 0; line-height: 1.7; }
+.nf-detail-intro strong { color: var(--ink); font-size: .95rem; }
+.nf-detail-intro p > span { color: var(--muted); font-size: .85rem; }
+.nf-marriage-group { min-width: 0; border: 1px solid #8a4b601a; border-radius: 17px; background: var(--surface); box-shadow: 0 5px 20px #472c3204; overflow: hidden; }
+.nf-marriage-group > summary { display: flex; align-items: center; gap: 12px; padding: 19px 16px; cursor: pointer; list-style: none; }
+.nf-marriage-group > summary::-webkit-details-marker { display: none; }
+.nf-marriage-emblem { display: grid; place-items: center; flex: none; width: 42px; height: 46px; border: 1px solid var(--line); border-radius: 18px 18px 12px 12px; color: var(--accent); background: var(--paper); }
+.nf-marriage-summary { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.nf-marriage-summary strong { color: var(--ink); font-size: .96rem; line-height: 1.45; }
+.nf-marriage-summary small { color: var(--muted); font-size: .78rem; line-height: 1.65; overflow-wrap: anywhere; }
+.nf-marriage-open { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--paper); color: var(--accent); }
+.nf-marriage-group[open] { border-color: var(--control-line); }
+.nf-marriage-group[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.nf-marriage-group[open] .nf-marriage-open svg { transform: rotate(-90deg); }
+.nf-marriage-content { display: grid; gap: 22px; padding: 0 17px 22px; }
+.nf-marriage-content > small, .nf-criterion-target small, .nf-personality > small, .nf-detail-footnote { color: var(--muted); font-size: .79rem; line-height: 1.8; }
+.nf-detail-footnote { padding-inline: 3px; }
+.nf-detail-choices { margin: 0; padding: 0; border: 0; min-width: 0; }
+.nf-detail-choices legend { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 0 10px; color: var(--ink); }
+.nf-detail-choices legend small { color: var(--muted); font-size: .73rem; font-weight: 400; }
+.nf-detail-choices > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.nf-detail-choices button { flex: 1 1 125px; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; font-size: .84rem; text-align: start; }
+.nf-detail-choices button i, .nf-personality-options button i { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--control-line); border-radius: 50%; flex: none; }
+.nf-detail-choices button[aria-pressed="true"], .nf-personality-options button[aria-pressed="true"] { color: var(--accent); background: var(--blush); border-color: var(--rose); }
+.nf-detail-choices button[aria-pressed="true"] i, .nf-personality-options button[aria-pressed="true"] i { background: var(--accent-fill); color: var(--accent-ink); border-color: var(--accent-fill); }
+.nf-criteria-guide { margin: -4px 0 3px; font-size: .83rem; color: var(--accent); }
+.nf-criteria-guide summary { cursor: pointer; padding: 8px 1px; }
+.nf-criteria-guide p { margin: 3px 0 6px; color: var(--muted); line-height: 1.85; }
+.nf-criterion { min-width: 0; border: 0; padding: 0; margin: 0; }
+.nf-criterion + .nf-criterion { border-top: 1px solid var(--line); padding-top: 18px; }
+.nf-criterion legend { color: var(--ink); padding-bottom: 11px; }
+.nf-criterion-modes { display: grid; grid-template-columns: 1fr 1fr 1.35fr; gap: 5px; padding: 4px; border-radius: 14px; background: var(--paper); border: 1px solid var(--line); }
+.nf-criterion-modes button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 6px 3px; border: 1px solid transparent; background: transparent; border-radius: 10px; color: var(--muted); font: inherit; font-size: .77rem; }
+.nf-criterion-modes button[aria-pressed="true"] { color: var(--accent); background: var(--surface); border-color: var(--line); box-shadow: 0 2px 6px #472c3208; font-weight: 700; }
+.nf-criterion-modes button[aria-pressed="true"] svg { flex: none; }
+.nf-criterion-target { display: grid; gap: 12px; padding-top: 16px; }
+.nf-criterion-target p { margin: 0; font-size: .88rem; line-height: 1.75; color: var(--ink); }
+.nf-criterion-checks { display: grid; gap: 8px; }
+.nf-criterion-checks label { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.nf-criterion-checks label:has(input:checked) { border-color: var(--rose); background: var(--blush); color: var(--accent); }
+.nf-criterion-checks input { width: 18px; height: 18px; padding: 0; flex: none; }
+.nf-personality { min-width: 0; }
+.nf-personality-progress { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .78rem; margin: 20px 0 10px; }
+.nf-personality-progress > :first-child { color: var(--accent); font-weight: 700; }
+.nf-personality-progress i { color: var(--muted); font-weight: 400; font-style: normal; }
+.nf-personality-meter { height: 4px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.nf-personality-meter > span { display: block; width: 100%; height: 100%; background: var(--accent-fill); transform-origin: right; }
+.nf-personality-card { min-width: 0; margin: 25px 0 0; padding: 14px 17px 19px; border: 1px solid var(--line); border-radius: 21px; background: var(--surface); }
+.nf-personality-card legend { padding: 0 8px; color: var(--accent); font-size: .83rem; font-weight: 700; }
+.nf-personality-card legend:focus { outline: none; }
+.nf-personality-card legend > span { margin-inline-end: 7px; color: var(--brass); }
+.nf-personality-card > p { margin: 0 0 22px; font-size: 1.17rem; font-weight: 700; line-height: 1.85; color: var(--ink); }
+.nf-personality-options { display: grid; gap: 9px; }
+.nf-personality-options button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); color: var(--ink); padding: 12px; font: inherit; font-size: .89rem; text-align: start; line-height: 1.65; }
+.nf-personality-options button span { min-width: 0; flex: 1; }
+.nf-personality-nav { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin: 15px 0 18px; }
+.nf-personality-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 7px 3px; border: 0; background: none; font: inherit; color: var(--accent); font-size: .82rem; }
+.nf-personality-nav .nf-personality-later { color: var(--muted); font-size: .76rem; }
+.nf-personality-nav .nf-personality-next { padding-inline: 17px; background: var(--accent-fill); color: var(--accent-ink); border-radius: 12px; }
+.nf-personality-nav button:disabled { opacity: .35; cursor: default; }
+.nf-personality-complete { display: flex; gap: 8px; align-items: center; color: var(--accent); background: var(--blush); border: 1px solid var(--line); border-radius: 13px; padding: 12px; font-size: .85rem; line-height: 1.75; }
+.nf-marriage-group summary:focus-visible, .nf-marriage-fields button:focus-visible, .nf-personality button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-personality-card { animation: nf-chapter-in 220ms ease-out; }
+  html:not([data-nf-motion="reduced"]) .nf-personality-meter > span { transition: transform 180ms ease-out; }
+  .nf-personality-options button, .nf-detail-choices button { transition: background-color 140ms, border-color 140ms; }
+}
+
+.nf-nationality-selected{display:flex;gap:8px;flex-wrap:wrap}.nf-nationality-selected button{display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:24px;border:1px solid #8a4b601c;background:#f9eff1;color:#5b1830;font:inherit;font-size:13px}.nf-nationality-selected button span{font-size:18px}.nf-nationality-selected button:focus-visible{outline:2px solid #7c2445;outline-offset:2px}
+
+.nf-nationality-custom{display:flex;align-items:flex-end;gap:10px}.nf-nationality-custom label{flex:1;min-width:0}.nf-nationality-custom .btn-secondary{width:auto;flex-shrink:0;min-height:46px;padding:10px 18px}
+
+.nf-family-disclosure { display: grid; gap: 9px; padding: 15px; border: 1px solid #d7b9bf; border-radius: 15px; background: linear-gradient(135deg,#faf2ed,#f5e9eb); }
+.nf-family-disclosure > small { color: var(--muted); font-size: .78rem; line-height: 1.8; }
+.nf-sensitive-note { display: flex; align-items: flex-start; gap: 9px; margin: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); color: var(--muted); font-size: .81rem; line-height: 1.85; }
+.nf-sensitive-note > svg { flex: none; margin-top: 4px; color: var(--brass); }
+.nf-question-map { margin-top: 12px; color: var(--accent); font-size: .8rem; }
+.nf-question-map > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; }
+.nf-question-map > summary::-webkit-details-marker { display: none; }
+.nf-question-map > summary > span { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: .73rem; }
+.nf-question-map[open] > summary svg { transform: rotate(-90deg); }
+.nf-question-map > div { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; padding: 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.nf-question-map button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); color: var(--muted); font: inherit; }
+.nf-question-map button[data-answered] { color: var(--accent); background: var(--blush); border-color: #d7b9bf; }
+.nf-question-map button[aria-current=step] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); font-weight: 700; }
+.nf-question-map button > i { width: 5px; height: 5px; border-radius: 50%; background: var(--line); }
+.nf-personality-last { color: var(--muted); font-size: .78rem; }
+.nf-personality-card { background: linear-gradient(150deg,#fffefd,#fdf8f4); border-color: #dfcfd0; box-shadow: 0 9px 27px -23px #5a0f2859; }
+.nf-personality-options button[aria-pressed=true] { border-color: #8f4259; background: #f6e9ed; }
+.nf-personality-meter > span { background: linear-gradient(90deg,var(--rose),var(--accent-fill)); }
+@media (max-width: 360px) { .nf-personality-nav { gap: 5px; flex-wrap: wrap; } .nf-personality-nav .nf-personality-next { padding-inline: 10px; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .nf-question-map button { transition: border-color 140ms, background-color 140ms; }
+  html:not([data-nf-motion=reduced]) .nf-marriage-group[open] .nf-marriage-content { animation: nf-chapter-in 180ms ease-out; }
+}

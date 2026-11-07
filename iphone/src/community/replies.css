@@ -1,0 +1,20 @@
+.cm-swipe-message { position: relative; width: 100%; touch-action: pan-y pinch-zoom; }
+.cm-swipe-content { display: flex; flex-direction: column; align-items: flex-end; width: 100%; }
+.cm-swipe-content[data-dragging] { user-select: none; -webkit-user-select: none; }
+.cm-swipe-hint { position: absolute; inset-inline: 0; top: calc(50% - 18px); margin-inline: auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--blush); color: var(--muted); }
+.cm-swipe-message[data-ready] .cm-swipe-hint { background: var(--accent-fill); color: var(--accent-ink); }
+.cm-message-meta .cm-reply-action { display: grid; place-items: center; width: 32px; min-height: 28px; border: 0; padding: 0; border-radius: 8px; color: inherit; background: transparent; }
+.cm-reply-quote { display: block; width: 100%; min-width: 0; max-width: 100%; margin-bottom: 7px; border: 0; border-inline-start: 3px solid var(--rose); border-radius: 7px; padding: 7px 10px; background: var(--blush); color: var(--ink); text-align: start; font: inherit; }
+.cm-reply-quote strong, .cm-reply-draft strong { display: block; font-size: .73rem; line-height: 1.5; color: var(--accent); }
+.cm-reply-quote span, .cm-reply-draft span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: .81rem; line-height: 1.6; white-space: pre-line; }
+.cm-bubble.self .cm-reply-quote { background: #ffffff14; color: var(--accent-ink); border-color: var(--gold); }
+.cm-bubble.self .cm-reply-quote strong { color: var(--gold); }
+.cm-reply-draft { display: flex; gap: 10px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border-inline-start: 3px solid var(--accent); border-radius: 9px; background: var(--blush); color: var(--ink); }
+.cm-reply-draft > div { min-width: 0; flex: 1; }
+.cm-reply-draft > svg, .cm-reply-draft > button { flex: none; }
+.cm-reply-notice { font-size: .8rem; color: var(--muted); text-align: center; }
+.cm-message-row[data-reply-highlight] .cm-bubble { outline: 2px solid var(--brass); outline-offset: 3px; }
+.cm-message-row:focus { outline: none; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .cm-swipe-content:not([data-dragging]) { transition: transform 160ms ease-out; }
+}

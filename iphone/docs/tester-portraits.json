@@ -1,0 +1,18 @@
+{
+  "tool": "built-in image_gen",
+  "fictional": true,
+  "assets": [
+    {
+      "style": "shemagh",
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-4b12587d-7998-4049-9b62-911f36cb1baf.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\demo\\portraits\\tester-shemagh.webp",
+      "sha256": "cdf5bae1768170e9131371ab9e43fefc6a7e36250bd6041e19bcb88d5696aa37"
+    },
+    {
+      "style": "ghutra",
+      "source": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-9164fe9f-07f5-4d06-8e74-190bee50adf1.png",
+      "delivery": "C:\\Users\\timgo\\Downloads\\BlindComp\\my-project\\match\\iphone\\public\\demo\\portraits\\tester-ghutra.webp",
+      "sha256": "5844cc8357b2c7aa24fa143da709013d95a48205673708e8380e910310a6de06"
+    }
+  ]
+}

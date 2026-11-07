@@ -1,0 +1,8 @@
+{
+  "name": "marriage-postgres-verification",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --experimental-strip-types --test --test-concurrency=2 *.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.3.14" }
+}

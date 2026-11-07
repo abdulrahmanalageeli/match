@@ -1,0 +1,20 @@
+.nf-tester-tools>.nf-tester-drawer{position:absolute;top:100%;inset-inline:12px;max-height:min(65dvh,520px);overflow:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px #30252a18}
+.nf-tester-drawer>.nf-simulation{margin:0;border-radius:0}
+.nf-simulation{margin:0 auto 12px;padding:15px 18px;max-width:700px;background:#faf7f3;border-radius:16px;color:#463b36;text-align:right}
+.nf-simulation-title{display:flex;align-items:center;gap:7px;font-size:13px;color:#682b43}
+.nf-simulation-title>span{margin-inline-start:auto;font-size:11px;font-weight:400;color:#756a63}
+.nf-simulation p{font-size:12px;line-height:1.9;margin:8px 0}
+.nf-simulation small{display:block;font-size:10px;line-height:1.9;color:#776b63}
+.nf-simulation-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.nf-simulation-actions button{display:inline-flex;align-items:center;gap:5px;background:white;border:1px solid #e6ded7;border-radius:10px;color:#682b43;padding:8px 10px;font:inherit;font-size:11px;cursor:pointer}
+.nf-simulation-actions button:disabled{opacity:.5;cursor:default}
+.nf-simulation-log{font-size:11px;line-height:1.8;margin-top:12px}
+.nf-simulation-log summary{cursor:pointer}
+.nf-simulation-log ol{padding-inline-start:18px;margin-bottom:0;color:#776b63}
+.nf-demo-tag{display:inline-flex;align-items:center;color:#79675a;font-size:9px;font-weight:400;line-height:1.6;padding:1px 5px;border:1px solid #e4d9ce;border-radius:5px;vertical-align:middle;white-space:nowrap}
+.cm-ai-opener{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:12px 0}
+.cm-ai-opener>button{display:inline-flex;align-items:center;gap:5px;border:1px solid #e7ddd7;border-radius:12px;padding:8px 12px;background:#fcfaf7;color:#73394e;font:inherit;font-size:12px;cursor:pointer}
+.cm-ai-opener>small{font-size:10px;line-height:1.7;color:#86796f}
+.cm-ai-result{padding:12px;background:#faf7f3;border-radius:12px;font-size:13px;line-height:1.9;width:100%;box-sizing:border-box}
+.cm-ai-result p{margin:0 0 8px}
+.cm-ai-result button{border:0;background:transparent;color:#73394e;font:inherit;font-size:12px;cursor:pointer}

@@ -1,0 +1,31 @@
+{
+  "status": "Implemented; disabled until Apple credentials and physical-device validation are complete",
+  "apple": {
+    "bundleId": "com.blindmatch.marriage",
+    "requirements": ["Enable Push Notifications for the bundle ID in the Apple Developer account", "Generate an APNs signing key restricted to the intended topic/environment where supported", "Refresh the app provisioning profile and sign the native build", "Debug uses aps-environment=development and APNs sandbox; Release/TestFlight uses production"],
+    "references": ["https://developer.apple.com/documentation/usernotifications/registering-your-app-with-apns", "https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns"]
+  },
+  "vercelProductionSecrets": {
+    "NISFAYN_PUSH_ENABLED": "true only after validation",
+    "CRON_SECRET": "High-entropy server-only scheduling secret",
+    "NISFAYN_SUPABASE_URL": "Dedicated Nisfayn project only; never the BlindMatch event project",
+    "NISFAYN_SERVICE_ROLE_KEY": "Server-only service-role JWT or Supabase secret key",
+    "APNS_TEAM_ID": "Apple developer team ID",
+    "APNS_KEY_ID": "APNs signing key ID",
+    "APNS_PRIVATE_KEY_BASE64": "Base64 of the complete .p8 PEM file; never include in client builds",
+    "APNS_ENVIRONMENT": "sandbox or production; separate deployments/configurations",
+    "APNS_TOPIC": "com.blindmatch.marriage"
+  },
+  "clientBuild": { "VITE_MARRIAGE_PUSH_ENABLED": "true only after server setup and device validation" },
+  "worker": {
+    "path": "/api/push",
+    "authorization": "Bearer CRON_SECRET",
+    "methods": ["GET", "POST"],
+    "schedule": "Configure an authenticated schedule at the required delivery cadence after checking the Vercel team's scheduling allowance. No schedule is enabled by this implementation.",
+    "preview": "Worker refuses VERCEL_ENV=preview. Do not copy production APNs or service credentials into preview.",
+    "batch": "Up to 20 queued jobs, five concurrent sends, APNs HTTP/2 with an ES256 provider token, 120-second leases, bounded retries, 15-minute job expiry; completed queue entries are removed after seven days during worker calls.",
+    "privacy": "Only generic request/mutual/message copy and an opaque request ID go to APNs. No names, message content, photo URLs, or assessment answers. Eligibility is checked at claim and immediately before sending. Already delivered notifications cannot be remotely recalled."
+  },
+  "acceptanceTestsBeforeEnabling": ["Install signed sandbox build on a physical iPhone", "Enable from Settings and verify permission refusal/recovery", "Confirm generic notification on a second device while app is backgrounded", "Tap through to the same authorized request/thread", "Verify both-direction blocking, pause, expired membership, logout, and account switching suppress subsequent sends", "Test APNs invalid token cleanup and production/TestFlight environment separation"],
+  "localTests": ["node --test iphone/supabase/tests/push.test.mjs", "node --test iphone/admin/server/apns.test.mjs", "npm run typecheck from iphone"]
+}

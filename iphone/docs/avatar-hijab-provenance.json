@@ -1,0 +1,132 @@
+{
+  "assetStyle": "hijab",
+  "revision": 5,
+  "toolMode": "built-in",
+  "tool": "image_gen.imagegen",
+  "createdOn": "2026-11-06",
+  "description": "Original semi-realistic front-facing anonymous hijab styling restored. Natural average face proportions, gently rounded cheeks and subtle jaw/chin taper; not elongated/slim. Dusty-rose hijab, burgundy garment and warm ivory architecture retained.",
+  "renderVerification": "Every original visually inspected for front-facing average proportions, original garments, consistent skin variants and no facial features.",
+  "assets": [
+    {
+      "tone": "tone_1",
+      "targetColor": "#F1D3BA",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_1. Change ONLY visible skin color to very light warm beige, approximate base #F1D3BA. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-bcf5df2d-473e-424f-8817-7ce231f3053f.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_1.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_1.png",
+      "bytes": 54438,
+      "sha256": "32fd02852f6335eb3b554055c240eb8e65f54f4531a7c7f7d1e36588f89bdc47"
+    },
+    {
+      "tone": "tone_2",
+      "targetColor": "#E3B899",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_2. Change ONLY visible skin color to light warm beige, approximate base #E3B899. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-c46eeb2c-3897-4f22-84c6-2b9b824df132.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_2.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_2.png",
+      "bytes": 58426,
+      "sha256": "8aa46c235e3cc788df0be97df01c51e4026c18316cc13c245a405a74acff000d"
+    },
+    {
+      "tone": "tone_3",
+      "targetColor": "#CF9B77",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_3. Change ONLY visible skin color to warm light-medium tan, approximate base #CF9B77. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-82e8cf7a-fc53-4621-a4ef-6c3ae885e665.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_3.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_3.png",
+      "bytes": 55184,
+      "sha256": "211ce2df91207050899fa93654e94eb9a6d3f9d2df6e017c5d735e21f8578555"
+    },
+    {
+      "tone": "tone_4",
+      "targetColor": "#B97F59",
+      "reference": "C:/Users/timgo/.codex/visualizations/2026/11/05/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/output/nisfayn/avatar-originals-v2/hijab-tone_4.png",
+      "prompt": "Use case: precise-object-edit. Edit target: supplied original Nisfayn anonymous hijab avatar. Preserve the ORIGINAL front-facing semi-realistic style, dustyrose scarf, burgundy garment and entire background. User asks for a natural AVERAGE face shape, a balance of softly round and gently tapered: NORMAL WIDTH cheeks, softly rounded temples, a natural gently tapering jaw into a small rounded chin. Face must NOT be narrow, long, slim, sharp, pointy or angular; NOT a circular inflated ball. Make only a SUBTLE contour refinement to the existing face, primarily softly define the lower jaw/chin. Keep its existing height and normal upper cheek width; do not stretch the face or head. Keep straight-on symmetrical front-facing upright pose. Surface remains a completely featureless anonymous illustration with NO eyes, brows, nose or mouth, softly matte with gentle planar shading rather than inflated spherical shading. Natural warmmediumtan skin approx#B97F59. Preserve everything outside the inner scarf opening exactly: dusty-rose texturedcrepe scarf, folds, burgundy abaya, shoulders, photoreal warmivory arch and blurredlamps, lighting, original4:5composition. Do not turn sideways, do not tilt or hide face, do not changeclothingorcolors, do not restylebackground, no blackabaya, no text, no watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_4.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_4.png",
+      "bytes": 69338,
+      "sha256": "0ffb3bc27b085abeb1f9e6f392a2ee161743073eb5842ee249d207148a42e4a3"
+    },
+    {
+      "tone": "tone_5",
+      "targetColor": "#9E6343",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_5. Change ONLY visible skin color to warm medium-deep brown, approximate base #9E6343, distinctly darker than reference. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-7e2e974e-0cfe-4c11-b4ab-002f80f0de0e.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_5.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_5.png",
+      "bytes": 58846,
+      "sha256": "57da4f478f3eb82b58ab01775f43d8d6dd0bedc5324b6cca070c7ff230a8ffc2"
+    },
+    {
+      "tone": "tone_6",
+      "targetColor": "#7E4A34",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_6. Change ONLY visible skin color to deep brown, approximate base #7E4A34, distinctly darker than reference. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-a1d064c7-5de6-4e24-8894-8a4caf12ada3.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_6.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_6.png",
+      "bytes": 53564,
+      "sha256": "6b5233c7b829fe5dcf9ff2b1fba0f85143c5568ead5d52669f559f0d6e39de2b"
+    },
+    {
+      "tone": "tone_7",
+      "targetColor": "#603827",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_7. Change ONLY visible skin color to very deep warm brown, approximate base #603827, distinctly darker than reference. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-969d615c-714c-4950-aa00-5047c5c12505.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_7.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_7.png",
+      "bytes": 54590,
+      "sha256": "faccf4095f2e9d2cd4d4444aac278a542488fd80ae3b511925f5550c0595188a"
+    },
+    {
+      "tone": "tone_8",
+      "targetColor": "#42261F",
+      "reference": "C:/Users/timgo/.codex/generated_images/01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434/exec-53095d55-b9ab-4161-a13c-241218639988.png",
+      "prompt": "Use case: precise-object-edit. Nisfayn anonymous hijab avatar skin tone_8. Change ONLY visible skin color to rich darkest warm brown, approximate base #42261F, distinctly darker than reference. Preserve EXACTLY the existing natural average-width face outline with rounded cheeks and gently tapered chin, same face height/width, softly featureless front-facing pose. Do not narrow, elongate, turn or tilt the head. No eyes/brows/nose/mouth. Preserve identical dusty-rose crepehijab weave/folds, burgundyabaya, originalwarmivoryarch/lampsbackground, lighting and 4:5framing. Onlyskincolorchanges, no other visual edits, no text/watermark.",
+      "path": "C:\\Users\\timgo\\.codex\\generated_images\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\exec-cc9112a4-9471-458a-9af8-e9688f6f5d20.png",
+      "dimensions": [
+        800,
+        1000
+      ],
+      "asset": "public/avatars/semi-realistic/hijab-tone_8.webp",
+      "original": "C:\\Users\\timgo\\.codex\\visualizations\\2026\\11\\05\\01a1ab9d-c6b4-7cd1-82b5-0faccf0a8434\\output\\nisfayn\\avatar-originals-v5\\hijab-tone_8.png",
+      "bytes": 56966,
+      "sha256": "d81a03ebe1c671977d0653bd5734f51b4d769f28ac2e945f287dff07d14075af"
+    }
+  ],
+  "deliveryProcessing": "Format conversion and proportional downsampling only; all visual edits and skin-tone variants generated with built-in image_gen. No code-based recoloring, retouching or compositing."
+}

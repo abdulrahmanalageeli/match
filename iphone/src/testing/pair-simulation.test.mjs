@@ -1,0 +1,134 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import ts from 'typescript';
+
+const moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
+async function compile(path){
+  const file=new URL(path,import.meta.url);
+  let source=ts.transpileModule(await readFile(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+  source=source.replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/g,'const requestAi=(...args)=>globalThis.__pairSimulationAi(...args);')
+ .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
+    .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/cloud['"];?/g,'')
+    .replace(/import\s*\{[^}]+\}\s*from ['"]\.\/updates['"];?/g,'')
+    .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/g,"const marriageProjectUrl='https://test.invalid';const marriagePublishableKey='public-test-key';");
+  return {source,file};
+}
+function resolveImports(source,file){return source.replace(/from (['"])(\.{1,2}\/[^'"]+)\1/g,(_all,_quote,path)=>'from '+JSON.stringify(new URL(path.endsWith('.ts')?path:path+'.ts',file).href));}
+const data=await compile('../community/data.ts');
+const dataUrl=moduleUrl(resolveImports(data.source,data.file)+"\nclass CloudError extends Error{constructor(message,status){super(message);this.status=status;}}\nconst cloud=null;const privateUpdates=()=>()=>()=>{};");
+const pair=await compile('./pair.ts');
+const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'",JSON.stringify(dataUrl)),pair.file));
+const {pairSource,testProfile}=await import(pairUrl);
+
+function harness(t,overrides={}){
+  const calls=[],aiCalls=[];
+  const remote={actor:'reham',matched:true,profileRevision:'revision',profiles:{},messages:[],read:{},stage:0,agree:{},call:null,...overrides};
+  const notifications=[{id:'remote-visit',kind:'profile_visit',actor:'abdulrahman',createdAt:'2026-01-01T12:00:00Z'}];
+  t.mock.method(globalThis,'fetch',async(_url,options)=>{
+    const request=JSON.parse(options.body);calls.push(request);
+    if(request.action==='notifications')return {ok:true,json:async()=>structuredClone(notifications)};
+    if(request.action==='notifications_read')notifications.forEach(row=>{if(request.payload.ids.includes(row.id))row.readAt=new Date().toISOString();});
+    if(request.action==='read')remote.read.reham=remote.messages.find(m=>m.id===request.payload.id)?.createdAt;
+    if(request.action==='rematch_request')remote.rematchRequestedBy='reham';
+    if(request.action==='rematch_accept'){remote.matched=true;delete remote.rematchRequestedBy;}
+    if(request.action==='match_seen')remote.celebrationSeen={reham:request.payload.key};
+    if(request.action==='send')remote.messages.push({id:request.payload.clientId,sender:'reham',body:request.payload.body,createdAt:new Date().toISOString()});
+    return {ok:true,json:async()=>structuredClone(remote)};
+  });
+  const previous=globalThis.__pairSimulationAi;
+  globalThis.__pairSimulationAi=async input=>{aiCalls.push(input);return 'أهلًا، يسعدني أن نبدأ الحديث بهدوء.';};
+  t.after(()=>{globalThis.__pairSimulationAi=previous;});
+  const profile=testProfile('reham',{age:33,preferredMinAge:18,preferredMaxAge:60,surveyAnswers:{...testProfile('reham').surveyAnswers,residence_plan:'C'}});
+  const account={actor:'reham',session:'synthetic-session',profile,profileRevision:'revision'};
+  const source=pairSource(account,()=>profile).source;
+  return {source,account,profile,calls,remote,notifications,aiCalls,reopen:()=>pairSource(account,()=>profile).source};
+}
+async function acceptFictional(source,id){const request=await source.request(id);await source.demoAcceptOutgoing(request);return request;}
+
+test('simulation notifications merge with real tester notifications and mark only their own storage read',async t=>{
+  const h=harness(t);await h.source.inbox();
+  for(let i=0;i<3;i++)await h.source.simulation.step();
+  const rows=await h.source.notifications();
+  const local=rows.find(n=>n.id!=='remote-visit');assert(local);
+  assert.equal(local.person.isDemo,true);assert.equal(rows.find(n=>n.id==='remote-visit').person.id,'abdulrahman');
+  assert.equal(rows.at(-1).id,'remote-visit');
+  await h.source.readNotifications([local.id,'remote-visit']);
+  assert.deepEqual(h.calls.find(c=>c.action==='notifications_read').payload.ids,['remote-visit']);
+  const read=await h.source.notifications();assert(read.find(n=>n.id===local.id).readAt);assert(read.find(n=>n.id==='remote-visit').readAt);
+});
+
+test('real and fictional chats keep independent messages, combined unread and local celebration acknowledgment',async t=>{
+  const realMessage={id:'real-message',sender:'abdulrahman',body:'PRIVATE REAL TESTER MESSAGE',createdAt:'2026-01-01T12:00:00Z'};
+  const h=harness(t,{messages:[realMessage]});await h.source.inbox();
+  const participant=h.source.simulation.snapshot().participants[0];
+  const id=await acceptFictional(h.source,participant);
+  const local=(await h.source.inbox()).find(row=>row.id===id);assert(local?.celebrationKey);
+  await h.source.acknowledgeMatch(local.celebrationKey);
+  assert.equal((await h.source.inbox()).find(row=>row.id===id).celebrationKey,undefined);
+  assert(!h.calls.some(call=>call.action==='match_seen'),'Fictional celebrations never mutate the real pair');
+  await h.source.send(id,'أهلًا، كيف كان يومك؟','local-message');
+  await h.source.simulation.step();await h.source.simulation.step();
+  assert.equal((await h.source.thread(id)).length,2);
+  assert.equal((await h.source.thread('tester-pair')).length,1);
+  assert.equal(h.aiCalls.length,0,'Neither fictional-thread text nor real-pair messages leave for AI processing');
+  assert.equal(h.source.simulation.snapshot().log.at(-1).kind,'reply','Local replies must not claim to be AI-generated');
+  assert.equal(await h.source.unreadCount(),2,'The bottom navigation badge counts both local and real unread replies');
+  const last=(await h.source.thread(id)).at(-1);await h.source.markRead(id,last.id);
+  assert.equal(await h.source.unreadCount(),1);
+  h.source.simulation.reset();assert.deepEqual(await h.source.thread('tester-pair'),[{...realMessage,reply:null,senderIsMe:false,deliveredAt:null,readAt:null}]);
+});
+
+test('combined capacity allows one fictional match beside the real pair and blocks additional requests',async t=>{
+  const h=harness(t);const people=await h.source.discover({mode:'all'});
+  const id=await acceptFictional(h.source,people[0].id);
+  assert.equal((await h.source.inbox()).filter(row=>row.status==='accepted').length,2);
+  await assert.rejects(h.source.request(people[1].id),/تعارفان/);
+  const updated=await h.source.discover({mode:'all'});assert(updated.every(p=>p.viewerAtCapacity));
+  await h.source.act(id,'cancel',undefined,true);
+  const request=await h.source.request(people[1].id);assert(request);
+});
+
+test('an unmatched real tester cannot request a third connection after two fictional matches',async t=>{
+  const h=harness(t,{matched:false,allowRematch:true});
+  const people=(await h.source.discover({mode:'all'})).filter(p=>p.isDemo);
+  await acceptFictional(h.source,people[0].id);await acceptFictional(h.source,people[1].id);
+  await assert.rejects(h.source.request('abdulrahman'),/تعارفان/);
+  assert(!h.calls.some(call=>call.action==='rematch_request'));
+});
+
+test('exclusivity and blocked profiles stop simulated activity without sending real chat messages',async t=>{
+  const h=harness(t);await h.source.inbox();
+  for(const id of h.source.simulation.snapshot().participants)await h.source.reportPerson(id,'ملف توضيحي للاختبار');
+  await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().eventCount,0);
+  h.source.simulation.reset();h.remote.exclusive=true;await h.source.heartbeat();
+  await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().eventCount,0);
+  assert.deepEqual(await h.source.discover({mode:'all'}),[]);
+  await assert.rejects(h.source.request('p01'),/حصري/);
+  assert(!h.calls.some(call=>call.action==='send'));
+});
+
+test('all fifteen eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
+  const h=harness(t);const people=await h.source.discover({mode:'all'});
+  assert.equal(people.length,15);assert(people.every(p=>p.isDemo));
+  assert.equal(people.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
+  assert.equal(people.find(p=>p.id==='p07').demoPhoto,undefined);
+  assert.equal(people.find(p=>p.id==='p15').demoPhoto,undefined);
+  assert(people.filter(p=>!p.demoPhoto).length>=9);
+});
+
+test('old tester commitment does not erase new fictional matches when reloading after exclusivity ends',async t=>{
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  const stored=new Map();
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value)}});
+  t.after(()=>{if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete globalThis.localStorage;});
+  const h=harness(t,{matched:false,retiredFictional:true,exclusive:false});
+  await h.source.inbox();
+  const people=await h.source.discover({mode:'all'});
+  const id=await acceptFictional(h.source,people[0].id);
+  await h.source.send(id,'هذه محادثة توضيحية محفوظة','persisted-message');
+  const restored=h.reopen();
+  assert.equal(restored.simulation.snapshot().running,false);
+  assert((await restored.inbox()).some(row=>row.id===id),'Historical retirement must not delete newly created local conversations');
+  assert.equal((await restored.thread(id))[0].body,'هذه محادثة توضيحية محفوظة');
+});

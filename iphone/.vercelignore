@@ -1,0 +1,14 @@
+admin
+ios
+service
+supabase
+tests
+docs
+artifacts
+.tmp
+node_modules
+.npm-cache
+.vercel
+dist
+.env*
+*.log

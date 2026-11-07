@@ -1,0 +1,26 @@
+@keyframes nf-handoff-leave {
+  to { opacity: 0; transform: translateX(var(--nf-out-x)); }
+}
+@keyframes nf-handoff-enter {
+  from { opacity: .25; transform: translateX(var(--nf-in-x)); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Forward navigation enters from the reading direction in Arabic. */
+:root[data-nf-welcome-handoff="forward"] { --nf-in-x: -15px; --nf-out-x: 9px; }
+:root[data-nf-welcome-handoff="back"] { --nf-in-x: 12px; --nf-out-x: -9px; }
+:root[data-nf-welcome-handoff]::view-transition { pointer-events: none; }
+:root[data-nf-welcome-handoff]::view-transition-old(root) {
+  animation: nf-handoff-leave 180ms cubic-bezier(.4,0,.6,1) forwards;
+  mix-blend-mode: normal;
+}
+:root[data-nf-welcome-handoff]::view-transition-new(root) {
+  animation: nf-handoff-enter 250ms cubic-bezier(.2,.8,.25,1) both;
+  mix-blend-mode: normal;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-nf-welcome-handoff]::view-transition-old(root),
+  :root[data-nf-welcome-handoff]::view-transition-new(root) { animation: none; }
+}
+:root[data-nf-motion="reduced"][data-nf-welcome-handoff]::view-transition-old(root),
+:root[data-nf-motion="reduced"][data-nf-welcome-handoff]::view-transition-new(root) { animation: none; }

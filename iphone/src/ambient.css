@@ -1,0 +1,65 @@
+/* Two quiet, composited layers. The existing page artwork remains the fallback. */
+.phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage) {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background: linear-gradient(160deg, #fffdfb, var(--paper) 60%, #faf7f2);
+}
+.phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage)::before,
+.phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage)::after,
+.phone-app .cm-chat-stage::before,
+.phone-app .cm-chat-stage::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 260px;
+  pointer-events: none;
+  user-select: none;
+  transform-origin: 20% 40%;
+}
+.phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage)::before,
+.phone-app .cm-chat-stage::before {
+  background: url('/brand/nisfayn-rose-ivory-waves.svg') left 18px / 110% 210px no-repeat;
+  opacity: .88;
+}
+.phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage)::after,
+.phone-app .cm-chat-stage::after {
+  height: 320px;
+  background: url('/brand/nisfayn-silk-thread.svg') left 4px / 110% 240px no-repeat,
+    radial-gradient(ellipse at 15% 28%, #e9c8ad2e, transparent 59%),
+    radial-gradient(ellipse at 94% 5%, #c5838e14, transparent 52%);
+  opacity: .7;
+}
+/* Keep motion in the conversation margins, behind the bubbles and controls. */
+.phone-app .cm-shell:has(.cm-chat)::before,
+.phone-app .cm-shell:has(.cm-chat)::after { content: none; }
+.phone-app .cm-chat-stage {
+  isolation: isolate;
+  background: linear-gradient(160deg, #fffdfb, var(--paper) 60%, #faf7f2);
+}
+.phone-app .cm-chat-stage::before { opacity: .48; }
+.phone-app .cm-chat-stage::after { opacity: .35; }
+@keyframes nf-silk-drift {
+  from { transform: translate3d(-.5%, -1px, 0) rotate(-.2deg) scale(1.005); }
+  to { transform: translate3d(.7%, 3px, 0) rotate(.3deg) scale(1.01); }
+}
+@keyframes nf-silk-light {
+  from { transform: translate3d(.6%, 2px, 0) rotate(.2deg); }
+  to { transform: translate3d(-.7%, -2px, 0) rotate(-.2deg) scale(1.01); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::before {
+    animation: nf-silk-drift 18s ease-in-out -7s infinite alternate;
+  }
+  html:not([data-nf-motion="reduced"]) .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::after {
+    animation: nf-silk-light 24s ease-in-out -13s infinite alternate;
+  }
+}
+/* Resume from the same pose; no timers, per-frame JS or React updates. */
+html[data-nf-ambient-paused] .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::before,
+html[data-nf-ambient-paused] .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::after,
+html:has(dialog[open], input:focus, textarea:focus, [contenteditable="true"]:focus) .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::before,
+html:has(dialog[open], input:focus, textarea:focus, [contenteditable="true"]:focus) .phone-app :is(.app-screen, .nf-intake, .nf-welcome, .loading-stage, .cm-chat-stage)::after {
+  animation-play-state: paused;
+}

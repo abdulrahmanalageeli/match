@@ -1,0 +1,44 @@
+name: Nisfayn checks
+on:
+  pull_request:
+    paths: ['iphone/**', '.github/workflows/nisfayn.yml']
+  push:
+    paths: ['iphone/**', '.github/workflows/nisfayn.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nisfayn-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm ci
+        working-directory: iphone
+      - run: node --experimental-strip-types --experimental-vm-modules --test tests/*.test.mjs
+        working-directory: iphone
+      - run: npm run build
+        working-directory: iphone
+        env:
+          VITE_MARRIAGE_ENV: demo
+      - run: npm ci
+        working-directory: iphone/admin
+      - run: npm test
+        working-directory: iphone/admin
+      - run: npm run build
+        working-directory: iphone/admin
+        env:
+          VITE_ADMIN_MODE: demo
+      - run: npm ci
+        working-directory: iphone/supabase/tests
+      - run: npm test
+        working-directory: iphone/supabase/tests

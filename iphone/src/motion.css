@@ -1,0 +1,110 @@
+:root {
+  --nf-ease-settle: cubic-bezier(.22,.78,.28,1);
+  --nf-motion-press: 140ms;
+  --nf-motion-shift: 220ms;
+  --nf-motion-reveal: 280ms;
+  --nf-ease-release: cubic-bezier(.2,.8,.25,1);
+}
+html[data-nf-text="large"] { font-size: 112.5%; }
+html[data-nf-motion="reduced"] *, html[data-nf-motion="reduced"] *::before, html[data-nf-motion="reduced"] *::after {
+  animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+  animation-delay: 0s !important; transition-duration: .01ms !important;
+  transition-delay: 0s !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    animation-delay: 0s !important; transition-duration: .01ms !important;
+    transition-delay: 0s !important; scroll-behavior: auto !important;
+  }
+}
+.nf-demo-options { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 13px; }
+.nf-demo-options > span { height: 13px; width: 1px; background: #e7d8c25c; }
+.nf-demo-options button { padding-inline: 2px; }
+.nf-demo-options button:last-child { color: var(--gold); font-weight: 400; }
+.nf-route-loading { display: grid; min-height: 52svh; place-items: center; color: var(--muted); }
+.cm-profile-receipt {
+  display: flex; align-items: center; gap: 9px; margin: 0 0 13px; padding-inline: 10px 3px;
+  border: 1px solid var(--gold); border-radius: 14px; background: #f5ece6; color: var(--accent-fill);
+}
+.cm-profile-receipt > span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid #cba4a8; border-radius: 50%; }
+.cm-profile-receipt strong { font-size: .91rem; }
+.cm-profile-receipt button { display: grid; place-items: center; margin-inline-start: auto; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); }
+@keyframes nf-confirm-stroke { from { stroke-dashoffset: 22; } to { stroke-dashoffset: 0; } }
+@keyframes nf-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes nf-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nf-logo-settle {
+  from { opacity: .62; transform: translateY(11px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes nf-dawn {
+  0% { opacity: 0; transform: scale(.84); }
+  42% { opacity: .72; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+@keyframes nf-gold-rule {
+  from { transform: scaleX(.25); }
+  to { transform: none; }
+}
+@keyframes nf-card-settle {
+  from { opacity: .78; transform: translateY(9px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .cm-profile-receipt {
+    animation: nf-card-settle var(--nf-motion-shift) var(--nf-ease-settle) backwards;
+  }
+  html:not([data-nf-motion="reduced"]) :is(.cm-profile-receipt, .phone-app[data-from-intake] .timeline strong) svg path {
+    stroke-dasharray: 22;
+    animation: nf-confirm-stroke var(--nf-motion-reveal) var(--nf-ease-settle) backwards;
+  }
+  html:not([data-nf-motion="reduced"]) :is(.flow-body,.mi-heading-row,.cm-title,.mi-detail-profile,.cm-profile-top) {
+    animation: nf-arrive .19s cubic-bezier(.22,.78,.28,1) both;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-membership {
+    animation: nf-arrive .23s cubic-bezier(.22,.78,.28,1) both;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-welcome[data-intro] .nf-welcome-identity {
+    position: relative;
+    isolation: isolate;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-welcome[data-intro] .nf-welcome-identity::before {
+    content: "";
+    position: absolute;
+    inset: 8% 3%;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, #e6bc8052, transparent 65%);
+    animation: nf-dawn .42s ease-out;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-welcome[data-intro] .nf-cover-logo {
+    animation: nf-logo-settle .28s var(--nf-ease-release) backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-welcome[data-intro] .nf-welcome-identity h1::before,
+  html:not([data-nf-motion="reduced"]) .nf-welcome[data-intro] .nf-welcome-identity h1::after {
+    animation: nf-gold-rule .24s var(--nf-ease-release) .04s backwards;
+  }
+  .nf-welcome-identity h1::before { transform-origin: left center; }
+  .nf-welcome-identity h1::after { transform-origin: right center; }
+  html:not([data-nf-motion="reduced"]) .mi-home :is(.mi-feature,.mi-empty) {
+    animation: nf-card-settle .29s cubic-bezier(.2,.8,.25,1) .025s backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .mi-rationale {
+    animation: nf-card-settle .24s cubic-bezier(.2,.8,.25,1) .085s backwards;
+  }
+  html:not([data-nf-motion="reduced"]) :is(.action-dialog,.cm-sheet,.st-dialog,.nf-help,.nf-support-dialog)[open] {
+    animation: nf-arrive var(--nf-motion-shift) var(--nf-ease-settle);
+  }
+  html:not([data-nf-motion="reduced"]) dialog[open]::backdrop { animation: nf-veil .14s ease-out; }
+  html:not([data-nf-motion="reduced"]) :where(button,summary):not(:disabled):not([aria-disabled="true"]) {
+    transition: scale var(--nf-motion-press) var(--nf-ease-release), background-color var(--nf-motion-press) ease-out, border-color var(--nf-motion-press) ease-out, color var(--nf-motion-press) ease-out;
+  }
+  /* Independent scale preserves positioning transforms and keeps hit boxes stable. */
+  html:not([data-nf-motion="reduced"]) :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: 80ms; }
+}
+/* Reduced motion retains a visible press response without shrinking controls. */
+:where(button,summary):not(:disabled):not([aria-disabled="true"]):active { filter: brightness(.96); }

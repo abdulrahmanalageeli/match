@@ -1,0 +1,447 @@
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Brand } from "../Brand";
+import { CompatibilityFields } from "../compatibility/CompatibilityFields";
+import { categories, dimensions, interests } from "../compatibility/model";
+import type { Profile, PortraitRevealPolicy } from "../types";
+import { arabicNumber, chapters, initialDraft, latinDigits, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { intakeVault } from "./persistence";
+import "./onboarding.css";
+import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
+import { personalityQuestions } from "../compatibility/personality";
+import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels } from "../compatibility/marriage";
+import { dressStyles, dressFlexibilities, skinTones } from "../compatibility/appearance";
+import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
+import type { PortraitDraft } from '../photos/portraitPreparation';
+import type { CommunitySource } from '../community/data';
+import { emptyConsents, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
+import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
+import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
+import { HelpButton } from '../help/HelpCenter';
+import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
+import { BeenaFields } from '../beena/BeenaFields';
+import { beenaProgress, beenaScenarios } from '../beena/model';
+
+export type { ApplicationDraft } from "./draft";
+
+type Props = {
+  initial: Profile | null;
+  previouslyApproved: boolean;
+  nextPublicProfileEditAt?: string | null;
+  profileReviewPending?: boolean;
+  busy: boolean;
+  back: () => void;
+  onPrivacy: () => void;
+  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy) => void;
+  portraitSource?:CommunitySource|null;
+  preview?:boolean;
+  startAt?:Chapter;
+  includeCompatibility?: boolean;
+  draftRef?: RefObject<ApplicationDraft | null>;
+  draftOwner?: string;
+  demo?: boolean;
+};
+
+const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, review: CheckCheck };
+const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
+const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
+  identity:['displayName','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
+  details:['marriageBasics'], avatar:['publicAvatar','portrait'], criteria:['partnerCriteria'],
+  compatibility:['interestIds','surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
+  beena:['beena'],
+  preferences:['preferredMinAge','preferredMaxAge','familyPreference','contact'],
+};
+
+function ReviewGroup({ title, edit, children, visible=true, expanded=false }: { title: string; edit: () => void; children: ReactNode; visible?:boolean; expanded?:boolean }) {
+  if(!visible)return null;
+  return (
+    <details className="nf-intake-review-group" open={expanded||undefined}>
+      <summary><span>{title}</span><ChevronLeft size={16} aria-hidden="true"/></summary>
+      <div className="nf-review-group-content">{children}<button className="nf-review-edit" type="button" onClick={edit} aria-label={"تعديل " + title}><Pencil size={13} aria-hidden="true" /> تعديل هذا القسم</button></div>
+    </details>
+  );
+}
+
+function Review({ p, edit, withCompatibility, changed, portraitChange, portraitSource, portraitPolicy, sensitivePublication }: { p: Answers; edit: (step: Chapter) => void; withCompatibility: boolean; changed?:Set<Chapter>; portraitChange?:PortraitDraft|null; portraitSource?:CommunitySource|null; portraitPolicy?:PortraitRevealPolicy; sensitivePublication:boolean }) {
+  const groupProps=(step:Chapter)=>({visible:!changed||changed.has(step),expanded:changed?.size===1});
+  const photoUrl=portraitChange===null?null:portraitChange?.url;
+  const hasPortrait=Boolean(photoUrl||(photoUrl!==null&&p.portrait));
+  const reveal=portraitChange?.revealPolicy??portraitPolicy??p.portrait?.revealPolicy??'never';
+  const chosen = interests.filter(item => p.interestIds?.includes(item.id));
+  const priorities = categories.filter(item => p.priorityCategories?.includes(item.id));
+  const requirements = dimensions.filter(item => p.hardRequirements?.includes(item.id));
+  const styles = dimensions.flatMap(dimension => {
+    const self = dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.id]);
+    const partner = dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.partnerId]);
+    return [self && { key: dimension.id, label: dimension.selfPrompt, value: self.self },
+      partner && { key: dimension.partnerId, label: dimension.partnerPrompt, value: partner.partner }].filter(item => !!item);
+  });
+  return (
+    <div className="nf-intake-reviews">
+      <ReviewGroup title="الأساسيات" edit={() => edit("identity")} {...groupProps('identity')}>
+        <strong className="nf-review-alias" dir="auto">{p.displayName}</strong>
+        <p className="nf-review-meta"><MapPin size={14} aria-hidden="true" />{p.city}<span aria-hidden="true">·</span>{arabicNumber(Number(p.age))} عامًا<span aria-hidden="true">·</span>{p.gender === "woman" ? "امرأة" : "رجل"}</p>
+      </ReviewGroup>
+      <ReviewGroup title="تفاصيلك الشخصية" edit={() => edit("details")} {...groupProps('details')}>
+        <p>{sensitivePublication?'اخترت عرض التفاصيل الحساسة للأعضاء المؤهلين.':'التفاصيل الحساسة أدناه خاصة؛ لن تظهر للأعضاء ما لم توافق على عرضها.'}</p>
+        {p.marriageBasics?.heightCm && <p>الطول: {arabicNumber(p.marriageBasics.heightCm)} سم</p>}
+        {p.marriageBasics?.weightKg && <p>الوزن: {arabicNumber(p.marriageBasics.weightKg)} كجم</p>}
+        {p.marriageBasics?.nationality && <p>الجنسية: {p.marriageBasics.nationality}</p>}
+        {p.marriageBasics?.tribalBackground && p.marriageBasics.tribalBackground !== 'prefer_not_to_say' && <p>الخلفية القبلية: {tribalLabels[p.marriageBasics.tribalBackground]}{p.marriageBasics.tribeName ? " — " + p.marriageBasics.tribeName : ""}</p>}
+        {p.marriageBasics?.maritalStatus && <p>الحالة الاجتماعية: {maritalLabels[p.marriageBasics.maritalStatus]}</p>}
+        {p.marriageBasics?.maritalStatus === 'married' && p.marriageBasics.currentWives !== undefined && <p>عدد الزوجات حاليًا: {arabicNumber(p.marriageBasics.currentWives)}</p>}
+        {p.marriageBasics?.polygynyPreference && p.marriageBasics.polygynyPreference !== 'prefer_not_to_say' && <p>الموقف من التعدد: {p.gender === 'woman' ? ({not_open:'لا أقبل التعدد',open_to_discussion:'منفتحة على النقاش',open:'منفتحة على التعدد'})[p.marriageBasics.polygynyPreference] : polygynyLabels[p.marriageBasics.polygynyPreference]}</p>}
+        {p.marriageBasics?.religiousAffiliation && p.marriageBasics.religiousAffiliation !== 'prefer_not_to_say' && <p>المذهب: {religiousAffiliationLabels[p.marriageBasics.religiousAffiliation]}</p>}
+        {p.marriageBasics?.prayerPractice && p.marriageBasics.prayerPractice !== 'prefer_not_to_say' && <p>الصلاة في حياتي: {prayerPracticeLabels[p.marriageBasics.prayerPractice]}</p>}
+        {p.marriageBasics?.marriageTimeline && <p>توقيت الزواج: {marriageTimelineLabels[p.marriageBasics.marriageTimeline]}</p>}
+        {p.marriageBasics?.meetingPreference && <p>تفضيل اللقاء: {meetingPreferenceLabels[p.marriageBasics.meetingPreference]}</p>}
+        {p.marriageBasics?.childrenCount !== undefined && <p>عدد الأبناء: {arabicNumber(p.marriageBasics.childrenCount)}</p>}
+        {p.marriageBasics?.smoking && <p>التدخين: {smokingLabels[p.marriageBasics.smoking]}</p>}
+        {p.marriageBasics?.skinTone && <p>البشرة: <span className="nf-review-skin" style={{ backgroundColor: skinTones.find(t => t.value === p.marriageBasics?.skinTone)?.color }} aria-hidden="true" />{appearanceNames[p.marriageBasics.skinTone]}</p>}
+        {p.marriageBasics?.dressStyle && <p>اللباس الحالي: {appearanceNames[p.marriageBasics.dressStyle]}</p>}
+        {p.marriageBasics?.dressFlexibility && <p>مناقشة اللباس: {appearanceNames[p.marriageBasics.dressFlexibility]}</p>}
+        {!Object.values(p.marriageBasics ?? {}).some(v => v !== undefined && v !== "" && v !== 'prefer_not_to_say') && <p>لم تضف تفاصيل اختيارية.</p>}
+      </ReviewGroup>
+      {p.gender === "woman" && <ReviewGroup title="صورة ملفك" edit={() => edit("avatar")} {...groupProps('avatar')}>
+        <div className="nf-review-avatar"><div className="nf-studio-avatar nf-review-portrait"><ProfilePortraitPreview answers={{...p,publicAvatar:sensitivePublication?p.publicAvatar:null}} photoUrl={photoUrl} portraitSource={portraitSource}/></div><p>{hasPortrait ? <>صورتك كما ستظهر للأعضاء المؤهلين.<br/>درجة التمويه: {arabicNumber(portraitChange?.blur??p.portrait?.blur??0)}٪</> : p.publicAvatar&&sensitivePublication ? <>{appearanceNames[p.publicAvatar.style]} · {appearanceNames[p.publicAvatar.skinTone]}<br/>رسم توضيحي يظهر في ملفك، دون صورة شخصية.</> : <>سيظهر حرف من اسمك. عرض الرسم الذي يعكس البشرة يحتاج إلى موافقتك على عرض التفاصيل الحساسة.</>}</p></div>
+        {hasPortrait&&<p>إزالة التمويه: {{never:'لا تُزال تلقائيًا',matched:'بعد قبول التعارف من الطرفين',serious:'عند النقاش الجاد حول الزواج',family:'عند الخطوة الرسمية أو العائلية'}[reveal]}{reveal!=='never'&&' · للطرف المؤهل فقط، مع حفظ نسخة واضحة خاصة.'}</p>}
+      </ReviewGroup>}
+      {withCompatibility && <ReviewGroup title="متطلبات الشريك الخاصة" edit={() => edit("criteria")} {...groupProps('criteria')}>
+        {([['height', 'الطول'], ['weight', 'الوزن'], ['tribalBackground', 'الخلفية القبلية'], ['nationality', 'جنسية الشريك'], ['maritalStatus', 'الحالة الاجتماعية'], ['children', 'وجود أبناء'], ['smoking', 'التدخين'], ['skinTone', 'لون البشرة'], ['dressStyle', 'اللباس الحالي'], ['dressFlexibility', 'مناقشة اللباس']] as const).map(([key, label]) => {
+          const criterion = p.partnerCriteria?.[key];
+          if (!criterion || criterion.mode === "any") return null;
+          let target = "";
+          if ("min" in criterion || "max" in criterion) target = `${criterion.min ?? "…"} – ${criterion.max ?? "…"}`;
+          if ("values" in criterion) target = criterion.values?.map(v => ({ ...maritalLabels, ...appearanceNames } as Record<string, string>)[v] ?? v).join("، ") ?? "";
+          if ("target" in criterion) target = ({ tribal: "قبلي", non_tribal: "غير قبلي", same_tribe: "من نفس قبيلتي", none: "دون أبناء", any: "لا يهمني", never: "لا يدخّن", open_to_discussion: "منفتحة على النقاش", open_to_change: "منفتحة على التغيير إذا اقتنعت به" })[criterion.target ?? "any"];
+          if ('exclude' in criterion && criterion.exclude) target='باستثناء: '+target;
+          return <p key={key}>{label}: {criteriaModes.find(m => m.value === criterion.mode)?.label} — {target}</p>;
+        })}
+        {!Object.values(p.partnerCriteria ?? {}).some(c => c.mode !== "any") && <p>ليس لديك تفضيل محدد لهذه التفاصيل.</p>}
+      </ReviewGroup>}
+      <ReviewGroup title="حياتك" edit={() => edit("story")} {...groupProps('story')}>
+        <strong>{p.profession}</strong><p className="nf-review-bio" dir="auto">{p.bio}</p>
+        {p.education && <p>الدراسة: {p.education}</p>}
+        {p.marriageIntent && <p>نيّتي من التعارف: {p.marriageIntent}</p>}
+        {p.lookingFor && <><strong>ما أبحث عنه</strong><p className="nf-review-bio" dir="auto">{p.lookingFor}</p></>}
+        {p.valuesStatement && <><strong>ما أقدّره ولا أستغني عنه</strong><p className="nf-review-bio" dir="auto">{p.valuesStatement}</p></>}
+        {p.lifeTogether && <><strong>الحياة التي أتخيلها</strong><p className="nf-review-bio" dir="auto">{p.lifeTogether}</p></>}
+      </ReviewGroup>
+      {withCompatibility && <ReviewGroup title="التوافق" edit={() => edit("compatibility")} {...groupProps('compatibility')}>
+        {chosen.length > 0 && <ul className="nf-review-interests">{chosen.map(item => <li key={item.id}>{item.label}</li>)}</ul>}
+        {priorities.length > 0 && <p>أولوياتي: {priorities.map(c => c.label).join("، ")}</p>}
+        {requirements.length > 0 && <p>شروطي الأساسية: {requirements.map(d => d.title).join("، ")}</p>}
+        {styles.length > 0 && <details className="nf-review-styles"><summary>إجاباتي الخاصة ({arabicNumber(styles.length)})</summary>
+          <dl>{styles.map(item => <div key={item.key}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
+        </details>}
+        {!chosen.length && !styles.length && !priorities.length && <p>لم تضف تفضيلات اختيارية.</p>}
+      </ReviewGroup>}
+      {withCompatibility && <ReviewGroup title="تقييم الشخصية الخاص" edit={() => edit("personality")} {...groupProps('personality')}>
+        <p>أجبت عن {arabicNumber(personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length)} من {arabicNumber(personalityQuestions.length)} سؤالًا.</p>
+        <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{personalityQuestions.flatMap(q => { const answer = q.options.find(o => o.code === p.personalityAnswers?.[q.id]); return answer ? [<div key={q.id}><dt>{q.prompt}</dt><dd>{answer.label}</dd></div>] : []; })}</dl></details>
+      </ReviewGroup>}
+      {withCompatibility && <ReviewGroup title="بيننا · مواقف الحياة" edit={() => edit('beena')} {...groupProps('beena')}>
+        <p>أكملت {arabicNumber(beenaProgress(p.beena).answered)} من ٦ مواقف. إجاباتك فردية وخاصة.</p>
+        {!!p.beena?.story?.text.trim() && <><strong>قصتي · {p.beena.story.share ? 'تظهر للأعضاء المؤهلين' : 'خاصة بي'}</strong><p dir="auto">{p.beena.story.text}</p></>}
+        <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{beenaScenarios.map(s=>{const a=p.beena?.answers[s.id];return a&&(a.self||a.partner?.length)?<div key={s.id}><dt>{s.title}</dt><dd>أسلوبي: {s.options.find(o=>o.code===a.self)?.label??'لم أحدد بعد'}<br/>أرحّب بـ: {s.options.filter(o=>a.partner?.includes(o.code)).map(o=>o.label).join('، ')||'لم أحدد بعد'}{a.importance===2&&' · مهم جدًا لي'}</dd></div>:null;})}</dl></details>
+      </ReviewGroup>}
+      <ReviewGroup title="تفضيلات التعارف" edit={() => edit("preferences")} {...groupProps('preferences')}>
+        <p>العمر من {arabicNumber(Number(p.preferredMinAge))} إلى {arabicNumber(Number(p.preferredMaxAge))} عامًا</p>
+        <p>إشراك الأهل: {p.familyPreference}</p>
+        <p className="nf-review-contact"><LockKeyhole size={13} aria-hidden="true" />وسيلة التواصل الخاصة <bdi dir="auto">{p.contact}</bdi></p>
+      </ReviewGroup>
+    </div>
+  );
+}
+
+export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, startAt,
+  includeCompatibility = true, draftRef, draftOwner = "", demo = false }: Props) {
+  const baseline = profileBaseline(initial);
+  const deviceDraft = !demo && intakeVault.available(draftOwner);
+  const [draft, setDraft] = useState<ApplicationDraft>(() => {
+    const saved = draftOwner && draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline
+      ? draftRef.current : initialDraft(draftOwner, initial);
+    return startAt ? {...saved,step:startAt,returnToReview:Boolean(initial)} : saved;
+  });
+  const current = useRef(draft);
+  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),sensitiveProfile:initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true,assessment:initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
+  const [portraitChange,setPortraitChange]=useState<PortraitDraft|null|undefined>();
+  const [portraitPolicy,setPortraitPolicy]=useState<PortraitRevealPolicy>();
+  const [photoBusy,setPhotoBusy]=useState(false);
+  useEffect(()=>()=>{if(portraitChange)URL.revokeObjectURL(portraitChange.url);},[portraitChange]);
+  const latestInitial = useRef(initial);
+  latestInitial.current = initial;
+  const touched = useRef(false);
+  const lease = useRef(intakeVault.revision(draftOwner));
+  const mounted = useRef(true);
+  const savingLater = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  const [confirmPhotoDraftLoss,setConfirmPhotoDraftLoss]=useState(false);
+  const photoDraftWarning=useRef<HTMLElement>(null);
+  useEffect(()=>{if(confirmPhotoDraftLoss){photoDraftWarning.current?.focus();photoDraftWarning.current?.scrollIntoView({block:'center'});}},[confirmPhotoDraftLoss]);
+  const [checkingDevice, setCheckingDevice] = useState(() =>
+    deviceDraft && !(draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline));
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+  const [storageState, setStorageState] = useState<"restored" | "loadError" | "saveError" | null>(null);
+  const [error, setError] = useState<Issue | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const previousStep = useRef(draft.step);
+  const direction = useRef<"next" | "back">("next");
+  const steps = chapters.filter(entry => (includeCompatibility || !["compatibility", "criteria", "personality", "beena"].includes(entry.key)) && (entry.key !== "avatar" || draft.answers.gender === "woman"));
+  const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
+  const chapter = steps[idx];
+  const Icon = chapterIcons[chapter.key];
+  const p = draft.answers;
+  let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
+  if(!consents.assessment)reviewAnswers=withoutAssessment(reviewAnswers);
+  if(reviewAnswers.gender==='woman'&&reviewAnswers.publicAvatar===undefined&&reviewAnswers.marriageBasics?.dressStyle&&reviewAnswers.marriageBasics?.skinTone&&!portraitChange&&!initial?.portrait)
+    reviewAnswers={...reviewAnswers,publicAvatar:{style:reviewAnswers.marriageBasics.dressStyle,skinTone:reviewAnswers.marriageBasics.skinTone}};
+  const [editorHome, setEditorHome] = useState(() => Boolean(initial) && draft.step === 'identity' && !draft.returnToReview);
+  const editing = Boolean(initial);
+  const originalAnswers=initialDraft(draftOwner,initial).answers;
+  const changedSections=new Set<Chapter>((Object.keys(chapterFields) as Chapter[]).filter(key=>chapterFields[key]!.some(field=>JSON.stringify(p[field])!==JSON.stringify(originalAnswers[field]))));
+  if(portraitChange!==undefined)changedSections.add('avatar');
+  if(portraitPolicy!==undefined&&portraitPolicy!==(initial?.portrait?.revealPolicy??'never'))changedSections.add('avatar');
+  if((['sensitiveProfile','sensitivePublication','assessment','photo'] as const).some(kind=>consents[kind] !== (initial?.signupConsents?.[kind] === true))
+    || consents.adult || consents.terms || consents.privacy)changedSections.add('review');
+  function chooseConsent(kind:Exclude<keyof SignupConsents,'version'>,value:boolean){
+    setConsents(old=>({...old,[kind]:value,...(kind==='sensitiveProfile'&&!value?{sensitivePublication:false}:{})}));
+    if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
+    if(kind==='assessment'&&!value)update(withoutAssessment(current.current.answers));
+    if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
+  }
+
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
+      const fresh = initialDraft(draftOwner, latestInitial.current);
+      current.current = fresh;
+      touched.current = false;
+      if (draftRef) draftRef.current = null;
+      setStorageState(null);
+      setDraft(fresh);
+    }
+    if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
+      setCheckingDevice(false);
+      return;
+    }
+    let active = true;
+    setCheckingDevice(true);
+    void intakeVault.load(draftOwner, baseline, lease.current).then(restored => {
+      if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
+      if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
+      if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
+      if (restored.step === "avatar" && restored.answers.gender !== "woman") restored.step = "details";
+      current.current = restored;
+      if (draftRef) draftRef.current = restored;
+      setDraft(restored);
+      setEditorHome(false);
+      setStorageState("restored");
+    }).catch(() => { if (active && !touched.current) setStorageState("loadError"); })
+      .finally(() => { if (active) setCheckingDevice(false); });
+    return () => { active = false; };
+  }, [baseline, deviceDraft, draftOwner, draftRef, includeCompatibility, restoreAttempt, startAt]);
+  useLayoutEffect(() => {
+    if (editorHome) return;
+    previousStep.current = draft.step;
+    heading.current?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [draft.step, editorHome]);
+  useLayoutEffect(() => {
+    if (!error) return;
+    const target = form.current?.querySelector<HTMLElement>('[data-field="' + error.field + '"]');
+    for (let parent = target?.parentElement; parent; parent = parent.parentElement) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    }
+    target?.focus();
+  }, [error, chapter.key]);
+  function commit(update: Partial<ApplicationDraft>) {
+    touched.current = true;
+    setStorageState(null);
+    const next = { ...current.current, ...update };
+    current.current = next;
+    if (draftRef && draftOwner) draftRef.current = next;
+    setDraft(next);
+  }
+  function update(values: Partial<Answers>) {
+    if (error && error.field in values) setError(null);
+    commit({ answers: { ...current.current.answers, ...values }, consent: false });
+  }
+  function selectGender(gender: Profile["gender"]) {
+    if (gender === p.gender) return;
+    const marriageBasics = { ...p.marriageBasics }, partnerCriteria = { ...p.partnerCriteria };
+    if (gender === "man") { delete marriageBasics.dressStyle; delete marriageBasics.dressFlexibility; }
+    else { delete partnerCriteria.dressStyle; delete partnerCriteria.dressFlexibility; }
+    update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
+  }
+  function move(step: Chapter, returnToReview = false) {
+    setEditorHome(false);
+    direction.current = steps.findIndex(entry => entry.key === step) < idx ? "back" : "next";
+    setError(null);
+    commit({ step, returnToReview });
+  }
+  function goBack() {
+    if (editorHome) { back(); return; }
+    if (draft.returnToReview) { move("review"); return; }
+    if (editing) { setEditorHome(true); window.scrollTo(0, 0); return; }
+    if (idx > 0) { move(steps[idx - 1].key); return; }
+    back();
+  }
+  async function leaveForLater(photoLossAcknowledged=false) {
+    if (busy || savingLater.current || (checkingDevice && !touched.current)) return;
+    if (!photoLossAcknowledged && (portraitChange!==undefined || portraitPolicy!==undefined)) { setConfirmPhotoDraftLoss(true); return; }
+    if (storageState === "loadError" && !touched.current) { back(); return; }
+    let answers=consents.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
+    if(!consents.assessment)answers=withoutAssessment(answers);
+    const snapshot = { ...current.current, answers, consent: false };
+    commit(snapshot);
+    if (!deviceDraft) { back(); return; }
+    savingLater.current = true;
+    setLeaving(true);
+    try {
+      if (await intakeVault.save(snapshot, lease.current) && mounted.current) back();
+    } catch {
+      if (mounted.current) setStorageState("saveError");
+    } finally {
+      savingLater.current = false;
+      if (mounted.current) setLeaving(false);
+    }
+  }
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (busy||photoBusy) return;
+    const agreed=consents.adult&&consents.terms&&consents.privacy;
+    const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed);
+    if (issue) {
+      setError(issue);
+      return;
+    }
+    if (chapter.key === "review") {
+      for (const entry of steps) {
+        const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed) : null;
+        if (sectionIssue) {
+          move(entry.key, true);
+          setError(sectionIssue);
+          return;
+        }
+      }
+      if(portraitChange&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة عرض الصورة، أو أزيليها للمتابعة.'});return;}
+      if(portraitChange&&portraitPolicy!==undefined&&portraitChange.revealPolicy!==portraitPolicy){move('avatar',true);setError({field:'portrait',text:'لم يكتمل تجهيز إعداد الصورة الجديد. أعيدي اختيار الصورة قبل الحفظ.'});return;}
+      if(portraitPolicy&&portraitPolicy!=='never'&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة استخدام الصورة قبل تفعيل كشفها.'});return;}
+      save(applyConsentChoices(toProfile(reviewAnswers),consents),portraitChange,portraitPolicy);
+    } else if (editing && !draft.returnToReview) {
+      setEditorHome(true); window.scrollTo(0, 0);
+    } else {
+      move(draft.returnToReview ? "review" : steps[idx + 1].key);
+    }
+  }
+  function field(key: keyof Answers | "consent") {
+    return { "data-field": key, "aria-invalid": error?.field === key || undefined, "aria-describedby": error?.field === key ? "nf-intake-error" : undefined };
+  }
+  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : demo ? "حفظ الملف التجريبي" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
+    draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : "متابعة";
+  return (
+    <main className="nf-intake" dir="rtl" data-editing={editing||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
+      <header className="nf-intake-header">
+        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
+        <Brand compact />
+        {draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ حفظ المسودة…" : "إكمال لاحقًا"}</button>}
+      </header>
+      <div className="nf-intake-main">
+          {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك المحفوظة على هذا الآيفون.</p>}
+          {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك من هذا الآيفون. <button type="button" className="nf-intake-policy" onClick={() => { setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
+          {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة على هذا الآيفون. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
+       {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
+        {!editing && <div className="nf-intake-meter" aria-label="تقدم إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-valuetext={chapter.label}>
+          {steps.map((entry, n) => <i key={entry.key} data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
+        </div>}
+        <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `${arabicNumber(idx + 1)} / ${arabicNumber(steps.length)}`}</span></div>
+        <HelpButton topic="profile" label="ما الذي يظهر للآخرين؟ ولماذا نسأل؟"/>
+        <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
+          <div className="nf-intake-stage" key={chapter.key} data-dir={direction.current} inert={busy || leaving}>
+            <div className="nf-intake-title">
+              <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
+                <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
+              </svg>
+              <div className="nf-intake-seal" aria-hidden="true"><Icon size={22} strokeWidth={1.55} /></div>
+              <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1>
+              <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p>
+            </div>
+            {demo && chapter.key === "identity" && <p className="nf-intake-note"><BookOpen size={16} aria-hidden="true" />استخدم بيانات خيالية لتجربة إعداد ملفك.</p>}
+            <div className="flow-form nf-intake-fields">
+              {chapter.key === "identity" && <>
+                <label>الاسم المعروض<input {...field("displayName")} autoComplete="off" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label>
+                <fieldset><legend>أنا</legend><div className="choice-row">
+                  {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
+                    aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}>{gender === "woman" ? "امرأة" : "رجل"}{p.gender === gender && <Check size={15} aria-hidden="true" />}</button>)}
+                </div></fieldset>
+                <div className="field-pair"><label>العمر<input {...field("age")} type="text" inputMode="numeric" value={p.age} onChange={e => update({ age: latinDigits(e.target.value) })} maxLength={3} placeholder="١٨+" required /></label>
+                  <label>المدينة<input {...field("city")} value={p.city} onChange={e => update({ city: e.target.value })} maxLength={80} placeholder="مثل الرياض" required /></label></div>
+              </>}
+              {chapter.key === "story" && <>
+                <label>المهنة<input {...field("profession")} value={p.profession} onChange={e => update({profession: e.target.value})} maxLength={100} placeholder="مهنتك أو مجال عملك" required /></label>
+                <label>نبذة قصيرة<textarea {...field("bio")} value={p.bio} onChange={e => update({bio: e.target.value})} maxLength={1200} rows={4} required placeholder="أستمتع في يومي بـ… وأتطلّع إلى…" /></label>
+                <div className="nf-intake-wordcount">{arabicNumber(p.bio.length)} / {arabicNumber(1200)}</div>
+                <details className="nf-story-more"><summary><span><Feather size={17}/> أضف عمقًا لحكايتك<small>الدراسة، القيم، والحياة التي تتخيلها · اختياري</small></span><ChevronLeft size={17}/></summary><div>
+                <label>الدراسة<input {...field("education")} value={p.education ?? ""} onChange={e => update({ education: e.target.value })} maxLength={100} placeholder="مثل بكالوريوس هندسة" /></label>
+                <label>نيّتي من التعارف<select {...field("marriageIntent")} value={p.marriageIntent ?? ""} onChange={e => update({ marriageIntent: e.target.value })}>
+                  <option value="">أفضل إضافتها لاحقًا</option>
+                  {!!p.marriageIntent && !["تعارف جاد يهدف إلى الزواج", "مستعد للخطوة الرسمية عند التوافق", "أبحث عن توافق قبل تحديد الموعد"].includes(p.marriageIntent) && <option>{p.marriageIntent}</option>}
+                  <option>تعارف جاد يهدف إلى الزواج</option><option>مستعد للخطوة الرسمية عند التوافق</option><option>أبحث عن توافق قبل تحديد الموعد</option>
+                </select></label>
+                <label>ما أبحث عنه في شريك الحياة<textarea {...field("lookingFor")} value={p.lookingFor ?? ""} onChange={e => update({ lookingFor: e.target.value })} maxLength={600} rows={3} placeholder="ما الصفات والاحتياجات التي تهمك؟ مثل الوضوح، أسلوب الحوار، ودعم الطموح…" /></label>
+                <label>ما أقدّره ولا أستغني عنه<textarea {...field("valuesStatement")} value={p.valuesStatement ?? ""} onChange={e => update({ valuesStatement: e.target.value })} maxLength={600} rows={3} placeholder="قيمك واحتياجاتك الأساسية في العلاقة، بكلماتك أنت…" /></label>
+                <label>الحياة التي أتخيلها معًا<textarea {...field("lifeTogether")} value={p.lifeTogether ?? ""} onChange={e => update({ lifeTogether: e.target.value })} maxLength={600} rows={3} placeholder="صف تفاصيل البيت واليوم والوقت المشترك التي تتمنى بناءها…" /></label>
+                </div></details>
+              </>}
+              {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
+              {chapter.key === "avatar" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
+              {(['criteria','personality','compatibility'].includes(chapter.key)||(chapter.key==='beena'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)}/>}
+              {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo}/>}
+              {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
+              {chapter.key === "personality" && consents.assessment && <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} />}
+              {chapter.key === "compatibility" && consents.assessment && <CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
+                hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} />}
+              {chapter.key === "preferences" && <>
+                <fieldset><legend>العمر المناسب للطرف الآخر</legend><div className="field-pair">
+                  <label>من<input {...field("preferredMinAge")} type="text" inputMode="numeric" value={p.preferredMinAge} onChange={e => update({ preferredMinAge: latinDigits(e.target.value) })} maxLength={3} required /></label>
+                  <label>إلى<input {...field("preferredMaxAge")} type="text" inputMode="numeric" value={p.preferredMaxAge} onChange={e => update({ preferredMaxAge: latinDigits(e.target.value) })} maxLength={3} required /></label>
+                </div></fieldset>
+                <label>متى تفضّل إشراك الأهل؟<select value={p.familyPreference} onChange={e => update({ familyPreference: e.target.value })}>
+                  {!["بعد التعارف الأول","من البداية","نتفق على ذلك لاحقًا"].includes(p.familyPreference) && <option value={p.familyPreference}>{p.familyPreference || "ليس لدي تفضيل محدد"}</option>}
+                  <option>بعد التعارف الأول</option><option>من البداية</option><option>نتفق على ذلك لاحقًا</option>
+                </select></label>
+                <small>يظهر تفضيل إشراك الأهل في ملفك العام للأعضاء المؤهلين.</small>
+                <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="بريد إلكتروني أو رقم تواصل" /></label>
+                  <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
+              </>}
+              {chapter.key === "review" && <>
+                {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
+                {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.</p></div></div>}
+                <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
+                {includeCompatibility && <details className="nf-intake-audience" aria-label="ما يراه الآخرون">
+                  <summary><ShieldCheck size={17} aria-hidden="true" /> ما يراه الآخرون وما يبقى خاصًا<ChevronLeft size={16}/></summary>
+                  <p>يرى الأعضاء المؤهلون اسمك المعروض وعمرك ومدينتك ومهنتك ونبذتك واهتماماتك، والتفاصيل العامة التي كتبتها عن الدراسة وما تبحث عنه وقيمك واحتياجاتك والحياة المشتركة ونيّتك من التعارف وتفضيل إشراك الأهل.</p>
+                  <p>تظهر أيضًا التفاصيل الاختيارية التي وافقت على مشاركتها عن المظهر واللباس والخلفية والعائلة والزواج والتعدد والدين، وصورة ملفك بدرجة التمويه المختارة أو الصورة الرمزية. الانفتاح على النقاش ليس التزامًا بالتغيير.</p>
+                  <p>تبقى متطلبات الشريك وإجاباتك الخاصة مخفية. نعرض توافق التفضيلات وانسجام الشخصية ومواقف «بيننا» بشكل منفصل بعد اكتمال التقييم المناسب لدى الطرفين. المؤشرات تصف مقارنة الإجابات، ولا تتنبأ بنجاح الزواج. قصتك في «بيننا» تظهر فقط إن اخترت مشاركتها.</p>
+                  <p>تظهر وسيلة التواصل في الترشيح الخاص بعد موافقتكما معًا.</p>
+                </details>}
+                {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. إجابات «بيننا» الخاصة لا تستهلك هذا التعديل، أما نشر قصة جديدة فيخضع له.</p>}
+                {profileReviewPending ? <p className="nf-intake-note">ملفك الآن قيد مراجعة التعديل. يمكنك إرسال التصحيحات اللازمة دون انتظار موعد التعديل التالي.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. يمكنك حفظ مسودتك لهذا الموعد، وتحديث إجاباتك الخاصة دون انتظار.</p>}
+                <SignupConsentReview value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
+              </>}
+            </div>
+          </div>
+          {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
+          <footer className="nf-intake-actions"><button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}>{submitLabel}{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
+            {draftRef && <small>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الآيفون لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</small>}
+          </footer>
+          {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-note"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>لن تُحفظ الصورة المختارة أو تعديلات تمويهها وكشفها أو إزالتها في المسودة. يلزم اختيارها مجددًا عند العودة. صورتك المحفوظة في ملفك لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
+        </form>
+       </>}
+      </div>
+    </main>
+  );
+}

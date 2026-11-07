@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-06",
+  "appearanceExtension": "appearance-release.json",
+  "status": "Implemented, database migration applied and verified, demo and admin deployed, and native iPhone bundle synchronized",
+  "profilePresentation": "Short discovery introductions; personal facts and longer marriage narratives are expandable. Preference fit and personality alignment appear separately.",
+  "publicOptionalFields": ["Height in cm", "Weight in kg", "Nationality", "Self-declared tribal/nontribal background or nondisclosure", "Optional tribe name", "Marital status", "Existing children", "Smoking"],
+  "privatePartnerCriteria": ["Height range", "Weight range", "Tribal/nontribal or same self-declared tribe", "Acceptable marital statuses", "No existing children preference", "Nonsmoking preference"],
+  "criterionModes": {
+    "any": "No ranking reward or penalty",
+    "prefer": "Observed optional preferences contribute 20% to the directed preference score; existing marriage assessment contributes 80%. Unknown data is omitted and coverage is disclosed.",
+    "require": "New discovery and requests must satisfy both members' explicit requirements; unknown required values do not pass. Existing accepted conversations retain the established eligibility rules."
+  },
+  "preferenceAssessment": "The existing 30 self/desired-partner responses cover children, residence and relocation, marriage timing, family input, household finances and responsibilities, lifestyle and communication. Current complete assessments gate the percentage.",
+  "personalityAssessment": {
+    "version": "personality-v1",
+    "questions": 12,
+    "topics": ["Social energy", "Conversation initiative", "Depth", "Openness", "Closeness", "Reassurance", "Support", "Planning", "New experiences", "Conflict timing", "Directness", "Comfort with quiet"],
+    "method": "Mean normalized answer similarity on a five-point scale. Both people must complete all 12 questions to show a percentage. Raw answers remain private.",
+    "provenance": "Behavioral concepts adapted from the owned BlindMatch questionnaire. Retired MBTI questions and event-specific percentile calibration were not reused.",
+    "limits": "Neither percentage is a validated marriage-success probability. No trained AI model is enabled or claimed."
+  },
+  "research": [
+    {"source": "Melkah registration guide", "url": "https://melkah.sa/التسجيل-في-تطبيق-ملكة-للزواج/", "finding": "Publishes height, weight, nationality, education, occupation, family origin and tribe fields."},
+    {"source": "Melkah privacy policy", "url": "https://melkah.sa/privacy/", "finding": "Describes marital status, family plans, values and communication preferences; recognizes sensitivity of family-origin and tribal information."},
+    {"source": "Awaser", "url": "https://awaser.sa/", "finding": "Advertises Saudi-context region and tribal/nontribal search and family accounts."},
+    {"source": "Muzz Gold help", "url": "https://muzz.com/us/en/help/gold/what-is-muzz-gold/", "finding": "Lists height, future plans, religious practice, profession and interests as filters."},
+    {"source": "Muzz profile guidelines", "url": "https://muzz.com/us/en/safety/profile-quality-guidelines/", "finding": "Separates introductions, interests, personality traits and selected icebreakers."}
+  ],
+  "researchScope": "Official public documentation, not authenticated competitor onboarding or individual profiles. Field inventory informed this release; it is not a claim of complete competitor feature parity.",
+  "privacy": "Public optional details are explicitly disclosed at entry and review. Partner criteria and raw personality answers are available only in the owner's private profile. Tribal information is never inferred from names, photos or location; no lineage ranking. Admin reviewers see the newly public details.",
+  "database": {"project": "wupkifqbwhhebwrgvwai", "migration": "20261106075509_marriage_basics_and_personality.sql", "blindMatch": "No event data changed"},
+  "preview": "https://nisfayn-preview.vercel.app",
+  "deployments": {"preview": "dpl_5fiHoqvU1movQacaoYfZHqPksYVK", "admin": "dpl_H2b7S5LTAe3qXbHNdTbtLHi8atV9"},
+  "verification": ["25 database tests passed", "6 compatibility model tests passed", "13 onboarding and private-draft tests passed", "Consumer and admin TypeScript checks passed", "320px and 390px layouts, keyboard disclosures and reduced motion checked", "Demo editor roundtrip preserved public details, private criteria and all personality answers", "Live deployed preview: both independent completed scores, collapsible facts, new onboarding chapters, no runtime errors/failed assets/external requests", "Hosted schema has RLS and denies direct access to criteria and raw personality answers", "Runtime dependency audits returned zero findings for consumer and admin"],
+  "developmentTooling": "Build-only audit warnings remain in Vite 7.3.6 and the admin @vercel/node toolchain; no runtime dependency findings. No unrelated dependency upgrades were included.",
+  "remaining": ["Signed physical-iPhone review before App Store release"]
+}

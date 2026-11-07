@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "reviewedOn": "2026-11-06",
+  "status": "Production admin, all four database migrations, private Storage/RLS, owner reservation, protected synthetic preview and daily maintenance cron are verified. One explicitly approved live maintenance test returned HTTP 200 with zero deletions. Push remains disabled pending Apple credentials and physical-device testing; a separate Supabase staging database is not provisioned.",
+  "targets": {
+    "supabaseProduction": "wupkifqbwhhebwrgvwai",
+    "supabaseProductionUrl": "https://wupkifqbwhhebwrgvwai.supabase.co",
+    "vercelProject": "nisfayn-admin",
+    "adminProductionUrl": "https://nisfayn-admin.vercel.app",
+    "vercelProjectId": "prj_R65TZRZWM1rpP6ohL7et5aH1PCyN",
+    "vercelTeamId": "team_A9No1ttTsWExk5NqWNwDWq96",
+    "deploymentSource": "iphone/admin",
+    "excludedBlindMatchProject": "xytwdgiihfmxiflwuxti",
+    "beforeEveryOperation": "Verify the linked project ID, environment and target URL before migrations, secrets, backups or cleanup. This implementation does not modify or remove BlindMatch event data. Never point these workers at that project.",
+    "previewUrl": "https://nisfayn-admin-gu3mhb0se-abdulrahmanalageelis-projects.vercel.app"
+  },
+  "initialAdminAccess": {
+    "email": "timgoldenz1999@yahoo.com",
+    "emailConfirmation": "Hosted Auth requires email verification; TOTP enrollment/verification are enabled. Admin signup redirects to the exact admin origin. The default member confirmation landing is https://nisfayn-admin.vercel.app/confirmed.html. Both pages discard implicit-flow token fragments; administrator access still requires password sign-in and MFA.",
+    "reservation": "The trusted initial owner email reservation is present and expires on 2026-11-13 at 06:39 UTC. No Auth account had been created at verification. A reservation is not an Auth account, password or completed MFA setup.",
+    "ownerSteps": [
+      "Create or sign into the Auth account using the reserved email and complete email verification.",
+      "Open the admin dashboard; the access RPC claims a matching unexpired invitation from the current confirmed Auth identity.",
+      "Enroll TOTP in an authenticator and complete its challenge. Privileged RPCs require a live session, active staff role and aal2.",
+      "Confirm the correct role and an accessible audit view. Provision additional reviewers or moderators through a trusted operator, with the least required role."
+    ],
+    "productionClientEnvironment": {
+      "VITE_ADMIN_MODE": "production",
+      "VITE_SUPABASE_URL": "https://wupkifqbwhhebwrgvwai.supabase.co",
+      "VITE_SUPABASE_PUBLISHABLE_KEY": "Dedicated Nisfayn publishable key; never a service key"
+    }
+  },
+  "photoAndRetentionMaintenance": {
+    "endpoint": "/api/maintenance",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authorization": "Authorization: Bearer <CRON_SECRET>",
+    "serverOnlyProductionEnvironment": {
+      "CRON_SECRET": "High-entropy secret shared only with the authenticated scheduler",
+      "NISFAYN_SUPABASE_URL": "https://wupkifqbwhhebwrgvwai.supabase.co",
+      "NISFAYN_SERVICE_ROLE_KEY": "Dedicated Nisfayn service-role JWT or secret key; never prefix with VITE_"
+    },
+    "schedule": "Verified deployed daily cron: /api/maintenance at 00:05 UTC (03:05 Riyadh), enabled with no pending changes. Production-only secrets configured; preview workers refuse execution.",
+    "manualVerification": "User explicitly approved one live test after automatic approval review required confirmation. Exactly one GET /api/maintenance completed 2026-11-06T06:48:51.003Z with HTTP 200: photos=0, faultGroups=0, notificationJobs=0. No records/photos deleted and no push sent. Production deployment dpl_ThiEtb3B929CTxYLqbJSN5LKTVNc.",
+    "behavior": "Revocation and account deletion deny subsequent photo access immediately. Maintenance sweeps expired pending uploads, deletes at most 100 queued objects through the Storage API, and acknowledges paths only after success. Repeated calls drain backlog and clean diagnostic/push retention records.",
+    "verification": "Check 200 responses and generic count logs. A 401 means scheduler authorization is missing; 503 requires configuration or dependency checks. A growing queue or failed schedule means physical blob deletion is outstanding even though access has been revoked.",
+    "followUp": "Add periodic reconciliation of private bucket objects without photo_assets metadata to cover rare in-flight upload/removal races. Do not delete storage.objects directly in SQL."
+  },
+  "backups": {
+    "database": "Verify the dedicated project's database backup coverage, retention and restore procedure. Test restores into an isolated environment.",
+    "privateStorage": "Database backup and private image-object backup are separate recovery tasks. Maintain a restricted, encrypted object backup and a matching metadata snapshot if photo recovery is required; verify both in a restore drill.",
+    "restore": "Reconcile deletion/revocation records before restoring visibility. Do not accidentally restore deleted photos or previously revoked grants to members."
+  },
+  "pushNotifications": {
+    "defaults": {
+      "VITE_MARRIAGE_PUSH_ENABLED": "false",
+      "NISFAYN_PUSH_ENABLED": "false"
+    },
+    "enablement": "Keep both flags off until Apple credentials, correct APNs topic/environment, signed provisioning and physical-iPhone acceptance tests are complete. Test permission refusal, background delivery, tap routing, blocking, pause, expired subscription, logout and account switching.",
+    "details": "See docs/push-setup.json. APNs secrets and service credentials belong only in server production scope; do not copy them into preview builds."
+  },
+  "monitoring": {
+    "implementation": "Generic authenticated client fault counters and owner-only MFA-protected health totals. No Sentry integration is configured.",
+    "eventCodes": [
+      "render_error",
+      "unhandled_error",
+      "unhandled_rejection"
+    ],
+    "retention": "30 calendar days in Asia/Riyadh; maintenance also removes old notification jobs.",
+    "privacy": "Counts contain event category, platform, numeric release and day. Do not add exception messages, stack traces, profile answers, chat bodies, photo paths or tokens to telemetry.",
+    "operations": "Review health counts and worker success/failure logs after releases. External alert delivery and uptime paging require separate configuration."
+  },
+  "previewsAndStaging": {
+    "syntheticPreview": "Use VITE_MARRIAGE_ENV=demo for the member app and VITE_ADMIN_MODE=demo for admin previews. Synthetic previews exercise UI with fictional data; a Vercel preview alone is not an isolated staging database.",
+    "isolatedStaging": "Provision a separate Supabase project, apply reviewed migrations and seed only synthetic accounts. Never use either the live Nisfayn project or BlindMatch event project as staging.",
+    "memberClient": {
+      "VITE_MARRIAGE_ENV": "staging",
+      "VITE_MARRIAGE_SUPABASE_URL": "The separate staging project URL",
+      "VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY": "The staging project's publishable key"
+    },
+    "adminClient": {
+      "VITE_ADMIN_MODE": "staging",
+      "VITE_SUPABASE_URL": "The same separate staging project URL",
+      "VITE_SUPABASE_PUBLISHABLE_KEY": "The staging project's publishable key"
+    },
+    "workers": "Current workers intentionally allow only the dedicated live Nisfayn project and VERCEL_ENV=production. Staging worker testing needs a separately reviewed isolated configuration; never weaken the production guard for preview."
+  },
+  "ciAndRelease": {
+    "workflow": ".github/workflows/nisfayn.yml",
+    "activation": "Commit and push the workflow/source to the intended repository. A local test pass is not evidence of a hosted Actions run.",
+    "checks": "Node 22: member tests and demo build; admin worker tests and demo build; isolated PGlite migration/authorization tests. Triggers on relevant pull requests, pushes and manual dispatch.",
+    "limits": "CI does not deploy migrations or certify hosted Supabase Storage, APNs delivery or a signed iPhone build. Verify the intended Vercel deployment and complete native acceptance tests separately.",
+    "releaseSteps": [
+      "Require passing checks; confirm backup coverage and exact target project IDs.",
+      "Apply additive reviewed migrations to the dedicated project, then deploy the compatible frontend.",
+      "Verify admin login/TOTP, role boundaries, member flows and worker authorization before enabling delivery or schedules."
+    ],
+    "rollback": "Promote the previous known-good frontend deployment if needed. Disable push delivery or a failing schedule while investigating. Correct database issues with a reviewed forward migration; do not reset the database, drop member tables, delete member data or alter BlindMatch as a rollback."
+  },
+  "verification": {
+    "databaseTests": 18,
+    "workerTests": 8,
+    "environmentIsolationTests": 2,
+    "browser": "Production login, demo, confirmation landing/token clearing, desktop and mobile; mocked MFA and access revocation; photo sharing and revocation; native bundled match-to-chat regression",
+    "native": "Build and Capacitor sync passed; 26 web files byte-match native assets. Physical signed iPhone push verification outstanding.",
+    "preview": "Protected deployed demo; served JS contains no Supabase project hosts or API keys; environment has only VITE_ADMIN_MODE=demo.",
+    "dependencies": "Production dependency npm audit: 0 findings. Development toolchain audit: 5 moderate and 5 high; no forced dependency updates performed.",
+    "securityAdvisor": "Only informational deny-all RLS notices for private RPC-backed tables; no warning or error findings."
+  }
+}

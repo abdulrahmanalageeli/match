@@ -2,10 +2,11 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Feather, HeartHandshake, LockKeyhole, MessageCircle, Sparkles, Trash2 } from 'lucide-react';
 import { beenaProgress, beenaScenarios, beenaVersion, type BeenaAnswer, type BeenaProfile } from './model';
 import './beena.css';
+import '../onboarding/scenario-experience.css';
 
 const number = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
 
-export function BeenaFields({ value, onChange, storyReview = true }: { value?: BeenaProfile | null; onChange: (value: BeenaProfile | null) => void; storyReview?: boolean }) {
+export function BeenaFields({ value, onChange, storyReview = true, registration = false }: { value?: BeenaProfile | null; onChange: (value: BeenaProfile | null) => void; storyReview?: boolean; registration?: boolean }) {
   const [mode, setMode] = useState<'situations' | 'story'>(() => value?.story?.text && !Object.keys(value.answers).length ? 'story' : 'situations');
   const [index, setIndex] = useState(0);
   const [perspective, setPerspective] = useState<'self' | 'partner'>('self');
@@ -54,10 +55,10 @@ export function BeenaFields({ value, onChange, storyReview = true }: { value?: B
   function clearStory() { const next = { ...current() }; delete next.story; onChange(next); }
 
   return <section className="bn-fields" aria-label="بيننا: مواقف الحياة" data-field="beena" tabIndex={-1}>
-    <header className="bn-intro">
+    {!registration && <header className="bn-intro">
       <span className="bn-emblem" aria-hidden="true"><HeartHandshake size={25} strokeWidth={1.4}/></span>
       <div><span className="bn-eyebrow">بيننا · الحياة كما نعيشها</span><h2>موقف صغير. فهم أعمق.</h2><p>كيف تتصرف، وما الذي ترتاح إليه من شريكك؟ قد تتشابه إجاباتكما أو تتكامل.</p></div>
-    </header>
+    </header>}
     <div className="bn-modes" role="group" aria-label="طريقة المشاركة في بيننا">
       <button type="button" aria-pressed={mode === 'situations'} onClick={() => changeMode('situations')}><MessageCircle size={17}/> مواقف الحياة <small>{number.format(progress.answered)}/{number.format(progress.total)}</small></button>
       <button type="button" aria-pressed={mode === 'story'} onClick={() => changeMode('story')}><Feather size={17}/> أكتب موقفًا</button>
@@ -104,6 +105,7 @@ export function BeenaFields({ value, onChange, storyReview = true }: { value?: B
       {storyReview && <p className="bn-story-help">نشر قصة جديدة يتطلب مراجعة الملف. إن كان ملفك معتمدًا، يتوقف ظهوره والتواصل مؤقتًا حتى اعتماد التحديث؛ تبقى التعارفات محفوظة. حفظ القصة بشكل خاص لا يغيّر حالة ملفك.</p>}
       {value?.story && <button type="button" className="bn-clear" onClick={clearStory}><Trash2 size={14}/> حذف القصة من المسودة</button>}
     </article>}
+    {registration && <details className="nf-question-about"><summary><BookOpen size={15} aria-hidden="true"/><span>عن مواقف «بيننا»</span><ChevronDown size={15} aria-hidden="true"/></summary><div><strong>بيننا · الحياة كما نعيشها</strong><h2>موقف صغير. فهم أعمق.</h2><p>كيف تتصرف، وما الذي ترتاح إليه من شريكك؟ قد تتشابه إجاباتكما أو تتكامل.</p></div></details>}
     <p className="bn-save-hint">راجع إجاباتك، ثم استخدم زر المتابعة أو حفظ الملف في الصفحة لحفظ تغييراتك.</p>
     {value && <div className="bn-reset">{deleting ? <div role="group" aria-label="تأكيد حذف بيانات بيننا"><p>حذف جميع إجابات «بيننا» والقصة؟ تختفي قراءة المواقف بعد حفظ الملف، ويمكنك البدء مجددًا.</p><div><button type="button" onClick={() => { onChange(null); setDeleting(false); setFinished(false); setIndex(0); setPerspective('self'); setMode('situations'); }}>نعم، احذف من المسودة</button><button type="button" onClick={() => setDeleting(false)}>احتفظ بها</button></div></div> : <button type="button" className="bn-clear" onClick={() => setDeleting(true)}><Trash2 size={14}/> حذف إجابات بيننا والقصة</button>}</div>}
     <p className="bn-privacy"><LockKeyhole size={15} aria-hidden="true"/><span>إجابات الاختيارات خاصة. نعرض مواضيع الانسجام والنقاش، ونحسب القراءة من مدى تقبّل كل طرف لتصرف الآخر. ليست توقعًا لنجاح الزواج.</span></p>

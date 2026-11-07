@@ -1,0 +1,101 @@
+/* The first-registration question experience; existing profile editors keep their layout. */
+.nf-intake--new .nf-question-about { color: #786873; margin: 0; }
+.nf-intake--new .nf-question-about > summary { display: flex; align-items: center; gap: 8px; list-style: none; min-height: 44px; font-size: .82rem; cursor: pointer; }
+.nf-intake--new .nf-question-about > summary::-webkit-details-marker { display: none; }
+.nf-intake--new .nf-question-about > summary > svg { flex: none; }
+.nf-intake--new .nf-question-about > summary > svg:last-child { margin-inline-start: auto; }
+.nf-intake--new .nf-question-about > div { padding: 10px 0 18px; font-size: .88rem; line-height: 1.85; }
+.nf-intake--new .nf-question-about > div > h2 { font-size: 1.12rem; margin: 8px 0; color: #30232c; }
+.nf-intake--new .nf-question-about > div > p { margin: 4px 0; }
+.nf-intake--new .nf-question-about small { display: block; font-size: .8rem; line-height: 1.85; color: #786873; }
+.nf-intake--new .nf-question-about .nf-detail-intro { padding: 0 0 14px; }
+.nf-intake--new .nf-question-about[open] > summary { color: #5a0f28; }
+.nf-intake--new .nf-question-about[open] > summary > svg:last-child { transform: rotate(-90deg); }
+.nf-intake--new :is(.nf-question-about, .nf-question-map, .bn-map) > summary:focus-visible { outline: 2px solid #5a0f28; outline-offset: 3px; border-radius: 8px; }
+
+.nf-intake--new .nf-personality-progress { margin: 14px 0 11px; font-size: .85rem; gap: 16px; }
+.nf-intake--new .nf-personality-progress > :last-child { font-size: .76rem; color: #786873; }
+.nf-intake--new .nf-personality-meter { height: 4px; background: #e9e3e4; border-radius: 4px; }
+.nf-intake--new .nf-personality-meter > span { background: #5a0f28; }
+.nf-intake--new .nf-question-map { border: 0; margin: 8px 0 4px; padding: 0; }
+.nf-intake--new .nf-question-map > summary { min-height: 44px; font-size: .85rem; color: #5a0f28; }
+.nf-intake--new .nf-question-map > summary > span { font-size: .75rem; color: #786873; }
+.nf-intake--new .nf-question-map > div { gap: 8px; padding-block: 10px; }
+.nf-intake--new .nf-question-map button { min-height: 46px; border-radius: 12px; background: #fff; border-color: #e7dfe2; font-size: .9rem; }
+.nf-intake--new .nf-question-map button[aria-current=step] { background: #5a0f28; color: #fff; border-color: #5a0f28; }
+.nf-intake--new .nf-personality-card { border: 0; border-radius: 0; background: none; box-shadow: none; padding: 12px 0 0; margin: 14px 0 0; scroll-margin-top: 110px; }
+.nf-intake--new .nf-personality-card > legend { padding: 0; font-size: .83rem; font-weight: 500; color: #aa6a7c; }
+.nf-intake--new .nf-personality-card > legend > span { display: none; }
+.nf-intake--new .nf-personality-card > p { color: #30232c; font-size: clamp(1.45rem, 6vw, 1.7rem); font-weight: 700; line-height: 1.6; margin: 6px 0 24px; outline: none; }
+.nf-intake--new .nf-personality-options { gap: 11px; }
+.nf-intake--new .nf-personality-options > button { border: 1px solid #e5dfe1; background: #fff; border-radius: 16px; min-height: 64px; padding: 16px; gap: 14px; font-size: 1.0625rem; line-height: 1.65; color: #30232c; box-shadow: 0 2px 7px #30232c03; }
+.nf-intake--new .nf-personality-options > button > i { width: 22px; height: 22px; border-color: #cfc3c8; }
+.nf-intake--new .nf-personality-options > button[aria-pressed=true] { background: #f7eef1; border-color: #9b526b; color: #5a0f28; box-shadow: 0 0 0 1px #9b526b; }
+.nf-intake--new .nf-personality-options > button[aria-pressed=true] > i { color: #fff; background: #5a0f28; border-color: #5a0f28; }
+.nf-intake--new .nf-personality-nav { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; margin: 24px 0 10px; }
+.nf-intake--new .nf-personality-nav > button { min-height: 48px; font-size: .9rem; padding-inline: 6px; gap: 4px; }
+.nf-intake--new .nf-personality-nav .nf-personality-next { border-radius: 14px; padding-inline: 18px; background: #5a0f28; color: #fff; }
+.nf-intake--new .nf-personality-nav .nf-personality-later { font-size: .82rem; color: #786873; }
+.nf-intake--new .nf-personality-last { align-self: center; font-size: .85rem; }
+.nf-intake--new .nf-personality-complete { padding: 16px; background: #f1eeeb; border: 0; border-radius: 16px; font-size: .9rem; line-height: 1.8; }
+
+.nf-intake--new .bn-fields { display: grid; gap: 20px; }
+.nf-intake--new .bn-fields > .nf-question-about { margin-bottom: -10px; }
+.nf-intake--new .bn-modes, .nf-intake--new .bn-perspectives { padding: 4px; gap: 4px; border: 0; background: #efebec; border-radius: 15px; }
+.nf-intake--new .bn-modes > button, .nf-intake--new .bn-perspectives > button { min-height: 48px; border: 0; border-radius: 12px; padding: 10px 8px; font-size: .88rem; line-height: 1.5; color: #786873; }
+.nf-intake--new .bn-modes > button[aria-pressed=true], .nf-intake--new .bn-perspectives > button[aria-pressed=true] { color: #5a0f28; background: #fff; box-shadow: 0 2px 7px #30232c0a; }
+.nf-intake--new .bn-modes small { font-size: .72rem; }
+.nf-intake--new .bn-progress > div { font-size: .84rem; }
+.nf-intake--new .bn-progress strong { font-size: .78rem; color: #5a0f28; }
+.nf-intake--new .bn-progress progress { height: 4px; }
+.nf-intake--new .bn-map { padding: 0; margin-top: -10px; border-bottom: 0; }
+.nf-intake--new .bn-map summary { min-height: 44px; font-size: .85rem; color: #5a0f28; }
+.nf-intake--new .bn-map button { min-height: 52px; padding: 12px; font-size: .82rem; border-radius: 14px; border-color: #e5dfe1; background: #fff; }
+.nf-intake--new .bn-map button[aria-current=step] { background: #f7eef1; border-color: #9b526b; }
+.nf-intake--new .bn-scene { scroll-margin-top: 110px; }
+.nf-intake--new .bn-scene-heading { gap: 10px; }
+.nf-intake--new .bn-scene-heading > span { font-size: .88rem; color: #5a0f28; }
+.nf-intake--new .bn-scene-heading small { font-size: .77rem; color: #786873; }
+.nf-intake--new .bn-story-scene { margin: 16px 0 24px!important; padding: 0 16px 0 0; border: 0; border-inline-start: 3px solid #d9b9c4; border-radius: 0; background: none; box-shadow: none; color: #56434d; font-size: 1.0625rem!important; line-height: 1.9!important; }
+.nf-intake--new .bn-perspectives { margin-bottom: 24px; }
+.nf-intake--new .bn-scene h3 { font-size: clamp(1.4rem, 5.8vw, 1.65rem); color: #30232c; line-height: 1.6; margin: 0 0 8px; }
+.nf-intake--new .bn-answer-hint { color: #786873; font-size: .88rem!important; line-height: 1.8!important; margin-bottom: 22px!important; }
+.nf-intake--new .bn-options { gap: 11px; }
+.nf-intake--new .bn-options > button { min-height: 68px; padding: 16px; gap: 14px; border: 1px solid #e5dfe1; border-radius: 16px; color: #30232c; background: #fff; font-size: 1.0625rem; line-height: 1.75; box-shadow: 0 2px 7px #30232c03; }
+.nf-intake--new .bn-options > button[aria-pressed=true] { background: #f7eef1; border-color: #9b526b; color: #5a0f28; box-shadow: 0 0 0 1px #9b526b; }
+.nf-intake--new .bn-option-check { width: 22px; height: 22px; border-color: #cfc3c8; }
+.nf-intake--new .bn-importance { margin-top: 22px; padding-top: 18px; border-color: #e5dfe1; }
+.nf-intake--new .bn-importance > span { font-size: .9rem; margin-bottom: 12px; }
+.nf-intake--new .bn-importance button { border-radius: 12px; min-height: 46px; padding-inline: 16px; font-size: .86rem; }
+.nf-intake--new .bn-importance small { font-size: .78rem; }
+.nf-intake--new .bn-scene-navigation { margin-top: 24px; gap: 12px; }
+.nf-intake--new .bn-scene-navigation > button { min-height: 52px; padding: 12px 16px; font-size: .92rem; border-radius: 14px; }
+.nf-intake--new .bn-scene-navigation .bn-next { color: #fff; background: #5a0f28; border-color: #5a0f28; }
+.nf-intake--new .bn-scene-navigation button:disabled { opacity: .4; }
+.nf-intake--new .bn-skip { min-height: 44px; font-size: .84rem; color: #786873; }
+.nf-intake--new .bn-completion { padding: 18px; border: 0; border-radius: 18px; background: #f1eeeb; }
+.nf-intake--new .bn-completion strong { font-size: 1rem; }
+.nf-intake--new .bn-completion p, .nf-intake--new .bn-completion button { font-size: .86rem!important; }
+.nf-intake--new .bn-story-editor { border: 0; border-radius: 0; background: none; padding: 0; gap: 20px; scroll-margin-top: 110px; }
+.nf-intake--new .bn-story-editor-heading > span { background: #f1e5e9; border-radius: 14px; }
+.nf-intake--new .bn-story-editor-heading h3 { font-size: 1.4rem; line-height: 1.6; }
+.nf-intake--new .bn-story-editor-heading small { font-size: .78rem; }
+.nf-intake--new .bn-story-editor > p, .nf-intake--new .bn-story-editor > label:not(.bn-share) { font-size: .9rem!important; line-height: 1.8!important; }
+.nf-intake--new .bn-story-editor select, .nf-intake--new .bn-story-editor textarea { min-height: 52px; font-size: 1rem; background: #fff; border-color: #d9cdd2; border-radius: 14px; }
+.nf-intake--new .bn-story-editor textarea { min-height: 190px; }
+.nf-intake--new .bn-story-editor textarea::placeholder { font-size: .93rem; }
+.nf-intake--new .bn-story-count { font-size: .78rem; }
+.nf-intake--new .bn-share { padding: 16px!important; background: #fff; border-color: #e5dfe1; border-radius: 16px; }
+.nf-intake--new .bn-share strong { font-size: .9rem; }
+.nf-intake--new .bn-share small { font-size: .8rem; }
+.nf-intake--new .bn-save-hint, .nf-intake--new .bn-privacy, .nf-intake--new .bn-reset p { font-size: .8rem!important; line-height: 1.85!important; }
+.nf-intake--new .bn-privacy { border-color: #e5dfe1; }
+.nf-intake--new .bn-clear, .nf-intake--new .bn-reset button { min-height: 44px; font-size: .83rem; }
+.nf-intake--new :is(.nf-personality, .bn-fields) button:focus-visible { outline: 2px solid #5a0f28; outline-offset: 3px; }
+@media (max-width: 350px) {
+  .nf-intake--new .nf-personality-nav { gap: 5px; }
+  .nf-intake--new .nf-personality-nav .nf-personality-next { padding-inline: 13px; }
+  .nf-intake--new .bn-modes > button, .nf-intake--new .bn-perspectives > button { font-size: .8rem; gap: 5px; }
+  .nf-intake--new .bn-scene-navigation > button { font-size: .84rem; padding-inline: 12px; }
+  .nf-intake--new .bn-options > button, .nf-intake--new .nf-personality-options > button { padding: 14px; }
+}

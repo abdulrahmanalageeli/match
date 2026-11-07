@@ -2,8 +2,9 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, CookingPot, Dice5, Footprints, Heart, Landmark, PenLine, Plane, SlidersHorizontal, Sparkles, Star, UserRound } from "lucide-react";
 import { categories, dimensions, interests, maxInterests, maxPriorities, type CompatibilitySelection } from "./model";
 import "./fields.css";
+import "./question-experience.css";
 
-type Props = CompatibilitySelection & { gender?: "woman" | "man"; onChange: (next: CompatibilitySelection) => void };
+type Props = CompatibilitySelection & { gender?: "woman" | "man"; registration?: boolean; onChange: (next: CompatibilitySelection) => void };
 const interestIcons = { reading: BookOpen, cooking: CookingPot, walking: Footprints, travel: Plane,
   photography: Camera, board_games: Dice5, museums: Landmark, creative_writing: PenLine };
 const number = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
@@ -16,7 +17,7 @@ function countAnswers(category: string, answers: Record<string, string>) {
     .reduce((n, dim) => n + Number(Boolean(answers[dim.id])) + Number(Boolean(answers[dim.partnerId])), 0);
 }
 
-export function CompatibilityFields({ interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender }: Props) {
+export function CompatibilityFields({ interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false }: Props) {
   const prefix = useId();
   const card = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), outline = useRef<HTMLDetailsElement>(null);
   const shouldFocus = useRef(false);
@@ -24,7 +25,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
     const missing = topics.flatMap(dim => [dim.id, dim.partnerId]).findIndex(id => !surveyAnswers[id]);
     return missing < 0 ? 0 : missing;
   });
-  const [interestsOpen, setInterestsOpen] = useState(interestIds.length === 0);
+  const [interestsOpen, setInterestsOpen] = useState(!registration && interestIds.length === 0);
   const [direction, setDirection] = useState<"next" | "back">("next");
   const topicIndex = Math.floor(position / 2), dim = topics[topicIndex];
   const side = position % 2 === 0 ? "self" : "partner";
@@ -58,8 +59,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
     card.current?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [position]);
 
-  return <div className="compat-fields" dir="rtl">
-    <details className="compat-interests" open={interestsOpen} onToggle={event => setInterestsOpen(event.currentTarget.open)}>
+  const interestPicker = <details className="compat-interests" open={interestsOpen} onToggle={event => setInterestsOpen(event.currentTarget.open)}>
       <summary><span className="compat-detail-icon"><Heart size={19} aria-hidden="true"/></span><span><strong>تفاصيل صغيرة، تشبهك</strong><small>{interestIds.length ? interests.filter(item => interestIds.includes(item.id)).map(item => item.label).join(" · ") : "أضف حتى ثلاثة أشياء تستمتع بها"}</small></span><ChevronDown size={16} aria-hidden="true"/></summary>
       <div className="compat-chips" role="group" aria-label="اهتماماتك">
         {interests.map(({ id, label }) => {
@@ -68,14 +68,19 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
         })}
       </div>
       <p className="compat-interest-note" aria-live="polite">{number.format(interestIds.length)} من {number.format(maxInterests)} اهتمامات · اختيارية وتظهر في ملفك</p>
-    </details>
+    </details>;
+  const assessmentNote = <p className="compat-assessment-note">كل فكرة من زاويتين: ما يشبهك، وما تبحث عنه في شريك الحياة. ويمكنك تجاوز أي سؤال.</p>;
 
+  return <div className="compat-fields" dir="rtl">
+    {!registration && interestPicker}
     <section ref={card} className="compat-assessment" aria-labelledby={prefix + "-heading"}>
       <header className="compat-section-head"><span><Sparkles size={16} aria-hidden="true"/> صورتك عن الحياة</span><span className="compat-counter" aria-live="polite">{number.format(filled)} من {number.format(total)} إجابة</span></header>
-      <p className="compat-assessment-note">كل فكرة من زاويتين: ما يشبهك، وما تبحث عنه في شريك الحياة. ويمكنك تجاوز أي سؤال.</p>
+      {!registration && assessmentNote}
       <div className="compat-answer-meter" role="progressbar" aria-label="إجابات التوافق" aria-valuemin={0} aria-valuemax={total} aria-valuenow={filled}><span style={{ transform: `scaleX(${filled / total})` }}/></div>
+      <div className="compat-question-workspace">
       <details ref={outline} className="compat-outline">
-        <summary><span>{category.label}<small>الفكرة {number.format(topicIndex + 1)} من {number.format(topics.length)}</small></span><span className="compat-outline-action">المواضيع<ChevronDown size={14} aria-hidden="true"/></span></summary>
+        <summary><span>{category.label}<small>الفكرة {number.format(topicIndex + 1)} من {number.format(topics.length)}</small></span><span className="compat-outline-action">{registration ? "المواضيع والدليل" : "المواضيع"}<ChevronDown size={14} aria-hidden="true"/></span></summary>
+        {registration && <div className="compat-answer-guide"><strong>كيف تجيب؟</strong>{assessmentNote}</div>}
         <div className="compat-sections" aria-label="انتقل إلى موضوع">
           {sections.map(section => <div key={section.id}><strong>{section.label}<small>{number.format(countAnswers(section.id, surveyAnswers))} / {number.format(topics.filter(topic => topic.category === section.id).length * 2)}</small></strong>
             <div>{topics.flatMap((topic, index) => topic.category !== section.id ? [] : [<button key={topic.id} type="button" aria-pressed={topicIndex === index} onClick={() => { move(index * 2); if (outline.current) outline.current.open = false; }}>{topic.title}{surveyAnswers[topic.id] && surveyAnswers[topic.partnerId] && <Check size={13} aria-label="مكتمل"/>}</button>])}</div>
@@ -88,7 +93,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
         <button type="button" aria-pressed={side === "partner"} onClick={() => move(topicIndex * 2 + 1)}><Heart size={15} aria-hidden="true"/>شريك الحياة{surveyAnswers[dim.partnerId] && <Check size={13} aria-label="أجبت"/>}</button>
       </div>
       <div className="compat-panel" key={answerKey} data-dir={direction}>
-        <span className="compat-topic-label">{dim.title}</span>
+        <span className="compat-topic-label"><span>{dim.title}</span>{registration && <span className="compat-question-position" aria-label={`السؤال ${number.format(position + 1)} من ${number.format(total)}`}>{number.format(position + 1)} / {number.format(total)}</span>}</span>
         <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{prompt}</h3>
         <p className="compat-hint">{side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
         <div className="compat-answer-options" role="group" aria-labelledby={prefix + "-heading"}>
@@ -105,7 +110,9 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
       <footer className="compat-navigation"><button type="button" className="compat-previous" disabled={position === 0} onClick={() => move(position - 1)}><ChevronRight size={17} aria-hidden="true"/>السابق</button>
         {position < total - 1 ? <button type="button" className="compat-next" onClick={() => move(position + 1)}>{side === "self" ? "وماذا عن شريك الحياة؟" : "الفكرة التالية"}<ChevronLeft size={17} aria-hidden="true"/></button> : <span className="compat-finish"><Check size={16} aria-hidden="true"/>هذه آخر فكرة، أكمل ملفك أدناه</span>}
       </footer>
+      </div>
       {position === total-1 && <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'اكتملت صورتك عن الحياة' : 'وصلت إلى آخر فكرة'}</strong><small>{filled === total ? 'يمكنك مراجعة إجاباتك من المواضيع، ثم متابعة التسجيل.' : `بقيت ${number.format(total-filled)} إجابات اختيارية. يمكنك إكمالها أو متابعة التسجيل الآن.`}</small></p>{firstMissing >= 0 && firstMissing !== position && <button type="button" onClick={()=>move(firstMissing)}>إكمال المتبقي<ChevronLeft size={15} aria-hidden="true"/></button>}</div>}
     </section>
+    {registration && interestPicker}
   </div>;
 }

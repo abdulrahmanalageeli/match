@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { Brand } from "../Brand";
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
@@ -21,6 +21,7 @@ import { HelpButton } from '../help/HelpCenter';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { BeenaFields } from '../beena/BeenaFields';
 import { beenaProgress, beenaScenarios } from '../beena/model';
+import './journey.css';
 
 export type { ApplicationDraft } from "./draft";
 
@@ -35,6 +36,7 @@ type Props = {
   save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy) => void;
   portraitSource?:CommunitySource|null;
   preview?:boolean;
+  exitPreview?: () => void;
   startAt?:Chapter;
   includeCompatibility?: boolean;
   draftRef?: RefObject<ApplicationDraft | null>;
@@ -154,7 +156,7 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
   );
 }
 
-export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, startAt,
+export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
   includeCompatibility = true, draftRef, draftOwner = "", demo = false }: Props) {
   const baseline = profileBaseline(initial);
   const deviceDraft = !demo && intakeVault.available(draftOwner);
@@ -340,14 +342,15 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function field(key: keyof Answers | "consent") {
     return { "data-field": key, "aria-invalid": error?.field === key || undefined, "aria-describedby": error?.field === key ? "nf-intake-error" : undefined };
   }
-  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : demo ? "حفظ الملف التجريبي" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
-    draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : "متابعة";
+  const assessmentStep = !editing && consents.assessment && ['compatibility','personality','beena'].includes(chapter.key);
+  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview ? "إنهاء المعاينة" : demo ? "حفظ الملف التجريبي" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
+    draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
-    <main className="nf-intake" dir="rtl" data-editing={editing||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
+    <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
-        <Brand compact />
-        {draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ حفظ المسودة…" : "إكمال لاحقًا"}</button>}
+        <div className="nf-intake-brand"><Brand compact />{preview && <span>معاينة</span>}</div>
+        <div className="nf-intake-header-actions">{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "إكمال لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="الخروج من المعاينة"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
           {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك المحفوظة على هذا الآيفون.</p>}
@@ -367,9 +370,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
                 <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
               </svg>
-              <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div><HelpButton topic="profile" label="الخصوصية ولماذا نسأل"/></div>
-              <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1>
-              <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p>
+              <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div><HelpButton topic="profile" label={assessmentStep ? "مساعدة" : "الخصوصية ولماذا نسأل"}/></div>
+              {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p></>}
             </div>
             {demo && chapter.key === "identity" && <p className="nf-intake-note"><BookOpen size={16} aria-hidden="true" />استخدم بيانات خيالية لتجربة إعداد ملفك.</p>}
             <div className="flow-form nf-intake-fields">
@@ -398,13 +400,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <label>الحياة التي أتخيلها معًا<textarea {...field("lifeTogether")} value={p.lifeTogether ?? ""} onChange={e => update({ lifeTogether: e.target.value })} maxLength={600} rows={3} placeholder="صف تفاصيل البيت واليوم والوقت المشترك التي تتمنى بناءها…" /></label>
                 </div></details>
               </>}
-              {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
+              {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
               {chapter.key === "avatar" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
-              {(['criteria','personality','compatibility'].includes(chapter.key)||(chapter.key==='beena'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)}/>}
-              {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo}/>}
+              {(['criteria','personality','compatibility'].includes(chapter.key)||(chapter.key==='beena'&&(!consents.assessment||!editing)))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing}/>}
+              {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing}/>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
-              {chapter.key === "personality" && consents.assessment && <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} />}
-              {chapter.key === "compatibility" && consents.assessment && <CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
+              {chapter.key === "personality" && consents.assessment && <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} />}
+              {chapter.key === "compatibility" && consents.assessment && <CompatibilityFields registration={!editing} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
                 hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} />}
               {chapter.key === "preferences" && <>
                 <fieldset><legend>العمر المناسب للطرف الآخر</legend><div className="field-pair">
@@ -436,7 +438,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
             </div>
           </div>
-          <footer className="nf-intake-actions">
+          <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
             <button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
             <div className="nf-intake-action-meta">

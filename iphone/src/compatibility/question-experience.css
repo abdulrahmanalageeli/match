@@ -1,0 +1,74 @@
+/* Registration question presentation. Existing profile editing keeps fields.css. */
+.nf-intake--new .compat-fields { gap: 26px; color: #30232c; }
+.nf-intake--new .compat-interests { padding: 18px 0 0; border: 0; border-top: 1px solid #e9e3e5; border-radius: 0; background: transparent; }
+.nf-intake--new .compat-interests > summary { min-height: 56px; gap: 12px; }
+.nf-intake--new .compat-interests strong { font-size: 1rem; font-weight: 700; }
+.nf-intake--new .compat-interests small { font-size: .82rem; line-height: 1.7; color: #77676f; }
+.nf-intake--new .compat-detail-icon { width: 42px; height: 42px; border-radius: 14px; background: #f1e6e9; color: #5a0f28; }
+.nf-intake--new .compat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.nf-intake--new .compat-chips button { min-height: 46px; flex: 1 1 130px; padding: 11px 14px; border: 1px solid #e5dce0; border-radius: 15px; background: #fff; font-size: .9rem; gap: 10px; }
+.nf-intake--new .compat-chips button svg { color: #987582; }
+.nf-intake--new .compat-chips button[aria-pressed=true] { color: #5a0f28; background: #f5e9ed; border-color: #aa6a7c; }
+.nf-intake--new .compat-chips button:disabled { opacity: .45; }
+.nf-intake--new .compat-interest-note { margin-top: 12px; font-size: .79rem; line-height: 1.6; color: #77676f; }
+.nf-intake--new .compat-assessment { scroll-margin-block-start: 20px; }
+.nf-intake--new .compat-section-head { gap: 10px; font-size: .84rem; }
+.nf-intake--new .compat-section-head > span:first-child { gap: 7px; color: #5a0f28; }
+.nf-intake--new .compat-counter { color: #77676f; font-size: .76rem; font-variant-numeric: tabular-nums; }
+.nf-intake--new .compat-assessment-note { margin: 10px 0 0; max-width: 43ch; color: #77676f; font-size: .84rem; line-height: 1.8; }
+.nf-intake--new .compat-answer-meter { height: 4px; margin: 8px 0 14px; background: #ebe3e6; }
+.nf-intake--new .compat-answer-meter > span { background: #aa6a7c; }
+.nf-intake--new .compat-question-workspace { padding: 16px 18px 18px; background: #fff; border: 1px solid #eee6e9; border-radius: 26px; box-shadow: 0 12px 38px #37202c05; }
+.nf-intake--new .compat-outline { margin-bottom: 12px; }
+.nf-intake--new .compat-outline > summary { min-height: 44px; align-items: center; gap: 8px; color: #5a0f28; font-size: .88rem; }
+.nf-intake--new .compat-outline > summary small { color: #85727b; font-size: .74rem; margin-top: 4px; }
+.nf-intake--new .compat-outline-action { min-height: 44px; padding-inline: 11px; border-radius: 12px; background: #f8f4f5; color: #73515f; font-size: .78rem; }
+.nf-intake--new .compat-answer-guide { padding-top: 18px; font-size: .84rem; color: #5a0f28; }
+.nf-intake--new .compat-answer-guide .compat-assessment-note { margin-top: 6px; }
+.nf-intake--new .compat-sections { padding: 16px 0 4px; margin-top: 8px; border: 0; border-top: 1px solid #eee6e9; border-radius: 0; background: transparent; gap: 18px; }
+.nf-intake--new .compat-sections > div > strong { font-size: .85rem; margin-bottom: 9px; }
+.nf-intake--new .compat-sections button { min-height: 44px; padding: 10px 12px; border-radius: 12px; background: #f8f5f6; border-color: transparent; font-size: .82rem; }
+.nf-intake--new .compat-sections button[aria-pressed=true] { background: #5a0f28; color: #fff; }
+.nf-intake--new .compat-perspective { gap: 3px; padding: 4px; margin-bottom: 18px; border-radius: 15px; background: #f1edef; }
+.nf-intake--new .compat-perspective button { min-height: 44px; padding: 8px 5px; font-size: .9rem; border-radius: 12px; color: #82717a; }
+.nf-intake--new .compat-perspective button[aria-pressed=true] { background: #fff; color: #5a0f28; border-color: transparent; box-shadow: 0 2px 7px #3f203415; }
+.nf-intake--new .compat-topic-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: #9a6b7a; font-size: .77rem; font-weight: 700; }
+.nf-intake--new .compat-question-position { display: inline; font-size: .74rem; font-weight: 400; font-variant-numeric: tabular-nums; color: #8c7b83; }
+.nf-intake--new .compat-panel h3 { color: #30232c; font-size: clamp(1.5rem, 6.4vw, 1.75rem); line-height: 1.5; letter-spacing: 0; font-weight: 700; text-wrap: pretty; }
+.nf-intake--new .compat-hint { margin: 10px 0 23px; color: #77676f; font-size: .9rem; line-height: 1.75; }
+.nf-intake--new .compat-answer-options { gap: 11px; }
+.nf-intake--new .compat-choice { min-height: 64px; padding: 16px 15px; gap: 14px; border: 1px solid #e5dde1; border-radius: 17px; background: #fbfafb; color: #44333e; font-size: 1.0625rem; line-height: 1.7; box-shadow: none; }
+.nf-intake--new .compat-choice > span:last-child { flex: 1; order: 1; min-width: 0; }
+.nf-intake--new .compat-choice-dot { width: 23px; height: 23px; order: 2; border-color: #cdbdc6; background: #fff; }
+.nf-intake--new .compat-choice[aria-pressed=true] { background: #5a0f28; color: #fff; border-color: #5a0f28; box-shadow: 0 5px 13px #5a0f2812; }
+.nf-intake--new .compat-choice[aria-pressed=true] .compat-choice-dot { background: #fff; border-color: #fff; color: #5a0f28; }
+.nf-intake--new .compat-skip { min-height: 48px; margin: 8px 0 0; padding: 11px 2px; font-size: .84rem; color: #846e79; }
+.nf-intake--new .compat-footnote { margin: 4px 0 14px; color: #77676f; font-size: .8rem; line-height: 1.8; }
+.nf-intake--new .compat-refine { margin-top: 8px; border-color: #eee6e9; }
+.nf-intake--new .compat-refine > summary { min-height: 52px; font-size: .83rem; color: #765c69; gap: 8px; }
+.nf-intake--new .compat-refine > summary > span { background: #f2e7eb; color: #5a0f28; border-radius: 7px; }
+.nf-intake--new .compat-panel .compat-priority,
+.nf-intake--new .compat-panel .compat-hard { padding: 13px 0; gap: 12px; }
+.nf-intake--new .compat-panel .compat-priority strong,
+.nf-intake--new .compat-panel .compat-hard strong { font-size: .9rem; }
+.nf-intake--new .compat-panel .compat-priority small,
+.nf-intake--new .compat-panel .compat-hard small { font-size: .81rem; line-height: 1.8; color: #77676f; }
+.nf-intake--new .compat-navigation { gap: 12px; padding-top: 20px; margin-top: 4px; border-top: 1px solid #eee6e9; }
+.nf-intake--new .compat-navigation button { min-height: 54px; border-radius: 15px; font-size: .9rem; line-height: 1.6; }
+.nf-intake--new .compat-previous { flex: 0 0 auto; padding: 10px 4px; color: #7f6974; }
+.nf-intake--new .compat-previous:disabled { opacity: .35; }
+.nf-intake--new .compat-next { flex: 1; padding: 13px 12px; justify-content: space-between; color: #fff; border-color: #5a0f28; background: #5a0f28; }
+.nf-intake--new .compat-finish { flex: 1; min-width: 0; font-size: .86rem; line-height: 1.7; color: #5a0f28; }
+.nf-intake--new .compat-assessment-recap { margin-top: 20px; padding: 19px; border-color: #e7d6de; border-radius: 20px; background: #f4ebef; box-shadow: none; }
+.nf-intake--new .compat-assessment-recap strong { font-size: 1rem; }
+.nf-intake--new .compat-assessment-recap small { font-size: .84rem; color: #77676f; line-height: 1.8; }
+.nf-intake--new .compat-assessment-recap > button { min-height: 48px; border-radius: 12px; background: #fff; font-size: .86rem; }
+.nf-intake--new .compat-fields :is(button, summary):focus-visible { outline: 2px solid #aa6a7c; outline-offset: 3px; }
+@media (max-width: 350px) {
+  .nf-intake--new .compat-question-workspace { padding: 14px; border-radius: 22px; }
+  .nf-intake--new .compat-chips button { flex-basis: 110px; padding-inline: 10px; }
+  .nf-intake--new .compat-choice { padding: 14px 12px; gap: 10px; font-size: 1rem; }
+  .nf-intake--new .compat-panel h3 { font-size: 1.45rem; }
+  .nf-intake--new .compat-navigation { gap: 8px; }
+  .nf-intake--new .compat-next { font-size: .82rem; }
+}

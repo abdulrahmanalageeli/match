@@ -1,1 +1,59 @@
-.nf-sandbox-bar{position:relative;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:9px 17px;background:#f0e4e4;border-bottom:1px solid #d9c7c8;color:var(--accent)}.nf-sandbox-bar button{display:flex;gap:5px;align-items:center;min-height:32px;background:none;border:0;font-size:.74rem;color:inherit}.nf-sandbox-bar>span{display:flex;gap:5px;align-items:center;font-size:.66rem}.nf-onboarding-sandbox .nf-welcome{min-height:calc(100svh - 47px)}.nf-sandbox-legal{padding-block:24px}.nf-sandbox-finish{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;padding:45px 28px;min-height:calc(100svh - 47px)}.nf-sandbox-finish h1{font-size:1.7rem;color:var(--accent);margin:0}.nf-sandbox-finish p{font-size:.94rem;line-height:1.9;color:var(--muted);margin:0 0 20px}.nf-sandbox-check{display:grid;place-items:center;width:78px;height:78px;border-radius:50%;background:#eee0e0;color:var(--accent);border:1px solid var(--gold)}
+.nf-onboarding-sandbox {
+  --sandbox-ink: #30232c;
+  --sandbox-muted: #7b6871;
+  min-height: 100svh;
+  color: var(--sandbox-ink);
+  background: #fbfaf8;
+}
+.nf-sandbox-bar { display: flex; align-items: center; justify-content: space-between; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) 24px 12px; }
+.nf-sandbox-bar > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #5a0f28; font: inherit; font-size: .82rem; }
+.nf-sandbox-bar .nisfayn-brand-name { width: 67px; height: auto; }
+.nf-sandbox-intro, .nf-sandbox-finish { display: flex; flex-direction: column; padding: 18px 26px max(12px, env(safe-area-inset-bottom)); min-height: calc(100svh - 72px); }
+.nf-sandbox-intro-copy { position: relative; }
+.nf-sandbox-eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #8f5a6c; font-size: .76rem; font-weight: 500; }
+.nf-sandbox-eyebrow i { width: 5px; height: 5px; border-radius: 50%; background: #aa6a7c; }
+.nf-sandbox-emblem { display: block; width: 76px; height: 76px; object-fit: contain; margin: 23px 0 19px; }
+.nf-sandbox-intro h1, .nf-sandbox-finish h1 { margin: 0; color: var(--sandbox-ink); font-size: clamp(1.9rem, 8.1vw, 2.35rem); font-weight: 700; line-height: 1.4; letter-spacing: 0; }
+.nf-sandbox-intro h1 span, .nf-sandbox-finish h1 span { color: #94596e; }
+.nf-sandbox-intro h1:focus, .nf-sandbox-finish h1:focus { outline: none; }
+.nf-sandbox-intro-copy > p, .nf-sandbox-finish-copy > p { margin: 15px 0 0; color: var(--sandbox-muted); font-size: .95rem; line-height: 1.85; max-width: 33ch; }
+.nf-sandbox-journey { list-style: none; padding: 0; margin: 28px 0 24px; }
+.nf-sandbox-journey li { display: flex; align-items: center; gap: 13px; padding: 17px 0; }
+.nf-sandbox-journey li + li { border-top: 1px solid #e9e2df; }
+.nf-sandbox-journey-icon { flex: none; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: #f2e9ec; color: #6c2940; }
+.nf-sandbox-journey li > div { min-width: 0; flex: 1; }
+.nf-sandbox-journey strong { display: block; color: var(--sandbox-ink); font-size: .98rem; font-weight: 600; }
+.nf-sandbox-journey p { margin: 4px 0 0; color: var(--sandbox-muted); font-size: .8rem; line-height: 1.7; }
+.nf-sandbox-journey-number { color: #b49da5; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.nf-sandbox-intro-actions, .nf-sandbox-finish-actions { margin-top: auto; padding-top: 4px; }
+.nf-sandbox-reassurance { display: flex; align-items: flex-start; gap: 9px; color: var(--sandbox-muted); font-size: .76rem; line-height: 1.8; margin: 0 0 17px; }
+.nf-sandbox-reassurance > svg { flex: none; color: #9b7180; margin-top: 4px; }
+.nf-sandbox-primary { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 14px 19px; border: 1px solid #5a0f28; border-radius: 18px; background: #5a0f28; color: #fffaf6; font: inherit; font-size: 1rem; font-weight: 700; box-shadow: 0 5px 14px #5a0f2810; }
+.nf-sandbox-legal-link, .nf-sandbox-restart { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; padding: 10px 4px; border: 0; background: none; color: var(--sandbox-muted); font: inherit; font-size: .77rem; }
+.nf-sandbox-finish { padding-top: clamp(35px, 9svh, 82px); }
+.nf-sandbox-check { display: grid; place-items: center; width: 82px; height: 82px; border-radius: 28px; background: #f0e4e9; color: #5a0f28; margin-bottom: 28px; }
+.nf-sandbox-finish h1 { margin-top: 13px; }
+.nf-sandbox-finish-actions { padding-top: 48px; }
+.nf-sandbox-restart { color: #5a0f28; font-size: .85rem; margin-top: 7px; }
+.nf-sandbox-legal { position: fixed; inset: 0; width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 20px; color: var(--sandbox-ink); border: 1px solid #e3d8dc; border-radius: 24px; background: #fbfaf8; overscroll-behavior: contain; }
+.nf-sandbox-legal::backdrop { background: #24121b70; }
+.nf-sandbox-legal > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; color: #5a0f28; font-size: .86rem; font-weight: 700; }
+.nf-sandbox-legal > header > button { display: grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0; border: 1px solid #e3d8dc; border-radius: 50%; background: #fff; color: #5a0f28; }
+.nf-onboarding-sandbox :is(button,summary):focus-visible { outline: 2px solid #94596e; outline-offset: 4px; }
+@media (max-width: 360px) {
+  .nf-sandbox-bar { padding-inline: 20px; }
+  .nf-sandbox-intro, .nf-sandbox-finish { padding-inline: 20px; }
+  .nf-sandbox-journey { margin-block: 23px 21px; }
+  .nf-sandbox-journey li { gap: 10px; }
+  .nf-sandbox-journey p { font-size: .77rem; }
+}
+@media (max-height: 700px) {
+  .nf-sandbox-intro { padding-top: 9px; }
+  .nf-sandbox-emblem { width: 60px; height: 60px; margin-block: 18px 14px; }
+  .nf-sandbox-journey { margin-block: 20px; }
+  .nf-sandbox-journey li { padding-block: 14px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) :is(.nf-sandbox-intro-copy,.nf-sandbox-finish-copy) { animation: nf-sandbox-arrive 240ms ease-out both; }
+  @keyframes nf-sandbox-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+}

@@ -792,6 +792,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
         key={demo ? 'demo-'+sampleSession : live?.user.id}
         startAt={demo ? newDemoIntake ? undefined : applicationChapter : live?.profile ? applicationChapter : undefined}
         initial={demo ? (newDemoIntake ? null : sampleProfile) : live?.profile ?? null}
+        preview={demo && newDemoIntake}
+        exitPreview={demo && newDemoIntake ? exitDemo : undefined}
         demo={demo} draftRef={intakeDraft}
         draftOwner={demo ? 'demo-'+sampleSession : live?.user.id}
         previouslyApproved={!demo && (accepted || Boolean(live?.user.profileReviewPending))}

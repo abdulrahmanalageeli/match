@@ -206,6 +206,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   if((['sensitiveProfile','sensitivePublication','assessment','photo'] as const).some(kind=>consents[kind] !== (initial?.signupConsents?.[kind] === true))
     || consents.adult || consents.terms || consents.privacy)changedSections.add('review');
   function chooseConsent(kind:Exclude<keyof SignupConsents,'version'>,value:boolean){
+    if(error?.field==='consent')setError(null);
     setConsents(old=>({...old,[kind]:value,...(kind==='sensitiveProfile'&&!value?{sensitivePublication:false}:{})}));
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
     if(kind==='assessment'&&!value)update(withoutAssessment(current.current.answers));
@@ -353,11 +354,12 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك من هذا الآيفون. <button type="button" className="nf-intake-policy" onClick={() => { setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة على هذا الآيفون. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
-        {!editing && <div className="nf-intake-meter" aria-label="تقدم إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-valuetext={chapter.label}>
-          {steps.map((entry, n) => <i key={entry.key} data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
-        </div>}
-        <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `${arabicNumber(idx + 1)} / ${arabicNumber(steps.length)}`}</span></div>
-        <HelpButton topic="profile" label="ما الذي يظهر للآخرين؟ ولماذا نسأل؟"/>
+        <div className="nf-intake-progress">
+          <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}`}</span></div>
+          {!editing && <div className="nf-intake-meter" aria-label="تقدم إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-valuetext={`الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}: ${chapter.label}`}>
+            {steps.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
+          </div>}
+        </div>
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
           <div className="nf-intake-stage" key={chapter.key} data-dir={direction.current} inert={busy || leaving}>
             <div className="nf-intake-title">
@@ -365,7 +367,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
                 <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
               </svg>
-              <div className="nf-intake-seal" aria-hidden="true"><Icon size={22} strokeWidth={1.55} /></div>
+              <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div><HelpButton topic="profile" label="الخصوصية ولماذا نسأل"/></div>
               <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1>
               <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p>
             </div>
@@ -375,7 +377,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <label>الاسم المعروض<input {...field("displayName")} autoComplete="off" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label>
                 <fieldset><legend>أنا</legend><div className="choice-row">
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
-                    aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}>{gender === "woman" ? "امرأة" : "رجل"}{p.gender === gender && <Check size={15} aria-hidden="true" />}</button>)}
+                    aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span><i className="nf-intake-choice-check" aria-hidden="true">{p.gender === gender && <Check size={13} />}</i></button>)}
                 </div></fieldset>
                 <div className="field-pair"><label>العمر<input {...field("age")} type="text" inputMode="numeric" value={p.age} onChange={e => update({ age: latinDigits(e.target.value) })} maxLength={3} placeholder="١٨+" required /></label>
                   <label>المدينة<input {...field("city")} value={p.city} onChange={e => update({ city: e.target.value })} maxLength={80} placeholder="مثل الرياض" required /></label></div>
@@ -397,7 +399,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div></details>
               </>}
               {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
-              {chapter.key === "avatar" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
+              {chapter.key === "avatar" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {(['criteria','personality','compatibility'].includes(chapter.key)||(chapter.key==='beena'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)}/>}
               {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo}/>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
@@ -434,11 +436,15 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
             </div>
           </div>
-          {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-          <footer className="nf-intake-actions"><button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}>{submitLabel}{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
-            {draftRef && <small>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الآيفون لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</small>}
+          <footer className="nf-intake-actions">
+            {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
+            <button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
+            <div className="nf-intake-action-meta">
+              {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
+              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الآيفون لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}
+            </div>
           </footer>
-          {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-note"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>لن تُحفظ الصورة المختارة أو تعديلات تمويهها وكشفها أو إزالتها في المسودة. يلزم اختيارها مجددًا عند العودة. صورتك المحفوظة في ملفك لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
+          {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>لن تُحفظ الصورة المختارة أو تعديلات تمويهها وكشفها أو إزالتها في المسودة. يلزم اختيارها مجددًا عند العودة. صورتك المحفوظة في ملفك لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
         </form>
        </>}
       </div>

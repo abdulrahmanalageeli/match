@@ -8,9 +8,9 @@ import type { ProfilePortrait, PortraitRevealPolicy } from '../types';
 import type { CommunitySource } from '../community/data';
 import './profile-photo-choice.css';
 
-export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,existing,source,consented,onConsent,sensitiveAllowed,onSensitiveConsent,onBusy,revealPolicy,onPolicyChange}:{
+export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,existing,source,consented,onConsent,consentError,sensitiveAllowed,onSensitiveConsent,onBusy,revealPolicy,onPolicyChange}:{
   avatar?:PublicAvatar|null;onAvatar:(v:PublicAvatar|null)=>void;inferred:PublicAvatar;change:PortraitDraft|null|undefined;onChange:(v:PortraitDraft|null)=>void;
-  existing?:ProfilePortrait|null;source?:CommunitySource|null;consented:boolean;onConsent:(v:boolean)=>void;sensitiveAllowed:boolean;onSensitiveConsent:()=>void;onBusy:(v:boolean)=>void;
+  existing?:ProfilePortrait|null;source?:CommunitySource|null;consented:boolean;onConsent:(v:boolean)=>void;consentError?:string;sensitiveAllowed:boolean;onSensitiveConsent:()=>void;onBusy:(v:boolean)=>void;
   revealPolicy?:PortraitRevealPolicy;onPolicyChange?:(policy:PortraitRevealPolicy)=>void;
 }) {
   const [mode,setMode]=useState<'photo'|'avatar'>(change||existing?'photo':'avatar');
@@ -45,7 +45,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
         {policy!=='never'&&<div className="nf-photo-reveal-detail"><LockKeyhole size={15}/><span>باختيار هذا الموعد، توافقين على حفظ نسخة واضحة خاصة ومشاركتها تلقائيًا مع الطرف المؤهل. يعود التمويه عند التراجع عن المرحلة أو إنهاء التعارف أو إلغاء هذا الخيار. لا يمكن سحب صورة حفظها الطرف الآخر سابقًا.</span></div>}
         <small>يسري اختيارك بعد مراجعة اختياراتك وحفظ التغييرات.</small>
       </section></>}
-      {(change||showingExisting)&&<><label className="nf-photo-consent"><input type="checkbox" checked={consented} onChange={e=>onConsent(e.target.checked)}/><span>هذه صورتي ولدي حق استخدامها. أوافق على عرض النسخة المعروضة بدرجة التمويه المختارة، وعلى إعداد إزالة التمويه الذي حددته.</span></label><button type="button" className="nf-appearance-clear" onClick={removePhoto}><Trash2 size={14}/> إزالة صورة الملف</button></>}
+      {(change||showingExisting)&&<><label className="nf-photo-consent"><input type="checkbox" data-field="consent" checked={consented} aria-invalid={Boolean(consentError)||undefined} aria-describedby={consentError?'nf-intake-error':undefined} onChange={e=>onConsent(e.target.checked)}/><span>هذه صورتي ولدي حق استخدامها. أوافق على عرض النسخة المعروضة بدرجة التمويه المختارة، وعلى إعداد إزالة التمويه الذي حددته.</span></label><button type="button" className="nf-appearance-clear" onClick={removePhoto}><Trash2 size={14}/> إزالة صورة الملف</button></>}
       {error&&<p role="alert" className="nf-intake-error">{error}</p>}
       <p className="nf-photo-safety"><LockKeyhole size={16}/><span>نرفع النسخة المعروضة بعد الحفظ، ونسخة واضحة خاصة فقط عند اختيار الإزالة التلقائية. نزيل بيانات الموقع من الصور. التمويه يقلّل التفاصيل ولا يضمن إخفاء الهوية أو منع حفظ الصورة.</span></p>
     </>:<>

@@ -207,3 +207,63 @@
   .nf-studio-preview { padding: 17px; }
   .nf-studio-preview-top { font-size: .63rem; }
 }
+
+/* A quieter mobile frame for the first profile, with the same chapters and fields. */
+.nf-intake:not([data-editing]) { --intake-pad: clamp(18px, 5.1vw, 26px); background: #fcfaf7; }
+.nf-intake:not([data-editing]) .nf-intake-header { min-height: 68px; padding-block: max(10px, env(safe-area-inset-top)) 10px; gap: 10px; border-bottom: 0; background: transparent; }
+.nf-intake:not([data-editing]) .nf-intake-header .f-icon { width: 42px; height: 42px; min-height: 42px; background: #fffdfb; border-color: #e5dcda; }
+.nf-intake:not([data-editing]) .nf-intake-later { font-size: .8rem; font-weight: 500; padding-inline: 3px; }
+.nf-intake:not([data-editing]) .nf-intake-main { padding-top: 8px; }
+.nf-intake-progress { margin-bottom: 3px; }
+.nf-intake-progress .nf-intake-kicker { align-items: center; padding-top: 0; padding-bottom: 10px; font-size: .77rem; }
+.nf-intake-progress .nf-intake-kicker > :last-child { font-variant-numeric: tabular-nums; }
+.nf-intake-progress .nf-intake-meter { gap: 5px; }
+.nf-intake-progress .nf-intake-meter i { height: 4px; background: #e9dfd9; }
+.nf-intake-progress .nf-intake-meter i[data-state="done"]::after { background: #a36a79; }
+.nf-intake-heading-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.nf-intake-heading-tools .nf-intake-seal { margin: 0; width: 36px; height: 36px; border-radius: 12px; background: #f0e4e7; }
+.nf-intake-heading-tools .nf-help-link { margin: 0; min-height: 44px; padding: 8px 0; font-size: .72rem; color: #785b64; }
+.nf-intake:not([data-editing]) .nf-intake-title { margin: 14px 0 18px; padding: 0; }
+.nf-intake:not([data-editing]) .nf-intake-title h1 { font-size: clamp(1.55rem, 6.6vw, 1.9rem); letter-spacing: 0; line-height: 1.5; }
+.nf-intake:not([data-editing]) .nf-intake-title p { margin-top: 5px; font-size: .88rem; line-height: 1.8; max-width: 38ch; }
+.nf-intake:not([data-editing]) .nf-intake-note { border: 1px solid #e6ddd5; border-radius: 12px; background: #f5efe8; padding: 9px 12px; margin-bottom: 16px; font-size: .77rem; line-height: 1.7; }
+.nf-intake:not([data-editing]) .nf-intake-fields { gap: 20px; }
+.nf-intake:not([data-editing]) .nf-intake-fields label,
+.nf-intake:not([data-editing]) .nf-intake-fields legend { font-size: .88rem; }
+.nf-intake:not([data-editing]) .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) { min-height: 50px; border-radius: 12px; border-color: #d8cbd0; background: #fff; box-shadow: none; padding: 12px 13px; }
+.nf-intake:not([data-editing]) .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: var(--accent); outline: 2px solid #b6748b55; outline-offset: 2px; }
+.nf-intake:not([data-editing]) .nf-intake-fields :is(input, textarea, select, button)[aria-invalid=true] { border-color: #aa2941; outline-color: #aa2941; }
+.nf-intake:not([data-editing])[data-chapter=identity] .nf-intake-fields { padding: 18px; background: #fffdfb; border: 1px solid #e9dfd9; border-radius: 20px; box-shadow: 0 5px 22px #4c243006; }
+.nf-intake-choice-check { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid #cdbbc1; border-radius: 50%; flex: none; }
+.nf-intake-fields .choice-row button { justify-content: space-between; padding-inline: 16px; }
+.nf-intake-fields .choice-row button[aria-pressed=true] .nf-intake-choice-check { border-color: currentColor; }
+.nf-intake:not([data-editing]) .choice-row button[aria-pressed=true] { background: #f4e8ec; color: var(--accent); border-color: #9b526b; }
+.nf-intake:not([data-editing]) .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.nf-intake-action-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 2px; flex-wrap: wrap; }
+.nf-intake-action-meta > small { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.6; }
+.nf-intake-draft-help { color: var(--muted); font-size: .73rem; margin-inline-start: auto; }
+.nf-intake-draft-help[open] { width: 100%; text-align: start; }
+.nf-intake-draft-help > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; cursor: pointer; }
+.nf-intake-draft-help > summary::-webkit-details-marker { display: none; }
+.nf-intake-draft-help[open] > summary > svg:last-child { transform: rotate(-90deg); }
+.nf-intake-draft-help p { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #f6f0ea; line-height: 1.85; }
+.nf-intake-draft-help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.nf-intake .nf-intake-actions { margin-top: 18px; padding-top: 14px; padding-bottom: max(4px, env(safe-area-inset-bottom)); background: linear-gradient(#fcfaf700, #fcfaf7 15px); }
+.nf-intake .nf-intake-actions .f-primary { min-height: 54px; border-radius: 15px; box-shadow: 0 5px 14px #5a0f2814; }
+.nf-intake .nf-intake-actions > small { margin-top: 8px; font-size: .73rem; }
+.nf-intake .nf-intake-actions .nf-intake-error { text-align: start; margin: 0 0 10px; font-size: .85rem; }
+.nf-intake-photo-warning { display: grid; gap: 12px; padding: 20px; margin-top: 16px; border: 1px solid #d8b7c1; border-radius: 18px; background: #fff9f7; scroll-margin-block: 20px; }
+.nf-intake-photo-warning h2 { margin: 0; color: var(--accent); font-size: 1.08rem; line-height: 1.6; }
+.nf-intake-photo-warning p { margin: 0 0 4px; color: var(--muted); font-size: .87rem; line-height: 1.85; }
+.nf-intake-photo-warning button { width: 100%; min-height: 48px; }
+@media (max-width: 360px) {
+  .nf-intake:not([data-editing]) { --intake-pad: 16px; }
+  .nf-intake:not([data-editing])[data-chapter=identity] .nf-intake-fields { padding: 14px; }
+  .nf-intake-heading-tools { gap: 8px; }
+  .nf-intake-heading-tools .nf-help-link { font-size: .68rem; }
+}
+@media (max-height: 680px) {
+  .nf-intake:not([data-editing]) .nf-intake-title { margin-block: 10px 14px; }
+  .nf-intake:not([data-editing]) .nf-intake-title h1 { font-size: 1.5rem; }
+  .nf-intake:not([data-editing]) .nf-intake-heading-tools { margin-bottom: 4px; }
+}

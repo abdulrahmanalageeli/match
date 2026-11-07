@@ -921,7 +921,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
         </div>
       )}
       <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
-      {source && active && !paused && !onboardingPreview && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
+      {source && active && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
       {mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (

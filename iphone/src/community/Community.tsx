@@ -53,7 +53,7 @@ import { interests } from "../compatibility/model";
 import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
-import { FitDetails, preferencePercentage, personalityPercentage, suggestedQuestions } from "../compatibility/FitDetails";
+import { FitDetails, preferencePercentage, personalityPercentage } from "../compatibility/FitDetails";
 import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
@@ -70,7 +70,7 @@ import { SuccessNotice } from './SuccessNotice';
 import { RequestHistory } from './RequestHistory';
 import { CommunitySkeleton } from './CommunitySkeleton';
 import { feedback } from '../feedback/haptics';
-import { ConversationStarter } from '../ai/ConversationStarter';
+import { ChatInsights } from './ChatInsights';
 import { FamilyBridgePanel } from '../family/FamilyBridge';
 import type {
   CommunitySource,
@@ -895,9 +895,9 @@ function RematchChoice({checked,change,disabled}:{checked:boolean;change:(value:
   return <label className="cm-rematch-choice"><input type="checkbox" checked={checked} onChange={event=>change(event.target.checked)} disabled={disabled}/><span><strong>السماح بالتعارف مجددًا</strong><small>{checked?'يمكن لأي منكما إرسال طلب جديد؛ لن يبدأ التعارف إلا بعد قبول الطرف الآخر.':'لن تتمكّنا من إرسال طلب تعارف جديد لبعضكما.'}</small></span></label>;
 }
 
-function ConversationGuide({ source, connection, close, closed, choose, hasDraft, openFamily, onCompletion }: {
+function ConversationGuide({ source, connection, close, closed, choose, hasDraft, openInsights, openFamily, onCompletion }: {
   source: CommunitySource; connection: Connection; close: () => void; closed: () => void;
-  choose: (text: string) => void; hasDraft: boolean; openFamily?: () => void; onCompletion?: () => void;
+  choose: (text: string) => void; hasDraft: boolean; openInsights: () => void; openFamily?: () => void; onCompletion?: () => void;
 }) {
   const [progress, setProgress] = useState<StepProgress | null>(null);
   const [otherConnections, setOtherConnections] = useState<Connection[] | null>(null);
@@ -978,10 +978,8 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>سحب اقتراح العودة</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{progress.rewindPeer ? "أوافق على العودة إلى: " : "إرسال اقتراح العودة إلى: "}{stages[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?"البقاء في المرحلة الحالية":"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>اقتراح خطوة إلى الوراء</button>}
     </section>}
     {error && <><Banner alert text={error}/><button className="btn-text" onClick={() => setRetry(n => n+1)}>إعادة المحاولة</button></>}
-    <h3>أسئلة للحديث</h3>
+    <button type="button" className="btn-secondary" disabled={busy} onClick={openInsights}><Sparkles size={16}/> حديث أقرب · أفكار من توافقكما</button>
     {hasDraft && <p className="cm-step-note">أكمل مسودتك أو امسحها لاختيار سؤال.</p>}
-    <div className="cm-step-buttons">{suggestedQuestions(connection.person.fit).map(text =>
-      <button className="btn-secondary" key={text} disabled={busy || hasDraft} onClick={() => choose(text)}>{text}</button>)}</div>
     <details className="cm-practical-questions"><summary>مواضيع عملية قبل الخطوة القادمة</summary><p>اختارا موضوعًا يناسب وقتكما. الأسئلة تفتح حوارًا، وليست اختبارًا أو طلبًا لإثباتات خاصة. يُضاف السؤال كمسودة لتراجعه قبل الإرسال.</p><div className="cm-step-buttons">{practicalQuestions.map(([title,text])=><button key={title} className="btn-secondary" disabled={busy||hasDraft} onClick={()=>choose(text)}><strong>{title}</strong><span>{text}</span></button>)}</div></details>
     {confirmClose ? <>
       <p className="cm-step-note">سيُغلق التعارف ولن يتمكّن أي منكما من إرسال رسائل أخرى.</p>
@@ -1009,6 +1007,7 @@ export function Chat({
   const [photos, setPhotos] = useState(false);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
@@ -1035,7 +1034,7 @@ export function Chat({
   const lastId = lastRow?.clientId || lastRow?.id;
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !deleteTarget);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget);
 
   useEffect(() => {
     const hide = () => setPrivateHidden(document.hidden);
@@ -1095,6 +1094,14 @@ export function Chat({
     if (!chatReady || !body || body.length > 1000) return;
     atBottom.current = true;
     composedId.current = thread.outbox.enqueue(body);
+  }
+  function chooseConversationPrompt(text: string) {
+    const current = thread.outbox.read();
+    if (!chatReady || recording || current.draft || current.reply || !text.trim() || text.length > 1000) return;
+    thread.outbox.write(text);
+    setInsightsOpen(false);
+    setGuide(false);
+    requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
   }
   function chooseReply(msg: Message) {
     if (!chatReady || msg.deletedAt || deletedIds.has(msg.id) || ('status' in msg && msg.status !== 'saved')) return;
@@ -1194,11 +1201,7 @@ export function Chat({
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
-            <div className="cm-starters">
-              {suggestedQuestions(connection.person.fit).slice(0,2).map((prompt) =>
-                <button key={prompt} disabled={Boolean(thread.draft)} onClick={() => { thread.outbox.write(prompt); composer.current?.focus(); }}>{prompt}</button>)}
-            </div>
-            <ConversationStarter source={source} person={connection.person} disabled={!chatReady||Boolean(thread.draft)} choose={text=>{if(!thread.outbox.read().draft){thread.outbox.write(text);composer.current?.focus();}}}/>
+            <p>من «حديث أقرب» يمكنك اختيار فكرة من توافقكما ومراجعتها قبل الإرسال.</p>
           </div>}
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
@@ -1238,6 +1241,7 @@ export function Chat({
         {showLatest && <button className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} /> أحدث الرسائل</button>}
       </div>}
       {conversationAllowed && <div className="cm-chat-compose">
+       {!recording && !replyDraft && <MotionPressButton type="button" className="cm-chat-insight-trigger" disabled={!chatReady} aria-haspopup="dialog" onClick={() => setInsightsOpen(true)}><Sparkles size={15} aria-hidden="true"/><strong>حديث أقرب</strong><span>أفكار تفتح الحوار</span><ChevronLeft size={14} aria-hidden="true"/></MotionPressButton>}
        {replyDraft && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
          <strong>رد على {replyDraft.senderIsMe ? 'رسالتك' : connection.person.alias}</strong><span dir="auto">{replyDraft.body}</span>
        </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => thread.outbox.replyTo()}><X size={18}/></button></div>}
@@ -1259,6 +1263,7 @@ export function Chat({
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
       </div>}
+      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!chatReady || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>
         {deleteError && <Banner alert text={deleteError}/>}
@@ -1267,8 +1272,8 @@ export function Chat({
       </Sheet>}
       {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
         <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
-        <ConversationStarter source={source} person={connection.person} disabled={!chatReady||Boolean(thread.draft)} choose={text=>{if(!thread.outbox.read().draft){thread.outbox.write(text);setToolsOpen(false);requestAnimationFrame(()=>composer.current?.focus());}}}/>
         <div className="cm-chat-tools">
+          <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>
           {source.family&&<button onClick={() => { setToolsOpen(false); setFamilyOpen(true); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
@@ -1289,10 +1294,11 @@ export function Chat({
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setSafetyError(""); } }}/>}
-      {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft)} onCompletion={onCompletion}
+      {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !chatReady || recording} onCompletion={onCompletion}
+        openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);setFamilyOpen(true);}:undefined}
         close={() => setGuide(false)} closed={() => { thread.outbox.clear(); close(); }}
-        choose={text => { thread.outbox.write(text); setGuide(false); requestAnimationFrame(() => composer.current?.focus()); }}/>}
+        choose={chooseConversationPrompt}/>}
     </section>
   );
 }

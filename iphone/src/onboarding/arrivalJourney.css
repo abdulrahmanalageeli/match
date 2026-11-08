@@ -1,0 +1,182 @@
+/* The welcome's sunset, ivory and architectural curves continue through signup. */
+.phone-app .nf-intake.nf-intake--new,
+.nf-auth-frame,
+.nf-signup-status,
+.phone-app .nf-onboarding-sandbox {
+  --journey-canvas: #f8eee7;
+  --journey-ink: #51172e;
+  --journey-muted: #765864;
+  --journey-line: #dfc8c2;
+  --intake-pad: clamp(22px, 6vw, 32px);
+  background: linear-gradient(170deg, #f4e2de 0, #f9eee5 380px, #fcf7f0 740px);
+  color: var(--journey-ink);
+  position: relative;
+  isolation: isolate;
+}
+.phone-app main.nf-intake.nf-intake--new::before,
+.nf-auth-frame::before,
+.nf-signup-status::before {
+  content: '';
+  position: absolute;
+  inset: 70px 0 auto;
+  width: 100%;
+  height: 420px;
+  z-index: -1;
+  background: url('/brand/arrival/journey-arches.svg') top center / 100% auto no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: .8;
+  transform: none;
+  rotate: none;
+  pointer-events: none;
+  animation: none !important;
+}
+.phone-app .nf-intake.nf-intake--new::after,
+.phone-app .nf-onboarding-sandbox::before,
+.phone-app .nf-onboarding-sandbox::after { content: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-header,
+.nf-auth-frame .flow-header,
+.nf-signup-status .flow-header {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  min-height: 74px;
+  padding: max(12px, env(safe-area-inset-top)) 20px 12px;
+  border-bottom: 1px solid #fff8f26b;
+  background: #f5e7e0e6;
+  backdrop-filter: blur(16px);
+  box-shadow: none;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-header .f-icon,
+.nf-auth-frame .flow-header .f-icon {
+  width: 44px; height: 44px; flex: none; min-height: 44px;
+  border: 1px solid #fffaf4b3; border-radius: 50%;
+  background: #fffaf359; box-shadow: none; color: #61263c;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #744c5a; font-size: .76rem; font-weight: 500; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 22px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-progress {
+  padding: 0 0 26px; margin: 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 12px; font-size: .76rem; line-height: 1.6; color: #8b6770; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: #62273d; font-weight: 600; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child::before { content: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter { gap: 5px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter i { height: 3px; background: #dec8c4; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=done]::after { background: #b57e8a; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=current]::after { background: #61263c; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter i::after { transition: transform 360ms ease-out, background-color 240ms ease; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title,
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title {
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 0; margin: 0 0 26px; min-height: 0;
+  border: 0; background: none; overflow: visible;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-title::before,
+.phone-app .nf-intake.nf-intake--new .nf-intake-title::after,
+.phone-app .nf-intake.nf-intake--new .nf-intake-ridge { display: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: #51172e; font-size: clamp(1.75rem, 7.3vw, 2.15rem); line-height: 1.4; letter-spacing: -.4px; text-wrap: balance; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 37ch; color: #765864; font-size: .96rem; line-height: 1.85; margin: 12px 0 0; text-wrap: pretty; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools,
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-heading-tools {
+  position: static; inset: auto; order: -1;
+  display: flex; flex-direction: row; justify-content: space-between; align-items: center;
+  margin: 0 0 15px; gap: 12px;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-seal { display: grid; width: 38px; height: 38px; margin: 0; border: 1px solid #fff9efc4; border-radius: 14px; background: #fff8ef70; color: #9d6374; box-shadow: none; }
+.phone-app .nf-intake.nf-intake--new .nf-help-link { max-width: none; min-height: 44px; padding: 6px 0; color: #795764; font-size: .72rem; font-weight: 500; line-height: 1.6; text-align: start; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide,
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide[open] { padding: 0; position: static; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide > summary,
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide[open] > summary { position: static; padding: 0; gap: 10px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 1.65rem; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title { margin-bottom: 18px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 23px; }
+.phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: #593542; font-size: .94rem; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
+  min-height: 56px; padding: 15px 16px; border: 1px solid #dfc8c2; border-radius: 16px;
+  background: #fffcf6bd; color: #4d303b; box-shadow: inset 0 1px #fffaf6;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: #9c6577; background: #fffdf9; outline: 3px solid #97546d13; box-shadow: 0 5px 16px #70354808; }
+.phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #ddc6c0; background: #fffcf6ad; color: #573441; min-height: 62px; border-radius: 17px; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
+.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] { background: #f5e6e4; border-color: #9e6476; box-shadow: inset 0 0 0 .5px #9e6476, 0 5px 14px #60213808; color: #5a1731; }
+.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: #71344a; border-color: #71344a; color: #fffaf4; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions {
+  z-index: 8; margin-top: 32px; padding-top: 18px;
+  border-top: 1px solid #fff9ef; background: #f9efe7ef; backdrop-filter: blur(16px);
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
+.nf-auth-frame .f-primary,
+.phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
+  min-height: 56px; border: 1px solid #fff2e4a6; border-radius: 18px;
+  background: linear-gradient(135deg, #824255, #5a1731 72%); color: #fff9f3;
+  box-shadow: 0 1px 0 1px #611c3526, inset 0 1px 0 #ffffff21, 0 8px 20px #64213612;
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary::after { content: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary:active,
+.nf-auth-frame .f-primary:active,
+.phone-app .nf-onboarding-sandbox .nf-sandbox-primary:active { transform: scale(.97); }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { margin-top: 8px; gap: 7px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter { position: static; background: transparent; border-top-color: #e7d4cc; backdrop-filter: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter .f-primary { background: #fffbf2a6; color: #6b3046; border-color: #d7b9bd; box-shadow: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-error { background: #fff5f1; border: 1px solid #dcb5b8; border-radius: 14px; color: #922b43; }
+
+/* Account creation uses the same canvas and button, without another animated intro. */
+.nf-auth-frame .nf-auth-hero { padding-top: 20px; }
+.nf-auth-frame .nf-auth-hero h1 { color: #51172e; font-size: clamp(1.8rem, 7vw, 2.15rem); line-height: 1.5; }
+.nf-auth-frame .nf-auth-hero .flow-intro { color: #765864; }
+.nf-auth-frame .nf-auth-panel { border-color: #e4cfc7; border-radius: 24px; background: #fffcf4c9; box-shadow: 0 10px 30px #6c2f3d06, inset 0 1px #fff; }
+.nf-auth-frame .field-input,
+.nf-auth-frame input { border-color: #dfc8c2; background: #fffcf7; }
+.nf-auth-frame .nf-auth-emblem::before,
+.nf-auth-frame .nf-auth-emblem::after { animation: none; }
+.nf-signup-status .flow-body { padding-top: 32px; }
+.nf-signup-status .flow-symbol { color: #77374c; border: 1px solid #cfa7ae; background: linear-gradient(160deg,#fffaf0,#f1dbd7); border-radius: 50% 50% 22px 22px; box-shadow: 0 9px 25px #7b3b4e08; }
+.nf-signup-status .flow-body > h1 { color: #51172e; }
+.nf-signup-status .flow-card { border: 1px solid #dfc8c2; border-radius: 20px; background: #fffcf5ce; box-shadow: 0 8px 22px #6c2f3d05; }
+.nf-signup-status .f-secondary { border-color: #c99ca8; color: #71344a; background: #fff9f180; border-radius: 16px; min-height: 52px; }
+
+/* Completed form: measured, finite celebration; no account/submission claims. */
+.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f5e7e0df; border-bottom: 1px solid #fff9ef; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: url('/brand/arrival/journey-arches.svg') center 20px / 100% auto no-repeat; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: center; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-check { width: 100px; height: 114px; margin: 20px auto 28px; border: 1px solid #cfa7ae; border-radius: 50% 50% 30px 30px; background: linear-gradient(160deg, #fffaf0, #f1dbd7); box-shadow: inset 0 0 0 6px #fffaf050, 0 12px 35px #7b3b4e0c; color: #77374c; }
+.nf-sandbox-check svg { width: 39px; height: 39px; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish h1 { color: #51172e; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy > p { margin: 18px auto 0; color: #765864; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish-actions { padding-top: 36px; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-reassurance { padding: 15px; border: 1px solid #e3cfc5; border-radius: 16px; background: #fffaf386; color: #765864; font-size: .8rem; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-restart { min-height: 48px; color: #70374b; }
+
+@keyframes nf-join-step { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+@keyframes nf-join-step-back { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes nf-join-field { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes nf-join-complete { from { stroke-dashoffset: 1; opacity: .3; } to { stroke-dashoffset: 0; opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-stage { animation: nf-join-step 380ms cubic-bezier(.2,.75,.3,1) both; }
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-stage[data-dir=back] { animation-name: nf-join-step-back; }
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-title,
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields { animation: none; }
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > * { animation: nf-join-field 340ms ease-out 70ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > :nth-child(2) { animation-delay: 120ms; }
+  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > :nth-child(n+3) { animation-delay: 170ms; }
+  html:not([data-nf-motion="reduced"]) .phone-app .nf-onboarding-sandbox .nf-sandbox-check polyline { stroke-dasharray: 1; animation: nf-join-complete 700ms 150ms ease both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-intake--new *, .nf-auth-frame *, .nf-onboarding-sandbox * { animation: none !important; transition: none !important; }
+  .nf-intake--new button:active, .nf-auth-frame button:active, .nf-onboarding-sandbox button:active { transform: none !important; }
+}
+html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-auth-frame, .nf-onboarding-sandbox) * { animation: none !important; transition: none !important; }
+html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-auth-frame, .nf-onboarding-sandbox) button:active { transform: none !important; }
+@media (max-width: 360px) {
+  .phone-app .nf-intake.nf-intake--new .nf-intake-header { padding-inline: 12px; gap: 8px; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 4px; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 1.75rem; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 20px; }
+}

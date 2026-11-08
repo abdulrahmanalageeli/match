@@ -19,7 +19,7 @@ export function ProfilePortraitPreview({ answers: p, photoUrl, portraitSource }:
 
 export function ProfilePreview({ answers: p, photoUrl, portraitSource }: { answers: Answers } & PhotoPreviewProps) {
   const chosen = interests.filter(item => p.interestIds?.includes(item.id)).slice(0, 3);
-  return <section className="nf-studio-preview" aria-label="معاينة ملفك">
+  return <section className="nf-studio-preview" aria-label="ملفك كما يراه الآخرون">
     <div className="nf-studio-preview-top"><span>لمحة من ملفك</span><span><ShieldCheck size={13}/> حضور يعبّر عنك</span></div>
     <div className="nf-studio-person"><div className="nf-studio-avatar"><ProfilePortraitPreview answers={p} photoUrl={photoUrl} portraitSource={portraitSource}/></div>
       <div><h2>{p.displayName || 'هنا تبدأ حكايتك'}{/^\d{2,3}$/.test(p.age) && Number(p.age) >= 18 && Number(p.age) <= 110 && <small>، {arabicNumber(Number(p.age))}</small>}</h2><p><MapPin size={13}/>{[p.city, p.profession].filter(Boolean).join(' · ') || 'تفاصيل صغيرة، تصنع صورة أقرب'}</p></div>

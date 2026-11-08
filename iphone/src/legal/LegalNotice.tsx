@@ -26,7 +26,7 @@ export function LegalNotice({ preview = false }: { preview?: boolean }) {
       <div><small>اختيارات واضحة، من البداية</small><h2>خصوصيتك وحقوقك</h2></div>
     </header>
     <p className="nf-legal-intro">تعارف جاد يبدأ بالوضوح. هذه أهم المعلومات عن استخدام نصفين، وما تختار مشاركته، وكيف تتحكم في بياناتك.</p>
-    {preview && <p className="nf-legal-preview"><Sparkles size={16} aria-hidden="true" /> أنت تستعرض تجربة التسجيل. الموافقات في هذه المعاينة لا تسجّل عضوية حقيقية.</p>}
+    {preview && <p className="nf-legal-preview"><Sparkles size={16} aria-hidden="true" /> إكمال الملف لا يُنشئ حسابًا أو يرسل طلب عضوية تلقائيًا. إنشاء الحساب وتأكيد الإرسال خطوتان منفصلتان.</p>}
 
     <div className="nf-legal-principles">
       <span><Image size={18} aria-hidden="true" /> الصورة اختيارية</span>

@@ -11,6 +11,8 @@ import { initializeDevicePreferences } from './settings/preferences'
 import { AppBoundary, initializeFaultReporting } from './monitoring'
 import { initializeKeyboardViewport } from './mobile/keyboardViewport'
 import './mobile/keyboard.css'
+import './onboarding/arrivalJourney.css'
+import './onboarding/arrivalAssessments.css'
 
 document.documentElement.lang='ar'
 document.documentElement.dir='rtl'

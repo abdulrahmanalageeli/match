@@ -9,7 +9,7 @@ const previewDefault: PublicAvatar = { style: "hijab", skinTone: "tone_4" };
 export function AvatarPicker({ value, onChange }: { value?: PublicAvatar | null; onChange: (avatar: PublicAvatar | null) => void }) {
   const preview = value ?? previewDefault;
   return <section className="nf-avatar-picker" data-field="publicAvatar" tabIndex={-1} aria-label="اختيار صورتك الرمزية">
-    <div className="nf-avatar-preview"><AvatarPortrait avatar={preview} /><span><Image size={14} aria-hidden="true" />{value ? "صورتك الرمزية" : "معاينة لصورة رمزية"}</span></div>
+    <div className="nf-avatar-preview"><AvatarPortrait avatar={preview} /><span><Image size={14} aria-hidden="true" />{value ? "صورتك الرمزية" : "صورتك الرمزية المقترحة"}</span></div>
     <p className="nf-avatar-intro">صورة بملامح مخفية وبألوان نصفين. اختاري اللباس ودرجة البشرة الأقرب لكِ، أو تابعي دون صورة.</p>
     <fieldset><legend>شكل الصورة</legend><div className="nf-avatar-styles">{dressStyles.map(style => <button key={style.value} type="button" aria-pressed={value?.style === style.value} onClick={() => onChange({ ...preview, style: style.value })}>
       <AvatarPortrait avatar={{ ...preview, style: style.value }} decorative /><span>{style.label}{value?.style === style.value && <Check size={14} aria-hidden="true" />}</span></button>)}</div></fieldset>

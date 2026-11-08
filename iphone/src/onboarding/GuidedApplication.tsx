@@ -19,6 +19,7 @@ import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/Consen
 import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
 import { HelpButton } from '../help/HelpCenter';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
+import { feedback } from '../feedback/haptics';
 import { BeenaFields } from '../beena/BeenaFields';
 import { beenaProgress, beenaScenarios } from '../beena/model';
 import './journey.css';
@@ -283,6 +284,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     direction.current = steps.findIndex(entry => entry.key === step) < idx ? "back" : "next";
     setError(null);
     commit({ step, returnToReview });
+    if (step !== chapter.key) feedback('selection');
   }
   function goBack() {
     if (editorHome) { back(); return; }
@@ -343,19 +345,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     return { "data-field": key, "aria-invalid": error?.field === key || undefined, "aria-describedby": error?.field === key ? "nf-intake-error" : undefined };
   }
   const assessmentStep = !editing && consents.assessment && ['compatibility','personality','beena'].includes(chapter.key);
-  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview ? "إنهاء المعاينة" : demo ? "حفظ الملف التجريبي" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
+  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
-        <div className="nf-intake-brand"><Brand compact />{preview && <span>معاينة</span>}</div>
-        <div className="nf-intake-header-actions">{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "إكمال لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="الخروج من المعاينة"><X size={19} aria-hidden="true"/></button>}</div>
+        <div className="nf-intake-brand"><Brand compact /></div>
+        <div className="nf-intake-header-actions">{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "إكمال لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
-          {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك المحفوظة على هذا الآيفون.</p>}
-          {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك من هذا الآيفون. <button type="button" className="nf-intake-policy" onClick={() => { setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
-          {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة على هذا الآيفون. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
+          {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك المحفوظة على جهازك.</p>}
+          {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك من هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={() => { setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
+          {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة على هذا الجهاز. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
         <div className="nf-intake-progress">
           <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}`}</span></div>
@@ -373,7 +375,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div><HelpButton topic="profile" label={assessmentStep ? "مساعدة" : "الخصوصية ولماذا نسأل"}/></div>
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p></>}
             </div>
-            {demo && chapter.key === "identity" && <p className="nf-intake-note"><BookOpen size={16} aria-hidden="true" />استخدم بيانات خيالية لتجربة إعداد ملفك.</p>}
             <div className="flow-form nf-intake-fields">
               {chapter.key === "identity" && <>
                 <label>الاسم المعروض<input {...field("displayName")} autoComplete="off" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label>
@@ -423,7 +424,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
               {chapter.key === "review" && <>
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
-                {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.</p></div></div>}
+                {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>{preview || demo ? 'راجع تفاصيلك وخيارات الخصوصية، ثم أكمل إعداد ملفك.' : 'أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.'}</p></div></div>}
                 <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
                 {includeCompatibility && <details className="nf-intake-audience" aria-label="ما يراه الآخرون">
                   <summary><ShieldCheck size={17} aria-hidden="true" /> ما يراه الآخرون وما يبقى خاصًا<ChevronLeft size={16}/></summary>
@@ -443,7 +444,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             <button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
             <div className="nf-intake-action-meta">
               {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
-              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الآيفون لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}
+              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الجهاز لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}
             </div>
           </footer>
           {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>لن تُحفظ الصورة المختارة أو تعديلات تمويهها وكشفها أو إزالتها في المسودة. يلزم اختيارها مجددًا عند العودة. صورتك المحفوظة في ملفك لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}

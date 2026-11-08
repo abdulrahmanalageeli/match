@@ -213,7 +213,7 @@ export function Pending({
   busy: boolean;
 }) {
   return (
-    <Frame title="حالة الطلب" back={back}>
+    <Frame title="حالة الطلب" back={back} className="nf-signup-status">
       <div className="flow-symbol">
         <ShieldCheck />
       </div>

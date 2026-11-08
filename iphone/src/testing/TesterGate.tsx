@@ -7,10 +7,12 @@ import { LegalNotice } from '../legal/LegalNotice';
 import { welcomeNavigation } from '../welcomeNavigation';
 import { testProfile,testRequest,testStorage,type Actor,type TestSession } from './pair';
 import './testing.css';
-const OnboardingSandbox=lazy(()=>import('../onboarding/OnboardingSandbox').then(module=>({default:module.OnboardingSandbox})));
+const loadOnboarding=()=>import('../onboarding/OnboardingSandbox').then(module=>({default:module.OnboardingSandbox}));
+const OnboardingSandbox=lazy(loadOnboarding);
 type EntryPage='welcome'|'accounts'|'onboarding'|'privacy';
 export function TesterGate(){
  const [page,setPage]=useState<EntryPage>('welcome');
+ useEffect(()=>{if(page==='welcome')void loadOnboarding().catch(()=>{});},[page]);
  const [account,setAccount]=useState<TestSession|null>(null),[actor,setActor]=useState<Actor>('abdulrahman'),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{let alive=true;const raw=sessionStorage.getItem(testStorage);if(raw){setBusy(true);try{const saved=JSON.parse(raw);void testRequest<any>('state',saved.session).then(data=>{if(alive)setAccount({...saved,actor:data.actor,profileRevision:data.profileRevision,profile:testProfile(data.actor,data.profiles[data.actor])});}).catch(()=>sessionStorage.removeItem(testStorage)).finally(()=>{if(alive)setBusy(false);});}catch{sessionStorage.removeItem(testStorage);setBusy(false);}}return()=>{alive=false};},[]);
  async function login(e:FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');try{const result=await testRequest<any>('login','',{}, {actor,password});const next={actor:result.actor,session:result.session,profileRevision:result.profileRevision,profile:testProfile(result.actor,result.profiles[result.actor])};sessionStorage.setItem(testStorage,JSON.stringify({actor:next.actor,session:next.session}));setPassword('');setAccount(next);}catch(e){setError(e instanceof Error?e.message:'تعذّر الدخول.');}finally{setBusy(false);}}

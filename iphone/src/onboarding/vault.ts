@@ -1,7 +1,7 @@
 import type { ApplicationDraft } from "./draft";
 
 type Storage = {
-  read: (key: string) => Promise<string | null>;
+  read: (key: string, baseline?: string) => Promise<string | null>;
   write: (key: string, value: string) => Promise<void>;
   remove: (key: string) => Promise<void>;
 };
@@ -29,11 +29,16 @@ export function createDraftVault(getStorage: () => Storage | null, decode: Decod
   }
   return {
     available, revision, current,
+    // End this screen/session's write lease without deleting its account draft.
+    release(owner: string) {
+      revisions.set(owner, revision(owner) + 1);
+      return queue(owner, async () => {});
+    },
     load(owner: string, baseline: string, lease: number) {
       return queue(owner, async () => {
         const storage = memberId.test(owner) ? getStorage() : null;
         if (!storage || !current(owner, lease)) return null;
-        const text = await storage.read(keyFor(owner));
+        const text = await storage.read(keyFor(owner), baseline);
         if (text === null || !current(owner, lease)) return null;
         const draft = decode(text, owner, baseline, now());
         if (!draft) await storage.remove(keyFor(owner));
@@ -47,7 +52,8 @@ export function createDraftVault(getStorage: () => Storage | null, decode: Decod
         const { owner, baseline, step, returnToReview } = draft;
         // Server-owned photo metadata and consent receipts are never device draft answers.
         const { portrait: _portrait, signupConsents: _signupConsents, ...answers } = draft.answers;
-        await storage.write(keyFor(owner), JSON.stringify({ version: 1, savedAt: now(), owner, baseline, answers, step, returnToReview }));
+        await storage.write(keyFor(owner), JSON.stringify({ version: 1, savedAt: now(), owner, baseline, answers, step, returnToReview,
+          ...(draft.permissions ? { permissions: draft.permissions } : {}) }));
         return current(owner, lease);
       });
     },

@@ -33,6 +33,7 @@ export type ApplicationDraft = {
   step: Chapter;
   returnToReview: boolean;
   consent: boolean;
+  permissions?: { version: string; sensitiveProfile: boolean; assessment: boolean };
 };
 const numbers = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab", useGrouping: false });
 export const arabicNumber = (n: number) => numbers.format(n);

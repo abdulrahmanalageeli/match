@@ -1,0 +1,14 @@
+{
+  "id": "/",
+  "name": "نصفين — شريك حياة",
+  "short_name": "نصفين",
+  "description": "للجادّين في الزواج، بتوافق أعمق وخطوات واضحة.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf6ee",
+  "theme_color": "#5a0f28",
+  "icons": [{ "src": "/brand/nisfayn-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}

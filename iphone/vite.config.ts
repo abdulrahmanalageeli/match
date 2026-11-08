@@ -2,9 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode, command }) => {
-  // Hosted consumer previews contain fictional data only. Native production
-  // builds keep the normal dedicated-project configuration.
-  if (process.env.VERCEL_ENV && mode !== 'demo') throw new Error('Use build:demo for the hosted iPhone preview.');
+  // Normal hosted builds use the dedicated member project. Fictional/demo builds
+  // remain available explicitly; private test accounts have their own entry URL.
   return {
     base: './',
     plugins: [react({ babel: { plugins: ['react-native-worklets/plugin'] } })],

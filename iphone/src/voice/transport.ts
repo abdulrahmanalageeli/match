@@ -8,7 +8,7 @@ type VoiceEvents = {
   renew: () => void;
   ended: () => void;
   error: (error: unknown) => void;
-  playbackBlocked: () => void;
+  playbackBlocked: (blocked?: boolean) => void;
 };
 export type VoiceTransport = {
   join: (credentials: VoiceCredentials, initiallyMuted?: boolean) => Promise<void>;
@@ -16,6 +16,7 @@ export type VoiceTransport = {
   mute: (muted: boolean) => Promise<void>;
   speaker: (enabled: boolean) => Promise<void>;
   renew: (token: string) => Promise<void>;
+  resume: () => Promise<boolean>;
   play: () => void;
 };
 interface NativeVoice {
@@ -77,20 +78,43 @@ export function createVoiceTransport(events: VoiceEvents): VoiceTransport {
       mute: muted => native.mute({ muted }),
       speaker: enabled => native.setSpeaker({ enabled }),
       renew: token => native.renewToken({ token }),
+      async resume() { return !closed; },
       play() {},
     };
   }
   let client: IAgoraRTCClient | undefined;
   let microphone: IMicrophoneAudioTrack | undefined;
   let removeAutoplay: (() => void) | undefined;
+  let resumeAudio: (() => void) | undefined;
+  let leaving: Promise<void> | undefined;
+  const releaseMicrophone = () => {
+    microphone?.removeAllListeners();
+    microphone?.stop();
+    microphone?.close();
+  };
+  const play = () => {
+    if (closed) return;
+    resumeAudio?.();
+    client?.remoteUsers.forEach(user => user.audioTrack?.play());
+  };
   return {
     async join(credentials, initiallyMuted=false) {
       const { default: Agora } = await loadWebSdk();
       if (closed) return;
       Agora.setLogLevel(4);
       Agora.disableLogUpload();
-      Agora.onAutoplayFailed = events.playbackBlocked;
-      removeAutoplay = () => { if (Agora.onAutoplayFailed === events.playbackBlocked) Agora.onAutoplayFailed = undefined; };
+      const blocked = () => { if (!closed) events.playbackBlocked(); };
+      const audioState = (state: string) => {
+        if (state === "interrupted" || state === "suspended") blocked();
+        else if (!closed && state === "running") events.playbackBlocked(false);
+      };
+      Agora.onAutoplayFailed = blocked;
+      Agora.on("audio-context-state-changed", audioState);
+      resumeAudio = () => Agora.resumeAudioContext();
+      removeAutoplay = () => {
+        if (Agora.onAutoplayFailed === blocked) Agora.onAutoplayFailed = undefined;
+        Agora.off("audio-context-state-changed", audioState);
+      };
       const rtc = Agora.createClient({ mode: "rtc", codec: "vp8" });
       client = rtc;
       rtc.on("user-joined", () => { if (!closed) events.peer(true); });
@@ -106,11 +130,12 @@ export function createVoiceTransport(events: VoiceEvents): VoiceTransport {
         if (state === "DISCONNECTED") events.error(new Error("Voice connection failed"));
         else events.reconnecting(state === "RECONNECTING");
       });
-      rtc.on("token-privilege-will-expire", events.renew);
-      rtc.on("token-privilege-did-expire", events.renew);
+      rtc.on("token-privilege-will-expire", () => { if (!closed) events.renew(); });
+      rtc.on("token-privilege-did-expire", () => { if (!closed) events.renew(); });
       try {
         microphone = await Agora.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true, encoderConfig: "speech_standard" });
         if (closed) { microphone.close(); return; }
+        microphone.on("track-ended", () => { if (!closed) events.error(new Error("Microphone capture interrupted")); });
         await rtc.join(credentials.appId, credentials.channel, credentials.token, credentials.uid);
         if (closed) { microphone.close(); await rtc.leave(); return; }
         if(initiallyMuted)await microphone.setMuted(true);
@@ -119,24 +144,30 @@ export function createVoiceTransport(events: VoiceEvents): VoiceTransport {
         if (closed) { microphone.close(); await rtc.leave(); }
       } catch (error) {
         closed = true;
-        microphone?.stop(); microphone?.close();
+        releaseMicrophone();
         rtc.removeAllListeners(); removeAutoplay?.();
         await rtc.leave().catch(() => {});
         throw error;
       }
     },
-    async leave() {
+    leave() {
+      if (leaving) return leaving;
       closed = true;
-      microphone?.stop();
-      microphone?.close();
+      releaseMicrophone();
       client?.remoteUsers.forEach(user => user.audioTrack?.stop());
       client?.removeAllListeners();
       removeAutoplay?.();
-      await client?.leave();
+      leaving = Promise.resolve(client?.leave()).then(() => {});
+      return leaving;
     },
-    async mute(muted) { await microphone?.setMuted(muted); },
+    async mute(muted) { if (!closed) await microphone?.setMuted(muted); },
     async speaker() {}, // Browsers select the audio output; only iOS exposes this control.
     async renew(token) { if (!closed) await client?.renewToken(token); },
-    play() { client?.remoteUsers.forEach(user => user.audioTrack?.play()); },
+    async resume() {
+      if (closed || !microphone || microphone.getMediaStreamTrack().readyState === "ended" || client?.connectionState === "DISCONNECTED") return false;
+      play();
+      return true;
+    },
+    play,
   };
 }

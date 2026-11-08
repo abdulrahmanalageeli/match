@@ -2,7 +2,7 @@
 
 An Arabic, right-to-left marriage app built with React, Capacitor, and native StoreKit. The supplied نصفين identity pairs Tajawal and Montserrat with burgundy, dusty rose, ivory, and soft gold. The launch and welcome screens feature the original logo above a Riyadh skyline and dunes. Matching uses interests and preference questions from the BlindMatch event. The marriage app has its own Supabase project and member data.
 
-## Preview
+## Member website and private testing
 
 The [BlindMatch evidence report](docs/blindmatch-evidence.md) explains which event questions informed the new marriage assessment and how to interpret the numbers. **ترشيحات الأسبوع** shows up to five reciprocal candidates. Each fit card distinguishes the topics both people answered, the preferences that align and questions they may want to discuss. The pilot uses a deterministic matching formula with member-selected priorities. It never displays a marriage success percentage.
 
@@ -13,13 +13,13 @@ npm ci
 npm run dev
 ```
 
-Open the Vite URL and select **جرّب إعداد الملف** to try the five-step Arabic onboarding: identity, personal story, compatibility, partner preferences, and review. Each step validates independently. You can return to any answer from review; **إكمال لاحقًا** retains the unfinished profile in memory for the current session. Closing or reloading the app discards it. No real profile or subscription is created in either demo.
+The normal homepage and `npm run build` use real member registration. Signup currently has no email-confirmation step, at the owner's request; it creates a real Auth account marked with unverified email ownership. It does not approve the profile or grant membership. The existing private Abdulrahman/Reham accounts remain at `?test=1`; Abdulrahman's password protection is unchanged. Settings' onboarding walkthrough remains fictional.
 
-Choose **استكشف التجربة** to enter as a fictional member. **الطلبات** is for introductions; accepting one opens a private conversation. **المحادثات** lists accepted conversations with search, previews and unread counts. Sends appear immediately; a failed message has a retry action that reuses its original identifier. A thread is marked read only when its newest message is visible. **الإعدادات** includes profile editing, membership, pause/resume, privacy, larger text, reduced motion and account actions. The device's reduced-motion preference also applies automatically.
+Signed-in onboarding automatically saves a private account draft, with save status and retry. The same member can resume after reload, logout or on another device for seven days after the latest save. New photographs are excluded and explicitly require reselection. Processing-purpose choices can resume; publication and final signup declarations are not silently accepted. Drafts never appear in discovery, are removed after successful submission/account deletion, and expire through the existing maintenance worker.
 
 ## Supabase membership flow
 
-Before inviting the public, configure a verified sender through custom SMTP and set the confirmation redirect to your real onboarding address. Supabase's default mail service restricts delivery to project-team addresses. [Supabase Auth email delivery](https://supabase.com/docs/guides/auth/auth-smtp)
+Ordinary member signup uses the dedicated `member-signup` Edge Function without SMTP. See [the signup security boundary](docs/member-signup-2026-11-08.md). Staff signup keeps its confirmation/MFA requirements. Password-reset email delivery still needs a verified SMTP sender and correct recovery redirect; this release does not claim that delivery is configured. [Supabase Auth email delivery](https://supabase.com/docs/guides/auth/auth-smtp)
 
 The default client configuration in [deployment.ts](src/deployment.ts) targets the dedicated marriage project, `wupkifqbwhhebwrgvwai`. Configure an alternative marriage environment by setting **both** of the following build-time values, then restarting Vite or rebuilding and syncing the native app:
 
@@ -30,8 +30,7 @@ VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 Keep all service-role credentials and Apple verification secrets on trusted servers. The client explicitly rejects the event database host. Use [Supabase setup and migrations](supabase/README.md) for Auth settings, private normalized tables, RLS, narrowly scoped RPCs, trusted Apple functions, and verification instructions.
 
-1. The member registers, confirms their email when required, and submits a profile with preferences and explicit consent.
-   On iPhone, **إكمال لاحقًا** explicitly saves the unfinished profile in the device-only Keychain so the same member can resume within seven days after closing the app. Ordinary typing and the browser demo stay in memory. A resumed draft requires fresh consent; submitting it, signing out or deleting the account clears the saved draft.
+1. The member registers and submits a profile with preferences and explicit consent. Private drafts save automatically to the member account. Logging out clears local state and preserves the account draft for later sign-in; submitting or deleting the account removes it.
 2. An operator independently verifies adulthood and reviews the application. Checkout becomes available when a compatible approved counterpart exists.
 3. Apple handles the subscription. A server-verified active entitlement opens discovery and requests. Only mutually accepted requests open a chat. An operator-curated introduction can share the member’s designated contact after both people accept it.
 4. Members can pause matching, block, report, and delete their account. An operator reviews reports and can suspend accounts. Apple handles future billing and cancellations.
@@ -65,6 +64,8 @@ Vite proxies local requests to port 8787. That service uses its own SQLite file 
 
 ## Checks
 
-Accepted conversations now include foreground Agora voice calls. The public preview provides a labeled simulation without microphone access. The app uses a pinned native audio-only iOS bridge and a lazy-loaded browser transport; its certificate is stored only in Supabase Edge secrets. See [voice backend and access rules](docs/voice-calls.md), [native setup and device checks](ios/VOICE_CALLS.md), and [verified release state](docs/voice-release.json). Background/locked-screen incoming calls are not implemented yet.
+Accepted conversations include Agora voice calls. Browser tab hiding no longer immediately hangs up; returning validates the server call and resumes or repairs media while preserving mute/timer. Browser suspension and server expiry can still end a call. Background/locked-screen incoming calling is not implemented. The certificate remains only in Supabase Edge secrets. See [voice backend and access rules](docs/voice-calls.md) and [native setup and device checks](ios/VOICE_CALLS.md).
+
+Web Push for requests, mutual acceptance and unread messages uses an opt-in, session-bound private queue and the admin production worker every minute. On iPhone, install to the Home Screen before enabling notifications. Native APNs remains separately gated. See [Web Push setup and device acceptance](docs/web-push-setup.json).
 
 From `iphone`, run `npm run typecheck`, `npm run build`, and `npm run ios:sync`. Run `node --experimental-strip-types --test src/community/chatOutbox.test.mjs` for chat retry and ordering checks. From `supabase/tests`, run `npm ci` and `npm test` to exercise the migration SQL and access rules. The mobile walkthrough was checked at iPhone viewport size in Chromium on Windows. Compiling and signing the native binary and exercising real StoreKit transactions require macOS, Xcode, and Apple configuration.

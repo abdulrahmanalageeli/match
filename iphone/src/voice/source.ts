@@ -29,7 +29,11 @@ export function voiceSource(owner: string) {
       const { data, error } = await cloud.functions.invoke<VoiceCredentials>("voice-token", {
         body: { callId }, signal: AbortSignal.timeout(12_000),
       });
-      if (error || !data || data.callId !== callId || !data.token || !data.appId || !data.channel || !Number.isInteger(data.uid)) {
+      if (error) {
+        const status = error.context instanceof Response ? error.context.status : 503;
+        throw new CloudError([401,403,404,409].includes(status) ? "المكالمة غير متاحة أو انتهت." : "تعذّر الاتصال الآمن. حاول مجددًا.", status);
+      }
+      if (!data || data.callId !== callId || !data.token || !data.appId || !data.channel || !Number.isInteger(data.uid)) {
         throw new Error("تعذّر الاتصال الآمن. حاول مجددًا.");
       }
       return data;

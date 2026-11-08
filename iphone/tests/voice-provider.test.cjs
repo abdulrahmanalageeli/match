@@ -23,12 +23,13 @@ const transportMock = `
   export async function prepareVoiceTransport() {}
   export function createVoiceTransport(events) {
     const probe = window.__voiceRace;
-    const id = ++probe.transportCount; probe.events=events;
+    const id = ++probe.transportCount; probe.events=events; probe.allEvents.push(events);
     probe.transportLog.push({ method:'create', id });
     return {
       async join(value,initiallyMuted=false) { probe.transportLog.push({ method:'join', id, callId:value.callId,initiallyMuted }); if(probe.joinFailures>0){probe.joinFailures--;throw new TypeError('Failed to fetch');} events.peer(true); },
       async leave() { probe.transportLog.push({ method:'leave', id }); },
       async mute(value) {probe.transportLog.push({method:'mute',value});}, async speaker() {}, async renew() {probe.transportLog.push({method:'renew'});}, play() {},
+      async resume() {probe.transportLog.push({method:'resume',id});return !probe.resumeNeedsRejoin;},
     };
   }
 `;
@@ -46,7 +47,7 @@ async function fixture(browser) {
     let serial = 0;
     const jobs = new Map(), queues = new Map();
     const probe = window.__voiceRace = {
-      apiLog: [], transportLog: [], transportCount: 0, watchers: new Set(), server: null,
+      apiLog: [], transportLog: [], transportCount: 0, allEvents: [], watchers: new Set(), server: null,
       call(id, status = 'ringing', direction = 'incoming') {
         return { id, requestId:'request-fixture', status, direction, person:{id:'peer-fixture',alias:'اختبار'},
           createdAt:new Date().toISOString(), ringingUntil:new Date(Date.now()+45000).toISOString(),
@@ -68,11 +69,15 @@ async function fixture(browser) {
         Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
         document.dispatchEvent(new Event('visibilitychange'));
       },
+      foreground() {
+        Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+        document.dispatchEvent(new Event('visibilitychange'));
+      },
       async request(method,owner,args) {
         this.apiLog.push({method,owner,args});
         const queue=queues.get(method);
         if(queue?.length) { const job=jobs.get(queue.shift()); job.called=true; return job.promise; }
-        if(method==='state')return owner==='owner-a'?this.server:null;
+        if(method==='state'){if(this.stateFailures>0){this.stateFailures--;throw new TypeError('Failed to fetch');}return owner==='owner-a'?this.server:null;}
         if(method==='start')return this.call(args[1],'ringing','outgoing');
         if(method==='accept')return this.call(args[0],'active');
         if(method==='credentials')return {callId:args[0],appId:'fixture',channel:'fixture',uid:17,token:'fixture-token',expiresAt:'2099-01-01'};
@@ -113,10 +118,10 @@ async function fixture(browser) {
     catch(error){cases.push({name,status:'failed',error:error.message});console.error('FAIL',name,error.message);await f.page.context().close();}
   };
   try {
-    for(const dismiss of [false,true])await run(`delayed start after background${dismiss?' and dismissal':''}`,async f=>{
+    for(const dismiss of [false,true])await run(`delayed start after explicit cancellation${dismiss?' and dismissal':''}`,async f=>{
       const pending=await f.hold('start');
       await f.page.locator('#start-fixture').click();await f.requested(pending);
-      await f.page.evaluate(()=>window.__voiceRace.background());
+      await f.page.getByRole('dialog').press('Escape');
       await f.button('العودة للمحادثة').waitFor();
       if(dismiss)await f.button('العودة للمحادثة').click();
       await f.page.evaluate(id=>{const p=window.__voiceRace;const clientId=p.apiLog.find(x=>x.method==='start').args[1];p.complete(id,p.call(clientId,'active','outgoing'));},pending);
@@ -125,10 +130,10 @@ async function fixture(browser) {
       if(!dismiss)await f.button('العودة للمحادثة').waitFor();
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length>=2),true,'late server call must be ended');
     });
-    await run('delayed start recovery after background and dismissal',async f=>{
+    await run('delayed start recovery after explicit cancellation and dismissal',async f=>{
       const pending=await f.hold('start');await f.page.locator('#start-fixture').click();await f.requested(pending);
       const recovery=await f.hold('state');
-      await f.page.evaluate(()=>window.__voiceRace.background());await f.button('العودة للمحادثة').click();
+      await f.page.getByRole('dialog').press('Escape');await f.button('العودة للمحادثة').click();
       await f.page.evaluate(id=>window.__voiceRace.reject(id),pending);await f.requested(recovery);
       await f.page.evaluate(id=>{const p=window.__voiceRace;p.complete(id,p.call('recovered-fixture','active','outgoing'));},recovery);
       await f.assertNoJoin();assert.equal(await f.page.locator('.nf-call[open]').count(),0);
@@ -143,9 +148,9 @@ async function fixture(browser) {
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.transportLog.filter(x=>x.method==='join').length),1,'only original transport may join');
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.transportLog.some(x=>x.method==='leave')),true);
     });
-    await run('delayed accept after background hangup and dismissal never joins',async f=>{
+    await run('delayed accept after provider unmount never joins',async f=>{
       await f.incoming();const pending=await f.hold('accept');await f.button('قبول المكالمة').click();await f.requested(pending);
-      await f.page.evaluate(()=>window.__voiceRace.background());await f.button('العودة للمحادثة').click();
+      await f.page.evaluate(()=>window.__voiceRace.changeOwner('owner-b'));
       await f.page.evaluate(id=>{const p=window.__voiceRace;p.complete(id,p.call('incoming-fixture','active'));},pending);
       await f.assertNoJoin();assert.equal(await f.page.locator('.nf-call[open]').count(),0);
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length>=2),true);
@@ -178,6 +183,47 @@ async function fixture(browser) {
       await f.incoming();await f.page.evaluate(()=>{window.__voiceRace.joinFailures=3});await f.button('قبول المكالمة').click();await f.button('إعادة الاتصال').waitFor({timeout:10000});await f.button('إعادة الاتصال').click();
       await f.page.waitForFunction(()=>window.__voiceRace.apiLog.some(x=>x.method==='start'));await f.page.getByText('بانتظار الرد…',{exact:true}).waitFor();
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.transportLog.filter(x=>x.method==='join').length),3);
+    });
+    await run('hidden browser preserves accepted call and foreground resumes without redial',async f=>{
+      await f.incoming();await f.button('قبول المكالمة').click();await f.page.getByText('متصل الآن',{exact:true}).waitFor();
+      await f.button('كتم الصوت').click();
+      await f.page.evaluate(()=>{const p=window.__voiceRace;p.server=p.call('incoming-fixture','active');p.background();});
+      await f.flush();
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length),0);
+      await f.page.evaluate(()=>window.__voiceRace.foreground());
+      await f.page.waitForFunction(()=>window.__voiceRace.transportLog.some(x=>x.method==='resume'));
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.transportLog.filter(x=>x.method==='join').length),1);
+      await f.button('تشغيل الميكروفون').waitFor();
+    });
+    await run('hidden browser preserves a delayed accepted response',async f=>{
+      await f.incoming();const pending=await f.hold('accept');await f.button('قبول المكالمة').click();await f.requested(pending);
+      await f.page.evaluate(()=>window.__voiceRace.background());
+      await f.page.evaluate(id=>{const p=window.__voiceRace;p.server=p.call('incoming-fixture','active');p.complete(id,p.server);},pending);
+      await f.page.waitForFunction(()=>window.__voiceRace.transportLog.filter(x=>x.method==='join').length===1);
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length),0);
+    });
+    await run('foreground confirms server expiry before restarting audio',async f=>{
+      await f.incoming();await f.button('قبول المكالمة').click();await f.page.getByText('متصل الآن',{exact:true}).waitFor();
+      await f.page.evaluate(()=>{const p=window.__voiceRace;p.background();p.server=p.call('incoming-fixture','ended');p.server.endReason='expired';p.foreground();});
+      await f.button('العودة للمحادثة').waitFor();
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.transportLog.filter(x=>x.method==='resume').length),0);
+    });
+    await run('foreground repairs ended microphone and ignores stale transport callbacks',async f=>{
+      await f.incoming();await f.button('قبول المكالمة').click();await f.page.getByText('متصل الآن',{exact:true}).waitFor();
+      await f.page.evaluate(()=>{const p=window.__voiceRace;p.server=p.call('incoming-fixture','active');p.resumeNeedsRejoin=true;p.background();p.foreground();});
+      await f.page.waitForFunction(()=>window.__voiceRace.transportLog.filter(x=>x.method==='join').length===2);
+      await f.page.evaluate(()=>{const p=window.__voiceRace;p.allEvents[0].ended();p.allEvents[0].error(new Error('old transport'));});
+      await f.flush();await f.page.getByText('متصل الآن',{exact:true}).waitFor();
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length),0);
+    });
+    await run('exhausted transient state reads preserve audio until authoritative end',async f=>{
+      await f.incoming();await f.button('قبول المكالمة').click();await f.page.getByText('متصل الآن',{exact:true}).waitFor();
+      await f.page.evaluate(()=>{const p=window.__voiceRace;p.server=p.call('incoming-fixture','active');p.stateFailures=3;p.refresh();});
+      await f.page.getByText('الاتصال ضعيف. نحاول استعادته تلقائيًا…',{exact:true}).waitFor();
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length),0);
+      await f.page.evaluate(()=>window.__voiceRace.refresh());
+      await f.page.getByText('الاتصال ضعيف. نحاول استعادته تلقائيًا…',{exact:true}).waitFor({state:'hidden'});
+      await f.page.getByText('متصل الآن',{exact:true}).waitFor();
     });
   }finally{await browser.close();}
   console.log(JSON.stringify(cases,null,2));

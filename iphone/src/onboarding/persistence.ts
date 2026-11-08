@@ -6,6 +6,8 @@ import { validMarriageBasicsDraft, validPartnerCriteriaDraft } from "../compatib
 import { personalityQuestions, personalityOptions, personalityVersion } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
+import { cloud, callRpc } from '../cloud';
+import { createAccountDraftStorage } from './accountDraftStorage';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -65,7 +67,17 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
     now - data.savedAt >= draftTTL || typeof data.returnToReview !== "boolean" || !validAnswers(data.answers)) return null;
   const chapter = chapters.find(c => c.key === data.step);
   if (!chapter) return null;
-  return { owner, baseline, answers: data.answers, step: chapter.key, returnToReview: data.returnToReview, consent: false };
+  const permissions = isRecord(data.permissions) && data.permissions.version === '2026-11-07-privacy' &&
+    typeof data.permissions.sensitiveProfile === 'boolean' && typeof data.permissions.assessment === 'boolean'
+    ? { version: data.permissions.version, sensitiveProfile: data.permissions.sensitiveProfile, assessment: data.permissions.assessment } : undefined;
+  return { owner, baseline, answers: data.answers, step: chapter.key, returnToReview: data.returnToReview, consent: false,
+    ...(permissions ? { permissions } : {}) };
 }
-export const intakeVault = createDraftVault(privateDraftKeychain, decodeDraft);
+const accountStorage = createAccountDraftStorage(callRpc);
+export const accountDraftsAvailable = () => Boolean(cloud);
+export const intakeVault = createDraftVault(() => cloud ? accountStorage : privateDraftKeychain(), decodeDraft);
 export const clearSavedIntake = (owner: string) => intakeVault.clear(owner);
+export async function discardLocalIntake(owner: string) {
+  await intakeVault.release(owner);
+  await privateDraftKeychain()?.remove('nisfayn.intake.v1.' + owner);
+}

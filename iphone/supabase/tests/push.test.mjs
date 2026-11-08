@@ -10,7 +10,7 @@ async function fixture(db) {
  const add=async(gender)=>{
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test',installation:randomUUID()};
   await addUser(db,u);
-  const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'مثال اختباري',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05'}]);
+  const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'مثال اختباري',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false}}]);
   await service("public.marriage_review($1,'approve')",[u.id]);
   await service('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
   await call(u,'public.marriage_push_register($1,$2,$3)',[u.id.replaceAll('-','').repeat(2),'sandbox',u.installation]);

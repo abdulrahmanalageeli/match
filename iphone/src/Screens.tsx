@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState, type FormEvent, type ReactNode } from "react";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
+import type { SignupAgreements } from './auth/signupReturn';
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,7 +16,7 @@ import {
 import { Brand } from "./Brand";
 import { phoneOtpEnabled } from "./cloud";
 import { PhoneAuth } from "./PhoneAuth";
-import { LegalNotice } from "./legal/LegalNotice";
+import { LegalNotice, LEGAL_NOTICE_VERSION } from "./legal/LegalNotice";
 import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
 
@@ -71,7 +72,7 @@ export function Auth({
   login: boolean;
   back: Click;
   switchMode: Click;
-  submit: (email: string, password: string) => void;
+  submit: (email: string, password: string, consent?: SignupAgreements) => void;
   busy: boolean;
   ready: boolean;
   onDemo: Click;
@@ -100,7 +101,7 @@ export function Auth({
     if (!e.currentTarget.reportValidity()) return;
     setAgreementError("");
     const f = new FormData(e.currentTarget);
-    submit(String(f.get("email")).trim(), String(f.get("password")));
+    submit(String(f.get("email")).trim(), String(f.get("password")), login ? undefined : { ...agreements, version: LEGAL_NOTICE_VERSION });
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
   return (
@@ -174,12 +175,9 @@ export function Auth({
       ) : (
         <div className="flow-card">
           <p>
-            التسجيل المباشر غير متاح في هذه النسخة. يمكنك استكشاف التطبيق
-            ببيانات توضيحية.
+            تعذّر الاتصال بخدمة الحسابات حاليًا. حاول مجددًا لاحقًا أو تواصل معنا للمساعدة.
           </p>
-          <button className="f-primary" onClick={onDemo}>
-            استكشف التجربة
-          </button>
+          <SupportContact subject="المساعدة في إنشاء الحساب أو تسجيل الدخول" />
         </div>
       )}
       {login && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}

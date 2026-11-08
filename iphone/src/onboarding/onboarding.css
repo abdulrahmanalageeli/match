@@ -267,3 +267,5 @@
   .nf-intake:not([data-editing]) .nf-intake-title h1 { font-size: 1.5rem; }
   .nf-intake:not([data-editing]) .nf-intake-heading-tools { margin-bottom: 4px; }
 }
+.nf-intake-save-status{display:flex;align-items:center;justify-content:center;gap:5px;min-height:20px;margin:8px 0 0;color:var(--muted,#877572);font-size:11px;text-align:center;transition:color .2s ease}
+.nf-intake-save-status[data-state="saved"]{color:#6b7262}.nf-intake-save-status[data-state="error"]{color:#8c314c}

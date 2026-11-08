@@ -5,6 +5,7 @@ import { createServer } from "vite";
 let loader, createDraftVault, draftTTL, decodeDraft, initialDraft, personalityQuestions, personalityVersion;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
+    plugins:[{name:'isolate-account-cloud',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/src/cloud.ts'))return 'export const cloud=null; export async function callRpc(){throw Error("Unexpected live RPC in draft test")}';}}],
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
   ({ createDraftVault, draftTTL } = await loader.ssrLoadModule("/src/onboarding/vault.ts"));
   ({ decodeDraft } = await loader.ssrLoadModule("/src/onboarding/persistence.ts"));

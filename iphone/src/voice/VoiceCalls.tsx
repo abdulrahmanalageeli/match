@@ -34,6 +34,8 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
   const mutedRef=useRef(muted);mutedRef.current=muted;
   const speakerRef=useRef(speaker);speakerRef.current=speaker;
   const media = useRef<VoiceTransport | null>(null);
+  const resumeMedia = useRef<(() => Promise<void>) | null>(null);
+  const lastResumeAt = useRef(0);
   const seen = useRef(new Set<string>());
   const update = useCallback((next: VoiceCall | null) => {
     current.current = next;
@@ -69,11 +71,13 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
 
   useEffect(() => {
     if (!source || !api) return;
-    let alive = true, reading = false;
+    let alive = true, reading = false, resumeRequested = false;
     const refresh = async () => {
-      if (!alive || reading || working.current || document.hidden) return;
+      if (!alive || reading || working.current || (document.hidden && current.current?.status !== "active")) return;
       const previous = current.current;
       if (previous?.status === "ended") return;
+      const resume = resumeRequested;
+      resumeRequested = false;
       reading = true;
       try {
         const next = await retryVoice(()=>api.state(previous?.id ?? null),()=>alive&&current.current?.status!=='ended',()=>{});
@@ -84,26 +88,35 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
           setError(""); setMuted(false); setSpeaker(false); setConnectedAt(null); setMinimized(false);
         }
         update(next);
+        setError(value => value === "الاتصال ضعيف. نحاول استعادته تلقائيًا…" ? "" : value);
         if (next.status === "ended") { setPhase("ended"); setMinimized(false); }
         else if (next.status === "ringing") setPhase("ringing");
+        else if (resume) void resumeMedia.current?.();
       } catch (error) {
         // Authorization failures stop immediately; transient reads get bounded retries first.
         if (alive && previous && current.current?.id === previous.id && !working.current) {
-          setCanRetry(!fatalVoiceError(error));setError(callProblem(error)); void finish("end", "unavailable");
+          if (fatalVoiceError(error)) { setCanRetry(false); setError(callProblem(error)); void finish("end", "unavailable"); }
+          else { setError("الاتصال ضعيف. نحاول استعادته تلقائيًا…"); }
         }
-      } finally { reading = false; }
+      } finally { reading = false; if (alive && resumeRequested) void refresh(); }
     };
     void refresh();
     const stop = source.watch(() => void refresh());
     const timer = window.setInterval(() => void refresh(), 5_000);
-    const visible = () => { if (document.hidden) void finish(); else void refresh(); };
+    const resume = () => { lastResumeAt.current = Date.now(); resumeRequested = true; void refresh(); };
+    const visible = () => {
+      if (document.hidden) { if (nativeVoice) void finish(); }
+      else resume();
+    };
     const offline = () => { if(current.current?.status==='active')setPhase('reconnecting'); };
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("offline", offline);
+    window.addEventListener("online", resume);
     return () => {
       alive = false; stop(); window.clearInterval(timer);
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("offline", offline);
+      window.removeEventListener("online", resume);
     };
   }, [api, source, finish, update]);
 
@@ -112,67 +125,96 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     if (demo) { setPhase("connected"); setConnectedAt(Date.now()); return; }
     if (!api) return;
     const id = call.id;
-    let alive = true, renewing = false, peer = false, connecting=false, recovering=false, recoveries=0;
+    let alive = true, renewing = false, peer = false, connecting=false, recovering=false, recoveries=0, generation=0;
     let transport:VoiceTransport;
     let disconnectedSince = Date.now();
     let renewedAt = Date.now();
+    let stableSince = 0, rtcReconnecting = false;
     setPhase("connecting"); setPlaybackBlocked(false);
     const fail = (error: unknown) => {
-      if (!alive) return;
+      if (!active()) return;
       setCanRetry(!fatalVoiceError(error));
       setError(callProblem(error)); void finish("end", "expired");
     };
     const active=()=>alive&&current.current?.id===id&&current.current.status==='active';
     const retrying=()=>{if(active())setPhase('reconnecting');};
     const renew = async () => {
-      if (!alive || renewing) return;
+      if (!active() || renewing || connecting || !transport) return;
+      const target = transport;
       renewing = true;
       try {
         const next = await retryVoice(()=>api.credentials(id),active,retrying);
-        if (!alive || !transport) return;
-        await transport.renew(next.token);
+        if (!active() || transport !== target) return;
+        await target.renew(next.token);
+        if (!active() || transport !== target) return;
         renewedAt = Date.now();
-        if(peer&&active()){setPhase('connected');setError('');}
-      } catch (error) { fail(error); }
+        if(peer&&!rtcReconnecting){disconnectedSince=0;setPhase('connected');setError('');}
+      } catch (error) {
+        if (active() && transport === target) {
+          if (fatalVoiceError(error)) fail(error);
+          else { disconnectedSince ||= Date.now(); retrying(); setError("الاتصال ضعيف. نحاول استعادته تلقائيًا…"); }
+        }
+      }
       finally { renewing = false; }
     };
-    const makeTransport = () => createVoiceTransport({
+    const makeTransport = () => {
+      const ownGeneration = ++generation;
+      const currentTransport = () => active() && ownGeneration === generation;
+      return createVoiceTransport({
       peer(present) {
-        if (!alive) return;
+        if (!currentTransport()) return;
         peer = present;
-        if (present) { disconnectedSince = 0; setPhase("connected"); setConnectedAt(value => value ?? Date.now()); }
-        else { disconnectedSince = Date.now(); setPhase("reconnecting"); }
+        if (present) { disconnectedSince = 0; stableSince = Date.now(); setPhase("connected"); setError(""); setConnectedAt(value => value ?? Date.now()); }
+        else { stableSince = 0; disconnectedSince = Date.now(); setPhase("reconnecting"); }
       },
       reconnecting(value) {
-        if (!alive) return;
-        if (value) { disconnectedSince ||= Date.now(); setPhase("reconnecting"); }
-        else if (peer) { disconnectedSince = 0; setPhase("connected"); }
+        if (!currentTransport()) return;
+        rtcReconnecting = value;
+        if (value) { stableSince = 0; disconnectedSince ||= Date.now(); setPhase("reconnecting"); }
+        else if (peer) { disconnectedSince = 0; stableSince = Date.now(); setPhase("connected"); setError(""); }
       },
-      renew: () => void renew(),
-      ended: () => { if (alive) void finish(); },
-      error: error=>{if(!active()||connecting)return;if(fatalVoiceError(error)||recoveries>=2){fail(error);return;}void connect(true);},
-      playbackBlocked: () => { if (alive) setPlaybackBlocked(true); },
-    });
+      renew: () => { if (currentTransport()) void renew(); },
+      ended: () => { if (currentTransport()) void finish(); },
+      error: error=>{if(!currentTransport()||connecting)return;if(fatalVoiceError(error)){fail(error);return;}disconnectedSince ||= Date.now();retrying();if(!document.hidden)void connect(true);},
+      playbackBlocked: (blocked = true) => { if (currentTransport()) setPlaybackBlocked(blocked); },
+    }); };
     async function connect(recovery=false){
       if(connecting||!active())return;connecting=true;recovering=recovery;
-      if(recovery){recoveries++;retrying();peer=false;disconnectedSince=Date.now();await transport?.leave().catch(()=>{});}
+      if(recovery&&recoveries>=2){connecting=false;recovering=false;fail(new Error("تعذّر استعادة الصوت. يمكنك إعادة الاتصال."));return;}
+      if(recovery){recoveries++;generation++;retrying();peer=false;rtcReconnecting=false;stableSince=0;disconnectedSince=Date.now();await transport?.leave().catch(()=>{});}
       try{
         await retryVoice(async()=>{
           const credentials=await api!.credentials(id);
           if(!active())return;
-          transport=makeTransport();media.current=transport;
-          try{await transport.join(credentials,mutedRef.current);if(active()){if(nativeVoice)await transport.speaker(speakerRef.current);renewedAt=Date.now();}}
-          catch(error){await transport.leave().catch(()=>{});throw error;}
+          const nextTransport=makeTransport();transport=nextTransport;media.current=nextTransport;
+          try{await nextTransport.join(credentials,mutedRef.current);if(active()&&transport===nextTransport){if(nativeVoice)await nextTransport.speaker(speakerRef.current);renewedAt=Date.now();}}
+          catch(error){await nextTransport.leave().catch(()=>{});throw error;}
         },active,retrying);
       }catch(error){if(active())fail(error);}finally{connecting=false;recovering=false;}
     }
+    const resume = async () => {
+      if (!active() || connecting || renewing) return;
+      // The state refresh has already checked that both parties still allow this call.
+      // Reset only the foreground recovery window, never the server's expiry or lease.
+      if (disconnectedSince) disconnectedSince = Date.now();
+      const target = transport;
+      try {
+        if (!target || !await target.resume()) { await connect(true); return; }
+        if (active() && transport === target && Date.now() - renewedAt >= 20_000) await renew();
+        if (active() && transport === target && peer && !disconnectedSince) { setPhase("connected"); setError(""); }
+      } catch (error) { if (active() && transport === target) { if (fatalVoiceError(error)) fail(error); else await connect(true); } }
+    };
+    resumeMedia.current = resume;
     void connect();
     const timer = window.setInterval(() => {
-      if (disconnectedSince && Date.now() - disconnectedSince > 45_000) fail(new Error("تعذّر الاتصال بالطرف الآخر."));
+      if (!active()) return;
+      if (stableSince && Date.now() - stableSince > 30_000) recoveries = 0;
+      if (!document.hidden && disconnectedSince && Date.now() - Math.max(disconnectedSince, lastResumeAt.current) > 45_000) fail(new Error("تعذّر الاتصال بالطرف الآخر."));
       else if (!connecting && !recovering && Date.now() - renewedAt >= 60_000) void renew();
     }, 5_000);
     return () => {
       alive = false; window.clearInterval(timer);
+      if (resumeMedia.current === resume) resumeMedia.current = null;
       if (media.current === transport) media.current = null;
       void transport?.leave().catch(() => {});
     };
@@ -217,7 +259,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
 
   async function act(action: CallAction) {
     const previous = current.current;
-    if (!previous || working.current) return;
+    if (!previous || (working.current && action === "accept")) return;
     if (action !== "accept") { await finish(action, action === "decline" ? "declined" : previous.status === "ringing" ? "cancelled" : "ended"); return; }
     working.current = true; setBusy(true); setError("");
     try {
@@ -253,7 +295,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     {call && minimized ? <button className="nf-call-banner" onClick={() => setMinimized(false)}>
       <AudioLines size={20}/><span>مكالمة مع {call.person?.alias || "الطرف الآخر"}</span><b dir="ltr">{duration}</b>
     </button> : call && <VoiceDialog minimize={call.status === "active" ? () => setMinimized(true) : undefined}
-      close={() => call.status === "ended" ? dismiss() : call.status === "active" ? setMinimized(true) : !busy && void act(call.direction === "incoming" ? "decline" : "end")}>
+      close={() => call.status === "ended" ? dismiss() : call.status === "active" ? setMinimized(true) : void act(call.direction === "incoming" ? "decline" : "end")}>
       <header><Brand/><span><ShieldCheck size={14}/> مكالمة داخل نصفين</span></header>
       {demo && <p className="nf-call-demo">معاينة تجريبية · لا يُستخدم الميكروفون ولا يُتصل بأي شخص</p>}
       <div className="nf-call-identity">
@@ -274,12 +316,12 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
             <CallControl label="قبول المكالمة" icon={<Phone/>} tone="accept" disabled={busy} onClick={() => void act("accept")}/>
           </> : <>
             {call.status === "active" && <CallControl label={muted ? "تشغيل الميكروفون" : "كتم الصوت"} icon={muted ? <MicOff/> : <Mic/>} pressed={muted} disabled={busy || phase === "connecting" || phase === 'reconnecting'} onClick={() => void control("mute")}/>}
-            <CallControl label={call.status === "ringing" ? "إلغاء" : "إنهاء"} icon={<PhoneOff/>} tone="end" disabled={busy} onClick={() => void act("end")}/>
+            <CallControl label={call.status === "ringing" ? "إلغاء" : "إنهاء"} icon={<PhoneOff/>} tone="end" onClick={() => void act("end")}/>
             {call.status === "active" && (nativeVoice || demo) && <CallControl label="مكبر الصوت" icon={<Volume2/>} pressed={speaker} disabled={busy || phase === "connecting"} onClick={() => void control("speaker")}/>}
           </>}
         </div>
         <p className="nf-call-footnote"><Headphones size={14}/> يبقى رقم هاتفك خاصًا. أبقِ التطبيق مفتوحًا أثناء المكالمة.</p>
-        {!nativeVoice&&!demo&&<p className="nf-call-footnote">مخرج الصوت يحدده جهازك. يمكنك استخدام سماعة أو بلوتوث؛ تبديل سماعة الأذن ومكبر الصوت غير متاح في بعض المتصفحات.</p>}
+        {!nativeVoice&&!demo&&<p className="nf-call-footnote">قد يوقف المتصفح الصوت عند قفل الشاشة أو الانتقال لتطبيق آخر؛ عند العودة نحاول استعادته تلقائيًا. مخرج الصوت يحدده جهازك، ويمكنك استخدام سماعة أو بلوتوث.</p>}
         {demo && call.status === "ringing" && call.direction === "outgoing" && <div className="nf-call-simulate">
           <button className="btn-secondary" onClick={() => void act("accept")}><Check size={16}/> محاكاة الرد</button>
           <button className="btn-text" onClick={() => { update({ ...call, direction: "incoming" }); }}>معاينة مكالمة واردة</button>

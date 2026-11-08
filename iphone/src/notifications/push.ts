@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { useEffect, useRef } from 'react';
 import { callRpc, cloudSessionId } from '../cloud';
+import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
 export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
@@ -16,8 +17,9 @@ interface NativePush {
 }
 const native = registerPlugin<NativePush>('NisfaynPush');
 export const nativePush = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
-export const pushConfigured = import.meta.env.VITE_MARRIAGE_PUSH_ENABLED === 'true';
-export const pushStatus = () => native.status();
+export const pushConfigured = nativePush ? import.meta.env.VITE_MARRIAGE_PUSH_ENABLED === 'true' : webPushConfigured;
+export const pushSupported = () => nativePush || webPushSupported();
+export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => callRpc<{ enabled: boolean }>('marriage_push_settings', {}, owner);
 
@@ -26,12 +28,14 @@ async function bind(owner: string, device: Device) {
   await callRpc('marriage_push_register', { device_token: device.token, device_environment: device.environment, installation: device.installationId }, owner);
 }
 export async function enablePush(owner: string) {
+  if (!nativePush) return enableWebPush(owner);
   if (!nativePush || !pushConfigured) throw new Error('لم تُفعّل خدمة الإشعارات بعد.');
   const device = await native.register();
   await bind(owner, device);
   return callRpc<{ enabled: boolean }>('marriage_push_enable', { enabled: true }, owner);
 }
 export async function disablePush(owner: string) {
+  if (!nativePush) return disableWebPush(owner);
   const next = await callRpc<{ enabled: boolean }>('marriage_push_enable', { enabled: false }, owner);
   const state = await native.status();
   await callRpc('marriage_push_unregister', { installation: state.installationId }, owner);
@@ -44,7 +48,11 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
   const callback = useRef(onOpen);
   callback.current = onOpen;
   useEffect(() => {
-    if (!owner || !nativePush || !pushConfigured) return;
+    if (!owner || !pushConfigured) return;
+    if (!nativePush) {
+      if (!webPushSupported()) return;
+      return monitorWebPush(owner, event => callback.current(event.requestId, event.kind));
+    }
     let active = true, refreshing = false;
     const listeners: PluginListenerHandle[] = [];
     const open = async () => {
@@ -72,3 +80,6 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     return () => { active = false; listeners.forEach(handle => { void handle.remove(); }); document.removeEventListener('visibilitychange', refresh); };
   }, [owner]);
 }
+
+// Installation does not request permission and never caches member data.
+if (!nativePush && webPushConfigured) void registerPushWorker().catch(() => {});

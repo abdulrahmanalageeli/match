@@ -2,6 +2,7 @@ import { createClient, type AuthError } from "@supabase/supabase-js";
 import { authStorage } from "./session";
 import type { AccountState } from "./types";
 import { resolveDeployment } from "./deployment";
+import { signupRedirectUrl } from "./auth/signupReturn";
 
 const deployment = resolveDeployment({ mode: import.meta.env.VITE_MARRIAGE_ENV,
   url: import.meta.env.VITE_MARRIAGE_SUPABASE_URL, key: import.meta.env.VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY,
@@ -58,7 +59,7 @@ function authFailure(e: AuthError): never {
     /email address not authorized/i.test(e.message)
   )
     failure(
-      "لم يُفتح بعد إرسال رسائل التفعيل للعامة. يمكنك استكشاف التجربة التوضيحية.",
+      "تعذّر إرسال رابط التفعيل حاليًا. حاول لاحقًا أو تواصل مع فريق نصفين.",
       400,
     );
   if (e.code === "email_not_confirmed")
@@ -78,6 +79,17 @@ export async function cloudSessionId(): Promise<string | null> {
   const { data, error } = await cloud.auth.getSession();
   if (error) authFailure(error);
   return data.session?.user.id ?? null;
+}
+function signupDestination() {
+  const redirect = signupRedirectUrl(window.location.href, import.meta.env.VITE_MARRIAGE_SIGNUP_REDIRECT_URL);
+  if (!redirect) failure("تعذّر إعداد رابط تأكيد البريد. تواصل مع فريق نصفين.", 503);
+  return redirect;
+}
+export async function resendSignupConfirmation(email: string) {
+  if (!cloud) failure("إرسال رابط التفعيل غير متاح حاليًا.", 503);
+  const { error } = await cloud.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: signupDestination() } });
+  // The response does not reveal whether an address has an account.
+  if (error && error.code !== "user_not_found") authFailure(error);
 }
 export async function sendPhoneOtp(phone: string, register: boolean) {
   if (!phoneOtpEnabled || !cloud) failure("الدخول بالجوال غير متاح حاليًا.", 503);
@@ -116,6 +128,7 @@ export async function cloudLogout() {
     error.status !== 404
   )
     authFailure(error);
+  await import('./notifications/webPush').then(module => module.detachWebPush()).catch(() => {});
 }
 export async function cloudRequest(
   path: string,
@@ -130,10 +143,16 @@ export async function cloudRequest(
       email: String(p.email),
       password: String(p.password),
     };
-    const result =
-      path === "/register"
-        ? await cloud.auth.signUp(credentials)
-        : await cloud.auth.signInWithPassword(credentials);
+    if (path === "/register") {
+      const created = await cloud.functions.invoke('member-signup', { body: { ...credentials, consent: p.consent } });
+      if (created.error) {
+        const response = (created.error as { context?: Response }).context;
+        const detail = response instanceof Response ? await response.clone().json().catch(() => null) : null;
+        failure(typeof detail?.error === 'string' ? detail.error : 'تعذّر إنشاء الحساب. حاول مجددًا أو سجّل الدخول إذا أنشأت حسابك بالفعل.', response?.status ?? 503);
+      }
+      if (created.data?.ok !== true) failure('تعذّر إكمال إنشاء الحساب. حاول مجددًا.', 503);
+    }
+    const result = await cloud.auth.signInWithPassword(credentials);
     if (result.error) authFailure(result.error);
     if (!result.data.session) return { needsConfirmation: true };
     const token = result.data.session.user.id;

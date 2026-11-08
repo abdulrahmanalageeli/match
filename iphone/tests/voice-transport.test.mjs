@@ -29,7 +29,9 @@ function emitter() {
 }
 function audioTrack() {
   return {
+    ...emitter(),
     active: true, closed: 0, stopped: 0, played: 0, muted: false,
+    getMediaStreamTrack() { return { readyState: this.active ? "live" : "ended" }; },
     close() { this.active = false; this.closed++; },
     stop() { this.stopped++; },
     play() { this.played++; },
@@ -42,12 +44,14 @@ function eventCollector() {
 }
 async function fixture(options = {}) {
   const stats = { sdkImports: 0, microphoneRequests: 0, nativeCalls: 0 };
+  let audioResumes = 0;
   const clients = [], microphones = [];
   const microphoneStarted = deferred(), joinStarted = deferred(), publishStarted = deferred(), subscribeStarted = deferred();
   const sdkEvents = emitter();
   const sdk = {
     ...sdkEvents,
     setLogLevel() {}, disableLogUpload() {},
+    resumeAudioContext() { audioResumes++; },
     createClient() {
       const client = {
         ...emitter(), remoteUsers: [], joined: 0, left: 0, published: [], renewed: [], connectionState: "DISCONNECTED",
@@ -91,6 +95,8 @@ async function fixture(options = {}) {
     create: events => module.namespace.createVoiceTransport(events),
     prepare: () => module.namespace.prepareVoiceTransport(),
     autoplay() { sdk.onAutoplayFailed?.(); sdkEvents.emit("autoplay-failed"); },
+    interruptAudio() { sdkEvents.emit("audio-context-state-changed", "interrupted"); },
+    audioResumes: () => audioResumes,
     autoplayListenerCount: () => Number(typeof sdk.onAutoplayFailed === "function") + sdkEvents.listenerCount(),
   };
 }
@@ -219,4 +225,38 @@ test('recovery applies mute before any audio publication',async()=>{
  const f=await fixture({publish:track=>assert.equal(track.muted,true)});
  const t=f.create(eventCollector().events);await t.join(credentials,true);
  assert.equal(f.clients[0].published.length,1);await t.leave();assertClean(f);
+});
+
+test('foreground resume restores audio playback without joining or unmuting again', async () => {
+  const f = await fixture(), collected = eventCollector(), transport = f.create(collected.events);
+  await transport.join(credentials, true);
+  const remote = audioTrack(); f.clients[0].remoteUsers.push({ audioTrack: remote });
+  f.interruptAudio(); assert.equal(collected.calls.playbackBlocked.length, 1);
+  assert.equal(await transport.resume(), true);
+  assert.equal(f.audioResumes(), 1); assert.equal(remote.played, 1);
+  assert.equal(f.clients[0].joined, 1); assert.equal(f.microphones[0].muted, true);
+  await transport.leave(); f.interruptAudio(); transport.play();
+  assert.equal(remote.played, 1); assert.equal(collected.calls.playbackBlocked.length, 1); assertClean(f);
+});
+
+test('ended microphone or disconnected channel requires a new transport on resume', async () => {
+  for (const problem of ['microphone', 'channel']) {
+    const f = await fixture(), collected = eventCollector(), transport = f.create(collected.events);
+    await transport.join(credentials);
+    if (problem === 'microphone') {
+      f.microphones[0].active = false; f.microphones[0].emit('track-ended');
+      assert.equal(collected.calls.error.length, 1);
+    } else f.clients[0].connectionState = 'DISCONNECTED';
+    assert.equal(await transport.resume(), false);
+    await transport.leave(); f.microphones[0].emit('track-ended');
+    assert.equal(collected.calls.error.length, problem === 'microphone' ? 1 : 0); assertClean(f);
+  }
+});
+
+test('repeated leave is idempotent and a closed transport cannot resume playback', async () => {
+  const f = await fixture(), transport = f.create(eventCollector().events);
+  await transport.join(credentials);
+  await Promise.all([transport.leave(), transport.leave()]);
+  assert.equal(f.clients[0].left, 1);
+  assert.equal(await transport.resume(), false); assertClean(f);
 });

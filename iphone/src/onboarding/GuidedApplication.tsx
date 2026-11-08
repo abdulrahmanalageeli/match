@@ -9,7 +9,7 @@ import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
-import { intakeVault } from "./persistence";
+import { intakeVault, accountDraftsAvailable } from "./persistence";
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
 import { personalityQuestions } from "../compatibility/personality";
@@ -166,13 +166,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   includeCompatibility = true, draftRef, draftOwner = "", demo = false }: Props) {
   const baseline = profileBaseline(initial);
   const deviceDraft = !demo && intakeVault.available(draftOwner);
+  const accountDraft = deviceDraft && accountDraftsAvailable();
   const [draft, setDraft] = useState<ApplicationDraft>(() => {
     const saved = draftOwner && draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline
       ? draftRef.current : initialDraft(draftOwner, initial);
     return startAt ? {...saved,step:startAt,returnToReview:Boolean(initial)} : saved;
   });
   const current = useRef(draft);
-  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),sensitiveProfile:initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true,assessment:initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
+  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true,assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
+  const consentRef = useRef(consents);
+  consentRef.current = consents;
+  const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'error'>('idle');
+  const savedSnapshot = useRef('');
+  const loadFailed = useRef(false);
   const [portraitChange,setPortraitChange]=useState<PortraitDraft|null|undefined>();
   const [portraitPolicy,setPortraitPolicy]=useState<PortraitRevealPolicy>();
   const [photoBusy,setPhotoBusy]=useState(false);
@@ -215,7 +221,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     || consents.adult || consents.terms || consents.privacy)changedSections.add('review');
   function chooseConsent(kind:Exclude<keyof SignupConsents,'version'>,value:boolean){
     if(error?.field==='consent')setError(null);
-    setConsents(old=>({...old,[kind]:value,...(kind==='sensitiveProfile'&&!value?{sensitivePublication:false}:{})}));
+    const next = {...consentRef.current,[kind]:value,...(kind==='sensitiveProfile'&&!value?{sensitivePublication:false}:{})};
+    consentRef.current = next;
+    touched.current = true;
+    setConsents(next);
+    commit({permissions:{version:next.version,sensitiveProfile:next.sensitiveProfile,assessment:next.assessment}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
     if(kind==='assessment'&&!value)update(withoutAssessment(current.current.answers));
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
@@ -236,6 +246,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       return;
     }
     let active = true;
+    loadFailed.current = false;
     setCheckingDevice(true);
     void intakeVault.load(draftOwner, baseline, lease.current).then(restored => {
       if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
@@ -243,14 +254,50 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
       if (restored.step === "avatar" && restored.answers.gender !== "woman") restored.step = "details";
       current.current = restored;
+      if (restored.permissions) {
+        const choices = {...consentRef.current, sensitiveProfile:restored.permissions.sensitiveProfile, assessment:restored.permissions.assessment};
+        consentRef.current = choices;
+        setConsents(choices);
+      }
       if (draftRef) draftRef.current = restored;
       setDraft(restored);
       setEditorHome(false);
       setStorageState("restored");
-    }).catch(() => { if (active && !touched.current) setStorageState("loadError"); })
+    }).catch(() => { if (active && !touched.current) { loadFailed.current = true; setStorageState("loadError"); } })
       .finally(() => { if (active) setCheckingDevice(false); });
     return () => { active = false; };
   }, [baseline, deviceDraft, draftOwner, draftRef, includeCompatibility, restoreAttempt, startAt]);
+  function privateSnapshot():ApplicationDraft {
+    const choices=consentRef.current;
+    let answers=choices.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
+    if(!choices.assessment)answers=withoutAssessment(answers);
+    return {...current.current,answers,consent:false,permissions:{version:choices.version,sensitiveProfile:choices.sensitiveProfile,assessment:choices.assessment}};
+  }
+  async function saveProgressNow() {
+    if (!deviceDraft || !touched.current || checkingDevice || loadFailed.current || busy || savingLater.current) return;
+    const snapshot=privateSnapshot(), fingerprint=JSON.stringify(snapshot);
+    if (fingerprint===savedSnapshot.current) { setSaveProgress('saved');return; }
+    setSaveProgress('saving');
+    try {
+      const saved=await intakeVault.save(snapshot,lease.current);
+      if(saved&&mounted.current){savedSnapshot.current=fingerprint;setSaveProgress(JSON.stringify(privateSnapshot())===fingerprint?'saved':'pending');}
+    } catch { if(mounted.current)setSaveProgress('error'); }
+  }
+  useEffect(()=>{
+    if(!deviceDraft||!touched.current||checkingDevice||busy||loadFailed.current)return;
+    setSaveProgress('pending');
+    const timer=window.setTimeout(()=>void saveProgressNow(),600);
+    return()=>window.clearTimeout(timer);
+  },[draft,consents,deviceDraft,checkingDevice,busy]);
+  useEffect(()=>{
+    if(!deviceDraft)return;
+    const flush=()=>{if(document.visibilityState==='hidden')void saveProgressNow();};
+    const warn=(event:BeforeUnloadEvent)=>{
+      if(touched.current&&JSON.stringify(privateSnapshot())!==savedSnapshot.current){event.preventDefault();event.returnValue='';}
+    };
+    document.addEventListener('visibilitychange',flush);window.addEventListener('beforeunload',warn);
+    return()=>{document.removeEventListener('visibilitychange',flush);window.removeEventListener('beforeunload',warn);};
+  },[deviceDraft,checkingDevice,busy]);
   useLayoutEffect(() => {
     if (editorHome) return;
     previousStep.current = draft.step;
@@ -292,25 +339,23 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (step !== chapter.key) feedback('selection');
   }
   function goBack() {
-    if (editorHome) { back(); return; }
+    if (editorHome) { void leaveForLater(); return; }
     if (draft.returnToReview) { move("review"); return; }
     if (editing) { setEditorHome(true); window.scrollTo(0, 0); return; }
     if (idx > 0) { move(steps[idx - 1].key); return; }
-    back();
+    void leaveForLater();
   }
   async function leaveForLater(photoLossAcknowledged=false) {
     if (busy || savingLater.current || (checkingDevice && !touched.current)) return;
     if (!photoLossAcknowledged && (portraitChange!==undefined || portraitPolicy!==undefined)) { setConfirmPhotoDraftLoss(true); return; }
     if (storageState === "loadError" && !touched.current) { back(); return; }
-    let answers=consents.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
-    if(!consents.assessment)answers=withoutAssessment(answers);
-    const snapshot = { ...current.current, answers, consent: false };
+    const snapshot = privateSnapshot();
     commit(snapshot);
     if (!deviceDraft) { back(); return; }
     savingLater.current = true;
     setLeaving(true);
     try {
-      if (await intakeVault.save(snapshot, lease.current) && mounted.current) back();
+      if (await intakeVault.save(snapshot, lease.current) && mounted.current) { savedSnapshot.current=JSON.stringify(snapshot);back(); }
     } catch {
       if (mounted.current) setStorageState("saveError");
     } finally {
@@ -361,9 +406,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         <div className="nf-intake-header-actions">{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "إكمال لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
-          {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك المحفوظة على جهازك.</p>}
-          {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك من هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={() => { setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
-          {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة على هذا الجهاز. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
+          {storageState === "restored" && <p role="status" className="nf-intake-note">{accountDraft?'استعدنا مسودتك الخاصة من حسابك.':'استعدنا مسودتك المحفوظة على جهازك.'} راجع موافقات النشر والإقرار قبل الإرسال.</p>}
+          {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك. <button type="button" className="nf-intake-policy" onClick={() => { touched.current=false;setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
+          {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
         <div className="nf-intake-progress">
           <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}`}</span></div>
@@ -372,7 +417,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </div>}
         </div>
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
-          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 18 : -18} duration={380} data-dir={direction.current} inert={busy || leaving}>
+          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 18 : -18} duration={380} data-dir={direction.current} inert={busy || leaving || checkingDevice || storageState==='loadError'}>
             <div className="nf-intake-title">
               <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
@@ -447,10 +492,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-            <MotionPressButton type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
+            <MotionPressButton type="submit" className="f-primary" disabled={busy || leaving || photoBusy || checkingDevice || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
+            {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
             <div className="nf-intake-action-meta">
               {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
-              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الجهاز لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}
+              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "تُحفظ إجاباتك تلقائيًا في مسودة خاصة بحسابك لمدة سبعة أيام من آخر حفظ. يمكنك تسجيل الدخول والمتابعة من جهاز آخر. لا تظهر للأعضاء قبل إرسال الملف ومراجعته، ولا تُعد موافقة على نشره." : deviceDraft ? "تُحفظ إجاباتك تلقائيًا على هذا الجهاز لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}
             </div>
           </footer>
           {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>لن تُحفظ الصورة المختارة أو تعديلات تمويهها وكشفها أو إزالتها في المسودة. يلزم اختيارها مجددًا عند العودة. صورتك المحفوظة في ملفك لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}

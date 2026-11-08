@@ -3,6 +3,7 @@ import { ChevronDown, X } from "lucide-react";
 import { welcomeNavigation } from "./welcomeNavigation";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
 import { readRecoveryLink, type RecoveryLink } from './auth/passwordRecovery';
+import type { SignupReturn, SignupAgreements } from './auth/signupReturn';
 import "./ambient.css";
 import type { PortraitDraft } from './photos/portraitPreparation';
 import { LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
@@ -42,7 +43,7 @@ import { pairSource, testProfile, type TestSession } from "./testing/pair";
 import type { ApplicationDraft } from "./onboarding/GuidedApplication";
 import type { Chapter } from "./onboarding/draft";
 import { beenaProgress } from './beena/model';
-import { clearSavedIntake } from "./onboarding/persistence";
+import { clearSavedIntake, discardLocalIntake } from "./onboarding/persistence";
 import {
   completeMembership,
   currentMembership,
@@ -137,17 +138,16 @@ function Modal({
   );
 }
 
-export default function App({ recoveryLink, ...props }: {tester?:TestSession;onTesterExit?:()=>void;recoveryLink?:RecoveryLink|null} = {}) {
+export default function App({ recoveryLink, signupReturn, ...props }: {tester?:TestSession;onTesterExit?:()=>void;recoveryLink?:RecoveryLink|null;signupReturn?:SignupReturn|null} = {}) {
   const [recovery, setRecovery] = useState(() => recoveryLink ?? readRecoveryLink(window.location.href));
   const [returnToLogin, setReturnToLogin] = useState(false);
   // Do not mount member session restoration, chat, or discovery for recovery links.
   return recovery ? <div className="phone-app"><MemberPasswordRecovery callback={recovery} onBack={() => {
-    if (import.meta.env.MODE === 'demo') { window.location.assign(window.location.pathname); return; }
     setReturnToLogin(true); setRecovery(null);
-  }}/></div> : <MemberApp {...props} startAtLogin={returnToLogin}/>;
+  }}/></div> : <MemberApp {...props} startAtLogin={returnToLogin || Boolean(signupReturn)} signupReturn={signupReturn}/>;
 }
 
-function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean}={}) {
+function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean;signupReturn?:SignupReturn|null}={}) {
   useEffect(initializeMatchSound, []);
   const [view, setView] = useState<View>(startAtLogin ? 'login' : 'main');
   const viewRef = useRef(view);
@@ -163,7 +163,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   const version = useRef(0);
   const refreshSequence = useRef(0);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(signupReturn === 'invalid'
+    ? "رابط تأكيد البريد غير صالح أو انتهت صلاحيته. سجّل الدخول أو تواصل مع فريق نصفين للمساعدة."
+    : signupReturn ? "سجّل الدخول لإكمال حسابك بعد تأكيد البريد الإلكتروني." : "");
   const [fromIntake, setFromIntake] = useState(false);
   const navigationVersion = useRef(0);
   const [demo, setDemo] = useState(Boolean(tester));
@@ -240,7 +242,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   function remember(t: string | null, draftCleared = false) {
     if (tokenRef.current !== t) {
       if (liveDraftOwner.current && !draftCleared) {
-        void clearSavedIntake(liveDraftOwner.current).catch(() => {
+        void discardLocalIntake(liveDraftOwner.current).catch(() => {
           setNotice("تعذّر مسح المسودة من هذا الجهاز. افتح قفل الجهاز وحاول مجددًا.");
         });
       }
@@ -387,9 +389,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
     }
   }
   useEffect(() => {
-    // Recovery always returns to explicit login, even if storage cleanup failed.
+    // Auth email returns require explicit login, even if old storage remains.
     // Do not restore a previous token or start member activity behind this screen.
-    if (startAtLogin) { setLoading(false); return; }
+    if (startAtLogin || tester) { setLoading(false); return; }
     let disposed = false;
     async function init() {
       try {
@@ -490,13 +492,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
     };
   }, [ios, accepted, demo, view]);
 
-  function signIn(email: string, password: string) {
+  function signIn(email: string, password: string, consent?: SignupAgreements) {
     void run(async () => {
       const endpoint = view === "login" ? "/login" : "/register";
       const result = await request<
         | { token: string; state: AccountState; needsConfirmation?: false }
         | { needsConfirmation: true }
-      >(endpoint, "POST", undefined, { email, password });
+      >(endpoint, "POST", undefined, { email, password, consent });
       if (result.needsConfirmation) {
         go("login");
         setNotice("أرسلنا لك رابط تأكيد البريد. افتح الرابط ثم سجّل الدخول.");
@@ -601,7 +603,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
     }
     void run(async () => {
       const t = tokenRef.current;
-      if (liveDraftOwner.current) await clearSavedIntake(liveDraftOwner.current);
+      if (liveDraftOwner.current) await discardLocalIntake(liveDraftOwner.current);
       if (cloudSelected) await cloudLogout();
       else {
         if (t) void request("/logout", "POST", t).catch(() => {});

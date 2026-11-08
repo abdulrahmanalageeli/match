@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Bell, Settings2 } from 'lucide-react';
-import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus } from './push';
+import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported } from './push';
+import { needsHomeScreen } from './webPush';
 
 export function PushSettings({ owner, demo }: { owner: string | null; demo: boolean }) {
   const [enabled, setEnabled] = useState(false);
   const [permission, setPermission] = useState('prompt');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const available = Boolean(owner && !demo && nativePush && pushConfigured);
+  const available = Boolean(owner && !demo && pushSupported() && pushConfigured);
   useEffect(() => {
     let active = true;
     setEnabled(false); setError('');
     if (available && owner) {
       void Promise.all([getPushPreference(owner), pushStatus()]).then(([setting, device]) => {
-        if (active) { setEnabled(setting.enabled); setPermission(device.permission); }
+        if (active) { setEnabled(setting.enabled && (!('subscribed' in device) || device.subscribed)); setPermission(device.permission); }
       }, () => { if (active) setError('تعذّر تحميل إعداد الإشعارات.'); });
     }
     return () => { active = false; };
@@ -27,7 +28,7 @@ export function PushSettings({ owner, demo }: { owner: string | null; demo: bool
       setPermission((await pushStatus()).permission);
     } catch (cause) {
       setError(cause instanceof Error && /[\u0600-\u06ff]/.test(cause.message) ? cause.message : 'تعذّر تحديث الإشعارات. حاول مجددًا.');
-      void pushStatus().then(state => setPermission(state.permission));
+      void pushStatus().then(state => setPermission(state.permission)).catch(() => {});
     } finally { setBusy(false); }
   }
   return <section className="st-section" aria-labelledby="st-push-title">
@@ -36,12 +37,13 @@ export function PushSettings({ owner, demo }: { owner: string | null; demo: bool
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled && permission === 'granted'}
         disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{!nativePush ? 'في الويب: تنبيهات داخل الموقع أثناء فتحه. لا تصل إشعارات نظام عند إغلاق المتصفح.' : demo ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : 'تنبيهات عامة دون أسماء أو محتوى الرسائل.'}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح نصفين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل نصفين.' : 'تصلك حتى عند إغلاق نصفين، دون أسماء أو محتوى الرسائل.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
-      {available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
+      {nativePush && available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
         <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>يمكنك السماح بالإشعارات من إعدادات الجهاز.</small></span>
       </button>}
+      {!nativePush && available && permission === 'denied' && <p className="st-notice" role="status">السماح بالإشعارات متوقف في إعدادات جهازك أو متصفحك. غيّر الإذن لنصفين، ثم فعّله هنا.</p>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
   </section>;

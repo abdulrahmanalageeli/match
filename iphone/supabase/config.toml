@@ -41,6 +41,11 @@ verify_jwt = false
 [functions.guardian-access]
 verify_jwt = false
 
+# Public member signup: service-only rate limit, reserved-staff isolation, and
+# managed password creation. Does not grant verified identity or staff authority.
+[functions.member-signup]
+verify_jwt = false
+
 # Checked RPC authenticates live member sessions or scoped, expiring tester tokens.
 [functions.manual-verification]
 verify_jwt = false

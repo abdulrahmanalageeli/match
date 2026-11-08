@@ -1,0 +1,44 @@
+{
+  "status": "Implemented and locally tested. Requires migration, server/client environment, scheduled delivery and physical-device acceptance before claiming live delivery.",
+  "project": "wupkifqbwhhebwrgvwai",
+  "migration": "20261108150542_web_push_delivery.sql",
+  "worker": "https://nisfayn-admin.vercel.app/api/push",
+  "serverEnvironment": {
+    "NISFAYN_WEB_PUSH_ENABLED": "true",
+    "WEB_PUSH_VAPID_PUBLIC_KEY": "Public P-256 VAPID key from web-push.generateVAPIDKeys()",
+    "WEB_PUSH_VAPID_PRIVATE_KEY": "Private key; server secret only. Generate once, never log or commit, retain across deployments.",
+    "WEB_PUSH_VAPID_SUBJECT": "A real mailto: contact or HTTPS app/contact URL",
+    "NISFAYN_SUPABASE_URL": "https://wupkifqbwhhebwrgvwai.supabase.co",
+    "NISFAYN_SERVICE_ROLE_KEY": "Existing server-only Supabase key",
+    "CRON_SECRET": "Existing or new secret shared only with the scheduler"
+  },
+  "clientEnvironment": {
+    "VITE_MARRIAGE_WEB_PUSH_ENABLED": "true",
+    "VITE_MARRIAGE_WEB_PUSH_PUBLIC_KEY": "The matching PUBLIC VAPID key only"
+  },
+  "schedule": {
+    "deploymentOwnerAction": "Vercel Pro plan verified by root. admin/vercel.json schedules /api/push every minute alongside the existing daily maintenance job; deployment activates the schedule. Keep CRON_SECRET configured so Vercel supplies the authenticated request.",
+    "authorization": "Authorization: Bearer <CRON_SECRET>",
+    "latency": "With minute scheduling, up to approximately one minute plus provider/device delivery. This is not a latency guarantee; an offline device, OS settings, focus mode or queue backlog can delay delivery.",
+    "capacity": "20 claimed jobs per invocation total (10 per transport if APNs and Web Push are both enabled). Monitor backlog/expiry and increase invocation frequency before expanding the pilot.",
+    "guard": "Worker runs only on Vercel production and the dedicated Nisfayn project. Preview deployments return push_not_configured. APNs can remain disabled independently."
+  },
+  "behavior": [
+    "iPhone/iPad: use an OS supporting Web Push for Home Screen apps (iOS/iPadOS 16.4+), add Nisfayn to the Home Screen, open from that icon, sign in and explicitly enable notifications in Settings.",
+    "Supported desktop and Android browsers can enable Web Push directly from Settings; support is feature-detected.",
+    "Permission is requested only from the user's enable action. Existing permitted subscriptions refresh on return to the app.",
+    "Notifications cover requests, mutual acceptance and unread messages. Family rooms, journey changes, profile visits and incoming calls retain their current in-app behavior; this change does not claim background calling.",
+    "Generic Arabic notifications contain event kind and opaque request ID only. Names, message contents, photos and assessment answers are never sent to push providers.",
+    "Service worker handles push and notification clicks only. It has no fetch handler, offline content cache, auth token storage or API caching.",
+    "Subscriptions live in the existing private, RLS-enabled device table, bound to a live Auth session. Ownership, relationship eligibility and opt-in are rechecked before delivery. Account deletion, session revocation, opt-out, blocking and read/deleted messages stop pending sends.",
+    "A delivered OS notification cannot be recalled from every device. Local logout cleanup removes the browser subscription and closes notifications on that device.",
+    "Provider endpoints are explicitly allowlisted at registration and delivery to prevent server-side request forgery. Invalid/expired subscriptions are removed; transient failures use existing bounded retry/lease logic."
+  ],
+  "acceptance": [
+    "Two approved real pilot accounts, separate devices/browsers; subscribe, close recipient app, send a request/message, confirm delivery and click to correct account's chat.",
+    "On iPhone, test the installed Home Screen app while backgrounded and while the phone is locked; deny permission and verify clear recovery guidance.",
+    "Test opt-out, logout, account switch and blocked/ended relationship; confirm no new pending notifications arrive for the old account.",
+    "Read or delete a message before the delivery cycle; verify no stale push is sent.",
+    "Verify /sw.js, manifest and icon return correct types; monitor worker failures and outbox expired/failed outcomes without logging endpoint URLs or encryption keys."
+  ]
+}

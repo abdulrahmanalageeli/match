@@ -1166,7 +1166,7 @@ export function Chat({
     thread.outbox.replyTo({ id: msg.id, senderIsMe: msg.senderIsMe,
       body: msg.attachment ? (msg.attachment.kind === 'photo' ? msg.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية') : msg.body.slice(0,240) });
     setReplyNotice('');
-    requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
+    composer.current?.focus({ preventScroll: true });
   }
   useEffect(() => {
     if (!jumpToId || !log.current) return;
@@ -1323,7 +1323,7 @@ export function Chat({
         <MotionReveal className="cm-message-actions" distance={7} duration={240}>
           <div className="cm-message-action-preview"><span>{actionMessage.senderIsMe ? 'رسالتك' : connection.person.alias}</span><p dir="auto">{actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}</p></div>
           <div className="cm-message-action-list">
-            {actionPermissions?.canReply && <MotionPressButton onClick={() => { setMessageActionId(null); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
+            {actionPermissions?.canReply && <MotionPressButton onClick={() => { flushSync(() => setMessageActionId(null)); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
         </MotionReveal>

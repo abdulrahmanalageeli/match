@@ -53,7 +53,7 @@ import { interests } from "../compatibility/model";
 import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
-import { preferencePercentage, personalityPercentage, suggestedQuestions } from "../compatibility/FitDetails";
+import { FitDetails, preferencePercentage, personalityPercentage, suggestedQuestions } from "../compatibility/FitDetails";
 import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
@@ -478,7 +478,7 @@ function PersonCard({
   );
 }
 
-function DirectoryRow({person,source,open,request,interest,dismiss,report,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;request:()=>void;interest:()=>void;dismiss:()=>void;report:()=>void;busy:boolean}) {
+function DirectoryRow({person,source,open,explain,request,interest,dismiss,report,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;report:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
   const personality=personalityPercentage(person.fit);
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -492,10 +492,10 @@ function DirectoryRow({person,source,open,request,interest,dismiss,report,busy}:
         </span>
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-meta">{person.city} {person.isDemo&&<span className="nf-demo-tag">توضيحي</span>}</span><span className="dr-row-occupation">{person.occupation}</span></span>
       </button>
-      <div className="dr-row-fit" aria-label="نسب التوافق">
-        <div className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></div>
-        <div className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong><span>الشخصية</span></div>
-      </div>
+      <button type="button" className="dr-row-fit" disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
+        <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
+        <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong><span>الشخصية</span></span>
+      </button>
     </div>
     <div className="dr-row-summary">
       <p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p>
@@ -538,6 +538,7 @@ function Discovery({
   const listRef=useRef(list);listRef.current=list;
   const [showReceipt, setShowReceipt] = useState(profileSaved);
   const [selected, setSelected] = useState<string | null>(null);
+  const [fitPerson, setFitPerson] = useState<PublicPerson | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -583,7 +584,7 @@ function Discovery({
   useEffect(()=>{
     let active=true,fetching=false;
     async function updatePresence(){
-      if(document.hidden||actionPending.current||selected||reportTarget||filterOpen||loadingMore||fetching)return;
+      if(document.hidden||actionPending.current||selected||fitPerson||reportTarget||filterOpen||loadingMore||fetching)return;
       fetching=true;const seq=sequence.current;
       try{
         const pageCount=order==='all'?Math.max(1,Math.ceil(listRef.current.length/24)):1;
@@ -599,7 +600,7 @@ function Discovery({
     const timer=window.setInterval(()=>void updatePresence(),60000);
     document.addEventListener('visibilitychange',updatePresence);
     return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',updatePresence);};
-  },[source,filters,order,selected,reportTarget,filterOpen,loadingMore]);
+  },[source,filters,order,selected,fitPerson,reportTarget,filterOpen,loadingMore]);
   async function loadMore() {
     if(loadingMore)return;setLoadingMore(true);const seq=sequence.current;
     try{const next=await source.discover({...filters,mode:order,offset:list.length});if(seq===sequence.current){setList(current=>[...current,...next.filter(n=>!current.some(p=>p.id===n.id))]);setMore(next.length===24);}}
@@ -777,7 +778,7 @@ function Discovery({
       )}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
-          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')} report={()=>{setRowError('');setReportTarget(item);}}/>:<PersonCard
+          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} explain={()=>setFitPerson(item)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')} report={()=>{setRowError('');setReportTarget(item);}}/>:<PersonCard
             key={item.id}
             person={item}
             source={source}
@@ -791,6 +792,7 @@ function Discovery({
         <p>{order === "all" ? "شخص واحد يستحقّ انتباهك. تعارفان متزامنان يمنحان كل بداية مساحتها." : "أفضل خمسة ترشيحات متاحة هذا الأسبوع، وفق تفضيلات الطرفين. وفي الاستكشاف قصص أخرى."}</p>
         <small><LockKeyhole size={12} /> تبدأ المحادثة بعد قبول الطرفين.</small></footer>}
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
+      {fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
         <FilterSheet
           filters={filters}

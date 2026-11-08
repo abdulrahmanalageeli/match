@@ -157,7 +157,7 @@ test("fit bands require evidence across categories, and priorities change rankin
   assert.equal(ordinary.fit.band, "strong");
   assert.deepEqual(ordinary.fit.discussion, ["family_boundaries", "shared_budget", "household_roles"]);
   assert(withPriority.rankValue < ordinary.rankValue);
-  assert.deepEqual(Object.keys(ordinary.fit).sort(), ["assessmentComplete","band","beena","covered","criteria","discussion","missing","percentage","personality","provisional","strengths","total","version"]);
+  assert.deepEqual(Object.keys(ordinary.fit).sort(), ["assessmentComplete","band","beena","covered","criteria","discussion","missing","percentage","personality","preferenceEvidence","provisional","strengths","total","version"]);
   assert.equal(ordinary.fit.percentage, null); // No current assessment version was declared.
   assert.equal(ordinary.fit.personality.percentage, null);
   assert.deepEqual(ordinary.fit.criteria, { covered: 0, total: 0 });

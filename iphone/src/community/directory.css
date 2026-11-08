@@ -35,6 +35,10 @@
 .dr-row-meta,.dr-row-occupation{font-size:11px;color:#78616a;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;line-height:1.4}
 .dr-row-occupation{color:#907a80;font-size:10px}
 .dr-row-fit{display:flex;align-items:center;gap:0;flex:none;padding:8px 2px;border:1px solid #ece3dd;border-radius:12px;background:#fffcf8}
+.dr-row-fit:is(button){font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.dr-row-fit:is(button):focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px}
+.dr-row-fit:is(button):disabled{cursor:default}
+@media(prefers-reduced-motion:no-preference){html:not([data-nf-motion="reduced"]) .dr-row-fit:is(button){transition:transform 120ms ease-out}html:not([data-nf-motion="reduced"]) .dr-row-fit:is(button):active{transform:scale(.97)}}
 .dr-score{display:grid;place-items:center;gap:4px;min-width:50px;padding:0 8px;color:#65253d}
 .dr-score strong{font-size:24px;font-weight:500;line-height:1;letter-spacing:-.3px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dr-score strong small{font-size:10px;font-weight:400;letter-spacing:0;margin-inline-start:2px}

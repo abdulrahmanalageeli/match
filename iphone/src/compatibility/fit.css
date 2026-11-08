@@ -14,6 +14,9 @@
 .nf-score-track { height: 3px; border-radius: 3px; background: #eee6e0; overflow: hidden; }
 .nf-score-track > span { display: block; height: 100%; background: var(--score-color); border-radius: inherit; }
 .nf-fit-score > p { font-size: .7rem; line-height: 1.8; min-height: 2.52em; margin: 12px 0 0; color: #72616a; }
+.nf-preference-panel { scroll-margin-top: 24px; border-radius: 20px; }
+.nf-preference-panel:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 4px; }
+.nf-fit .nf-fit-boundary { margin: 18px 2px 0; color: var(--muted); font-size: .68rem; line-height: 1.9; }
 .nf-fit-explanation { margin-top: 18px; border-bottom: 1px solid var(--fit-rule); }
 .nf-fit .nf-fit-explanation > summary { min-height: 76px; gap: 11px; padding-block: 14px; font-size: .85rem; color: #49323c; font-weight: 500; }
 .nf-fit-explanation > summary > svg { flex: none; color: #896e75; }

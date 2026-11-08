@@ -6,6 +6,7 @@ import personalityCatalog from "./personality-catalog.json" with { type: "json" 
 import type { MarriageBasics, PartnerCriteria } from "./marriage.ts";
 import { compareBeena, beenaRankMultiplier, type BeenaFit, type BeenaProfile } from '../beena/model.ts';
 import { createPersonalityEvidence, validatedPersonalityEvidence, type PersonalityEvidencePayload } from './personality-analysis.ts';
+import { preferenceCategoryCounts, type PreferenceEvidence, type PreferenceTopic } from './preference-evidence.ts';
 
 export const assessmentVersion = "marriage-v2" as const;
 export const categories = catalog.categories;
@@ -23,6 +24,7 @@ export type MatchFit = {
   assessmentComplete?: boolean;
   percentage?: number | null;
   criteria?: { covered: number; total: number };
+  preferenceEvidence?: PreferenceEvidence;
   beena?: BeenaFit;
   personality?: {
     version: "personality-v1"; complete: boolean; covered: number; total: number;
@@ -141,7 +143,9 @@ function preferredCriteria(member: PairProfile, peer: PairProfile) {
   const keys = (Object.keys(member.partnerCriteria ?? {}) as (keyof PartnerCriteria)[])
     .filter(key => member.partnerCriteria?.[key]?.mode === "prefer" && !(key === "children" && member.partnerCriteria.children?.target === "any"));
   const known = keys.map(key => criterionFit(member, peer, key)).filter(value => value !== null);
-  return { total: keys.length, covered: known.length, score: known.length ? known.filter(Boolean).length / known.length : null };
+  const matched = known.filter(Boolean).length;
+  return { total: keys.length, covered: known.length, matched, different: known.length - matched,
+    missing: keys.length - known.length, score: known.length ? matched / known.length : null };
 }
 
 function personalityFit(first: PairProfile, second: PairProfile): NonNullable<MatchFit["personality"]> {
@@ -241,14 +245,17 @@ export function describeFit(first: PairProfile, second: PairProfile) {
   const missing: string[] = [];
   const coveredCategories = new Set<string>();
   const reasons: string[] = [];
+  const topics: PreferenceTopic[] = [];
   for (const dim of dimensions) {
     const selfA = answer(first, dim, "self");
     const selfB = answer(second, dim, "self");
     const wantA = answer(first, dim, "partner");
     const wantB = answer(second, dim, "partner");
-    if (!selfA || !selfB || !wantA || !wantB) { missing.push(dim.id); continue; }
+    if (!selfA || !selfB || !wantA || !wantB) { missing.push(dim.id); topics.push({ id: dim.id, status: 'missing' }); continue; }
     coveredCategories.add(dim.category);
-    if (wantA === selfB && wantB === selfA) {
+    const forwardMatch = wantA === selfB, reverseMatch = wantB === selfA;
+    topics.push({ id: dim.id, status: forwardMatch && reverseMatch ? 'aligned' : forwardMatch || reverseMatch ? 'one_sided' : 'different' });
+    if (forwardMatch && reverseMatch) {
       strengths.push(dim.id);
       reasons.push(dim.reason);
     } else { discussion.push(dim.id); }
@@ -265,6 +272,12 @@ export function describeFit(first: PairProfile, second: PairProfile) {
   const fit: MatchFit = { version: assessmentVersion, band, provisional, covered, total: dimensions.length, strengths, discussion, missing,
     assessmentComplete, percentage: assessmentComplete ? Math.round(reciprocal * 100) : null,
     criteria: { covered: forwardCriteria.covered + reverseCriteria.covered, total: forwardCriteria.total + reverseCriteria.total },
+    preferenceEvidence: { version: 'preference-evidence-v1', method: 'reciprocal-weighted-v1', topics, categories: preferenceCategoryCounts(topics), criteria: {
+      matched: forwardCriteria.matched + reverseCriteria.matched,
+      different: forwardCriteria.different + reverseCriteria.different,
+      missing: forwardCriteria.missing + reverseCriteria.missing,
+      total: forwardCriteria.total + reverseCriteria.total,
+    } },
     personality: personalityFit(first, second), beena: compareBeena(first.beena, second.beena) };
   const sharedInterests = interests.filter(interest =>
     first.interestIds?.includes(interest.id) && second.interestIds?.includes(interest.id));

@@ -16,6 +16,7 @@ import { flushSync } from "react-dom";
 import { lockChatViewport } from "./chatViewport";
 import { SwipeReply } from "./SwipeReply";
 import { MessageReactions, ReactionPicker } from './MessageReactions';
+import { MessageFocus } from './MessageFocus';
 import {
   ArrowLeft,
   ArrowDown,
@@ -1060,6 +1061,7 @@ export function Chat({
   const [endError, setEndError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
+  const [messageActionAnchor, setMessageActionAnchor] = useState<HTMLElement | null>(null);
   const [reactionError, setReactionError] = useState('');
   const messageActionHelp = useId();
   const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
@@ -1098,6 +1100,15 @@ export function Chat({
   useEffect(() => {
     if (messageActionId && (!hasMessageActions || privateHidden)) setMessageActionId(null);
   }, [messageActionId, hasMessageActions, privateHidden]);
+
+  function openMessageActions(message: Message) {
+    const permissions = messagePermissions(message);
+    if (!permissions.canReply && !permissions.canDelete && !permissions.canReact) return;
+    const row = Array.from(log.current?.querySelectorAll<HTMLElement>('[data-server-id]') ?? [])
+      .find(element => element.dataset.serverId === message.id);
+    setMessageActionAnchor(row?.querySelector<HTMLElement>('.cm-bubble') ?? null);
+    feedback('selection'); setMessageActionId(message.id);
+  }
 
   async function chooseReaction(message: Message, reaction: ReactionEmoji | null) {
     if (!messagePermissions(message).canReact || thread.pendingReactionIds.has(message.id)) return;
@@ -1283,7 +1294,7 @@ export function Chat({
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete && !canReact}
                 actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
-                onHold={() => { if (canReply || canDelete || canReact) { feedback('selection'); setMessageActionId(msg.id); } }}>
+                onHold={() => openMessageActions(msg)}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
                 {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); }}>
@@ -1301,7 +1312,7 @@ export function Chat({
               </div>
               {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={connection.person.alias}
                 pending={thread.pendingReactionIds.has(msg.id)} disabled={!canReact}
-                open={() => { feedback('selection'); setMessageActionId(msg.id); }} />}
+                open={() => openMessageActions(msg)} />}
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
                 <span>{status.error}</span><button onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
@@ -1335,16 +1346,15 @@ export function Chat({
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
       </div>}
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
-      {actionMessage && hasMessageActions && !privateHidden && <Sheet title="خيارات الرسالة" onClose={() => setMessageActionId(null)}>
-        <MotionReveal className="cm-message-actions" distance={7} duration={240}>
-          {actionPermissions?.canReact && <ReactionPicker reactions={actionMessage.reactions} pending={thread.pendingReactionIds.has(actionMessage.id)} choose={reaction => void chooseReaction(actionMessage, reaction)}/>}
-          <div className="cm-message-action-preview"><span>{actionMessage.senderIsMe ? 'رسالتك' : connection.person.alias}</span><p dir="auto">{actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}</p></div>
+      {actionMessage && hasMessageActions && !privateHidden && <MessageFocus anchor={messageActionAnchor} self={actionMessage.senderIsMe}
+        label={actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}
+        onClose={() => setMessageActionId(null)}
+        reactions={actionPermissions?.canReact ? <ReactionPicker reactions={actionMessage.reactions} pending={thread.pendingReactionIds.has(actionMessage.id)} choose={reaction => void chooseReaction(actionMessage, reaction)}/> : undefined}>
           <div className="cm-message-action-list">
             {actionPermissions?.canReply && <MotionPressButton onClick={() => { flushSync(() => setMessageActionId(null)); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
-        </MotionReveal>
-      </Sheet>}
+      </MessageFocus>}
       {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!chatReady || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>

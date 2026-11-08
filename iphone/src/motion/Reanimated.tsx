@@ -45,12 +45,13 @@ export type MotionRevealProps = HTMLAttributes<HTMLElement> & {
   axis?: 'x' | 'y';
   distance?: number;
   fromOpacity?: number;
+  fromScale?: number;
 };
 
 /** A semantic DOM element whose entrance is driven by Reanimated shared values. */
 export function MotionReveal({
   as = 'div', delay = 0, duration = 480, active = true,
-  axis = 'y', distance = 10, fromOpacity = 0, style, ...props
+  axis = 'y', distance = 10, fromOpacity = 0, fromScale = 1, style, ...props
 }: MotionRevealProps) {
   const { value } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
@@ -69,10 +70,9 @@ export function MotionReveal({
   }, [active, reduced, delay, duration, progress]);
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: fromOpacity + (1 - fromOpacity) * progress.value,
-    transform: axis === 'x'
-      ? [{ translateX: distance * (1 - progress.value) }]
-      : [{ translateY: distance * (1 - progress.value) }],
-  }), [progress, axis, distance, fromOpacity]);
+    transform: [axis === 'x' ? { translateX: distance * (1 - progress.value) }
+      : { translateY: distance * (1 - progress.value) }, { scale: fromScale + (1 - fromScale) * progress.value }] as Transform,
+  }), [progress, axis, distance, fromOpacity, fromScale]);
   return <AnimatedHost {...props} as={as} data-motion-reveal="" data-motion-engine="reanimated" style={[style, animatedStyle]} />;
 }
 

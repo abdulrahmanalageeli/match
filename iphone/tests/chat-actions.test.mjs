@@ -8,10 +8,10 @@ const code = ts.transpileModule(await readFile(new URL('../src/community/Communi
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 const noop = () => {};
-const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
+const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children), ...nodes(node.props?.reactions)] : [];
 const named = (tree, name) => nodes(tree).filter(node => node.type?.name === name);
 const textOf = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(textOf).join('') : textOf(node?.props?.children ?? '');
-const sheet = (tree, title = 'خيارات الرسالة') => named(tree, 'Sheet').find(node => node.props.title === title);
+const sheet = (tree, title = 'خيارات الرسالة') => title === 'خيارات الرسالة' ? named(tree, 'MessageFocus')[0] : named(tree, 'Sheet').find(node => node.props.title === title);
 const button = (tree, text) => nodes(tree).find(node => (node.type === 'button' || node.type?.name === 'MotionPressButton') && textOf(node) === text);
 const msg = (id, extra = {}) => ({ id, body: `Message ${id}`, createdAt: new Date(Date.now() - 1000).toISOString(), senderIsMe: false, ...extra });
 
@@ -54,6 +54,8 @@ test('bubble metadata stays clean; held received message offers reply and preser
   assert.equal(sheet(tree), undefined);
   named(tree, 'SwipeReply')[0].props.onHold(); tree = f.render();
   const actions = sheet(tree); assert(actions);
+  assert.equal(actions.props.label, 'Message received');
+  assert.equal(actions.props.self, false);
   assert(button(actions, 'الرد على الرسالة'));
   assert.equal(button(actions, 'حذف لدى الجميع'), undefined);
   button(actions, 'الرد على الرسالة').props.onClick(); tree = f.render();

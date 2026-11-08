@@ -4,6 +4,7 @@ import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -61,6 +62,7 @@ import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
 import { NotificationFeed } from '../notifications/NotificationFeed';
 import './chat-polish.css';
+import './message-actions.css';
 import './directory.css';
 import { MemberProfile as Profile } from '../profile/MemberProfile';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
@@ -91,6 +93,7 @@ import { useWeeklyCardTransition } from "./useWeeklyCardTransition";
 import "./community.css";
 import "./weeklyCards.css";
 import "./discovery.css";
+import "./journey.css";
 
 type Tab = "discover" | "inbox" | "chats";
 type CommunityProps = {
@@ -911,11 +914,11 @@ function JourneySummary({ source, id, open }: { source: CommunitySource; id: str
   if (!source.progress) return null;
   const needsCommitment = progress && !progress.exclusive;
   const pending = progress?.rewindPeer || (needsCommitment ? progress.consentPeer && !progress.consentMine : progress?.peer && !progress.mine);
-  return <button className="cm-journey-summary" data-pending={pending || undefined} onClick={open} aria-haspopup="dialog" aria-label="مسار التعارف">
-    <span className="cm-plan-mark"><Sparkles size={15}/></span><span><strong>مسار التعارف</strong>
-    <small>{progress?.rewindPeer ? 'اقتراح خطوة إلى الوراء · بانتظارك' : progress?.rewindMine ? 'اقتراح العودة · بانتظار الطرف الآخر' : needsCommitment && progress.consentMine ? 'بانتظار الطرف الآخر' : needsCommitment && pending ? 'طلب التزام · بانتظارك' : needsCommitment && progress.stage >= 1 ? 'تأكيد الالتزام الحصري' : pending ? 'طلب خطوة جديدة' : progress?.mine ? 'بانتظار الطرف الآخر' : progress ? journeyStages[progress.stage] : 'عرض المراحل'}</small></span><ChevronLeft size={13}/>
-
-  </button>;
+  return <MotionPressButton className="cm-journey-summary nf-journey-summary" data-pending={pending || undefined} onClick={open} aria-haspopup="dialog" aria-label="مسار التعارف">
+    <span className="nf-journey-summary-mark" aria-hidden="true"><Sparkles size={15}/></span><span className="nf-journey-summary-copy"><strong>مسار التعارف</strong>
+    <small>{progress?.rewindPeer ? 'طلب عودة · بانتظارك' : progress?.rewindMine ? 'طلب العودة قيد الانتظار' : needsCommitment && progress.consentMine ? 'بانتظار الطرف الآخر' : needsCommitment && pending ? 'طلب التزام · بانتظارك' : needsCommitment && progress.stage >= 1 ? 'مراجعة الالتزام الحصري' : pending ? 'خطوة جديدة · بانتظارك' : progress?.mine ? 'بانتظار الطرف الآخر' : progress ? journeyStages[progress.stage] : 'عرض المراحل'}</small></span>
+    <span className="nf-journey-summary-track" aria-hidden="true">{journeyStages.map((_,index)=><i key={index} data-complete={progress && index <= progress.stage || undefined}/>)}</span><ChevronLeft size={14} aria-hidden="true"/>
+  </MotionPressButton>;
 }
 
 function RematchChoice({checked,change,disabled}:{checked:boolean;change:(value:boolean)=>void;disabled:boolean}) {
@@ -933,6 +936,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
   const [confirmClose, setConfirmClose] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
   const [exclusiveConsent, setExclusiveConsent] = useState(false);
+  const [reviewCommitment, setReviewCommitment] = useState(false);
   const [rewindConfirm, setRewindConfirm] = useState(false);
   const [savedStep,setSavedStep]=useState<{title:string;detail:string;quiet?:boolean}|null>(null);
   const [retry, setRetry] = useState(0);
@@ -972,48 +976,58 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     try{const next=await source.rewindStep(connection.id,progress.stage,agree);setProgress(next);setSavedStep({title:next.stage<progress.stage?'اتفقتما على العودة خطوة':agree?'أُرسل اقتراح العودة':'بقيتما في المرحلة الحالية',detail:next.stage<progress.stage?'المحادثة والمدة المتفق عليها محفوظتان.':agree?'لا تتغيّر المرحلة أو الحصرية قبل موافقة الطرف الآخر.':'يمكنكما مراجعة المسار لاحقًا.',quiet:true});setRewindConfirm(false);setRetry(n=>n+1);}catch(e){setError(messageFor(e));}finally{setBusy(false);}
   }
   const stages = journeyStages;
+  const commitmentOpen = reviewCommitment || Boolean(progress?.consentMine || progress?.consentPeer);
   return <Sheet title="مسار التعارف" onClose={() => { if (!busy) close(); }}>
-    <p className="cm-step-note">حتى يكون لكل حديث اتجاه واضح: تتفقان على الانتقال معًا، وتظهر الخطوة والطلبات في المحادثة والتنبيهات. لا تُرسل أي رسالة إلى العائلة تلقائيًا.</p>
-    <p className="cm-journey-intro">يمكنكما مناقشة السكن والمال والأطفال وحدود التواصل منذ التعارف الأول. الحديث عن الزواج لا يفعّل الحصرية؛ الالتزام خطوة مستقلة لا تحدث إلا بموافقتكما الصريحة.</p>
-    <HelpButton topic="journey" label="المدة، الحصرية، والعودة خطوة"/>
-    {openFamily&&<div className="cm-family-first"><p>تفضّلان حضور الأهل من البداية؟ راجعا طريقة إشراكهم قبل التقدم، ولا يلزم أن تنتظرا تعلقًا أو حديثًا طويلًا.</p><button className="btn-secondary" type="button" onClick={openFamily}><UsersRound size={18}/> جسر الأهل · مراجعة الموافقات والخطوة العائلية</button><small>فتح جسر الأهل لا يدعو أحدًا تلقائيًا؛ تبقى موافقات الربط والغرفة مطلوبة.</small></div>}
+    <div className="nf-journey-guide">
+    <MotionReveal className="nf-journey-current" distance={6} duration={280}>
+      <span className="nf-journey-eyebrow">خطوة بخطوة، باتفاقكما</span>
+      <h3>{progress ? stages[progress.stage] : 'مسار واضح لكما'}</h3>
+      <p>{progress?.exclusive ? 'تعارف حصري · ملتزمان ببعضكما' : 'تتعارفان على مهل. كل انتقال يحدث بموافقتكما.'}</p>
+      {progress && <ol className="nf-journey-track" aria-label="مراحل التعارف">{['التعارف', 'النقاش الجاد', 'الخطوة العائلية'].map((label,index)=><li key={label} aria-current={index===progress.stage?'step':undefined} data-complete={index < progress.stage || undefined}><span aria-hidden="true">{index < progress.stage ? <Check size={12}/> : ar.format(index+1)}</span><small>{label}</small></li>)}</ol>}
+    </MotionReveal>
     {savedStep&&<SuccessNotice {...savedStep} close={()=>setSavedStep(null)}/>}
-    {progress && <div className="cm-step-buttons">
-      <ol className="cm-journey-stages">{stages.map((label, index) => <li key={label} aria-current={index === progress.stage ? 'step' : undefined}>{index < progress.stage ? '✓ ' : `${index + 1}. `}{label}</li>)}</ol>
-      {!progress.exclusive && <div className="cm-exclusive-warning">
-        <h3>هل تختاران التركيز على هذا التعارف؟</h3>
+    {progress && <section className="nf-journey-next" aria-label="الخطوة القادمة">
+      {!progress.exclusive && <>
+        <h3>{progress.consentPeer && !progress.consentMine ? 'لديك طلب التزام حصري' : progress.consentMine ? 'اقتراحك بانتظار الموافقة' : 'عندما تختاران التركيز على بعضكما'}</h3>
+        <p className="nf-journey-next-note">{progress.consentMine ? 'تبقى المرحلة الحالية كما هي حتى يوافق الطرف الآخر.' : progress.consentPeer ? 'راجع ما سيتغيّر قبل اتخاذ قرارك.' : 'اختيار الحصرية خطوة مستقلة عن الحديث الجاد حول الزواج.'}</p>
+        {!commitmentOpen ? <MotionPressButton className="btn-primary" disabled={busy} onClick={()=>setReviewCommitment(true)}>مراجعة الالتزام الحصري<ChevronLeft size={16}/></MotionPressButton> : <div className="nf-journey-consent">
         <p>عند موافقتكما معًا، تُغلق جميع طلبات التعارف والمحادثات الأخرى لكليكما، وتُوقف الترشيحات والتواصل مع أشخاص جدد. يظهر بجانب اسميكما «تعارف حصري».</p>
         <p>تبقى السجلات محفوظة. يمكنك إنهاء هذا التعارف في أي وقت؛ المحادثات المغلقة لا تُفتح تلقائيًا.</p>
-        {otherConnections !== null && <div className="cm-closure-preview"><strong>ما سيُغلق في حسابك</strong>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></div>}
-        {!progress.consentMine && <label><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> أفهم أن موافقتنا معًا تُغلق علاقات التعارف الأخرى، وأوافق على الالتزام الحصري.</label>}
-        <p>{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'الطرف الآخر وافق؛ موافقتك الآن ستفعّل الالتزام وتغلق التعارف الآخر.' : 'لن تُغلق أي محادثة قبل موافقتكما معًا.'}</p>
-        <button className="btn-primary" disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => void act(false)}>{progress.consentMine ? 'سحب طلب الالتزام' : progress.consentPeer ? 'أوافق وأفعّل الالتزام الحصري' : 'اقتراح الالتزام الحصري'}</button>
-      </div>}
-      {progress.exclusive && <p className="cm-exclusive-badge">✓ تعارف حصري · ملتزمان ببعضكما</p>}
-      {progress.stage === 2 && onCompletion && <div className="cm-family-first"><p>إذا اتفقتما على الخطوة القادمة، يمكنك مراجعة خيارات الاستمرار خارج التطبيق وخصوصية حسابك.</p><button className="btn-secondary" onClick={onCompletion}>نحو بداية جديدة</button></div>}
-      {progress.exclusive && progress.stage < 2 && <>
-        <p className="cm-step-note">{progress.mine ? "سجّلت موافقتك. تنتقلان للخطوة التالية عند موافقة الطرف الآخر." :
-          progress.peer ? "لديك طلب انتقال إلى الخطوة التالية. راجعه ووافق عندما تكون مستعدًا." :
-          "اقترح الخطوة التالية. يصل للطرف الآخر تنبيه داخل الموقع، ولا تتغيّر المرحلة إلا بعد موافقته."}</p>
-        <button className="btn-secondary" disabled={busy} onClick={() => void act(false)}>
-          {progress.mine ? "سحب طلبي" : (progress.peer ? "الموافقة على: " : "اقتراح: ") + stages[progress.stage + 1]}</button>
+        {otherConnections !== null && <details className="nf-journey-closure"><summary>ما سيُغلق في حسابك <span>{ar.format(otherConnections.length)}</span><ChevronLeft size={14}/></summary>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></details>}
+        {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>أفهم أن موافقتنا معًا تُغلق علاقات التعارف الأخرى، وأوافق على الالتزام الحصري.</span></label>}
+        <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستفعّل الالتزام وتغلق التعارف الآخر.' : 'لن تُغلق أي محادثة قبل موافقتكما معًا.'}</p>
+        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => void act(false)}>{progress.consentMine ? 'سحب طلب الالتزام' : progress.consentPeer ? 'أوافق وأفعّل الالتزام الحصري' : 'اقتراح الالتزام الحصري'}</MotionPressButton>
+        {!progress.consentMine&&!progress.consentPeer&&<button type="button" className="btn-text" disabled={busy} onClick={()=>{setReviewCommitment(false);setExclusiveConsent(false);}}>ليس الآن</button>}
+        </div>}
       </>}
-    </div>}
-    {progress && progress.stage > 0 && source.rewindStep && <section className="dr-rewind">
-      <span className="dr-rewind-mark"><RotateCcw size={19}/></span><div><h3>مساحة لخطوة أهدأ</h3><p>{progress.rewindPeer ? "الطرف الآخر يقترح العودة إلى المرحلة السابقة." : progress.rewindMine ? "أرسلت اقتراح العودة. بانتظار موافقة الطرف الآخر." : "يمكنكما الرجوع مرحلة واحدة بموافقتكما معًا."}</p></div>
+      {progress.exclusive && progress.stage === 2 && <><h3>بداية الخطوة العائلية</h3><p className="nf-journey-next-note">اتفقا على التفاصيل بالوتيرة المناسبة لكما.</p>{onCompletion&&<MotionPressButton className="btn-primary" onClick={onCompletion}>نحو بداية جديدة<ChevronLeft size={16}/></MotionPressButton>}</>}
+      {progress.exclusive && progress.stage < 2 && <>
+        <h3>{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
+        <p className="nf-journey-next-note">{progress.mine ? "تنتقلان للخطوة التالية بعد موافقة الطرف الآخر." : progress.peer ? "راجع الخطوة ووافق عندما تكون مستعدًا." : "يصل اقتراحك للطرف الآخر؛ لا تتغيّر المرحلة إلا باتفاقكما."}</p>
+        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => void act(false)}>{progress.mine ? "سحب طلبي" : (progress.peer ? "الموافقة على: " : "اقتراح: ") + stages[progress.stage + 1]}</MotionPressButton>
+      </>}
+    </section>}
+    {progress?.stage===2&&!progress.exclusive&&onCompletion&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={onCompletion}><Heart size={19}/><span><strong>نحو بداية جديدة</strong><small>خيارات الاستمرار خارج التطبيق وخصوصية الحساب</small></span><ChevronLeft size={15}/></MotionPressButton>}
+    {openFamily&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={openFamily}><UsersRound size={19}/><span><strong>جسر الأهل</strong><small>راجعا الموافقات أولًا؛ لا تُرسل دعوة تلقائيًا.</small></span><ChevronLeft size={15}/></MotionPressButton>}
+    {progress && progress.stage > 0 && source.rewindStep && <details className="nf-journey-option" open={rewindConfirm || Boolean(progress.rewindPeer || progress.rewindMine)} data-pending={progress.rewindPeer || undefined}>
+      <summary><RotateCcw size={18}/><span><strong>مساحة لخطوة أهدأ</strong><small>{progress.rewindPeer ? "اقتراح عودة · بانتظار موافقتك" : progress.rewindMine ? "اقتراحك بانتظار الطرف الآخر" : "العودة مرحلة واحدة باتفاقكما"}</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
       {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{progress.stage === 1 ? "بعد موافقتكما يعود التعارف الأولي، وتُرفع علامة الحصرية ويصبح استكشاف الآخرين متاحًا. تبقى محادثتكما واتفاق الجدية والمدة محفوظة؛ لا تُفتح التعارفات المغلقة سابقًا." : "تعودان إلى النقاش الجاد حول الزواج مع استمرار الحصرية. تبقى المحادثة واتفاق الجدية والمدة محفوظة."}</p>}
       {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>سحب اقتراح العودة</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{progress.rewindPeer ? "أوافق على العودة إلى: " : "إرسال اقتراح العودة إلى: "}{stages[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?"البقاء في المرحلة الحالية":"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>اقتراح خطوة إلى الوراء</button>}
-    </section>}
+    </div></details>}
     {error && <><Banner alert text={error}/><button className="btn-text" onClick={() => setRetry(n => n+1)}>إعادة المحاولة</button></>}
-    <button type="button" className="btn-secondary" disabled={busy} onClick={openInsights}><Sparkles size={16}/> حديث أقرب · أفكار من توافقكما</button>
-    {hasDraft && <p className="cm-step-note">أكمل مسودتك أو امسحها لاختيار سؤال.</p>}
-    <details className="cm-practical-questions"><summary>مواضيع عملية قبل الخطوة القادمة</summary><p>اختارا موضوعًا يناسب وقتكما. الأسئلة تفتح حوارًا، وليست اختبارًا أو طلبًا لإثباتات خاصة. يُضاف السؤال كمسودة لتراجعه قبل الإرسال.</p><div className="cm-step-buttons">{practicalQuestions.map(([title,text])=><button key={title} className="btn-secondary" disabled={busy||hasDraft} onClick={()=>choose(text)}><strong>{title}</strong><span>{text}</span></button>)}</div></details>
-    {confirmClose ? <>
+    <details className="nf-journey-option"><summary><MessageCircle size={18}/><span><strong>أفكار تساعد الحوار</strong><small>من توافقكما ومن تفاصيل الحياة</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
+      <button type="button" className="btn-secondary" disabled={busy} onClick={openInsights}><Sparkles size={16}/> حديث أقرب · أفكار من توافقكما</button>
+      {hasDraft && <p className="cm-step-note">أكمل مسودتك أو امسحها لاختيار سؤال.</p>}
+      <details className="cm-practical-questions"><summary>مواضيع عملية قبل الخطوة القادمة</summary><p>اختارا موضوعًا يناسب وقتكما. يُضاف السؤال كمسودة لتراجعه قبل الإرسال.</p><div className="cm-step-buttons">{practicalQuestions.map(([title,text])=><button key={title} className="btn-secondary" disabled={busy||hasDraft} onClick={()=>choose(text)}><strong>{title}</strong><span>{text}</span></button>)}</div></details>
+    </div></details>
+    <div className="nf-journey-footer"><HelpButton topic="journey" label="كيف يعمل المسار؟"/>
+    {confirmClose ? <div className="nf-journey-end-confirm">
       <p className="cm-step-note">سيُغلق التعارف ولن يتمكّن أي منكما من إرسال رسائل أخرى.</p>
       <RematchChoice checked={allowRematch} change={setAllowRematch} disabled={busy}/>
       <button className="btn-primary" disabled={busy} onClick={() => void act(true)}>تأكيد إنهاء التعارف</button>
       <button className="btn-text" disabled={busy} onClick={() => setConfirmClose(false)}>تراجع</button>
-    </> : <button className="btn-text" disabled={busy} onClick={() => setConfirmClose(true)}>إنهاء التعارف</button>}
+    </div> : <button className="btn-text nf-journey-end" disabled={busy} onClick={() => setConfirmClose(true)}>إنهاء التعارف</button>}
+    </div></div>
   </Sheet>;
 }
 
@@ -1043,6 +1057,8 @@ export function Chat({
   const [ending, setEnding] = useState(false);
   const [endError, setEndError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [messageActionId, setMessageActionId] = useState<string | null>(null);
+  const messageActionHelp = useId();
   const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [privateHidden, setPrivateHidden] = useState(() => document.hidden);
@@ -1061,7 +1077,22 @@ export function Chat({
   const lastId = lastRow?.clientId || lastRow?.id;
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget && !messageActionId);
+  function messagePermissions(msg: Message) {
+    const status = 'status' in msg ? msg as Outgoing : undefined;
+    const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
+    const saved = !status || status.status === 'saved';
+    return { status, deleted,
+      canReply: chatReady && !deleted && saved,
+      canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
+    };
+  }
+  const actionMessage = thread.rows.find(msg => msg.id === messageActionId);
+  const actionPermissions = actionMessage ? messagePermissions(actionMessage) : null;
+  const hasMessageActions = Boolean(actionPermissions?.canReply || actionPermissions?.canDelete);
+  useEffect(() => {
+    if (messageActionId && (!hasMessageActions || privateHidden)) setMessageActionId(null);
+  }, [messageActionId, hasMessageActions, privateHidden]);
 
   useEffect(() => {
     const hide = () => setPrivateHidden(document.hidden);
@@ -1135,7 +1166,7 @@ export function Chat({
     thread.outbox.replyTo({ id: msg.id, senderIsMe: msg.senderIsMe,
       body: msg.attachment ? (msg.attachment.kind === 'photo' ? msg.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية') : msg.body.slice(0,240) });
     setReplyNotice('');
-    composer.current?.focus({ preventScroll: true });
+    requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
   }
   useEffect(() => {
     if (!jumpToId || !log.current) return;
@@ -1233,14 +1264,13 @@ export function Chat({
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
-            const status = "status" in msg ? msg as Outgoing : undefined;
+            const { status, deleted, canReply, canDelete } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
-            const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
-            const canReply = chatReady && !deleted && (!status || status.status === 'saved');
-            const canDelete = Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && (!status || status.status === 'saved') && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000;
-            return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} tabIndex={-1} key={key}>
+            return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
-              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)}>
+              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete}
+                actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
+                onHold={() => { if (canReply || canDelete) { feedback('selection'); setMessageActionId(msg.id); } }}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
                 {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); }}>
@@ -1248,8 +1278,6 @@ export function Chat({
                 </button>}
                 {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe}/> : <p dir="auto">{msg.body}</p>}
                 <div className="cm-message-meta">
-                  {!deleted && <button type="button" className="cm-reply-action" disabled={!canReply} aria-label="الرد على هذه الرسالة" onClick={() => chooseReply(msg)}><Reply size={14}/></button>}
-                  {canDelete && <button type="button" className="cm-delete-action" aria-label="حذف هذه الرسالة للجميع" onClick={() => { setDeleteError(''); setDeleteTarget(msg.id); }}><Trash2 size={13}/></button>}
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
                     <span aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
@@ -1290,6 +1318,16 @@ export function Chat({
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
       </div>}
+      <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة لخيارات الرد والحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
+      {actionMessage && hasMessageActions && !privateHidden && <Sheet title="خيارات الرسالة" onClose={() => setMessageActionId(null)}>
+        <MotionReveal className="cm-message-actions" distance={7} duration={240}>
+          <div className="cm-message-action-preview"><span>{actionMessage.senderIsMe ? 'رسالتك' : connection.person.alias}</span><p dir="auto">{actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}</p></div>
+          <div className="cm-message-action-list">
+            {actionPermissions?.canReply && <MotionPressButton onClick={() => { setMessageActionId(null); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
+            {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
+          </div>
+        </MotionReveal>
+      </Sheet>}
       {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!chatReady || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>

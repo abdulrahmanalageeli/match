@@ -18,7 +18,7 @@ type Props = {
   'aria-describedby'?: string;
 };
 
-const searchable = (text: string) => text.normalize('NFKC').toLocaleLowerCase().replace(/[\u064B-\u065F\u0670ـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
+const searchable = (text: string) => text.normalize('NFKC').toLocaleLowerCase().replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x6f0)).replace(/[\u064B-\u065F\u0670ـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
 
 /** Only an explicit option selection changes the saved answer; typing is search only. */
 export function ChoiceSelect({ label, value, onChange, options, placeholder = 'اختر من القائمة', allowClear = false, disabled = false, required = false, id, ...field }: Props) {
@@ -28,6 +28,7 @@ export function ChoiceSelect({ label, value, onChange, options, placeholder = '�
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -53,6 +54,27 @@ export function ChoiceSelect({ label, value, onChange, options, placeholder = '�
     setOpen(true);
   }
   function choose(next: string) { onChange(next); input.current?.focus(); close(); }
+
+  useEffect(() => {
+    if (!expanded) return;
+    let frame = 0;
+    function revealPanel() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const element = panel.current;
+        if (!element) return;
+        const viewport = window.visualViewport;
+        const top = viewport?.offsetTop ?? 0;
+        const bottom = top + (viewport?.height ?? window.innerHeight);
+        const bounds = element.getBoundingClientRect();
+        // Leave space for the intake's fixed actions; already-visible choices stay still.
+        if (bounds.bottom > bottom - 160 || bounds.top < top + 12) element.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      });
+    }
+    revealPanel();
+    window.visualViewport?.addEventListener('resize', revealPanel);
+    return () => { cancelAnimationFrame(frame); window.visualViewport?.removeEventListener('resize', revealPanel); };
+  }, [expanded]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -111,7 +133,7 @@ export function ChoiceSelect({ label, value, onChange, options, placeholder = '�
         <ChevronDown size={18} aria-hidden="true" />
       </button>
     </div>
-    {expanded && <div className="nf-choice-panel">
+    {expanded && <div ref={panel} className="nf-choice-panel">
       <div className="nf-choice-hint"><span>اختر إجابة واحدة</span><span>{new Intl.NumberFormat('ar-SA').format(filtered.length)} خيار</span></div>
       <div ref={list} id={listId} role="listbox" aria-label={label} className="nf-choice-list">
         {filtered.map((option, index) => <div key={option.value} role="presentation">

@@ -9,7 +9,7 @@
 .phone-app .nf-choice-select .nf-choice-toggle { flex: none; display: grid; place-items: center; width: 44px; height: 48px; margin: 0; padding: 0; border: 0; background: none; color: #9d6f7c; box-shadow: none; }
 .nf-choice-toggle svg { transition: transform 160ms ease; }
 .nf-choice-select[data-open] .nf-choice-toggle svg { transform: rotate(180deg); }
-.nf-choice-select .nf-choice-panel { min-width: 0; overflow: hidden; border: 1px solid #e5d1cf; border-radius: 16px; background: #fffdfa; box-shadow: 0 8px 22px #51172e08; animation: nf-choice-appear 160ms ease-out; }
+.nf-choice-select .nf-choice-panel { min-width: 0; overflow: hidden; scroll-margin-block-start: 12px; scroll-margin-block-end: 160px; border: 1px solid #e5d1cf; border-radius: 16px; background: #fffdfa; box-shadow: 0 8px 22px #51172e08; animation: nf-choice-appear 160ms ease-out; }
 .nf-choice-select .nf-choice-hint { display: flex; justify-content: space-between; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #efe4de; font-size: 11px; font-weight: 450; color: #9c7a83; }
 .nf-choice-select .nf-choice-list { max-height: min(260px, 38vh); overflow-y: auto; overscroll-behavior: contain; padding: 5px; scrollbar-width: thin; scrollbar-color: #c9a8b1 transparent; scroll-padding-block: 5px; }
 .nf-choice-select .nf-choice-group { padding: 10px 10px 5px; color: #9c7a83; font-size: 10px; font-weight: 600; }

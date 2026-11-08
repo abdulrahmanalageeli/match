@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ChevronDown,
-  Compass,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -13,13 +11,10 @@ import {
   Smartphone,
   ShieldCheck,
   Sparkles,
-  HeartHandshake,
 } from "lucide-react";
 import { Brand } from "./Brand";
 import { phoneOtpEnabled } from "./cloud";
 import { PhoneAuth } from "./PhoneAuth";
-import { useDevicePreferences, useSystemReducedMotion } from "./settings/preferences";
-import { WelcomeHorizon } from "./WelcomeHorizon";
 import { LegalNotice } from "./legal/LegalNotice";
 import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
@@ -60,122 +55,7 @@ export function Frame({
   );
 }
 
-// This is an in-memory launch decision: back navigation and foregrounding
-// should return to the resting skyline instead of repeating the introduction.
-let welcomeIntroSeen = false;
-
-export function Welcome({
-  onRegister,
-  onLogin,
-  onDemo,
-  onDemoIntake,
-  onPrivacy,
-  replayIntro = false,
-}: {
-  onRegister: Click;
-  onLogin: Click;
-  onDemo: Click;
-  onDemoIntake: Click;
-  onPrivacy: Click;
-  replayIntro?: boolean;
-}) {
-  const { value } = useDevicePreferences();
-  const systemReduced = useSystemReducedMotion();
-  const reduced = value.reducedMotion || systemReduced;
-  const [playing, setPlaying] = useState(false);
-  useLayoutEffect(() => {
-    if (reduced) {
-      welcomeIntroSeen = true;
-      setPlaying(false);
-      return;
-    }
-    function syncVisibility() {
-      if (document.hidden) setPlaying(false);
-      else if (!welcomeIntroSeen || replayIntro) {
-        welcomeIntroSeen = true;
-        setPlaying(true);
-      }
-    }
-    syncVisibility();
-    document.addEventListener("visibilitychange", syncVisibility);
-    return () => document.removeEventListener("visibilitychange", syncVisibility);
-  }, [reduced, replayIntro]);
-  const animateIntro = playing && !reduced;
-  return (
-    <main className="nf-welcome" dir="rtl" data-intro={animateIntro || undefined}>
-      <header className="nf-mast">
-        <button type="button" onClick={onPrivacy}>
-          <LockKeyhole size={15} aria-hidden="true" /> الخصوصية
-        </button>
-        <button type="button" className="nf-mast-login" onClick={onLogin}>
-          تسجيل الدخول <ArrowLeft size={15} aria-hidden="true" />
-        </button>
-      </header>
-      <section className="nf-welcome-identity">
-        <div className="nf-welcome-visual">
-          <span className="nf-welcome-orbit nf-welcome-orbit-one" aria-hidden="true" />
-          <span className="nf-welcome-orbit nf-welcome-orbit-two" aria-hidden="true" />
-          <span className="nf-welcome-spark nf-welcome-spark-one" aria-hidden="true"><Sparkles size={15} /></span>
-          <span className="nf-welcome-spark nf-welcome-spark-two" aria-hidden="true"><Sparkles size={11} /></span>
-          <div className="nf-welcome-logo" role="img" aria-label="نصفين">
-            <div className="nf-welcome-heart" aria-hidden="true">
-              <img className="nf-welcome-half nf-welcome-half-first" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" fetchPriority="high" draggable="false" />
-              <img className="nf-welcome-half nf-welcome-half-second" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" draggable="false" />
-              <span className="nf-welcome-heart-light" />
-            </div>
-            <img className="nf-welcome-wordmark" src="/brand/nisfayn-wordmark.png" alt="" width="512" height="154" aria-hidden="true" />
-          </div>
-        </div>
-        <span className="nf-welcome-eyebrow"><i aria-hidden="true" /> تعارف جاد، بنية الزواج</span>
-        <h1>لا تبحث عن نصفٍ آخر.<br /><span>ابحث عمّن يفهم حياتك.</span></h1>
-        <p className="nf-welcome-intro">توافق مبني على القيم والشخصية وتفاصيل الحياة،<br />مع طريق واضح من التعارف إلى الأهل.</p>
-        <div className="nf-welcome-preview" aria-label="تجربة التوافق في نصفين">
-          <div className="nf-welcome-score" aria-hidden="true"><span><strong>٨٩٪</strong><small>انسجام</small></span></div>
-          <div className="nf-welcome-preview-copy">
-            <span>مثال توضيحي للتوافق</span>
-            <strong>ما يجمعكما، وما يحتاج إلى حوار</strong>
-            <small>قيم · شخصية · أسلوب حياة · رؤية للمستقبل</small>
-          </div>
-          <Sparkles className="nf-welcome-preview-spark" size={18} aria-hidden="true" />
-        </div>
-      </section>
-      <section className="nf-welcome-benefits" aria-label="ما يميز نصفين">
-        <div><Sparkles size={19} aria-hidden="true" /><strong>توافق مفهوم</strong><span>أسباب واضحة، لا رقم فقط</span></div>
-        <div><ShieldCheck size={19} aria-hidden="true" /><strong>خصوصية باختيارك</strong><span>أنت تتحكم بما يظهر ومتى</span></div>
-        <div><HeartHandshake size={19} aria-hidden="true" /><strong>مسار جاد</strong><span>خطوات متفق عليها نحو الأهل</span></div>
-      </section>
-      <details className="nf-welcome-journey">
-        <summary><span>اعرف كيف تبدأ الرحلة</span><ChevronDown size={16} aria-hidden="true" /></summary>
-        <ol>
-          <li><span>١</span><div><strong>عرّفنا بك، وبما يهمّك</strong><p>ملف يعبّر عنك، وأسئلة عن احتياجاتك وأسلوب حياتك وشخصيتك. الصورة الشخصية اختيارية.</p></div></li>
-          <li><span>٢</span><div><strong>مراجعة، ثم عضوية باختيارك</strong><p>نراجع الملف أولًا. بعد الاعتماد وتوفر عضو تتوافق معه التفضيلات، يتاح الاشتراك الشهري. قد تحتاج إلى الانتظار؛ لا نضمن عددًا ثابتًا من الترشيحات.</p></div></li>
-          <li><span>٣</span><div><strong>اكتشف، واتفقا على الخطوة التالية</strong><p>حتى خمسة ترشيحات أقرب لتفضيلاتك، واستكشاف بقية الملفات المؤهلة. تبدأ المحادثة بعد القبول المتبادل واتفاق الجدية إذا ظهر لك. يمكنكما مناقشة أساسيات الزواج قبل الحصرية، وإشراك الأهل من البداية أو لاحقًا باتفاقكما.</p></div></li>
-        </ol>
-        <p className="nf-welcome-journey-note"><LockKeyhole size={14} aria-hidden="true" />إجابات تقييمك التفصيلية خاصة. أنت من يختار ما يشاركه.</p>
-        <p className="nf-welcome-journey-note">ملفك متاح للأعضاء المؤهلين، وليس صفحة عامة. اعتماد الملف لا يُعد تحققًا مستقلًا من الهوية، والتوافق لا يتنبأ بنجاح الزواج. لا توجد مهلة مراجعة ثابتة معلنة؛ تابع حالتك داخل التطبيق.</p>
-        <aside className="nf-welcome-expectations" aria-label="قبل أن تبدأ">
-          <strong>واضح من البداية</strong>
-          <p>إنشاء الملف ومراجعته دون شراء. التعارف بعضوية شهرية بعد الاعتماد والتوفر، ويظهر سعر Apple قبل أي تأكيد.</p>
-        </aside>
-        <a className="nf-welcome-family" href="?family=1"><HeartHandshake size={16} aria-hidden="true" /> دخول وليّ الأمر أو أحد الأهل</a>
-      </details>
-      <WelcomeHorizon animate={animateIntro} />
-      <div className="nf-welcome-actions">
-        <button type="button" className="f-primary nf-join" onClick={onRegister}>
-          <span><small>إنشاء الملف مجاني</small><strong>ابدأ رحلتك</strong></span><ArrowLeft size={20} aria-hidden="true" />
-        </button>
-        <span className="nf-welcome-join-note"><LockKeyhole size={12} aria-hidden="true" /> لا دفع عند التسجيل · للجادين في الزواج · ١٨+</span>
-        <div className="nf-demo-options">
-          <button type="button" className="nf-demo-link" onClick={onDemo}>
-            <Compass size={16} aria-hidden="true" /> استكشف التجربة
-          </button>
-          <span aria-hidden="true" />
-          <button type="button" className="nf-demo-link" onClick={onDemoIntake}>جرّب التسجيل كعضو جديد</button>
-        </div>
-      </div>
-    </main>
-  );
-}
+export { Welcome } from "./Welcome";
 
 export function Auth({
   login,

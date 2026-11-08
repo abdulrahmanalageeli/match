@@ -1,14 +1,14 @@
 @keyframes nf-handoff-leave {
-  to { opacity: 0; transform: translateX(var(--nf-out-x)) scale(.992); filter: blur(2px); }
+  to { opacity: 0; transform: translateX(var(--nf-out-x)); }
 }
 @keyframes nf-handoff-enter {
-  from { opacity: 0; transform: translateX(var(--nf-in-x)) scale(.985); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
+  from { opacity: 0; transform: translateX(var(--nf-in-x)); }
+  to { opacity: 1; transform: none; }
 }
 
 /* Forward navigation enters from the reading direction in Arabic. */
-:root[data-nf-welcome-handoff="forward"] { --nf-in-x: -15px; --nf-out-x: 9px; }
-:root[data-nf-welcome-handoff="back"] { --nf-in-x: 12px; --nf-out-x: -9px; }
+:root[data-nf-welcome-handoff="forward"] { --nf-in-x: -36px; --nf-out-x: 18px; }
+:root[data-nf-welcome-handoff="back"] { --nf-in-x: 36px; --nf-out-x: -18px; }
 :root[data-nf-welcome-handoff]::view-transition { pointer-events: none; }
 :root[data-nf-welcome-handoff]::view-transition-old(root) {
   animation: nf-handoff-leave 260ms cubic-bezier(.4,0,.6,1) forwards;

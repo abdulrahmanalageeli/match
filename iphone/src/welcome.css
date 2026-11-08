@@ -1,76 +1,49 @@
-/* A single, quiet composition. Only the distant city keeps moving after arrival. */
+/* The artwork has its own space: type and actions never sit over the people. */
 .phone-app .nf-welcome.nf-arrival,
 .nf-welcome.nf-arrival {
   position: relative;
   isolation: isolate;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(200px, 1fr) auto;
+  gap: 0;
   width: 100%;
   max-width: 520px;
-  min-height: max(650px, 100svh);
+  min-height: 100svh;
   margin-inline: auto;
-  padding: 0;
+  padding: max(20px, env(safe-area-inset-top)) 24px max(16px, env(safe-area-inset-bottom));
   overflow: hidden;
-  background: #f4e4de;
-  color: #51172e;
-  text-align: center;
+  background: #f7f6f3;
+  color: #242326;
+  text-align: start;
 }
 .phone-app .nf-welcome.nf-arrival::before,
 .phone-app .nf-welcome.nf-arrival::after,
 .nf-welcome.nf-arrival::before,
 .nf-welcome.nf-arrival::after { content: none; }
 .nf-arrival button { -webkit-tap-highlight-color: transparent; }
-.nf-arrival-scene {
-  position: absolute;
-  inset: 0 0 106px;
-  z-index: -2;
-  overflow: hidden;
-  pointer-events: none;
-  background: #edcdc5;
-}
-.nf-arrival-distance,
-.nf-arrival-foreground { position: absolute; inset: -4px; }
-.nf-arrival-scene img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
-.nf-arrival-distance { animation: nf-arrival-city-drift 70s ease-in-out infinite alternate; }
-.nf-arrival-foreground { clip-path: inset(85% 0 0); animation: nf-arrival-near-drift 55s ease-in-out infinite alternate; }
-.nf-arrival-sky {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, #f8eeeadb 0%, #f7e7e0d9 32%, #f7e4da74 57%, #f6dac91a 77%, transparent 90%);
-}
-.nf-arrival-sky::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, #ffe4c81a, #ffd5af26 65%, transparent 88%);
-  opacity: .5;
-}
-.nf-arrival-lights { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .65; }
-.nf-arrival-brand { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; margin-top: max(30px, env(safe-area-inset-top)); }
-.nf-arrival-emblem { width: 96px; height: 96px; overflow: visible; }
-.nf-arrival-wordmark { width: 96px; height: auto; margin-top: -7px; }
-.nf-arrival-brand > span { margin-top: 12px; font-size: 12px; font-weight: 500; color: #764c58; }
-.nf-arrival-copy { position: relative; z-index: 1; width: 100%; margin-top: clamp(30px, 5.2svh, 56px); padding: 0 20px; }
-.nf-arrival .nf-arrival-copy h1 { max-width: none; margin: 0; color: #51172e; font-size: clamp(29px, 7.7vw, 39px); font-weight: 700; line-height: 1.45; letter-spacing: -.7px; }
+.nf-arrival-brand { display: flex; align-items: center; gap: 5px; min-height: 46px; }
+.nf-arrival-emblem { width: 48px; height: 48px; overflow: visible; }
+.nf-arrival-wordmark { width: 78px; height: auto; }
+.nf-arrival-brand-note { margin-inline-start: auto; padding-inline-start: 18px; color: #716b70; font-size: 14px; font-weight: 400; }
+.nf-arrival-copy { padding: clamp(22px, 3.8svh, 40px) 0 22px; }
+.nf-arrival-eyebrow { display: block; margin-bottom: 10px; color: #54152a; font-size: 14px; font-weight: 700; }
+.nf-arrival .nf-arrival-copy h1 { max-width: none; margin: 0; color: #242326; font-size: clamp(29px, 8.2vw, 36px); font-weight: 700; line-height: 1.42; letter-spacing: -.6px; }
 .nf-arrival-copy h1 span { display: block; }
-.nf-arrival .nf-arrival-copy p { margin: 15px 0 0; color: #704c58; font-size: clamp(15px, 3.9vw, 18px); font-weight: 500; line-height: 1.75; }
-.nf-arrival-illustration { position: absolute; z-index: -1; bottom: 119px; left: 0; width: 100%; height: clamp(270px, 42svh, 400px); pointer-events: none; }
-.nf-arrival-arches { position: absolute; width: 116%; height: 105%; left: -8%; bottom: 0; overflow: visible; }
+.nf-arrival .nf-arrival-copy p { max-width: 38ch; margin: 12px 0 0; color: #716b70; font-size: 16px; font-weight: 400; line-height: 1.7; }
+.nf-arrival-desktop-break { display: none; }
+.nf-arrival-illustration { position: relative; isolation: isolate; min-height: 200px; max-height: 340px; width: 100%; overflow: hidden; border-radius: 4px; background: #dfd6c9; pointer-events: none; }
+.nf-arrival-scene { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+.nf-arrival-distance { position: absolute; inset: -4px; animation: nf-arrival-city-drift 70s ease-in-out infinite alternate; }
+.nf-arrival-scene img { width: 100%; height: 100%; object-fit: cover; object-position: center 74%; filter: saturate(.48); }
+.nf-arrival-sky { position: absolute; inset: 0; background: #f0e9db; mix-blend-mode: color; opacity: .42; }
+.nf-arrival-lights { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
+.nf-arrival-arches { position: absolute; z-index: -1; width: 116%; height: 105%; left: -8%; bottom: 0; overflow: visible; opacity: .65; }
 .nf-arrival-arches > svg { width: 100%; height: 100%; }
 .nf-arrival-arches path { stroke: #fff9ec; stroke-width: 1.35; opacity: .88; vector-effect: non-scaling-stroke; }
-.nf-arrival-couple { position: absolute; width: 112%; max-width: none; height: auto; left: -6%; bottom: 0; }
-.nf-arrival-actions {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  margin-top: auto;
-  padding: 25px 25px max(18px, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, #f4e8e0e8, #f6ece5 50%, #f7eee7);
-  border-top: 1px solid #fff9edc4;
-  border-radius: 50% 50% 0 0 / 14px 14px 0 0;
-  box-shadow: 0 -8px 28px #56352806;
-}
+.nf-arrival-couple { position: absolute; width: 100%; max-width: none; height: auto; left: 0; bottom: -1px; filter: saturate(.7); }
+.nf-arrival-actions { position: relative; width: 100%; padding-top: 18px; text-align: center; }
+.nf-arrival .nf-arrival-action-note { margin: 0 0 13px; color: #716b70; font-size: 14px; line-height: 1.4; }
 .nf-arrival .nf-arrival-cta {
   width: 100%;
   min-height: 56px;
@@ -80,70 +53,75 @@
   gap: 8px;
   margin: 0;
   padding: 14px 20px;
-  border: 1px solid #ffefdc99;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #824255, #5a1731 72%);
-  color: #fff9f3;
-  box-shadow: 0 1px 0 1px #611c3526, inset 0 1px 0 #ffffff21, 0 8px 20px #64213616;
-  font-size: 19px;
+  border: 1px solid #54152a;
+  border-radius: 10px;
+  background: #54152a;
+  color: #fff;
+  box-shadow: none;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
-  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+  transition: background 120ms ease-out;
 }
 .nf-arrival-cta > span { grid-column: 2; }
 .nf-arrival-cta > svg { grid-column: 3; }
-.nf-arrival .nf-arrival-cta:active { transform: scale(.97); box-shadow: inset 0 1px 5px #330c2926; }
-.nf-arrival .nf-arrival-login { margin: 13px 0 1px; font-size: 14px; line-height: 1.4; color: #765964; }
-.nf-arrival-login button { min-height: 36px; padding: 6px; border: 0; background: transparent; font-weight: 700; color: #5a1731; }
-.nf-arrival-privacy { padding: 5px 9px; min-height: 30px; border: 0; background: transparent; font-size: 11px; color: #765d65; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #b99b9f; }
+.nf-arrival .nf-arrival-cta:hover { background: #421021; }
+.nf-arrival .nf-arrival-cta:focus-visible { outline: 3px solid #b3919d; outline-offset: 4px; }
+.nf-arrival .nf-arrival-login { margin: 8px 0 0; font-size: 16px; line-height: 1.4; color: #716b70; }
+.nf-arrival-login button { min-height: 44px; padding: 6px; border: 0; background: transparent; font-weight: 700; color: #54152a; }
+.nf-arrival-privacy { padding: 5px 9px; min-height: 36px; border: 0; background: transparent; font-size: 14px; color: #716b70; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #c8c2c4; }
+@media (max-width: 360px) { .nf-arrival-brand-note { display: none; } }
 
-/* One opening sequence. No timer, loading gate, animation overlay or disabled CTA. */
+/* A brief arrival; the primary action is available from the first frame. */
 .nf-arrival[data-opening] .nf-arrival-ink { stroke-dasharray: 1; animation: nf-arrival-draw 1.5s cubic-bezier(.4,0,.25,1) both; }
 .nf-arrival[data-opening] .nf-arrival-ink-second { animation-delay: .18s; }
 .nf-arrival[data-opening] .nf-arrival-ink-finish { animation: nf-arrival-fill .45s 1.2s both; }
-.nf-arrival[data-opening] .nf-arrival-wordmark { animation: nf-arrival-wordmark .8s .65s cubic-bezier(.2,.65,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-brand > span { animation: nf-arrival-appear .8s .6s both; }
-.nf-arrival[data-opening] .nf-arrival-copy h1 span { animation: nf-arrival-text .8s .4s cubic-bezier(.2,.75,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-copy h1 span + span { animation-delay: .65s; }
-.nf-arrival[data-opening] .nf-arrival-copy p { animation: nf-arrival-text .8s .9s cubic-bezier(.2,.75,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-cta-enter { animation: nf-arrival-button .65s cubic-bezier(.2,.75,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-sky::after { animation: nf-arrival-sunset 5s ease-out both; }
+.nf-arrival[data-opening] .nf-arrival-wordmark { animation: nf-arrival-wordmark .8s .4s cubic-bezier(.2,.65,.3,1) both; }
 .nf-arrival[data-opening] .nf-arrival-lights rect { animation: nf-arrival-window 3s 1.6s ease-out both; }
 .nf-arrival[data-opening] .nf-arrival-lights rect:nth-child(2n) { animation-delay: 2.4s; }
-
 @keyframes nf-arrival-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes nf-arrival-fill { from { opacity: 0; } to { opacity: 1; } }
 @keyframes nf-arrival-wordmark { from { clip-path: inset(0 0 0 100%); opacity: .2; } to { clip-path: inset(0); opacity: 1; } }
-@keyframes nf-arrival-appear { from { opacity: 0; } to { opacity: 1; } }
-@keyframes nf-arrival-text { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
-@keyframes nf-arrival-button { from { opacity: .55; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes nf-arrival-sunset { from { opacity: 0; } to { opacity: .5; } }
 @keyframes nf-arrival-window { from { opacity: .05; } to { opacity: .8; } }
 @keyframes nf-arrival-city-drift { from { transform: translate3d(-1px, 0, 0); } to { transform: translate3d(2px, -1px, 0); } }
-@keyframes nf-arrival-near-drift { from { transform: translate3d(-2px, 0, 0); } to { transform: translate3d(3px, 0, 0); } }
-
 .nf-arrival[data-still] *, .nf-arrival[data-still] *::after { animation: none !important; }
 html[data-nf-ambient-paused] .nf-arrival *, html[data-nf-ambient-paused] .nf-arrival *::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   .nf-arrival *, .nf-arrival *::after { animation: none !important; transition: none !important; }
-  .nf-arrival .nf-arrival-cta:active { transform: none; }
 }
 html[data-nf-motion="reduced"] .nf-arrival *, html[data-nf-motion="reduced"] .nf-arrival *::after { animation: none !important; transition: none !important; }
-html[data-nf-motion="reduced"] .nf-arrival .nf-arrival-cta:active { transform: none; }
-@media (max-height: 740px) {
-  .nf-arrival-brand { margin-top: max(20px, env(safe-area-inset-top)); }
-  .nf-arrival-emblem { width: 78px; height: 78px; }
-  .nf-arrival-wordmark { width: 82px; }
-  .nf-arrival-copy { margin-top: 24px; }
-  .nf-arrival-brand > span { margin-top: 8px; }
-  .nf-arrival .nf-arrival-copy h1 { font-size: clamp(28px, 7.5vw, 36px); }
-  .nf-arrival .nf-arrival-copy p { margin-top: 10px; }
-  .nf-arrival-illustration { height: 260px; }
-  .nf-arrival-couple { width: 98%; left: 1%; }
-  .nf-arrival-actions { padding-top: 18px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+@media (max-height: 740px) and (max-width: 759px) {
+  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival { padding-top: max(12px, env(safe-area-inset-top)); grid-template-rows: auto auto minmax(172px, 1fr) auto; }
+  .nf-arrival-copy { padding-top: 18px; padding-bottom: 18px; }
+  .nf-arrival .nf-arrival-copy h1 { font-size: 29px; }
+  .nf-arrival .nf-arrival-copy p { margin-top: 9px; }
+  .nf-arrival-illustration { min-height: 172px; }
+  .nf-arrival-actions { padding-top: 14px; }
+  .nf-arrival .nf-arrival-action-note { display: none; }
 }
-@media (min-height: 950px) {
-  .nf-arrival-brand { margin-top: max(58px, env(safe-area-inset-top)); }
-  .nf-arrival-copy { margin-top: 65px; }
-  .nf-arrival-illustration { height: 43svh; }
+@media (min-width: 760px) {
+  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival {
+    max-width: 1080px;
+    min-height: min(850px, 100svh);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    column-gap: clamp(40px, 6vw, 88px);
+    padding: 32px 40px 48px;
+    align-content: center;
+  }
+  .nf-arrival-brand { grid-column: 1 / -1; margin-bottom: 34px; }
+  .nf-arrival-brand-note { padding: 0; }
+  .nf-arrival-copy { grid-column: 1; grid-row: 2; align-self: end; padding: 30px 0 28px; }
+  .nf-arrival-eyebrow { margin-bottom: 16px; }
+  .nf-arrival .nf-arrival-copy h1 { font-size: clamp(34px, 3.6vw, 46px); line-height: 1.4; }
+  .nf-arrival .nf-arrival-copy p { font-size: 18px; line-height: 1.85; margin-top: 20px; }
+  .nf-arrival-illustration { grid-column: 2; grid-row: 2 / 4; align-self: stretch; min-height: 510px; max-height: none; }
+  .nf-arrival-scene img { object-position: 60% bottom; }
+  .nf-arrival-couple { width: 136%; left: -18%; }
+  .nf-arrival-actions { grid-column: 1; grid-row: 3; padding-top: 0; padding-bottom: 35px; text-align: start; }
+  .nf-arrival .nf-arrival-action-note { margin-bottom: 20px; }
+  .nf-arrival .nf-arrival-cta { max-width: 360px; }
+  .nf-arrival .nf-arrival-login { margin-top: 12px; }
+  .nf-arrival-privacy { padding-inline: 0; }
 }
+@media (min-width: 1000px) { .nf-arrival-desktop-break { display: inline; } }

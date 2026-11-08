@@ -8,33 +8,37 @@
 }
 :root {
   color-scheme: light;
-  --paper: #fcfaf7;
-  --surface: #fffefd;
-  --ink: #30252a;
-  --muted: #685b60;
-  --gold: #d8c9b8;
-  --line: #ded6d0;
-  --control-line: #97888b;
-  --accent-fill: #5a0f28;
+  --paper: #f7f6f3;
+  --surface: #ffffff;
+  --ink: #242326;
+  --muted: #716b70;
+  --gold: #c2b59f;
+  --line: #e5e2de;
+  --control-line: #a39c9f;
+  --accent-fill: #54152a;
   --accent: var(--accent-fill);
-  --accent-ink: #fffaf7;
-  --rose: #c5838e;
-  --blush: #f3e9e9;
-  --brass: #795c46;
-  --canvas: #f2efeb;
-  --chrome: #fffefdf5;
-  --page-background: url("/brand/nisfayn-rose-ivory-waves.svg") left 18px / 100% 190px no-repeat,
-    linear-gradient(160deg, #fffdfb, var(--paper) 60%, #faf7f2);
+  --accent-ink: #ffffff;
+  --rose: #ae7786;
+  --blush: #f1eaed;
+  --brass: #716450;
+  --canvas: #eeede9;
+  --chrome: #ffffffed;
+  --page-background: var(--paper);
   --app-width: 520px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --font-ui: Montserrat, Tajawal, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-ui: Tajawal, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --shadow-overlay: 0 12px 40px #24232614;
+  font-size: 16px;
+  line-height: 1.65;
   font-family: var(--font-ui);
   background: var(--paper);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
 }
 * { box-sizing: border-box; }
-body { margin: 0; }
+body { margin: 0; -webkit-font-smoothing: antialiased; }
 button, input, textarea, select { font: inherit; }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 input:focus-visible, textarea:focus-visible, select:focus-visible {
@@ -51,7 +55,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   outline: 2px solid var(--brass);
   outline-offset: 3px;
 }
-::selection { background: #ebcbd0; color: #411025; }
+::selection { background: #e9dce1; color: var(--accent); }
 .app-screen {
   width: 100%;
   max-width: var(--app-width);

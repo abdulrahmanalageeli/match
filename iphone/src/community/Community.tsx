@@ -159,7 +159,8 @@ const practicalQuestions = [
   ['الوتيرة والحدود', 'ما وتيرة التواصل التي تريحك؟ وما الذي تحتاج أن تعرفه قبل الخطوة العائلية أو الالتزام الحصري؟'],
 ];
 
-function ProfileVisitNotice({ interest = false }: { interest?: boolean }) {
+function ProfileVisitNotice({ interest = false, compact = false }: { interest?: boolean; compact?: boolean }) {
+  if (compact) return <p className="cm-awareness"><Eye size={16} aria-hidden="true"/><span>قد تظهر زيارتك لصاحب الملف.{interest && ' زر «مهتم» يرسل إشعارًا، ولا يفتح محادثة.'}</span></p>;
   return <p className="cm-awareness"><Eye size={18} aria-hidden="true"/><span>فتح الملف قد يُظهر لصاحبه زيارة باسمك.{interest && ' زر «مهتم» يرسل إشعارًا باهتمامك؛ لا يحفظ الملف بشكل خاص.'} الزيارة والاهتمام لا يفتحان محادثة.</span></p>;
 }
 
@@ -777,10 +778,10 @@ function Discovery({
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header df-header">
         <Brand />
-        <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "قصص تستحقّ الاكتشاف" : "خمسة أقرب إليك"}</span>
+        <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "جميع الملفات" : "ترشيحاتك"}</span>
       </header>
       <MotionReveal className="cm-title df-title" duration={480}>
-        <div><span className="df-eyebrow">مساحة لبداية تستحقّك</span><h1>أقرب إلى ما تبحث عنه.</h1><p>تعرّف على الشخص، وما يهمّه في الحياة.</p></div>
+        <div><h1>استكشف</h1><p>ملفات وتفضيلات تساعدك على الاختيار.</p></div>
         <button
           className={"cm-filter-button" + (count ? " selected" : "")}
           onClick={() => setFilterOpen(true)}
@@ -791,18 +792,17 @@ function Discovery({
         </button>
       </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
-      <ProfileVisitNotice interest={order === 'all'}/>
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
       <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
-          <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={14}/> أفضل خمسة لك</button>
-          <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={14} /> استكشف الجميع</button>
+          <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>
+          <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
-        <HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/>
       </div>
-      {order === "all" && <div className="dr-tools"><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="اسم أو مهنة تثير فضولك…" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
+      <ProfileVisitNotice interest={order === 'all'} compact/>
+      {order === "all" && <div className="dr-tools"><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
         <label className="dr-sort"><span>الترتيب</span><select aria-label="ترتيب الاستكشاف" value={filters.sort??'compatibility'} onChange={e=>setFilters(f=>({...f,sort:e.target.value as Filters['sort']}))}><option value="compatibility">الأقرب توافقًا</option><option value="youngest">الأصغر عمرًا</option><option value="oldest">الأكبر عمرًا</option></select></label>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button><span className="dr-directory-note">الاهتمام يرسل إشعارًا · الطلب يفتح باب التعارف</span></div>}
       {count > 0 && (
@@ -875,9 +875,10 @@ function Discovery({
         ))}
       </div>
       {more && <button className="btn-secondary dr-more" disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?"جارٍ التحميل…":"اكتشف المزيد"}<ArrowDown size={16}/></button>}
-      {!!list.length && !loading && <footer className="df-feed-end"><span><Heart size={17} /></span><h2>بداية واحدة قد تكفي.</h2>
-        <p>{order === "all" ? "شخص واحد يستحقّ انتباهك. تعارفان متزامنان يمنحان كل بداية مساحتها." : "أفضل خمسة ترشيحات متاحة هذا الأسبوع، وفق تفضيلات الطرفين. وفي الاستكشاف قصص أخرى."}</p>
+      {!!list.length && !loading && <footer className="df-feed-end"><h2>{order === 'all' ? 'هذه الملفات المتاحة حاليًا' : 'هذه ترشيحاتك لهذا الأسبوع'}</h2>
+        <p>{order === "all" ? "يمكنك تعديل التصفية لرؤية ملفات أخرى تناسب تفضيلاتك." : "اختر «جميع الملفات» لرؤية المزيد، أو عدّل التصفية لتوسيع بحثك."}</p>
         <small><LockKeyhole size={12} /> تبدأ المحادثة بعد قبول الطرفين.</small></footer>}
+      <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
       {fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (

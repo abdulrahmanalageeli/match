@@ -55,7 +55,7 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
   };
   return <MotionReveal key={next.key} as="section" className="nf-next-step" duration={320} distance={5} aria-label="خطوتك التالية">
     <span className="nf-next-step-icon" aria-hidden="true"><Icon size={20} strokeWidth={1.6}/></span>
-    <div className="nf-next-step-copy"><span className="nf-next-step-eyebrow">{next.attention ? 'خطوة بانتظارك' : 'على مهل، بخطوة واضحة'}</span>
+    <div className="nf-next-step-copy"><span className="nf-next-step-eyebrow">{next.attention ? 'بانتظارك' : 'الخطوة التالية'}</span>
       <h2>{next.title}</h2><p>{next.detail}</p>
       <MotionPressButton onClick={open}>{next.action}<ArrowLeft size={14} aria-hidden="true"/></MotionPressButton>
     </div>

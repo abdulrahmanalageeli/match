@@ -1,14 +1,14 @@
 .nf-call { box-sizing: border-box; width: min(100%, 470px); max-width: 100%; max-height: 100dvh; margin: auto; padding: max(30px, env(safe-area-inset-top)) 28px max(26px, env(safe-area-inset-bottom)); border: 1px solid var(--line); border-radius: 32px; background: var(--page-background); color: var(--ink); box-shadow: 0 32px 100px #351d293d; font: inherit; animation: nf-call-enter .32s cubic-bezier(.2,.8,.2,1); overflow-y: auto; }
 .nf-call::backdrop { background: #27101ee0; backdrop-filter: blur(12px); }
 .nf-call header { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.nf-call header > span:last-child { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: .78rem; }
-.nf-call-demo { background: #5a0f2809; color: var(--muted); font-size: .76rem; text-align: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; line-height: 1.7; }
+.nf-call header > span:last-child { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: .875rem; }
+.nf-call-demo { background: #5a0f2809; color: var(--muted); font-size: .875rem; text-align: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; line-height: 1.7; }
 .nf-call-identity { text-align: center; padding-top: 40px; }
 .nf-call-halo { position: relative; width: 154px; height: 154px; margin: 0 auto 32px; }
 .nf-call-halo::before, .nf-call-halo::after { content: ''; position: absolute; inset: -12px; border: 1px solid #c5838e55; border-radius: 50%; pointer-events: none; }
 .nf-call-halo::after { inset: -24px; opacity: .45; }
 .nf-call-halo[data-active]::before { animation: nf-call-pulse 3s ease-in-out infinite; }
-.nf-call-avatar { position: relative; height: 100%; width: 100%; border-radius: 50%; overflow: hidden; background: linear-gradient(140deg, #eacbbd, #b87b8b); box-shadow: 0 14px 30px #5a0f2824; border: 4px solid var(--surface); box-sizing: border-box; }
+.nf-call-avatar { position: relative; height: 100%; width: 100%; border-radius: 50%; overflow: hidden; background: var(--blush); box-shadow: 0 14px 30px #5a0f2824; border: 4px solid var(--surface); box-sizing: border-box; }
 .nf-call-avatar > svg { width: 100%; height: 100%; }
 .nf-call-avatar > .nf-person-avatar { width: 100%; height: 100%; border-radius: inherit; }
 .nf-call-avatar > span { display: grid; place-items: center; height: 100%; font-size: 3.8rem; color: var(--accent-fill); }
@@ -27,15 +27,15 @@
 .nf-call-control button[data-tone=end] { color: #fff9f2; background: #9b2944; border-color: #9b2944; box-shadow: 0 8px 20px #9b294424; }
 .nf-call-control button[data-tone=accept] { color: #fffaf6; background: #356756; border-color: #356756; }
 .nf-call-control button:disabled { opacity: .45; }
-.nf-call-control > span { text-align: center; font-size: .78rem; line-height: 1.5; color: var(--muted); }
-.nf-call-footnote { display: flex; justify-content: center; align-items: flex-start; gap: 6px; color: var(--muted); font-size: .74rem; text-align: center; line-height: 1.9; margin: 24px 0 4px; }
+.nf-call-control > span { text-align: center; font-size: .875rem; line-height: 1.5; color: var(--muted); }
+.nf-call-footnote { display: flex; justify-content: center; align-items: flex-start; gap: 6px; color: var(--muted); font-size: .875rem; text-align: center; line-height: 1.9; margin: 24px 0 4px; }
 .nf-call-footnote svg { flex: none; margin-top: 4px; }
 .nf-call-simulate { display: grid; gap: 6px; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
 .nf-call-simulate .btn-secondary { display: flex; align-items: center; justify-content: center; gap: 7px; }
-.nf-call-error { padding: 12px; border-radius: 12px; background: #9b29440c; border: 1px solid #9b29442a; color: #7c2439; line-height: 1.8; font-size: .85rem; text-align: center; }
+.nf-call-error { padding: 12px; border-radius: 12px; background: #9b29440c; border: 1px solid #9b29442a; color: #7c2439; line-height: 1.8; font-size: .875rem; text-align: center; }
 .nf-call-done { width: 100%; margin: 10px 0 8px; }
 .nf-call-minimize { position: absolute; top: max(20px, env(safe-area-inset-top)); inset-inline-start: 20px; width: 44px; height: 44px; display: grid; place-items: center; background: transparent; border: 0; color: var(--muted); }
-.nf-call-banner { position: fixed; z-index: 150; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(calc(100% - 28px), 430px); display: flex; align-items: center; gap: 12px; padding: 15px 18px; border: 1px solid #c5838e66; border-radius: 18px; color: var(--paper); background: #5a0f28f5; box-shadow: 0 8px 28px #351d2933; font: inherit; font-size: .85rem; }
+.nf-call-banner { position: fixed; z-index: 150; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(calc(100% - 28px), 430px); display: flex; align-items: center; gap: 12px; padding: 15px 18px; border: 1px solid #c5838e66; border-radius: 18px; color: var(--paper); background: #5a0f28f5; box-shadow: 0 8px 28px #351d2933; font: inherit; font-size: .875rem; }
 .nf-call-banner b { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .nf-call-banner { animation: nf-call-banner-in .24s cubic-bezier(.2,.8,.2,1); }
 .nf-call-control button:focus-visible, .nf-call-minimize:focus-visible, .nf-call-banner:focus-visible { outline: 3px solid var(--rose); outline-offset: 4px; }

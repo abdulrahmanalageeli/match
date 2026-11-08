@@ -8,8 +8,6 @@ import {
   Eye,
   EyeOff,
   LockKeyhole,
-  Mail,
-  Smartphone,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -104,41 +102,31 @@ export function Auth({
     submit(String(f.get("email")).trim(), String(f.get("password")), login ? undefined : { ...agreements, version: LEGAL_NOTICE_VERSION });
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
+  const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
+    <legend>قبل إنشاء حسابك</legend>
+    {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
+      setAgreements(current => ({ ...current, [kind]: value }));
+      setAgreementError("");
+    }} />)}
+    <button type="button" className="nf-privacy-link" onClick={onPrivacy}>قراءة شروط الاستخدام وإشعار الخصوصية</button>
+    <p id="auth-agreement-help">الخيارات الثلاثة مطلوبة لإنشاء الحساب. أذونات الصورة والتفاصيل الحساسة والتقييم تُعرض منفصلة أثناء إعداد الملف.</p>
+    {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
+  </fieldset> : null;
   return (
     <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame">
       <section className="nf-auth-hero">
-        <div className="nf-auth-emblem" aria-hidden="true">
-          <img src="/brand/nisfayn-emblem.png" alt="" width="66" height="72" />
-          <span>{phoneMode ? <Smartphone size={20} /> : <Mail size={20} />}</span>
-        </div>
-        <span className="nf-auth-eyebrow">{login ? "مساحتك الخاصة" : "بداية هادئة وواضحة"}</span>
-        <h1>{login ? "أهلًا بعودتك" : "نبدأ بالحساب، ثم نتعرّف إليك."}</h1>
+        <span className="nf-auth-eyebrow">{login ? "نكمّل من حيث بدأنا" : "الخطوة الأولى · حسابك"}</span>
+        <h1>{login ? "أهلًا بعودتك." : "أنشئ حسابك"}</h1>
         <p className="flow-intro">
           {login
-            ? "سجّل الدخول للاطلاع على طلبك وترشيحاتك."
-            : phoneMode ? "تحقّق من جوالك، ثم ابنِ ملفًا يعكس شخصيتك وحدودك ورؤيتك للزواج." : "أنشئ حسابك، ثم ابنِ ملفًا يعكس شخصيتك وحدودك ورؤيتك للزواج."}
+            ? "سجّل الدخول لمتابعة طلباتك ومحادثاتك."
+            : phoneMode ? "ابدأ برقم جوالك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك." : "أنشئ حسابك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك."}
         </p>
-        {!login && <div className="nf-auth-promise" aria-label="مراحل الانضمام"><span><Check size={13} /> حساب</span><i /><span>ملفك</span><i /><span>المراجعة</span></div>}
+        {!login && <ol className="nf-auth-promise" aria-label="مراحل الانضمام"><li aria-current="step"><span>١</span> حسابك</li><li><span>٢</span> ملفك</li><li><span>٣</span> المراجعة</li></ol>}
+        <div className="nf-auth-aside" aria-hidden="true"><span>نصفين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
       </section>
       <section className="nf-auth-panel">
-      {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
-        <p>اختَر حسابك</p>
-        <div>
-          <a href="?test=1&actor=abdulrahman" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ع</span><span><strong>عبدالرحمن</strong><small><LockKeyhole size={11} aria-hidden="true"/> بكلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
-          <a href="?test=1&actor=reham" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ر</span><span><strong>رهام</strong><small>بدون كلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
-        </div>
-        <p className="nf-login-divider"><span>أو بالبريد الإلكتروني</span></p>
-      </section>}
-      {ready && !login && <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
-        <legend>قبل إنشاء حسابك</legend>
-        {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
-          setAgreements(current => ({ ...current, [kind]: value }));
-          setAgreementError("");
-        }} />)}
-        <button type="button" className="nf-privacy-link" onClick={onPrivacy}>قراءة شروط الاستخدام وإشعار الخصوصية</button>
-        <p id="auth-agreement-help">الخيارات الثلاثة مطلوبة لإنشاء الحساب. أذونات الصورة والتفاصيل الحساسة والتقييم تُعرض منفصلة أثناء إعداد الملف.</p>
-        {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
-      </fieldset>}
+      {phoneMode && consentReview}
       {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready ? (
         <form className="flow-form" onSubmit={send}>
           <label>
@@ -175,6 +163,7 @@ export function Auth({
             </span>
           </label>
           {!login && <small className="nf-password-help">استخدم ١٠ أحرف على الأقل.</small>}
+          {consentReview}
           <button className="f-primary" disabled={locked || !accepted}>
             {login ? "تسجيل الدخول" : "إنشاء الحساب"}
             <ArrowLeft size={18} />
@@ -204,6 +193,13 @@ export function Auth({
           <LockKeyhole size={14} aria-hidden="true" /> كيف نستخدم بياناتك؟
         </button>
       )}
+      {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
+        <p>اختَر حسابك</p>
+        <div>
+          <a href="?test=1&actor=abdulrahman" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ع</span><span><strong>عبدالرحمن</strong><small><LockKeyhole size={13} aria-hidden="true"/> بكلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
+          <a href="?test=1&actor=reham" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ر</span><span><strong>رهام</strong><small>بدون كلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
+        </div>
+      </section>}
       </section>
     </Frame>
   );

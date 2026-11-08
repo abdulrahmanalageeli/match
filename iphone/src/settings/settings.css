@@ -92,3 +92,54 @@
 @media(max-width:350px){.st-member-identity{padding:19px 16px;gap:12px}.st-member-actions{padding-inline:16px}.st-member-actions button{font-size:.72rem}.st-member-photos{padding-inline:16px}}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .st-member-actions button{transition:transform .18s,background .18s}html:not([data-nf-motion=reduced]) .st-member-actions button:active{transform:scale(.97)}}
 .st-photo-manager .pg-heading>div{display:none}.st-photo-manager .pg-heading{justify-content:flex-end;margin:12px 0}
+
+/* Account controls use one readable list hierarchy. */
+.phone-app .st-screen { background: #f7f6f3; color: #242326; }
+.phone-app .st-top { border-bottom-color: #e5e2de; }
+.phone-app .st-title { margin: 26px 0 5px; font-size: 28px; line-height: 1.5; color: #242326; }
+.st-intro { margin: 0 0 24px; color: #716b70; font-size: 16px; line-height: 1.7; }
+.phone-app .st-member-card { margin: 0 0 30px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; box-shadow: none; }
+.phone-app .st-member-identity { gap: 16px; padding: 20px 18px; }
+.phone-app .st-member-avatar { width: 62px; height: 72px; border: 0; border-radius: 10px; background: #eeece8; color: #54152a; box-shadow: none; }
+.phone-app .st-profile-kicker { font-size: 14px; color: #716b70; }
+.phone-app .st-member-identity h2 { margin: 3px 0; color: #242326; font-size: 22px; }
+.phone-app .st-member-identity p { color: #716b70; font-size: 14px; }
+.phone-app .st-member-actions { grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 18px 20px; }
+.phone-app .st-member-actions button { min-height: 48px; border-color: #cfcac7; border-radius: 8px; background: #fff; color: #54152a; font-size: 14px; box-shadow: none; }
+.phone-app .st-member-actions button:first-child { background: #fff; border-color: #cfcac7; color: #54152a; box-shadow: none; }
+.phone-app .st-member-actions button:last-child { background: #54152a; border-color: #54152a; color: #fff; }
+.phone-app .st-member-photos { padding: 16px 18px; min-height: 70px; border-top-color: #e5e2de; background: #fff; color: #242326; }
+.phone-app .st-member-photos strong { font-size: 16px; }
+.phone-app .st-member-photos small { margin-top: 4px; font-size: 14px; color: #716b70; }
+.phone-app .st-section { margin-top: 28px; }
+.phone-app .st-section h2 { margin: 0 0 10px; color: #716b70; font-size: 14px; line-height: 1.7; font-weight: 700; }
+.phone-app .st-group { border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: #fff; }
+.phone-app .st-row { min-height: 68px; padding: 16px 12px; gap: 14px; }
+.phone-app .st-row + .st-row::before { inset: 0 49px auto 12px; border-top-color: #e5e2de; opacity: 1; }
+.phone-app .st-row:hover:enabled { background: #f7f6f3; }
+.phone-app .st-row:active:enabled { background: #eeece8; }
+.phone-app .st-row-copy { gap: 5px; }
+.phone-app .st-row-copy strong { font-size: 16px; line-height: 1.6; font-weight: 600; }
+.phone-app .st-row-copy small { font-size: 14px; line-height: 1.75; color: #716b70; }
+.phone-app .st-icon { color: #716b70; }
+.phone-app .st-icon svg { width: 21px; height: 21px; }
+.phone-app .st-chevron { color: #91898c; }
+.phone-app .st-danger .st-row-copy, .phone-app .st-danger .st-icon { color: #963549; }
+.phone-app .st-switch-track { background: #aba5a5; }
+.phone-app .st-switch-track i { background: #fff; }
+.phone-app .st-switch[aria-checked=true] .st-switch-track { background: #54152a; }
+.phone-app .st-notice { padding: 0 14px 14px; color: #716b70; font-size: 14px; line-height: 1.8; }
+.st-dialog { background: #fff; color: #242326; border-color: #e5e2de; border-radius: 16px; }
+.st-dialog::backdrop { background: #24232666; }
+.st-dialog-icon { background: #f1f0ed; color: #54152a; }
+.st-dialog h2 { font-size: 22px; }
+.st-dialog p { color: #716b70; font-size: 16px; }
+.st-data-json, .st-candidate-preview { background: #f7f6f3; border-color: #e5e2de; }
+.phone-app .st-photo-manager h1, .phone-app .st-completion h1 { color: #242326; font-size: 28px; }
+.phone-app .st-completion p { font-size: 16px; }
+.phone-app .st-completion .st-completion-note { font-size: 14px; color: #716b70; }
+.phone-app .st-completion-card { padding: 22px 0; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; background: transparent; }
+.phone-app .st-completion-card h2 { color: #242326; font-size: 18px; }
+.phone-app .st-completion-stage select { background: #fff; border-color: #c9c4c1; border-radius: 10px; }
+@media (prefers-reduced-motion: reduce) { .st-row, .st-switch-track, .st-switch-track i { transition: none; } }
+html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) { transition: none; }

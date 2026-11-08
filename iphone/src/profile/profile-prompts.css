@@ -1,13 +1,13 @@
 .phone-app .mp-personal-prompts { margin: 0 0 27px; }
 .phone-app .mp-prompts-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
-.phone-app .mp-prompts-heading > span { width: 20px; height: 1px; background: #b78a70; }
-.phone-app .mp-prompts-heading h2 { flex: 1; margin: 0; font-size: .92rem; }
-.phone-app .mp-prompts-heading > small { color: #947280; font-size: .67rem; }
-.phone-app .mp-prompt-card { padding: 19px 19px 20px; border: 1px solid #b384922a; border-radius: 21px; background: linear-gradient(125deg,#fffaf3,#f5e8e3); margin-bottom: 11px; }
-.phone-app .mp-prompt-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: #73485d; font-size: .79rem; font-weight: 600; }
-.phone-app .mp-prompt-card h3 svg { flex: none; color: #ad7e87; }
-.phone-app .mp-prompt-card p { margin: 0; font-size: .92rem; line-height: 2; color: #684253; white-space: pre-line; overflow-wrap: anywhere; }
-.phone-app .mp-prompts-toggle { display: flex; justify-content: center; align-items: center; gap: 7px; width: 100%; min-height: 44px; border: 0; background: none; font: inherit; font-size: .77rem; color: #885469; cursor: pointer; }
+.phone-app .mp-prompts-heading > span { display: none; }
+.phone-app .mp-prompts-heading h2 { flex: 1; margin: 0; font-size: 18px; }
+.phone-app .mp-prompts-heading > small { color: #716b70; font-size: 12px; }
+.phone-app .mp-prompt-card { padding: 20px 0; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; background: transparent; margin: 0; }
+.phone-app .mp-prompt-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: #716b70; font-size: 14px; font-weight: 500; }
+.phone-app .mp-prompt-card h3 svg { flex: none; color: #716b70; }
+.phone-app .mp-prompt-card p { margin: 0; font-size: 16px; line-height: 2; color: #242326; white-space: pre-line; overflow-wrap: anywhere; }
+.phone-app .mp-prompts-toggle { display: flex; justify-content: center; align-items: center; gap: 7px; width: 100%; min-height: 44px; border: 0; background: none; font: inherit; font-size: 14px; color: #54152a; cursor: pointer; }
 .phone-app .mp-prompts-toggle[aria-expanded=true] svg { transform: rotate(180deg); }
 .nf-prompt-editor { padding: 19px 17px; border: 1px solid #dfc7c2; border-radius: 23px; background: linear-gradient(130deg,#fffaf4,#f7eae4); min-width: 0; }
 .nf-prompt-editor > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #71354e; }

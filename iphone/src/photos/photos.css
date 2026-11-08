@@ -1,6 +1,6 @@
 .nf-photos { width:min(calc(100vw - 24px),430px); max-height:calc(100dvh - 40px); padding:20px; margin:auto; border:1px solid var(--line); border-radius:24px; background:var(--page-background); color:var(--ink); overflow:auto; overscroll-behavior:contain; font-family:var(--font-ui); animation:nf-photo-enter 220ms cubic-bezier(.2,.75,.2,1) both; }
 .nf-photos::backdrop { background:#2f162b80; backdrop-filter:blur(5px); }
-.nf-photos header { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--accent); font-size:.85rem; }
+.nf-photos header { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--accent); font-size:.875rem; }
 .nf-photos header span { display:flex; align-items:center; gap:7px; }
 .nf-photos header button { display:grid; place-items:center; min-width:44px; min-height:44px; border:0; background:transparent; color:inherit; }
 .nf-photos h2 { margin:8px 0 12px; font-size:1.65rem; color:var(--accent); }
@@ -17,7 +17,7 @@
 .nf-photo-consent input { margin-top:5px; width:19px; height:19px; accent-color:var(--accent); flex-shrink:0; }
 .nf-photo-wait { padding:20px; text-align:center; background:var(--paper); border-radius:15px; color:var(--muted); }
 .nf-photo-wait p { margin-bottom:0; }
-.nf-photo-foot { font-size:.79rem; line-height:1.8; color:var(--muted); margin:16px 0 0; }
+.nf-photo-foot { font-size:.875rem; line-height:1.8; color:var(--muted); margin:16px 0 0; }
 .nf-photo-foot svg { vertical-align:middle; margin-inline-end:4px; }
 .nf-photo-error { color:#9c2b43; line-height:1.7; }
 @keyframes nf-photo-enter { from { opacity:0; transform:translateY(12px) scale(.985); } to { opacity:1; transform:none; } }

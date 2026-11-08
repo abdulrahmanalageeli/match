@@ -137,8 +137,8 @@ body {
 }
 .flow-body h1 {
   margin: 0 0 8px;
-  font-size: 35px;
-  line-height: 1.23;
+  font-size: 30px;
+  line-height: 1.4;
 }
 .flow-intro {
   margin: 0 0 22px;
@@ -323,9 +323,7 @@ body {
   background: none;
 }
 .membership-card {
-  background:
-    radial-gradient(ellipse at 4% 0%, #c5838e40, transparent 65%),
-    linear-gradient(135deg, #773247, var(--accent-fill));
+  background: var(--accent-fill);
   border-color: var(--accent-fill);
   color: var(--paper);
   display: grid;

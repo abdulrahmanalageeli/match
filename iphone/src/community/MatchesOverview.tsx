@@ -32,13 +32,12 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
   return <section className="screen-content cm-view mo-view">
     <header className="cm-header"><Brand /></header>
     <MotionReveal as="header" className="mo-heading" distance={8}>
-      <span className="mo-eyebrow">بدايات تستحقّ وقتك</span>
       <h1 tabIndex={-1}>التعارف</h1>
-      <p>من اخترتهم، ومن ينتظر فرصة ليتعرّف عليك.</p>
+      <p>تعارفاتك الحالية والطلبات الواردة والصادرة.</p>
     </MotionReveal>
     <MotionReveal className="mo-summary" delay={60} distance={8}>
       <span className="mo-summary-symbol"><Heart size={23} strokeWidth={1.4}/></span>
-      <div><strong>{accepted ? `${number.format(accepted)} تعارف حالي` : 'مساحة لبداية جديدة'}</strong><span>{accepted >= 2 ? 'مساحتان لحديث يستحقّ اهتمامك' : accepted ? 'مساحة متاحة لتعارف جديد' : 'مساحتان لتعارف تأخذه بجدية'}</span></div>
+      <div><strong>{accepted ? `${number.format(accepted)} تعارف حالي` : 'لا يوجد تعارف حالي'}</strong><span>{accepted >= 2 ? 'وصلت إلى الحد الأقصى: تعارفان متزامنان' : accepted ? 'يمكنك بدء تعارف آخر' : 'يمكنك بدء تعارفين في الوقت نفسه'}</span></div>
       <span className="mo-capacity" aria-label={`${accepted} من أصل تعارفين`}><i data-filled={accepted > 0 || undefined}/><i data-filled={accepted > 1 || undefined}/></span>
     </MotionReveal>
     <div className="mo-filters" role="group" aria-label="تصفية التعارف">
@@ -49,8 +48,8 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
     {loading && !connections.length && !error && <CommunitySkeleton variant="conversations" label="جارٍ تحضير مساحة التعارف…"/>}
     {!loading && !error && !rows.length && <MotionReveal className="mo-empty" key={filter} distance={6}>
       <Heart size={27} strokeWidth={1.3}/>
-      <h2>{search ? 'لم نجد هذا الاسم' : filter === 'incoming' ? 'لا توجد طلبات بانتظارك' : filter === 'outgoing' ? 'لم ترسل طلبًا بعد' : filter === 'accepted' ? 'تعارفك القادم يبدأ باختيار' : 'بدايتك قد تكون قريبة'}</h2>
-      <p>{search ? 'جرّب اسمًا آخر أو امسح البحث.' : 'تصفّح الملفات على مهلك. وبعد القبول المتبادل، تبدأ مساحتكما الخاصة.'}</p>
+      <h2>{search ? 'لم نجد هذا الاسم' : filter === 'incoming' ? 'لا توجد طلبات بانتظارك' : filter === 'outgoing' ? 'لم ترسل طلبًا بعد' : filter === 'accepted' ? 'لا يوجد تعارف حالي' : 'لا توجد طلبات تعارف بعد'}</h2>
+      <p>{search ? 'جرّب اسمًا آخر أو امسح البحث.' : 'تصفّح الملفات وأرسل طلب تعارف. تُفتح المحادثة بعد قبول الطرف الآخر.'}</p>
       <MotionPressButton className="btn-secondary" onClick={search ? () => setQuery('') : onBrowse}>{search ? 'مسح البحث' : 'استكشف الملفات'}<ArrowLeft size={16}/></MotionPressButton>
     </MotionReveal>}
     <div className="mo-list" aria-label="التعارف الحالي والطلبات" aria-busy={loading}>
@@ -66,7 +65,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             <ArrowLeft className="mo-profile-arrow" size={17}/>
           </button>
           <div className="mo-card-foot">
-            <span>{current ? row.unreadCount ? `${number.format(row.unreadCount)} رسائل جديدة` : 'خطوتكما التالية تبدأ بحديث' : waiting ? 'اطّلع على الملف واختر على مهلك' : 'سنخبرك عندما يصلك الرد'}</span>
+            <span>{current ? row.unreadCount ? `${number.format(row.unreadCount)} رسائل جديدة` : 'يمكنكما متابعة المحادثة' : waiting ? 'راجع الملف للقبول أو الاعتذار' : 'سنخبرك عندما يصلك الرد'}</span>
             <MotionPressButton className={current ? 'mo-action mo-action-current' : 'mo-action'} onClick={event => current ? onConversation(row.id, event.currentTarget.closest('.mo-card')?.querySelector('.mo-avatar') ?? null) : onProfile(row.id)}>{current ? <MessageCircle size={16}/> : <ArrowLeft size={15}/>} {current ? 'المحادثة' : waiting ? 'مراجعة الطلب' : 'عرض الطلب'}</MotionPressButton>
           </div>
         </MotionReveal>;

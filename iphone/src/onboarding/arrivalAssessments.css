@@ -1,138 +1,102 @@
-/* Carry the welcome's warm light through the questions, without distracting motion. */
-.phone-app .nf-intake.nf-intake--new {
-  --arrival-card: linear-gradient(155deg, #fffdf9e8, #fcf2eacc);
-  --arrival-border: #dfc9c5;
-  --arrival-choice: #fffaf6e8;
-  --arrival-selected: linear-gradient(135deg, #824255, #5a1731 78%);
-  --arrival-shadow: 0 10px 30px #6b354508, inset 0 1px 0 #fffaf3;
+/* Questions sit directly on the page; borders identify the available answers. */
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) {
+  --arrival-card: #fff;
+  --arrival-border: #e5e2de;
+  --arrival-choice: #fff;
+  --arrival-selected: #f4eef0;
+  --arrival-shadow: none;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-question-workspace, .nf-marriage-group, .nf-consent-gate, .nf-consent-review, .nf-intake-review-group, .nf-photo-blur, .nf-photo-reveal, .nf-photo-avatar-gate, .bn-story-editor) {
-  border: 1px solid var(--arrival-border);
-  background: var(--arrival-card);
-  box-shadow: var(--arrival-shadow);
-  border-radius: 22px;
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-question-workspace, .nf-personality-card, .bn-scene, .bn-story-editor) {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid #e5e2de;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
-.phone-app .nf-intake.nf-intake--new .compat-question-workspace { padding: 20px 18px; }
-.phone-app .nf-intake.nf-intake--new :is(.compat-panel h3, .nf-personality-card > p, .bn-scene h3) {
-  color: #51172e;
-  font-size: clamp(1.35rem, 5.8vw, 1.65rem);
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-marriage-group, .nf-consent-gate, .nf-consent-review, .nf-intake-review-group, .nf-photo-blur, .nf-photo-reveal, .nf-photo-avatar-gate) {
+  border: 1px solid #e5e2de;
+  background: #fff;
+  box-shadow: none;
+  border-radius: 12px;
+}
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-panel h3, .nf-personality-card > p, .bn-scene h3) {
+  color: #242326;
+  font-size: clamp(1.4rem, 6vw, 1.65rem);
   font-weight: 700;
   line-height: 1.65;
-  letter-spacing: -.015em;
+  letter-spacing: 0;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-hint, .bn-answer-hint, .nf-photo-intro, .nf-avatar-intro) { color: #795c65; }
-.phone-app .nf-intake.nf-intake--new :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .nf-detail-choices button) {
-  min-height: 62px;
-  padding: 15px 16px;
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-hint, .compat-assessment-note, .compat-footnote, .compat-interest-note, .bn-answer-hint, .nf-photo-intro, .nf-avatar-intro, .nf-detail-intro p > span, .nf-marriage-summary small, .nf-detail-footnote, .nf-sensitive-note, .nf-family-disclosure > small, .nf-personality > small, .nf-consent-gate > p, .nf-consent-choice small) { color: #716b70; font-size: 14px; line-height: 1.8; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-section-head, .compat-counter, .compat-topic-label, .compat-question-position, .nf-personality-progress, .nf-personality-card legend, .nf-question-map > summary, .nf-consent-manage > summary, .nf-consent-manage > summary small) { font-size: 14px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-topic-label, .nf-personality-card legend) { color: #716b70; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .nf-detail-choices button) {
+  min-height: 60px;
+  padding: 14px 16px;
   gap: 12px;
-  border: 1px solid #e1cdc9;
-  border-radius: 17px;
-  background: var(--arrival-choice);
-  box-shadow: 0 2px 6px #62344903, inset 0 1px 0 #fff;
-  color: #573641;
-  font-size: 1rem;
+  border: 1px solid #cfcac7;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+  color: #242326;
+  font-size: 16px;
   line-height: 1.75;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease-out;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease-out;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .nf-detail-choices button)[aria-pressed=true] {
-  background: var(--arrival-selected);
-  border-color: #6c2c43;
-  color: #fff8f2;
-  box-shadow: 0 6px 16px #64213612, inset 0 1px 0 #fff3;
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .nf-detail-choices button)[aria-pressed=true] {
+  background: #f4eef0;
+  border-color: #54152a;
+  color: #54152a;
+  box-shadow: inset 0 0 0 .5px #54152a;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-choice-dot, .nf-personality-options > button > i, .bn-option-check) {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  background: #fffdf7;
-  border-color: #c8aaa8;
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice-dot, .nf-personality-options > button > i, .bn-option-check) { width: 22px; height: 22px; flex: none; background: #fff; border-color: #bcb5b2; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice[aria-pressed=true] .compat-choice-dot, .nf-personality-options > button[aria-pressed=true] > i, .bn-options > button[aria-pressed=true] .bn-option-check) { background: #54152a; border-color: #54152a; color: #fff; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) {
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-bottom: 1px solid #d9d4d1;
+  border-radius: 0;
+  background: transparent;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-choice[aria-pressed=true] .compat-choice-dot, .nf-personality-options > button[aria-pressed=true] > i, .bn-options > button[aria-pressed=true] .bn-option-check) {
-  background: #fff5e8;
-  border-color: #fff5e8;
-  color: #641d37;
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button {
+  min-height: 48px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: #716b70;
+  font-size: 14px;
+  background: transparent;
+  transition: border-color 180ms ease, color 180ms ease;
 }
-.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) {
-  padding: 4px;
-  border: 1px solid #e6d6d0;
-  border-radius: 16px;
-  background: #eee0da99;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button {
-  min-height: 46px;
-  border-radius: 12px;
-  color: #775661;
-  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button[aria-pressed=true] {
-  background: #fffaf4;
-  border-color: transparent;
-  color: #5a1731;
-  box-shadow: 0 2px 6px #6421360c, inset 0 1px 0 #fff;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-chips button, .nf-question-map button, .bn-map button, .bn-importance button) {
-  min-height: 46px;
-  background: #fffaf4d9;
-  border-color: #dfcbc7;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-chips button, .bn-importance button)[aria-pressed=true],
-.phone-app .nf-intake.nf-intake--new :is(.nf-question-map button, .bn-map button)[aria-current=step] {
-  background: #f1dcdb;
-  color: #5a1731;
-  border-color: #a9697b;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-answer-meter, .nf-personality-meter, .bn-progress progress) { height: 4px; background: #e9d8d1; }
-.phone-app .nf-intake.nf-intake--new :is(.compat-answer-meter, .nf-personality-meter) > span { background: linear-gradient(90deg, #bf8490, #6b2540); transition: transform 380ms cubic-bezier(.2,.7,.3,1); }
-.phone-app .nf-intake.nf-intake--new .bn-progress progress::-webkit-progress-bar { background: #e9d8d1; }
-.phone-app .nf-intake.nf-intake--new .bn-progress progress::-webkit-progress-value { background: linear-gradient(90deg, #bf8490, #6b2540); }
-.phone-app .nf-intake.nf-intake--new .bn-progress progress::-moz-progress-bar { background: #8d5062; }
-.phone-app .nf-intake.nf-intake--new :is(.compat-next, .nf-personality-nav .nf-personality-next, .bn-scene-navigation .bn-next, .nf-avatar-use) {
-  min-height: 50px;
-  border: 1px solid #8f4d60;
-  border-radius: 15px;
-  color: #fff9f3;
-  background: var(--arrival-selected);
-  box-shadow: inset 0 1px 0 #ffffff26, 0 5px 14px #6421360a;
-  transition: transform 120ms ease-out;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .compat-next, .nf-personality-next, .bn-next, .nf-avatar-use):active { transform: scale(.98); }
-.phone-app .nf-intake.nf-intake--new .bn-story-scene {
-  padding: 19px 20px;
-  border: 1px solid #e1c8bb;
-  border-inline-start: 2px solid #b07b80;
-  border-radius: 19px;
-  background: linear-gradient(145deg, #fff6e8e6, #f2dcd773);
-  color: #70434e;
-  box-shadow: inset 0 1px #fff9ef;
-}
-.phone-app .nf-intake.nf-intake--new .bn-story-editor { padding: 21px 18px; }
-.phone-app .nf-intake.nf-intake--new :is(.compat-assessment-recap, .nf-personality-complete, .bn-completion) {
-  border: 1px solid #dfc8bb;
-  border-radius: 19px;
-  background: linear-gradient(135deg, #f8eadb, #f3e2df);
-  box-shadow: inset 0 1px #fff9ef;
-  color: #65414e;
-}
-.phone-app .nf-intake.nf-intake--new :is(.compat-assessment-recap, .bn-completion) button { min-height: 44px; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-photo-stage, .nf-avatar-preview) {
-  width: min(100%, 250px);
-  border-radius: 125px 125px 25px 25px;
-  border-color: #d5b9ad;
-  background: linear-gradient(150deg, #f8e7d3, #e9cbc7);
-  box-shadow: 0 16px 32px #6b354512, 0 0 0 5px #fff8ee7a;
-}
-.phone-app .nf-intake.nf-intake--new .nf-avatar-styles { gap: 10px; }
-.phone-app .nf-intake.nf-intake--new .nf-avatar-styles button { border-radius: 19px; border-color: #e0c9bf; background: #fffaf3; transition: border-color 180ms ease, box-shadow 180ms ease; }
-.phone-app .nf-intake.nf-intake--new .nf-avatar-styles button[aria-pressed=true] { border-color: #9c5b70; box-shadow: 0 0 0 2px #9c5b7022; }
-.phone-app .nf-intake.nf-intake--new .nf-tone-choices button { min-height: 80px; border-radius: 15px; background: #fff9f2a6; }
-.phone-app .nf-intake.nf-intake--new .nf-tone-choices button[aria-pressed=true] { background: #f0dcd8; border-color: #a9697b; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-photo-blur, .nf-photo-reveal) { padding: 20px 18px; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-photo-consent, .bn-share) { background: #fff9f0; border-color: #dcc7bd; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-marriage-emblem, .compat-detail-icon, .bn-story-editor-heading > span, .nf-photo-reveal header > span) { background: #f0ddd7; color: #824255; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-question-about, .nf-question-map, .bn-map, .compat-refine, .nf-consent-manage) > summary { min-height: 46px; color: #79525f; }
-.phone-app .nf-intake.nf-intake--new :is(.nf-personality-card, .compat-panel, .bn-scene, .bn-story-editor) { --arrival-question-x: -10px; }
-.phone-app .nf-intake.nf-intake--new .compat-panel[data-dir=back] { --arrival-question-x: 10px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button[aria-pressed=true] { background: transparent; border-bottom-color: #54152a; color: #54152a; box-shadow: none; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-chips button, .nf-question-map button, .bn-map button, .bn-importance button, .compat-sections button) { min-height: 46px; background: #fff; border-color: #d9d4d1; border-radius: 8px; font-size: 14px; transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-chips button, .bn-importance button, .compat-sections button)[aria-pressed=true],
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-question-map button, .bn-map button)[aria-current=step] { background: #f4eef0; color: #54152a; border-color: #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-answer-meter, .nf-personality-meter, .bn-progress progress) { height: 3px; background: #e5e2de; border-radius: 0; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-answer-meter, .nf-personality-meter) > span { background: #54152a; transition: transform 380ms cubic-bezier(.2,.7,.3,1); }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .bn-progress progress::-webkit-progress-bar { background: #e5e2de; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .bn-progress progress::-webkit-progress-value { background: #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .bn-progress progress::-moz-progress-bar { background: #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-next, .nf-personality-nav .nf-personality-next, .bn-scene-navigation .bn-next, .nf-avatar-use) { min-height: 52px; border: 1px solid #54152a; border-radius: 10px; color: #fff; background: #54152a; font-size: 16px; box-shadow: none; transition: transform 120ms ease-out; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .compat-next, .nf-personality-next, .bn-next, .nf-avatar-use):active { transform: scale(.98); }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-previous, .compat-skip, .compat-navigation button, .nf-personality-nav button, .nf-personality-nav .nf-personality-later) { font-size: 14px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .bn-story-scene { padding: 18px 20px; border: 0; border-inline-start: 3px solid #a58b94; border-radius: 0; background: #eeece8; color: #4f4a4e; box-shadow: none; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-assessment-recap, .nf-personality-complete, .bn-completion) { border: 1px solid #d3dcd5; border-radius: 10px; background: #edf3ee; box-shadow: none; color: #3a6348; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-assessment-recap, .bn-completion) button { min-height: 44px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-photo-stage, .nf-avatar-preview) { width: min(100%, 250px); border-radius: 14px; border-color: #d9d4d1; background: #eeece8; box-shadow: none; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-avatar-styles { gap: 10px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-avatar-styles button { border-radius: 10px; border-color: #d9d4d1; background: #fff; transition: border-color 180ms ease, box-shadow 180ms ease; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-avatar-styles button[aria-pressed=true] { border-color: #54152a; box-shadow: 0 0 0 1px #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-tone-choices button { min-height: 80px; border-radius: 10px; background: #fff; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-tone-choices button[aria-pressed=true] { background: #f4eef0; border-color: #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-photo-blur, .nf-photo-reveal) { padding: 20px 18px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-photo-consent, .bn-share, .nf-family-disclosure, .nf-sensitive-note, .nf-intake-audience) { background: #f1f0ed; border-color: #e5e2de; border-radius: 10px; box-shadow: none; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-marriage-emblem, .compat-detail-icon, .bn-story-editor-heading > span, .nf-photo-reveal header > span) { background: transparent; border: 0; color: #54152a; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-question-about, .nf-question-map, .bn-map, .compat-refine, .nf-consent-manage) > summary { min-height: 46px; color: #716b70; font-size: 14px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-outline > summary small, .compat-outline-action, .compat-panel .compat-priority small, .compat-panel .compat-hard small) { font-size: 14px; color: #716b70; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-personality-card, .compat-panel, .bn-scene, .bn-story-editor) { --arrival-question-x: -10px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .compat-panel[data-dir=back] { --arrival-question-x: 10px; }
 
 @keyframes nf-arrival-question-in {
   from { opacity: .35; transform: translateX(var(--arrival-question-x, -10px)); }
@@ -147,14 +111,26 @@
   html:not([data-nf-motion=reduced]) .phone-app .nf-intake.nf-intake--new :is(.compat-assessment-recap, .nf-personality-complete, .bn-completion) { animation: nf-arrival-assessment-complete 440ms cubic-bezier(.2,.75,.3,1) both; }
 }
 @media (max-width: 360px) {
-  .phone-app .nf-intake.nf-intake--new :is(.compat-question-workspace, .bn-story-editor, .nf-photo-blur, .nf-photo-reveal) { padding: 17px 13px; }
-  .phone-app .nf-intake.nf-intake--new :is(.compat-choice, .nf-personality-options > button, .bn-options > button) { padding: 13px 12px; gap: 10px; font-size: .95rem; }
-  .phone-app .nf-intake.nf-intake--new .nf-tone-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .phone-app .nf-intake.nf-intake--new :is(.compat-section-head, .nf-personality-progress, .bn-progress > div) { flex-wrap: wrap; row-gap: 6px; }
+  .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-photo-blur, .nf-photo-reveal) { padding: 17px 13px; }
+  .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice, .nf-personality-options > button, .bn-options > button) { padding: 13px 12px; gap: 10px; }
+  .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-tone-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-section-head, .nf-personality-progress, .bn-progress > div) { flex-wrap: wrap; row-gap: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .phone-app .nf-intake.nf-intake--new :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) * { animation: none !important; transition: none !important; }
-  .phone-app .nf-intake.nf-intake--new :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) button:active { transform: none; }
+  .phone-app .nf-intake :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) * { animation: none !important; transition: none !important; }
+  .phone-app .nf-intake :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) button:active { transform: none; }
 }
-html[data-nf-motion=reduced] .phone-app .nf-intake.nf-intake--new :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) * { animation: none !important; transition: none !important; }
-html[data-nf-motion=reduced] .phone-app .nf-intake.nf-intake--new :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) button:active { transform: none; }
+html[data-nf-motion=reduced] .phone-app .nf-intake :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) * { animation: none !important; transition: none !important; }
+html[data-nf-motion=reduced] .phone-app .nf-intake :is(.compat-fields, .nf-personality, .bn-fields, .nf-photo-choice, .nf-marriage-fields) button:active { transform: none; }
+
+/* Preserve every assessment control without stacking extra space above it. */
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-personality-progress { margin: 2px 0 6px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-personality-progress > :last-child { font-size: 14px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-question-map { margin: 0; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-question-map > summary { min-height: 44px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-personality-card { margin-top: 8px; padding-top: 8px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-personality-card > p { margin-block: 6px 18px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .compat-fields { gap: 16px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .compat-question-workspace { padding-top: 12px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .compat-outline { margin-bottom: 4px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .compat-answer-meter { margin-block: 6px 10px; }

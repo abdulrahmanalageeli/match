@@ -1,204 +1,121 @@
-/* The arrival palette continues into conversations. Scroll and keyboard geometry
-   stay with the chat layout; only small controls and attachment panels animate. */
-.phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 10px; }
-.phone-app .cm-shell .cm-request {
-  padding: 16px;
-  gap: 13px;
-  border: 1px solid #8652681a;
-  border-radius: 22px;
-  background: linear-gradient(125deg, #fffcf7ee, #fcf4edf0);
-  box-shadow: 0 3px 6px #59243b03, 0 10px 28px #59243b05;
-  transition: border-color 180ms ease, box-shadow 180ms ease, scale 120ms ease;
-}
-.phone-app .cm-shell .cm-request .cm-avatar {
-  width: 48px;
-  height: 54px;
-  border-radius: 22px 22px 16px 16px;
-  box-shadow: 0 0 0 3px #fffaf4, 0 0 0 4px #d8b8ae55;
-}
-.phone-app .cm-shell .cm-request-copy { gap: 6px; }
-.phone-app .cm-shell .cm-request-copy strong { color: #4c2437; font-size: 1rem; line-height: 1.5; }
-.phone-app .cm-shell .cm-request-copy .cm-inbox-preview { color: #765864; font-size: .8rem; line-height: 1.65; }
-.phone-app .cm-shell .cm-inbox-meta { gap: 9px; color: #765864; }
-.phone-app .cm-shell .cm-inbox-meta time { font-size: .66rem; font-variant-numeric: tabular-nums; }
-.phone-app .cm-shell .cm-inbox-meta .cm-request-icon { color: #98717d; }
-.phone-app .cm-shell .cm-unread {
-  min-width: 22px;
-  min-height: 22px;
-  padding: 2px 7px;
-  border-radius: 12px;
-  color: #fff8f0;
-  background: linear-gradient(140deg, #824255, #5a1731);
-  box-shadow: 0 3px 8px #5a17311c;
-  font-size: .68rem;
-}
-.phone-app .cm-shell .cm-inbox-search {
-  min-height: 48px;
-  margin-bottom: 18px;
-  padding-inline: 15px;
-  border-color: #86526825;
-  border-radius: 18px;
-  background: #fffaf5bd;
-  color: #916b77;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-.phone-app .cm-shell .cm-inbox-search:focus-within { border-color: #9c6375; box-shadow: 0 0 0 3px #8242550a; }
-.phone-app .cm-shell .cm-inbox-search input { color: #4c2437; }
-.phone-app .cm-shell .cm-inbox-search input::placeholder { color: #856a73; }
+/* Conversation chrome stays still; messages remain the visual focus. */
+.phone-app .cm-shell .cm-title { margin: 26px 0 20px; }
+.phone-app .cm-shell .cm-title h1 { font-size: 28px; line-height: 1.45; color: #242326; }
+.phone-app .cm-shell .cm-segments { gap: 22px; padding: 0; margin-bottom: 20px; border: 0; border-bottom: 1px solid #d8d4d1; border-radius: 0; background: transparent; }
+.phone-app .cm-shell .cm-segments button { min-height: 48px; padding: 10px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #716b70; font-size: 14px; margin-bottom: -1px; }
+.phone-app .cm-shell .cm-segments button[aria-pressed="true"] { background: transparent; color: #54152a; border-bottom-color: #54152a; box-shadow: none; }
+.phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 0; }
+.phone-app .cm-shell .cm-request { padding: 20px 0; gap: 15px; border: 0; border-bottom: 1px solid #e5e2de; border-radius: 0; background: transparent; box-shadow: none; transition: background-color 180ms ease, scale 120ms ease; }
+.phone-app .cm-shell .cm-request .cm-avatar { width: 58px; height: 66px; border-radius: 9px; box-shadow: none; }
+.phone-app .cm-shell .cm-request-copy { gap: 7px; }
+.phone-app .cm-shell .cm-request-copy strong { color: #242326; font-size: 18px; line-height: 1.5; }
+.phone-app .cm-shell .cm-request-copy .cm-inbox-preview { color: #716b70; font-size: 14px; line-height: 1.7; }
+.phone-app .cm-shell .cm-inbox-meta { gap: 10px; color: #716b70; }
+.phone-app .cm-shell .cm-inbox-meta time { font-size: 12px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .cm-inbox-meta .cm-request-icon { color: #716b70; }
+.phone-app .cm-shell .cm-unread { min-width: 22px; min-height: 22px; padding: 2px 7px; border-radius: 50%; color: #fff; background: #54152a; box-shadow: none; font-size: 12px; }
+.phone-app .cm-shell .cm-inbox-search { min-height: 48px; margin-bottom: 12px; padding-inline: 14px; border: 1px solid #d8d4d1; border-radius: 8px; background: #fff; color: #716b70; transition: border-color 180ms ease; }
+.phone-app .cm-shell .cm-inbox-search:focus-within { border-color: #54152a; box-shadow: none; }
+.phone-app .cm-shell .cm-inbox-search input { color: #242326; font-size: 15px; }
+.phone-app .cm-shell .cm-inbox-search input::placeholder { color: #817a80; }
 
-.phone-app .cm-shell .cm-chat { background: #fcf7f0; }
-.phone-app .cm-shell .cm-chat-head {
-  padding: 12px 16px 8px;
-  gap: 9px;
-  background: linear-gradient(135deg, #fffaf5f5, #f8eee7f5);
-}
-.phone-app .cm-shell .cm-chat-head .cm-chat-person { gap: 11px; }
-.phone-app .cm-shell .cm-chat-head .cm-chat-person .cm-avatar {
-  width: 42px;
-  height: 47px;
-  border-radius: 20px 20px 15px 15px;
-  box-shadow: 0 0 0 3px #fffaf4, 0 0 0 4px #d8b8ae55;
-}
-.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy strong { font-size: 1rem; line-height: 1.5; color: #4c2437; }
-.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: .66rem; color: #765864; }
-.phone-app .cm-shell .cm-chat-head .cm-call-button {
-  background: #8242550b;
-  border: 1px solid #82425510;
-  color: #67263e;
-  border-radius: 16px;
-}
-.phone-app .cm-shell .cm-chat-head .cm-guide-button { color: #856270; }
-.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] {
-  gap: 9px;
-  padding: 5px 16px 10px;
-  background: #fcf7f0f5;
-  border-bottom-color: #8652681c;
-  box-shadow: 0 5px 14px #59243b03;
-}
-.phone-app .cm-shell .cm-chat-plan .cm-journey-summary strong { font-size: .73rem; font-weight: 600; color: #603048; }
-.phone-app .cm-shell .cm-chat-plan .cm-journey-summary small { color: #765864; font-size: .65rem; }
-.phone-app .cm-shell .cm-chat .cm-plan-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 11px;
-  background: linear-gradient(140deg, #f3e4de, #ead5d1);
-  color: #793c50;
-  box-shadow: inset 0 1px 0 #fffaf8;
-}
-.phone-app .cm-shell .cm-chat-plan .cm-journey-summary[data-pending] .cm-plan-mark {
-  background: linear-gradient(140deg, #824255, #5a1731);
-  color: #fff8f0;
-  box-shadow: 0 3px 9px #5a173119;
-}
-.phone-app .cm-shell .cm-chat-plan .cm-journey-summary[data-pending] small { color: #793c50; }
-.phone-app .cm-shell .cm-chat-plan .cm-agreement-summary > button { border-inline-color: #8652681c; color: #765864; }
-.phone-app .cm-shell .cm-end-visible { color: #7e3c51; font-size: .67rem; }
-.phone-app .cm-shell .cm-chat-stage { background: linear-gradient(160deg, #fcf7f0, #f8eee7); }
-.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 14px 16px 18px; gap: 7px; scrollbar-color: #b8929a55 transparent; }
-.phone-app .cm-shell .cm-chat .cm-chat-day { color: #856a73; font-size: .64rem; padding: 10px 32px 15px; }
+/* Keep viewport, scroll restoration, and keyboard geometry with chat layout. */
+.phone-app .cm-shell .cm-chat { background: #f7f6f3; }
+.phone-app .cm-shell .cm-chat-head { padding: 12px 16px; gap: 11px; min-height: 78px; background: #fff; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person { gap: 12px; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person .cm-avatar { width: 43px; height: 49px; border-radius: 8px; box-shadow: none; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy strong { font-size: 17px; line-height: 1.5; color: #242326; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: 12px; color: #716b70; margin-top: 3px; }
+.phone-app .cm-shell .cm-chat-head .cm-call-button { background: transparent; border: 1px solid #e5e2de; color: #54152a; border-radius: 8px; }
+.phone-app .cm-shell .cm-chat-head .cm-guide-button { color: #716b70; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] { gap: 3px 10px; padding: 0 16px 7px; background: #fff; border-bottom-color: #e5e2de; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step { min-height: 58px; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; padding: 10px 0 7px; background: transparent; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step strong { color: #242326; font-size: 14px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step small { color: #716b70; font-size: 12px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step .nf-next-caption { color: #716b70; font-size: 11px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step .nf-next-caption em { color: #54152a; font-size: 11px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step[data-pending] { border-color: #e5e2de; background: transparent; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step[data-pending] strong { color: #54152a; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .nf-journey-summary-mark { color: #54152a; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary strong { font-size: 14px; font-weight: 600; color: #242326; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary small { color: #716b70; font-size: 12px; }
+.phone-app .cm-shell .cm-chat .cm-plan-mark { width: 30px; height: 30px; border-radius: 6px; background: #eeece8; color: #54152a; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary[data-pending] .cm-plan-mark { background: #54152a; color: #fff; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary[data-pending] small { color: #54152a; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 36px; color: #716b70; font-size: 12px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-end-visible { min-height: 36px; color: #716b70; font-size: 12px; }
+.phone-app .cm-shell .cm-chat-stage { background: #f3f2ef; }
+.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 18px 16px 22px; gap: 8px; scrollbar-color: #c4bfbd transparent; }
+.phone-app .cm-shell .cm-chat .cm-chat-day { color: #716b70; font-size: 12px; padding: 10px 32px 18px; }
 .phone-app .cm-shell .cm-chat-day::before,
-.phone-app .cm-shell .cm-chat-day::after { background: linear-gradient(90deg, transparent, #c9a9a84d); }
-.phone-app .cm-shell .cm-chat .cm-bubble {
-  padding: 10px 14px 7px;
-  border: 1px solid #a07a851c;
-  border-radius: 21px 21px 21px 6px;
-  background: #fffdf9ed;
-  color: #48313b;
-  box-shadow: 0 2px 4px #59243b03, 0 5px 16px #59243b03;
-}
-.phone-app .cm-shell .cm-chat .cm-bubble.self {
-  border-color: transparent;
-  border-radius: 21px 21px 6px 21px;
-  background: linear-gradient(135deg, #824255, #5a1731);
-  color: #fff9f3;
-  box-shadow: 0 4px 13px #5a17310c;
-}
-.phone-app .cm-shell .cm-chat .cm-bubble p { font-size: .95rem; line-height: 1.7; }
-.phone-app .cm-shell .cm-chat .cm-message-meta { gap: 5px; margin-top: 4px; color: #806a73; font-size: .62rem; font-variant-numeric: tabular-nums; }
-.phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #e8ccd0; }
-.phone-app .cm-shell .cm-chat .cm-message-meta [data-receipt="read"] { color: #f3d9a9; }
-.phone-app .cm-shell .cm-chat .cm-bubble.failed { border-color: #bb6475; }
-.phone-app .cm-shell .cm-reply-quote { border-inline-start-color: #bc8d99; background: #eee1db99; border-radius: 11px; color: #654353; }
-.phone-app .cm-shell .cm-bubble.self .cm-reply-quote { background: #fff7ee12; color: #fff8f0; border-inline-start-color: #dfbd9d; }
-.phone-app .cm-shell .cm-message-row[data-reply-highlight] .cm-bubble { outline-color: #b99569; }
+.phone-app .cm-shell .cm-chat-day::after { background: #ddd8d5; }
+.phone-app .cm-shell .cm-chat .cm-bubble { padding: 11px 14px 8px; border: 1px solid #e5e2de; border-radius: 14px 14px 14px 4px; background: #fff; color: #242326; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #54152a; border-radius: 14px 14px 4px 14px; background: #54152a; color: #fff; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-bubble p { font-size: 16px; line-height: 1.8; }
+.phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #817a80; font-size: 11px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #dfcbd3; }
+.phone-app .cm-shell .cm-chat .cm-message-meta [data-receipt="read"] { color: #cadcc4; }
+.phone-app .cm-shell .cm-chat .cm-bubble.failed { border-color: #b54953; }
+.phone-app .cm-shell .cm-reply-quote { border-inline-start-color: #bba6ae; background: #f1eeee; border-radius: 5px; color: #575158; font-size: 13px; }
+.phone-app .cm-shell .cm-bubble.self .cm-reply-quote { background: #ffffff12; color: #fff; border-inline-start-color: #c5a9b4; }
+.phone-app .cm-shell .cm-message-row[data-reply-highlight] .cm-bubble { outline-color: #9b7886; }
 .phone-app .cm-shell .cm-chat .cm-jump,
-.phone-app .cm-shell .cm-chat .cm-history {
-  border-color: #a07a852c;
-  border-radius: 20px;
-  background: #fffaf5f5;
-  color: #713b50;
-  box-shadow: 0 5px 18px #5a17310a;
-}
+.phone-app .cm-shell .cm-chat .cm-history { border-color: #d8d4d1; border-radius: 8px; background: #fff; color: #54152a; box-shadow: 0 3px 12px #2423260c; font-size: 13px; }
+.phone-app .cm-shell .cm-unread-divider { font-size: 12px; color: #54152a; }
+.phone-app .cm-shell .cm-unread-divider::before,
+.phone-app .cm-shell .cm-unread-divider::after { background: #d8c8ce; }
+.phone-app .cm-shell .cm-unread-divider span { border: 0; background: transparent; padding: 3px 8px; }
 
-/* Keep the existing row-reverse ordering: the send action stays on the right. */
-.phone-app .cm-shell .cm-chat .cm-chat-compose {
-  background: #fcf7f0f5;
-  border-top-color: #86526814;
-  box-shadow: 0 -6px 22px #59243b03;
-}
-.phone-app .cm-shell .cm-chat .cm-composer-surface {
-  padding: 4px;
-  border-radius: 27px;
-  background: #fffdfa;
-  border-color: #a07a852b;
-  box-shadow: 0 3px 14px #59243b04;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-.phone-app .cm-shell .cm-chat .cm-composer-surface:focus-within { border-color: #a87584; box-shadow: 0 0 0 3px #82425508; }
-.phone-app .cm-shell .cm-chat-compose textarea { color: #4c2e3d; caret-color: #793c50; }
-.phone-app .cm-shell .cm-chat-compose textarea::placeholder { color: #8c737d; }
+/* The send action retains its established right-side ordering. */
+.phone-app .cm-shell .cm-chat .cm-chat-compose { padding: 12px 12px max(12px,env(safe-area-inset-bottom)); background: #fff; border-top-color: #e5e2de; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-composer-surface { padding: 4px; border-radius: 12px; background: #f7f6f3; border-color: #d8d4d1; box-shadow: none; transition: border-color 180ms ease; }
+.phone-app .cm-shell .cm-chat .cm-composer-surface:focus-within { border-color: #9d7d89; box-shadow: none; }
+.phone-app .cm-shell .cm-chat-compose textarea { color: #242326; caret-color: #54152a; font-size: 16px; }
+.phone-app .cm-shell .cm-chat-compose textarea::placeholder { color: #817a80; }
 .phone-app .cm-shell .cm-chat-compose form button,
-.phone-app .cm-shell .cm-media-send {
-  color: #fff8f0;
-  background: linear-gradient(140deg, #824255, #5a1731);
-  box-shadow: 0 3px 10px #5a17311a;
-}
-.phone-app .cm-shell .cm-chat-compose form button:disabled { color: #9b7b85; background: #eee1dd; box-shadow: none; }
-.phone-app .cm-shell .cm-composer-surface .cm-media-tools button { color: #916b79; }
-.phone-app .cm-shell .cm-chat-compose .cm-count { color: #856a73; }
-.phone-app .cm-shell .cm-chat-compose .cm-safety button { color: #765864; opacity: 1; }
-.phone-app .cm-shell .cm-reply-draft { background: #f1e4de; border-inline-start-color: #985a6e; border-radius: 14px; color: #603c4d; }
-.phone-app .cm-shell .cm-media-preview {
-  border-color: #a07a8526;
-  border-radius: 21px;
-  background: #fffaf5;
-  box-shadow: 0 8px 24px #59243b08;
-  animation: nf-chat-attachment-enter 240ms cubic-bezier(.2, .7, .2, 1) both;
-}
-.phone-app .cm-shell .cm-media-preview-actions { background: #f4e8e2; padding: 9px 11px; }
-.phone-app .cm-shell .cm-once-setting { border-color: #a07a8526; border-radius: 15px; background: #fcf7f0; }
-.phone-app .cm-shell .cm-recording { background: #f5e6e3; border-color: #ba87953b; border-radius: 18px; }
-.phone-app .cm-shell .cm-message-photo { border-radius: 15px; }
-.phone-app .cm-shell .cm-audio-play { background: #ead9d7; color: #793c50; }
-.phone-app .cm-shell .cm-bubble.self .cm-audio-play { background: #fff9f31f; color: #fff8f0; }
-.phone-app .cm-shell .cm-audio-track input[type="range"] { accent-color: #a9697c; }
-.phone-app .cm-shell .cm-bubble.self .cm-audio-track input[type="range"] { accent-color: #e7bdba; }
-.phone-app .cm-shell .cm-once-photo { border-color: #b88b972e; background: linear-gradient(125deg, #f8ece6, #f1e0dc); }
-.phone-app .cm-shell .cm-bubble.self .cm-once-photo { border-color: #fff8f026; background: #fff8f012; }
+.phone-app .cm-shell .cm-media-send { color: #fff; background: #54152a; border-radius: 8px; box-shadow: none; }
+.phone-app .cm-shell .cm-chat-compose form button:disabled { color: #9b9095; background: #e8e4e5; box-shadow: none; }
+.phone-app .cm-shell .cm-composer-surface .cm-media-tools button { color: #716b70; border-radius: 8px; }
+.phone-app .cm-shell .cm-chat-compose .cm-count { color: #716b70; font-size: 11px; }
+.phone-app .cm-shell .cm-chat-compose .cm-safety button { color: #716b70; opacity: 1; font-size: 12px; }
+.phone-app .cm-shell .cm-reply-draft { background: #f1eeee; border-inline-start-color: #9d7d89; border-radius: 6px; color: #575158; }
+.phone-app .cm-shell .cm-media-preview { border-color: #e5e2de; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px #2423260a; animation: nf-chat-attachment-enter 240ms cubic-bezier(.2, .7, .2, 1) both; }
+.phone-app .cm-shell .cm-media-preview-actions { background: #f3f2ef; padding: 10px 12px; }
+.phone-app .cm-shell .cm-once-setting { border-color: #e5e2de; border-radius: 7px; background: #f7f6f3; }
+.phone-app .cm-shell .cm-recording { background: #f2ecee; border-color: #dfcbd3; border-radius: 8px; }
+.phone-app .cm-shell .cm-message-photo { border-radius: 8px; }
+.phone-app .cm-shell .cm-audio-play { background: #eee5e8; color: #54152a; }
+.phone-app .cm-shell .cm-bubble.self .cm-audio-play { background: #ffffff1f; color: #fff; }
+.phone-app .cm-shell .cm-audio-track input[type="range"] { accent-color: #54152a; }
+.phone-app .cm-shell .cm-bubble.self .cm-audio-track input[type="range"] { accent-color: #dfcbd3; }
+.phone-app .cm-shell .cm-once-photo { border-color: #e5e2de; background: #f3f2ef; border-radius: 8px; }
+.phone-app .cm-shell .cm-bubble.self .cm-once-photo { border-color: #ffffff26; background: #ffffff12; }
+.phone-app .cm-shell .cm-chat-tools > button { min-height: 76px; }
+.phone-app .cm-shell .cm-chat-tools strong { font-size: 16px; color: #242326; }
+.phone-app .cm-shell .cm-chat-tools small { font-size: 13px; color: #716b70; line-height: 1.7; }
 .phone-app .cm-shell .cm-chat-head :is(.icon-btn, .cm-guide-button, .cm-call-button),
 .phone-app .cm-shell .cm-chat-compose form button,
 .phone-app .cm-shell .cm-media-tools button,
 .phone-app .cm-shell .cm-media-send,
-.phone-app .cm-shell .cm-audio-play { transition: scale 120ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+.phone-app .cm-shell .cm-audio-play { transition: scale 120ms ease, background-color 180ms ease; }
 .phone-app .cm-shell .cm-request:active,
 .phone-app .cm-shell .cm-chat-head :is(.icon-btn, .cm-guide-button, .cm-call-button):active,
 .phone-app .cm-shell .cm-chat-compose form button:not(:disabled):active,
 .phone-app .cm-shell .cm-media-tools button:not(:disabled):active,
 .phone-app .cm-shell .cm-media-send:not(:disabled):active,
-.phone-app .cm-shell .cm-audio-play:not(:disabled):active { scale: .97; }
+.phone-app .cm-shell .cm-audio-play:not(:disabled):active { scale: .98; }
 @media (hover: hover) {
-  .phone-app .cm-shell .cm-request:hover { border-color: #a8758455; box-shadow: 0 5px 22px #59243b0a; }
+  .phone-app .cm-shell .cm-request:hover { background: #eeece8; box-shadow: none; }
 }
 @media (max-width: 360px) {
-  .phone-app .cm-shell .cm-chat-head { padding-inline: 11px; gap: 6px; }
+  .phone-app .cm-shell .cm-chat-head { padding-inline: 10px; gap: 7px; }
+  .phone-app .cm-shell .cm-chat-head .cm-chat-person { gap: 8px; }
+  .phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: 11px; }
   .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] { padding-inline: 11px; gap: 6px; }
   .phone-app .cm-shell .cm-chat .cm-chat-log { padding-inline: 12px; }
-  .phone-app .cm-shell .cm-request { padding: 13px; gap: 11px; }
+  .phone-app .cm-shell .cm-request { gap: 12px; }
 }
-@keyframes nf-chat-attachment-enter {
-  from { opacity: 0; translate: 0 6px; }
-  to { opacity: 1; translate: 0 0; }
-}
+@keyframes nf-chat-attachment-enter { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
 @media (prefers-reduced-motion: reduce) {
   .phone-app .cm-shell .cm-request,
   .phone-app .cm-shell .cm-inbox-search,
@@ -210,3 +127,5 @@
   .phone-app .cm-shell .cm-audio-play { transition: none; }
   .phone-app .cm-shell .cm-media-preview { animation: none; }
 }
+html[data-nf-motion="reduced"] .phone-app .cm-shell :is(.cm-request,.cm-inbox-search,.cm-composer-surface,.cm-media-send,.cm-audio-play) { transition: none; }
+html[data-nf-motion="reduced"] .phone-app .cm-shell .cm-media-preview { animation: none; }

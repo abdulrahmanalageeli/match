@@ -1,3 +1,39 @@
 .pe-studio{gap:18px!important}.pe-heading h1{font-size:clamp(1.8rem,7vw,2.2rem);color:var(--accent-fill);margin:7px 0;line-height:1.5;outline:none}.pe-heading p{font-size:.85rem;color:#826b73;line-height:1.8;margin:0}.pe-member{display:flex;align-items:center;gap:13px;padding:16px;border:1px solid #e5d1c2;border-radius:22px;background:linear-gradient(120deg,#fffaf3,#f3e6dd)}.pe-member>div:nth-child(2){flex:1;min-width:0}.pe-member strong{display:block;font-size:1.05rem;color:var(--accent-fill);overflow-wrap:anywhere}.pe-member small{display:block;font-size:.72rem;line-height:1.75;margin-top:4px;color:#806570;overflow-wrap:anywhere}.pe-member .nf-studio-avatar{width:51px;height:61px;border-width:2px}.pe-member .nf-studio-avatar>svg{width:100%;height:100%}.pe-draft-status{display:flex;align-items:center;gap:3px;flex:none;font-size:.63rem;border:1px solid #d6c5b6;background:#fffaf2;color:#84745e;border-radius:99px;padding:4px 8px}.pe-draft-status[data-changed]{color:#963d57;background:#f9e9e7;border-color:#dbb9b5}.pe-tabs{display:flex;padding:4px;gap:4px;background:#f0e8e2;border:1px solid #e3d5ca;border-radius:15px}.pe-tabs button{display:flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:0;min-height:44px;border:1px solid transparent;border-radius:11px;background:none;color:#826573;font:inherit;font-size:.78rem}.pe-tabs button[aria-pressed=true]{background:#fffdfa;border-color:#e6d7ca;color:var(--accent-fill);box-shadow:0 2px 7px #5a0f2807;font-weight:700}.pe-section-note{font-size:.73rem;line-height:1.85;color:#846d74;margin:0 4px 12px}.pe-section .nf-studio-section{padding-block:16px}.pe-section .nf-studio-section strong{font-size:.88rem}.pe-section .nf-studio-section small{font-size:.71rem}.pe-section .nf-studio-section-icon{width:35px;height:39px;background:#f6efea}.pe-studio .nf-studio-actions{margin-top:0}.pe-studio .nf-studio-actions .f-primary{font-size:.88rem}.pe-studio .nf-studio-actions .f-primary:disabled{opacity:.45;box-shadow:none}.nf-intake[data-editing] .nf-intake-title{padding:8px 0 18px}.nf-intake[data-editing] .nf-intake-ridge,.nf-intake[data-editing] .nf-intake-seal{display:none}.nf-intake[data-editing] .nf-intake-title h1{font-size:1.65rem;margin-top:8px}.nf-intake[data-editing] .nf-intake-title p{font-size:.83rem;line-height:1.85}.nf-intake[data-editing] .nf-intake-kicker{margin-top:8px}
 @media(max-width:350px){.pe-tabs button{font-size:.71rem}.pe-member{padding:14px 12px;gap:10px}.pe-draft-status{font-size:.58rem}.pe-section .nf-studio-sections{padding-inline:13px}}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .pe-section{animation:pe-section-in .22s ease both}@keyframes pe-section-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+
+/* Editing shares the registration field language and readable account rows. */
+.phone-app .nf-intake[data-editing] { background: #f7f6f3; }
+.phone-app .nf-intake[data-editing] .nf-intake-header { background: #f7f6f3; border-bottom-color: #e5e2de; }
+.phone-app .pe-heading h1 { font-size: 28px; color: #242326; }
+.phone-app .pe-heading p, .phone-app .nf-intake[data-editing] .nf-intake-title p { font-size: 16px; color: #716b70; }
+.phone-app .nf-studio-eyebrow { font-size: 14px; color: #716b70; }
+.phone-app .pe-member { padding: 18px 0; border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: transparent; }
+.phone-app .pe-member strong { font-size: 18px; color: #242326; }
+.phone-app .pe-member small { font-size: 14px; color: #716b70; }
+.phone-app .pe-member .nf-studio-avatar { border: 0; border-radius: 10px; background: #eeece8; }
+.phone-app .pe-draft-status { border: 0; border-radius: 0; padding: 0; background: none; color: #52725c; font-size: 13px; }
+.phone-app .pe-draft-status[data-changed] { background: none; color: #54152a; }
+.phone-app .pe-tabs { padding: 0; border: 0; border-bottom: 1px solid #d9d4d1; border-radius: 0; background: transparent; }
+.phone-app .pe-tabs button { min-height: 50px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: #716b70; font-size: 14px; }
+.phone-app .pe-tabs button[aria-pressed=true] { border-bottom-color: #54152a; background: none; color: #54152a; box-shadow: none; }
+.phone-app .pe-section-note { margin: 0 0 14px; color: #716b70; font-size: 14px; }
+.phone-app .nf-studio-sections { padding: 0; border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: #fff; }
+.phone-app .pe-section .nf-studio-section { padding: 18px 12px; }
+.phone-app .pe-section .nf-studio-section + .nf-studio-section { border-top-color: #e5e2de; }
+.phone-app .pe-section .nf-studio-section strong { font-size: 16px; }
+.phone-app .pe-section .nf-studio-section small { font-size: 14px; line-height: 1.7; }
+.phone-app .pe-section .nf-studio-section-icon { width: 30px; background: none; color: #716b70; }
+.phone-app .nf-intake[data-editing] .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) { border: 1px solid #c9c4c1; border-radius: 10px; background: #fff; box-shadow: none; font-size: 16px; }
+.phone-app .nf-intake[data-editing] .nf-intake-fields label { font-size: 16px; }
+.phone-app .nf-intake[data-editing] :is(.nf-intake-actions, .nf-studio-actions) { background: #f7f6f3f5; border-top: 1px solid #e5e2de; }
+.phone-app .nf-intake[data-editing] :is(.nf-intake-actions, .nf-studio-actions) .f-primary { border-radius: 10px; background: #54152a; font-size: 16px; box-shadow: none; }
+.phone-app .nf-studio-actions small { font-size: 14px; }
+.phone-app .nf-studio-preview { padding: 20px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; color: #242326; box-shadow: none; }
+.phone-app .nf-studio-preview::before, .phone-app .nf-studio-preview::after { content: none; }
+.phone-app .nf-studio-preview-top { font-size: 14px; color: #716b70; }
+.phone-app .nf-studio-person h2 { color: #242326; font-size: 24px; }
+.phone-app .nf-studio-person h2 small, .phone-app .nf-studio-person p { color: #716b70; font-size: 14px; }
+.phone-app .nf-studio-avatar { border: 0; border-radius: 10px; background: #eeece8; color: #54152a; }
+.phone-app .nf-studio-bio { color: #4f4a4e; font-size: 16px; line-height: 1.8; }
+.phone-app .nf-studio-interests span { padding: 4px 8px; border-color: #e5e2de; border-radius: 5px; background: #f7f6f3; color: #716b70; font-size: 14px; }

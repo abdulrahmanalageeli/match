@@ -50,25 +50,6 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   return (
     <main className="nf-welcome nf-arrival" dir="rtl" data-opening={introducing && !reduced || undefined}
       data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
-      <div className="nf-arrival-scene" aria-hidden="true">
-        <div className="nf-arrival-distance">
-          <img src="/brand/arrival/riyadh-sunset.webp" width="1024" height="1536" alt="" fetchPriority="high" draggable="false" />
-        </div>
-        <div className="nf-arrival-foreground">
-          <img src="/brand/arrival/riyadh-sunset.webp" width="1024" height="1536" alt="" draggable="false" />
-        </div>
-        <div className="nf-arrival-sky" />
-        <svg className="nf-arrival-lights" viewBox="0 0 1024 1536" preserveAspectRatio="xMidYMid slice">
-          <g fill="#ffddaa">
-            <rect x="881" y="1258" width="3" height="5" rx="1" />
-            <rect x="849" y="1288" width="3" height="5" rx="1" />
-            <rect x="516" y="1249" width="3" height="4" rx="1" />
-            <rect x="740" y="1305" width="4" height="5" rx="1" />
-            <rect x="186" y="1390" width="4" height="5" rx="1" />
-          </g>
-        </svg>
-      </div>
-
       <header className="nf-arrival-brand" role="img" aria-label="نصفين">
         <svg className="nf-arrival-emblem" viewBox="0 0 768 768" aria-hidden="true">
           <defs>
@@ -81,15 +62,31 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
           <image href="/brand/nisfayn-heart.png" width="768" height="768" mask={`url(#${maskId})`} />
         </svg>
         <img className="nf-arrival-wordmark" src="/brand/nisfayn-wordmark.png" alt="" width="512" height="154" />
-        <MotionReveal as="span" active={introducing} delay={600} duration={800} aria-hidden="true">توافق أعمق. بداية أجمل.</MotionReveal>
+        <span className="nf-arrival-brand-note" aria-hidden="true">بداية لحياة مشتركة</span>
       </header>
 
       <section className="nf-arrival-copy">
-        <h1 id="arrival-heading"><MotionReveal as="span" active={introducing} delay={400} duration={800} distance={7}>شريك حياة.</MotionReveal><MotionReveal as="span" active={introducing} delay={650} duration={800} distance={7}>ومستقبل تبنونه سوا.</MotionReveal></h1>
-        <MotionReveal as="p" active={introducing} delay={900} duration={800} distance={7}>للجادّين في الزواج، بتوافق أعمق<br />وخطوات واضحة.</MotionReveal>
+        <span className="nf-arrival-eyebrow">تعارف جاد، بقصد الزواج</span>
+        <h1 id="arrival-heading"><MotionReveal as="span" active={introducing} delay={180} duration={700} distance={7}>شريك حياة.</MotionReveal><MotionReveal as="span" active={introducing} delay={350} duration={700} distance={7}>ومستقبل تبنونه سوا.</MotionReveal></h1>
+        <MotionReveal as="p" active={introducing} delay={500} duration={700} distance={7}>ابدأ من قيمك وما يهمّك، واكتشف من يشاركك<br className="nf-arrival-desktop-break" /> رؤيتك للزواج. بخطوات واضحة، وعلى مهل.</MotionReveal>
       </section>
 
       <div className="nf-arrival-illustration" aria-hidden="true">
+        <div className="nf-arrival-scene">
+          <div className="nf-arrival-distance">
+            <img src="/brand/arrival/riyadh-sunset.webp" width="1024" height="1536" alt="" fetchPriority="high" draggable="false" />
+          </div>
+          <div className="nf-arrival-sky" />
+          <svg className="nf-arrival-lights" viewBox="0 0 1024 1536" preserveAspectRatio="xMidYMid slice">
+            <g fill="#ffddaa">
+              <rect x="881" y="1258" width="3" height="5" rx="1" />
+              <rect x="849" y="1288" width="3" height="5" rx="1" />
+              <rect x="516" y="1249" width="3" height="4" rx="1" />
+              <rect x="740" y="1305" width="4" height="5" rx="1" />
+              <rect x="186" y="1390" width="4" height="5" rx="1" />
+            </g>
+          </svg>
+        </div>
         <SkiaSurface className="nf-arrival-arches" variant="intro" animate={introducing && !reduced && !hidden} fallback={<svg viewBox="0 0 520 400" fill="none" preserveAspectRatio="none">
           <path d="M -52 350 C -45 73 118 -35 260 151 C 356 269 401 335 520 365" pathLength="1" />
           <path d="M 572 350 C 565 73 402 -35 260 151 C 164 269 119 335 0 365" pathLength="1" />

@@ -41,8 +41,8 @@ export function OnboardingSandbox({close, startAtForm=false, returnLabel='الع
     {stage==='done' && <main className="nf-sandbox-finish">
       <div className="nf-sandbox-finish-copy">
         <div className="nf-sandbox-check"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><polyline points="9,21 17,29 32,12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pathLength="1"/></svg></div>
-        <span className="nf-sandbox-eyebrow">خطوة أقرب لبدايتك</span>
-        <h1 ref={heading} tabIndex={-1}>حكايتك أصبحت أوضح.<br/><span>والبداية تليق بك.</span></h1>
+        <span className="nf-sandbox-eyebrow">اكتملت تجربة إعداد الملف</span>
+        <h1 ref={heading} tabIndex={-1}>ملفك جاهز للمراجعة.</h1>
         <p>جمعت ما يعبّر عنك، وما يهمّك في شريك الحياة. يمكنك العودة لمراجعة أي تفصيل قبل الخطوة التالية.</p>
       </div>
       <div className="nf-sandbox-finish-actions">

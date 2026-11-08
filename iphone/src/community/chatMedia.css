@@ -41,3 +41,21 @@
   html:not([data-nf-motion=reduced]) .cm-once-photo { transition: background .18s ease, transform .18s ease; }
   html:not([data-nf-motion=reduced]) .cm-once-photo:active:not(:disabled) { transform: scale(.985); }
 }
+.cm-record-trigger { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.cm-composer-surface > .cm-media-composer[data-capturing] { flex: 1; min-width: 0; width: 100%; }
+.cm-composer-surface:has(> .cm-media-composer[data-capturing]) > form { display: none; }
+.cm-voice-capture { width: 100%; min-width: 0; padding: 3px 2px; }
+.cm-voice-capture .cm-recording { flex-wrap: nowrap; gap: 8px; padding: 6px; background: transparent; border: 0; }
+.cm-recording-copy { display: grid; flex: none; gap: 4px; }
+.cm-recording-copy b { font-size: .7rem; font-weight: 600; white-space: nowrap; }
+.cm-recording-copy time { font-size: .65rem; color: #997b85; margin: 0; }
+.cm-record-waveform { display: block; height: 32px; width: 100%; min-width: 32px; max-width: 180px; flex: 1; }
+.cm-voice-capture .cm-recording button { width: 40px; min-width: 40px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #f2e3e5; }
+.cm-voice-capture .cm-recording button:last-child { background: transparent; color: #9d6575; }
+.cm-record-gestures, .cm-record-locked { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 8px 4px; margin: 0; color: #997b85; font-size: .6rem; line-height: 1.7; }
+.cm-record-gestures > span, .cm-record-locked { display: flex; align-items: center; gap: 4px; }
+.cm-record-locked { justify-content: center; }
+.cm-audio-speed { display: grid; place-items: center; min-width: 44px; height: 44px; border: 0; border-radius: 14px; padding: 0 5px; background: #c5838f12; color: inherit; font: inherit; font-size: .67rem; font-weight: 600; cursor: pointer; }
+.cm-bubble.self .cm-audio-speed { background: #fff9f311; }
+.cm-audio-speed:focus-visible, .cm-record-trigger:focus-visible, .cm-voice-capture button:focus-visible { outline: 2px solid #bc8d99; outline-offset: 2px; }
+@media (max-width: 360px) { .cm-voice-capture .cm-recording { gap: 5px; } .cm-recording-copy b { font-size: .65rem; } .cm-record-gestures { font-size: .56rem; gap: 6px; } }

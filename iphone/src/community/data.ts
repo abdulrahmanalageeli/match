@@ -84,6 +84,15 @@ export type Message = {
   reactions?: MessageReaction[];
 };
 export type ChatAttachment = { id: string; kind: "photo" | "audio"; mime: string; size: number; duration?: number; viewOnce?: boolean; openedAt?: string | null };
+export type ThreadReadState = { firstUnreadId: string | null; unreadCount: number };
+export function searchMessageRows(rows: readonly Message[], query: string, beforeId?: string, kind?: ChatAttachment['kind']): Message[] {
+  const needle = query.trim().toLocaleLowerCase('ar');
+  if (needle.length > 100) throw Error('اكتب بحثًا أقصر من ١٠٠ حرف.');
+  const end = beforeId ? rows.findIndex(message => message.id === beforeId) : rows.length;
+  return rows.slice(0, Math.max(0, end)).filter(message => !message.deletedAt && !message.attachment?.viewOnce
+    && (!kind || message.attachment?.kind === kind)
+    && (needle ? message.body.toLocaleLowerCase('ar').includes(needle) : Boolean(message.attachment))).slice(-50);
+}
 export const deletedMessageText = 'تم حذف هذه الرسالة';
 export function sanitizeMessage(message: Message): Message {
   if (message.deletedAt) return { ...message, body: deletedMessageText, attachment: null, reply: null, reactions: [] };
@@ -162,6 +171,10 @@ export interface CommunitySource extends ManualVerificationSource {
   acknowledgeMatch?(key: string): Promise<void>;
   thread(requestId: string, beforeId?: string): Promise<Message[]>;
   messageChanges?(requestId: string, messageIds: string[]): Promise<Message[]>;
+  searchMessages?(requestId: string, query: string, beforeId?: string, kind?: ChatAttachment['kind']): Promise<Message[]>;
+  readState?(requestId: string): Promise<ThreadReadState>;
+  setTyping?(requestId: string, active: boolean): Promise<void>;
+  typingState?(requestId: string): Promise<boolean>;
   send(requestId: string, body: string, clientId: string, replyToId?: string): Promise<string>;
   deleteMessage?(requestId: string, messageId: string): Promise<void>;
   reactToMessage?(requestId: string, messageId: string, reaction: ReactionEmoji | null): Promise<MessageReaction[]>;
@@ -282,6 +295,10 @@ export function cloudCommunity(userId: string): CommunitySource {
     thread: (requestId, beforeId) =>
       timedRpc("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null }),
     messageChanges: (requestId, messageIds) => timedRpc("marriage_message_changes", { request_id: requestId, message_ids: messageIds }),
+    searchMessages: (requestId, query, beforeId, kind) => timedRpc('marriage_search_messages', { request_id: requestId, search_query: query, before_id: beforeId ?? null, media_kind: kind ?? null }),
+    readState: requestId => timedRpc('marriage_thread_read_state', { request_id: requestId }),
+    async setTyping(requestId, active) { await timedRpc('marriage_set_typing', { request_id: requestId, active }); },
+    typingState: requestId => timedRpc('marriage_typing_state', { request_id: requestId }),
     async deleteMessage(requestId, messageId) { await timedRpc('marriage_delete_message', { request_id: requestId, message_id: messageId }); },
     reactToMessage: (requestId, messageId, reaction) => timedRpc('marriage_react_to_message', { request_id: requestId, message_id: messageId, reaction }),
     send: (requestId, body, clientId, replyToId) =>
@@ -862,6 +879,14 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return end <= 0 ? [] : list.slice(Math.max(0, end - messagePageSize), end);
     },
     async messageChanges(id, messageIds) { const ids = new Set(messageIds); return threadRows(id).filter(row => ids.has(row.id)); },
+    async searchMessages(id, query, beforeId, kind) { return searchMessageRows(threadRows(id), query, beforeId, kind); },
+    async readState(id) {
+      const rows = threadRows(id), last = rows.findIndex(row => row.id === readThrough.get(id));
+      const unreadRows = rows.slice(last + 1).filter(row => !row.senderIsMe && !row.deletedAt);
+      return { firstUnreadId: unreadRows[0]?.id ?? null, unreadCount: unreadRows.length };
+    },
+    async setTyping(id) { threadRows(id); },
+    async typingState(id) { threadRows(id); return false; },
     async reactToMessage(id, messageId, reaction) {
       threadRows(id);
       const message = messages.get(id)?.find(row => row.id === messageId);

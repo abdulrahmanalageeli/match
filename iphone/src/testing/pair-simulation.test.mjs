@@ -20,7 +20,7 @@ const dataUrl=moduleUrl(resolveImports(data.source,data.file)+"\nclass CloudErro
 const pair=await compile('./pair.ts');
 const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'",JSON.stringify(dataUrl)),pair.file));
 const {pairSource,testProfile}=await import(pairUrl);
-const {withOwnReaction}=await import(dataUrl);
+const {withOwnReaction,searchMessageRows}=await import(dataUrl);
 
 function harness(t,overrides={}){
   const calls=[],aiCalls=[];
@@ -29,6 +29,8 @@ function harness(t,overrides={}){
   t.mock.method(globalThis,'fetch',async(_url,options)=>{
     const request=JSON.parse(options.body);calls.push(request);
     if(request.action==='notifications')return {ok:true,json:async()=>structuredClone(notifications)};
+    if(request.action==='typing_state')return {ok:true,json:async()=>true};
+    if(request.action==='typing_set')return {ok:true,json:async()=>true};
     if(request.action==='notifications_read')notifications.forEach(row=>{if(request.payload.ids.includes(row.id))row.readAt=new Date().toISOString();});
     if(request.action==='read')remote.read.reham=remote.messages.find(m=>m.id===request.payload.id)?.createdAt;
     if(request.action==='rematch_request')remote.rematchRequestedBy='reham';
@@ -50,6 +52,27 @@ function harness(t,overrides={}){
   return {source,account,profile,calls,remote,notifications,aiCalls,reopen:()=>pairSource(account,()=>profile).source};
 }
 async function acceptFictional(source,id){const request=await source.request(id);await source.demoAcceptOutgoing(request);return request;}
+
+test('library paging excludes deleted and view-once rows, and paired unread/typing stay in their own conversation',async t=>{
+ const list=Array.from({length:62},(_,i)=>({id:`m${i}`,sender:'abdulrahman',body:`Family ${i}`,createdAt:new Date(Date.now()-100000+i*100).toISOString()}));
+ list[1].attachment={id:'once',kind:'photo',viewOnce:true};list[2].deletedAt=new Date().toISOString();
+ list[3].attachment={id:'photo',kind:'photo'};list[4].attachment={id:'audio',kind:'audio'};
+ assert.equal(searchMessageRows(list,'FAMILY').length,50);
+ assert.deepEqual(searchMessageRows(list,'family','m12').map(m=>m.id),['m0','m3','m4','m5','m6','m7','m8','m9','m10','m11']);
+ assert.deepEqual(searchMessageRows(list,'').map(m=>m.id),['m3','m4']);
+ assert.deepEqual(searchMessageRows(list,'',undefined,'photo').map(m=>m.id),['m3']);
+ const h=harness(t,{messages:list,seriousness:{status:'family'},read:{reham:list[0].createdAt}});
+ assert.deepEqual(await h.source.readState('tester-pair'),{firstUnreadId:'m1',unreadCount:60});
+ assert.deepEqual((await h.source.searchMessages('tester-pair','')).map(m=>m.id),['m3','m4']);
+ await h.source.setTyping('tester-pair',true);assert.equal(await h.source.typingState('tester-pair'),true);
+ assert.deepEqual(h.calls.find(c=>c.action==='typing_set').payload,{active:true},'No draft text is transmitted');
+ const participant=(await h.source.discover({mode:'all'}))[0],local=await acceptFictional(h.source,participant.id);
+ await h.source.send(local,'local family fixture','mine');const calls=h.calls.length;
+ assert.equal((await h.source.searchMessages(local,'family'))[0].body,'local family fixture');
+ assert.equal(await h.source.typingState(local),false);await h.source.setTyping(local,true);
+ assert.deepEqual(await h.source.readState(local),{firstUnreadId:null,unreadCount:0});assert.equal(h.calls.length,calls);
+ h.remote.matched=false;await assert.rejects(h.source.searchMessages('tester-pair','family'),/غير متاحة/);
+});
 
 test('pair and local reactions use their own source, refresh historical messages and remove only the viewer choice',async t=>{
   const h=harness(t,{messages:[{id:'real',sender:'abdulrahman',body:'fixture',createdAt:new Date().toISOString(),reactions:[{emoji:'❤️',count:1,mine:false}]}]});

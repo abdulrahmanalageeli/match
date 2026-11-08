@@ -10,6 +10,8 @@ const bucket='nisfayn-test-chat';
 allowed.add('portrait_policy');
 allowed.add('message_delete');
 allowed.add('message_react');
+allowed.add('typing_set');
+allowed.add('typing_state');
 allowed.add('passport');
 allowed.add('family');
 const validSession=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);

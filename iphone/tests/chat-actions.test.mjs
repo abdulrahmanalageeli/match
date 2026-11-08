@@ -36,6 +36,9 @@ function mount(rows, draft = '') {
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) };
     if (name === 'react-dom') return { flushSync: fn => fn() };
     if (name === './useThread') return { useThread: () => thread };
+    if (name === './useChatReading') return { useChatReading: () => ({ positioned: true, firstUnreadId: null, remember: noop }) };
+    if (name === './useTyping') return { useTyping: () => ({ peerTyping: false, touch: noop, stop: noop }) };
+    if (name === './useWeeklyCardTransition') return { useWeeklyCardTransition: () => (_origin, swap) => swap() };
     if (name === '../voice/VoiceCalls') return { useVoiceCalls: () => null };
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= Object.defineProperty(() => null, 'name', { value: key }) }));
     return modules.get(name);

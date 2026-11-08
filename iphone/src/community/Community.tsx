@@ -17,6 +17,10 @@ import { lockChatViewport } from "./chatViewport";
 import { SwipeReply } from "./SwipeReply";
 import { MessageReactions, ReactionPicker } from './MessageReactions';
 import { MessageFocus } from './MessageFocus';
+import { ChatLibrary } from './ChatLibrary';
+import { useChatReading } from './useChatReading';
+import { useTyping } from './useTyping';
+import { journeyNext } from './journeyNext';
 import {
   ArrowLeft,
   ArrowDown,
@@ -97,6 +101,7 @@ import "./community.css";
 import "./weeklyCards.css";
 import "./discovery.css";
 import "./journey.css";
+import './chat-continuity.css';
 
 type Tab = "discover" | "inbox" | "chats";
 type CommunityProps = {
@@ -900,27 +905,30 @@ function SafetySheet({
   );
 }
 
-function JourneySummary({ source, id, open }: { source: CommunitySource; id: string; open: () => void }) {
+function JourneySummary({ source, id, name, open }: { source: CommunitySource; id: string; name: string; open: () => void }) {
   const [progress, setProgress] = useState<StepProgress | null>(null);
   useEffect(() => {
-    let active = true, fetching = false;
+    let active = true, fetching = false, dirty = false;
     async function refresh() {
-      if (!source.progress || fetching || document.hidden) return;
+      if (!source.progress || document.hidden) return;
+      if (fetching) { dirty = true; return; }
       fetching = true;
       try { const next = await source.progress(id); if (active) setProgress(next); }
       catch { /* The guide provides an explicit retry action. */ }
-      finally { fetching = false; }
+      finally { fetching = false; if (active && dirty) { dirty = false; void refresh(); } }
     }
     void refresh(); const stop = source.watch(() => void refresh());
-    return () => { active = false; stop(); };
+    document.addEventListener('visibilitychange', refresh);
+    return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); };
   }, [source, id]);
   if (!source.progress) return null;
-  const needsCommitment = progress && !progress.exclusive;
-  const pending = progress?.rewindPeer || (needsCommitment ? progress.consentPeer && !progress.consentMine : progress?.peer && !progress.mine);
-  return <MotionPressButton className="cm-journey-summary nf-journey-summary" data-pending={pending || undefined} onClick={open} aria-haspopup="dialog" aria-label="مسار التعارف">
-    <span className="nf-journey-summary-mark" aria-hidden="true"><Sparkles size={15}/></span><span className="nf-journey-summary-copy"><strong>مسار التعارف</strong>
-    <small>{progress?.rewindPeer ? 'طلب عودة · بانتظارك' : progress?.rewindMine ? 'طلب العودة قيد الانتظار' : needsCommitment && progress.consentMine ? 'بانتظار الطرف الآخر' : needsCommitment && pending ? 'طلب التزام · بانتظارك' : needsCommitment && progress.stage >= 1 ? 'مراجعة الالتزام الحصري' : pending ? 'خطوة جديدة · بانتظارك' : progress?.mine ? 'بانتظار الطرف الآخر' : progress ? journeyStages[progress.stage] : 'عرض المراحل'}</small></span>
-    <span className="nf-journey-summary-track" aria-hidden="true">{journeyStages.map((_,index)=><i key={index} data-complete={progress && index <= progress.stage || undefined}/>)}</span><ChevronLeft size={14} aria-hidden="true"/>
+  const next = journeyNext(progress, name);
+  return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label="مسار التعارف">
+    <span className="nf-journey-summary-mark" aria-hidden="true"><Sparkles size={17}/></span>
+    <MotionReveal as="span" className="nf-next-copy" key={`${next.title}:${next.waiting}:${next.agreed}`} distance={4} duration={220}>
+      <span className="nf-next-caption">خطوتكما القادمة<em>{next.waiting}</em></span>
+      <strong>{next.title}</strong><small>متفق عليه: {next.agreed}</small>
+    </MotionReveal><ChevronLeft size={14} aria-hidden="true"/>
   </MotionPressButton>;
 }
 
@@ -1054,6 +1062,7 @@ export function Chat({
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
   const [endMatch, setEndMatch] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
@@ -1083,7 +1092,11 @@ export function Chat({
   const lastReactions = lastRow?.reactions?.map(reaction => `${reaction.emoji}:${reaction.count}:${reaction.mine}`).join('|');
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget && !messageActionId);
+  const reading = useChatReading(source, connection.id, log, atBottom, thread, conversationAllowed && !profileOpen && !familyOpen);
+  const typing = useTyping(source, connection.id, chatReady && !profileOpen && !familyOpen && !recording && !libraryOpen && !privateHidden);
+  const profileIdentity = useRef<HTMLElement>(null);
+  const profileFlight = useWeeklyCardTransition();
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
@@ -1150,15 +1163,16 @@ export function Chat({
   useLayoutEffect(() => {
     if (!screen.current) return;
     return lockChatViewport(screen.current, () => {
-      if (atBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
+      if (reading.positioned && atBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
     });
-  }, [profileOpen, familyOpen, conversationAllowed]);
+  }, [profileOpen, familyOpen, conversationAllowed, reading.positioned]);
   useLayoutEffect(() => {
+    if (!reading.positioned) return;
     if (atBottom.current) scrollToLatest();
     else if (lastId) setShowLatest(true);
   }, [lastId, profileOpen, conversationAllowed]);
   useLayoutEffect(() => {
-    if (atBottom.current) scrollToLatest();
+    if (reading.positioned && atBottom.current) scrollToLatest();
   }, [replyDraft?.id, lastReactions]);
   useLayoutEffect(() => {
     const saved = anchor.current;
@@ -1173,6 +1187,7 @@ export function Chat({
     e.preventDefault();
     const body = thread.outbox.read().draft.trim();
     if (!chatReady || !body || body.length > 1000) return;
+    typing.stop();
     atBottom.current = true;
     composedId.current = thread.outbox.enqueue(body);
   }
@@ -1238,10 +1253,20 @@ export function Chat({
     finally { setEnding(false); }
   }
   function returnToChat() {
-    setProfileOpen(false);
+    const origin = profileIdentity.current?.querySelector<HTMLElement>('.mp-portrait');
+    const swap = () => { flushSync(() => setProfileOpen(false)); return screen.current?.querySelector<HTMLElement>('.cm-chat-person .cm-avatar') ?? null; };
+    if (origin) profileFlight(origin, swap); else swap();
     requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-chat-person')?.focus({ preventScroll: true }));
   }
-  if (profileOpen) return <Profile source={source} person={connection.person} connectionId={connection.id} back={returnToChat} backText="العودة للمحادثة"/>;
+  function openPartnerProfile(origin: HTMLButtonElement) {
+    reading.remember(); typing.stop();
+    const swap = () => { flushSync(() => setProfileOpen(true)); return profileIdentity.current?.querySelector<HTMLElement>('.mp-portrait') ?? null; };
+    const avatar = origin.querySelector<HTMLElement>('.cm-avatar');
+    if (avatar) profileFlight(avatar, swap); else swap();
+    void source.noteProfileOpen?.(connection.person.id).catch(() => {});
+  }
+  function openFamily() { reading.remember(); typing.stop(); setFamilyOpen(true); }
+  if (profileOpen) return <MotionReveal distance={10} fromOpacity={1} axis="x" duration={280}><Profile source={source} person={connection.person} identity={profileIdentity} connectionId={connection.id} back={returnToChat} backText="العودة للمحادثة"/></MotionReveal>;
   if (familyOpen && source.family) return <FamilyBridgePanel source={source} connectionId={connection.id} name={connection.person.alias} onBack={() => { setFamilyOpen(false); requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-guide-button')?.focus()); }}/>;
   return (
     <section className="cm-chat" ref={screen} data-conversation-id={connection.id} data-private-hidden={privateHidden || undefined}>
@@ -1249,16 +1274,16 @@ export function Chat({
       <header className="cm-chat-head">
         <ScenePaths className="cm-chat-arrival-paths" />
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
-        <button className="icon-btn" onClick={back} aria-label={backLabel}><ArrowRight /></button>
-        <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={() => { setProfileOpen(true); void source.noteProfileOpen?.(connection.person.id).catch(() => {}); }}>
+        <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
+        <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <Avatar name={connection.person.alias} avatar={connection.person.publicAvatar} />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>عرض الملف · قد تظهر زيارتك <ChevronLeft size={12}/></small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>عرض الملف · قد تظهر زيارتك <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || undefined}>
-        {conversationAllowed && <JourneySummary source={source} id={connection.id} open={() => setGuide(true)}/>}
+        {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
         <ConversationAgreement source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
@@ -1269,9 +1294,11 @@ export function Chat({
             const el = e.currentTarget;
             atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
             if (atBottom.current) setShowLatest(false);
+            reading.remember();
           }}
         >
           {thread.loading && !thread.ready && !thread.error && <CommunitySkeleton variant="messages" label="جارٍ تحميل المحادثة…"/>}
+          {thread.ready && !reading.positioned && <p className="cm-reading-restore" role="status">جارٍ الوصول إلى موضع القراءة…</p>}
           {(replyNotice || jumpToId) && <p className="cm-reply-notice" role="status">{jumpToId ? 'جارٍ الوصول إلى الرسالة الأصلية…' : replyNotice}</p>}
           {reactionError && <div className="cm-reaction-error" role="alert"><span>{reactionError}</span><button type="button" aria-label="إغلاق تنبيه التفاعل" onClick={() => setReactionError('')}><X size={16}/></button></div>}
           {thread.error && <div className="cm-chat-error" data-empty={!thread.rows.length || undefined}><Banner alert text={thread.error} />
@@ -1292,6 +1319,7 @@ export function Chat({
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
+              {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete && !canReact}
                 actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
                 onHold={() => openMessageActions(msg)}>
@@ -1320,7 +1348,7 @@ export function Chat({
             </div>;
           })}
         </div>
-        {showLatest && <button className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} /> أحدث الرسائل</button>}
+        {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
       {conversationAllowed && <div className="cm-chat-compose">
        {!recording && !replyDraft && <MotionPressButton type="button" className="cm-chat-insight-trigger" disabled={!chatReady} aria-haspopup="dialog" onClick={() => setInsightsOpen(true)}><Sparkles size={15} aria-hidden="true"/><strong>حديث أقرب</strong><span>أفكار تفتح الحوار</span><ChevronLeft size={14} aria-hidden="true"/></MotionPressButton>}
@@ -1333,7 +1361,8 @@ export function Chat({
           <textarea
             ref={composer} aria-label="رسالتك" rows={1} maxLength={1000} dir="rtl"
             value={thread.draft} disabled={!chatReady} placeholder={replyDraft ? "اكتب ردك…" : "رسالتك…"}
-            onChange={(e) => thread.outbox.write(e.target.value)}
+            onChange={(e) => { thread.outbox.write(e.target.value); if (e.target.value.trim()) typing.touch(); else typing.stop(); }}
+            onBlur={typing.stop}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey || window.matchMedia("(pointer: fine)").matches)) {
                 e.preventDefault(); e.currentTarget.form?.requestSubmit();
@@ -1356,6 +1385,7 @@ export function Chat({
           </div>
       </MessageFocus>}
       {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!chatReady || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
+      {libraryOpen && <ChatLibrary source={source} requestId={connection.id} name={connection.person.alias} onClose={() => setLibraryOpen(false)} onJump={id => { setLibraryOpen(false); atBottom.current = false; setJumpToId(id); }} />}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>
         {deleteError && <Banner alert text={deleteError}/>}
@@ -1365,10 +1395,11 @@ export function Chat({
       {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
         <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
         <div className="cm-chat-tools">
+          {source.searchMessages && <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}
           <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>
-          {source.family&&<button onClick={() => { setToolsOpen(false); setFamilyOpen(true); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
+          {source.family&&<button onClick={() => { setToolsOpen(false); openFamily(); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
           <button onClick={() => { setToolsOpen(false); setPhotos(true); }}><LockKeyhole size={20}/><span><strong>الصور الخاصة</strong><small>إدارة الصور التي تختار مشاركتها</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>إبلاغ</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>حظر</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
@@ -1388,7 +1419,7 @@ export function Chat({
         close={() => { if (!safetyBusy) { setSafety(null); setSafetyError(""); } }}/>}
       {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !chatReady || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
-        openFamily={source.family?()=>{setGuide(false);setFamilyOpen(true);}:undefined}
+        openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
         close={() => setGuide(false)} closed={() => { thread.outbox.clear(); close(); }}
         choose={chooseConversationPrompt}/>}
     </section>

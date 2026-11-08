@@ -15,6 +15,7 @@ import {
 import { flushSync } from "react-dom";
 import { lockChatViewport } from "./chatViewport";
 import { SwipeReply } from "./SwipeReply";
+import { MessageReactions, ReactionPicker } from './MessageReactions';
 import {
   ArrowLeft,
   ArrowDown,
@@ -78,6 +79,7 @@ import type {
   CommunitySource,
   Connection,
   Message,
+  ReactionEmoji,
   PublicPerson,
 } from "./data";
 import { denied, discardClosedDrafts, type Outgoing } from "./chatOutbox";
@@ -1058,6 +1060,7 @@ export function Chat({
   const [endError, setEndError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
+  const [reactionError, setReactionError] = useState('');
   const messageActionHelp = useId();
   const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
@@ -1075,6 +1078,7 @@ export function Chat({
   const anchor = useRef<{ id: string; offset: number } | null>(null);
   const lastRow = thread.rows.at(-1);
   const lastId = lastRow?.clientId || lastRow?.id;
+  const lastReactions = lastRow?.reactions?.map(reaction => `${reaction.emoji}:${reaction.count}:${reaction.mine}`).join('|');
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
   useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget && !messageActionId);
@@ -1084,15 +1088,23 @@ export function Chat({
     const saved = !status || status.status === 'saved';
     return { status, deleted,
       canReply: chatReady && !deleted && saved,
+      canReact: Boolean(source.reactToMessage) && chatReady && !deleted && saved,
       canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
     };
   }
   const actionMessage = thread.rows.find(msg => msg.id === messageActionId);
   const actionPermissions = actionMessage ? messagePermissions(actionMessage) : null;
-  const hasMessageActions = Boolean(actionPermissions?.canReply || actionPermissions?.canDelete);
+  const hasMessageActions = Boolean(actionPermissions?.canReply || actionPermissions?.canDelete || actionPermissions?.canReact);
   useEffect(() => {
     if (messageActionId && (!hasMessageActions || privateHidden)) setMessageActionId(null);
   }, [messageActionId, hasMessageActions, privateHidden]);
+
+  async function chooseReaction(message: Message, reaction: ReactionEmoji | null) {
+    if (!messagePermissions(message).canReact || thread.pendingReactionIds.has(message.id)) return;
+    setReactionError(''); setMessageActionId(null); feedback('selection');
+    try { await thread.reactToMessage(message.id, reaction); }
+    catch { setReactionError('لم يُحفظ التفاعل. اضغط مطولًا على الرسالة للمحاولة مجددًا.'); }
+  }
 
   useEffect(() => {
     const hide = () => setPrivateHidden(document.hidden);
@@ -1136,7 +1148,7 @@ export function Chat({
   }, [lastId, profileOpen, conversationAllowed]);
   useLayoutEffect(() => {
     if (atBottom.current) scrollToLatest();
-  }, [replyDraft?.id]);
+  }, [replyDraft?.id, lastReactions]);
   useLayoutEffect(() => {
     const saved = anchor.current;
     if (saved && !thread.loadingOlder && log.current) {
@@ -1250,6 +1262,7 @@ export function Chat({
         >
           {thread.loading && !thread.ready && !thread.error && <CommunitySkeleton variant="messages" label="جارٍ تحميل المحادثة…"/>}
           {(replyNotice || jumpToId) && <p className="cm-reply-notice" role="status">{jumpToId ? 'جارٍ الوصول إلى الرسالة الأصلية…' : replyNotice}</p>}
+          {reactionError && <div className="cm-reaction-error" role="alert"><span>{reactionError}</span><button type="button" aria-label="إغلاق تنبيه التفاعل" onClick={() => setReactionError('')}><X size={16}/></button></div>}
           {thread.error && <div className="cm-chat-error" data-empty={!thread.rows.length || undefined}><Banner alert text={thread.error} />
             <button className="btn-text" onClick={thread.refresh}>إعادة تحميل المحادثة</button>
             {!thread.ready && <button className="btn-text" onClick={back}>{backLabel}</button>}</div>}
@@ -1264,13 +1277,13 @@ export function Chat({
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
-            const { status, deleted, canReply, canDelete } = messagePermissions(msg);
+            const { status, deleted, canReply, canDelete, canReact } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
-              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete}
+              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete && !canReact}
                 actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
-                onHold={() => { if (canReply || canDelete) { feedback('selection'); setMessageActionId(msg.id); } }}>
+                onHold={() => { if (canReply || canDelete || canReact) { feedback('selection'); setMessageActionId(msg.id); } }}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
                 {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); }}>
@@ -1286,6 +1299,9 @@ export function Chat({
                       <span className="cm-receipt-label">{msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
                 </div>
               </div>
+              {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={connection.person.alias}
+                pending={thread.pendingReactionIds.has(msg.id)} disabled={!canReact}
+                open={() => { feedback('selection'); setMessageActionId(msg.id); }} />}
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
                 <span>{status.error}</span><button onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
@@ -1318,9 +1334,10 @@ export function Chat({
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
       </div>}
-      <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة لخيارات الرد والحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
+      <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
       {actionMessage && hasMessageActions && !privateHidden && <Sheet title="خيارات الرسالة" onClose={() => setMessageActionId(null)}>
         <MotionReveal className="cm-message-actions" distance={7} duration={240}>
+          {actionPermissions?.canReact && <ReactionPicker reactions={actionMessage.reactions} pending={thread.pendingReactionIds.has(actionMessage.id)} choose={reaction => void chooseReaction(actionMessage, reaction)}/>}
           <div className="cm-message-action-preview"><span>{actionMessage.senderIsMe ? 'رسالتك' : connection.person.alias}</span><p dir="auto">{actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}</p></div>
           <div className="cm-message-action-list">
             {actionPermissions?.canReply && <MotionPressButton onClick={() => { flushSync(() => setMessageActionId(null)); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}

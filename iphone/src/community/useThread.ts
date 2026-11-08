@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { messagePageSize, type CommunitySource, type Message } from "./data";
+import { messagePageSize, withOwnReaction, type CommunitySource, type Message, type ReactionEmoji } from "./data";
 import { chatError, denied, outboxFor } from "./chatOutbox";
 import { mergeMessages } from "./timeline";
 import { refreshHistoricalMessages } from "./messageRefresh";
@@ -14,6 +14,10 @@ export function useThread(source: CommunitySource, requestId: string) {
   const [error, setError] = useState("");
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [reactionChoices, setReactionChoices] = useState<Map<string, ReactionEmoji | null>>(() => new Map());
+  const pendingReactionWrites = useRef(new Map<string, symbol>());
+  const reactionRevision = useRef(0);
+  const settledReactions = useRef(new Map<string, number>());
   const historyStarted = useRef(false);
   const olderRequest = useRef(false);
   const epoch = useRef(0);
@@ -27,6 +31,9 @@ export function useThread(source: CommunitySource, requestId: string) {
     setRemote([]);
     setHasOlder(false);
     setLoadingOlder(false);
+    pendingReactionWrites.current.clear();
+    setReactionChoices(new Map());
+    settledReactions.current.clear();
     outbox.clear();
   }, [outbox]);
 
@@ -40,6 +47,7 @@ export function useThread(source: CommunitySource, requestId: string) {
       fetching = true;
       try {
         const snapshot = remoteRef.current;
+        const reactionSnapshot = reactionRevision.current;
         let generation = epoch.current;
         const page = await source.thread(requestId);
         if (!active || generation !== epoch.current) return;
@@ -58,7 +66,7 @@ export function useThread(source: CommunitySource, requestId: string) {
         newest.current = page.at(-1)?.id ?? null;
         const checkedIds = new Set(snapshot.map(row => row.id));
         const retainedIds = new Set([...history, ...page].map(row => row.id));
-        setRemote((previous) => historyStarted.current && !gap ? mergeMessages(previous.filter(row => !checkedIds.has(row.id) || retainedIds.has(row.id)), [...history, ...page]) : mergeMessages(previous.filter(row => retainedIds.has(row.id)), page));
+        setRemote((previous) => historyStarted.current && !gap ? mergeMessages(previous.filter(row => !checkedIds.has(row.id) || retainedIds.has(row.id)), protectRecentReactions([...history, ...page], previous, reactionSnapshot)) : mergeMessages(previous.filter(row => retainedIds.has(row.id)), protectRecentReactions(page, previous, reactionSnapshot)));
         if (!historyStarted.current) setHasOlder(page.length === messagePageSize);
         outbox.reconcile(page);
         setReady(true);
@@ -79,12 +87,45 @@ export function useThread(source: CommunitySource, requestId: string) {
     void refresh();
     const unwatch = source.watch(refresh);
     document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; epoch.current++; unwatch(); document.removeEventListener('visibilitychange', refresh); requestRefresh.current = () => {}; };
+    return () => { active = false; epoch.current++; pendingReactionWrites.current.clear(); setReactionChoices(new Map()); settledReactions.current.clear(); unwatch(); document.removeEventListener('visibilitychange', refresh); requestRefresh.current = () => {}; };
   }, [source, requestId, outbox, revoke]);
 
   // Also repair a missed broadcast or a response lost after the server committed.
   const lastSettlement = local.outgoing.filter((m) => m.status !== "sending").map((m) => m.clientId + m.status).join(",");
   useEffect(() => { if (lastSettlement) requestRefresh.current(); }, [lastSettlement]);
+
+  // A poll begun before a successful write must not briefly undo its result.
+  function protectRecentReactions(incoming: Message[], previous: Message[], snapshot: number) {
+    const reactions = new Map(previous.map(message => [message.id, message.reactions]));
+    return incoming.map(message => !message.deletedAt && (settledReactions.current.get(message.id) ?? 0) > snapshot
+      ? { ...message, reactions: reactions.get(message.id) ?? message.reactions } : message);
+  }
+
+  async function reactToMessage(messageId: string, reaction: ReactionEmoji | null) {
+    if (!source.reactToMessage || !ready || pendingReactionWrites.current.has(messageId)) return;
+    const message = remoteRef.current.find(row => row.id === messageId)
+      ?? outbox.read().outgoing.find(row => row.id === messageId && row.status === 'saved');
+    if (!message || message.deletedAt) return;
+    const token = Symbol(messageId), generation = epoch.current;
+    pendingReactionWrites.current.set(messageId, token);
+    setReactionChoices(previous => new Map(previous).set(messageId, reaction));
+    try {
+      const reactions = await source.reactToMessage(requestId, messageId, reaction);
+      if (generation !== epoch.current || pendingReactionWrites.current.get(messageId) !== token) return;
+      settledReactions.current.set(messageId, ++reactionRevision.current);
+      setRemote(previous => previous.map(row => row.id === messageId && !row.deletedAt ? { ...row, reactions } : row));
+    } catch (cause) {
+      if (generation !== epoch.current || pendingReactionWrites.current.get(messageId) !== token) return;
+      if (denied(cause)) revoke();
+      throw cause;
+    } finally {
+      if (pendingReactionWrites.current.get(messageId) === token) {
+        pendingReactionWrites.current.delete(messageId);
+        setReactionChoices(previous => { const next = new Map(previous); next.delete(messageId); return next; });
+        requestRefresh.current();
+      }
+    }
+  }
 
   async function older() {
     const first = remote[0];
@@ -92,11 +133,12 @@ export function useThread(source: CommunitySource, requestId: string) {
     olderRequest.current = true;
     setLoadingOlder(true);
     const generation = epoch.current;
+    const reactionSnapshot = reactionRevision.current;
     try {
       const page = await source.thread(requestId, first.id);
       if (epoch.current !== generation) return;
       historyStarted.current = true;
-      setRemote((previous) => mergeMessages(previous, page));
+      setRemote((previous) => mergeMessages(previous, protectRecentReactions(page, previous, reactionSnapshot)));
       outbox.reconcile(page);
       setHasOlder(page.length === messagePageSize);
       setError("");
@@ -113,6 +155,8 @@ export function useThread(source: CommunitySource, requestId: string) {
   // or follow the private realtime wake-up.
   const saved = new Set(remote.flatMap((m) => [m.id, ...(m.clientId && m.senderIsMe ? [m.clientId] : [])]));
   const deleted = new Map(remote.filter(m => m.deletedAt).map(m => [m.id, m.deletedAt]));
-  const rows = ready ? [...remote, ...local.outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)] : [];
-  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, draft: local.draft, loading, error, hasOlder, loadingOlder, older, ready, refresh: () => requestRefresh.current() };
+  const rows = ready ? [...remote, ...local.outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)]
+    .map(message => !message.deletedAt && reactionChoices.has(message.id)
+      ? { ...message, reactions: withOwnReaction(message.reactions, reactionChoices.get(message.id) ?? null) } : message) : [];
+  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, draft: local.draft, loading, error, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
 }

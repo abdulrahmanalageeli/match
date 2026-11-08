@@ -20,6 +20,7 @@ const dataUrl=moduleUrl(resolveImports(data.source,data.file)+"\nclass CloudErro
 const pair=await compile('./pair.ts');
 const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'",JSON.stringify(dataUrl)),pair.file));
 const {pairSource,testProfile}=await import(pairUrl);
+const {withOwnReaction}=await import(dataUrl);
 
 function harness(t,overrides={}){
   const calls=[],aiCalls=[];
@@ -34,6 +35,10 @@ function harness(t,overrides={}){
     if(request.action==='rematch_accept'){remote.matched=true;delete remote.rematchRequestedBy;}
     if(request.action==='match_seen')remote.celebrationSeen={reham:request.payload.key};
     if(request.action==='send')remote.messages.push({id:request.payload.clientId,sender:'reham',body:request.payload.body,createdAt:new Date().toISOString()});
+    if(request.action==='message_react'){
+      const message=remote.messages.find(m=>m.id===request.payload.id);
+      message.reactions=withOwnReaction(message.reactions,request.payload.reaction);
+    }
     return {ok:true,json:async()=>structuredClone(remote)};
   });
   const previous=globalThis.__pairSimulationAi;
@@ -45,6 +50,26 @@ function harness(t,overrides={}){
   return {source,account,profile,calls,remote,notifications,aiCalls,reopen:()=>pairSource(account,()=>profile).source};
 }
 async function acceptFictional(source,id){const request=await source.request(id);await source.demoAcceptOutgoing(request);return request;}
+
+test('pair and local reactions use their own source, refresh historical messages and remove only the viewer choice',async t=>{
+  const h=harness(t,{messages:[{id:'real',sender:'abdulrahman',body:'fixture',createdAt:new Date().toISOString(),reactions:[{emoji:'❤️',count:1,mine:false}]}]});
+  await h.source.inbox();
+  assert.deepEqual(await h.source.reactToMessage('tester-pair','real','❤️'),[{emoji:'❤️',count:2,mine:true}]);
+  assert.deepEqual((await h.source.messageChanges('tester-pair',['real']))[0].reactions,[{emoji:'❤️',count:2,mine:true}]);
+  assert.deepEqual(await h.source.reactToMessage('tester-pair','real','👍'),[{emoji:'❤️',count:1,mine:false},{emoji:'👍',count:1,mine:true}]);
+  assert.deepEqual(await h.source.reactToMessage('tester-pair','real',null),[{emoji:'❤️',count:1,mine:false}]);
+  const person=(await h.source.discover({mode:'all'}))[0],id=await acceptFictional(h.source,person.id);
+  await h.source.send(id,'local fixture','local');
+  const remoteCalls=h.calls.length;
+  assert.deepEqual(await h.source.reactToMessage(id,'local','😂'),[{emoji:'😂',count:1,mine:true}]);
+  assert.deepEqual((await h.source.messageChanges(id,['local']))[0].reactions,[{emoji:'😂',count:1,mine:true}]);
+  assert.deepEqual(await h.source.reactToMessage(id,'local','😂'),[{emoji:'😂',count:1,mine:true}],'Setting the same choice twice is idempotent');
+  assert.deepEqual(await h.source.reactToMessage(id,'local',null),[]);
+  assert.equal(h.calls.length,remoteCalls,'Fictional reactions never write to the paired chat');
+  await h.source.deleteMessage(id,'local');
+  await assert.rejects(h.source.reactToMessage(id,'local','❤️'),/غير متاحة/);
+  assert.deepEqual((await h.source.thread(id))[0].reactions,[]);
+});
 
 test('simulation notifications merge with real tester notifications and mark only their own storage read',async t=>{
   const h=harness(t);await h.source.inbox();

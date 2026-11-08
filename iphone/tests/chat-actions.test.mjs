@@ -24,7 +24,7 @@ function mount(rows, draft = '') {
     useRef: value => hooks[cursor++] ??= { current: value }, useId: () => `id-${cursor++}`,
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
-  const thread = { rows, ready: true, get draft() { return draft; }, refresh: noop, older: noop,
+  const thread = { rows, ready: true, pendingReactionIds: new Set(), get draft() { return draft; }, refresh: noop, older: noop,
     outbox: { read: () => ({ draft, reply }), replyTo: value => { reply = value; }, write: value => { draft = value; }, clear: noop },
   };
   const doc = { hidden: false, addEventListener: noop, removeEventListener: noop };
@@ -89,4 +89,25 @@ test('expiry, tombstones, pending sends and revoked capability preserve action p
   assert.equal(button(sheet(f.render()), 'حذف لدى الجميع'), undefined, 'A removed deletion capability is respected in the open menu');
   f.thread.rows = [msg('own', { senderIsMe: true, deletedAt: new Date().toISOString() })];
   assert.equal(sheet(f.render()), undefined, 'A remote deletion closes stale message actions'); f.close();
+});
+
+test('held reactions preserve the draft, close the menu and report failures without deleting or replying', async () => {
+  const f = mount([msg('received')], 'Unfinished'); const calls = [];
+  f.props.source.reactToMessage = async () => [];
+  f.thread.reactToMessage = async (...args) => { calls.push(args); };
+  let tree = f.render(); named(tree, 'SwipeReply')[0].props.onHold(); tree = f.render();
+  const picker = named(sheet(tree), 'ReactionPicker')[0]; assert(picker);
+  picker.props.choose('❤️'); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, [['received', '❤️']]); assert.equal(sheet(f.render()), undefined);
+  assert.equal(f.draft, 'Unfinished'); assert.equal(f.deleted, 0); assert.equal(f.reply, undefined);
+  f.thread.pendingReactionIds.add('received'); named(f.render(), 'SwipeReply')[0].props.onHold();
+  assert.equal(named(sheet(f.render()), 'ReactionPicker')[0].props.pending, true);
+  named(sheet(f.render()), 'ReactionPicker')[0].props.choose('👍');
+  assert.equal(calls.length, 1, 'A pending reaction cannot submit twice');
+  f.thread.pendingReactionIds.clear(); f.thread.reactToMessage = async () => { throw Error('offline'); };
+  named(sheet(f.render()), 'ReactionPicker')[0].props.choose(null); await new Promise(resolve => setImmediate(resolve));
+  assert(nodes(f.render()).some(node => node.props?.role === 'alert' && textOf(node).includes('لم يُحفظ التفاعل')));
+  f.thread.rows = [msg('received', { deletedAt: new Date().toISOString() })];
+  tree = f.render(); assert.equal(named(tree, 'MessageReactions').length, 0);
+  assert.equal(named(tree, 'SwipeReply')[0].props.actionsDisabled, true); f.close();
 });

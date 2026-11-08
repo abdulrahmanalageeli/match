@@ -5,6 +5,16 @@ type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => !!value && typeof value === 'object' && !Array.isArray(value);
 const actors = ['abdulrahman', 'reham'] as const;
 type Actor = typeof actors[number];
+const reactionEmojis = ['❤️', '😂', '😮', '😢', '🙏', '👍'] as const;
+function messageReactions(value: unknown, actor: Actor): unknown {
+  if (!record(value)) return value;
+  const { reactionBy, reactions: _reactions, ...message } = value;
+  const own = record(reactionBy) ? reactionBy : {};
+  return { ...message, reactions: value.deletedAt ? [] : reactionEmojis.flatMap(emoji => {
+    const count = actors.filter(member => own[member] === emoji).length;
+    return count ? [{ emoji, count, mine: own[actor] === emoji }] : [];
+  }) };
+}
 const publicFields = ['displayName', 'age', 'gender', 'city', 'profession', 'bio', 'lookingFor', 'valuesStatement',
   'lifeTogether', 'education', 'marriageIntent', 'familyPreference', 'interestIds', 'appearanceVersion'] as const;
 const publicBasics = ['heightCm', 'weightKg', 'nationality', 'maritalStatus', 'currentWives', 'polygynyPreference',
@@ -46,5 +56,6 @@ export function projectPairState<T>(value: T): T {
   if (Object.hasOwn(value.profiles, actor)) profiles[actor] = value.profiles[actor];
   if (Object.hasOwn(value.profiles, peer)) profiles[peer] = peerProfile(value.profiles[peer],
     record(sensitivePublication) && sensitivePublication[peer] === true);
-  return { ...state, pairFit: fit, profiles } as T;
+  return { ...state, pairFit: fit, profiles,
+    ...(Array.isArray(state.messages) ? { messages: state.messages.map(message => messageReactions(message, actor)) } : {}) } as T;
 }

@@ -9,6 +9,7 @@ const allowed=new Set(['portrait_info','portrait_remove','heartbeat','interest',
 const bucket='nisfayn-test-chat';
 allowed.add('portrait_policy');
 allowed.add('message_delete');
+allowed.add('message_react');
 allowed.add('passport');
 allowed.add('family');
 const validSession=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);

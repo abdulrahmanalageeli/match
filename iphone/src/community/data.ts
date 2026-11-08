@@ -60,6 +60,16 @@ export type RequestHistoryEntry = {
   createdAt: string; closedAt?: string | null; outcome: "closed" | "expired";
 };
 export type MessageReply = { id: string; body: string; senderIsMe: boolean; deletedAt?: string | null };
+export const messageReactionEmojis = ['❤️', '😂', '😮', '😢', '🙏', '👍'] as const;
+export type ReactionEmoji = typeof messageReactionEmojis[number];
+export type MessageReaction = { emoji: ReactionEmoji; count: number; mine: boolean };
+export function withOwnReaction(reactions: readonly MessageReaction[] | undefined, emoji: ReactionEmoji | null): MessageReaction[] {
+  return messageReactionEmojis.flatMap(value => {
+    const existing = reactions?.find(item => item.emoji === value);
+    const count = Math.max(0, (existing?.count ?? 0) - Number(existing?.mine ?? false)) + Number(value === emoji);
+    return count ? [{ emoji: value, count, mine: value === emoji }] : [];
+  });
+}
 export type Message = {
   id: string;
   senderIsMe: boolean;
@@ -71,11 +81,12 @@ export type Message = {
   readAt?: string | null;
   reply?: MessageReply | null;
   deletedAt?: string | null;
+  reactions?: MessageReaction[];
 };
 export type ChatAttachment = { id: string; kind: "photo" | "audio"; mime: string; size: number; duration?: number; viewOnce?: boolean; openedAt?: string | null };
 export const deletedMessageText = 'تم حذف هذه الرسالة';
 export function sanitizeMessage(message: Message): Message {
-  if (message.deletedAt) return { ...message, body: deletedMessageText, attachment: null, reply: null };
+  if (message.deletedAt) return { ...message, body: deletedMessageText, attachment: null, reply: null, reactions: [] };
   return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
@@ -153,6 +164,7 @@ export interface CommunitySource extends ManualVerificationSource {
   messageChanges?(requestId: string, messageIds: string[]): Promise<Message[]>;
   send(requestId: string, body: string, clientId: string, replyToId?: string): Promise<string>;
   deleteMessage?(requestId: string, messageId: string): Promise<void>;
+  reactToMessage?(requestId: string, messageId: string, reaction: ReactionEmoji | null): Promise<MessageReaction[]>;
   sendMedia?(requestId: string, file: Blob, kind: ChatAttachment["kind"], clientId: string, duration?: number, viewOnce?: boolean): Promise<string>;
   mediaUrl?(requestId: string, attachmentId: string): Promise<string>;
   openMedia?(requestId: string, attachmentId: string): Promise<string>;
@@ -271,6 +283,7 @@ export function cloudCommunity(userId: string): CommunitySource {
       timedRpc("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null }),
     messageChanges: (requestId, messageIds) => timedRpc("marriage_message_changes", { request_id: requestId, message_ids: messageIds }),
     async deleteMessage(requestId, messageId) { await timedRpc('marriage_delete_message', { request_id: requestId, message_id: messageId }); },
+    reactToMessage: (requestId, messageId, reaction) => timedRpc('marriage_react_to_message', { request_id: requestId, message_id: messageId, reaction }),
     send: (requestId, body, clientId, replyToId) =>
       timedRpc(
         replyToId ? "marriage_reply" : "marriage_message",
@@ -849,6 +862,15 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return end <= 0 ? [] : list.slice(Math.max(0, end - messagePageSize), end);
     },
     async messageChanges(id, messageIds) { const ids = new Set(messageIds); return threadRows(id).filter(row => ids.has(row.id)); },
+    async reactToMessage(id, messageId, reaction) {
+      threadRows(id);
+      const message = messages.get(id)?.find(row => row.id === messageId);
+      if (!message || message.deletedAt) throw Error('الرسالة غير متاحة.');
+      if (reaction !== null && !messageReactionEmojis.includes(reaction)) throw Error('اختر تفاعلًا صالحًا.');
+      message.reactions = withOwnReaction(message.reactions, reaction);
+      notify();
+      return message.reactions;
+    },
     async deleteMessage(id, messageId) {
       threadRows(id);
       const message = messages.get(id)?.find(row => row.id === messageId);
@@ -857,7 +879,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if (Date.now() - Date.parse(message.createdAt) > 48 * 60 * 60 * 1000) throw Error('يمكن الحذف لدى الجميع خلال ٤٨ ساعة من الإرسال.');
       if (message.attachment) mediaFiles.delete(message.attachment.id);
       message.deletedAt = new Date().toISOString();
-      message.body = deletedMessageText; message.attachment = null; message.reply = null;
+      message.body = deletedMessageText; message.attachment = null; message.reply = null; message.reactions = [];
       notify();
     },
     async sendMedia(id, file, kind, clientId, duration, viewOnce = false) {

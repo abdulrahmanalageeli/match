@@ -59,13 +59,13 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     const top=sections.current?.getBoundingClientRect().top??100;
     const pinned=top>=0&&top<=10;
     setSection(next);
-    if(pinned)requestAnimationFrame(()=>sections.current?.scrollIntoView({block:'start',behavior:'instant'}));
+    if(pinned)requestAnimationFrame(()=>document.getElementById(contentId)?.scrollIntoView({block:'start',behavior:'instant'}));
   }
   function openFit(){selectSection('fit');fitButton.current?.focus({preventScroll:true});}
   if(passportOpen&&canOpenPassport)return <SharedReadinessPassportPanel key={passportConnection} source={source} connectionId={passportConnection} name={person.alias} onBack={()=>{setPassportOpen(false);requestAnimationFrame(()=>passportButton.current?.focus());}}/>;
   return <article className="mp-profile screen-content" dir="rtl" data-self-preview={preview||undefined}>
     <header className="mp-navigation"><button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button><span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span></header>
-    {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين. هذه معاينة لبياناتك المحفوظة.</span></p>}
+    {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين.</span></p>}
     <section className="mp-hero" data-weekly-featured={featured||undefined} ref={identity} aria-label={`ملف ${person.alias}`}>
       <ScenePaths className="mp-arrival-paths" parallax />
       <div className="mp-hero-copy"><span className="mp-eyebrow"><span aria-hidden="true"/>حكاية تستحقّ أن تُعرف</span><h1 ref={heading} tabIndex={-1}>{person.alias}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
@@ -83,13 +83,13 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     </div>
     <MotionReveal id={contentId} className="mp-content" key={section} axis="x" distance={-8} duration={340}>
       {section==='about'&&<>
+        {person.bio?<Story title="عنّي">{person.bio}</Story>:<p className="mp-empty">لم تُضف نبذة شخصية بعد.</p>}
         {!!highlights.length&&<dl className="mp-highlights" aria-label="لمحة سريعة">{highlights.map(({label,value,icon:Icon})=><div key={label}><dt><Icon size={17} strokeWidth={1.5} aria-hidden="true"/>{label}</dt><dd dir="auto">{value}</dd></div>)}</dl>}
         {hasFit&&<MotionPressButton className="mp-fit-preview" aria-controls={contentId} onClick={openFit}>
           <span className="mp-fit-preview-heading"><Sparkles size={17} aria-hidden="true"/><strong>ما الذي يجمعكما؟</strong><ChevronLeft size={16} aria-hidden="true"/></span>
           {person.fit?<span className="mp-fit-preview-scores"><span><strong>{percentage===null?'—':ar.format(percentage)+'٪'}</strong><span>توافق التفضيلات</span></span><span><strong>{personality===null?'—':ar.format(personality)+'٪'}</strong><span>انسجام الشخصية</span></span></span>:<span className="mp-fit-preview-reason">{person.reasons[0]}</span>}
           <small>{person.fit&&(percentage===null||personality===null)?'عرض تفاصيل النتائج المتاحة وما يلزم لإكمالها':'من إجاباتكما · اكتشفا نقاط الاتفاق وما يحتاج حوارًا'}</small>
         </MotionPressButton>}
-        {person.bio?<Story title="عنّي">{person.bio}</Story>:<p className="mp-empty">لم تُضف نبذة شخصية بعد.</p>}
         {person.lookingFor&&<Story title="الشريك الذي أتمناه" accent>{person.lookingFor}</Story>}
         {!!person.interests.length&&<section className="mp-interests"><h2>أشياء أحبّها</h2><div>{person.interests.map(item=><span key={item}>{interests.find(i=>i.id===item)?.label??item}</span>)}</div></section>}
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
@@ -99,7 +99,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         {canOpenPassport&&<MotionPressButton ref={passportButton} className="mp-passport-link" onClick={()=>setPassportOpen(true)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>جواز الجاهزية للزواج</strong><small>الأقسام التي اختار مشاركتها معك</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>}
       </>}
       {section==='details'&&<>
-        <p className="mp-details-intro">تفاصيل اختار مشاركتها. افتح القسم الذي يهمّك.</p>
+        <p className="mp-details-intro">{preview?'تفاصيلك الظاهرة للأعضاء.':'تفاصيل اختار مشاركتها.'} افتح القسم الذي يهمّك.</p>
         <Facts title="حياتي اليوم" note="العمل، والتعليم، والعائلة" icon={BriefcaseBusiness} initiallyOpen items={[
           person.occupation&&['مجال العمل أو الوضع المهني',person.occupation],
           person.education&&['التعليم',person.education],

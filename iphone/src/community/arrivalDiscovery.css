@@ -96,6 +96,8 @@
 .phone-app .mp-profile { padding-top: 2px; }
 .phone-app .mp-navigation { min-height: 64px; margin-bottom: 5px; }
 .phone-app .mp-navigation > span { color: #9a7684; font-size: .73rem; }
+.phone-app .mp-preview-note { align-items: center; gap: 7px; margin: 0 2px 14px; padding: 0; border: 0; background: none; color: #866573; font-size: .72rem; }
+.phone-app .mp-preview-note svg { margin-top: 0; }
 .phone-app .mp-back { min-height: 44px; padding: 10px 13px; border: 1px solid #ac7d8c24; border-radius: 14px; background: #fff9f2a6; color: #78445c; }
 .phone-app .mp-hero { grid-template-columns: minmax(0,1fr) minmax(110px,42%); padding: 23px 20px 0; gap: 18px 14px; border: 1px solid #b8838e32; border-radius: 30px; background: linear-gradient(135deg, #fffaf3 5%, #f5e5de 65%, #e7c6cc); box-shadow: 0 14px 34px #673b490a, inset 0 1px 0 #fffaf6; }
 .phone-app .mp-hero::before { width: 230px; height: 310px; top: -80px; left: -80px; border-radius: 48% 48% 0 0; border-color: #b77c8a24; box-shadow: 0 0 0 19px #fffcf033, 0 0 0 39px #c38b8b08; }
@@ -105,7 +107,7 @@
 .phone-app .mp-hero h1 { color: #5e223b; font-size: clamp(1.85rem, 7vw, 2.5rem); margin-bottom: 12px; font-weight: 650; line-height: 1.4; }
 .phone-app .mp-hero h1 small { font-size: .83rem; margin-top: 5px; color: #80606e; }
 .phone-app .mp-meta { gap: 9px; color: #876472; font-size: .79rem; line-height: 1.8; }
-.phone-app .mp-portrait { height: 200px; align-self: center; border-radius: 80px 80px 24px 24px; border: 3px solid #fff7eb; box-shadow: 0 8px 24px #6d384719; background: linear-gradient(145deg, #905469, #551b34); }
+.phone-app .mp-portrait { height: 184px; align-self: center; border-radius: 80px 80px 24px 24px; border: 3px solid #fff7eb; box-shadow: 0 8px 24px #6d384719; background: linear-gradient(145deg, #905469, #551b34); }
 .phone-app .mp-intention { margin-top: 0; padding-block: 12px; border-color: #a26f7b25; color: #7a4f60; font-size: .73rem; }
 .phone-app .mp-intention > strong { background: #fffbf2b8; color: #6c3549; padding: 4px 9px; }
 .phone-app .mp-portrait-caption { font-size: .63rem; margin: 9px 6px 17px; color: #8b6b78; line-height: 1.75; }
@@ -217,6 +219,7 @@
   .phone-app .cm-shell .dr-row-actions button { font-size: 11px; }
   .phone-app .mp-hero { padding: 20px 15px 0; grid-template-columns: minmax(0, 1fr) 40%; gap: 14px 10px; }
   .phone-app .mp-portrait { height: 174px; }
+  .phone-app .mp-hero h1 { font-size: clamp(1.45rem,7vw,1.7rem); }
   .phone-app .mp-eyebrow { font-size: .59rem; gap: 4px; }
   .phone-app .mp-eyebrow > span { width: 10px; }
   .phone-app .mp-sections button { gap: 4px; font-size: 12px; }

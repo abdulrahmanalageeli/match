@@ -8,7 +8,7 @@ import "./marriage-fields.css";
 import "./scenario-experience.css";
 import { SelfAppearanceFields, AppearanceCriteriaFields } from "./AppearanceFields";
 import { ChoiceSelect } from "../ui/ChoiceSelect";
-import { nationalityChoices, numericOptions } from "../profile/profileOptions";
+import { educationOptions, professionOptions, nationalityChoices, numericOptions } from "../profile/profileOptions";
 
 export const maritalLabels = { never_married: "لم يسبق الزواج", divorced: "مطلّق / مطلّقة", widowed: "أرمل / أرملة", married: "متزوج حاليًا" };
 export const tribalLabels = { tribal: "قبلي", non_tribal: "غير قبلي", prefer_not_to_say: "أفضل عدم الإفصاح" };
@@ -95,6 +95,13 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={event => { if (event.target === event.currentTarget) setReveal(true); }}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
     <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
+    <Group title="الدراسة والعمل" note="ما يناسب حياتك، دون ترتيب للمؤهلات أو المهن" icon={BookOpen} summary={selected(['education','profession'])}>
+      <p>اختياراتك هنا خاصة. التشابه في الدراسة أو المهنة لا يزيد التوافق تلقائيًا؛ نراعي فقط ما تحدّده أنت.</p>
+      {([{key:'education',title:'المؤهل التعليمي للشريك',options:educationOptions},{key:'profession',title:'مجال عمل الشريك أو وضعه المهني',options:professionOptions}] as const).map(({key,title,options}) => <Mode key={key} title={title} value={value[key]?.mode ?? 'any'} onChange={mode => change({[key]: mode === 'any' ? {mode} : {...value[key],mode,values:value[key]?.values ?? []}})}>
+        <div className="nf-nationality-selected">{value[key]?.values?.map(option => <button key={option} type="button" aria-label={'إزالة '+option} onClick={() => change({[key]: {...value[key],mode:value[key]?.mode ?? 'prefer',values:value[key]?.values?.filter(item => item !== option)}})}>{option}<span aria-hidden="true">×</span></button>)}</div>
+        <ChoiceSelect label={'أضف اختيارًا: '+title} value="" placeholder="ابحث واختر · يمكنك إضافة أكثر من خيار" options={options.filter(option => !value[key]?.values?.includes(option.value))} onChange={option => {if(options.some(item=>item.value===option)&&!value[key]?.values?.includes(option))change({[key]:{...value[key],mode:value[key]?.mode??'prefer',values:[...(value[key]?.values??[]),option]}});}} />
+      </Mode>)}
+    </Group>
     <Group title="المظهر واللباس" note="ما تفضّله، وما لا يهمّك" icon={Sparkles} open={reveal} summary={selected(['height','weight','skinTone','dressStyle','dressFlexibility'])}><Range title="الطول (سم)" options={heightOptions} value={value.height} onChange={height => change({ height })} /><Range title="الوزن (كجم)" options={weightOptions} value={value.weight} onChange={weight => change({ weight })} /><AppearanceCriteriaFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} /></Group>
     <Group title="من تتقبّله شريكًا؟" note="الخلفية القبلية والجنسية، باختيارك أنت" icon={Users} open summary={selected(['tribalBackground','nationality'])}>
       <p>خلفيتك وجنسيتك لا تحدّدان ما تقبله في الشريك. أنت تختار هنا، وتبقى هذه التفضيلات خاصة.</p>

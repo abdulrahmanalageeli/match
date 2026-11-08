@@ -51,7 +51,7 @@ import { Brand } from "../Brand";
 import { MemberTabs } from "../Home";
 import { interests } from "../compatibility/model";
 import { marriageTimelineLabels } from "../compatibility/marriage";
-import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality } from '../profile/profileOptions';
+import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { preferencePercentage, personalityPercentage, suggestedQuestions } from "../compatibility/FitDetails";
 import { BeenaSummary } from "../beena/BeenaSummary";
@@ -126,6 +126,8 @@ const dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
   year: "numeric",
 });
 const emptyFilters: Filters = {};
+const filterHeightOptions = numericOptions(120, 230, 'سم');
+const filterWeightOptions = numericOptions(35, 250, 'كجم');
 const reportCategories = ['إساءة أو ضغط غير مرغوب', 'انتحال أو معلومات مضللة', 'طلب أموال أو احتيال', 'انتهاك الخصوصية', 'محتوى غير مناسب', 'سبب آخر'];
 const practicalQuestions = [
   ['السكن والمدينة', 'أين تتصور أن نستقر، وهل سيكون السكن مستقلًا؟ وما حدود المرونة في الانتقال؟'],
@@ -283,6 +285,10 @@ function FilterSheet({
       setError("يجب أن يكون الحد الأعلى مساويًا للحد الأدنى أو أكبر منه.");
       return;
     }
+    if ([[extra.minHeight,extra.maxHeight],[extra.minWeight,extra.maxWeight]].some(([lower,upper])=>lower!==undefined&&upper!==undefined&&lower>upper)) {
+      setError('راجع نطاق الطول والوزن: الحد الأعلى يجب أن يساوي الحد الأدنى أو يزيد عليه.');
+      return;
+    }
     apply({
       ...extra, offset: undefined, afterId: undefined,
       excludeCities:excludedCities,excludeNationalities:excludedNationalities,
@@ -339,6 +345,19 @@ function FilterSheet({
           </select>
         </label>
         <ChoiceSelect label="المدينة" value={extra.city??''} options={cityOptions} placeholder="كل المدن" allowClear onChange={city=>setExtra(current=>({...current,city:city||undefined}))}/>
+        <details className="dr-filter-section" open={!!(extra.education||extra.profession||extra.children)}><summary><span>الدراسة والعمل والعائلة</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
+          <ChoiceSelect label="المؤهل التعليمي" value={extra.education??''} options={educationOptions} placeholder="كل المؤهلات" allowClear onChange={education=>setExtra(current=>({...current,education:education||undefined}))}/>
+          <ChoiceSelect label="مجال العمل أو الوضع المهني" value={extra.profession??''} options={professionOptions} placeholder="كل المجالات" allowClear onChange={profession=>setExtra(current=>({...current,profession:profession||undefined}))}/>
+          <label>الأبناء<select value={extra.children??''} onChange={event=>setExtra(current=>({...current,children:event.target.value as Filters['children']||undefined}))}><option value="">بدون تحديد</option><option value="none">ليس لديه / لديها أبناء</option><option value="has">لديه / لديها أبناء</option></select></label>
+          <small>عند اختيار شرط، يظهر فقط من ذكر معلومة تطابقه. هذه الفلاتر لا تعدّل تفضيلات التوافق الخاصة بك.</small>
+        </div></details>
+        <details className="dr-filter-section" open={[extra.minHeight,extra.maxHeight,extra.minWeight,extra.maxWeight].some(value=>value!==undefined)}><summary><span>الطول والوزن</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
+          {([{label:'الطول',minKey:'minHeight',maxKey:'maxHeight',options:filterHeightOptions},{label:'الوزن',minKey:'minWeight',maxKey:'maxWeight',options:filterWeightOptions}] as const).map(({label,minKey,maxKey,options})=><div className="cm-age-fields" key={label}>
+            <ChoiceSelect label={label+' من'} value={extra[minKey]?.toString()??''} options={options.filter(option=>extra[maxKey]===undefined||Number(option.value)<=extra[maxKey]!)} placeholder="دون حد أدنى" allowClear onChange={value=>setExtra(current=>({...current,[minKey]:value?Number(value):undefined}))}/>
+            <ChoiceSelect label={label+' إلى'} value={extra[maxKey]?.toString()??''} options={options.filter(option=>extra[minKey]===undefined||Number(option.value)>=extra[minKey]!)} placeholder="دون حد أعلى" allowClear onChange={value=>setExtra(current=>({...current,[maxKey]:value?Number(value):undefined}))}/>
+          </div>)}
+          <small>تُستبعد الإجابات غير المذكورة عند تحديد نطاق.</small>
+        </div></details>
         <div className="cm-age-fields"><label>الحالة الاجتماعية<select value={extra.maritalStatus??''} onChange={e=>setExtra({...extra,maritalStatus:e.target.value})}><option value="">الكل</option><option value="never_married">لم يسبق الزواج</option><option value="divorced">مطلق / مطلقة</option><option value="widowed">أرمل / أرملة</option></select></label>
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="sometimes">أحيانًا</option><option value="yes">يدخّن</option></select></label></div>
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>

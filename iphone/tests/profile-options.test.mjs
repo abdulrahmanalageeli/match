@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalCity, canonicalNationality, cityOptions, nationalityChoices, numericOptions } from '../src/profile/profileOptions.ts';
+import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession, cityOptions, nationalityChoices, numericOptions } from '../src/profile/profileOptions.ts';
 
 test('known city spellings resolve exactly without confusing similar places', () => {
   assert.equal(canonicalCity('  Riyadh '), 'الرياض');
@@ -25,4 +25,14 @@ test('selection catalogs have unambiguous values and zero remains a real numeric
   const children = numericOptions(0, 20);
   assert.equal(children[0].value, '0');
   assert.equal(children.at(-1).value, '20');
+});
+
+test('only explicit completed degrees and known job titles normalize to structured facts', () => {
+  assert.equal(canonicalEducation('بكالوريوس هندسة'), 'بكالوريوس');
+  assert.equal(canonicalEducation('دبلوم عالٍ في الإدارة'), 'دبلوم عالٍ');
+  assert.equal(canonicalEducation('بكالوريوس قيد الدراسة'), 'بكالوريوس قيد الدراسة');
+  assert.equal(canonicalEducation('دكتور صيدلة'), 'دكتور صيدلة');
+  assert.equal(canonicalProfession('مهندسة مدنية'), 'الهندسة والعمارة');
+  assert.equal(canonicalProfession('باحثة عن عمل'), 'باحث / باحثة عن عمل');
+  assert.equal(canonicalProfession('عمل خاص غير موضح'), 'عمل خاص غير موضح');
 });

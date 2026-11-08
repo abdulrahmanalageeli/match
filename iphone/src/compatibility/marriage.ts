@@ -1,4 +1,5 @@
 import { skinTones, dressStyles, dressFlexibilities, type SkinTone, type DressStyle, type DressFlexibility } from "./appearance.ts";
+import { educationOptions, professionOptions } from '../profile/profileOptions.ts';
 
 export type CriteriaMode = "any" | "prefer" | "require";
 export type MarriageBasics = {
@@ -26,6 +27,8 @@ export type PartnerCriteria = {
   weight?: RangeCriterion;
   tribalBackground?: { mode: CriteriaMode; target?: "tribal" | "non_tribal" | "same_tribe" };
   nationality?: { mode: CriteriaMode; values?: string[]; exclude?: boolean };
+  education?: { mode: CriteriaMode; values?: string[] };
+  profession?: { mode: CriteriaMode; values?: string[] };
   maritalStatus?: { mode: CriteriaMode; values?: NonNullable<MarriageBasics["maritalStatus"]>[] };
   children?: { mode: CriteriaMode; target?: "none" | "any" };
   smoking?: { mode: CriteriaMode; target?: "never" };
@@ -85,8 +88,8 @@ export function validMarriageBasicsDraft(value: unknown): value is MarriageBasic
 export function validPartnerCriteria(value: unknown, basics: MarriageBasics = {}, allowIncomplete = false): value is PartnerCriteria {
   if (!object(value)) return false;
   for (const [key, rule] of Object.entries(value)) {
-    if (!["height", "weight", "tribalBackground", "nationality", "maritalStatus", "children", "smoking", "skinTone", "dressStyle", "dressFlexibility"].includes(key) || !object(rule) || !oneOf(rule.mode, ["any", "prefer", "require"])) return false;
-    const keys = key === 'nationality' ? ['mode','values','exclude'] : key === "height" || key === "weight" ? ["mode", "min", "max"] : ["maritalStatus", "skinTone", "dressStyle"].includes(key) ? ["mode", "values"] : ["mode", "target"];
+    if (!["height", "weight", "tribalBackground", "nationality", "education", "profession", "maritalStatus", "children", "smoking", "skinTone", "dressStyle", "dressFlexibility"].includes(key) || !object(rule) || !oneOf(rule.mode, ["any", "prefer", "require"])) return false;
+    const keys = key === 'nationality' ? ['mode','values','exclude'] : key === "height" || key === "weight" ? ["mode", "min", "max"] : ["education", "profession", "maritalStatus", "skinTone", "dressStyle"].includes(key) ? ["mode", "values"] : ["mode", "target"];
     if (Object.keys(rule).some(field => !keys.includes(field))) return false;
     const required = rule.mode !== "any" && !allowIncomplete;
     if (key === "height" || key === "weight") {
@@ -103,8 +106,8 @@ export function validPartnerCriteria(value: unknown, basics: MarriageBasics = {}
     } else if (key === "tribalBackground") {
       if ((required || rule.target !== undefined) && !oneOf(rule.target, ["tribal", "non_tribal", "same_tribe"])) return false;
       if (required && rule.target === "same_tribe" && (basics.tribalBackground !== "tribal" || !basics.tribeName?.trim())) return false;
-    } else if (["maritalStatus", "skinTone", "dressStyle"].includes(key)) {
-      const choices = key === "skinTone" ? skinTones.map(tone => tone.value) : key === "dressStyle" ? dressStyles.map(style => style.value) : ["never_married", "divorced", "widowed", "married"];
+    } else if (["education", "profession", "maritalStatus", "skinTone", "dressStyle"].includes(key)) {
+      const choices = key === 'education' ? educationOptions.map(option => option.value) : key === 'profession' ? professionOptions.map(option => option.value) : key === "skinTone" ? skinTones.map(tone => tone.value) : key === "dressStyle" ? dressStyles.map(style => style.value) : ["never_married", "divorced", "widowed", "married"];
       if (rule.values !== undefined || required) {
         if (!Array.isArray(rule.values) || (required && !rule.values.length) || rule.values.length > choices.length || new Set(rule.values).size !== rule.values.length || !rule.values.every(v => oneOf(v, choices))) return false;
       }

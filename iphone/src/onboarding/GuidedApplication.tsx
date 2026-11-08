@@ -114,7 +114,7 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
         {hasPortrait&&<p>إزالة التمويه: {{never:'لا تُزال تلقائيًا',matched:'بعد قبول التعارف من الطرفين',serious:'عند النقاش الجاد حول الزواج',family:'عند الخطوة الرسمية أو العائلية'}[reveal]}{reveal!=='never'&&' · للطرف المؤهل فقط، مع حفظ نسخة واضحة خاصة.'}</p>}
       </ReviewGroup>}
       {withCompatibility && <ReviewGroup title="متطلبات الشريك الخاصة" edit={() => edit("criteria")} {...groupProps('criteria')}>
-        {([['height', 'الطول'], ['weight', 'الوزن'], ['tribalBackground', 'الخلفية القبلية'], ['nationality', 'جنسية الشريك'], ['maritalStatus', 'الحالة الاجتماعية'], ['children', 'وجود أبناء'], ['smoking', 'التدخين'], ['skinTone', 'لون البشرة'], ['dressStyle', 'اللباس الحالي'], ['dressFlexibility', 'مناقشة اللباس']] as const).map(([key, label]) => {
+        {([['education', 'المؤهل التعليمي'], ['profession', 'المجال المهني'], ['height', 'الطول'], ['weight', 'الوزن'], ['tribalBackground', 'الخلفية القبلية'], ['nationality', 'جنسية الشريك'], ['maritalStatus', 'الحالة الاجتماعية'], ['children', 'وجود أبناء'], ['smoking', 'التدخين'], ['skinTone', 'لون البشرة'], ['dressStyle', 'اللباس الحالي'], ['dressFlexibility', 'مناقشة اللباس']] as const).map(([key, label]) => {
           const criterion = p.partnerCriteria?.[key];
           if (!criterion || criterion.mode === "any") return null;
           let target = "";

@@ -1,5 +1,5 @@
 import { cloud } from "../cloud";
-import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
+import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession } from '../profile/profileOptions';
 import { requestAi } from '../ai/client';
 import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim, ManualVerificationSource } from '../verification/model';
@@ -82,6 +82,7 @@ export type CallPermissionState = { status: "none" | "pending" | "accepted" | "d
 export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';actor:'reham'|'abdulrahman';days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
+  education?: string; profession?: string; minHeight?: number; maxHeight?: number; minWeight?: number; maxWeight?: number; children?: 'none' | 'has';
   excludeCities?: string[]; excludeNationalities?: string[]; excludeTribalBackgrounds?: string[]; excludeSmoking?: string[]; excludeMaritalStatuses?: string[]; nationality?: string; tribalBackground?: string; onlineOnly?: boolean;
   minAge?: number;
   maxAge?: number;
@@ -92,6 +93,11 @@ export type Filters = {
 export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
   const b=p.marriageBasics;
   return (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
+    (!f.education||!!p.education&&canonicalEducation(p.education)===canonicalEducation(f.education))&&
+    (!f.profession||!!p.occupation&&canonicalProfession(p.occupation)===canonicalProfession(f.profession))&&
+    (f.minHeight===undefined||b?.heightCm!==undefined&&b.heightCm>=f.minHeight)&&(f.maxHeight===undefined||b?.heightCm!==undefined&&b.heightCm<=f.maxHeight)&&
+    (f.minWeight===undefined||b?.weightKg!==undefined&&b.weightKg>=f.minWeight)&&(f.maxWeight===undefined||b?.weightKg!==undefined&&b.weightKg<=f.maxWeight)&&
+    (!f.children||b?.childrenCount!==undefined&&(f.children==='none'?b.childrenCount===0:b.childrenCount>0))&&
     p.age>=(f.minAge??18)&&p.age<=(f.maxAge??110)&&(!f.smoking||b?.smoking===f.smoking)&&
     (!f.maritalStatus||b?.maritalStatus===f.maritalStatus)&&(!f.dressStyle||b?.dressStyle===f.dressStyle)&&
     (!f.availableOnly||!p.atCapacity)&&(!f.minFit||(preferencePercentage(p.fit)??-1)>=f.minFit)&&
@@ -462,7 +468,7 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
   const dress = (['hijab','niqab','uncovered','hijab','niqab','uncovered'] as const)[index%6];
   return {
     id:`${woman?'w':''}p${String(index+1).padStart(2,'0')}`, isDemo:true as const,
-    alias:seed.alias,age:seed.age,city:seed.city,occupation:seed.occupation,bio:seed.bio,
+    alias:seed.alias,age:seed.age,city:seed.city,occupation:seed.occupation,profession:seed.occupation,bio:seed.bio,
     gender:woman?'woman' as const:'man' as const,education:seed.education,
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
     marriageIntent:seed.timeline==='when_ready'?'تعارف جاد على مهل':'تعارف جاد يهدف إلى الزواج',

@@ -48,6 +48,15 @@ test('city filters use canonical exact values for inclusion and exclusion', () =
   assert.equal(matchesDiscoveryFilters(saudi, { excludeNationalities: ['سعودي'] }), false);
 });
 
+test('structured discovery filters honor qualifications, profession, boundaries, and missing facts', () => {
+  const candidate={...person,education:'بكالوريوس هندسة مدنية',occupation:'مهندسة مدنية',marriageBasics:{heightCm:170,weightKg:65,childrenCount:0}};
+  assert.equal(matchesDiscoveryFilters(candidate,{education:'بكالوريوس',profession:'الهندسة والعمارة',minHeight:170,maxHeight:170,minWeight:65,maxWeight:65,children:'none'}),true);
+  for(const filter of [{education:'ماجستير'},{profession:'التقنية والبرمجة'},{minHeight:171},{maxHeight:169},{minWeight:66},{maxWeight:64},{children:'has'}]) assert.equal(matchesDiscoveryFilters(candidate,filter),false);
+  for(const filter of [{education:'بكالوريوس'},{profession:'الهندسة والعمارة'},{minHeight:120},{maxHeight:230},{minWeight:35},{maxWeight:250},{children:'none'}]) assert.equal(matchesDiscoveryFilters(person,filter),false);
+  assert.equal(matchesDiscoveryFilters({...candidate,education:'بكالوريوس قيد الدراسة'},{education:'بكالوريوس'}),false);
+  assert.equal(matchesDiscoveryFilters({...candidate,education:'دكتور صيدلة'},{education:'دكتوراه'}),false);
+});
+
 test('simulated test conversations persist per tester and refresh paused, without crossing identities', async () => {
   const original=globalThis.localStorage,items=new Map();
   globalThis.localStorage={getItem:key=>items.get(key)??null,setItem:(key,value)=>items.set(key,value),removeItem:key=>items.delete(key)};

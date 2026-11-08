@@ -65,7 +65,8 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
       <p className="nf-fit-limit">ثلاث قراءات مستقلة من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نسبة عند اكتمال تقييمها لدى الطرفين. «بيننا» يقارن التصرفات بما يتقبّله كل طرف، وتبقى القصص خارج الحساب.</p>
       <h3 className="nf-fit-reading">توافق التفضيلات · {labels[preference === null ? "insufficient" : fit.band]}</h3>
       <p className="nf-fit-limit">{arabic.format(fit.covered)} من {arabic.format(fit.total)} موضوعًا اكتملت إجاباتكما عنه. تُقارن رغبات كل طرف بإجابات الطرف الآخر مع مراعاة أولوياته.</p>
-      {fit.criteria && fit.criteria.total > 0 && <p className="nf-fit-limit">تفضيلات إضافية متاحة للمقارنة: {arabic.format(fit.criteria.covered)} من {arabic.format(fit.criteria.total)}. «لا يهمّني» لا يضيف نقاطًا.</p>}
+      {fit.criteria && fit.criteria.total > 0 && <p className="nf-fit-limit">تفضيلات إضافية متاحة للمقارنة: {arabic.format(fit.criteria.covered)} من {arabic.format(fit.criteria.total)}. تُقارن التفاصيل مثل التعليم والعمل والمظهر بما اختاره كل طرف صراحةً؛ لا نفترض أن التشابه أفضل. «لا يهمّني» والإجابة غير المعروفة لا يضيفان نقاطًا.</p>}
+      <p className="nf-fit-limit">العمر ومكان الإقامة والشروط الأساسية تحدّد إمكانية الترشيح. «أفضل» تؤثر في ترتيب التوافق عند توفر الإجابة، و«شرط أساسي» يستبعد من لا يستوفيه أو لم يذكره. تبقى اختيارات الشريك الخاصة غير معروضة هنا.</p>
     {(["strengths", "discussion"] as const).map(kind => {
       const topics = [...new Set(fit[kind])].map(topic).filter(value => value !== undefined);
       if (!topics.length) return null;

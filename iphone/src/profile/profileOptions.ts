@@ -1,4 +1,4 @@
-import { normalizeNationality } from '../compatibility/model.ts';
+import { normalizeNationality } from '../compatibility/nationality.ts';
 
 export type ProfileOption = { value: string; label: string; group?: string; keywords?: readonly string[] };
 const options = (values: readonly string[], group?: string): ProfileOption[] => values.map(value => ({ value, label: value, group }));
@@ -57,6 +57,46 @@ export const professionOptions: readonly ProfileOption[] = [
   ...options(['الطب والرعاية الصحية','الهندسة والعمارة','التقنية والبرمجة','التعليم والتدريب','البحث والعمل الأكاديمي','الإدارة والموارد البشرية','المال والمحاسبة','القانون والاستشارات','التجارة والمبيعات','التسويق والإعلام','التصميم والفنون','الترجمة واللغات','القطاع العسكري والأمني','الخدمات الحكومية','النقل والخدمات اللوجستية','السياحة والضيافة','الصناعة والحرف','الزراعة والبيئة','العمل الاجتماعي وغير الربحي','مجال مهني آخر'], 'مجال العمل'),
   ...options(['أعمال حرة وريادة أعمال','عمل مستقل','طالب / طالبة','متفرغ / متفرغة للمنزل','باحث / باحثة عن عمل','متقاعد / متقاعدة','لا أعمل حاليًا'], 'الوضع المهني'),
 ];
+
+const educationByKey = new Map(educationOptions.map(option => [arabicKey(option.value), option.value]));
+const educationPrefixes: readonly [string, string][] = [
+  ['دبلوم عال', 'دبلوم عالٍ'], ['دبلوم عالي', 'دبلوم عالٍ'], ['دكتوراه', 'دكتوراه'],
+  ['ماجستير', 'ماجستير'], ['بكالوريوس', 'بكالوريوس'], ['دبلوم', 'دبلوم'],
+  ['الثانوية', 'الثانوية'], ['ثانوية', 'الثانوية'], ['ثانوي', 'الثانوية'], ['دون الثانوية', 'دون الثانوية'],
+];
+export function canonicalEducation(value: string): string {
+  const key = arabicKey(value);
+  // A study in progress is not a completed qualification. Keep ambiguous older text intact.
+  if (/(قيد|ادرس|طالب|لم اكمل|غير مكتمل|غيرمكتمل|in progress|student)/.test(key)) return value.trim();
+  return educationByKey.get(key) ?? educationPrefixes.find(([prefix]) => key === arabicKey(prefix) || key.startsWith(arabicKey(prefix) + ' '))?.[1] ?? value.trim();
+}
+
+// Explicit titles from older profiles; never infer employment from a biography or an employer.
+export const professionAliases: Readonly<Record<string, readonly string[]>> = {
+  'الطب والرعاية الصحية': ['طبيب','طبيبة','صيدلي','صيدلانية','ممرض','ممرضة','أخصائي مختبر','أخصائية مختبر','أخصائي علاج طبيعي','أخصائية علاج طبيعي','أخصائي تغذية','أخصائية تغذية'],
+  'الهندسة والعمارة': ['مهندس','مهندسة','مهندس مدني','مهندسة مدنية','مهندس معماري','مهندسة معمارية'],
+  'التقنية والبرمجة': ['مبرمج','مبرمجة','مهندس برمجيات','مهندسة برمجيات','محلل بيانات','محللة بيانات','محلّل بيانات'],
+  'التعليم والتدريب': ['معلم','معلمة','مدرس','مدرسة','معلمة فنون','معلم فنون'],
+  'البحث والعمل الأكاديمي': ['باحث','باحثة','أستاذ جامعي','أستاذة جامعية'],
+  'الإدارة والموارد البشرية': ['مدير عمليات','مديرة عمليات','مدير مشاريع','مديرة مشاريع','أخصائي موارد بشرية','أخصائية موارد بشرية'],
+  'المال والمحاسبة': ['محاسب','محاسبة'],
+  'القانون والاستشارات': ['محامي','محامية'],
+  'التسويق والإعلام': ['أخصائي تسويق','أخصائية تسويق','كاتب محتوى','كاتبة محتوى','صحفي','صحفية'],
+  'التصميم والفنون': ['مصمم','مصممة','مصمم منتجات','مصممة منتجات','مصمم داخلي','مصممة داخلية'],
+  'الترجمة واللغات': ['مترجم','مترجمة'],
+  'أعمال حرة وريادة أعمال': ['صاحب مقهى','صاحبة مقهى','مؤسس متجر إلكتروني','مؤسسة متجر إلكتروني'],
+  'عمل مستقل': ['مستقل','مستقلة','مصوّر مستقل'],
+  'طالب / طالبة': ['طالب','طالبة'],
+  'متفرغ / متفرغة للمنزل': ['ربة منزل','متفرغة للمنزل','متفرغ للمنزل'],
+  'باحث / باحثة عن عمل': ['باحث عن عمل','باحثة عن عمل'],
+  'متقاعد / متقاعدة': ['متقاعد','متقاعدة'],
+};
+const professionByKey = new Map([
+  ...professionOptions.map(option => [arabicKey(option.value), option.value] as const),
+  ...Object.entries(professionAliases).flatMap(([canonical, aliases]) => aliases.map(alias => [arabicKey(alias), canonical] as const)),
+]);
+export const canonicalProfession = (value: string): string => professionByKey.get(arabicKey(value)) ?? value.trim();
+
 const digits = new Intl.NumberFormat('ar-SA', { useGrouping: false });
 export const numericOptions = (min: number, max: number, unit = ''): ProfileOption[] => Array.from({ length: max - min + 1 }, (_, i) => ({ value: String(min + i), label: `${digits.format(min + i)}${unit ? ` ${unit}` : ''}`, keywords: [String(min + i)] }));
 export const ageOptions = numericOptions(18, 110, 'عامًا');

@@ -1,0 +1,5 @@
+export function normalizeNationality(value: string): string {
+  const key=value.trim().toLowerCase().replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة$/,'').replace(/\s+/g,' ');
+  const aliases: Record<string,string> = {'السعودي':'سعودي','المملكة العربية السعودي':'سعودي','saudi':'سعودي','saudi arabia':'سعودي','saudi arabian':'سعودي','الامارات':'اماراتي','الامارات العربية المتحد':'اماراتي','emirati':'اماراتي','uae':'اماراتي','الكويت':'كويتي','kuwaiti':'كويتي','قطر':'قطري','qatari':'قطري','البحرين':'بحريني','bahraini':'بحريني','عمان':'عماني','omani':'عماني','اليمن':'يمني','yemeni':'يمني','مصر':'مصري','egyptian':'مصري','الاردن':'اردني','jordanian':'اردني','فلسطين':'فلسطيني','palestinian':'فلسطيني','سوريا':'سوري','syrian':'سوري','لبنان':'لبناني','lebanese':'لبناني','العراق':'عراقي','iraqi':'عراقي','السودان':'سوداني','sudanese':'سوداني','المغرب':'مغربي','moroccan':'مغربي','الجزائر':'جزائري','algerian':'جزائري','تونس':'تونسي','tunisian':'تونسي','ليبيا':'ليبي','libyan':'ليبي','موريتانيا':'موريتاني','mauritanian':'موريتاني','الصومال':'صومالي','somali':'صومالي'};
+  return aliases[key] || key;
+}

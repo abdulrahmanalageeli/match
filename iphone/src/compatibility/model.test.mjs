@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { comparePreferences, dimensions, rankPreferences } from "./model.ts";
+import { validPartnerCriteria, validPartnerCriteriaDraft } from './marriage.ts';
 
 const a = {
   id: "a", gender: "woman", city: "الرياض", age: 29,
@@ -32,6 +33,66 @@ test("both adults' independent age preferences and city gate every ranked candid
   assert.equal(comparePreferences(a, { ...b, gender: "woman" }), null);
   assert.equal(comparePreferences(a, { ...b, id: "a" }), null);
   assert.equal(comparePreferences({ ...a, age: 17 }, { ...b, preferredMinAge: 16 }), null);
+});
+
+test('city eligibility recognizes saved spelling aliases without accepting partial names', () => {
+  assert(comparePreferences(a, { ...b, city: 'Riyadh' }));
+  assert(comparePreferences({ ...a, city: 'مكة' }, { ...b, city: 'مكة المكرمة' }));
+  assert.equal(comparePreferences({ ...a, city: 'الخبر' }, { ...b, city: 'رياض الخبراء' }), null);
+});
+
+test('other-city buckets require explicit relocation plans instead of implying a shared city', () => {
+  for (const city of ['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية']) {
+    assert.equal(comparePreferences({ ...a, city }, { ...b, city }), null);
+    assert.equal(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'A' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }), null);
+    assert(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'B' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }));
+  }
+});
+
+test('education and profession only affect ranking when explicitly preferred', () => {
+  const all = Object.fromEntries(dimensions.flatMap(dim => [[dim.id, 'A'], [dim.partnerId, 'A']]));
+  const mine = { ...a, assessmentVersion: 'marriage-v2', surveyAnswers: all };
+  const peer = { ...b, assessmentVersion: 'marriage-v2', surveyAnswers: all, education: 'بكالوريوس', profession: 'الهندسة والعمارة' };
+  const other = { ...peer, education: 'ماجستير', profession: 'الطب والرعاية الصحية' };
+  assert.equal(comparePreferences(mine, peer).fit.percentage, comparePreferences(mine, other).fit.percentage);
+  const wants = { ...mine, partnerCriteria: {
+    education: { mode: 'prefer', values: ['بكالوريوس'] },
+    profession: { mode: 'prefer', values: ['الهندسة والعمارة'] },
+  } };
+  const match = comparePreferences(wants, peer);
+  const different = comparePreferences(wants, other);
+  assert(match.fit.percentage > different.fit.percentage);
+  assert(match.rankValue > different.rankValue);
+  assert.deepEqual(match.fit.criteria, { covered: 2, total: 2 });
+  assert.deepEqual(match.fit.personality, different.fit.personality);
+  assert.equal(comparePreferences(wants, { ...peer, education: 'بكالوريوس هندسة', profession: 'مهندس' }).fit.percentage, match.fit.percentage);
+  const unknown = comparePreferences(wants, { ...peer, education: 'إجابة قديمة غير محددة', profession: undefined });
+  assert.equal(unknown.fit.percentage, comparePreferences(mine, peer).fit.percentage);
+  assert.deepEqual(unknown.fit.criteria, { covered: 0, total: 2 });
+  const indifferent = comparePreferences({ ...mine, partnerCriteria: { education: { mode: 'any' }, profession: { mode: 'any' } } }, other);
+  assert.equal(indifferent.fit.percentage, comparePreferences(mine, peer).fit.percentage);
+});
+
+test('required education and profession are mutual eligibility gates with no guesses for missing facts', () => {
+  const mine = { ...a, education: 'بكالوريوس', profession: 'الهندسة والعمارة', partnerCriteria: {
+    education: { mode: 'require', values: ['ماجستير', 'دكتوراه'] },
+    profession: { mode: 'require', values: ['الطب والرعاية الصحية'] },
+  } };
+  const peer = { ...b, education: 'ماجستير', profession: 'طبيب' };
+  assert(comparePreferences(mine, peer));
+  for (const patch of [{ education: 'بكالوريوس' }, { education: undefined }, { education: 'تفصيل قديم' }, { profession: 'التعليم والتدريب' }, { profession: undefined }]) {
+    assert.equal(comparePreferences(mine, { ...peer, ...patch }), null);
+  }
+  assert.equal(comparePreferences(mine, { ...peer, partnerCriteria: { education: { mode: 'require', values: ['دكتوراه'] } } }), null);
+});
+
+test('new criteria reject unknown choices, duplicates, empty active rules and unsupported shape', () => {
+  assert(validPartnerCriteria({ education: { mode: 'prefer', values: ['بكالوريوس', 'ماجستير'] }, profession: { mode: 'require', values: ['الهندسة والعمارة'] } }));
+  assert(validPartnerCriteria({ education: { mode: 'any' }, profession: { mode: 'any' } }));
+  assert(validPartnerCriteriaDraft({ education: { mode: 'prefer', values: [] } }));
+  for (const criterion of [{ mode: 'prefer', values: [] }, { mode: 'require', values: ['جامعي'] }, { mode: 'prefer', values: ['بكالوريوس', 'بكالوريوس'] }, { mode: 'prefer', values: ['بكالوريوس'], exclude: true }]) {
+    assert.equal(validPartnerCriteria({ education: criterion }), false);
+  }
 });
 
 test("directional preferences recognize complementary initiative and common disagreement style", () => {

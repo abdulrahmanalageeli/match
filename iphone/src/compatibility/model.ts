@@ -1,3 +1,6 @@
+import { normalizeNationality } from './nationality.ts';
+export { normalizeNationality } from './nationality.ts';
+import { canonicalCity, canonicalEducation, canonicalProfession, educationOptions, professionOptions } from '../profile/profileOptions.ts';
 import catalog from "./catalog.json" with { type: "json" };
 import personalityCatalog from "./personality-catalog.json" with { type: "json" };
 import type { MarriageBasics, PartnerCriteria } from "./marriage.ts";
@@ -67,6 +70,8 @@ type PairProfile = {
   age: number;
   preferredMinAge: number;
   preferredMaxAge: number;
+  education?: string;
+  profession?: string;
   interestIds?: readonly string[];
   surveyAnswers?: Readonly<Record<string, string>>;
   hardRequirements?: readonly string[];
@@ -79,16 +84,19 @@ type PairProfile = {
   beena?: BeenaProfile | null;
 };
 
-export function normalizeNationality(value: string): string {
-  const key=value.trim().toLowerCase().replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة$/,'').replace(/\s+/g,' ');
-  const aliases: Record<string,string> = {'السعودي':'سعودي','المملكة العربية السعودي':'سعودي','saudi':'سعودي','saudi arabia':'سعودي','saudi arabian':'سعودي','الامارات':'اماراتي','الامارات العربية المتحد':'اماراتي','emirati':'اماراتي','uae':'اماراتي','الكويت':'كويتي','kuwaiti':'كويتي','قطر':'قطري','qatari':'قطري','البحرين':'بحريني','bahraini':'بحريني','عمان':'عماني','omani':'عماني','اليمن':'يمني','yemeni':'يمني','مصر':'مصري','egyptian':'مصري','الاردن':'اردني','jordanian':'اردني','فلسطين':'فلسطيني','palestinian':'فلسطيني','سوريا':'سوري','syrian':'سوري','لبنان':'لبناني','lebanese':'لبناني','العراق':'عراقي','iraqi':'عراقي','السودان':'سوداني','sudanese':'سوداني','المغرب':'مغربي','moroccan':'مغربي','الجزائر':'جزائري','algerian':'جزائري','تونس':'تونسي','tunisian':'تونسي','ليبيا':'ليبي','libyan':'ليبي','موريتانيا':'موريتاني','mauritanian':'موريتاني','الصومال':'صومالي','somali':'صومالي'};
-  return aliases[key] || key;
-}
-
 function criterionFit(member: PairProfile, peer: PairProfile, key: keyof PartnerCriteria): boolean | null {
   const rule = member.partnerCriteria?.[key];
   const basics = peer.marriageBasics ?? {};
   if (!rule || rule.mode === "any") return null;
+  if (key === 'education' || key === 'profession') {
+    const normalize = key === 'education' ? canonicalEducation : canonicalProfession;
+    const options = key === 'education' ? educationOptions : professionOptions;
+    const observed = normalize(peer[key] ?? '');
+    const wanted = member.partnerCriteria?.[key]?.values;
+    // A saved description outside the shared catalog is unknown, not a negative answer.
+    if (!options.some(option => option.value === observed) || !wanted?.length) return null;
+    return wanted.some(value => normalize(value) === observed);
+  }
   if (key === "children" && member.partnerCriteria?.children?.target === "any") return true;
   if (key === "height" || key === "weight") {
     const value = key === "height" ? basics.heightCm : basics.weightKg;
@@ -209,7 +217,8 @@ function directedFit(member: PairProfile, peer: PairProfile) {
 }
 
 export function comparePreferences(first: PairProfile, second: PairProfile) {
-  const sameCity = first.city.trim() === second.city.trim();
+  const firstCity = canonicalCity(first.city), secondCity = canonicalCity(second.city);
+  const sameCity = firstCity === secondCity && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(firstCity);
   if (
     first.id === second.id || first.gender === second.gender ||
     !first.city.trim() || !second.city.trim() ||

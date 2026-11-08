@@ -17,11 +17,11 @@ type WelcomeProps = {
 // Returning from login/privacy resumes the finished composition, never the opening.
 let arrivalSeen = false;
 
-export function Welcome({ onRegister, onLogin, onPrivacy }: WelcomeProps) {
+export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }: WelcomeProps) {
   const { value } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
   const reduced = value.reducedMotion || systemReduced;
-  const [introducing, setIntroducing] = useState(() => !arrivalSeen && !reduced);
+  const [introducing, setIntroducing] = useState(() => (replayIntro || !arrivalSeen) && !reduced && !document.hidden);
   const [hidden, setHidden] = useState(() => document.hidden);
   const maskId = useId().replaceAll(':', '');
 

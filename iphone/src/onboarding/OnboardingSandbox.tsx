@@ -9,6 +9,7 @@ import './sandbox.css';
 
 export function OnboardingSandbox({close, startAtForm=false, returnLabel='العودة لحسابي'}:{close:()=>void; startAtForm?:boolean; returnLabel?:string}) {
   const [stage,setStage]=useState<'intro'|'form'|'done'>(startAtForm?'form':'intro');
+  const [replayIntro,setReplayIntro]=useState(!startAtForm);
   const [legal,setLegal]=useState(false);
   const draft=useRef<ApplicationDraft|null>(null);
   const heading=useRef<HTMLHeadingElement>(null);
@@ -25,14 +26,14 @@ export function OnboardingSandbox({close, startAtForm=false, returnLabel='الع
   function review() {
     welcomeNavigation(()=>setStage('form'),'back','.nf-onboarding-sandbox h1');
   }
-  const start=()=>welcomeNavigation(()=>setStage('form'),'forward','.nf-onboarding-sandbox h1');
+  const start=()=>welcomeNavigation(()=>{setReplayIntro(false);setStage('form');},'forward','.nf-onboarding-sandbox h1');
 
   return <section className="nf-onboarding-sandbox" dir="rtl" data-stage={stage}>
     {stage==='done' && <header className="nf-sandbox-bar">
       <button type="button" onClick={close}><ArrowRight size={19} aria-hidden="true"/><span>{returnLabel}</span></button>
       <Brand compact/>
     </header>}
-    {stage==='intro' ? <Welcome onRegister={start} onLogin={close} onDemo={close} onDemoIntake={start} onPrivacy={()=>setLegal(true)}/>
+    {stage==='intro' ? <Welcome replayIntro={replayIntro} onRegister={start} onLogin={close} onDemo={close} onDemoIntake={start} onPrivacy={()=>setLegal(true)}/>
     : <div hidden={stage==='done'}><GuidedApplication initial={null} previouslyApproved={false} busy={false}
       back={()=>welcomeNavigation(()=>setStage('intro'),'back','.nf-join')} exitPreview={close} onPrivacy={()=>setLegal(true)}
       save={()=>setStage('done')}

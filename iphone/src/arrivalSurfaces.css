@@ -11,6 +11,7 @@
 .phone-app .cm-shell > .cm-view { position: relative; isolation: isolate; }
 .phone-app .cm-shell .df-arrival-paths { inset: 8px -35px auto; height: 280px; opacity: .85; }
 .phone-app .mp-hero { position: relative; isolation: isolate; }
+.phone-app .mp-sections button { padding-inline: 6px; white-space: nowrap; }
 .phone-app .mp-hero .mp-arrival-paths { opacity: .7; --nf-scene-stroke: #fff9ee; --nf-scene-second-stroke: #e4bbaa; }
 .phone-app .cm-shell .cm-chat-head { position: relative; isolation: isolate; }
 .phone-app .cm-chat-arrival-paths { opacity: .3; inset: -40px 0 0; --nf-scene-stroke: #b77e87; }

@@ -94,47 +94,52 @@
 
 /* A member's story uses the same warm architectural composition as arrival. */
 .phone-app .mp-profile { padding-top: 2px; }
-.phone-app .mp-navigation { min-height: 72px; margin-bottom: 5px; }
+.phone-app .mp-navigation { min-height: 64px; margin-bottom: 5px; }
 .phone-app .mp-navigation > span { color: #9a7684; font-size: .73rem; }
 .phone-app .mp-back { min-height: 44px; padding: 10px 13px; border: 1px solid #ac7d8c24; border-radius: 14px; background: #fff9f2a6; color: #78445c; }
-.phone-app .mp-hero { padding: 28px 24px 0; gap: 18px 16px; border: 1px solid #b8838e32; border-radius: 30px; background: linear-gradient(135deg, #fdf7ee, #f5e4dd 58%, #edcdd0); box-shadow: 0 11px 32px #673b4908, inset 0 1px 0 #fffaf6; }
-.phone-app .mp-hero::before { width: 265px; height: 330px; top: -95px; left: -84px; border-radius: 48% 48% 0 0; border-color: #b77c8a24; box-shadow: 0 0 0 19px #fffcf01c, 0 0 0 39px #c38b8b08; }
-.phone-app .mp-eyebrow { color: #a47780; font-size: .72rem; margin-bottom: 10px; }
-.phone-app .mp-hero h1 { color: #5e223b; font-size: clamp(1.85rem, 7vw, 2.5rem); margin-bottom: 13px; font-weight: 650; line-height: 1.4; }
-.phone-app .mp-hero h1 small { font-size: .86rem; margin-top: 5px; color: #906977; }
+.phone-app .mp-hero { grid-template-columns: minmax(0,1fr) minmax(110px,42%); padding: 23px 20px 0; gap: 18px 14px; border: 1px solid #b8838e32; border-radius: 30px; background: linear-gradient(135deg, #fffaf3 5%, #f5e5de 65%, #e7c6cc); box-shadow: 0 14px 34px #673b490a, inset 0 1px 0 #fffaf6; }
+.phone-app .mp-hero::before { width: 230px; height: 310px; top: -80px; left: -80px; border-radius: 48% 48% 0 0; border-color: #b77c8a24; box-shadow: 0 0 0 19px #fffcf033, 0 0 0 39px #c38b8b08; }
+.phone-app .mp-hero-copy { min-width: 0; }
+.phone-app .mp-eyebrow { display: flex; align-items: center; gap: 6px; color: #936171; font-size: .63rem; margin-bottom: 15px; line-height: 1.8; }
+.phone-app .mp-eyebrow > span { width: 18px; height: 1px; background: #b78a70; flex: none; }
+.phone-app .mp-hero h1 { color: #5e223b; font-size: clamp(1.85rem, 7vw, 2.5rem); margin-bottom: 12px; font-weight: 650; line-height: 1.4; }
+.phone-app .mp-hero h1 small { font-size: .83rem; margin-top: 5px; color: #80606e; }
 .phone-app .mp-meta { gap: 9px; color: #876472; font-size: .79rem; line-height: 1.8; }
-.phone-app .mp-portrait { height: 177px; border-radius: 62px 62px 18px 18px; border: 3px solid #fff7eb; box-shadow: 0 8px 24px #6d384719; background: linear-gradient(145deg, #905469, #551b34); }
-.phone-app .mp-intention { padding-block: 15px; border-color: #a26f7b25; color: #8b5b6c; font-size: .75rem; }
+.phone-app .mp-portrait { height: 200px; align-self: center; border-radius: 80px 80px 24px 24px; border: 3px solid #fff7eb; box-shadow: 0 8px 24px #6d384719; background: linear-gradient(145deg, #905469, #551b34); }
+.phone-app .mp-intention { margin-top: 0; padding-block: 12px; border-color: #a26f7b25; color: #7a4f60; font-size: .73rem; }
 .phone-app .mp-intention > strong { background: #fffbf2b8; color: #6c3549; padding: 4px 9px; }
-.phone-app .mp-portrait-caption { font-size: .66rem; margin: 10px 9px 20px; color: #9e7f89; line-height: 1.75; }
-.phone-app .mp-primary { gap: 10px; margin-bottom: 24px; }
+.phone-app .mp-portrait-caption { font-size: .63rem; margin: 9px 6px 17px; color: #8b6b78; line-height: 1.75; }
+.phone-app .mp-primary { gap: 10px; margin-bottom: 18px; }
 .phone-app .mp-primary > .btn-primary { min-height: 55px; border: 1px solid #71314920; border-radius: 17px; background: var(--arrival-action); color: #fff8ef; box-shadow: 0 7px 20px #78314c14, inset 0 1px 0 #ffffff12; }
-.phone-app .mp-primary > .mp-action-main { min-height: 74px; padding: 14px 17px; }
+.phone-app .mp-primary > .mp-action-main { min-height: 64px; padding: 11px 15px; }
 .phone-app .mp-action-symbol { width: 42px; height: 42px; border: 1px solid #fff8ee12; border-radius: 14px; background: #ffffff0d; }
 .phone-app .mp-action-copy strong { font-size: 15px; }
 .phone-app .mp-action-copy small { font-size: 12px; color: #ead5db; }
 .phone-app .mp-primary > .btn-secondary,
 .phone-app .mp-primary > .btn-text { min-height: 46px; border-radius: 14px; border-color: #a2738329; color: #815366; background: #fff9f2b8; font-size: 13px; }
 .phone-app .mp-primary .cm-help { color: #927381; font-size: 12px; }
-.phone-app .mp-sections { margin-bottom: 26px; padding: 5px; gap: 5px; border: 1px solid #b2829220; border-radius: 18px; background: #eadbdba6; }
-.phone-app .mp-sections button { min-height: 48px; border-radius: 13px; color: #8d6b7d; font-size: 13px; }
+.phone-app .mp-sections { position: sticky; top: 8px; z-index: 5; scroll-margin-top: 8px; margin-bottom: 22px; padding: 5px; gap: 5px; border: 1px solid #b2829220; border-radius: 18px; background: #f1e7e3ed; backdrop-filter: blur(16px); box-shadow: 0 4px 18px #673b4905; }
+.phone-app .mp-sections button { min-height: 44px; border-radius: 13px; color: #7d5d6c; font-size: 13px; }
 .phone-app .mp-sections button[aria-pressed="true"] { background: #fffcf5; color: #692c46; box-shadow: 0 3px 12px #7544580d; }
 .phone-app .mp-sections button > span { background: #f2e3e5; color: #92586e; padding: 3px 5px; font-size: 10px; }
-.phone-app .mp-content h2 { color: #693049; font-size: 1.03rem; margin-bottom: 12px; }
-.phone-app .mp-story { margin-bottom: 27px; padding-inline: 3px; }
+.phone-app .mp-content { scroll-margin-top: 76px; }
+.phone-app .mp-profile :is(.nf-preference-panel,.nf-personality-reading) { scroll-margin-top: 76px; }
+.phone-app .mp-content h2 { color: #693049; font-size: 1rem; margin-bottom: 11px; }
+.phone-app .mp-story { margin-bottom: 25px; padding-inline: 3px; }
 .phone-app .mp-story h2 svg { color: #ae7d84; }
-.phone-app .mp-story p { color: #765966; font-size: .92rem; line-height: 2.1; }
-.phone-app .mp-story-accent { padding: 22px; border: 1px solid #b384922a; border-radius: 24px; background: linear-gradient(125deg, #fffbf4, #f4e4df); }
+.phone-app .mp-story p { color: #6e515f; font-size: .92rem; line-height: 2.05; }
+.phone-app .mp-story-accent { position: relative; padding: 21px; border: 1px solid #b384922a; border-radius: 22px; background: linear-gradient(125deg, #fffbf4, #f5e8e3); }
+.phone-app .mp-story-accent::before { content: ''; position: absolute; top: 24px; bottom: 24px; inset-inline-start: 0; width: 3px; border-radius: 3px; background: #b87f8c; }
 .phone-app .mp-interests { margin-bottom: 27px; }
 .phone-app .mp-interests > div { gap: 8px; }
 .phone-app .mp-interests span { padding: 8px 14px; border: 1px solid #b0809229; background: #fff8f1ba; color: #84566d; font-size: .78rem; }
-.phone-app .mp-fact-group { margin-bottom: 28px; }
-.phone-app .mp-fact-group dl { border: 1px solid #ad7c8e2b; border-radius: 22px; background: #fffcf6db; }
+.phone-app .mp-fact-group { margin-bottom: 12px; border-color: #b384922a; background: #fffaf4c7; }
+.phone-app .mp-fact-group dl { border: 0; border-radius: 0; background: transparent; }
 .phone-app .mp-fact-group dl > div { padding: 17px; border-color: #af7c8d1c; }
 .phone-app .mp-fact-group dl > div:nth-child(odd) { border-color: #af7c8d1c; }
-.phone-app .mp-fact-group dt { color: #9a7787; font-size: .74rem; margin-bottom: 6px; }
+.phone-app .mp-fact-group dt { color: #856573; font-size: .72rem; margin-bottom: 6px; }
 .phone-app .mp-fact-group dd { color: #694056; font-size: .87rem; line-height: 1.85; }
-.phone-app .mp-passport-link { padding: 20px; border: 1px solid #b68e6c38; border-radius: 22px; background: linear-gradient(115deg, #fffaf0, #f4e8d9); box-shadow: 0 5px 18px #80543806; color: #8a6849; }
+.phone-app .mp-passport-link { padding: 17px; border: 1px solid #b68e6c38; border-radius: 19px; background: linear-gradient(115deg, #fffaf0, #f4e8d9); box-shadow: 0 5px 18px #80543806; color: #8a6849; }
 .phone-app .mp-passport-link strong { color: #684451; }
 .phone-app .mp-passport-link small { color: #958075; line-height: 1.85; }
 .phone-app .mp-secondary { margin-top: 27px; border-color: #b17e9026; }
@@ -156,6 +161,24 @@
 .phone-app .mp-fit .nf-fit-score > p { font-size: .76rem; line-height: 1.9; color: #92727d; }
 .phone-app .mp-fit .nf-score-track { height: 4px; background: #e9d8d8; }
 
+/* Only a few public essentials precede the member's own words. */
+.phone-app .mp-highlights { display: grid; grid-template-columns: repeat(auto-fit,minmax(88px,1fr)); margin: 0 0 22px; padding-bottom: 19px; border-bottom: 1px solid #b2829226; gap: 14px 10px; }
+.phone-app .mp-highlights > div { min-width: 0; padding-inline: 3px; }
+.phone-app .mp-highlights dt { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #937380; margin-bottom: 7px; }
+.phone-app .mp-highlights dt svg { color: #a47780; flex: none; }
+.phone-app .mp-highlights dd { margin: 0; font-size: 12px; line-height: 1.8; color: #613549; overflow-wrap: anywhere; }
+.phone-app .mp-fit-preview { display: grid; width: 100%; gap: 13px; padding: 18px 19px; margin: 0 0 25px; border: 1px solid #b3849230; border-radius: 23px; text-align: start; font: inherit; color: #66334a; background: linear-gradient(115deg,#fffaf3,#f1e0de); cursor: pointer; }
+.phone-app .mp-fit-preview-heading { display: flex; align-items: center; gap: 8px; }
+.phone-app .mp-fit-preview-heading strong { flex: 1; font-size: 13px; font-weight: 650; }
+.phone-app .mp-fit-preview-heading > svg:first-child { color: #a27758; }
+.phone-app .mp-fit-preview-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.phone-app .mp-fit-preview-scores > span { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.phone-app .mp-fit-preview-scores > span + span { border-inline-start: 1px solid #b282922b; padding-inline-start: 14px; }
+.phone-app .mp-fit-preview-scores strong { font-size: 26px; line-height: 1.25; font-weight: 500; font-variant-numeric: tabular-nums; }
+.phone-app .mp-fit-preview-scores > span > span { font-size: 10px; color: #80596b; }
+.phone-app .mp-fit-preview small { font-size: 10px; line-height: 1.8; color: #876774; }
+.phone-app .mp-fit-preview-reason { font-size: 13px; line-height: 1.9; }
+
 /* Motion is a short arrival, never a continuously moving reading surface. */
 @keyframes nf-people-arrive {
   from { opacity: 0; translate: 0 12px; }
@@ -171,7 +194,8 @@
   html:not([data-nf-motion="reduced"]) .phone-app .mp-hero { animation: nf-people-arrive 520ms cubic-bezier(.22,.7,.2,1) both; }
   html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .dr-person-row:nth-child(2) { animation-delay: 45ms; }
   html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .dr-person-row:nth-child(3) { animation-delay: 90ms; }
-  html:not([data-nf-motion="reduced"]) .phone-app .mp-content { animation: nf-story-arrive 340ms cubic-bezier(.22,.7,.2,1) both; }
+  /* Reanimated owns the section entrance; do not animate the same transform twice. */
+  html:not([data-nf-motion="reduced"]) .phone-app .mp-content { animation: none; }
   html:not([data-nf-motion="reduced"]) .phone-app :is(.df-feed-tabs button,.df-interest-filters button,.cm-filter-button,.df-beena-invite,.dr-row-actions button,.dr-filter-shortcut,.mp-primary button,.mp-sections button,.mp-back,.mp-passport-link) { transition: transform 120ms ease, background-color 180ms ease, box-shadow 180ms ease, color 180ms ease; }
   html:not([data-nf-motion="reduced"]) .phone-app :is(.df-feed-tabs button,.df-interest-filters button,.cm-filter-button,.df-beena-invite,.dr-row-actions button,.dr-filter-shortcut,.mp-primary button,.mp-sections button,.mp-back,.mp-passport-link):active:not(:disabled) { transform: scale(.97); }
 }
@@ -191,8 +215,10 @@
   .phone-app .cm-shell .dr-score strong { font-size: 22px; }
   .phone-app .cm-shell .dr-row-actions { gap: 5px; }
   .phone-app .cm-shell .dr-row-actions button { font-size: 11px; }
-  .phone-app .mp-hero { padding: 24px 18px 0; grid-template-columns: minmax(0, 1fr) 104px; gap: 14px 12px; }
-  .phone-app .mp-portrait { height: 158px; }
+  .phone-app .mp-hero { padding: 20px 15px 0; grid-template-columns: minmax(0, 1fr) 40%; gap: 14px 10px; }
+  .phone-app .mp-portrait { height: 174px; }
+  .phone-app .mp-eyebrow { font-size: .59rem; gap: 4px; }
+  .phone-app .mp-eyebrow > span { width: 10px; }
   .phone-app .mp-sections button { gap: 4px; font-size: 12px; }
   .phone-app .mp-fact-group dl > div { padding: 15px 13px; }
 }

@@ -35,10 +35,12 @@ if (import.meta.hot) import.meta.hot.dispose(stopKeyboardViewport)
 const GuardianPortal = lazy(() => import('./family/GuardianPortal').then(module => ({ default: module.GuardianPortal })))
 const familyEntry = !recoveryLink && !signupReturn && entryUrl.searchParams.get('family') === '1'
 const testerEntry = !recoveryLink && !signupReturn && !familyEntry && entryUrl.searchParams.get('test') === '1'
+const selectedActor = entryUrl.searchParams.get('actor')
+const initialActor = selectedActor === 'reham' || selectedActor === 'abdulrahman' ? selectedActor : undefined
 const familyInvite = familyEntry ? new URLSearchParams(entryUrl.hash.slice(1)).get('invite') ?? undefined : undefined
 // Invitation capabilities stay out of server logs and leave the address bar after capture.
 // Preserve Supabase auth callback fragments for the guardian client to consume.
 if (familyInvite) { entryUrl.hash = ''; window.history.replaceState(null, '', entryUrl.pathname + entryUrl.search) }
 createRoot(document.getElementById('root')!).render(<AppBoundary>{recoveryLink ? <App recoveryLink={recoveryLink}/> : signupReturn ? <App signupReturn={signupReturn}/> : familyEntry
   ? <Suspense fallback={<main className="flow-frame" dir="rtl"><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
-  : testerEntry ? <TesterGate/> : <App/>}<ConnectionNotice/></AppBoundary>)
+  : testerEntry ? <TesterGate initialActor={initialActor}/> : <App/>}<ConnectionNotice/></AppBoundary>)

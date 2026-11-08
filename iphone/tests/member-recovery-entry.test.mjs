@@ -72,6 +72,20 @@ test('the public homepage always uses real member auth and tester access require
   }
 });
 
+test('named test shortcuts whitelist actor selection without changing ordinary registration', async () => {
+  for(const actor of ['reham','abdulrahman']) {
+    const shortcut=await entry(`https://app.example/?test=1&actor=${actor}`);
+    assert.equal(shortcut.screen.type,'TesterGate');
+    assert.equal(shortcut.screen.props.initialActor,actor);
+    const ordinary=await entry(`https://app.example/?actor=${actor}`);
+    assert.equal(ordinary.screen.type,'App');
+    assert.equal(ordinary.screen.props.tester,undefined);
+  }
+  const invalid=await entry('https://app.example/?test=1&actor=owner');
+  assert.equal(invalid.screen.type,'TesterGate');
+  assert.equal(invalid.screen.props.initialActor,undefined);
+});
+
 test('family invites retain their route and take precedence over a test marker', async () => {
   const family = await entry('https://app.example/?family=1#invite=family-only', 'demo');
   assert.equal(family.screen.type, 'Suspense');

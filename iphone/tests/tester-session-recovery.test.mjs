@@ -8,9 +8,9 @@ const code = ts.transpileModule(await readFile(new URL('../src/testing/TesterGat
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
 const text = node => Array.isArray(node) ? node.map(text).join('') : typeof node === 'string' ? node : node?.props ? text(node.props.children) : '';
-function mount(online = true) {
+function mount(online = true, { initialActor, savedActor = 'abdulrahman' } = {}) {
  const hooks = [], effects = [], events = new Map(), requests = []; let cursor = 0;
- const storage = new Map([['saved-session', JSON.stringify({ actor: 'abdulrahman', session: 'saved-token' })]]), network = { onLine: online };
+ const storage = new Map(savedActor ? [['saved-session', JSON.stringify({ actor: savedActor, session: 'saved-token' })]] : []), network = { onLine: online };
  const react = {
   lazy: () => 'Onboarding', Suspense: 'Suspense', useRef: value => hooks[cursor++] ??= { current: value },
   useState(value) { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { hooks[at] = typeof next === 'function' ? next(hooks[at]) : next; }]; },
@@ -26,7 +26,7 @@ function mount(online = true) {
   sessionStorage: { getItem: key => storage.get(key), removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value) },
   window: { addEventListener: (event, listener) => events.set(event, listener), removeEventListener: event => events.delete(event) },
  });
- const render = () => { cursor = 0; const tree = exports.TesterGate(); effects.splice(0).forEach(effect => effect()); return tree; };
+ const render = () => { cursor = 0; const tree = exports.TesterGate({ initialActor }); effects.splice(0).forEach(effect => effect()); return tree; };
  return { render, requests, storage, events, online() { network.onLine = true; events.get('online')?.(); },
   retry() { nodes(render()).find(node => node.type === 'button' && text(node).includes('إعادة الاتصال')).props.onClick(); render(); },
   close() { hooks.forEach(hook => hook?.cleanup?.()); },
@@ -54,4 +54,32 @@ test('offline restoration waits for connectivity and does not duplicate a pendin
  const f = mount(false); f.render(); assert.equal(f.requests.length, 0); assert(f.storage.has('saved-session'));
  f.online(); f.online(); assert.equal(f.requests.length, 1);
  f.requests[0].reject(new Error('network')); await tick(); assert(f.storage.has('saved-session')); f.close(); assert.equal(f.events.size, 0);
+});
+
+test('named shortcuts select the requested account and never restore another saved account', () => {
+ for (const [initialActor, otherActor, name] of [['reham', 'abdulrahman', 'رهام'], ['abdulrahman', 'reham', 'عبدالرحمن']]) {
+  for (const savedActor of [null, otherActor]) {
+   const f=mount(true,{initialActor,savedActor}); f.render(); const tree=f.render();
+   assert.equal(f.requests.length,0);
+   assert.notEqual(tree.type,'AuthenticatedApp');
+   const selected=nodes(tree).find(node=>node.type==='button'&&node.props['aria-pressed']===true);
+   assert(text(selected).includes(name));
+   const password=nodes(tree).find(node=>node.type==='input'&&node.props.id==='tester-password');
+   if(initialActor==='abdulrahman') { assert(password); assert.equal(password.props.required,true); }
+   else assert.equal(password,undefined);
+   f.close();
+  }
+ }
+});
+
+test('same-account shortcuts restore verified sessions, but a mismatched server actor never opens', async () => {
+ for(const restoredActor of ['reham','abdulrahman']) {
+  const f=mount(true,{initialActor:'reham',savedActor:'reham'});f.render();
+  assert.equal(f.requests.length,1);assert.equal(f.requests[0].action,'state');
+  f.requests[0].resolve({actor:restoredActor,profileRevision:'1',profiles:{[restoredActor]:{displayName:'Member'}}});await tick();
+  const tree=f.render();
+  if(restoredActor==='reham') {assert.equal(tree.type,'AuthenticatedApp');assert.equal(tree.props.tester.actor,'reham');}
+  else {assert.notEqual(tree.type,'AuthenticatedApp');assert.equal(nodes(tree).some(node=>node.type==='input'&&node.props.id==='tester-password'),false);}
+  f.close();
+ }
 });

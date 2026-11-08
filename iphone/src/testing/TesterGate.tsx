@@ -4,8 +4,8 @@ import App from '../App';
 import { Brand } from '../Brand';
 import { testProfile,testRequest,testStorage,type Actor,type TestSession } from './pair';
 import './testing.css';
-export function TesterGate(){
- const [account,setAccount]=useState<TestSession|null>(null),[actor,setActor]=useState<Actor>('abdulrahman'),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+export function TesterGate({initialActor}:{initialActor?:Actor}={}){
+ const [account,setAccount]=useState<TestSession|null>(null),[actor,setActor]=useState<Actor>(initialActor??'abdulrahman'),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [restoreAttempt,setRestoreAttempt]=useState(0),[restoring,setRestoring]=useState<'checking'|'retry'|null>(()=>{try{return sessionStorage.getItem(testStorage)?'checking':null;}catch{return null;}});
  const restoreGeneration=useRef(0);
  useEffect(()=>{
@@ -16,6 +16,7 @@ export function TesterGate(){
    const raw=sessionStorage.getItem(testStorage);if(!raw){setRestoring(null);return;}
    saved=JSON.parse(raw);
    if(!saved||typeof saved.session!=='string'||!saved.session||!['abdulrahman','reham'].includes(saved.actor))throw Error('invalid_saved_session');
+   if(initialActor&&saved.actor!==initialActor){setRestoring(null);return;}
   }catch{sessionStorage.removeItem(testStorage);setRestoring(null);setBusy(false);return;}
   const current=()=>alive&&generation===restoreGeneration.current;
   async function restore(){
@@ -24,6 +25,7 @@ export function TesterGate(){
    pending=true;setBusy(true);setRestoring('checking');setError('');
    try{
     const data=await testRequest<any>('state',saved.session);
+    if(current()&&initialActor&&data.actor!==initialActor){setRestoring(null);setBusy(false);alive=false;window.removeEventListener('online',restore);return;}
     if(current()){setAccount({...saved,actor:data.actor,profileRevision:data.profileRevision,profile:testProfile(data.actor,data.profiles[data.actor])});setRestoring(null);setBusy(false);alive=false;window.removeEventListener('online',restore);}
    }catch(cause){
     if(!current())return;
@@ -34,7 +36,7 @@ export function TesterGate(){
   }
   void restore();window.addEventListener('online',restore);
   return()=>{alive=false;window.removeEventListener('online',restore);};
- },[restoreAttempt]);
+ },[restoreAttempt,initialActor]);
  async function login(e:FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');try{const result=await testRequest<any>('login','',{}, {actor,password});const next={actor:result.actor,session:result.session,profileRevision:result.profileRevision,profile:testProfile(result.actor,result.profiles[result.actor])};sessionStorage.setItem(testStorage,JSON.stringify({actor:next.actor,session:next.session}));setPassword('');setAccount(next);}catch(e){setError(e instanceof Error?e.message:'تعذّر الدخول.');}finally{setBusy(false);}}
  const exit=()=>{if(account)void testRequest('logout',account.session).catch(()=>{});sessionStorage.removeItem(testStorage);setAccount(null);};
  if(account)return <App key={account.session} tester={account} onTesterExit={exit}/>;

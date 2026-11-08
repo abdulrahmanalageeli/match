@@ -533,3 +533,19 @@
 .nf-opening-caption strong { color: var(--accent); font-size: 1.15rem; }
 .nf-opening-caption span { color: var(--muted); font-size: .84rem; }
 .nf-opening-horizon { position: absolute; inset: auto 0 0; width: 100%; height: 28svh; }
+.nf-login-accounts > p{margin:0 0 12px;color:#765864;font-size:.76rem;font-weight:600}
+.nf-login-accounts > div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nf-login-accounts a{display:flex;align-items:center;gap:9px;min-height:78px;padding:12px 10px;border:1px solid #e4ced0;border-radius:18px;background:linear-gradient(145deg,#fffaf7,#f6e9e5);color:#5a0f28;text-decoration:none;transition:transform .15s ease,box-shadow .2s ease}
+.nf-login-accounts a:active{transform:scale(.97)}
+.nf-login-accounts a:focus-visible{outline:2px solid #8f4960;outline-offset:3px}
+.nf-login-accounts a[aria-disabled="true"]{opacity:.55;pointer-events:none}
+.nf-login-accounts a > svg{margin-inline-start:auto;flex-shrink:0}
+.nf-login-accounts strong{display:block;font-size:.85rem;white-space:nowrap}
+.nf-login-accounts small{display:flex;align-items:center;gap:3px;margin-top:5px;color:#8b6b77;font-size:.62rem;white-space:nowrap}
+.nf-login-initial{display:grid;place-items:center;flex-shrink:0;width:32px;height:38px;border-radius:15px 15px 10px 10px;background:#5a0f28;color:#fff3e7;font-size:1.2rem}
+.nf-login-accounts a:nth-child(2) .nf-login-initial{background:#b67686}
+.nf-login-accounts .nf-login-divider{display:flex;align-items:center;gap:10px;margin:19px 0 0;color:#9b8590;font-size:.66rem;font-weight:400}
+.nf-login-divider::before,.nf-login-divider::after{content:"";height:1px;flex:1;background:#ebdfe0}
+@media(max-width:359px){.nf-login-accounts a{gap:7px;padding:10px 8px}.nf-login-accounts a > svg{display:none}.nf-login-accounts strong{font-size:.78rem}.nf-login-initial{width:27px}}
+@media(prefers-reduced-motion:reduce){.nf-login-accounts a{transition:none}.nf-login-accounts a:active{transform:none}}
+html[data-nf-motion="reduced"] .nf-login-accounts a{transition:none;transform:none}

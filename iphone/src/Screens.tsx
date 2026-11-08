@@ -121,6 +121,14 @@ export function Auth({
         {!login && <div className="nf-auth-promise" aria-label="مراحل الانضمام"><span><Check size={13} /> حساب</span><i /><span>ملفك</span><i /><span>المراجعة</span></div>}
       </section>
       <section className="nf-auth-panel">
+      {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
+        <p>اختَر حسابك</p>
+        <div>
+          <a href="?test=1&actor=abdulrahman" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ع</span><span><strong>عبدالرحمن</strong><small><LockKeyhole size={11} aria-hidden="true"/> بكلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
+          <a href="?test=1&actor=reham" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ر</span><span><strong>رهام</strong><small>بدون كلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
+        </div>
+        <p className="nf-login-divider"><span>أو بالبريد الإلكتروني</span></p>
+      </section>}
       {ready && !login && <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
         <legend>قبل إنشاء حسابك</legend>
         {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {

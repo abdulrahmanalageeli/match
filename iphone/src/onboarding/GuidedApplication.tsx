@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { Brand } from "../Brand";
+import { ScenePaths } from '../ScenePaths';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
@@ -349,6 +350,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
+      {!editing && <ScenePaths className="nf-intake-arrival-paths" parallax />}
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
         <div className="nf-intake-brand"><Brand compact /></div>

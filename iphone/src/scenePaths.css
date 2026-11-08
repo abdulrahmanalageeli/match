@@ -1,0 +1,32 @@
+.nf-scene-paths {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  --nf-scene-shift: 0px;
+}
+.nf-scene-paths-plane {
+  width: 100%;
+  height: 100%;
+  transform: translate3d(0, var(--nf-scene-shift), 0);
+}
+.nf-scene-paths svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.nf-scene-path {
+  stroke: var(--nf-scene-stroke, #fffaf0);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  opacity: .8;
+}
+.nf-scene-path + .nf-scene-path { stroke: var(--nf-scene-second-stroke, #c6949c); opacity: .36; }
+.nf-scene-paths[data-draw] .nf-scene-path { stroke-dasharray: 1; animation: nf-scene-draw 1.3s cubic-bezier(.25,.65,.3,1) .05s both; }
+.nf-scene-paths[data-draw] .nf-scene-path + .nf-scene-path { animation-delay: .15s; }
+@keyframes nf-scene-draw { from { stroke-dashoffset: 1; opacity: 0; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .nf-scene-paths .nf-scene-path { animation: none; }
+  .nf-scene-paths-plane { transform: none; }
+}
+html[data-nf-motion=reduced] .nf-scene-paths .nf-scene-path { animation: none; }
+html[data-nf-motion=reduced] .nf-scene-paths-plane { transform: none; }

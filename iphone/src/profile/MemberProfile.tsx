@@ -11,6 +11,7 @@ import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { marriageTimelineLabels, meetingPreferenceLabels, polygynyLabels, prayerPracticeLabels, religiousAffiliationLabels } from '../compatibility/marriage';
 import './member-profile.css';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
+import { ScenePaths } from '../ScenePaths';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 
 const ar = new Intl.NumberFormat('ar-SA');
@@ -44,6 +45,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     <header className="mp-navigation"><button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button><span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span></header>
     {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين. هذه معاينة لبياناتك المحفوظة.</span></p>}
     <section className="mp-hero" data-weekly-featured={featured||undefined} ref={identity} aria-label={`ملف ${person.alias}`}>
+      <ScenePaths className="mp-arrival-paths" parallax />
       <div className="mp-hero-copy"><span className="mp-eyebrow">تعارف له معنى</span><h1 ref={heading} tabIndex={-1}>{person.alias}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
         <div className="mp-meta">{person.city&&<span><MapPin size={14}/><bdi>{person.city}</bdi></span>}{person.occupation&&<span><BriefcaseBusiness size={14}/><bdi>{person.occupation}</bdi></span>}</div>
       </div>

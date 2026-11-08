@@ -1,4 +1,5 @@
 import { VerifiedBadge } from '../verification/VerifiedBadge';
+import { ScenePaths } from '../ScenePaths';
 import {
   useCallback,
   useEffect,
@@ -659,6 +660,7 @@ function Discovery({
   const people = order === "recommended" ? [...list].sort((a,b)=>(compatibilityPercentage(b)??-1)-(compatibilityPercentage(a)??-1)).slice(0,5) : list;
   return (
     <section className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}>
+      <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header df-header">
         <Brand />
         <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "قصص تستحقّ الاكتشاف" : "خمسة أقرب إليك"}</span>
@@ -1127,6 +1129,7 @@ export function Chat({
     <section className="cm-chat" ref={screen} data-conversation-id={connection.id} data-private-hidden={privateHidden || undefined}>
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
       <header className="cm-chat-head">
+        <ScenePaths className="cm-chat-arrival-paths" />
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
         <button className="icon-btn" onClick={back} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={() => { setProfileOpen(true); void source.noteProfileOpen?.(connection.person.id).catch(() => {}); }}>
@@ -1649,6 +1652,7 @@ function Requests({
   const rows = filtered.filter((c) => !search || c.person.alias.normalize("NFKC").includes(search));
   return (
     <section className="screen-content cm-view">
+      <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header">
         <Brand />
       </header>
@@ -1760,7 +1764,7 @@ export function Community(props: CommunityProps) {
     if (tab === "inbox" && requestToOpen) setRequestToOpen(undefined);
   }, [tab, requestToOpen]);
   return (
-    <main className="app-screen cm-shell" dir="rtl">
+    <main className="app-screen cm-shell" dir="rtl" data-community-tab={tab}>
       {discoveryUnavailable && tab !== 'chats' ? (
         <section className="screen-content cm-view">
           <header className="cm-header">

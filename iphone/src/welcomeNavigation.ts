@@ -22,15 +22,9 @@ export function welcomeNavigation(move: () => void, direction: "forward" | "back
     return;
   }
   root.dataset.nfWelcomeHandoff = direction;
-  const transition = document.startViewTransition(() => {
-    commit();
-    if (id !== latest || direction === "back") return;
-    // Snapshot the destination at rest so its own entrance doesn't hide content during the handoff.
-    const page = document.querySelector(".phone-app main");
-    for (const animation of page?.getAnimations({ subtree: true }) ?? []) {
-      if (animation instanceof CSSAnimation && animation.effect?.getTiming().iterations === 1) animation.finish();
-    }
-  });
+  // Let destination entrances play through the live transition snapshot. Finishing
+  // every CSS animation here skipped the typography, button and drawn-path reveals.
+  const transition = document.startViewTransition(commit);
   active = transition;
   void transition.ready.catch(() => {}); // A second tap can interrupt this snapshot.
   const cleanup = () => {

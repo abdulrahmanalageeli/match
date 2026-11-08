@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, MessageCircle, Route, X } from 'lucide-react';
-import type { ActivityNotification, CommunitySource, StepProgress } from '../community/data';
+import type { ActivityNotification, CommunitySource, PublicPerson, StepProgress } from '../community/data';
+import { PersonAvatar } from '../avatars/PersonAvatar';
 import { playActivitySound } from '../community/matchSound';
 import { useVoiceCalls } from '../voice/VoiceCalls';
 import './activity.css';
@@ -10,7 +11,7 @@ import { compatibilitySnapshot, compareCompatibility, type CompatibilityChange, 
 import type { MatchFit } from '../compatibility/model';
 import { CompatibilityNotice, CompatibilityChangeSheet } from './CompatibilityNotice';
 
-type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit'; stamp: string };
+type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit' | 'request'; stamp: string; person?: PublicPerson };
 type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
 export const journeyStages = ['التعارف الأول', 'نقاش جاد حول الزواج', 'الخطوة الرسمية أو العائلية'];
 
@@ -40,7 +41,7 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', beat); };
   }, [source]);
   useEffect(() => {
-    let active = true, fetching = false, dirty = false;
+    let active = true, fetching = false, dirty = false, initialSnapshot = true;
     const seen = new Map<string, string>(), stages = new Map<string, StepProgress>();
     const fits = new Map<string, CompatibilitySnapshot>();
     const completed = new Map<string, Activity>();
@@ -55,7 +56,8 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
       if (fetching) { dirty = true; return; }
       fetching = true;
       try {
-        const connections = (await source.inbox()).filter(c => c.status === 'accepted');
+        const allConnections = await source.inbox();
+        const connections = allConnections.filter(c => c.status === 'accepted');
         if (!active) return;
         if (source.progress && Date.now() - progressAt > 2500) {
           progressAt = Date.now();
@@ -82,19 +84,22 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
           // Consecutive saves become one net change per connection, rather than a stack of alerts.
           return next.length || current.length ? next : current;
         });
-        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `اهتمام جديد من ${n.person.alias}` : n.kind === 'profile_visit' ? `${n.person.alias} زار ملفك` : 'بدأ التزامكما الحصري', detail: n.kind === 'interest' ? 'اطّلع على الملف في الإشعارات' : n.kind === 'profile_visit' ? 'اضغط لعرض الإشعارات وملف الزائر' : 'أُغلقت علاقات التعارف الأخرى', stamp: n.createdAt }));
+        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `اهتمام جديد من ${n.person.alias}` : n.kind === 'profile_visit' ? `${n.person.alias} زار ملفك` : 'بدأ التزامكما الحصري', detail: n.kind === 'interest' ? 'اطّلع على الملف في الإشعارات' : n.kind === 'profile_visit' ? 'اضغط لعرض الإشعارات وملف الزائر' : 'أُغلقت علاقات التعارف الأخرى', stamp: n.createdAt, person:n.person }));
+        for (const c of allConnections) if (c.status === 'pending' && c.direction === 'incoming') {
+          next.push({key:c.id+':request',id:c.id,kind:'request',title:`طلب تعارف من ${c.person.alias}`,detail:'اطّلع على الملف وقرّر على مهلك',stamp:c.createdAt||c.updatedAt||c.id,person:c.person});
+        }
         const openChat = document.querySelector('[data-conversation-id]')?.getAttribute('data-conversation-id');
         for (const c of connections) {
-          if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `${c.unreadCount} رسالة غير مقروءة · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount) });
+          if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `${c.unreadCount} رسالة غير مقروءة · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount), person:c.person });
           const p = progress.get(c.id), previous = stages.get(c.id);
           if (p) {
-            if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`${c.person.alias} يقترح خطوة إلى الوراء`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage)});
+            if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`${c.person.alias} يقترح خطوة إلى الوراء`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage),person:c.person});
             const achievement=confirmedMilestone(previous,p);
             if(achievement)setMilestone(current=>current??{id:c.id,name:c.person.alias,kind:achievement});
-            if (previous !== undefined && p.stage > previous.stage) completed.set(c.id, { key: c.id + ':stage', id: c.id, kind: 'journey', title: 'اتفقتما على الخطوة التالية', detail: journeyStages[p.stage], stamp: String(p.stage) });
+            if (previous !== undefined && p.stage > previous.stage) completed.set(c.id, { key: c.id + ':stage', id: c.id, kind: 'journey', title: 'اتفقتما على الخطوة التالية', detail: journeyStages[p.stage], stamp: String(p.stage),person:c.person });
             if (previous !== undefined && (p.stage < previous.stage || previous.exclusive && !p.exclusive)) {completed.delete(c.id);setMilestone(current=>current?.id===c.id?null:current);}
             stages.set(c.id, p);
-            if ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.peer && !p.mine && p.stage < 2)) next.push({ key: c.id + ':journey', id: c.id, kind: 'journey', title: `${c.person.alias} يقترح خطوة جديدة`, detail: (!p.exclusive ? 'التزام حصري للنقاش الجاد' : journeyStages[p.stage + 1]) + ' · بانتظار موافقتك', stamp: String(p.stage) });
+            if ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.peer && !p.mine && p.stage < 2)) next.push({ key: c.id + ':journey', id: c.id, kind: 'journey', title: `${c.person.alias} يقترح خطوة جديدة`, detail: (!p.exclusive ? 'التزام حصري للنقاش الجاد' : journeyStages[p.stage + 1]) + ' · بانتظار موافقتك', stamp: String(p.stage),person:c.person });
           }
           const done = completed.get(c.id);
           if (done) next.push(done);
@@ -102,6 +107,8 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
         setMilestone(current=>current && !connections.some(c=>c.id===current.id)?null:current);
         // A withdrawn request can be proposed again and should alert again.
         for (const key of seen.keys()) if (!next.some(item => item.key === key)) seen.delete(key);
+        // Restored history remains in the feed; only new activity interrupts this session.
+        if (initialSnapshot) { for (const item of next) seen.set(item.key,item.stamp); initialSnapshot = false; }
         let newest: Activity | undefined;
         for (const item of next) {
           if (seen.get(item.key) !== item.stamp && !(item.kind === 'message' && item.id === openChat)) newest = item;
@@ -150,10 +157,10 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
     const timer = window.setTimeout(() => setToast(null), 6500);
     return () => clearTimeout(timer);
   }, [toast]);
-  const visit = (item: Activity) => { setToast(null); if (item.kind === 'visit' || !item.id) inbox.current(); else open.current(item.id); };
+  const visit = (item: Activity) => { setToast(null); if (item.kind === 'visit' || item.kind === 'request' || !item.id) inbox.current(); else open.current(item.id); };
   return <aside className="nf-activity" aria-label="تنبيهات المحادثات">
     {toast && !celebrationReady && <div className="nf-activity-toast" role="status">
-      <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}</strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
+      <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.person?<PersonAvatar person={toast.person} source={source}/>:toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}</strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
       <button className="nf-activity-dismiss" aria-label="إخفاء التنبيه" onClick={() => setToast(null)}><X size={17}/></button>
     </div>}
     {quietSurface && !toast && !celebrationReady && !celebrationsBlocked && !voice?.occupied && !fitDetailId && fitChanges[0] &&

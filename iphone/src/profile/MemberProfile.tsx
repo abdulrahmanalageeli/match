@@ -75,7 +75,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       <div className="mp-portrait">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={`صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>
       <div className="mp-intention"><Heart size={13}/><span>{person.marriageIntent||'تعارف بقصد الزواج'}</span>{person.exclusive&&<strong><Check size={12}/> تعارف حصري</strong>}</div>
     </section>
-    <div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.portrait?person.portrait.blur>0?'صورة شخصية مع تمويه اختياري':'صورة شخصية اختيارية':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>
+    {!(person.isDemo&&source?.simulation)&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.portrait?person.portrait.blur>0?'صورة شخصية مع تمويه اختياري':'صورة شخصية اختيارية':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}
     <div className="mp-sections" ref={sections} role="group" aria-label="أقسام الملف">
       <MotionPressButton aria-pressed={section==='about'} aria-controls={contentId} onClick={()=>selectSection('about')}><Feather size={16} aria-hidden="true"/>نبذة وحياة</MotionPressButton>

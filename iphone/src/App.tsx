@@ -938,7 +938,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       source={active ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={active?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
       {tester && !onboardingPreview && <details className="nf-tester-tools">
-        <summary aria-label="أدوات الاختبار الخاص"><ChevronDown size={16} aria-hidden="true" /></summary>
+        <summary aria-label="أدوات الاختبار الخاص" className={tester.actor==='abdulrahman'?'nf-simulation-toggle':undefined}>{tester.actor==='abdulrahman'&&<span>محاكاة</span>}<ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">
         <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span>{tester.actor==='abdulrahman'&&<><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select><button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button></>}<button onClick={exitDemo}>خروج</button></div>
         {source?.simulation && <SimulationPanel source={source} paused={paused}/>}

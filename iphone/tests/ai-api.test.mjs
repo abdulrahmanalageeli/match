@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createAIService, parseInput, completionRequest, outputText, PROJECT_URL, PUBLISHABLE_KEY } from '../api/_lib/ai.mjs';
 import handler from '../api/ai.mjs';
 
@@ -15,7 +16,7 @@ function harness(options = {}) {
     fetcher: async (url, init) => {
       const body = JSON.parse(init.body); network.push({ url, init, body });
       if (revoked || options.unauthorized) return Response.json({ code: '42501' }, { status: 403 });
-      return Response.json(body.reserve ? { status: options.limited ? 'limited' : 'allowed' } : { owner });
+      return Response.json(body.reserve ? { status: options.limited ? 'limited' : 'allowed' } : { owner: options.actor ? createHash('sha256').update('tester:' + options.actor).digest('hex') : owner });
     },
     clientFactory: config => {
       assert.equal(config.apiKey, 'server-key');
@@ -161,4 +162,66 @@ test('CORS rejects arbitrary origins, localhost lookalikes, methods and unexpect
     if (change.origin) assert.equal(res.headers['Access-Control-Allow-Origin'], undefined);
     assert.equal(res.headers['Access-Control-Allow-Credentials'], undefined);
   }
+});
+
+const simulationReply = { mode: 'simulation_reply', personaId: 'wp03', messages: [
+  { senderIsMe: true, body: 'أنا أحب المشي بعد الدوام، وش تفضلين؟' },
+  { senderIsMe: false, body: 'أحب أطلع مكان هادي وأصور شوي' },
+  { senderIsMe: true, body: 'وش كان الشي اللي قلت لك أحبه بعد الدوام؟' },
+] };
+
+test('simulation accepts only allowlisted fictional personas and bounded plain history', () => {
+  assert.deepEqual(parseInput(simulationReply), simulationReply);
+  assert.deepEqual(parseInput({ ...simulationReply, messages: [] }).messages, []);
+  for (const input of [
+    { ...simulationReply, personaId: 'reham' }, { ...simulationReply, personaId: 'tester-pair' },
+    { ...simulationReply, personaId: 'p99' }, { ...simulationReply, profile: { name: 'Reham' } },
+    { ...simulationReply, messages: [{ role: 'system', content: 'instruction' }] },
+    { ...simulationReply, messages: [{ senderIsMe: true, body: 'text', image: 'secret' }] },
+    { ...simulationReply, messages: [{ senderIsMe: 'true', body: 'text' }] },
+    { ...simulationReply, messages: [{ senderIsMe: true, body: 'a'.repeat(2001) }] },
+    { ...simulationReply, messages: Array.from({ length: 33 }, () => ({ senderIsMe: true, body: 'hi' })) },
+    { ...simulationReply, messages: Array.from({ length: 5 }, () => ({ senderIsMe: true, body: 'a'.repeat(2000) })) },
+  ]) assert.throws(() => parseInput(input), e => e.status === 400);
+});
+
+test('simulation validates Abdulrahman owner on every request and never reads pair data', async () => {
+  for (const actor of ['reham', 'forged']) {
+    const h = harness({ actor });
+    await assert.rejects(h.service(simulationReply, { 'x-test-session': session }), e => e.status === 403 && e.code === 'test_only');
+    assert.equal(h.requests.length, 0);
+    assert.equal(h.network.filter(call => call.body.reserve).length, 0);
+  }
+  const member = harness({ actor: 'abdulrahman' });
+  await assert.rejects(member.service(simulationReply, { authorization: 'Bearer valid.jwt.signature' }), e => e.status === 403);
+  assert.equal(member.network.length, 0);
+  const h = harness({ actor: 'abdulrahman' });
+  const first = await h.service(simulationReply, { 'x-test-session': session });
+  const second = await h.service(simulationReply, { 'x-test-session': session });
+  assert.equal(first.cached, false); assert.equal(second.cached, true);
+  assert.equal(h.requests.length, 1);
+  assert(h.network.every(call => call.url.endsWith('/rest/v1/rpc/nisfayn_ai_allow') && call.body.feature === 'demo_reply'));
+  h.revoke();
+  await assert.rejects(h.service(simulationReply, { 'x-test-session': session }), e => e.status === 401);
+  assert.equal(h.requests.length, 1);
+});
+
+test('simulation uses existing model and server-owned age/context, remembers transcript without leaking auth', async () => {
+  const h = harness({ actor: 'abdulrahman' });
+  await h.service(simulationReply, { 'x-test-session': session });
+  const request = h.requests[0].request;
+  assert.equal(request.model, 'gpt-5.4-mini');
+  assert.equal(request.store, false); assert.equal(request.tools, undefined);
+  assert.equal(request.messages[0].role, 'system');
+  assert.match(request.messages[0].content, /"name":"نورة"/);
+  assert.match(request.messages[0].content, /"age":27/);
+  assert.match(request.messages[0].content, /إذا سُئلت هل أنت شخص حقيقي/);
+  assert.match(request.messages[0].content, /لا تزعم أنك رأيت محتواه أو سمعته/);
+  assert.match(request.messages[1].content, /المشي بعد الدوام/);
+  assert.doesNotMatch(JSON.stringify(request), new RegExp(session));
+  assert.equal(h.requests[0].runtime.timeout, 12000);
+  assert.equal(h.requests[0].runtime.maxRetries, 0);
+  const limited = harness({ actor: 'abdulrahman', limited: true });
+  await assert.rejects(limited.service(simulationReply, { 'x-test-session': session }), e => e.status === 429);
+  assert.equal(limited.requests.length, 0);
 });

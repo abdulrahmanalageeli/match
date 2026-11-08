@@ -6,7 +6,7 @@ import type { Profile, ProfilePortrait } from '../types';
 import type { VoiceCall, VoiceCredentials } from '../voice/source';
 import { normalizeReadinessDraft } from '../readiness/model';
 import { boundedFamilyPayload, unwrapFamilyResult } from '../family/model';
-import { requestAi } from '../ai/client';
+import { requestAi, requestSimulationReply } from '../ai/client';
 import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim } from '../verification/model';
 export type Actor='abdulrahman'|'reham';
@@ -50,7 +50,9 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
  },false,{
   storageKey:`nisfayn-simulation-v1-${account.actor}-${viewer().gender}`,
   externalAccepted:()=>Number(cached?.matched),
-  canAct:()=>Boolean(cached)&&!cached?.exclusive,
+  canAct:()=>account.actor==='abdulrahman'&&Boolean(cached)&&!cached?.exclusive,
+  interactiveJourney:account.actor==='abdulrahman',
+  ...(account.actor==='abdulrahman'?{aiReply:({person,messages}:{person:PublicPerson;messages:{senderIsMe:boolean;body:string}[]})=>requestSimulationReply(person.id,messages,account.session)}:{}),
  });
  const listeners=new Set<()=>void>();let timer:number|undefined,polling=false;
  const notify=()=>listeners.forEach(f=>f());
@@ -108,6 +110,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   return URL.createObjectURL(blob);
  }
  const source:CommunitySource={...local,
+  simulation:account.actor==='abdulrahman'?local.simulation:undefined,
   ...manualVerificationSource(account.session),
   suggestOpener:()=>requestAi({mode:'opener'},account.session),
   familyTestMode: true,
@@ -188,10 +191,10 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   },
   async mediaUrl(id,attachmentId){if(id!=='tester-pair'){await available(id);return local.mediaUrl!(id,attachmentId);}return mediaDownload(id,attachmentId,false);},
   async openMedia(id,attachmentId){if(id!=='tester-pair'){await available(id);return local.openMedia!(id,attachmentId);}return mediaDownload(id,attachmentId,true);},
-  async callPermission(id){return id==='tester-pair'?permission(await state()):{status:'accepted'};},
-  async requestCallPermission(id,action){if(id!=='tester-pair')throw Error('هذه شخصية توضيحية.');return permission(await mutate('permission_'+action));},
-  async agreement(id){if(id!=='tester-pair')return {status:'accepted',actor:account.actor};const s=await state();return {status:'none',...s.seriousness,actor:account.actor};},
-  async agree(id,action,payload={}){if(id!=='tester-pair')throw Error('هذه شخصية توضيحية.');const s=await mutate('agreement_'+action,payload);return {status:'none',...s.seriousness,actor:account.actor};},
+  async callPermission(id){if(id!=='tester-pair'){await available(id);return local.callPermission?local.callPermission(id):{status:'accepted'};}return permission(await state());},
+  async requestCallPermission(id,action){if(id!=='tester-pair'){await available(id);if(!local.requestCallPermission)throw Error('المكالمات غير متاحة.');return local.requestCallPermission(id,action);}return permission(await mutate('permission_'+action));},
+  async agreement(id){if(id!=='tester-pair'){await available(id);return local.agreement?local.agreement(id):{status:'accepted',actor:account.actor};}const s=await state();return {status:'none',...s.seriousness,actor:account.actor};},
+  async agree(id,action,payload={}){if(id!=='tester-pair'){await available(id);if(!local.agree)throw Error('الميثاق غير متاح.');return local.agree(id,action,payload);}const s=await mutate('agreement_'+action,payload);return {status:'none',...s.seriousness,actor:account.actor};},
   async markRead(id,through){if(id!=='tester-pair')return local.markRead(id,through);await mutate('read',{id:through});},
   async unreadCount(){const s=await state();await retireFictional(s);return unread(s)+await local.unreadCount();},
   async act(id,action,reason,allowRematch=false){if(id!=='tester-pair'){if(action==='accept')await available(id);return local.act(id,action,reason,allowRematch);}if(action==='accept'){if((await local.inbox()).filter(c=>c.status==='accepted').length>=2)throw Error('الحد الأقصى تعارفان متزامنان.');await mutate('rematch_accept');return;}if(action==='decline'){await mutate('rematch_decline');return;}if(['block','report','cancel'].includes(action))await mutate('close',action==='report'?{report:true,reason}:action==='block'?{block:true}:{allowRematch});},

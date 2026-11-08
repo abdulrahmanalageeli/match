@@ -99,7 +99,7 @@ export function sanitizeMessage(message: Message): Message {
   return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
-export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';actor:'reham'|'abdulrahman';days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
+export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
   education?: string; profession?: string; minHeight?: number; maxHeight?: number; minWeight?: number; maxWeight?: number; children?: 'none' | 'has';
@@ -576,10 +576,13 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   if (!seedConnections) records.splice(0);
   const hiddenPeople = new Set<string>(), interestedPeople = new Set<string>(), blockedPeople = new Set<string>();
   const onlinePeople = new Set<string>();
+  const typingPeople = new Set<string>();
   const activityRows: ActivityNotification[] = [];
   const celebrationsSeen = new Set<string>();
   const readThrough = new Map<string, string>();
   const steps = new Map<string, StepProgress>();
+  const agreements = new Map<string, SeriousnessAgreement>();
+  const callPermissions = new Map<string, CallPermissionState>();
   let weeklyPicks: string[] | undefined;
   let exclusiveId: string | null = null;
   const galleryPhotos: (GalleryPhoto & { url: string })[] = [];
@@ -589,8 +592,8 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     if (!storageKey || typeof localStorage === 'undefined' || !simulation) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify({version:1, records:records.slice(0,40),
-        messages:[...messages].map(([id,rows])=>[id,rows.filter(row=>!row.attachment).slice(-100)]),
-        hidden:[...hiddenPeople],blocked:[...blockedPeople],interested:[...interestedPeople],read:[...readThrough],steps:[...steps],
+        messages:[...messages].map(([id,rows])=>{const text=rows.filter(row=>!row.attachment);return [id,text.length>100?[...text.slice(0,4),...text.slice(-96)]:text];}),
+        hidden:[...hiddenPeople],blocked:[...blockedPeople],interested:[...interestedPeople],read:[...readThrough],steps:[...steps],agreements:[...agreements],callPermissions:[...callPermissions],
         exclusiveId,activity:activityRows.slice(-40),seen:[...celebrationsSeen],simulation:simulation.snapshot()}));
     } catch { /* Quota/private browsing must not break the test app. */ }
   }
@@ -610,6 +613,8 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         }
         for (const entry of Array.isArray(saved.read)?saved.read:[]) if(Array.isArray(entry)&&typeof entry[0]==='string'&&typeof entry[1]==='string')readThrough.set(entry[0],entry[1]);
         for (const entry of Array.isArray(saved.steps)?saved.steps:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&[0,1,2].includes(entry[1].stage))steps.set(entry[0],entry[1]);
+        for (const entry of Array.isArray(saved.agreements)?saved.agreements:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&['none','proposed','accepted','expired','family'].includes(entry[1].status))agreements.set(entry[0],entry[1]);
+        for (const entry of Array.isArray(saved.callPermissions)?saved.callPermissions:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&['none','pending','accepted','declined'].includes(entry[1].status))callPermissions.set(entry[0],entry[1]);
         exclusiveId=records.some(r=>r.id===saved.exclusiveId&&r.status==='accepted')?saved.exclusiveId:null;
         activityRows.push(...(Array.isArray(saved.activity)?saved.activity:[]).filter((n:ActivityNotification)=>n&&typeof n.id==='string'&&validPerson(n.person?.id)&&['profile_visit','interest'].includes(n.kind)).slice(-40));
         for(const id of Array.isArray(saved.seen)?saved.seen:[])if(typeof id==='string')celebrationsSeen.add(id);
@@ -683,8 +688,63 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     if (open(id).status !== "accepted") throw new Error("المحادثة غير متاحة.");
     return steps.get(id) ?? { stage: 0, mine: false, peer: id === "demo-mutual" };
   }
+  function agreement(id: string): SeriousnessAgreement {
+    const record = open(id);
+    if (record.status !== 'accepted') throw Error('التعارف غير متاح.');
+    const value: SeriousnessAgreement = { status: simulationOptions.interactiveJourney ? 'none' : 'accepted', actor: viewer().gender === 'man' ? 'abdulrahman' : 'reham', ...agreements.get(id),
+      mineName: viewer().displayName, peerName: examples.find(person => person.id === record.peer)?.alias };
+    if (value.status === 'accepted' && value.deadline && Date.parse(value.deadline) <= Date.now()) value.status = 'expired';
+    return value;
+  }
+  function chatReady(id: string) { return !simulationOptions.interactiveJourney || ['accepted','family'].includes(agreement(id).status); }
+  function requireChat(id: string) { threadRows(id); if (!chatReady(id)) throw Error('وقّعا ميثاق الجدية واتفقا على المدة قبل بدء الحديث.'); }
+  function advanceRelationship(record: Local): string | undefined {
+    if (!simulationOptions.interactiveJourney) return;
+    const person = examples.find(person => person.id === record.peer);
+    if (!person) return;
+    const value = agreement(record.id), now = new Date().toISOString();
+    if (value.status === 'none' && viewer().gender === 'man') {
+      agreements.set(record.id, { ...value, status:'proposed', days:person.age < 28 ? 14 : 7, proposalId:crypto.randomUUID(), womanSignedAt:now });
+      return `${person.alias}: اقترحت مدة التعارف ووقّعت الميثاق`;
+    }
+    if (value.status === 'proposed' && viewer().gender === 'woman') {
+      agreements.set(record.id, { ...value, status:'accepted', manSignedAt:now, deadline:new Date(Date.now() + value.days! * 86400000).toISOString() });
+      return `${person.alias}: وافق على الميثاق والمدة`;
+    }
+    const actor=value.actor, peer=actor==='abdulrahman'?'reham':'abdulrahman';
+    if (value.familyAgreed?.[actor] && !value.familyAgreed[peer]) {
+      agreements.set(record.id,{...value,status:'family',familyAgreed:{...value.familyAgreed,[peer]:true}});
+      return `${person.alias}: وافق على الخطوة العائلية`;
+    }
+    const journey=steps.get(record.id);
+    if (journey?.rewindMine) {
+      const stage=Math.max(0,journey.stage-1);
+      steps.set(record.id,{stage,mine:false,peer:false,exclusive:stage>0,updatedAt:now});
+      if(!stage)exclusiveId=null;
+      return `${person.alias}: وافق على العودة خطوة`;
+    }
+    if (journey?.mine && journey.stage<2) {
+      const stage=journey.stage+1;
+      steps.set(record.id,{stage,mine:false,peer:false,exclusive:true,consentMine:true,consentPeer:true,updatedAt:now});
+      exclusiveId=record.id;
+      // The simulation owns these records only; the real paired tester is never touched.
+      records.filter(row=>row.id!==record.id&&row.status!=='closed').forEach(row=>{row.status='closed';row.updatedAt=now;});
+      return `${person.alias}: وافق على المرحلة التالية`;
+    }
+    const permission=callPermissions.get(record.id);
+    if(permission?.status==='pending'&&permission.direction==='outgoing') {
+      callPermissions.set(record.id,{status:'accepted'});
+      return `${person.alias}: وافق على إذن المكالمات`;
+    }
+    const transcript=messages.get(record.id)??[];
+    if(!permission&&chatReady(record.id)&&transcript.filter(row=>!row.deletedAt&&row.senderIsMe).length>=3&&transcript.filter(row=>!row.deletedAt&&!row.senderIsMe).length>=3) {
+      callPermissions.set(record.id,{status:'pending',direction:'incoming'});
+      return `${person.alias}: اقترح تفعيل المكالمات`;
+    }
+  }
   simulation = createDemoSimulation({
-    people:candidates,records,messages,online:onlinePeople,
+    people:candidates,records,messages,online:onlinePeople,typing:typingPeople,chatReady,
+    conversationAllowed:id=>!exclusiveId||exclusiveId===id,advanceRelationship,
     available:id=>!hiddenPeople.has(id)&&!blockedPeople.has(id)&&!records.some(r=>r.peer===id&&r.status==='closed'&&!r.allowRematch),
     exclusive:()=>Boolean(exclusiveId),
     activity(kind,personId){
@@ -695,7 +755,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if(activityRows.length>40)activityRows.splice(0,activityRows.length-40);
     },
     changed:notify,
-    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;weeklyPicks=undefined;mediaFiles.clear();},
+    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;weeklyPicks=undefined;mediaFiles.clear();},
   },simulationOptions,persistedSimulation);
   return {
     simulation,
@@ -753,6 +813,28 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return records.reduce((count, row) => count + (row.status === "accepted" ? unread(row.id) : 0), 0);
     },
     async progress(id) { return progress(id); },
+    async agreement(id) { return agreement(id); },
+    async agree(id, action, payload={}) {
+      const value=agreement(id),now=new Date().toISOString();
+      if(action==='propose') {
+        if(value.actor!=='reham'||!payload.signed||![7,14,30].includes(payload.days??0)||['accepted','family'].includes(value.status))throw Error('راجعي الميثاق واختاري المدة.');
+        agreements.set(id,{...value,status:'proposed',days:payload.days,proposalId:crypto.randomUUID(),womanSignedAt:now});
+      } else if(action==='accept') {
+        if(value.actor!=='abdulrahman'||value.status!=='proposed'||!payload.signed||payload.proposalId!==value.proposalId)throw Error('راجع الاقتراح ووقّع الميثاق.');
+        agreements.set(id,{...value,status:'accepted',manSignedAt:now,deadline:new Date(Date.now()+value.days!*86400000).toISOString()});
+      } else {
+        if(!payload.confirmed||!['accepted','expired','family'].includes(value.status))throw Error('أكّد رغبتك بالخطوة العائلية.');
+        agreements.set(id,{...value,familyAgreed:{...value.familyAgreed,[value.actor]:true}});
+      }
+      notify();simulation.wake();return agreement(id);
+    },
+    async callPermission(id) { open(id);return callPermissions.get(id)??{status:'none'}; },
+    async requestCallPermission(id,action) {
+      requireChat(id);const current=callPermissions.get(id)??{status:'none'};
+      if(action==='invite') { if(current.status==='accepted')return current;callPermissions.set(id,{status:'pending',direction:'outgoing'}); }
+      else {if(current.status!=='pending'||current.direction!=='incoming')throw Error('لا توجد دعوة واردة.');callPermissions.set(id,{status:action==='accept'?'accepted':'declined'});}
+      notify();simulation.wake();return callPermissions.get(id)!;
+    },
     async gallery(subject) { return subject ? [] : galleryPhotos; },
     async galleryUrl(photo) { const p = galleryPhotos.find(p => p.id === photo.id); if (!p) throw Error("الصورة غير متاحة."); return URL.createObjectURL(await (await fetch(p.url)).blob()); },
     async addGallery(file) { if (galleryPhotos.length >= 3) throw Error("الحد الأقصى ثلاث صور."); galleryPhotos.push({id: crypto.randomUUID(), url: URL.createObjectURL(file)}); notify(); },
@@ -761,7 +843,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       const p=progress(id); if(p.stage!==stage||stage<1)throw Error("تغيّرت المرحلة.");
       const next: StepProgress = agree && p.rewindPeer ? {stage: stage-1,mine:false,peer:false,exclusive:stage>1,rewindMine:false,rewindPeer:false} : {...p,rewindMine:agree,rewindPeer:agree ? p.rewindPeer : false};
       if(next.stage===0)exclusiveId=null;
-      next.updatedAt=new Date().toISOString();steps.set(id,next);notify();return next;
+      next.updatedAt=new Date().toISOString();steps.set(id,next);notify();simulation.wake();return next;
     },
     async nextStep(id, stage, agree, consent = false) {
       const current = progress(id);
@@ -771,7 +853,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       const next = agree && current.peer ? { stage, mine: false, peer: false } : { ...current, mine: agree };
       const value = { ...next, updatedAt: new Date().toISOString(), exclusive: next.stage >= 1, consentMine: agree, consentPeer: current.peer };
       if (value.exclusive) { exclusiveId = id; records.forEach(r => { if (r.id !== id) r.status = 'closed'; }); }
-      steps.set(id, value); notify(); return value;
+      steps.set(id, value); notify(); simulation.wake(); return value;
     },
     async markRead(id, throughId) {
       if (open(id).status !== "accepted") throw new CloudError("المحادثة غير متاحة.", 403);
@@ -831,7 +913,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         direction: "outgoing",
         status: "pending",
       });
-      notify();
+      notify(); simulation.wake();
       return id;
     },
     async demoAcceptOutgoing(id) {
@@ -845,7 +927,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       invitation.status = "accepted";
       invitation.celebrationKey=crypto.randomUUID();
       invitation.updatedAt = new Date().toISOString();
-      notify();
+      notify(); simulation.wake();
     },
     async act(id, action, reason, allowRematch = false) {
       const r = open(id);
@@ -871,7 +953,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       }
       r.updatedAt = new Date().toISOString();
       if (r.id === exclusiveId && r.status === 'closed') exclusiveId = null;
-      notify();
+      typingPeople.delete(id); notify(); simulation.wake();
     },
     async thread(id, beforeId) {
       const list = threadRows(id);
@@ -886,7 +968,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return { firstUnreadId: unreadRows[0]?.id ?? null, unreadCount: unreadRows.length };
     },
     async setTyping(id) { threadRows(id); },
-    async typingState(id) { threadRows(id); return false; },
+    async typingState(id) { threadRows(id); return typingPeople.has(id) && chatReady(id); },
     async reactToMessage(id, messageId, reaction) {
       threadRows(id);
       const message = messages.get(id)?.find(row => row.id === messageId);
@@ -908,14 +990,14 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       notify();
     },
     async sendMedia(id, file, kind, clientId, duration, viewOnce = false) {
-      threadRows(id);
+      requireChat(id);
       if (!file.size || file.size > 8 * 1024 * 1024 || (kind === 'photo' ? file.type !== 'image/jpeg' : !file.type.startsWith('audio/'))) throw Error('اختر ملفًا صالحًا بحجم لا يتجاوز ٨ ميغابايت.');
       if (viewOnce && kind !== 'photo') throw Error('العرض لمرة واحدة متاح للصور فقط.');
       const list = messages.get(id) ?? [];
       if (list.some(row => row.clientId === clientId)) return clientId;
       mediaFiles.set(clientId, file);
       list.push({ id: clientId, clientId, senderIsMe: true, body: kind === 'photo' ? (viewOnce ? 'صورة لمرة واحدة' : 'صورة') : 'رسالة صوتية', createdAt: new Date().toISOString(), attachment: { id: clientId, kind, mime: file.type, size: file.size, duration, viewOnce, openedAt: null } });
-      messages.set(id, list); notify(); return clientId;
+      messages.set(id, list); notify(); simulation.wake(); return clientId;
     },
     async mediaUrl(id, attachmentId) {
       const message = mediaMessage(id, attachmentId);
@@ -931,6 +1013,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return URL.createObjectURL(file);
     },
     async send(id, body, clientId, replyToId) {
+      requireChat(id);
       if (
         open(id).status !== "accepted" ||
         !body.trim() ||
@@ -950,7 +1033,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
           ...(original ? { reply: { id: original.id, body: original.body.slice(0,240), senderIsMe: original.senderIsMe } } : {}),
         });
       messages.set(id, list);
-      notify();
+      notify(); simulation.wake();
       return clientId;
     },
   };

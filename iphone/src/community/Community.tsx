@@ -71,6 +71,7 @@ import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { FitDetails, preferencePercentage, personalityPercentage } from "../compatibility/FitDetails";
 import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
+import { PersonAvatar } from "../avatars/PersonAvatar";
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
@@ -451,7 +452,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
     <div className="df-portrait-badges"><CompatibilityPill person={person} />
-      <span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>
+      {!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
@@ -510,7 +511,7 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
           <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
           <span className="dr-presence" data-status={person.online===true?'online':person.online===false?'offline':'unknown'} aria-label={status}/>
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-meta">{person.city} {person.isDemo&&<span className="nf-demo-tag">توضيحي</span>}</span><span className="dr-row-occupation">{person.occupation}</span></span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-meta">{person.city} {person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span><span className="dr-row-occupation">{person.occupation}</span></span>
       </button>
       <button type="button" className="dr-row-fit" disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
         <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
@@ -1323,8 +1324,8 @@ export function Chat({
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
         <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
-          <Avatar name={connection.person.alias} avatar={connection.person.publicAvatar} />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>عرض الملف · قد تظهر زيارتك <ChevronLeft size={12}/></>}</small></span>
+          <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>عرض الملف · قد تظهر زيارتك <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -1938,9 +1939,9 @@ function Requests({
             aria-label={`${row.status === "accepted" ? "فتح محادثة" : "عرض طلب"} ${row.person.alias}`}
             aria-describedby={row.unreadCount ? "unread-" + row.id : undefined}
           >
-            <Avatar name={row.person.alias} avatar={row.person.publicAvatar} />
+            <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
-              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.isDemo&&<span className="nf-demo-tag">توضيحي</span>} {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
+              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>} {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

@@ -8,7 +8,7 @@ let source = ts.transpileModule(await readFile(new URL('../src/ai/client.ts', im
 }).outputText;
 source = source.replace(/import \{ cloud \} from ['"]\.\.\/cloud['"];?/, "const cloud={auth:{getSession:async()=>({data:{session:{access_token:'member-token'}}})}};")
   .replace(/import \{ Capacitor \} from ['"]@capacitor\/core['"];?/, 'const Capacitor={isNativePlatform:()=>false};');
-const { requestAi } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const { requestAi, requestSimulationReply } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function browser(t) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'window');
@@ -45,4 +45,27 @@ test('provider outage uses a useful local generic starter without another reques
   assert.match(result, /أهلًا|يسعدني/);
   assert.doesNotMatch(result, /OpenAI|ذكاء اصطناعي/);
   assert.equal(network.mock.callCount(), 1);
+});
+
+test('fictional simulation uses only the explicit test token and bounded transcript', async t => {
+  browser(t); const calls = [], token = 'a'.repeat(64);
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, options }); return Response.json({ text: 'إيه أذكر قلت تحب المشي بعد الدوام' });
+  });
+  const messages = [{ senderIsMe: true, body: 'أحب المشي بعد الدوام' }];
+  assert.match(await requestSimulationReply('wp03', messages, token), /المشي/);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { mode: 'simulation_reply', personaId: 'wp03', messages });
+  assert.equal(calls[0].options.headers['x-test-session'], token);
+  assert.equal(calls[0].options.headers.Authorization, undefined);
+  for (const person of ['reham', 'abdulrahman', 'tester-pair', 'p99']) await assert.rejects(requestSimulationReply(person, messages, token));
+  await assert.rejects(requestSimulationReply('wp03', messages, ''));
+  await assert.rejects(requestSimulationReply('wp03', [{ ...messages[0], photo: 'private' }], token));
+  assert.equal(calls.length, 1);
+});
+
+test('simulation errors remain errors for the scheduler without fake generic replies', async t => {
+  browser(t);
+  const calls = t.mock.method(globalThis, 'fetch', async () => Response.json({ error: 'limited' }, { status: 429 }));
+  await assert.rejects(requestSimulationReply('wp03', [], 'a'.repeat(64)), /تعذّر الرد/);
+  assert.equal(calls.mock.callCount(), 1);
 });

@@ -1,4 +1,4 @@
-import { AIError, createAIService } from './_lib/ai.mjs';
+import { AIError, createAIService, MAX_BODY } from './_lib/ai.mjs';
 const serve = createAIService();
 const nativeOrigins = new Set(['capacitor://localhost', 'http://localhost']);
 const requestHeaders = ['content-type', 'authorization', 'x-test-session'];
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed', code: 'method' });
   }
-  if (Number(req.headers['content-length'] || 0) > 12000) return res.status(413).json({ error: 'الطلب أطول من المسموح.', code: 'too_large' });
+  if (Number(req.headers['content-length'] || 0) > MAX_BODY) return res.status(413).json({ error: 'الطلب أطول من المسموح.', code: 'too_large' });
   try { return res.status(200).json(await serve(req.body, req.headers)); }
   catch (error) {
     const known = error instanceof AIError;

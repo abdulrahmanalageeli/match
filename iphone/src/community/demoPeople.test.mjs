@@ -63,5 +63,6 @@ test('demo portraits remain valid and optional while server persona briefs match
   assert.equal(demoPeople.find(p=>p.id==='wp01').demoPhoto,'/demo/portraits/sarah-realistic-v2.webp');
   for(const p of demoPeople.filter(p=>p.demoPhoto))await access(new URL('../../public'+p.demoPhoto,import.meta.url));
   assert.deepEqual(personas,demoPeople.map(p=>({id:p.id,name:p.alias,bio:p.bio,interests:p.interestIds,
-    style:personalityQuestions.map(q=>q.prompt+' '+personalityOptions.find(o=>o.code===p.personalityAnswers[q.id]).label).join('؛ ')})));
+    style:personalityQuestions.map(q=>q.prompt+' '+personalityOptions.find(o=>o.code===p.personalityAnswers[q.id]).label).join('؛ '),
+    age:p.age,city:p.city,occupation:p.occupation,gender:p.gender})));
 });

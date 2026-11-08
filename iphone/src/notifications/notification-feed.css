@@ -19,7 +19,8 @@
 .cm-notification-row[aria-busy="true"] { opacity: .64; }
 .cm-notification-row:active:not(:disabled) { background: var(--blush); }
 .nf-feed-avatar { position: relative; flex: 0 0 46px; width: 46px; height: 52px; border-radius: 17px 17px 20px 20px; background: linear-gradient(145deg,#794353,var(--accent-fill)); color: var(--accent-ink); box-shadow: inset 0 0 0 1px #ffffff45; }
-.nf-feed-avatar > .nf-avatar-portrait { width: 100%; height: 100%; border-radius: inherit; display: block; }
+.nf-feed-avatar > .nf-person-avatar { width: 100%; height: 100%; border-radius: inherit; }
+.nf-feed-avatar > .nf-person-avatar > b { font-size: 25px; font-weight: 400; }
 .nf-feed-initial { display: grid; height: 100%; place-items: center; font-size: 25px; font-weight: 400; }
 .nf-feed-avatar > i { display: grid; place-items: center; position: absolute; inset-inline-end: -5px; bottom: -4px; width: 23px; height: 23px; border: 2px solid var(--paper); border-radius: 50%; background: var(--surface); color: var(--accent-fill); }
 .nf-feed-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }

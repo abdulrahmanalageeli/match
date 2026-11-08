@@ -66,7 +66,7 @@ test('simulated test conversations persist per tester and refresh paused, withou
     const peer=source.simulation.snapshot().participants[0];
     const id=await source.request(peer);await source.demoAcceptOutgoing(id);
     await source.send(id,'أهلًا بك','sim-hello');
-    await source.simulation.step();await source.simulation.step();
+    for(let i=0;i<4;i++)await source.simulation.step();
     const saved=await source.thread(id);assert.equal(saved.length,2);assert.equal(await source.unreadCount(),1);
     const restored=demoCommunity(()=>demoProfile,false,options);
     assert.equal(restored.simulation.snapshot().running,false);
@@ -78,6 +78,31 @@ test('simulated test conversations persist per tester and refresh paused, withou
     restored.simulation.reset();assert.equal((await restored.inbox()).length,0);
     assert.equal((await demoCommunity(()=>demoProfile,false,options).inbox()).length,0);
   } finally { if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original; }
+});
+
+test('interactive simulated journey requires explicit user signature and supports permission, advancement and rewind', async () => {
+  const profile={...demoProfile,gender:'man',displayName:'عبدالرحمن'};
+  const source=demoCommunity(()=>profile,false,{interactiveJourney:true,random:()=>.2});
+  const peer=(await source.discover({mode:'all'}))[0];
+  const id=await source.request(peer.id);await source.demoAcceptOutgoing(id);
+  await assert.rejects(source.send(id,'قبل الاتفاق','early'),/ميثاق/);
+  assert.equal((await source.agreement(id)).status,'none');
+  await source.simulation.step();
+  const proposal=await source.agreement(id);
+  assert.equal(proposal.status,'proposed');assert.equal(proposal.peerName,peer.alias);assert(proposal.womanSignedAt);
+  assert.equal(proposal.manSignedAt,undefined);
+  await assert.rejects(source.agree(id,'accept',{proposalId:proposal.proposalId,signed:false}));
+  await assert.rejects(source.agree(id,'accept',{proposalId:'stale',signed:true}));
+  const agreed=await source.agree(id,'accept',{proposalId:proposal.proposalId,signed:true});
+  assert.equal(agreed.status,'accepted');assert(agreed.manSignedAt);assert(agreed.deadline);
+  assert.equal((await source.callPermission(id)).status,'none');
+  assert.equal((await source.requestCallPermission(id,'invite')).status,'pending');
+  await source.simulation.step();assert.equal((await source.callPermission(id)).status,'accepted');
+  const pending=await source.nextStep(id,1,true,true);assert.equal(pending.stage,0);
+  await source.simulation.step();assert.equal((await source.progress(id)).stage,1);
+  await source.rewindStep(id,1,true);await source.simulation.step();assert.equal((await source.progress(id)).stage,0);
+  await source.send(id,'هلا','after-agreement');
+  assert.equal((await source.thread(id)).at(-1).body,'هلا');
 });
 
 test('score filters and displays reject incomplete, unsupported and invalid scores consistently', () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send } from 'lucide-react';
-import { AvatarPortrait } from '../avatars/AvatarPortrait';
+import { PersonAvatar } from '../avatars/PersonAvatar';
 import type { ActivityNotification, CommunitySource, Connection, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
 import { emptyFeed } from './emptyFeed';
@@ -102,7 +102,7 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
       return <div key={item.id} className="nf-feed-entry">
         {showGroup && <h2 className="nf-feed-day">{group}</h2>}
         <button className="cm-notification-row" data-unread={item.unread || undefined} data-kind={item.kind} disabled={!item.target || opening !== null} aria-busy={opening === item.id || undefined} onClick={() => void open(item)}>
-          <span className="nf-feed-avatar" aria-hidden="true">{item.person.publicAvatar ? <AvatarPortrait avatar={item.person.publicAvatar} decorative/> : <span className="nf-feed-initial">{item.person.alias.slice(0,1)}</span>}<i><EventIcon item={item}/></i></span>
+          <span className="nf-feed-avatar" aria-hidden="true"><PersonAvatar person={item.person} source={source}/><i><EventIcon item={item}/></i></span>
           <span className="nf-feed-copy"><span className="nf-feed-row-head"><strong>{item.title}</strong>{item.unread && <i className="nf-feed-unread" aria-label="غير مقروء"/>}</span><small>{item.detail}</small>
             <span className="nf-feed-meta">{feedTime(item.at) ? <time dateTime={item.at} title={fullDate.format(new Date(item.at!))}>{timeFormat.format(new Date(item.at!))}</time> : <span>الوقت غير متوفر</span>}{item.attention && <em>بانتظارك</em>}</span>
           </span>

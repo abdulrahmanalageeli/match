@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AudioLines, Check, ChevronDown, Headphones, Mic, MicOff, Phone, PhoneOff, ShieldCheck, Volume2 } from "lucide-react";
 import { Brand } from "../Brand";
-import { AvatarPortrait } from "../avatars/AvatarPortrait";
+import { PersonAvatar } from "../avatars/PersonAvatar";
 import type { CommunitySource, Connection } from "../community/data";
 import { callProblem, voiceSource, type CallAction, type VoiceCall } from "./source";
 import { createVoiceTransport, prepareVoiceTransport, nativeVoice, type VoiceTransport } from "./transport";
@@ -300,7 +300,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
       {demo && <p className="nf-call-demo">معاينة تجريبية · لا يُستخدم الميكروفون ولا يُتصل بأي شخص</p>}
       <div className="nf-call-identity">
         <div className="nf-call-halo" data-active={call.status !== "ended" || undefined}>
-          <div className="nf-call-avatar">{call.person?.publicAvatar ? <AvatarPortrait avatar={call.person.publicAvatar} decorative/> : <span>{call.person?.alias.slice(0, 1) || "ن"}</span>}</div>
+          <div className="nf-call-avatar">{call.person&&source ? <PersonAvatar person={call.person} source={source}/> : <span>{call.person?.alias.slice(0, 1) || "ن"}</span>}</div>
         </div>
         <h1 id="nf-call-title">{call.person?.alias || "الطرف الآخر"}</h1>
         <p key={status} role="status" className="nf-call-status" data-phase={phase}>{status}</p>

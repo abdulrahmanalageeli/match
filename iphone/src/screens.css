@@ -393,24 +393,24 @@
 .nf-auth-frame .flow-brand .bm-brand-mark { width: 34px; height: 34px; }
 .nf-auth-frame .flow-body { padding-top: 28px; }
 .nf-auth-hero { padding-bottom: 24px; }
-.nf-auth-eyebrow { display: block; margin-bottom: 9px; color: #54152a; font-size: 14px; font-weight: 700; }
-.nf-auth-frame .nf-auth-hero h1 { max-width: none; margin: 0; color: #242326; font-size: 32px; line-height: 1.4; letter-spacing: -.5px; }
+.nf-auth-eyebrow { display: block; margin-bottom: 9px; color: #54152a; font-size: 14px; font-weight: 500; }
+.nf-auth-frame .nf-auth-hero h1 { max-width: none; margin: 0; color: #242326; font-size: 28px; font-weight: 600; line-height: 1.5; letter-spacing: 0; }
 .nf-auth-hero .flow-intro { max-width: 38ch; margin: 10px 0 0; color: #716b70; font-size: 16px; line-height: 1.7; }
 .nf-auth-promise { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 0; padding: 0; color: #716b70; font-size: 14px; list-style: none; }
 .nf-auth-promise li { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .nf-auth-promise li + li::before { content: ''; width: 15px; height: 1px; margin-inline-end: 6px; background: #d7d2d0; }
 .nf-auth-promise li > span { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #d8d3d0; border-radius: 50%; font-size: 14px; }
-.nf-auth-promise li[aria-current] { color: #54152a; font-weight: 700; }
+.nf-auth-promise li[aria-current] { color: #54152a; font-weight: 500; }
 .nf-auth-promise li[aria-current] > span { border-color: #54152a; background: #54152a; color: #fff; }
 .nf-auth-aside { display: none; }
 .nf-auth-panel { display: grid; gap: 18px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .nf-auth-panel .flow-form { gap: 18px; }
 .nf-auth-panel .flow-form label { gap: 8px; color: #242326; font-size: 16px; }
 .nf-auth-panel .flow-form input:not([type="checkbox"]) {
-  min-height: 54px;
+  min-height: 52px;
   padding: 13px 15px;
   border: 1px solid #d2ceca;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
   box-shadow: none;
   font-size: 16px;
@@ -419,21 +419,21 @@
 .nf-auth-panel .password-wrap button { top: 5px; }
 .nf-auth-panel .flow-form > .nf-password-help { margin-top: -9px; font-size: 14px; }
 .nf-auth-panel .nf-consent-review { min-width: 0; margin: 6px 0 0; padding: 18px 0 0; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; background: transparent; }
-.nf-auth-panel .nf-consent-review legend { float: right; width: 100%; padding: 0 0 5px; color: #242326; font-size: 16px; font-weight: 700; }
+.nf-auth-panel .nf-consent-review legend { float: right; width: 100%; padding: 0 0 5px; color: #242326; font-size: 16px; font-weight: 500; }
 .nf-auth-panel .nf-consent-choice { clear: both; gap: 11px; padding-block: 12px; }
 .nf-auth-panel .nf-consent-choice strong { color: #242326; font-size: 16px; line-height: 1.55; }
 .nf-auth-panel .nf-consent-choice small { margin-top: 4px; color: #716b70; font-size: 14px; line-height: 1.7; }
 .nf-auth-panel .nf-consent-review p { color: #716b70; font-size: 14px; line-height: 1.7; }
-.nf-auth-panel .f-primary { min-height: 54px; border: 1px solid #54152a; border-radius: 8px; background: #54152a; color: #fff; box-shadow: none; font-size: 16px; }
-.nf-auth-panel .f-primary:disabled { opacity: 1; background: #ddd8d6; border-color: #ddd8d6; color: #777074; }
-.nf-auth-panel > .f-secondary { min-height: 50px; border: 1px solid #d2ceca; border-radius: 8px; background: transparent; color: #54152a; font-size: 16px; }
+.nf-auth-panel .f-primary { min-height: 52px; border: 1px solid #54152a; border-radius: 10px; background: #54152a; color: #fff; box-shadow: none; font-size: 16px; }
+.nf-auth-panel .f-primary:disabled { opacity: 1; background: #e9e7e9; border-color: #e9e7e9; color: #817a80; }
+.nf-auth-panel > .f-secondary { min-height: 48px; border: 1px solid #d2ceca; border-radius: 10px; background: transparent; color: #54152a; font-size: 16px; }
 .nf-auth-panel .f-link { min-height: 40px; color: #54152a; font-size: 16px; }
 .nf-auth-panel .nf-privacy-link { justify-content: flex-start; margin: 0; padding-inline: 0; min-height: 44px; color: #54152a; font-size: 14px; text-align: start; }
 .nf-auth-panel > .nf-privacy-link { justify-content: center; color: #716b70; }
 @media (min-width: 760px) {
   .phone-app .nf-auth-frame, .nf-auth-frame { max-width: 1040px; padding: 14px 40px 48px; }
   .nf-auth-frame .flow-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 72px; padding-top: 54px; }
-  .nf-auth-frame .nf-auth-hero h1 { font-size: 36px; }
+  .nf-auth-frame .nf-auth-hero h1 { font-size: 32px; }
   .nf-auth-hero .flow-intro { max-width: 28ch; }
   .nf-auth-promise { margin-top: 30px; }
   .nf-auth-promise li + li::before { display: none; }
@@ -529,14 +529,14 @@
 .nf-auth-panel .nf-login-accounts { padding-top: 22px; border-top: 1px solid #e5e2de; }
 .nf-login-accounts > p { margin: 0 0 12px; color: #716b70; font-size: 14px; font-weight: 400; }
 .nf-login-accounts > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.nf-login-accounts a { display: flex; align-items: center; gap: 9px; min-height: 78px; padding: 12px 10px; border: 1px solid #e5e2de; border-radius: 8px; background: #fff; color: #242326; text-decoration: none; transition: border-color .2s ease; }
+.nf-login-accounts a { display: flex; align-items: center; gap: 9px; min-height: 78px; padding: 12px 10px; border: 1px solid #e5e2de; border-radius: 10px; background: #fff; color: #242326; text-decoration: none; transition: border-color .2s ease; }
 .nf-login-accounts a:hover { border-color: #b8a6ad; }
 .nf-login-accounts a:focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
 .nf-login-accounts a[aria-disabled="true"] { opacity: .55; pointer-events: none; }
 .nf-login-accounts a > svg { margin-inline-start: auto; flex-shrink: 0; color: #716b70; }
-.nf-login-accounts strong { display: block; font-size: 16px; white-space: nowrap; }
+.nf-login-accounts strong { display: block; font-size: 16px; font-weight: 500; white-space: nowrap; }
 .nf-login-accounts small { display: flex; align-items: center; gap: 3px; margin-top: 3px; color: #716b70; font-size: 14px; white-space: nowrap; }
-.nf-login-initial { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 38px; border-radius: 4px; background: #eee9e7; color: #54152a; font-size: 20px; }
+.nf-login-initial { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 38px; border-radius: 8px; background: #f4f3f4; color: #54152a; font-size: 20px; }
 @media (max-width: 400px) { .nf-login-accounts > div { grid-template-columns: 1fr; } .nf-auth-promise li + li::before { width: 9px; margin-inline-end: 0; } }
 @media (prefers-reduced-motion: reduce) { .nf-login-accounts a { transition: none; } }
 html[data-nf-motion="reduced"] .nf-login-accounts a { transition: none; }

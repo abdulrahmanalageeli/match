@@ -35,14 +35,14 @@
   background: #fff; box-shadow: none; color: var(--journey-ink);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 600; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 24px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-progress {
   padding: 0 0 28px; margin: 0;
   border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 12px; font-size: 14px; line-height: 1.6; color: var(--journey-muted); }
-.phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: var(--journey-ink); font-weight: 700; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: var(--journey-ink); font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child::before { content: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter { gap: 5px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i { height: 3px; background: #ddd9d5; border-radius: 0; }
@@ -59,8 +59,8 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::after,
 .phone-app .nf-intake.nf-intake--new .nf-intake-ridge,
 .phone-app .nf-intake.nf-intake--new .nf-intake-seal { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: clamp(1.65rem, 6.8vw, 2rem); line-height: 1.5; letter-spacing: 0; text-wrap: balance; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: 16px; line-height: 1.85; margin: 10px 0 0; text-wrap: pretty; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: 28px; font-weight: 600; line-height: 1.45; letter-spacing: 0; text-wrap: balance; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: 16px; font-weight: 400; line-height: 1.8; margin: 10px 0 0; text-wrap: pretty; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-heading-tools {
   position: static; inset: auto; order: 2;
@@ -72,22 +72,22 @@
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide[open] { padding: 0; position: static; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide > summary,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide[open] > summary { position: static; padding: 0; gap: 10px; }
-.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 20px; }
+.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 20px; line-height: 1.5; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title { margin-bottom: 16px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-section-guide p { font-size: 14px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 24px; }
 .phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
   min-height: 56px; padding: 14px 15px; border: 1px solid #c9c4c1; border-radius: 10px;
-  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 16px;
+  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 16px; font-weight: 400;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: #817b80; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: #54152a; background: #fff; outline: 3px solid #54152a16; box-shadow: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select, button)[aria-invalid=true] { border-color: #a12b45; }
-.phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #cfcac7; background: #fff; color: var(--journey-ink); min-height: 60px; border-radius: 10px; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
-.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] { background: #f4eef0; border-color: #54152a; box-shadow: inset 0 0 0 .5px #54152a; color: #54152a; }
+.phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #cfcac7; background: #fff; color: var(--journey-ink); min-height: 60px; border-radius: 10px; font-size: 16px; font-weight: 500; line-height: 1.6; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
+.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] { background: #f4eef0; border-color: #54152a; box-shadow: inset 0 0 0 1px #54152a; color: #54152a; }
 .phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions {
   z-index: 8; margin-top: 32px; padding-top: 16px;
@@ -96,7 +96,7 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
   min-height: 56px; border: 1px solid #54152a; border-radius: 10px;
-  background: #54152a; color: #fff; font-size: 16px;
+  background: #54152a; color: #fff; font-size: 16px; font-weight: 500; line-height: 1.5; letter-spacing: 0;
   box-shadow: none; transition: transform 120ms ease-out, background-color 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary::after { content: none; }
@@ -150,7 +150,7 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
   .phone-app .nf-intake.nf-intake--new { --intake-pad: 20px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header { padding-inline: 12px; gap: 8px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 4px; }
-  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 1.65rem; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 28px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 20px; }
 }
 
@@ -187,3 +187,10 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
   min-height: 44px;
   padding-block: 4px;
 }
+
+/* Shared type scale for section controls and the review step. */
+.phone-app .nf-intake.nf-intake--new :is(.nf-intake-review-group > summary, .nf-story-more > summary) { font-size: 18px; font-weight: 600; line-height: 1.6; }
+.phone-app .nf-intake.nf-intake--new :is(.nf-intake-note, .nf-intake-wordcount, .nf-intake-action-meta > small, .nf-intake-draft-help) { font-weight: 400; letter-spacing: 0; }
+.phone-app .nf-intake.nf-intake--new :is(.nf-review-edit, .nf-intake-policy) { font-size: 14px; font-weight: 500; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-consent { border-radius: 12px; font-weight: 400; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish h1 { font-size: 28px; font-weight: 600; line-height: 1.45; letter-spacing: 0; }

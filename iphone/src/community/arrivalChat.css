@@ -1,20 +1,20 @@
 /* Conversation chrome stays still; messages remain the visual focus. */
 .phone-app .cm-shell .cm-title { margin: 26px 0 20px; }
-.phone-app .cm-shell .cm-title h1 { font-size: 28px; line-height: 1.45; color: #242326; }
+.phone-app .cm-shell .cm-title h1 { font-size: 26px; line-height: 1.5; color: #242326; font-weight: 600; }
 .phone-app .cm-shell .cm-segments { gap: 22px; padding: 0; margin-bottom: 20px; border: 0; border-bottom: 1px solid #d8d4d1; border-radius: 0; background: transparent; }
 .phone-app .cm-shell .cm-segments button { min-height: 48px; padding: 10px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #716b70; font-size: 14px; margin-bottom: -1px; }
 .phone-app .cm-shell .cm-segments button[aria-pressed="true"] { background: transparent; color: #54152a; border-bottom-color: #54152a; box-shadow: none; }
 .phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 0; }
 .phone-app .cm-shell .cm-request { padding: 20px 0; gap: 15px; border: 0; border-bottom: 1px solid #e5e2de; border-radius: 0; background: transparent; box-shadow: none; transition: background-color 180ms ease, scale 120ms ease; }
-.phone-app .cm-shell .cm-request .cm-avatar { width: 58px; height: 66px; border-radius: 9px; box-shadow: none; }
+.phone-app .cm-shell .cm-request .cm-avatar { width: 58px; height: 66px; border-radius: 12px; box-shadow: none; }
 .phone-app .cm-shell .cm-request-copy { gap: 7px; }
-.phone-app .cm-shell .cm-request-copy strong { color: #242326; font-size: 18px; line-height: 1.5; }
+.phone-app .cm-shell .cm-request-copy strong { color: #242326; font-size: 18px; line-height: 1.5; font-weight: 600; }
 .phone-app .cm-shell .cm-request-copy .cm-inbox-preview { color: #716b70; font-size: 14px; line-height: 1.7; }
 .phone-app .cm-shell .cm-inbox-meta { gap: 10px; color: #716b70; }
-.phone-app .cm-shell .cm-inbox-meta time { font-size: 12px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .cm-inbox-meta time { font-size: 13px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .cm-inbox-meta .cm-request-icon { color: #716b70; }
 .phone-app .cm-shell .cm-unread { min-width: 22px; min-height: 22px; padding: 2px 7px; border-radius: 50%; color: #fff; background: #54152a; box-shadow: none; font-size: 12px; }
-.phone-app .cm-shell .cm-inbox-search { min-height: 48px; margin-bottom: 12px; padding-inline: 14px; border: 1px solid #d8d4d1; border-radius: 8px; background: #fff; color: #716b70; transition: border-color 180ms ease; }
+.phone-app .cm-shell .cm-inbox-search { min-height: 48px; margin-bottom: 12px; padding-inline: 14px; border: 1px solid #d8d4d1; border-radius: 10px; background: #fff; color: #716b70; transition: border-color 180ms ease; }
 .phone-app .cm-shell .cm-inbox-search:focus-within { border-color: #54152a; box-shadow: none; }
 .phone-app .cm-shell .cm-inbox-search input { color: #242326; font-size: 15px; }
 .phone-app .cm-shell .cm-inbox-search input::placeholder { color: #817a80; }
@@ -24,9 +24,9 @@
 .phone-app .cm-shell .cm-chat-head { padding: 12px 16px; gap: 11px; min-height: 78px; background: #fff; }
 .phone-app .cm-shell .cm-chat-head .cm-chat-person { gap: 12px; }
 .phone-app .cm-shell .cm-chat-head .cm-chat-person .cm-avatar { width: 43px; height: 49px; border-radius: 8px; box-shadow: none; }
-.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy strong { font-size: 17px; line-height: 1.5; color: #242326; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy strong { font-size: 17px; line-height: 1.5; color: #242326; font-weight: 600; }
 .phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: 12px; color: #716b70; margin-top: 3px; }
-.phone-app .cm-shell .cm-chat-head .cm-call-button { background: transparent; border: 1px solid #e5e2de; color: #54152a; border-radius: 8px; }
+.phone-app .cm-shell .cm-chat-head .cm-call-button { background: transparent; border: 1px solid #e5e2de; color: #54152a; border-radius: 10px; }
 .phone-app .cm-shell .cm-chat-head .cm-guide-button { color: #716b70; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] { gap: 3px 10px; padding: 0 16px 7px; background: #fff; border-bottom-color: #e5e2de; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan .nf-next-step { min-height: 58px; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; padding: 10px 0 7px; background: transparent; box-shadow: none; }
@@ -49,8 +49,8 @@
 .phone-app .cm-shell .cm-chat .cm-chat-day { color: #716b70; font-size: 12px; padding: 10px 32px 18px; }
 .phone-app .cm-shell .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat-day::after { background: #ddd8d5; }
-.phone-app .cm-shell .cm-chat .cm-bubble { padding: 11px 14px 8px; border: 1px solid #e5e2de; border-radius: 14px 14px 14px 4px; background: #fff; color: #242326; box-shadow: none; }
-.phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #54152a; border-radius: 14px 14px 4px 14px; background: #54152a; color: #fff; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-bubble { padding: 11px 14px 8px; border: 1px solid #e5e2de; border-radius: 12px 12px 12px 4px; background: #fff; color: #242326; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #54152a; border-radius: 12px 12px 4px 12px; background: #54152a; color: #fff; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-bubble p { font-size: 16px; line-height: 1.8; }
 .phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #817a80; font-size: 11px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #dfcbd3; }
@@ -73,7 +73,7 @@
 .phone-app .cm-shell .cm-chat-compose textarea { color: #242326; caret-color: #54152a; font-size: 16px; }
 .phone-app .cm-shell .cm-chat-compose textarea::placeholder { color: #817a80; }
 .phone-app .cm-shell .cm-chat-compose form button,
-.phone-app .cm-shell .cm-media-send { color: #fff; background: #54152a; border-radius: 8px; box-shadow: none; }
+.phone-app .cm-shell .cm-media-send { color: #fff; background: #54152a; border-radius: 10px; box-shadow: none; }
 .phone-app .cm-shell .cm-chat-compose form button:disabled { color: #9b9095; background: #e8e4e5; box-shadow: none; }
 .phone-app .cm-shell .cm-composer-surface .cm-media-tools button { color: #716b70; border-radius: 8px; }
 .phone-app .cm-shell .cm-chat-compose .cm-count { color: #716b70; font-size: 11px; }

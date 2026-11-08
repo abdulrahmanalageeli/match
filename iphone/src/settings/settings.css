@@ -1,6 +1,6 @@
 .st-screen { display: flex; flex-direction: column; }
 .st-completion .screen-content{padding-bottom:32px}.st-completion h1{font-size:1.8rem;color:var(--accent);margin:16px 0 8px}.st-completion p{line-height:1.85;font-size:.94rem}.st-completion>.screen-content>.st-dialog-icon{margin-top:20px}
-.st-completion-stage{display:grid;gap:8px;font-weight:700;margin-block:20px 8px}.st-completion-stage select{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
+.st-completion-stage{display:grid;gap:8px;font-weight:600;margin-block:20px 8px}.st-completion-stage select{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
 .st-completion .st-completion-note{font-size:.82rem;color:var(--muted)}.st-completion-card{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--paper)}.st-completion-card h2{font-size:1.1rem;margin:0;color:var(--accent)}.st-completion-actions{display:flex;flex-wrap:wrap;gap:10px}.st-completion-card button{max-width:100%;white-space:normal;min-height:44px}.st-completion-status{display:flex;align-items:center;gap:8px}
 .demo-notice ~ .st-screen { min-height: calc(100svh - 42px - env(safe-area-inset-top)); }
 .st-content { flex: 1; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
@@ -9,7 +9,7 @@
   display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gold);
 }
 .demo-notice ~ .st-screen .st-top { padding-top: 13px; }
-.st-back { border: none; background: transparent; color: var(--accent); min-height: 44px; display: flex; gap: 5px; align-items: center; font-weight: 700; }
+.st-back { border: none; background: transparent; color: var(--accent); min-height: 44px; display: flex; gap: 5px; align-items: center; font-weight: 600; }
 .st-title { margin: 18px 0 13px; font-size: clamp(2.06rem, 8vw, 2.65rem); line-height: 1.25; color: var(--ink); }
 .st-profile {
   position: relative; isolation: isolate; overflow: hidden;
@@ -25,7 +25,7 @@
 .st-profile-monogram {
   display: grid; place-items: center; flex: none; width: 49px; height: 57px; padding-top: 2px;
   border-radius: 51% 51% 12px 12px; border: 1px solid #e7d8c2aa;
-  box-shadow: inset 0 0 0 3px #ffffff10; color: var(--paper); font-weight: 700; font-size: 1.75rem;
+  box-shadow: inset 0 0 0 3px #ffffff10; color: var(--paper); font-weight: 600; font-size: 1.75rem;
 }
 .st-profile-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
 .st-profile-info strong { font-size: clamp(1.37rem, 5vw, 1.65rem); line-height: 1.25; }
@@ -77,7 +77,7 @@
 .st-dialog .st-data-result, .st-dialog .st-data-state { margin-block-start: 14px; }
 .st-data-state button { margin-block-start: 10px; }
 .st-data-visibility { margin: 13px 0 0; }
-.st-data-visibility dt { color: var(--accent); font-weight: 700; }
+.st-data-visibility dt { color: var(--accent); font-weight: 600; }
 .st-data-visibility dd { margin: 3px 0 12px; line-height: 1.55; }
 .st-candidate-preview { display: grid; gap: 4px; margin-block: 7px; padding: 12px; background: var(--paper); border: 1px solid var(--gold); border-radius: 12px; overflow-wrap: anywhere; }
 .st-candidate-preview span, .st-candidate-preview small { color: var(--muted); }
@@ -96,30 +96,30 @@
 /* Account controls use one readable list hierarchy. */
 .phone-app .st-screen { background: #fdfdfd; color: #242326; }
 .phone-app .st-top { border-bottom-color: #e5e2de; }
-.phone-app .st-title { margin: 26px 0 5px; font-size: 28px; line-height: 1.5; color: #242326; }
+.phone-app .st-title { margin: 26px 0 5px; font-size: 28px; font-weight: 600; line-height: 1.45; letter-spacing: 0; color: #242326; }
 .st-intro { margin: 0 0 24px; color: #716b70; font-size: 16px; line-height: 1.7; }
 .phone-app .st-member-card { margin: 0 0 30px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; box-shadow: none; }
 .phone-app .st-member-identity { gap: 16px; padding: 20px 18px; }
 .phone-app .st-member-avatar { width: 62px; height: 72px; border: 0; border-radius: 10px; background: #eeece8; color: #54152a; box-shadow: none; }
 .phone-app .st-profile-kicker { font-size: 14px; color: #716b70; }
-.phone-app .st-member-identity h2 { margin: 3px 0; color: #242326; font-size: 22px; }
+.phone-app .st-member-identity h2 { margin: 3px 0; color: #242326; font-size: 20px; font-weight: 600; line-height: 1.5; }
 .phone-app .st-member-identity p { color: #716b70; font-size: 14px; }
 .phone-app .st-member-actions { grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 18px 20px; }
-.phone-app .st-member-actions button { min-height: 48px; border-color: #cfcac7; border-radius: 8px; background: #fff; color: #54152a; font-size: 14px; box-shadow: none; }
+.phone-app .st-member-actions button { min-height: 48px; border-color: #cfcac7; border-radius: 10px; background: #fff; color: #54152a; font-size: 14px; font-weight: 500; line-height: 1.5; letter-spacing: 0; box-shadow: none; }
 .phone-app .st-member-actions button:first-child { background: #fff; border-color: #cfcac7; color: #54152a; box-shadow: none; }
 .phone-app .st-member-actions button:last-child { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .st-member-photos { padding: 16px 18px; min-height: 70px; border-top-color: #e5e2de; background: #fff; color: #242326; }
 .phone-app .st-member-photos strong { font-size: 16px; }
 .phone-app .st-member-photos small { margin-top: 4px; font-size: 14px; color: #716b70; }
 .phone-app .st-section { margin-top: 28px; }
-.phone-app .st-section h2 { margin: 0 0 10px; color: #716b70; font-size: 14px; line-height: 1.7; font-weight: 700; }
+.phone-app .st-section h2 { margin: 0 0 10px; color: #242326; font-size: 18px; line-height: 1.6; font-weight: 600; }
 .phone-app .st-group { border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: #fff; }
 .phone-app .st-row { min-height: 68px; padding: 16px 12px; gap: 14px; }
 .phone-app .st-row + .st-row::before { inset: 0 49px auto 12px; border-top-color: #e5e2de; opacity: 1; }
 .phone-app .st-row:hover:enabled { background: #fdfdfd; }
 .phone-app .st-row:active:enabled { background: #eeece8; }
 .phone-app .st-row-copy { gap: 5px; }
-.phone-app .st-row-copy strong { font-size: 16px; line-height: 1.6; font-weight: 600; }
+.phone-app .st-row-copy strong { font-size: 16px; line-height: 1.6; font-weight: 500; }
 .phone-app .st-row-copy small { font-size: 14px; line-height: 1.75; color: #716b70; }
 .phone-app .st-icon { color: #716b70; }
 .phone-app .st-icon svg { width: 21px; height: 21px; }
@@ -129,10 +129,10 @@
 .phone-app .st-switch-track i { background: #fff; }
 .phone-app .st-switch[aria-checked=true] .st-switch-track { background: #54152a; }
 .phone-app .st-notice { padding: 0 14px 14px; color: #716b70; font-size: 14px; line-height: 1.8; }
-.st-dialog { background: #fff; color: #242326; border-color: #e5e2de; border-radius: 16px; }
+.st-dialog { background: #fff; color: #242326; border-color: #e5e2de; border-radius: 12px; }
 .st-dialog::backdrop { background: #24232666; }
 .st-dialog-icon { background: #f1f0ed; color: #54152a; }
-.st-dialog h2 { font-size: 22px; }
+.st-dialog h2 { font-size: 20px; font-weight: 600; line-height: 1.5; letter-spacing: 0; }
 .st-dialog p { color: #716b70; font-size: 16px; }
 .st-data-json, .st-candidate-preview { background: #fdfdfd; border-color: #e5e2de; }
 .phone-app .st-photo-manager h1, .phone-app .st-completion h1 { color: #242326; font-size: 28px; }
@@ -143,3 +143,11 @@
 .phone-app .st-completion-stage select { background: #fff; border-color: #c9c4c1; border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) { .st-row, .st-switch-track, .st-switch-track i { transition: none; } }
 html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) { transition: none; }
+
+/* A restrained weight scale keeps the controls quieter than section headings. */
+.phone-app .st-back { font-size: 14px; font-weight: 500; }
+.phone-app .st-member-photos strong { font-weight: 500; }
+.phone-app :is(.st-row-copy small, .st-member-identity p, .st-profile-kicker, .st-intro) { font-weight: 400; letter-spacing: 0; }
+.st-dialog :is(.btn-primary, .btn-secondary) { min-height: 48px; border-radius: 10px; font-size: 16px; font-weight: 500; line-height: 1.5; letter-spacing: 0; }
+.st-data-visibility dt { font-size: 16px; font-weight: 500; }
+.st-data-visibility dd { font-size: 14px; line-height: 1.8; color: #716b70; }

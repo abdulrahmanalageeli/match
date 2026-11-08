@@ -622,15 +622,18 @@ function Discovery({
   }, [loading, error, selected]);
   useEffect(() => {
     if (selected || loading || fitPerson || filterOpen || reportTarget) return;
+    let leaving = false;
     const remember = () => {
-      if (restoreBrowse.current) return;
+      if (restoreBrowse.current || leaving) return;
       const cards = [...document.querySelectorAll<HTMLElement>('[data-weekly-person]')];
       const first = cards.find(card => card.getBoundingClientRect().bottom > 100);
       saveBrowseMemory(source,{filters,order,query,scroll:window.scrollY,pages:Math.max(1,Math.ceil(listRef.current.length/24)),
         anchor:first?.dataset.weeklyPerson?{id:first.dataset.weeklyPerson,top:first.getBoundingClientRect().top}:undefined});
     };
+    const leave = () => { remember(); leaving = true; };
     remember(); window.addEventListener('scroll',remember,{passive:true});
-    return () => window.removeEventListener('scroll',remember);
+    window.addEventListener('nisfayn:before-navigation',leave);
+    return () => { window.removeEventListener('scroll',remember); window.removeEventListener('nisfayn:before-navigation',leave); };
   }, [source,filters,order,query,selected,loading,fitPerson,filterOpen,reportTarget,list.length]);
   useEffect(() => {
     setList([]);

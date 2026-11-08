@@ -29,6 +29,10 @@ function mount(code, component, initialProps) {
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
   const timer = () => 0;
+  const windowEvents = new Map();
+  const browser = { setTimeout: timer, setInterval: timer, scrollTo: noop, scrollY: 0,
+    addEventListener: (name, fn) => { if (!windowEvents.has(name)) windowEvents.set(name, new Set()); windowEvents.get(name).add(fn); },
+    removeEventListener: (name, fn) => windowEvents.get(name)?.delete(fn) };
   const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [] };
   const exports = {};
   const require = name => {
@@ -42,10 +46,12 @@ function mount(code, component, initialProps) {
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));
     return modules.get(name);
   };
-  vm.runInNewContext(code, { exports, require, document: doc, window: { setTimeout: timer, setInterval: timer, addEventListener: noop, removeEventListener: noop, scrollTo: noop, scrollY: 0 }, clearTimeout: noop, clearInterval: noop });
+  vm.runInNewContext(code, { exports, require, document: doc, window: browser, clearTimeout: noop, clearInterval: noop });
   return {
     render(next) { if (next) props = next; let tree, passes = 0; do { changed = false; cursor = 0; tree = exports[component](props); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (changed); return tree; },
     close() { for (const hook of hooks) hook?.cleanup?.(); },
+    scroll(value) { browser.scrollY = value; for (const fn of windowEvents.get('scroll') ?? []) fn(); },
+    leaving() { for (const fn of windowEvents.get('nisfayn:before-navigation') ?? []) fn(); },
   };
 }
 function sourceWith(people = []) {
@@ -56,6 +62,15 @@ function sourceWith(people = []) {
 }
 const person = (score, id = 'partner') => ({ id, alias: 'رهام', fit: { preference: score }, age: 29, city: 'الرياض' });
 const baseProps = source => ({ source, onInbox: noop, onAccount: noop, onChatChange: noop, onMutual: noop, onConversationOpened: noop, onBrowse: noop });
+
+test('navigation captures discovery position before the parent resets the page scroll', async () => {
+  const source = sourceWith([person(90)]);
+  const r = mount(communityCode, 'Discovery', baseProps(source));
+  r.render(); await settle(); r.render();
+  r.scroll(1200); r.leaving(); r.scroll(0);
+  assert.equal(readBrowseMemory(source).scroll, 1200);
+  r.close();
+});
 
 test('an unchanged message does not freeze the active chat fit; queued updates finish with the newest score', async () => {
   const source = sourceWith();

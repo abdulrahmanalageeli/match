@@ -252,6 +252,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
     version.current++;
   }
   function go(next: View) {
+    // Let the outgoing screen capture its position before the route resets scroll.
+    window.dispatchEvent(new Event('nisfayn:before-navigation'));
     navigationVersion.current++;
     setFromIntake(false);
     setView(next);

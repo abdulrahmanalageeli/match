@@ -18,14 +18,14 @@
   background: #f4e6d76b;
 }
 .nf-compatibility-notice-copy { display: grid; gap: 3px; min-width: 0; flex: 1; }
-.nf-compatibility-notice-copy > strong { font-size: 12px; line-height: 1.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nf-compatibility-notice-copy > strong { font-size: 13px; line-height: 1.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nf-compatibility-notice-copy > small {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  overflow: hidden; color: #947b7a; font-size: 10px; line-height: 1.65;
+  overflow: hidden; color: #80696c; font-size: 11px; line-height: 1.65;
 }
 .nf-compatibility-notice-reading { color: #947b7a; font-size: 10px; }
 .nf-compatibility-score-change { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; font-size: 11px; line-height: 1.65; }
-.nf-compatibility-score-label { color: #927775; }
+.nf-compatibility-score-label { color: #80696c; }
 .nf-compatibility-score-values { display: inline-flex; align-items: center; gap: 6px; direction: rtl; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .nf-compatibility-score-values > span { color: #9c8580; }
 .nf-compatibility-score-values > svg { color: #c0a386; }
@@ -43,7 +43,7 @@
   margin: auto auto max(14px, env(safe-area-inset-bottom)); padding: 0; overflow-x: hidden;
   border: 1px solid #e3cfbc; border-radius: 28px; background: #fffaf5; color: #5a1b32;
   box-shadow: 0 24px 100px #32121e35; font: inherit; text-align: start;
-  overscroll-behavior: contain;
+  overscroll-behavior: contain; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d9c4b8 transparent;
 }
 .nf-compatibility-change-sheet::backdrop { background: #2c122339; backdrop-filter: blur(7px); }
 .nf-compatibility-change-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 0; }
@@ -68,7 +68,7 @@
 .nf-compatibility-change-reasons { margin-top: 22px; }
 .nf-compatibility-change-reasons h3 { margin: 0 0 10px; font-size: 12px; font-weight: 700; }
 .nf-compatibility-change-reasons ul { display: grid; gap: 10px; margin: 0; padding: 0 17px 0 0; }
-.nf-compatibility-change-reasons li { padding-inline-start: 3px; color: #796567; font-size: 12px; line-height: 1.9; }
+.nf-compatibility-change-reasons li { padding-inline-start: 3px; color: #796567; font-size: 13px; line-height: 1.9; }
 .nf-compatibility-change-reasons li::marker { color: #c8a884; font-size: 10px; }
 .nf-compatibility-change-reasons details { margin-top: 10px; }
 .nf-compatibility-change-reasons summary { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: #9b7772; font-size: 11px; cursor: pointer; list-style: none; }

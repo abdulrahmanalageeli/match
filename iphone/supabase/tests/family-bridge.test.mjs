@@ -274,7 +274,7 @@ test('guardian account deletion removes links, ends access and maintenance purge
   await assert.rejects(family(g,'state'),/مسجل/);
   assert.equal((await family(a,'state')).rooms[0].status,'closed');assert.deepEqual((await family(a,'state')).links,[]);
   await db.query("update marriage.family_rooms set closed_at=now()-interval '31 days' where id=$1",[roomId]);
-  const result=await asService(db,()=>rpc('public.marriage_operations_cleanup()'));assert.deepEqual(result,{faultGroups:0,notificationJobs:0});
+  const result=await asService(db,()=>rpc('public.marriage_operations_cleanup()'));assert.deepEqual(result,{faultGroups:0,notificationJobs:0,expiredOnboardingDrafts:0});
   assert.equal((await db.query('select count(*)::int n from marriage.family_messages')).rows[0].n,0);
   assert.equal((await family(a,'state')).rooms.length,0);
  }finally{await db.close();}

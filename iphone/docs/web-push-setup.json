@@ -1,5 +1,5 @@
 {
-  "status": "Implemented and locally tested. Requires migration, server/client environment, scheduled delivery and physical-device acceptance before claiming live delivery.",
+  "status": "Live on 2026-11-08: migration applied, VAPID server/client environment configured, admin and member deployments promoted. Minute cron logs show successful empty-queue batches. Actual background/locked-device notification delivery still requires physical-device acceptance.",
   "project": "wupkifqbwhhebwrgvwai",
   "migration": "20261108150542_web_push_delivery.sql",
   "worker": "https://nisfayn-admin.vercel.app/api/push",

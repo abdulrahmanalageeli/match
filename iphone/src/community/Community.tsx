@@ -72,6 +72,7 @@ import { FitDetails, preferencePercentage, personalityPercentage } from "../comp
 import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { PersonAvatar } from "../avatars/PersonAvatar";
+import { MatchesOverview } from './MatchesOverview';
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
@@ -112,7 +113,7 @@ import "./discovery.css";
 import "./journey.css";
 import './chat-continuity.css';
 
-type Tab = "discover" | "inbox" | "chats";
+type Tab = "discover" | "curated" | "inbox" | "chats";
 type CommunityProps = {
   onMutual: (connection: Connection) => void;
   openConversation?: string;
@@ -1482,6 +1483,7 @@ const categories = [
   { id: "accepted", label: "المحادثات" },
 ] as const;
 type Category = (typeof categories)[number]["id"];
+const requestScrollMemory = new WeakMap<CommunitySource, Map<string, number>>();
 function Requests({
   source,
   onChatChange,
@@ -1490,6 +1492,7 @@ function Requests({
   openRequest,
   onConversationOpened,
   conversations = false,
+  matches = false,
   initialRequest,
   onCompletion,
   discoveryUnavailable = false,
@@ -1502,6 +1505,7 @@ function Requests({
   openRequest?: string;
   onConversationOpened: () => void;
   conversations?: boolean;
+  matches?: boolean;
   initialRequest?: RequestEntry;
   onCompletion?: () => void;
   discoveryUnavailable?: boolean;
@@ -1531,7 +1535,22 @@ function Requests({
   const sequence = useRef(0);
   const acting = useRef(false);
   const navigation = useRef(0);
-  const listScroll = useRef(0);
+  const memoryKey = matches ? 'matches' : conversations ? 'chats' : 'notifications';
+  const listScroll = useRef(requestScrollMemory.get(source)?.get(memoryKey) ?? 0);
+  useLayoutEffect(() => {
+    if (!loading && !selected && !visitPerson) window.scrollTo({ top:listScroll.current, behavior:'instant' });
+  }, [loading, selected, visitPerson]);
+  useEffect(() => {
+    if (loading || selected || visitPerson) return;
+    const remember = () => {
+      listScroll.current = window.scrollY;
+      let positions = requestScrollMemory.get(source);
+      if (!positions) { positions = new Map(); requestScrollMemory.set(source, positions); }
+      positions.set(memoryKey, listScroll.current);
+    };
+    window.addEventListener('scroll', remember, {passive:true});
+    return () => window.removeEventListener('scroll', remember);
+  }, [source, memoryKey, loading, selected, visitPerson]);
   const focusedInitial = useRef<string | null>(null);
   const pendingRead = useRef<Promise<void> | null>(null);
   const loadedRows = useRef<Connection[]>([]);
@@ -1715,12 +1734,12 @@ function Requests({
         connection={item}
         back={leaveChat}
         close={closeDetail}
-        backLabel={conversations ? "العودة للمحادثات" : "العودة للطلبات"}
+        backLabel={conversations ? "العودة للمحادثات" : matches ? "العودة للتعارف" : "العودة للإشعارات"}
       />
     );
   if (item)
     return (
-      <Profile source={source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText="الطلبات" featured={entry?.id === item.id && entry.featured} primary={<>
+      <Profile source={source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التعارف':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
         {actionError && <Banner alert text={actionError} />}
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
@@ -1840,6 +1859,10 @@ function Requests({
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;
   }
+  if (matches) return <MatchesOverview source={source} connections={list} loading={loading} error={error}
+    onRetry={()=>void refresh()} onBrowse={onBrowse}
+    onProfile={id=>{listScroll.current=window.scrollY;navigation.current++;flushSync(()=>{setSelected(id);setChat(false);setActionError('');setNotice('');});window.scrollTo({top:0,behavior:'instant'});}}
+    onConversation={(id,origin)=>{listScroll.current=window.scrollY;enterChat(id,origin);}}/>;
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
     <header className="cm-header"><Brand /></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
@@ -1978,7 +2001,7 @@ export function Community(props: CommunityProps) {
   }, [tab, requestToOpen]);
   return (
     <main className="app-screen cm-shell" dir="rtl" data-community-tab={tab}>
-      {discoveryUnavailable && tab !== 'chats' ? (
+      {discoveryUnavailable && tab === 'discover' ? (
         <section className="screen-content cm-view">
           <header className="cm-header">
             <Brand />
@@ -1995,7 +2018,7 @@ export function Community(props: CommunityProps) {
       ) : tab === "discover" ? (
         <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={id=>{setConversationToOpen(id);onTab('chats');}} />
       ) : (
-        <Requests key={tab} source={source} onChatChange={setChat} conversations={tab === "chats"}
+        <Requests key={tab} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
@@ -2005,7 +2028,7 @@ export function Community(props: CommunityProps) {
       )}
       {(!chat || tab === "discover") && (
         <MemberTabs
-          active={tab}
+          active={tab === 'curated' ? 'home' : tab}
           onHome={onHome}
           onDiscover={() => onTab("discover")}
           onInbox={() => onTab("inbox")}

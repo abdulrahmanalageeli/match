@@ -33,7 +33,7 @@ export function testProfile(actor:Actor,profile?:Partial<Profile>):Profile{
 export function testPerson(actor:Actor,profile?:PublicTestProfile):PublicPerson{
  const p=profile??{};
  return {id:actor,alias:p.displayName || (actor==='reham'?'رهام':'عبدالرحمن'),age:p.age??0,city:p.city??'',occupation:p.profession??'',bio:p.bio??'',
- publicAvatar:p.publicAvatar,portrait:p.portrait,marriageBasics:p.marriageBasics,lookingFor:p.lookingFor,valuesStatement:p.valuesStatement,lifeTogether:p.lifeTogether,
+ publicAvatar:p.publicAvatar===undefined?testProfile(actor).publicAvatar:p.publicAvatar,portrait:p.portrait,marriageBasics:p.marriageBasics,lookingFor:p.lookingFor,valuesStatement:p.valuesStatement,lifeTogether:p.lifeTogether,
  marriageIntent:p.marriageIntent,familyPreference:p.familyPreference,education:p.education,
  beenaStory:profile?.beenaStory?{scenarioId:profile.beenaStory.scenarioId,text:profile.beenaStory.text}:undefined,
  demoPhoto:actor==='abdulrahman'?'/demo/portraits/tester-shemagh.webp':undefined,interests:interests.filter(item=>p.interestIds?.includes(item.id)).map(item=>item.label),reasons:['تعارف متبادل مفعّل للاختبار']};

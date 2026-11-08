@@ -33,10 +33,23 @@ const pairUrl = url((await compile('../src/testing/pair.ts'))
   .replace("'../compatibility/model'", JSON.stringify(modelUrl))
   .replace("'../beena/model'", JSON.stringify(beenaUrl))
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/, "const marriageProjectUrl='https://test.invalid'; const marriagePublishableKey='public-test-key';"));
-const { pairSource, testProfile } = await import(pairUrl);
+const { pairSource, testProfile, testPerson } = await import(pairUrl);
 const completeFit = { version: 'marriage-v2', assessmentComplete: true, provisional: false, covered: 32, total: 32, percentage: 92,
   personality: { version: 'personality-v1', complete: true, covered: 10, total: 10, percentage: 88 } };
 const person = { id: 'one', alias: 'عضو', age: 29, city: 'الرياض', occupation: '', bio: '', interests: ['القراءة'], fit: completeFit };
+
+test('fixture avatars survive discovery and pair cards without overriding photos or explicit privacy', async () => {
+  const source=demoCommunity(()=>({...demoProfile,gender:'man'}),false);
+  const rows=await source.discover({mode:'all'});
+  assert(rows.length>0);
+  assert(rows.every(row=>row.demoPhoto||row.publicAvatar));
+  assert(rows.some(row=>row.publicAvatar?.style==='hijab'));
+  assert(rows.some(row=>row.publicAvatar?.style==='niqab'));
+  assert(rows.some(row=>row.publicAvatar?.style==='uncovered'));
+  assert(rows.filter(row=>row.demoPhoto).every(row=>!row.publicAvatar));
+  assert.equal(testPerson('reham').publicAvatar.style,'hijab');
+  assert.equal(testPerson('reham',{publicAvatar:null}).publicAvatar,null);
+});
 
 test('city filters use canonical exact values for inclusion and exclusion', () => {
   assert.equal(matchesDiscoveryFilters(person, { city: 'Riyadh' }), true);

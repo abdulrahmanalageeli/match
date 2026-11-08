@@ -516,7 +516,7 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
       marriageTimeline:seed.timeline,meetingPreference:seed.meeting,
       ...(woman?{skinTone:tone,dressStyle:dress,dressFlexibility:index%2?'open_to_discussion':'keep'}:{}),
     } as MarriageBasics,
-    publicAvatar:woman&&index>=6&&index%3===0?{style:dress,skinTone:tone} as PublicAvatar:null,
+    publicAvatar:woman&&!photo?{style:dress,skinTone:tone} as PublicAvatar:null,
     demoPhoto:photo?`/demo/portraits/${photo}${woman?'-realistic-v2':''}.webp`:undefined,
   };
 }));
@@ -654,7 +654,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       familyPreference: person.familyPreference,
       beenaStory: sharedBeenaStory(person.beena),
       marriageBasics: visibleBasics,
-      publicAvatar: null,
+      publicAvatar: person.publicAvatar,
       demoPhoto: person.demoPhoto,
       reasons,
       fit,

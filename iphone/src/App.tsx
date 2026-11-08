@@ -168,6 +168,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     : signupReturn ? "سجّل الدخول لإكمال حسابك بعد تأكيد البريد الإلكتروني." : "");
   const [fromIntake, setFromIntake] = useState(false);
   const navigationVersion = useRef(0);
+  const tabScroll = useRef(new Map<View, number>());
+  const pendingScroll = useRef<number | null>(null);
   const [demo, setDemo] = useState(Boolean(tester));
   const [sampleIndex, setSampleIndex] = useState(0);
   const [sampleStatus, setSampleStatus] =
@@ -254,15 +256,26 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     version.current++;
   }
   function go(next: View) {
-    // Let the outgoing screen capture its position before the route resets scroll.
+    if (next === view) return;
+    // Capture the outgoing tab before replacing it; never visibly scroll that page.
     window.dispatchEvent(new Event('nisfayn:before-navigation'));
+    const tab = (value: View) => value === 'main' ? 'discover' : value;
+    const remembered = (value: View) => ['discover', 'curated', 'inbox', 'chats', 'settings'].includes(value);
+    if (remembered(tab(view)) && !document.querySelector('[data-conversation-id], .mp-profile')) tabScroll.current.set(tab(view), window.scrollY);
+    pendingScroll.current = remembered(tab(next)) ? tabScroll.current.get(tab(next)) ?? 0 : 0;
     navigationVersion.current++;
     setFromIntake(false);
     setView(next);
     setError("");
     setNotice("");
-    window.scrollTo(0, 0);
   }
+  useLayoutEffect(() => {
+    const top = pendingScroll.current;
+    if (top === null) return;
+    pendingScroll.current = null;
+    // Lists also restore their precise anchor after their asynchronous data load.
+    window.scrollTo({ top, behavior: 'instant' });
+  }, [view]);
   const atWelcome = !loading && !demo && !token && !live && view === "main";
   useEffect(() => {
     if (active && (view === "application" || view === "main") && !warmCommunity)
@@ -863,7 +876,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     screen = membership(() =>
       view === "membership" ? go(returnFromMembership) : openAccount(),
     );
-  else if ((view === "main" || view === "discover" || view === "inbox" || view === "chats") && source) {
+  else if ((view === "main" || view === "curated" || view === "discover" || view === "inbox" || view === "chats") && source) {
     screen = (
       <Community
         key={demo ? "walkthrough-" + sampleSession : token}

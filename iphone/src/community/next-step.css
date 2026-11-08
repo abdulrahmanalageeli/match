@@ -1,0 +1,9 @@
+.phone-app .nf-next-step { display: flex; gap: 13px; align-items: flex-start; margin: 14px 0 20px; padding: 17px 16px; border: 1px solid color-mix(in srgb,var(--line) 75%,transparent); border-radius: 21px; background: linear-gradient(125deg,color-mix(in srgb,var(--surface) 90%,transparent),color-mix(in srgb,var(--blush) 55%,transparent)); color: var(--ink); text-align: start; }
+.nf-next-step-icon { width: 36px; height: 42px; flex: 0 0 36px; display: grid; place-items: center; color: var(--accent-fill); background: color-mix(in srgb,var(--blush) 70%,transparent); border-radius: 18px 18px 12px 12px; }
+.nf-next-step-copy { min-width: 0; flex: 1; }
+.nf-next-step-eyebrow { display: block; color: var(--muted); font-size: 10px; line-height: 1.6; margin-bottom: 4px; }
+.phone-app .nf-next-step h2 { font-size: 15px; line-height: 1.6; font-weight: 650; margin: 0; }
+.phone-app .nf-next-step p { color: var(--muted); font-size: 12px; line-height: 1.8; margin: 5px 0 2px; }
+.phone-app .nf-next-step button { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; padding: 8px 0 0; background: transparent; border: 0; color: var(--accent-fill); font: inherit; font-size: 12px; font-weight: 650; text-align: start; }
+.nf-next-step button:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 4px; border-radius: 5px; }
+@media (max-width: 360px) { .phone-app .nf-next-step { padding: 14px 12px; gap: 10px; } .nf-next-step-icon { width: 30px; flex-basis: 30px; } }

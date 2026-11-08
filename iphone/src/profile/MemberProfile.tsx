@@ -15,6 +15,7 @@ import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
+import { PersonalPrompts } from './PersonalPrompts';
 
 const ar = new Intl.NumberFormat('ar-SA');
 type Fact = [string, string];
@@ -90,11 +91,9 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           {person.fit?<span className="mp-fit-preview-scores"><span><strong>{percentage===null?'—':ar.format(percentage)+'٪'}</strong><span>توافق التفضيلات</span></span><span><strong>{personality===null?'—':ar.format(personality)+'٪'}</strong><span>انسجام الشخصية</span></span></span>:<span className="mp-fit-preview-reason">{person.reasons[0]}</span>}
           <small>{person.fit&&(percentage===null||personality===null)?'عرض تفاصيل النتائج المتاحة وما يلزم لإكمالها':'من إجاباتكما · اكتشفا نقاط الاتفاق وما يحتاج حوارًا'}</small>
         </MotionPressButton>}
-        {person.lookingFor&&<Story title="الشريك الذي أتمناه" accent>{person.lookingFor}</Story>}
+        <PersonalPrompts key={person.id} answers={person}/>
         {!!person.interests.length&&<section className="mp-interests"><h2>أشياء أحبّها</h2><div>{person.interests.map(item=><span key={item}>{interests.find(i=>i.id===item)?.label??item}</span>)}</div></section>}
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
-        {person.valuesStatement&&<Story title="ما أقدّره في العلاقة">{person.valuesStatement}</Story>}
-        {person.lifeTogether&&<Story title="الحياة التي أتخيلها">{person.lifeTogether}</Story>}
         {person.beenaStory&&<BeenaSummary story={person.beenaStory}/>}
         {canOpenPassport&&<MotionPressButton ref={passportButton} className="mp-passport-link" onClick={()=>setPassportOpen(true)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>جواز الجاهزية للزواج</strong><small>الأقسام التي اختار مشاركتها معك</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>}
       </>}

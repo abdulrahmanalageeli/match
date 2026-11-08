@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 import App from './App'
 import { readRecoveryLink, cleanRecoveryUrl } from './auth/passwordRecovery'
 import { TesterGate } from './testing/TesterGate'
+import { ConnectionNotice } from './community/ConnectionNotice'
 import './design.css'
 import './flows.css'
 import './screens.css'
@@ -35,4 +36,4 @@ const familyInvite = familyEntry ? new URLSearchParams(entryUrl.hash.slice(1)).g
 if (familyInvite) { entryUrl.hash = ''; window.history.replaceState(null, '', entryUrl.pathname + entryUrl.search) }
 createRoot(document.getElementById('root')!).render(<AppBoundary>{recoveryLink ? <App recoveryLink={recoveryLink}/> : familyEntry
   ? <Suspense fallback={<main className="flow-frame" dir="rtl"><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
-  : import.meta.env.MODE==='demo'?<TesterGate/>:<App/>}</AppBoundary>)
+  : import.meta.env.MODE==='demo'?<TesterGate/>:<App/>}<ConnectionNotice/></AppBoundary>)

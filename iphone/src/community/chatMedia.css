@@ -58,4 +58,12 @@
 .cm-audio-speed { display: grid; place-items: center; min-width: 44px; height: 44px; border: 0; border-radius: 14px; padding: 0 5px; background: #c5838f12; color: inherit; font: inherit; font-size: .67rem; font-weight: 600; cursor: pointer; }
 .cm-bubble.self .cm-audio-speed { background: #fff9f311; }
 .cm-audio-speed:focus-visible, .cm-record-trigger:focus-visible, .cm-voice-capture button:focus-visible { outline: 2px solid #bc8d99; outline-offset: 2px; }
+.cm-composer-surface > .cm-media-composer[data-draft] { flex: 1; min-width: 0; width: 100%; }
+.cm-composer-surface:has(> .cm-media-composer[data-draft]) > form { display: none; }
+.cm-upload-status { display: grid; gap: 7px; padding: 2px 13px 10px; color: #85636d; font-size: .65rem; }
+.cm-upload-status progress { display: block; width: 100%; height: 3px; border: 0; border-radius: 3px; overflow: hidden; accent-color: #9a576a; }
+.cm-upload-status progress::-webkit-progress-bar { background: #e8d7d8; border-radius: 3px; }
+.cm-upload-status progress::-webkit-progress-value { background: #9a576a; border-radius: 3px; }
+.cm-media-composer[data-draft] .cm-media-preview-actions > span { line-height: 1.65; }
+.cm-composer-surface .cm-media-composer[data-draft] .cm-media-error { position: static; min-width: 0; max-width: none; margin: 5px 0 0; box-shadow: none; font-size: .67rem; }
 @media (max-width: 360px) { .cm-voice-capture .cm-recording { gap: 5px; } .cm-recording-copy b { font-size: .65rem; } .cm-record-gestures { font-size: .56rem; gap: 6px; } }

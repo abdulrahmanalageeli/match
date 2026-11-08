@@ -77,3 +77,18 @@ test('quick taps and keyboard clicks support hands-free recording with explicit 
     f.find('إنهاء التسجيل ومعاينته').props.onClick(); await settle(); assert(f.preview()); assert.equal(f.sends, 0); f.close();
   }
 });
+
+test('a failed voice upload retains the preview and retries the same client identity only once', async () => {
+  const f = mount(); f.keyboard(); await f.grant(); f.advance(1200);
+  f.find('إنهاء التسجيل ومعاينته').props.onClick(); await settle();
+  const attempts = []; let reject;
+  f.props.source.sendMedia = (...args) => { attempts.push(args); return new Promise((_resolve, no) => { reject = no; }); };
+  const send = f.find('إرسال المرفق').props.onClick;
+  send(); send(); assert.equal(attempts.length, 1, 'rapid taps never duplicate the upload');
+  assert(nodes(f.render()).some(node => node.type === 'progress' && node.props.value === undefined), 'progress is honest and indeterminate');
+  reject(Error('network')); await settle(); assert(f.preview()); assert(f.find('إعادة إرسال المرفق'));
+  f.props.source.sendMedia = async (...args) => { attempts.push(args); return 'saved'; };
+  f.find('إعادة إرسال المرفق').props.onClick(); await settle();
+  assert.equal(attempts.length, 2); assert.equal(attempts[0][3], attempts[1][3], 'retry preserves the idempotency key');
+  assert.equal(f.preview(), undefined); f.close();
+});

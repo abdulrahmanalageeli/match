@@ -21,6 +21,14 @@ import { ChatLibrary } from './ChatLibrary';
 import { useChatReading } from './useChatReading';
 import { useTyping } from './useTyping';
 import { journeyNext } from './journeyNext';
+import { NextStep } from './NextStep';
+import type { NextStepState } from './nextStepModel';
+import { readBrowseMemory, saveBrowseMemory } from './discoveryMemory';
+import { recommendationReason } from './recommendationReason';
+import { canRetryRead } from './readRecovery';
+import { useReadRecovery } from './useReadRecovery';
+import { ThreadConnection } from './ThreadConnection';
+import './everyday.css';
 import {
   ArrowLeft,
   ArrowDown,
@@ -481,6 +489,7 @@ function PersonCard({
       <div className="df-card-copy">
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {person.bio && <p className="cm-person-bio" dir="auto">{person.bio}</p>}
+      {!compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
       {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
@@ -527,6 +536,7 @@ type RequestEntry = { id: string; featured: boolean };
 function Discovery({
   source,
   onInbox,
+  onConversation,
   onAccount,
   profileSaved = false,
   onBeena, beenaAnswered = 0,
@@ -537,11 +547,17 @@ function Discovery({
   onBeena?: () => void;
   beenaAnswered?: number;
   onInbox: (entry: RequestEntry) => void;
+  onConversation: (id: string) => void;
 }) {
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [order, setOrder] = useState<"recommended" | "all">("recommended");
+  const [remembered] = useState(() => readBrowseMemory(source));
+  const restoreBrowse = useRef<typeof remembered | null>(remembered.scroll > 0 ? remembered : null);
+  const [filters, setFilters] = useState<Filters>(remembered.filters);
+  const [order, setOrder] = useState<"recommended" | "all">(remembered.order);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(remembered.query);
+  const [availability, setAvailability] = useState<NextStepState>({loaded:false,acceptedCount:0,exclusive:false,pendingIncomingCount:0});
+  const [recoverable, setRecoverable] = useState(false);
+  const [hiddenNotice, setHiddenNotice] = useState('');
   const [more, setMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   useEffect(()=>{const timer=window.setTimeout(()=>setFilters(f=>f.search===query?f:{...f,search:query}),250);return()=>clearTimeout(timer);},[query]);
@@ -574,14 +590,16 @@ function Discovery({
       setLoading(true);
       setError("");
       try {
-        const people = await source.discover({...filters, mode: order, offset: 0});
+        const pages = order === 'all' ? restoreBrowse.current?.pages ?? 1 : 1;
+        const results = await Promise.all(Array.from({length:pages},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
+        const people = [...new Map(results.flat().map(person=>[person.id,person])).values()];
         if (seq !== sequence.current) return;
-        setList(people); setMore(order === "all" && people.length === 24);
+        setList(people); setMore(order === "all" && results.at(-1)?.length === 24); setRecoverable(false);
         setSelected(id => id && people.some(p => p.id === id) ? id : null);
       } catch (e) {
         if (seq === sequence.current) {
-          setList([]);
-          setSelected(null);
+          if (denied(e)) {setList([]);setSelected(null);setSelectedPerson(null);setFitPerson(null);}
+          setRecoverable(canRetryRead(e));
           setError(messageFor(e));
         }
       } finally {
@@ -590,6 +608,30 @@ function Discovery({
     },
     [source, filters, order],
   );
+  useReadRecovery(recoverable, refresh, source);
+  useLayoutEffect(() => {
+    const saved = restoreBrowse.current;
+    if (!saved || loading || error || selected) return;
+    const frame = requestAnimationFrame(() => {
+      const target = saved.anchor && document.querySelector<HTMLElement>(`[data-weekly-person="${CSS.escape(saved.anchor.id)}"]`);
+      window.scrollTo(0, target && saved.anchor ? window.scrollY + target.getBoundingClientRect().top - saved.anchor.top : saved.scroll);
+      restoreBrowse.current = null;
+      saveBrowseMemory(source,{...saved,scroll:window.scrollY});
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loading, error, selected]);
+  useEffect(() => {
+    if (selected || loading || fitPerson || filterOpen || reportTarget) return;
+    const remember = () => {
+      if (restoreBrowse.current) return;
+      const cards = [...document.querySelectorAll<HTMLElement>('[data-weekly-person]')];
+      const first = cards.find(card => card.getBoundingClientRect().bottom > 100);
+      saveBrowseMemory(source,{filters,order,query,scroll:window.scrollY,pages:Math.max(1,Math.ceil(listRef.current.length/24)),
+        anchor:first?.dataset.weeklyPerson?{id:first.dataset.weeklyPerson,top:first.getBoundingClientRect().top}:undefined});
+    };
+    remember(); window.addEventListener('scroll',remember,{passive:true});
+    return () => window.removeEventListener('scroll',remember);
+  }, [source,filters,order,query,selected,loading,fitPerson,filterOpen,reportTarget,list.length]);
   useEffect(() => {
     setList([]);
     setSelected(null);
@@ -620,7 +662,7 @@ function Discovery({
         }));
         if(!active||seq!==sequence.current||actionPending.current)return;
         // Reapply active filters as availability changes, including an initially empty online view.
-        setList([...latest.values()]);
+        setList([...latest.values()]);setError('');setRecoverable(false);
         setMore(order==='all'&&pages.at(-1)?.length===24);
         const fresh=(person:PublicPerson|null)=>person?(latest.get(person.id)??(details.has(person.id)?details.get(person.id)!:person)):null;
         setSelectedPerson(fresh);setFitPerson(fresh);
@@ -703,7 +745,7 @@ function Discovery({
         await source.setInterest(item.id,!item.interested);
         setList(rows=>rows.map(row=>row.id===item.id?{...row,interested:!item.interested}:row));
       } else {
-        if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);}
+        if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
         else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(true);}
         setList(rows=>rows.filter(row=>row.id!==item.id));
       }
@@ -746,7 +788,8 @@ function Discovery({
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       <ProfileVisitNotice interest={order === 'all'}/>
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
-      {onBeena&&beenaAnswered<6&&<button type="button" className="df-beena-invite" onClick={onBeena}><BookOpen size={21}/><span><strong>بيننا · أبعد من الصفات</strong><small>{beenaAnswered ? `أكملت ${ar.format(beenaAnswered)} من ٦ مواقف` : 'كيف تتعاملان مع الحياة؟ ستة مواقف لفهم أعمق.'}</small></span><ChevronLeft size={18}/></button>}
+      <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
+        onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={14}/> أفضل خمسة لك</button>
@@ -784,6 +827,7 @@ function Discovery({
         </div>
       )}
       {rowError&&!reportTarget&&<Banner alert text={rowError}/>}
+      {hiddenNotice&&<p className="df-browse-memory" role="status"><EyeOff size={13}/>{hiddenNotice}<button className="btn-text" onClick={()=>setHiddenNotice('')} aria-label="إخفاء تأكيد الإخفاء"><X size={13}/></button></p>}
       {error && (
         <>
           <Banner alert text={error} />
@@ -798,16 +842,16 @@ function Discovery({
       {!error && !loading && !list.length && (
         <Panel
           icon={<Compass />}
-          title="لا توجد ملفات مناسبة حاليًا"
+          title={availability.exclusive ? 'مساحة أهدأ لتعارفكما' : count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
           description={
-            count > 0 || query.trim()
+            availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
               ? "لم تظهر ملفات ضمن البحث والفلاتر الحالية. يمكنك مراجعتها دون تغيير ما يهمك في شريك الحياة. قلة النتائج ليست حكمًا على ملفك."
-              : "قد يقل عدد الملفات بسبب تفضيلات الطرفين أو توفر الأعضاء وأهليتهم. لا نضمن عددًا أو موعدًا لترشيح جديد؛ قلة النتائج ليست حكمًا على ملفك."
+              : availability.acceptedCount >= 2 ? 'لديك تعارفان حاليان، وهو الحد المتاح. يمكنك تصفّح الملفات المؤهلة، وتتاح دعوة جديدة عند انتهاء أحدهما.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
           }
           action={
             <div className="cm-empty-actions">
               {(count > 0 || Boolean(query.trim())) && <button className="btn-secondary" onClick={() => { setQuery(''); setFilters(emptyFilters); }}>مسح البحث والتصفية</button>}
-              {order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف بقية الملفات المؤهلة</button>}
+              {!availability.exclusive && order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف بقية الملفات المؤهلة</button>}
               <button className="btn-text" onClick={onAccount}>مراجعة ملفي وتفضيلاتي</button>
               <SupportContact subject="المساعدة في الترشيحات"/>
             </div>
@@ -1288,6 +1332,7 @@ export function Chat({
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
       {conversationAllowed && <div className="cm-chat-stage">
+        {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div
           ref={log} className="cm-chat-log" role="log" tabIndex={0} aria-label="رسائل المحادثة" aria-live="polite" aria-relevant="additions"
           onScroll={(e) => {
@@ -1301,7 +1346,7 @@ export function Chat({
           {thread.ready && !reading.positioned && <p className="cm-reading-restore" role="status">جارٍ الوصول إلى موضع القراءة…</p>}
           {(replyNotice || jumpToId) && <p className="cm-reply-notice" role="status">{jumpToId ? 'جارٍ الوصول إلى الرسالة الأصلية…' : replyNotice}</p>}
           {reactionError && <div className="cm-reaction-error" role="alert"><span>{reactionError}</span><button type="button" aria-label="إغلاق تنبيه التفاعل" onClick={() => setReactionError('')}><X size={16}/></button></div>}
-          {thread.error && <div className="cm-chat-error" data-empty={!thread.rows.length || undefined}><Banner alert text={thread.error} />
+          {thread.error && (thread.accessDenied || thread.connectionState === 'online') && <div className="cm-chat-error" data-empty={!thread.rows.length || undefined}><Banner alert text={thread.error} />
             <button className="btn-text" onClick={thread.refresh}>إعادة تحميل المحادثة</button>
             {!thread.ready && <button className="btn-text" onClick={back}>{backLabel}</button>}</div>}
           {thread.hasOlder && <button className="cm-history" disabled={thread.loadingOlder} onClick={earlier}>
@@ -1471,6 +1516,7 @@ function Requests({
   const [reportSent, setReportSent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [recoverable, setRecoverable] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
@@ -1500,10 +1546,12 @@ function Requests({
           discardClosedDrafts(source, new Set(rows.filter((row) => row.status === "accepted").map((row) => row.id)));
           setList(rows);
           setError("");
+          setRecoverable(false);
           setSelected((current) => current && rows.some((row) => row.id === current) ? current : null);
         } catch (e) {
           if (seq !== sequence.current) return;
           setError(messageFor(e));
+          setRecoverable(canRetryRead(e));
           if (denied(e)) {
             discardClosedDrafts(source, new Set());
             loadedRows.current = [];
@@ -1519,6 +1567,7 @@ function Requests({
     });
     return pendingRead.current;
   }, [source, discoveryUnavailable]);
+  useReadRecovery(recoverable, refresh, source);
   useEffect(() => {
     void refresh();
     const unwatch = source.watch(refresh);
@@ -1793,7 +1842,7 @@ function Requests({
     <ProfileVisitNotice/>
     {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
     {notice && <Banner text={notice}/>}
-    <NotificationFeed source={source} connections={list} loading={loading} error={error}
+    <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
       onConversation={id => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
@@ -1917,6 +1966,7 @@ function Requests({
 export function Community(props: CommunityProps) {
   const [chat, setChat] = useState(false);
   const [requestToOpen, setRequestToOpen] = useState<RequestEntry>();
+  const [conversationToOpen, setConversationToOpen] = useState<string>();
   const { tab, source, onTab, onAccount, onHome, paused, onResume } = props;
   const discoveryUnavailable = paused || Boolean(props.profileReviewPending);
   useEffect(() => {
@@ -1939,14 +1989,14 @@ export function Community(props: CommunityProps) {
           />
         </section>
       ) : tab === "discover" ? (
-        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} />
+        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={id=>{setConversationToOpen(id);onTab('chats');}} />
       ) : (
         <Requests key={tab} source={source} onChatChange={setChat} conversations={tab === "chats"}
           onBrowse={() => onTab('discover')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
-          onMutual={props.onMutual} openConversation={props.openConversation}
+          onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
           openRequest={props.openRequest}
-          onConversationOpened={props.onConversationOpened}
+          onConversationOpened={()=>{setConversationToOpen(undefined);props.onConversationOpened();}}
           initialRequest={tab === "inbox" ? requestToOpen : undefined} />
       )}
       {(!chat || tab === "discover") && (

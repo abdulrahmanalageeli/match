@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { describeFit, dimensions } from '../src/compatibility/model.ts';
 import { conversationInsights } from '../src/compatibility/conversation-insights.ts';
+import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMemory.ts';
 
 const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests };');
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
@@ -28,13 +29,14 @@ function mount(code, component, initialProps) {
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
   const timer = () => 0;
-  const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null };
+  const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [] };
   const exports = {};
   const require = name => {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }), Fragment: 'fragment' };
     if (name === 'react-dom') return { flushSync: fn => fn() };
     if (name === '../compatibility/conversation-insights') return { conversationInsights };
+    if (name === './discoveryMemory') return { readBrowseMemory, saveBrowseMemory };
     if (name === './useWeeklyCardTransition') return { useWeeklyCardTransition: () => (_origin, apply) => apply() };
     if (name === './chatOutbox') return { discardClosedDrafts: noop, denied: error => [401, 403].includes(error?.status) };
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));

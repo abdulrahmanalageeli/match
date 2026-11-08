@@ -3,6 +3,8 @@ import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Ro
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import type { ActivityNotification, CommunitySource, Connection, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
+import { emptyFeed } from './emptyFeed';
+import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './notification-feed.css';
 
 const viewedRequests = new WeakMap<CommunitySource, Set<string>>();
@@ -29,9 +31,10 @@ function EventIcon({ item }: { item: FeedItem }) {
   return item.kind === 'match' ? <Heart {...props}/> : <Send {...props}/>;
 }
 
-export function NotificationFeed({ source, connections, onProfile, onConversation, onRequest, loading: connectionsLoading = false, error: connectionError = '' }: {
+export function NotificationFeed({ source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
   source: CommunitySource; connections: Connection[]; onProfile: (person: PublicPerson) => void;
   onConversation: (id: string) => void; onRequest: (id: string) => void; loading?: boolean; error?: string;
+  onBrowse?: () => void; onRetry?: () => void;
 }) {
   const [items, setItems] = useState<ActivityNotification[]>([]), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [retry, setRetry] = useState(0), [filter, setFilter] = useState<FeedFilter>('all');
@@ -65,11 +68,13 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     }
     void refresh(); const stop = source.watch(() => void refresh());
     document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); };
+    window.addEventListener('online', refresh);
+    return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source, retry, acceptedIds]);
 
   const rows = useMemo(() => buildFeed(connections, items, progress, seen), [connections, items, progress, seen]);
   const visible = filterFeed(rows, filter), unread = rows.filter(item => item.unread).length;
+  const empty = emptyFeed(filter);
   async function open(item: FeedItem) {
     if (openingRef.current || !item.target) return;
     openingRef.current = true; setOpening(item.id); setError('');
@@ -86,9 +91,12 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
   return <section className="cm-notification-feed" aria-label="الإشعارات والتحديثات">
     <div className="nf-feed-summary"><span>كل ما يخصّ تعارفك، في مكان واحد</span>{unread > 0 && <b>{new Intl.NumberFormat('ar').format(unread)} جديد</b>}</div>
     <div className="nf-feed-filters" role="group" aria-label="تصفية الإشعارات">{filters.map(option => <button key={option.id} aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}{option.id === 'unread' && unread > 0 && <span>{new Intl.NumberFormat('ar').format(unread)}</span>}</button>)}</div>
-    {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => setRetry(n => n + 1)}>إعادة المحاولة</button></div>}
+    {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => { setRetry(n => n + 1); onRetry?.(); }}>إعادة المحاولة</button></div>}
     {(loading || connectionsLoading) && !rows.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}
-    {!loading && !connectionsLoading && !visible.length && <div className="nf-feed-empty"><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{filter === 'unread' ? 'أنت مطّلع على كل جديد' : 'مساحة لكل جديد'}</h2><p>{filter === 'all' ? 'زيارات ملفك وطلبات التعارف وخطواتكما التالية تظهر هنا بترتيب وقتها.' : 'لا توجد تحديثات ضمن هذا التصنيف الآن.'}</p></div>}
+    {!loading && !connectionsLoading && !error && !connectionError && !visible.length && <MotionReveal key={filter} className="nf-feed-empty" duration={320} distance={6}><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{empty.title}</h2><p>{empty.detail}</p>
+      {filter !== 'all' && <MotionPressButton className="btn-secondary" onClick={() => setFilter('all')}>عرض كل التحديثات</MotionPressButton>}
+      {filter === 'all' && onBrowse && <MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات</MotionPressButton>}
+    </MotionReveal>}
     <div className="nf-feed-timeline">{visible.map((item, index) => {
       const group = dayLabel(item.at), showGroup = index === 0 || group !== dayLabel(visible[index - 1].at);
       return <div key={item.id} className="nf-feed-entry">

@@ -14,8 +14,9 @@ const tick = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); 
 const reaction = (mine = true, count = 1) => [{ emoji: '❤️', count, mine }];
 const message = (extra = {}) => ({ id: 'message', senderIsMe: false, body: 'Hello', createdAt: '2026-11-08T10:00:00Z', ...extra });
 
-function mount(initial = [message()]) {
-  const hooks = [], effects = []; let cursor = 0, dirty = false, wake = noop, snapshot = initial, threadImpl, writes = 0;
+function mount(initial = [message()], online = true) {
+  const hooks = [], effects = [], timers = new Map(), events = new Map(), network = { onLine: online };
+  let cursor = 0, dirty = false, wake = noop, snapshot = initial, threadImpl, writes = 0, reads = 0, timerId = 0;
   const memo = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((v, i) => v !== old.deps[i])) hooks[at] = { deps, value: fn() }; return hooks[at].value; };
   const react = {
     useMemo: memo, useCallback: (fn, deps) => memo(() => fn, deps),
@@ -28,7 +29,7 @@ function mount(initial = [message()]) {
   const outbox = { subscribe: noop, read: () => local, reconcile: noop, clear: () => { local.draft = ''; local.outgoing = []; } };
   const result = deferred();
   const source = {
-    thread: () => threadImpl ? threadImpl() : Promise.resolve(snapshot),
+    thread: () => { reads++; return threadImpl ? threadImpl() : Promise.resolve(snapshot); },
     watch: callback => { wake = callback; return noop; },
     reactToMessage: () => { writes++; return result.promise; },
   };
@@ -44,9 +45,14 @@ function mount(initial = [message()]) {
       return next;
     } },
   };
-  vm.runInNewContext(code, { exports, require: name => modules[name], document: { hidden: false, addEventListener: noop, removeEventListener: noop } });
+  vm.runInNewContext(code, { exports, require: name => modules[name], document: { hidden: false, addEventListener: noop, removeEventListener: noop }, navigator: network,
+    window: { addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) },
+    setTimeout: (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout: id => timers.delete(id),
+  });
   return {
-    source, result, local, get writes() { return writes; },
+    source, result, local, get writes() { return writes; }, get reads() { return reads; }, get timers() { return timers; },
+    online(value) { network.onLine = value; events.get(value ? 'online' : 'offline')?.(); },
+    runRetry() { const [id, timer] = timers.entries().next().value ?? []; if (timer) { timers.delete(id); timer.fn(); return timer.delay; } },
     set snapshot(value) { snapshot = value; }, set threadImpl(value) { threadImpl = value; },
     wake: () => wake(),
     render() { let value, passes = 0; do { dirty = false; cursor = 0; value = exports.useThread(source, 'connection'); for (const effect of effects.splice(0)) effect(); if (++passes > 20) throw Error('Unstable hook'); } while (dirty); return value; },
@@ -65,6 +71,30 @@ test('reaction appears immediately, prevents duplicate writes, preserves draft/r
   assert.equal(thread.draft, 'Unfinished draft'); assert.equal(thread.outbox.read().reply.id, 'earlier');
   f.snapshot = [message({ reactions: reaction(true, 2) })]; f.result.resolve(reaction(true, 2)); await pending; await tick();
   thread = f.render(); assert.equal(thread.pendingReactionIds.size, 0); assert.equal(thread.rows[0].reactions[0].count, 2); f.close();
+});
+
+test('network retries back off, preserve the draft and stop after three attempts until manual recovery', async () => {
+  const f = mount(); f.render(); await tick(); f.render();
+  f.threadImpl = async () => { throw Error('network timeout'); };
+  f.wake(); await tick();
+  assert.equal(f.render().connectionState, 'reconnecting');
+  assert.equal(f.render().draft, 'Unfinished draft');
+  const initialReads = f.reads;
+  f.wake(); await tick(); assert.equal(f.reads, initialReads, 'broadcasts respect backoff');
+  for (const delay of [2000, 5000, 10000]) { assert.equal(f.runRetry(), delay); await tick(); f.render(); }
+  assert.equal(f.render().connectionState, 'unavailable'); assert.equal(f.timers.size, 0);
+  f.wake(); await tick(); assert.equal(f.reads, initialReads + 3);
+  f.threadImpl = undefined; f.render().refresh(); await tick();
+  assert.equal(f.render().connectionState, 'online'); assert.equal(f.render().error, '');
+  assert.equal(f.render().draft, 'Unfinished draft'); f.close();
+});
+
+test('offline startup waits for the online event and cleanup cancels scheduled work', async () => {
+  const f = mount([message()], false); f.render(); await tick();
+  assert.equal(f.reads, 0); assert.equal(f.render().connectionState, 'offline');
+  f.online(true); await tick(); assert.equal(f.render().connectionState, 'online'); assert.equal(f.reads, 1);
+  f.threadImpl = async () => { throw Error('timeout'); }; f.wake(); await tick();
+  assert.equal(f.timers.size, 1); f.close(); assert.equal(f.timers.size, 0);
 });
 
 test('failed removal rolls back only the optimistic reaction and keeps the composer', async () => {

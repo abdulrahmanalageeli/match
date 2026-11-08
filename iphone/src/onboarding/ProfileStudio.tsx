@@ -8,6 +8,9 @@ import { personalityQuestions } from '../compatibility/personality';
 import { beenaProgress } from '../beena/model';
 import { arabicNumber, type Answers, type Chapter } from './draft';
 import './profile-editor.css';
+import { MotionPressButton } from '../motion/Reanimated';
+import { answeredProfilePrompts } from '../profile/profilePrompts';
+import '../profile/profile-prompts.css';
 
 type PhotoPreviewProps = { photoUrl?: string | null; portraitSource?: CommunitySource | null };
 
@@ -37,10 +40,11 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
   useLayoutEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const answered = dimensions.reduce((sum, q) => sum + Number(Boolean(p.surveyAnswers?.[q.id])) + Number(Boolean(p.surveyAnswers?.[q.partnerId])), 0);
   const personality = personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length;
+  const promptCount = answeredProfilePrompts(p).length;
   const groups = [
     { title: 'ملفي العام', note: 'تظهر التفاصيل العامة للأعضاء المؤهلين. التفاصيل الحساسة تظهر فقط بموافقتك المنفصلة على العرض.', items: [
       { key: 'identity', title: 'الأساسيات', note: [p.displayName, p.city].filter(Boolean).join(' · ') || 'الاسم والعمر والمدينة', icon: UserRound },
-      { key: 'story', title: 'نبذتي وحياتي', note: 'المهنة، نبذتك، وما تبحث عنه في الشريك', icon: Feather },
+      { key: 'story', title: 'نبذتي وحياتي', note: 'المهنة، نبذتك، وإجابات تحكي عنك', icon: Feather },
       { key: 'details', title: 'التفاصيل الشخصية', note: 'الطول، الحالة الاجتماعية، وبقية تفاصيلك', icon: UserRound },
       ...(p.gender === 'woman' ? [{ key: 'avatar', title: 'صورة ملفي', note: photoUrl || (photoUrl!==null&&p.portrait) ? 'تغيير صورتك أو درجة التمويه' : p.publicAvatar ? 'تغيير الرسم المختار أو إضافة صورة بتمويه' : 'صورة بتمويه تختارينه، أو رسم يعبّر عنك', icon: ShieldCheck }] : []),
     ] },
@@ -62,6 +66,7 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
     <section className="pe-section" key={section}><p className="pe-section-note">{group.note}</p><div className="nf-studio-sections">
       {group.items.map(item=><button type="button" className="nf-studio-section" key={item.key} disabled={busy} onClick={()=>open(item.key as Chapter)}><span className="nf-studio-section-icon"><item.icon size={20} strokeWidth={1.6}/></span><span><strong>{item.title}</strong><small>{item.note}</small></span><ChevronLeft size={17}/></button>)}
     </div></section>
+    {section===0&&<MotionPressButton className="pe-prompt-invite" disabled={busy} onClick={()=>open('story')}><Feather size={20} aria-hidden="true"/><span><strong>{promptCount?'إجابات تحكي عنك':'دع التفاصيل الصغيرة تحكي عنك'}</strong><small>{promptCount?`${arabicNumber(promptCount)} من ٣ إجابات اختيارية · راجعها أو أضف إليها`:'يومكما المثالي، وما تتمنى أن يفهمه شريكك'}</small></span><ChevronLeft size={17} aria-hidden="true"/></MotionPressButton>}
     <footer className="nf-studio-actions"><button type="button" className="f-primary" onClick={review} disabled={busy||!changed}>مراجعة وحفظ التعديلات<ArrowLeft size={18}/></button><small>{changed?'التعديلات مسودة حتى تؤكد حفظها.':'ملفك محفوظ. اختر أي قسم لتحديثه.'}</small></footer>
   </div>;
 }

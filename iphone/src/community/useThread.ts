@@ -4,6 +4,8 @@ import { chatError, denied, outboxFor } from "./chatOutbox";
 import { mergeMessages } from "./timeline";
 import { refreshHistoricalMessages } from "./messageRefresh";
 
+export type ThreadConnectionState = 'online' | 'offline' | 'reconnecting' | 'unavailable';
+
 export function useThread(source: CommunitySource, requestId: string) {
   const outbox = useMemo(() => outboxFor(source, requestId), [source, requestId]);
   const local = useSyncExternalStore(outbox.subscribe, outbox.read);
@@ -12,6 +14,8 @@ export function useThread(source: CommunitySource, requestId: string) {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [connectionState, setConnectionState] = useState<ThreadConnectionState>('online');
+  const [accessDenied, setAccessDenied] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [reactionChoices, setReactionChoices] = useState<Map<string, ReactionEmoji | null>>(() => new Map());
@@ -28,6 +32,7 @@ export function useThread(source: CommunitySource, requestId: string) {
     newest.current = null;
     historyStarted.current = false;
     setReady(false);
+    setAccessDenied(true);
     setRemote([]);
     setHasOlder(false);
     setLoadingOlder(false);
@@ -41,8 +46,16 @@ export function useThread(source: CommunitySource, requestId: string) {
     let active = true;
     let fetching = false;
     let dirty = false;
+    let retries = 0;
+    let exhausted = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const clearRetry = () => { clearTimeout(retryTimer); retryTimer = undefined; };
     async function refresh() {
       if (!active || document.hidden) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        clearRetry(); setConnectionState('offline'); setLoading(false); return;
+      }
+      if (retryTimer !== undefined || exhausted) return;
       if (fetching) { dirty = true; return; }
       fetching = true;
       try {
@@ -71,9 +84,18 @@ export function useThread(source: CommunitySource, requestId: string) {
         outbox.reconcile(page);
         setReady(true);
         setError("");
+        setAccessDenied(false);
+        retries = 0;
+        setConnectionState('online');
       } catch (err) {
         if (!active) return;
-        if (denied(err)) revoke();
+        dirty = false;
+        if (denied(err)) { revoke(); exhausted = true; setAccessDenied(true); setConnectionState('unavailable'); }
+        else if (typeof navigator !== 'undefined' && navigator.onLine === false) setConnectionState('offline');
+        else if (retries < 3) {
+          setConnectionState('reconnecting');
+          retryTimer = setTimeout(() => { retryTimer = undefined; void refresh(); }, [2000, 5000, 10000][retries++]);
+        } else { exhausted = true; setConnectionState('unavailable'); }
         setError(chatError(err));
       } finally {
         fetching = false;
@@ -83,11 +105,21 @@ export function useThread(source: CommunitySource, requestId: string) {
         }
       }
     }
-    requestRefresh.current = refresh;
+    function recover() {
+      if (document.hidden) return;
+      clearRetry(); retries = 0; exhausted = false;
+      setConnectionState(previous => typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : previous === 'online' ? 'online' : 'reconnecting');
+      void refresh();
+    }
+    const offline = () => { clearRetry(); setConnectionState('offline'); };
+    requestRefresh.current = recover;
     void refresh();
     const unwatch = source.watch(refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; epoch.current++; pendingReactionWrites.current.clear(); setReactionChoices(new Map()); settledReactions.current.clear(); unwatch(); document.removeEventListener('visibilitychange', refresh); requestRefresh.current = () => {}; };
+    document.addEventListener('visibilitychange', recover);
+    window.addEventListener('online', recover);
+    window.addEventListener('offline', offline);
+    window.addEventListener('nisfayn:retry-reads', recover);
+    return () => { active = false; clearRetry(); epoch.current++; pendingReactionWrites.current.clear(); setReactionChoices(new Map()); settledReactions.current.clear(); unwatch(); document.removeEventListener('visibilitychange', recover); window.removeEventListener('online', recover); window.removeEventListener('offline', offline); window.removeEventListener('nisfayn:retry-reads', recover); requestRefresh.current = () => {}; };
   }, [source, requestId, outbox, revoke]);
 
   // Also repair a missed broadcast or a response lost after the server committed.
@@ -158,5 +190,5 @@ export function useThread(source: CommunitySource, requestId: string) {
   const rows = ready ? [...remote, ...local.outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)]
     .map(message => !message.deletedAt && reactionChoices.has(message.id)
       ? { ...message, reactions: withOwnReaction(message.reactions, reactionChoices.get(message.id) ?? null) } : message) : [];
-  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, draft: local.draft, loading, error, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
+  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, draft: local.draft, loading, error, connectionState, accessDenied, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
 }

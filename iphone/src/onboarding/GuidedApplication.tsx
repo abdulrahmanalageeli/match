@@ -21,6 +21,7 @@ import type { CommunitySource } from '../community/data';
 import { emptyConsents, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
 import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
 import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
+import { ProfilePromptFields } from './ProfilePromptFields';
 import { HelpButton } from '../help/HelpCenter';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { feedback } from '../feedback/haptics';
@@ -396,16 +397,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <small>يمكنك ذكر مسمّاك المهني وتخصصك بكلماتك في النبذة.</small>
                 <label>نبذة قصيرة<textarea {...field("bio")} value={p.bio} onChange={e => update({bio: e.target.value})} maxLength={1200} rows={4} required placeholder="أستمتع في يومي بـ… وأتطلّع إلى…" /></label>
                 <div className="nf-intake-wordcount">{arabicNumber(p.bio.length)} / {arabicNumber(1200)}</div>
-                <details className="nf-story-more"><summary><span><Feather size={17}/> أضف عمقًا لحكايتك<small>الدراسة، القيم، والحياة التي تتخيلها · اختياري</small></span><ChevronLeft size={17}/></summary><div>
+                <ProfilePromptFields answers={p} update={update} invalidField={error?.field}/>
+                <details className="nf-story-more"><summary><span><Feather size={17}/> الدراسة وبداية التعارف<small>معلومات إضافية · اختياري</small></span><ChevronLeft size={17}/></summary><div>
                 <ChoiceSelect {...field('education')} label="أعلى مؤهل تعليمي مكتمل" value={p.education ?? ''} onChange={education => update({ education })} options={educationOptions} placeholder="اختر المؤهل · اختياري" allowClear />
                 <label>نيّتي من التعارف<select {...field("marriageIntent")} value={p.marriageIntent ?? ""} onChange={e => update({ marriageIntent: e.target.value })}>
                   <option value="">أفضل إضافتها لاحقًا</option>
                   {!!p.marriageIntent && !["تعارف جاد يهدف إلى الزواج", "مستعد للخطوة الرسمية عند التوافق", "أبحث عن توافق قبل تحديد الموعد"].includes(p.marriageIntent) && <option>{p.marriageIntent}</option>}
                   <option>تعارف جاد يهدف إلى الزواج</option><option>مستعد للخطوة الرسمية عند التوافق</option><option>أبحث عن توافق قبل تحديد الموعد</option>
                 </select></label>
-                <label>ما أبحث عنه في شريك الحياة<textarea {...field("lookingFor")} value={p.lookingFor ?? ""} onChange={e => update({ lookingFor: e.target.value })} maxLength={600} rows={3} placeholder="ما الصفات والاحتياجات التي تهمك؟ مثل الوضوح، أسلوب الحوار، ودعم الطموح…" /></label>
-                <label>ما أقدّره ولا أستغني عنه<textarea {...field("valuesStatement")} value={p.valuesStatement ?? ""} onChange={e => update({ valuesStatement: e.target.value })} maxLength={600} rows={3} placeholder="قيمك واحتياجاتك الأساسية في العلاقة، بكلماتك أنت…" /></label>
-                <label>الحياة التي أتخيلها معًا<textarea {...field("lifeTogether")} value={p.lifeTogether ?? ""} onChange={e => update({ lifeTogether: e.target.value })} maxLength={600} rows={3} placeholder="صف تفاصيل البيت واليوم والوقت المشترك التي تتمنى بناءها…" /></label>
                 </div></details>
               </>}
               {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}

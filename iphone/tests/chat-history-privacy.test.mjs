@@ -15,13 +15,13 @@ function mount(){
  const memo=(fn,deps)=>{const at=index++,old=hooks[at];if(!old||deps.some((v,i)=>v!==old.deps[i]))hooks[at]={deps,value:fn()};return hooks[at].value;};
  const react={useMemo:memo,useCallback:(fn,deps)=>memo(()=>fn,deps),useSyncExternalStore:(_subscribe,read)=>read(),
   useRef:value=>{const at=index++;if(!(at in hooks))hooks[at]={current:value};return hooks[at];},
-  useState:value=>{const at=index++;if(!(at in hooks))hooks[at]=value;return [hooks[at],next=>{hooks[at]=typeof next==='function'?next(hooks[at]):next;}];},
+  useState:value=>{const at=index++;if(!(at in hooks))hooks[at]=typeof value==='function'?value():value;return [hooks[at],next=>{hooks[at]=typeof next==='function'?next(hooks[at]):next;}];},
   useEffect:(fn,deps)=>{const at=index++,old=hooks[at];if(!old||deps.some((v,i)=>v!==old.deps[i])){old?.cleanup?.();const item={deps};hooks[at]=item;effects.push(()=>{item.cleanup=fn();});}},
  };
  const source={thread:async(_id,before)=>structuredClone(before?list.slice(0,25):list.slice(-50)),
   messageChanges:async(_id,ids)=>{if(fail)throw fail;return structuredClone(list.filter(row=>ids.includes(row.id)));},
   watch:fn=>{watch=fn;return()=>{};},send:async()=>{throw Error('offline');}};
- const exports={};vm.runInNewContext(code,{exports,document:{hidden:false,addEventListener:(e,fn)=>events.set(e,fn),removeEventListener:e=>events.delete(e)},require:name=>name==='react'?react:name==='./data'?{messagePageSize:50}:name==='./timeline'?{mergeMessages}:name==='./messageRefresh'?{refreshHistoricalMessages}:outbox});
+ const exports={};vm.runInNewContext(code,{exports,setTimeout,clearTimeout,window:{addEventListener:()=>{},removeEventListener:()=>{}},document:{hidden:false,addEventListener:(e,fn)=>events.set(e,fn),removeEventListener:e=>events.delete(e)},require:name=>name==='react'?react:name==='./data'?{messagePageSize:50}:name==='./timeline'?{mergeMessages}:name==='./messageRefresh'?{refreshHistoricalMessages}:outbox});
  const render=()=>{index=0;const result=exports.useThread(source,'room');for(const effect of effects.splice(0))effect();return result;};
  return {list,render,setFail:value=>{fail=value;},refresh:async()=>{await watch();await settle();},cleanup:()=>{for(const hook of hooks)hook?.cleanup?.();}};
 }

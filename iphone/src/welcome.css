@@ -57,6 +57,7 @@
 .nf-arrival .nf-arrival-copy p { margin: 15px 0 0; color: #704c58; font-size: clamp(15px, 3.9vw, 18px); font-weight: 500; line-height: 1.75; }
 .nf-arrival-illustration { position: absolute; z-index: -1; bottom: 119px; left: 0; width: 100%; height: clamp(270px, 42svh, 400px); pointer-events: none; }
 .nf-arrival-arches { position: absolute; width: 116%; height: 105%; left: -8%; bottom: 0; overflow: visible; }
+.nf-arrival-arches > svg { width: 100%; height: 100%; }
 .nf-arrival-arches path { stroke: #fff9ec; stroke-width: 1.35; opacity: .88; vector-effect: non-scaling-stroke; }
 .nf-arrival-couple { position: absolute; width: 112%; max-width: none; height: auto; left: -6%; bottom: 0; }
 .nf-arrival-actions {
@@ -105,8 +106,6 @@
 .nf-arrival[data-opening] .nf-arrival-copy h1 span { animation: nf-arrival-text .8s .4s cubic-bezier(.2,.75,.3,1) both; }
 .nf-arrival[data-opening] .nf-arrival-copy h1 span + span { animation-delay: .65s; }
 .nf-arrival[data-opening] .nf-arrival-copy p { animation: nf-arrival-text .8s .9s cubic-bezier(.2,.75,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-arches path { stroke-dasharray: 1; animation: nf-arrival-draw 2.6s .2s cubic-bezier(.4,0,.2,1) both; }
-.nf-arrival[data-opening] .nf-arrival-arches path + path { animation-delay: .35s; }
 .nf-arrival[data-opening] .nf-arrival-cta-enter { animation: nf-arrival-button .65s cubic-bezier(.2,.75,.3,1) both; }
 .nf-arrival[data-opening] .nf-arrival-sky::after { animation: nf-arrival-sunset 5s ease-out both; }
 .nf-arrival[data-opening] .nf-arrival-lights rect { animation: nf-arrival-window 3s 1.6s ease-out both; }

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Reac
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { Brand } from "../Brand";
 import { ScenePaths } from '../ScenePaths';
+import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
@@ -368,7 +369,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </div>}
         </div>
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
-          <div className="nf-intake-stage" key={chapter.key} data-dir={direction.current} inert={busy || leaving}>
+          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 18 : -18} duration={380} data-dir={direction.current} inert={busy || leaving}>
             <div className="nf-intake-title">
               <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
@@ -440,10 +441,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <SignupConsentReview value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
               </>}
             </div>
-          </div>
+          </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-            <button type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</button><KeyboardDismiss/>
+            <MotionPressButton type="submit" className="f-primary" disabled={busy || leaving || photoBusy}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
             <div className="nf-intake-action-meta">
               {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
               {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{deviceDraft ? "يحفظ «إكمال لاحقًا» إجاباتك على هذا الجهاز لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصور الجديدة وتعديلات تمويهها وكشفها لا تُحفظ في المسودة؛ يلزم اختيارها مجددًا عند العودة.</p></details>}

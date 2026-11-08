@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDevicePreferences, useSystemReducedMotion } from './settings/preferences';
 import './scenePaths.css';
+import { SkiaSurface } from './motion/SkiaSurface';
 
 const paths = [
   {
@@ -62,11 +63,10 @@ export function ScenePaths({ className = '', parallax = false }: { className?: s
   const animate = drawing && !reduced;
   return <div ref={element} className={`nf-scene-paths ${className}`.trim()} aria-hidden="true" data-draw={animate || undefined}>
     <div className="nf-scene-paths-plane">
-      <svg viewBox="0 0 520 260" preserveAspectRatio="xMidYMid slice" focusable="false" fill="none">
+      <SkiaSurface className="nf-scene-canvas" variant="scene" animate={animate} fallback={<svg viewBox="0 0 520 260" preserveAspectRatio="xMidYMid slice" focusable="false" fill="none">
         {paths.map((path, index) => <path key={index} className="nf-scene-path" d={path.to} pathLength="1">
-          {animate && <animate attributeName="d" from={path.from} to={path.to} dur="1.45s" begin="0s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".22 .7 .25 1" />}
         </path>)}
-      </svg>
+      </svg>} />
     </div>
   </div>;
 }

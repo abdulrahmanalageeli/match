@@ -1,5 +1,6 @@
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
+import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import {
   useCallback,
   useEffect,
@@ -429,7 +430,7 @@ function PersonCard({
   priority?: boolean;
 }) {
   return (
-    <button
+    <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
       style={{animationDelay: `${Math.min(index,7)*45}ms`}}
       onClick={event => open(event.currentTarget)}
@@ -446,7 +447,7 @@ function PersonCard({
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
       </div>
-    </button>
+    </MotionPressButton>
   );
 }
 
@@ -665,7 +666,7 @@ function Discovery({
         <Brand />
         <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "قصص تستحقّ الاكتشاف" : "خمسة أقرب إليك"}</span>
       </header>
-      <div className="cm-title df-title">
+      <MotionReveal className="cm-title df-title" duration={480}>
         <div><span className="df-eyebrow">مساحة لبداية تستحقّك</span><h1>أقرب إلى ما تبحث عنه.</h1><p>تعرّف على الشخص، وما يهمّه في الحياة.</p></div>
         <button
           className={"cm-filter-button" + (count ? " selected" : "")}
@@ -675,7 +676,7 @@ function Discovery({
           <SlidersHorizontal size={16} /><span>تصفية</span>{" "}
           {count > 0 && <b>{ar.format(count)}</b>}
         </button>
-      </div>
+      </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       <ProfileVisitNotice interest={order === 'all'}/>
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
@@ -1224,7 +1225,7 @@ export function Chat({
               }
             }}
           />
-          <button type="submit" aria-label="إرسال الرسالة" disabled={!thread.draft.trim() || !chatReady}><Send size={19} /></button>
+          <MotionPressButton type="submit" aria-label="إرسال الرسالة" disabled={!thread.draft.trim() || !chatReady}><Send size={19} /></MotionPressButton>
         </form>
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}

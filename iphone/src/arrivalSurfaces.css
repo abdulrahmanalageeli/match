@@ -53,3 +53,7 @@ html[data-nf-ambient-paused] .phone-app :is(.nf-scene-path,.cm-view,.df-title h1
   .phone-app :is(.mi-tab,.cm-segments button,.df-feed-tabs button) { transition: none; }
 }
 html[data-nf-motion=reduced] .phone-app :is(.mi-tab,.cm-segments button,.df-feed-tabs button) { transition: none; }
+/* Reanimated owns these transforms; do not layer old CSS motion on top. */
+html .phone-app [data-motion-reveal] { animation: none !important; translate: none !important; }
+html .phone-app [data-motion-press] { transition: none !important; scale: none !important; }
+html .phone-app [data-motion-press]:active { translate: none !important; }

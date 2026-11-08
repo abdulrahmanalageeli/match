@@ -12,6 +12,7 @@ import { marriageTimelineLabels, meetingPreferenceLabels, polygynyLabels, prayer
 import './member-profile.css';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
+import { MotionReveal } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 
 const ar = new Intl.NumberFormat('ar-SA');
@@ -59,7 +60,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       {hasDetails&&<button type="button" aria-pressed={section==='details'} aria-controls={contentId} onClick={()=>setSection('details')}><ListFilter size={16} aria-hidden="true"/>التفاصيل</button>}
       {hasFit&&<button type="button" aria-pressed={section==='fit'} aria-controls={contentId} onClick={()=>setSection('fit')}><Sparkles size={16} aria-hidden="true"/>التوافق{percentage!==null&&<span>{ar.format(percentage)}٪</span>}</button>}
     </div>
-    <div id={contentId} className="mp-content" key={section}>
+    <MotionReveal id={contentId} className="mp-content" key={section} axis="x" distance={-8} duration={340}>
       {section==='about'&&<>
         {canOpenPassport&&<button type="button" ref={passportButton} className="mp-passport-link" onClick={()=>setPassportOpen(true)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>جواز الجاهزية للزواج</strong><small>اطّلع على الأقسام التي اختار مشاركتها معك</small></span><ArrowRight size={16} aria-hidden="true"/></button>}
         {person.bio?<Story title="عنّي">{person.bio}</Story>:<p className="mp-empty">لم تُضف نبذة شخصية بعد.</p>}
@@ -100,7 +101,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         ]}/>
       </>}
       {section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit}/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
-    </div>
+    </MotionReveal>
     {preview&&<p className="mp-preview-footnote"><Sparkles size={16}/><span>نسبة التوافق تختلف من شخص لآخر؛ تظهر عند مقارنة تقييميكما. إجابات التقييم ومتطلبات الشريك الخاصة لا تظهر في هذا الملف.</span></p>}
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;

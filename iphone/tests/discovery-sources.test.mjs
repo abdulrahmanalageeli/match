@@ -11,6 +11,7 @@ const url = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
 const modelUrl = new URL('../src/compatibility/model.ts', import.meta.url).href;
 const beenaUrl = new URL('../src/beena/model.ts', import.meta.url).href;
 const dataUrl = url((await compile('../src/community/data.ts'))
+  .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
   .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
@@ -36,6 +37,16 @@ const { pairSource, testProfile } = await import(pairUrl);
 const completeFit = { version: 'marriage-v2', assessmentComplete: true, provisional: false, covered: 32, total: 32, percentage: 92,
   personality: { version: 'personality-v1', complete: true, covered: 10, total: 10, percentage: 88 } };
 const person = { id: 'one', alias: 'عضو', age: 29, city: 'الرياض', occupation: '', bio: '', interests: ['القراءة'], fit: completeFit };
+
+test('city filters use canonical exact values for inclusion and exclusion', () => {
+  assert.equal(matchesDiscoveryFilters(person, { city: 'Riyadh' }), true);
+  assert.equal(matchesDiscoveryFilters(person, { city: 'رياض' }), false);
+  assert.equal(matchesDiscoveryFilters({ ...person, city: 'جدة الجديدة' }, { city: 'جدة' }), false);
+  assert.equal(matchesDiscoveryFilters(person, { excludeCities: ['Riyadh'] }), false);
+  const saudi = { ...person, marriageBasics: { nationality: 'سعودية' } };
+  assert.equal(matchesDiscoveryFilters(saudi, { nationality: 'سعودي' }), true);
+  assert.equal(matchesDiscoveryFilters(saudi, { excludeNationalities: ['سعودي'] }), false);
+});
 
 test('simulated test conversations persist per tester and refresh paused, without crossing identities', async () => {
   const original=globalThis.localStorage,items=new Map();

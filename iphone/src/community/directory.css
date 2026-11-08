@@ -64,6 +64,12 @@
 .dr-filter-fields>p{margin:0;color:#856471;font-size:11px;line-height:1.8}
 .dr-filter-exclusions{background:#fcf4f2;border-color:#8a4b601a}
 .dr-exclusion-options{display:flex;flex-wrap:wrap;gap:7px}
+.dr-exclusion-picker{display:grid;gap:9px;min-width:0}
+.dr-exclusion-picker>small{color:#856471;font-size:11px;line-height:1.8}
+.dr-selected-filters{display:flex;flex-wrap:wrap;gap:7px}
+.dr-selected-filters:empty{display:none}
+.dr-selected-filters button{display:flex;align-items:center;gap:9px;min-height:36px;padding:7px 11px;border:1px solid #b7859438;border-radius:20px;background:#fffaf7;color:#66243d;font:inherit;font-size:12px;cursor:pointer}
+.dr-selected-filters button:focus-visible{outline:2px solid #7c2445;outline-offset:3px}
 .cm-filter .dr-exclusion-options label{display:flex;align-items:center;gap:6px;flex-direction:row;padding:8px 10px;border:1px solid #8a4b601a;border-radius:10px;font-size:11px;background:#fffaf7;cursor:pointer}
 .cm-filter .dr-exclusion-options label:has(input:checked){border-color:#b87b8f;background:#f2dfe5;color:#66243d}
 .cm-filter .dr-exclusion-options input{width:15px;height:15px;accent-color:#6d2843}

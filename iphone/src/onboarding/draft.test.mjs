@@ -17,6 +17,18 @@ function answers() {
     bio: "نبذة تجريبية", contact: "sample@example.invalid" };
 }
 
+test('saving uses canonical matching labels and keeps legacy free-text descriptions', () => {
+  const profile = toProfile({ ...answers(), city: 'Riyadh', education: 'بكالوريوس هندسة',
+    marriageBasics: { nationality: 'سعودية', childrenCount: 0 },
+    partnerCriteria: { nationality: { mode: 'prefer', values: ['سعودي', 'سعودية', 'عمانية'] } } });
+  assert.equal(profile.city, 'الرياض');
+  assert.equal(profile.education, 'بكالوريوس هندسة');
+  assert.equal(profile.profession, 'مهندسة');
+  assert.equal(profile.marriageBasics.nationality, 'سعودي');
+  assert.equal(profile.marriageBasics.childrenCount, 0);
+  assert.deepEqual(profile.partnerCriteria.nationality.values, ['سعودي', 'عُماني']);
+});
+
 test('Beena permits skipping and partial answers, validates submitted data, and invalidates stale baselines', () => {
   const p=answers();
   assert.equal(validateStep('beena',p,true),null);

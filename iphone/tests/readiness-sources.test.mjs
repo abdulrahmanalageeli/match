@@ -8,6 +8,7 @@ const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const rewrite=source=>source.replaceAll("'../readiness/model'",JSON.stringify(new URL('../src/readiness/model.ts',import.meta.url).href)).replaceAll("'../family/model'",JSON.stringify(new URL('../src/family/model.ts',import.meta.url).href));
 const dataUrl=url(rewrite(await compile('../src/community/data.ts'))
+ .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')

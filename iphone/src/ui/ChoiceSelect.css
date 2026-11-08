@@ -1,0 +1,26 @@
+.nf-choice-select { display: grid; align-content: start; gap: 7px; min-width: 0; width: 100%; }
+.nf-choice-select .nf-choice-label { display: block; font: inherit; font-size: 14px; font-weight: 650; color: var(--ink, #51172e); margin: 0; }
+.nf-choice-select .nf-choice-control { display: flex; align-items: center; min-width: 0; min-height: 50px; border: 1px solid #d8c7c7; border-radius: 14px; background: linear-gradient(125deg, #fffdfa, #fcf7f2); box-shadow: 0 2px 6px #51172e04; transition: border-color 150ms, box-shadow 150ms; }
+.nf-choice-select .nf-choice-control:focus-within { border-color: #a3687a; box-shadow: 0 0 0 3px #a3687a12; }
+.nf-choice-select .nf-choice-control[data-invalid] { border-color: #aa2941; }
+.phone-app .nf-choice-select .nf-choice-control input { flex: 1; min-width: 0; width: 100%; min-height: 48px; margin: 0; padding: 11px 13px; border: 0 !important; border-radius: 14px; background: transparent !important; box-shadow: none !important; outline: none !important; color: #532034; font: inherit; font-size: 16px; font-weight: 450; text-align: start; }
+.phone-app .nf-choice-select .nf-choice-control input::placeholder { color: #a58d92; opacity: 1; }
+.nf-choice-select .nf-choice-search-icon { flex: none; margin-inline-start: 13px; color: #a38088; }
+.phone-app .nf-choice-select .nf-choice-toggle { flex: none; display: grid; place-items: center; width: 44px; height: 48px; margin: 0; padding: 0; border: 0; background: none; color: #9d6f7c; box-shadow: none; }
+.nf-choice-toggle svg { transition: transform 160ms ease; }
+.nf-choice-select[data-open] .nf-choice-toggle svg { transform: rotate(180deg); }
+.nf-choice-select .nf-choice-panel { min-width: 0; overflow: hidden; border: 1px solid #e5d1cf; border-radius: 16px; background: #fffdfa; box-shadow: 0 8px 22px #51172e08; animation: nf-choice-appear 160ms ease-out; }
+.nf-choice-select .nf-choice-hint { display: flex; justify-content: space-between; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #efe4de; font-size: 11px; font-weight: 450; color: #9c7a83; }
+.nf-choice-select .nf-choice-list { max-height: min(260px, 38vh); overflow-y: auto; overscroll-behavior: contain; padding: 5px; scrollbar-width: thin; scrollbar-color: #c9a8b1 transparent; scroll-padding-block: 5px; }
+.nf-choice-select .nf-choice-group { padding: 10px 10px 5px; color: #9c7a83; font-size: 10px; font-weight: 600; }
+.phone-app .nf-choice-select .nf-choice-option { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; width: 100%; margin: 0; padding: 10px 11px; border: 0; border-radius: 10px; background: transparent; box-shadow: none; color: #58313f; font: inherit; font-size: 14px; line-height: 1.6; font-weight: 450; text-align: start; cursor: pointer; }
+.phone-app .nf-choice-select .nf-choice-option[data-active], .phone-app .nf-choice-select .nf-choice-option:hover { background: #f6ece7; }
+.phone-app .nf-choice-select .nf-choice-option[aria-selected=true] { color: #691c39; font-weight: 650; background: #f4e5e4; }
+.nf-choice-select .nf-choice-check { display: grid; place-items: center; flex: none; width: 20px; height: 20px; }
+.nf-choice-select .nf-choice-empty { margin: 0; padding: 17px 15px; color: #97767e; font-size: 12px; line-height: 1.9; }
+.phone-app .nf-choice-select .nf-choice-clear { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; padding: 10px; border: 0; border-top: 1px solid #eee0db; border-radius: 0; background: #fcf6f1; color: #926674; font: inherit; font-size: 12px; box-shadow: none; }
+.nf-choice-select[data-disabled] { opacity: .55; }
+@keyframes nf-choice-appear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nf-choice-select .nf-choice-panel { animation: none; } .nf-choice-select .nf-choice-control, .nf-choice-toggle svg { transition: none; } }
+html[data-nf-motion=reduced] .nf-choice-select .nf-choice-panel { animation: none; }
+html[data-nf-motion=reduced] .nf-choice-select .nf-choice-control, html[data-nf-motion=reduced] .nf-choice-toggle svg { transition: none; }

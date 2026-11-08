@@ -9,6 +9,7 @@ const url = code => 'data:text/javascript;base64,' + Buffer.from(code).toString(
 const model = JSON.stringify(new URL('../src/family/model.ts', import.meta.url).href);
 const rewrite = source => source.replaceAll("'../family/model'", model).replaceAll("'./model'", model).replaceAll("'../readiness/model'", JSON.stringify(new URL('../src/readiness/model.ts', import.meta.url).href));
 const dataUrl = url(rewrite(await compile('../src/community/data.ts'))
+ .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')

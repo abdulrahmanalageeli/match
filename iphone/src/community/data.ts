@@ -1,4 +1,5 @@
 import { cloud } from "../cloud";
+import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
 import { requestAi } from '../ai/client';
 import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim, ManualVerificationSource } from '../verification/model';
@@ -90,14 +91,14 @@ export type Filters = {
 };
 export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
   const b=p.marriageBasics;
-  return (!f.city||p.city.includes(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
+  return (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
     p.age>=(f.minAge??18)&&p.age<=(f.maxAge??110)&&(!f.smoking||b?.smoking===f.smoking)&&
     (!f.maritalStatus||b?.maritalStatus===f.maritalStatus)&&(!f.dressStyle||b?.dressStyle===f.dressStyle)&&
     (!f.availableOnly||!p.atCapacity)&&(!f.minFit||(preferencePercentage(p.fit)??-1)>=f.minFit)&&
     (!f.interest||p.interests.some(value=>value===f.interest||value===interests.find(item=>item.id===f.interest)?.label))&&
-    (!f.onlineOnly||p.online===true)&&(!f.nationality||normalizeNationality(b?.nationality??'')===normalizeNationality(f.nationality))&&
+    (!f.onlineOnly||p.online===true)&&(!f.nationality||normalizeNationality(canonicalNationality(b?.nationality??''))===normalizeNationality(canonicalNationality(f.nationality)))&&
     (!f.tribalBackground||b?.tribalBackground===f.tribalBackground)&&
-    !f.excludeCities?.includes(p.city)&&!f.excludeNationalities?.some(value=>normalizeNationality(value)===normalizeNationality(b?.nationality??''))&&
+    !f.excludeCities?.some(value=>canonicalCity(value)===canonicalCity(p.city))&&!f.excludeNationalities?.some(value=>normalizeNationality(canonicalNationality(value))===normalizeNationality(canonicalNationality(b?.nationality??'')))&&
     !f.excludeTribalBackgrounds?.includes(b?.tribalBackground??'')&&!f.excludeSmoking?.includes(b?.smoking??'')&&
     !f.excludeMaritalStatuses?.includes(b?.maritalStatus??'');
 }

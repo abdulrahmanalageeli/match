@@ -6,7 +6,9 @@ import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
-import { arabicNumber, chapters, initialDraft, latinDigits, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { ChoiceSelect } from '../ui/ChoiceSelect';
+import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
 import { intakeVault } from "./persistence";
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
@@ -385,15 +387,17 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
                     aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span><i className="nf-intake-choice-check" aria-hidden="true">{p.gender === gender && <Check size={13} />}</i></button>)}
                 </div></fieldset>
-                <div className="field-pair"><label>العمر<input {...field("age")} type="text" inputMode="numeric" value={p.age} onChange={e => update({ age: latinDigits(e.target.value) })} maxLength={3} placeholder="١٨+" required /></label>
-                  <label>المدينة<input {...field("city")} value={p.city} onChange={e => update({ city: e.target.value })} maxLength={80} placeholder="مثل الرياض" required /></label></div>
+                <div className="field-pair"><ChoiceSelect {...field('age')} label="العمر" value={p.age} onChange={age => update({ age })} options={ageOptions} placeholder="اختر عمرك" required />
+                  <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city => update({ city })} options={cityOptions} placeholder="اختر مدينتك" required /></div>
+                <small>اختر مكان إقامتك الحالي لتكون الترشيحات ونتائج البحث أقرب إليك.</small>
               </>}
               {chapter.key === "story" && <>
-                <label>المهنة<input {...field("profession")} value={p.profession} onChange={e => update({profession: e.target.value})} maxLength={100} placeholder="مهنتك أو مجال عملك" required /></label>
+                <ChoiceSelect {...field('profession')} label="مجال العمل أو الوضع المهني" value={p.profession} onChange={profession => update({ profession })} options={professionOptions} placeholder="اختر ما يصف حياتك اليوم" required />
+                <small>يمكنك ذكر مسمّاك المهني وتخصصك بكلماتك في النبذة.</small>
                 <label>نبذة قصيرة<textarea {...field("bio")} value={p.bio} onChange={e => update({bio: e.target.value})} maxLength={1200} rows={4} required placeholder="أستمتع في يومي بـ… وأتطلّع إلى…" /></label>
                 <div className="nf-intake-wordcount">{arabicNumber(p.bio.length)} / {arabicNumber(1200)}</div>
                 <details className="nf-story-more"><summary><span><Feather size={17}/> أضف عمقًا لحكايتك<small>الدراسة، القيم، والحياة التي تتخيلها · اختياري</small></span><ChevronLeft size={17}/></summary><div>
-                <label>الدراسة<input {...field("education")} value={p.education ?? ""} onChange={e => update({ education: e.target.value })} maxLength={100} placeholder="مثل بكالوريوس هندسة" /></label>
+                <ChoiceSelect {...field('education')} label="أعلى مؤهل تعليمي مكتمل" value={p.education ?? ''} onChange={education => update({ education })} options={educationOptions} placeholder="اختر المؤهل · اختياري" allowClear />
                 <label>نيّتي من التعارف<select {...field("marriageIntent")} value={p.marriageIntent ?? ""} onChange={e => update({ marriageIntent: e.target.value })}>
                   <option value="">أفضل إضافتها لاحقًا</option>
                   {!!p.marriageIntent && !["تعارف جاد يهدف إلى الزواج", "مستعد للخطوة الرسمية عند التوافق", "أبحث عن توافق قبل تحديد الموعد"].includes(p.marriageIntent) && <option>{p.marriageIntent}</option>}
@@ -414,8 +418,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} />}
               {chapter.key === "preferences" && <>
                 <fieldset><legend>العمر المناسب للطرف الآخر</legend><div className="field-pair">
-                  <label>من<input {...field("preferredMinAge")} type="text" inputMode="numeric" value={p.preferredMinAge} onChange={e => update({ preferredMinAge: latinDigits(e.target.value) })} maxLength={3} required /></label>
-                  <label>إلى<input {...field("preferredMaxAge")} type="text" inputMode="numeric" value={p.preferredMaxAge} onChange={e => update({ preferredMaxAge: latinDigits(e.target.value) })} maxLength={3} required /></label>
+                  <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
+                  <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
                 <label>متى تفضّل إشراك الأهل؟<select value={p.familyPreference} onChange={e => update({ familyPreference: e.target.value })}>
                   {!["بعد التعارف الأول","من البداية","نتفق على ذلك لاحقًا"].includes(p.familyPreference) && <option value={p.familyPreference}>{p.familyPreference || "ليس لدي تفضيل محدد"}</option>}

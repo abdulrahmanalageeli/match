@@ -4,6 +4,7 @@ import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marr
 import { personalityVersion } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
+import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
 
 export const chapters = [
   { key: "identity", label: "الأساسيات", title: "لنبدأ بالتعارف", note: "اختر الاسم الذي تحب أن يراه الأعضاء، وأضف بعض التفاصيل عنك." },
@@ -88,10 +89,10 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean): Issue
       if (!p.displayName.trim()) return { field: "displayName", text: "أدخل اسمًا يظهر في ملفك." };
       if (!p.gender) return { field: "gender", text: "اختر الجنس لإكمال ملفك." };
       if (!validAge(p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
-      if (!p.city.trim()) return { field: "city", text: "أدخل المدينة التي تقيم فيها." };
+      if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
       return null;
     case "story":
-      if (!p.profession.trim()) return { field: "profession", text: "أدخل مهنتك أو مجال عملك." };
+      if (!p.profession.trim()) return { field: "profession", text: "اختر مجال العمل أو الوضع المهني." };
       if (!p.bio.trim()) return { field: "bio", text: "اكتب نبذة قصيرة تعبّر عنك." };
       for (const key of ["lookingFor", "lifeTogether", "education", "marriageIntent", "valuesStatement"] as const) {
         if ((p[key]?.length ?? 0) > (key === "education" ? 100 : key === "marriageIntent" ? 100 : 600)) return { field: key, text: "اختصر إجابتك ضمن المساحة المتاحة." };
@@ -130,7 +131,9 @@ export function toProfile(p: Answers): Profile {
     ...p, assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
     priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: Number(p.age), preferredMinAge: Number(p.preferredMinAge),
     preferredMaxAge: Number(p.preferredMaxAge), displayName: p.displayName.trim(),
-    city: p.city.trim(), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),
+    city: canonicalCity(p.city), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),
+    ...(p.marriageBasics ? { marriageBasics: { ...p.marriageBasics, ...(p.marriageBasics.nationality ? { nationality: canonicalNationality(p.marriageBasics.nationality) } : {}) } } : {}),
+    ...(p.partnerCriteria?.nationality?.values ? { partnerCriteria: { ...p.partnerCriteria, nationality: { ...p.partnerCriteria.nationality, values: [...new Set(p.partnerCriteria.nationality.values.map(canonicalNationality))] } } } : {}),
     lookingFor: p.lookingFor?.trim() ?? "", lifeTogether: p.lifeTogether?.trim() ?? "",
     valuesStatement: p.valuesStatement?.trim() ?? "",
     education: p.education?.trim() ?? "", marriageIntent: p.marriageIntent?.trim() ?? "",

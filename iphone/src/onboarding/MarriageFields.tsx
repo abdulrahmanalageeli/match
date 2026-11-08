@@ -1,12 +1,14 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, Sparkles, Users, type LucideIcon } from "lucide-react";
-import { criteriaModes, nationalityOptions, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
+import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
 import { personalityQuestions, personalityVersion } from "../compatibility/personality";
 import { normalizeNationality } from "../compatibility/model";
 import { arabicNumber, latinDigits } from "./draft";
 import "./marriage-fields.css";
 import "./scenario-experience.css";
 import { SelfAppearanceFields, AppearanceCriteriaFields } from "./AppearanceFields";
+import { ChoiceSelect } from "../ui/ChoiceSelect";
+import { nationalityChoices, numericOptions } from "../profile/profileOptions";
 
 export const maritalLabels = { never_married: "لم يسبق الزواج", divorced: "مطلّق / مطلّقة", widowed: "أرمل / أرملة", married: "متزوج حاليًا" };
 export const tribalLabels = { tribal: "قبلي", non_tribal: "غير قبلي", prefer_not_to_say: "أفضل عدم الإفصاح" };
@@ -15,6 +17,9 @@ const optionalNumber = (value: string) => {
   const parsed = value.trim() ? Number(latinDigits(value)) : undefined;
   return parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined;
 };
+const heightOptions = numericOptions(120, 230, 'سم');
+const weightOptions = numericOptions(35, 250, 'كجم');
+const childrenOptions = numericOptions(0, 20).map(option => option.value === '0' ? { ...option, label: 'دون أبناء' } : option);
 
 function Group({ title, note, children, open = false, icon: Icon, summary }: { title: string; note: string; children: ReactNode; open?: boolean; icon: LucideIcon; summary?: string }) {
   return <details className="nf-marriage-group" open={open || undefined}><summary><span className="nf-marriage-emblem"><Icon size={20} strokeWidth={1.5} aria-hidden="true" /></span><span className="nf-marriage-summary"><strong>{title}</strong><small>{summary || note}</small></span><span className="nf-marriage-open"><ChevronLeft size={16} aria-hidden="true" /></span></summary><div className="nf-marriage-content">{children}</div></details>;
@@ -35,12 +40,12 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
   return <div className="nf-marriage-fields" data-field="marriageBasics" tabIndex={-1} onFocus={event => { if (event.target === event.currentTarget) setReveal(true); }}>
     <div className="nf-detail-intro"><Leaf size={20} strokeWidth={1.5} aria-hidden="true"/><p><strong>بالقدر الذي يشبهك.</strong><span>افتح ما ترغب بإضافته. هذه التفاصيل اختيارية وتظهر للأعضاء المؤهلين.</span></p></div>
     <Group title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={Sparkles} open={reveal} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
-      <div className="field-pair"><label>الطول (سم)<input inputMode="numeric" value={value.heightCm ?? ""} maxLength={3} onChange={e => change({ heightCm: optionalNumber(e.target.value) })} placeholder="اختياري" /></label>
-        <label>الوزن (كجم)<input inputMode="numeric" value={value.weightKg ?? ""} maxLength={3} onChange={e => change({ weightKg: optionalNumber(e.target.value) })} placeholder="اختياري" /></label></div>
+      <div className="field-pair"><ChoiceSelect label="الطول (سم)" value={value.heightCm === undefined ? '' : String(value.heightCm)} options={heightOptions} onChange={height => change({ heightCm: optionalNumber(height) })} placeholder="اختياري" allowClear />
+        <ChoiceSelect label="الوزن (كجم)" value={value.weightKg === undefined ? '' : String(value.weightKg)} options={weightOptions} onChange={weight => change({ weightKg: optionalNumber(weight) })} placeholder="اختياري" allowClear /></div>
       <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} />
     </Group>
     <Group title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
-      <label>جنسيتك<input value={value.nationality ?? ""} list="nf-self-nationalities" maxLength={80} onChange={e => change({ nationality: e.target.value })} placeholder="اختياري" /><datalist id="nf-self-nationalities">{nationalityOptions.map(n=><option key={n} value={n}/>)}</datalist></label>
+      <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder="اختر الجنسية · اختياري" allowClear />
       {sensitiveAllowed && <Choices title="الخلفية القبلية" value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
       {sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
       <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>
@@ -58,7 +63,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small>
     </Group>
     <Group title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
-      <label>عدد الأبناء<input inputMode="numeric" value={value.childrenCount ?? ""} maxLength={2} onChange={e => change({ childrenCount: optionalNumber(e.target.value) })} placeholder="صفر إذا لم يكن لديك أبناء، أو اتركه فارغًا" /></label>
+      <ChoiceSelect label="عدد الأبناء" value={value.childrenCount === undefined ? '' : String(value.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder="لم أحدّد · اختياري" allowClear />
       <Choices title="التدخين" value={value.smoking} labels={smokingLabels} onChange={smoking => change({ smoking })} />
     </Group>
     {sensitiveAllowed ? <Group title="الدين في حياتي" note="معلومات حساسة، تختار مشاركتها أو تركها" icon={BookOpen} open={reveal} summary={[value.religiousAffiliation && value.religiousAffiliation !== 'prefer_not_to_say' && religiousAffiliationLabels[value.religiousAffiliation], value.prayerPractice && value.prayerPractice !== 'prefer_not_to_say' && 'موقفك من الصلاة محدد'].filter(Boolean).join(' · ')}>
@@ -75,23 +80,22 @@ function Mode({ title, value, onChange, children, anyLabel }: { title: string; v
   return <fieldset className="nf-criterion"><legend>{title}</legend><div className="nf-criterion-modes" role="group" aria-label={"أهمية " + title}>{criteriaModes.map(mode => <button type="button" key={mode.value} aria-pressed={mode.value === value} onClick={() => onChange(mode.value)}>{mode.value==='any'&&anyLabel?anyLabel:mode.label}{mode.value === value && <Check size={12} aria-hidden="true" />}</button>)}</div>{value !== "any" && <div className="nf-criterion-target">{children}</div>}</fieldset>;
 }
 
-function Range({ title, value = { mode: "any" }, onChange }: { title: string; value?: RangeCriterion; onChange: (value: RangeCriterion) => void }) {
+function Range({ title, options, value = { mode: "any" }, onChange }: { title: string; options: ReturnType<typeof numericOptions>; value?: RangeCriterion; onChange: (value: RangeCriterion) => void }) {
   return <Mode title={title} value={value.mode} onChange={mode => onChange(mode === "any" ? { mode } : { ...value, mode })}><div className="field-pair">
-    <label>من<input aria-label={title + " من"} inputMode="numeric" value={value.min ?? ""} maxLength={3} onChange={e => onChange({ ...value, min: optionalNumber(e.target.value) })} placeholder="دون حد أدنى" /></label>
-    <label>إلى<input aria-label={title + " إلى"} inputMode="numeric" value={value.max ?? ""} maxLength={3} onChange={e => onChange({ ...value, max: optionalNumber(e.target.value) })} placeholder="دون حد أعلى" /></label></div></Mode>;
+    <ChoiceSelect label={title + ' من'} value={value.min === undefined ? '' : String(value.min)} options={options.filter(option => value.max === undefined || Number(option.value) <= value.max)} onChange={min => onChange({ ...value, min: optionalNumber(min) })} placeholder="دون حد أدنى" allowClear />
+    <ChoiceSelect label={title + ' إلى'} value={value.max === undefined ? '' : String(value.max)} options={options.filter(option => value.min === undefined || Number(option.value) >= value.min)} onChange={max => onChange({ ...value, max: optionalNumber(max) })} placeholder="دون حد أعلى" allowClear /></div></Mode>;
 }
 
 export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, sensitiveAllowed = true }: { value?: PartnerCriteria; basics?: MarriageBasics; gender?: string; onChange: (value: PartnerCriteria) => void; sensitiveAllowed?: boolean }) {
   const [reveal, setReveal] = useState(false);
   const change = (patch: Partial<PartnerCriteria>) => onChange({ ...value, ...patch });
-  const [customNationality,setCustomNationality]=useState('');
-  function addNationality(raw:string) { const nationality=raw.trim(); if(!nationality||value.nationality?.values?.some(v=>normalizeNationality(v)===normalizeNationality(nationality))||(value.nationality?.values?.length??0)>=30)return; change({nationality:{...value.nationality,mode:value.nationality?.mode??'prefer',values:[...(value.nationality?.values??[]),nationality]}});setCustomNationality(''); }
+  function addNationality(nationality:string) { if(!nationalityChoices.some(option=>option.value===nationality)||value.nationality?.values?.some(v=>normalizeNationality(v)===normalizeNationality(nationality))||(value.nationality?.values?.length??0)>=30)return; change({nationality:{...value.nationality,mode:value.nationality?.mode??'prefer',values:[...(value.nationality?.values??[]),nationality]}}); }
 
   const selected = (keys: Array<keyof PartnerCriteria>) => { const count = keys.filter(key => value[key]?.mode && value[key]?.mode !== 'any').length; return count ? `${arabicNumber(count)} من التفضيلات محددة` : undefined; };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={event => { if (event.target === event.currentTarget) setReveal(true); }}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
     <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
-    <Group title="المظهر واللباس" note="ما تفضّله، وما لا يهمّك" icon={Sparkles} open={reveal} summary={selected(['height','weight','skinTone','dressStyle','dressFlexibility'])}><Range title="الطول (سم)" value={value.height} onChange={height => change({ height })} /><Range title="الوزن (كجم)" value={value.weight} onChange={weight => change({ weight })} /><AppearanceCriteriaFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} /></Group>
+    <Group title="المظهر واللباس" note="ما تفضّله، وما لا يهمّك" icon={Sparkles} open={reveal} summary={selected(['height','weight','skinTone','dressStyle','dressFlexibility'])}><Range title="الطول (سم)" options={heightOptions} value={value.height} onChange={height => change({ height })} /><Range title="الوزن (كجم)" options={weightOptions} value={value.weight} onChange={weight => change({ weight })} /><AppearanceCriteriaFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} /></Group>
     <Group title="من تتقبّله شريكًا؟" note="الخلفية القبلية والجنسية، باختيارك أنت" icon={Users} open summary={selected(['tribalBackground','nationality'])}>
       <p>خلفيتك وجنسيتك لا تحدّدان ما تقبله في الشريك. أنت تختار هنا، وتبقى هذه التفضيلات خاصة.</p>
       {sensitiveAllowed && <Mode title="هل تقبل شريكًا قبليًا أو غير قبلي؟" anyLabel="أقبل الحالتين" value={value.tribalBackground?.mode ?? "any"} onChange={mode => change({ tribalBackground: mode === "any" ? { mode } : { target: "tribal", ...value.tribalBackground, mode } })}>
@@ -102,8 +106,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
       <Mode title="ما الجنسيات التي تقبلها في الشريك؟" anyLabel="جميع الجنسيات" value={value.nationality?.mode ?? 'any'} onChange={mode=>change({nationality:mode==='any'?{mode}:{values:[],...value.nationality,mode}})}>
         <label>طريقة الاختيار<select value={value.nationality?.exclude?'exclude':'include'} onChange={event=>change({nationality:{...value.nationality,mode:value.nationality?.mode??'prefer',exclude:event.target.value==='exclude'}})}><option value="include">الجنسيات المختارة تناسبني</option><option value="exclude">جميع الجنسيات ما عدا المختارة</option></select></label>
         <div className="nf-nationality-selected">{value.nationality?.values?.map(n=><button type="button" key={n} onClick={()=>change({nationality:{...value.nationality,mode:value.nationality?.mode??'prefer',values:value.nationality?.values?.filter(v=>v!==n)}})} aria-label={'إزالة '+n}>{n}<span aria-hidden="true">×</span></button>)}</div>
-        <label>أضف جنسية<select value="" onChange={event=>addNationality(event.target.value)}><option value="">اختر الجنسية</option>{nationalityOptions.filter(n=>!value.nationality?.values?.some(v=>normalizeNationality(v)===normalizeNationality(n))).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-        <div className="nf-nationality-custom"><label>جنسية أخرى<input maxLength={80} value={customNationality} onChange={event=>setCustomNationality(event.target.value)} placeholder="اكتب الجنسية" onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();addNationality(customNationality);}}}/></label><button type="button" className="btn-secondary" disabled={!customNationality.trim()||(value.nationality?.values?.length??0)>=30} onClick={()=>addNationality(customNationality)}>إضافة</button></div>
+        <ChoiceSelect label="أضف جنسية" value="" onChange={addNationality} options={nationalityChoices.filter(option=>!value.nationality?.values?.some(v=>normalizeNationality(v)===normalizeNationality(option.value)))} placeholder="ابحث واختر الجنسية" disabled={(value.nationality?.values?.length??0)>=30} />
         <small>«أفضل» يرتّب النتائج حسب اختيارك. «شرط أساسي» يخفي غير المطابقين، ومن لم يذكر جنسيته.</small>
       </Mode>
     </Group>

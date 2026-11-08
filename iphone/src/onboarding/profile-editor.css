@@ -3,8 +3,8 @@
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .pe-section{animation:pe-section-in .22s ease both}@keyframes pe-section-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
 
 /* Editing shares the registration field language and readable account rows. */
-.phone-app .nf-intake[data-editing] { background: #f7f6f3; }
-.phone-app .nf-intake[data-editing] .nf-intake-header { background: #f7f6f3; border-bottom-color: #e5e2de; }
+.phone-app .nf-intake[data-editing] { background: #fdfdfd; }
+.phone-app .nf-intake[data-editing] .nf-intake-header { background: #fdfdfd; border-bottom-color: #e5e2de; }
 .phone-app .pe-heading h1 { font-size: 28px; color: #242326; }
 .phone-app .pe-heading p, .phone-app .nf-intake[data-editing] .nf-intake-title p { font-size: 16px; color: #716b70; }
 .phone-app .nf-studio-eyebrow { font-size: 14px; color: #716b70; }
@@ -26,7 +26,7 @@
 .phone-app .pe-section .nf-studio-section-icon { width: 30px; background: none; color: #716b70; }
 .phone-app .nf-intake[data-editing] .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) { border: 1px solid #c9c4c1; border-radius: 10px; background: #fff; box-shadow: none; font-size: 16px; }
 .phone-app .nf-intake[data-editing] .nf-intake-fields label { font-size: 16px; }
-.phone-app .nf-intake[data-editing] :is(.nf-intake-actions, .nf-studio-actions) { background: #f7f6f3f5; border-top: 1px solid #e5e2de; }
+.phone-app .nf-intake[data-editing] :is(.nf-intake-actions, .nf-studio-actions) { background: #fdfdfdf5; border-top: 1px solid #e5e2de; }
 .phone-app .nf-intake[data-editing] :is(.nf-intake-actions, .nf-studio-actions) .f-primary { border-radius: 10px; background: #54152a; font-size: 16px; box-shadow: none; }
 .phone-app .nf-studio-actions small { font-size: 14px; }
 .phone-app .nf-studio-preview { padding: 20px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; color: #242326; box-shadow: none; }
@@ -36,4 +36,4 @@
 .phone-app .nf-studio-person h2 small, .phone-app .nf-studio-person p { color: #716b70; font-size: 14px; }
 .phone-app .nf-studio-avatar { border: 0; border-radius: 10px; background: #eeece8; color: #54152a; }
 .phone-app .nf-studio-bio { color: #4f4a4e; font-size: 16px; line-height: 1.8; }
-.phone-app .nf-studio-interests span { padding: 4px 8px; border-color: #e5e2de; border-radius: 5px; background: #f7f6f3; color: #716b70; font-size: 14px; }
+.phone-app .nf-studio-interests span { padding: 4px 8px; border-color: #e5e2de; border-radius: 5px; background: #fdfdfd; color: #716b70; font-size: 14px; }

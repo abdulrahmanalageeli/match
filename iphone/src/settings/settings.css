@@ -94,7 +94,7 @@
 .st-photo-manager .pg-heading>div{display:none}.st-photo-manager .pg-heading{justify-content:flex-end;margin:12px 0}
 
 /* Account controls use one readable list hierarchy. */
-.phone-app .st-screen { background: #f7f6f3; color: #242326; }
+.phone-app .st-screen { background: #fdfdfd; color: #242326; }
 .phone-app .st-top { border-bottom-color: #e5e2de; }
 .phone-app .st-title { margin: 26px 0 5px; font-size: 28px; line-height: 1.5; color: #242326; }
 .st-intro { margin: 0 0 24px; color: #716b70; font-size: 16px; line-height: 1.7; }
@@ -116,7 +116,7 @@
 .phone-app .st-group { border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: #fff; }
 .phone-app .st-row { min-height: 68px; padding: 16px 12px; gap: 14px; }
 .phone-app .st-row + .st-row::before { inset: 0 49px auto 12px; border-top-color: #e5e2de; opacity: 1; }
-.phone-app .st-row:hover:enabled { background: #f7f6f3; }
+.phone-app .st-row:hover:enabled { background: #fdfdfd; }
 .phone-app .st-row:active:enabled { background: #eeece8; }
 .phone-app .st-row-copy { gap: 5px; }
 .phone-app .st-row-copy strong { font-size: 16px; line-height: 1.6; font-weight: 600; }
@@ -134,7 +134,7 @@
 .st-dialog-icon { background: #f1f0ed; color: #54152a; }
 .st-dialog h2 { font-size: 22px; }
 .st-dialog p { color: #716b70; font-size: 16px; }
-.st-data-json, .st-candidate-preview { background: #f7f6f3; border-color: #e5e2de; }
+.st-data-json, .st-candidate-preview { background: #fdfdfd; border-color: #e5e2de; }
 .phone-app .st-photo-manager h1, .phone-app .st-completion h1 { color: #242326; font-size: 28px; }
 .phone-app .st-completion p { font-size: 16px; }
 .phone-app .st-completion .st-completion-note { font-size: 14px; color: #716b70; }

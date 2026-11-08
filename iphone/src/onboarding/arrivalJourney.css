@@ -2,7 +2,7 @@
 .phone-app .nf-intake.nf-intake--new,
 .nf-signup-status,
 .phone-app .nf-onboarding-sandbox {
-  --journey-canvas: #f7f6f3;
+  --journey-canvas: #fdfdfd;
   --journey-ink: #242326;
   --journey-muted: #716b70;
   --journey-line: #e5e2de;
@@ -25,7 +25,7 @@
   min-height: 74px;
   padding: max(12px, env(safe-area-inset-top)) 20px 12px;
   border-bottom: 1px solid var(--journey-line);
-  background: #f7f6f3f5;
+  background: #fdfdfdf5;
   backdrop-filter: blur(16px);
   box-shadow: none;
 }
@@ -91,7 +91,7 @@
 .phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions {
   z-index: 8; margin-top: 32px; padding-top: 16px;
-  border-top: 1px solid var(--journey-line); background: #f7f6f3f5; backdrop-filter: blur(16px);
+  border-top: 1px solid var(--journey-line); background: #fdfdfdf5; backdrop-filter: blur(16px);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
@@ -115,7 +115,7 @@
 .nf-signup-status .flow-body > h1 { color: var(--journey-ink); }
 .nf-signup-status .flow-card { border: 1px solid var(--journey-line); border-radius: 12px; background: #fff; box-shadow: none; }
 .nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 10px; min-height: 52px; }
-.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f7f6f3f5; border-bottom: 1px solid var(--journey-line); }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #fdfdfdf5; border-bottom: 1px solid var(--journey-line); }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: none; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: start; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-check { width: 66px; height: 66px; margin: 20px 0 28px; border: 1px solid #d3dcd5; border-radius: 50%; background: #edf3ee; box-shadow: none; color: #3a6348; }

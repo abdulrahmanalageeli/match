@@ -138,7 +138,7 @@
 .phone-app .mp-primary > .btn-secondary,
 .phone-app .mp-primary > .btn-text { min-height: 46px; border-radius: 7px; border-color: #d8d4d1; color: #54152a; background: #fff; font-size: 14px; }
 .phone-app .mp-primary .cm-help { color: #716b70; font-size: 12px; }
-.phone-app .mp-sections { position: sticky; top: 0; z-index: 5; scroll-margin-top: 0; margin-bottom: 26px; padding: 0; gap: 16px; border: 0; border-bottom: 1px solid #d8d4d1; border-radius: 0; background: #f7f6f3f5; backdrop-filter: blur(16px); box-shadow: none; }
+.phone-app .mp-sections { position: sticky; top: 0; z-index: 5; scroll-margin-top: 0; margin-bottom: 26px; padding: 0; gap: 16px; border: 0; border-bottom: 1px solid #d8d4d1; border-radius: 0; background: #fdfdfdf5; backdrop-filter: blur(16px); box-shadow: none; }
 .phone-app .mp-sections button { min-height: 54px; padding: 10px 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; color: #716b70; font-size: 14px; }
 .phone-app .mp-sections button[aria-pressed="true"] { background: transparent; color: #54152a; border-bottom-color: #54152a; box-shadow: none; }
 .phone-app .mp-content { scroll-margin-top: 76px; }

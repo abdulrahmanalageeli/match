@@ -385,7 +385,7 @@
   margin-inline: auto;
   overflow-x: clip;
   padding-inline: 24px;
-  background: #f7f6f3;
+  background: #fdfdfd;
 }
 .nf-auth-frame::before, .nf-auth-frame::after { content: none; }
 .nf-auth-frame .flow-header { min-height: 72px; border-bottom-color: #e5e2de; color: #242326; font-size: 16px; }

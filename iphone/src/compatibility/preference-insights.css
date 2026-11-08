@@ -1,4 +1,5 @@
 .nf-preference-insights{margin-top:22px;color:#573541;min-width:0}
+.nf-fit .nf-pref-heading{display:block}
 .nf-pref-heading>span{display:flex;align-items:center;gap:6px;color:#9a7481;font-size:.66rem;line-height:1.8}
 .nf-fit .nf-pref-heading h3{display:block;font-size:1.12rem;line-height:1.65;font-weight:600;margin:7px 0}
 .nf-pref-heading>p{font-size:.77rem;color:#8b737c;line-height:1.95;margin:0 0 16px}

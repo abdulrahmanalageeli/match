@@ -1,5 +1,5 @@
 .nf-fit { --fit-rule: #e9e0da; margin-block: 22px; color: var(--ink); }
-.nf-fit-heading { margin-bottom: 18px; }
+.nf-fit .nf-fit-heading { display: block; margin-bottom: 18px; }
 .nf-fit .nf-fit-title { font-size: 1.05rem; line-height: 1.65; color: var(--ink); font-weight: 600; margin: 0 0 5px; }
 .nf-fit-heading > p { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.8; }
 .nf-fit-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-block: 24px; border: 1px solid var(--fit-rule); border-radius: 20px; background: #fffcf8; box-shadow: 0 5px 20px #4a293604; }

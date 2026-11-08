@@ -30,14 +30,16 @@ export function Frame({
   back,
   children,
   backDisabled = false,
+  className = "",
 }: {
   title: string;
   back: Click;
   children: ReactNode;
   backDisabled?: boolean;
+  className?: string;
 }) {
   return (
-    <main className="flow-frame" dir="rtl">
+    <main className={`flow-frame ${className}`.trim()} dir="rtl">
       <header className="flow-header">
         <button
           type="button"
@@ -109,26 +111,41 @@ export function Welcome({
           تسجيل الدخول <ArrowLeft size={15} aria-hidden="true" />
         </button>
       </header>
-      <div className="nf-welcome-identity">
-        <div className="nf-welcome-logo" role="img" aria-label="نصفين">
-          <div className="nf-welcome-heart" aria-hidden="true">
-            <img className="nf-welcome-half nf-welcome-half-first" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" fetchPriority="high" draggable="false" />
-            <img className="nf-welcome-half nf-welcome-half-second" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" draggable="false" />
-            <span className="nf-welcome-heart-light" />
+      <section className="nf-welcome-identity">
+        <div className="nf-welcome-visual">
+          <span className="nf-welcome-orbit nf-welcome-orbit-one" aria-hidden="true" />
+          <span className="nf-welcome-orbit nf-welcome-orbit-two" aria-hidden="true" />
+          <span className="nf-welcome-spark nf-welcome-spark-one" aria-hidden="true"><Sparkles size={15} /></span>
+          <span className="nf-welcome-spark nf-welcome-spark-two" aria-hidden="true"><Sparkles size={11} /></span>
+          <div className="nf-welcome-logo" role="img" aria-label="نصفين">
+            <div className="nf-welcome-heart" aria-hidden="true">
+              <img className="nf-welcome-half nf-welcome-half-first" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" fetchPriority="high" draggable="false" />
+              <img className="nf-welcome-half nf-welcome-half-second" src="/brand/nisfayn-heart.png" alt="" width="768" height="768" draggable="false" />
+              <span className="nf-welcome-heart-light" />
+            </div>
+            <img className="nf-welcome-wordmark" src="/brand/nisfayn-wordmark.png" alt="" width="512" height="154" aria-hidden="true" />
           </div>
-          <img className="nf-welcome-wordmark" src="/brand/nisfayn-wordmark.png" alt="" width="512" height="154" aria-hidden="true" />
         </div>
-        <span className="nf-welcome-eyebrow">تعارف جاد، بنية الزواج</span>
-        <h1>بداية تشبهك.<br /><span>وشراكة تستحقّها.</span></h1>
-        <p className="nf-welcome-intro">تعرّف إلى الشخص، وما يهمّه في الحياة.<br />وابنِ معه بداية واضحة، على مهل.</p>
-      </div>
+        <span className="nf-welcome-eyebrow"><i aria-hidden="true" /> تعارف جاد، بنية الزواج</span>
+        <h1>لا تبحث عن نصفٍ آخر.<br /><span>ابحث عمّن يفهم حياتك.</span></h1>
+        <p className="nf-welcome-intro">توافق مبني على القيم والشخصية وتفاصيل الحياة،<br />مع طريق واضح من التعارف إلى الأهل.</p>
+        <div className="nf-welcome-preview" aria-label="تجربة التوافق في نصفين">
+          <div className="nf-welcome-score" aria-hidden="true"><span><strong>٨٩٪</strong><small>انسجام</small></span></div>
+          <div className="nf-welcome-preview-copy">
+            <span>مثال توضيحي للتوافق</span>
+            <strong>ما يجمعكما، وما يحتاج إلى حوار</strong>
+            <small>قيم · شخصية · أسلوب حياة · رؤية للمستقبل</small>
+          </div>
+          <Sparkles className="nf-welcome-preview-spark" size={18} aria-hidden="true" />
+        </div>
+      </section>
       <section className="nf-welcome-benefits" aria-label="ما يميز نصفين">
-        <div><Sparkles size={19} aria-hidden="true" /><strong>توافق أعمق</strong><span>تفضيلات وشخصية</span></div>
-        <div><ShieldCheck size={19} aria-hidden="true" /><strong>خصوصيتك أولًا</strong><span>صورك باختيارك</span></div>
-        <div><HeartHandshake size={19} aria-hidden="true" /><strong>خطوة واضحة</strong><span>نية ووقت متفق عليهما</span></div>
+        <div><Sparkles size={19} aria-hidden="true" /><strong>توافق مفهوم</strong><span>أسباب واضحة، لا رقم فقط</span></div>
+        <div><ShieldCheck size={19} aria-hidden="true" /><strong>خصوصية باختيارك</strong><span>أنت تتحكم بما يظهر ومتى</span></div>
+        <div><HeartHandshake size={19} aria-hidden="true" /><strong>مسار جاد</strong><span>خطوات متفق عليها نحو الأهل</span></div>
       </section>
       <details className="nf-welcome-journey">
-        <summary>كيف تبدأ الرحلة؟<ChevronDown size={16} aria-hidden="true" /></summary>
+        <summary><span>اعرف كيف تبدأ الرحلة</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <ol>
           <li><span>١</span><div><strong>عرّفنا بك، وبما يهمّك</strong><p>ملف يعبّر عنك، وأسئلة عن احتياجاتك وأسلوب حياتك وشخصيتك. الصورة الشخصية اختيارية.</p></div></li>
           <li><span>٢</span><div><strong>مراجعة، ثم عضوية باختيارك</strong><p>نراجع الملف أولًا. بعد الاعتماد وتوفر عضو تتوافق معه التفضيلات، يتاح الاشتراك الشهري. قد تحتاج إلى الانتظار؛ لا نضمن عددًا ثابتًا من الترشيحات.</p></div></li>
@@ -136,19 +153,18 @@ export function Welcome({
         </ol>
         <p className="nf-welcome-journey-note"><LockKeyhole size={14} aria-hidden="true" />إجابات تقييمك التفصيلية خاصة. أنت من يختار ما يشاركه.</p>
         <p className="nf-welcome-journey-note">ملفك متاح للأعضاء المؤهلين، وليس صفحة عامة. اعتماد الملف لا يُعد تحققًا مستقلًا من الهوية، والتوافق لا يتنبأ بنجاح الزواج. لا توجد مهلة مراجعة ثابتة معلنة؛ تابع حالتك داخل التطبيق.</p>
+        <aside className="nf-welcome-expectations" aria-label="قبل أن تبدأ">
+          <strong>واضح من البداية</strong>
+          <p>إنشاء الملف ومراجعته دون شراء. التعارف بعضوية شهرية بعد الاعتماد والتوفر، ويظهر سعر Apple قبل أي تأكيد.</p>
+        </aside>
+        <a className="nf-welcome-family" href="?family=1"><HeartHandshake size={16} aria-hidden="true" /> دخول وليّ الأمر أو أحد الأهل</a>
       </details>
-      <aside className="nf-welcome-expectations" aria-label="قبل أن تبدأ">
-        <strong>قبل أن تبدأ</strong>
-        <p>إنشاء الملف ومراجعته دون شراء. التعارف بعضوية شهرية تتجدد تلقائيًا، بعد الاعتماد وتوفر عضو مناسب. يظهر سعر Apple النهائي قبل تأكيدك؛ لا يبدأ الاشتراك تلقائيًا.</p>
-      </aside>
       <WelcomeHorizon animate={animateIntro} />
       <div className="nf-welcome-actions">
         <button type="button" className="f-primary nf-join" onClick={onRegister}>
-          ابدأ رحلتك <ArrowLeft size={19} aria-hidden="true" />
+          <span><small>إنشاء الملف مجاني</small><strong>ابدأ رحلتك</strong></span><ArrowLeft size={20} aria-hidden="true" />
         </button>
-        <span className="nf-welcome-join-note">للجادين في الزواج · ١٨ عامًا فأكثر</span>
-        <span className="nf-welcome-price-note">عضوية شهرية مدفوعة بعد الاعتماد والتوفر.<br/>السعر قبل الشراء، ولا دفع تلقائي عند التسجيل.</span>
-        <a className="nf-demo-link" href="?family=1"><HeartHandshake size={16} aria-hidden="true" /> دخول وليّ الأمر أو أحد الأهل</a>
+        <span className="nf-welcome-join-note"><LockKeyhole size={12} aria-hidden="true" /> لا دفع عند التسجيل · للجادين في الزواج · ١٨+</span>
         <div className="nf-demo-options">
           <button type="button" className="nf-demo-link" onClick={onDemo}>
             <Compass size={16} aria-hidden="true" /> استكشف التجربة
@@ -208,16 +224,22 @@ export function Auth({
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
   return (
-    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"}>
-      <div className="nf-auth-heading">
-        <span className="nf-letter">{phoneMode ? <Smartphone size={23} aria-hidden="true" /> : <Mail size={23} aria-hidden="true" />}</span>
-        <h1>{login ? "أهلًا بعودتك" : "أنشئ حسابك"}</h1>
+    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame">
+      <section className="nf-auth-hero">
+        <div className="nf-auth-emblem" aria-hidden="true">
+          <img src="/brand/nisfayn-emblem.png" alt="" width="66" height="72" />
+          <span>{phoneMode ? <Smartphone size={20} /> : <Mail size={20} />}</span>
+        </div>
+        <span className="nf-auth-eyebrow">{login ? "مساحتك الخاصة" : "بداية هادئة وواضحة"}</span>
+        <h1>{login ? "أهلًا بعودتك" : "نبدأ بالحساب، ثم نتعرّف إليك."}</h1>
         <p className="flow-intro">
           {login
             ? "سجّل الدخول للاطلاع على طلبك وترشيحاتك."
-            : phoneMode ? "ابدأ بالتحقق من جوالك، ثم حدّد ما يهمّك في شريك الحياة." : "ابدأ ببريدك الإلكتروني، ثم حدّد ما يهمّك في شريك الحياة."}
+            : phoneMode ? "تحقّق من جوالك، ثم ابنِ ملفًا يعكس شخصيتك وحدودك ورؤيتك للزواج." : "أنشئ حسابك، ثم ابنِ ملفًا يعكس شخصيتك وحدودك ورؤيتك للزواج."}
         </p>
-      </div>
+        {!login && <div className="nf-auth-promise" aria-label="مراحل الانضمام"><span><Check size={13} /> حساب</span><i /><span>ملفك</span><i /><span>المراجعة</span></div>}
+      </section>
+      <section className="nf-auth-panel">
       {ready && !login && <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
         <legend>قبل إنشاء حسابك</legend>
         {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
@@ -296,6 +318,7 @@ export function Auth({
           <LockKeyhole size={14} aria-hidden="true" /> كيف نستخدم بياناتك؟
         </button>
       )}
+      </section>
     </Frame>
   );
 }

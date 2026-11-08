@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, CheckCheck, LockKeyhole, RefreshCw, Spark
 import { Brand } from '../Brand';
 import { GuidedApplication, type ApplicationDraft } from './GuidedApplication';
 import { LegalNotice } from '../legal/LegalNotice';
+import { WelcomeHorizon } from '../WelcomeHorizon';
 import './sandbox.css';
 
 export function OnboardingSandbox({close}:{close:()=>void}) {
@@ -34,18 +35,24 @@ export function OnboardingSandbox({close}:{close:()=>void}) {
     {stage==='intro' ? <main className="nf-sandbox-intro">
       <div className="nf-sandbox-intro-copy">
         <span className="nf-sandbox-eyebrow"><i aria-hidden="true"/>تجربة تسجيل جديد</span>
-        <img className="nf-sandbox-emblem" src="/brand/nisfayn-emblem.png" alt="" width="76" height="76"/>
-        <h1 ref={heading} tabIndex={-1}>بداية تشبهك.<br/><span>خطوة بخطوة.</span></h1>
-        <p>جرّب رحلتك في نصفين كما لو أنك تنضم للمرة الأولى، من التعريف بنفسك إلى معاينة ملفك.</p>
+        <div className="nf-sandbox-cinematic" aria-hidden="true">
+          <span className="nf-sandbox-ring nf-sandbox-ring-one"/>
+          <span className="nf-sandbox-ring nf-sandbox-ring-two"/>
+          <img className="nf-sandbox-emblem" src="/brand/nisfayn-emblem.png" alt="" width="96" height="104"/>
+          <span className="nf-sandbox-glint"><Sparkles size={16}/></span>
+        </div>
+        <h1 ref={heading} tabIndex={-1}>ملفك ليس استمارة.<br/><span>إنه بداية تعارف حقيقي.</span></h1>
+        <p>رحلة قصيرة وهادئة تساعدنا على فهمك، وحماية حدودك، وتقديمك للشخص المناسب بوضوح.</p>
       </div>
       <ol className="nf-sandbox-journey" aria-label="مراحل تجربة التسجيل">
-        <li><span className="nf-sandbox-journey-icon"><UserRound size={21} aria-hidden="true"/></span><div><strong>ملف يعبّر عنك</strong><p>أساسياتك، حكايتك، وما تختار مشاركته.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">١</span></li>
-        <li><span className="nf-sandbox-journey-icon"><Sparkles size={21} aria-hidden="true"/></span><div><strong>ما يناسب حياتك</strong><p>تفضيلاتك، شخصيتك، ومواقف الحياة.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">٢</span></li>
-        <li><span className="nf-sandbox-journey-icon"><CheckCheck size={21} aria-hidden="true"/></span><div><strong>راجعها على مهل</strong><p>شاهد ملفك وعدّل اختياراتك قبل النهاية.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">٣</span></li>
+        <li><span className="nf-sandbox-journey-icon"><UserRound size={21} aria-hidden="true"/></span><div><small>أولًا</small><strong>احكِ عن نفسك</strong><p>أساسياتك وحكايتك وما تختار مشاركته.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">١</span></li>
+        <li><span className="nf-sandbox-journey-icon"><Sparkles size={21} aria-hidden="true"/></span><div><small>ثم</small><strong>حدّد ما ينسجم معك</strong><p>قيمك وشخصيتك ومواقف الحياة الحقيقية.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">٢</span></li>
+        <li><span className="nf-sandbox-journey-icon"><CheckCheck size={21} aria-hidden="true"/></span><div><small>أخيرًا</small><strong>راجع صورتك أمام الآخرين</strong><p>اعرف ما سيظهر وعدّل كل شيء قبل الإرسال.</p></div><span className="nf-sandbox-journey-number" aria-hidden="true">٣</span></li>
       </ol>
+      <div className="nf-sandbox-horizon"><WelcomeHorizon animate /></div>
       <footer className="nf-sandbox-intro-actions">
-        <p className="nf-sandbox-reassurance"><LockKeyhole size={16} aria-hidden="true"/><span>معاينة فقط. استخدم بيانات خيالية؛ لن ننشئ حسابًا أو نرفع الصور أو نغيّر ملفك الحالي.</span></p>
-        <button type="button" className="nf-sandbox-primary" onClick={()=>setStage('form')}><span>ابدأ تجربة التسجيل</span><ArrowLeft size={19} aria-hidden="true"/></button>
+        <p className="nf-sandbox-reassurance"><LockKeyhole size={16} aria-hidden="true"/><span><strong>أنت المتحكم.</strong> هذه معاينة فقط؛ لن ننشئ حسابًا أو نرفع صورة أو نغيّر ملفك الحالي.</span></p>
+        <button type="button" className="nf-sandbox-primary" onClick={()=>setStage('form')}><span><small>تستغرق دقائق قليلة</small><strong>ابدأ تجربة التسجيل</strong></span><ArrowLeft size={19} aria-hidden="true"/></button>
         <button type="button" className="nf-sandbox-legal-link" onClick={()=>setLegal(true)}>الخصوصية وشروط الاستخدام</button>
       </footer>
     </main> : stage==='form' ? <GuidedApplication key={attempt} initial={null} previouslyApproved={false} busy={false}

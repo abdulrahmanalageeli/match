@@ -6,14 +6,21 @@ import { useVoiceCalls } from '../voice/VoiceCalls';
 import './activity.css';
 import { confirmedMilestone, type MilestoneKind } from '../community/milestones';
 import { MatchCelebration } from '../community/MatchCelebration';
+import { compatibilitySnapshot, compareCompatibility, type CompatibilityChange, type CompatibilitySnapshot } from '../compatibility/changes';
+import type { MatchFit } from '../compatibility/model';
+import { CompatibilityNotice, CompatibilityChangeSheet } from './CompatibilityNotice';
 
 type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit'; stamp: string };
+type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
 export const journeyStages = ['التعارف الأول', 'نقاش جاد حول الزواج', 'الخطوة الرسمية أو العائلية'];
 
 export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBlocked = false }: { source: CommunitySource; onOpen: (id: string) => void; onNotifications: () => void; celebrationsBlocked?: boolean }) {
   const [toast, setToast] = useState<Activity | null>(null);
   const [milestone,setMilestone]=useState<{id:string;name:string;kind:MilestoneKind}|null>(null);
   const [celebrationReady,setCelebrationReady]=useState(false);
+  const [fitChanges, setFitChanges] = useState<FitChange[]>([]);
+  const [fitDetailId, setFitDetailId] = useState<string | null>(null);
+  const [quietSurface, setQuietSurface] = useState(false);
   const open = useRef(onOpen); open.current = onOpen;
   const inbox = useRef(onNotifications); inbox.current = onNotifications;
   const voice = useVoiceCalls();
@@ -33,16 +40,19 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', beat); };
   }, [source]);
   useEffect(() => {
-    let active = true, fetching = false;
+    let active = true, fetching = false, dirty = false;
     const seen = new Map<string, string>(), stages = new Map<string, StepProgress>();
+    const fits = new Map<string, CompatibilitySnapshot>();
     const completed = new Map<string, Activity>();
     const progress = new Map<string, StepProgress>();
     let progressAt = 0;
     let notifications: ActivityNotification[] = [];
     setToast(null);
+    setFitChanges([]);setFitDetailId(null);
     setMilestone(null);setCelebrationReady(false);
     async function refresh() {
-      if (fetching || document.hidden) return;
+      if (!active || document.hidden) return;
+      if (fetching) { dirty = true; return; }
       fetching = true;
       try {
         const connections = (await source.inbox()).filter(c => c.status === 'accepted');
@@ -56,6 +66,22 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
           }));
         }
         if (!active) return;
+        const observations = connections.map(c => ({ connection: c, previous: fits.get(c.id), snapshot: compatibilitySnapshot(c.person.fit) }));
+        for (const { connection, snapshot } of observations) if (snapshot) fits.set(connection.id, snapshot);
+        for (const id of fits.keys()) if (!connections.some(c => c.id === id)) fits.delete(id);
+        setFitChanges(current => {
+          const next: FitChange[] = [];
+          for (const { connection: c, previous, snapshot } of observations) {
+            if (!snapshot || !c.person.fit) continue;
+            const queued = current.find(item => item.id === c.id);
+            const before = queued?.before ?? previous;
+            if (!before) continue; // The first authorized reading is a baseline, not a change.
+            const change = compareCompatibility(before, snapshot);
+            if (change) next.push({ id: c.id, name: c.person.alias, fit: c.person.fit, before, change });
+          }
+          // Consecutive saves become one net change per connection, rather than a stack of alerts.
+          return next.length || current.length ? next : current;
+        });
         const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `اهتمام جديد من ${n.person.alias}` : n.kind === 'profile_visit' ? `${n.person.alias} زار ملفك` : 'بدأ التزامكما الحصري', detail: n.kind === 'interest' ? 'اطّلع على الملف في الإشعارات' : n.kind === 'profile_visit' ? 'اضغط لعرض الإشعارات وملف الزائر' : 'أُغلقت علاقات التعارف الأخرى', stamp: n.createdAt }));
         const openChat = document.querySelector('[data-conversation-id]')?.getAttribute('data-conversation-id');
         for (const c of connections) {
@@ -85,13 +111,28 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
         setToast(current => newest || next.find(item => item.key === current?.key) || null);
         if (newest && !occupied.current) playActivitySound();
       } catch { /* Existing inbox error handling owns connection failures. */ }
-      finally { fetching = false; }
+      finally { fetching = false; if (dirty && active) { dirty = false; void refresh(); } }
     }
     void refresh();
     const stop = source.watch(() => void refresh());
     document.addEventListener('visibilitychange', refresh);
     return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); };
   }, [source]);
+  const fitDetail = fitChanges.find(item => item.id === fitDetailId);
+  useEffect(() => { if (fitDetailId && !fitDetail) setFitDetailId(null); }, [fitDetailId, fitDetail]);
+  useEffect(() => { if (voice?.occupied || celebrationsBlocked) setFitDetailId(null); }, [voice?.occupied, celebrationsBlocked]);
+  // A small notice can coexist with typing, but never compete with a call, modal or celebration.
+  useEffect(() => {
+    if (!fitChanges.length || toast || celebrationsBlocked || celebrationReady || voice?.occupied || fitDetailId) {
+      setQuietSurface(false); return;
+    }
+    const check = () => setQuietSurface(!document.hidden && !document.querySelector('dialog[open]'));
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] });
+    document.addEventListener('visibilitychange', check);check();
+    return () => { observer.disconnect();document.removeEventListener('visibilitychange', check); };
+  }, [fitChanges.length, toast, celebrationsBlocked, celebrationReady, voice?.occupied, fitDetailId]);
+  const dismissFit = (id: string) => { setFitChanges(items => items.filter(item => item.id !== id));setFitDetailId(null); };
   // Let the member finish a dialog, typing or a call before presenting a milestone.
   useEffect(()=>{
     if(!milestone){setCelebrationReady(false);return;}
@@ -115,6 +156,10 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
       <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}</strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
       <button className="nf-activity-dismiss" aria-label="إخفاء التنبيه" onClick={() => setToast(null)}><X size={17}/></button>
     </div>}
+    {quietSurface && !toast && !celebrationReady && !celebrationsBlocked && !voice?.occupied && !fitDetailId && fitChanges[0] &&
+      <CompatibilityNotice key={fitChanges[0].id + fitChanges[0].change.key} name={fitChanges[0].name} change={fitChanges[0].change}
+        onOpen={() => setFitDetailId(fitChanges[0].id)} onDismiss={() => dismissFit(fitChanges[0].id)}/>}
+    {fitDetail && !voice?.occupied && !celebrationsBlocked && <CompatibilityChangeSheet name={fitDetail.name} change={fitDetail.change} fit={fitDetail.fit} onClose={() => dismissFit(fitDetail.id)}/>}
     {milestone&&celebrationReady&&!celebrationsBlocked&&!voice?.occupied&&<MatchCelebration key={milestone.id+milestone.kind} name={milestone.name} milestone={milestone.kind} continueLabel="متابعة المحادثة" onClose={()=>setMilestone(null)} onContinue={()=>{const id=milestone.id;setMilestone(null);setToast(null);open.current(id);}}/>}
 
   </aside>;

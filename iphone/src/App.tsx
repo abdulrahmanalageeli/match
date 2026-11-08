@@ -150,6 +150,10 @@ export default function App({ recoveryLink, ...props }: {tester?:TestSession;onT
 function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean}={}) {
   useEffect(initializeMatchSound, []);
   const [view, setView] = useState<View>(startAtLogin ? 'login' : 'main');
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
@@ -157,6 +161,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   const [busy, setBusy] = useState(false);
   const inflight = useRef(false);
   const version = useRef(0);
+  const refreshSequence = useRef(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [fromIntake, setFromIntake] = useState(false);
@@ -169,7 +174,19 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   const [sampleProfile, setSampleProfile] = useState<Profile>(tester?.profile||demoProfile);
   const sampleProfileRef = useRef(sampleProfile);
   const [sampleSession, setSampleSession] = useState(0);
-  const pair = useMemo(()=>tester?pairSource(tester,()=>sampleProfileRef.current):null,[tester,sampleSession]);
+  const pairOwner = useRef<object | null>(null);
+  const pair = useMemo(() => {
+    const owner = {};
+    pairOwner.current = owner;
+    return tester ? pairSource(tester, () => sampleProfileRef.current, profile => {
+      // Do not replace an unfinished assessment or accept its newer write revision.
+      if (!mounted.current || pairOwner.current !== owner || viewRef.current === 'application' || inflight.current) return false;
+      const next = { ...profile, gender: sampleProfileRef.current.gender };
+      sampleProfileRef.current = next;
+      setSampleProfile(next);
+      return true;
+    }) : null;
+  }, [tester, sampleSession]);
   const [newDemoIntake, setNewDemoIntake] = useState(false);
   const [onboardingPreview,setOnboardingPreview]=useState(false);
   const [applicationChapter,setApplicationChapter]=useState<Chapter>();
@@ -332,12 +349,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   }
   async function refresh(t: string, quiet = false) {
     const seq = version.current;
+    const read = ++refreshSequence.current;
     try {
       const s = await request<AccountState>("/me", "GET", t);
-      acceptLive(s, t, seq);
+      if (read === refreshSequence.current) acceptLive(s, t, seq);
       return s;
     } catch (err) {
-      if (tokenRef.current !== t || version.current !== seq) return;
+      if (tokenRef.current !== t || version.current !== seq || read !== refreshSequence.current) return;
       if (
         (err instanceof ServiceError || err instanceof CloudError) &&
         err.status === 401
@@ -390,16 +408,34 @@ function MemberApp({tester,onTesterExit,startAtLogin=false}:{tester?:TestSession
   }, []);
   useEffect(() => {
     if (!token || demo) return;
+    let disposed = false, reading = false, queued = false;
     const tick = () => {
-      if (!document.hidden && !inflight.current) void refresh(token, true);
+      if (disposed || document.hidden || inflight.current) return;
+      if (reading) { queued = true; return; }
+      reading = true;
+      void (async () => {
+        try {
+          do {
+            queued = false;
+            await refresh(token, true);
+          } while (queued && !disposed && !document.hidden && !inflight.current);
+        } finally { reading = false; }
+      })();
     };
+    const stop = source?.watch(tick);
     const timer = window.setInterval(tick, 20000);
     document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    window.addEventListener("online", tick);
     return () => {
+      disposed = true;
+      stop?.();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+      window.removeEventListener("online", tick);
     };
-  }, [token, demo]);
+  }, [token, demo, source]);
   useEffect(() => {
     if (!ios || !token || !accepted || demo) return;
     let disposed = false;

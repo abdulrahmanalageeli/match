@@ -38,25 +38,57 @@ export function testPerson(actor:Actor,profile?:PublicTestProfile):PublicPerson{
  beenaStory:profile?.beenaStory?{scenarioId:profile.beenaStory.scenarioId,text:profile.beenaStory.text}:undefined,
  demoPhoto:actor==='abdulrahman'?'/demo/portraits/tester-shemagh.webp':undefined,interests:interests.filter(item=>p.interestIds?.includes(item.id)).map(item=>item.label),reasons:['تعارف متبادل مفعّل للاختبار']};
 }
-export function pairSource(account:TestSession,viewer:()=>Profile){
+export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(profile:Profile,revision:string)=>boolean){
  let profileRevision=account.profileRevision;
  const peer:Actor=account.actor==='reham'?'abdulrahman':'reham';
- let cached:State|null=null,at=0,pending:Promise<State>|null=null,revision=0,acknowledging=false,deliveredId='';
- const local=demoCommunity(()=>account.actor==='reham'?{...viewer(),gender:'woman'}:viewer(),false,{
+ let cached:State|null=null,at=0,pending:{version:number;promise:Promise<State>}|null=null,revision=0,acknowledging=false,deliveredId='';
+ let stateSignature='',acceptedProfileSignature=JSON.stringify([account.profileRevision,account.profile]);
+ const local=demoCommunity(()=>{
+  const current=viewer(),own=cached?.profiles[account.actor];
+  const latest=own?{...testProfile(account.actor,own),gender:current.gender}:current;
+  return account.actor==='reham'?{...latest,gender:'woman'}:latest;
+ },false,{
   storageKey:`nisfayn-simulation-v1-${account.actor}-${viewer().gender}`,
   externalAccepted:()=>Number(cached?.matched),
   canAct:()=>Boolean(cached)&&!cached?.exclusive,
  });
- const listeners=new Set<()=>void>();let timer:number|undefined;
+ const listeners=new Set<()=>void>();let timer:number|undefined,polling=false;
+ const notify=()=>listeners.forEach(f=>f());
+ function syncOwnProfile(s:State){
+  const own=s.profiles[account.actor];if(!onProfile||!own||!s.profileRevision)return;
+  const profile=testProfile(account.actor,own),signature=JSON.stringify([s.profileRevision,profile]);
+  if(signature!==acceptedProfileSignature&&onProfile(profile,s.profileRevision)){
+   acceptedProfileSignature=signature;profileRevision=s.profileRevision;
+  }
+ }
+ function acceptState(s:State){cached=s;at=Date.now();stateSignature=JSON.stringify(s);syncOwnProfile(s);}
+ async function poll(){
+  if(document.hidden||polling||!listeners.size)return;
+  polling=true;
+  try{await state(true);}catch{/* Retry on the next tick or foreground transition. */}
+  finally{polling=false;}
+ }
+ const visible=()=>{if(!document.hidden)void poll();};
  let retired=false;
  async function retireFictional(s:State){if(!s.exclusive){retired=false;return;}if(retired)return;retired=true;for(const c of await local.inbox())await local.act(c.id,c.status==='pending'&&c.direction==='incoming'?'decline':'cancel');}
  async function available(id?:string){const s=await state();await retireFictional(s);if(s.exclusive&&id!=='tester-pair')throw Error('أنت في تعارف حصري. أنهِ التعارف الحالي قبل بدء تواصل آخر.');return s;}
  async function state(force=false):Promise<State>{
-  if(pending)return pending;if(!force&&cached&&Date.now()-at<700)return cached;
+  if(pending?.version===revision)return pending.promise;
+  if(!force&&cached&&Date.now()-at<700){syncOwnProfile(cached);return cached;}
   const version=revision;
-  pending=testRequest<State>('state',account.session).then(s=>{if(version===revision){cached=s;at=Date.now();}acknowledge(s);return cached||s}).finally(()=>{pending=null});return pending;
+  const promise:Promise<State>=testRequest<State>('state',account.session).then(s=>{
+   if(version!==revision)return state(true);
+   const changed=stateSignature!==JSON.stringify(s);
+   acceptState(s);acknowledge(s);if(changed)notify();return s;
+  }).finally(()=>{if(pending?.promise===promise)pending=null;});
+  pending={version,promise};return promise;
  }
- async function mutate(action:string,payload:unknown={}){revision++;const s=await testRequest<State>(action,account.session,payload);revision++;cached=s;at=Date.now();listeners.forEach(f=>f());return s;}
+ async function mutate(action:string,payload:unknown={}){
+  const version=++revision,s=await testRequest<State>(action,account.session,payload);
+  if(version===revision){revision++;acceptState(s);}
+  else {revision++;await state(true);}
+  notify();return s;
+ }
  function acknowledge(s:State){const latest=s.messages.filter(m=>m.sender!==account.actor).at(-1);if(!latest||acknowledging||latest.id===deliveredId)return;acknowledging=true;void testRequest('delivered',account.session,{id:latest.id}).then(()=>{deliveredId=latest.id;}).catch(()=>{}).finally(()=>{acknowledging=false;});}
  const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt}:null,senderIsMe:m.sender===account.actor,deliveredAt:m.sender===account.actor&&s.delivered?.[peer]&&s.delivered[peer]!>=m.createdAt?s.delivered[peer]:null,readAt:m.sender===account.actor&&s.read[peer]&&s.read[peer]!>=m.createdAt?s.read[peer]:null}));
  const permission=(s:State)=>({status:s.callPermission?.status||'none' as const,direction:s.callPermission?.invitedBy?(s.callPermission.invitedBy===account.actor?'outgoing' as const:'incoming' as const):undefined});
@@ -120,8 +152,8 @@ export function pairSource(account:TestSession,viewer:()=>Profile){
   async noteProfileOpen(id){if(id===peer)await mutate('profile_visit',{person:id});else await local.noteProfileOpen?.(id);},
   async notifications(){const rows=await testRequest<(Omit<ActivityNotification,'person'>&{actor:Actor})[]>('notifications',account.session);const s=await state();return [...rows.map(row=>({...row,person:{...testPerson(row.actor,s.profiles[row.actor]),exclusive:s.exclusive}})),...await local.notifications?.()??[]].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));},
   async readNotifications(ids){const localIds=new Set((await local.notifications?.()??[]).map(n=>n.id));await local.readNotifications?.(ids.filter(id=>localIds.has(id)));const remote=ids.filter(id=>!localIds.has(id));if(remote.length)await mutate('notifications_read',{ids:remote});},
-  watch(listener){listeners.add(listener);if(!timer)timer=window.setInterval(()=>{if(!document.hidden)void state(true).then(()=>listeners.forEach(f=>f())).catch(()=>{});},850);
-   const stopLocal=local.watch(listener);return()=>{stopLocal();listeners.delete(listener);if(!listeners.size){clearInterval(timer);timer=undefined;}};},
+  watch(listener){listeners.add(listener);if(timer===undefined){timer=window.setInterval(()=>void poll(),850);document.addEventListener('visibilitychange',visible);window.addEventListener('online',visible);window.addEventListener('focus',visible);void poll();}
+   const stopLocal=local.watch(listener);return()=>{stopLocal();listeners.delete(listener);if(!listeners.size){clearInterval(timer);timer=undefined;document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',visible);window.removeEventListener('focus',visible);}};},
   async discover(filters){
    const s=await state();if(s.exclusive)return [];
    const full=(await local.inbox()).filter(c=>c.status==='accepted').length+Number(s.matched)>=2;

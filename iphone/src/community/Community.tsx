@@ -538,7 +538,10 @@ function Discovery({
   const listRef=useRef(list);listRef.current=list;
   const [showReceipt, setShowReceipt] = useState(profileSaved);
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<PublicPerson | null>(null);
   const [fitPerson, setFitPerson] = useState<PublicPerson | null>(null);
+  const openPeople = useRef<PublicPerson[]>([]);
+  openPeople.current = [selectedPerson, fitPerson].filter((value): value is PublicPerson => value !== null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -552,6 +555,7 @@ function Discovery({
   const listPosition = useRef<{ id: string; top: number; scroll: number; featured: boolean } | null>(null);
   const move = useWeeklyCardTransition();
   const sequence = useRef(0);
+  const needsRefresh = useRef(false);
   const actionPending = useRef(false);
   const refresh = useCallback(
     async () => {
@@ -578,41 +582,64 @@ function Discovery({
   useEffect(() => {
     setList([]);
     setSelected(null);
+    setSelectedPerson(null);
+    setFitPerson(null);
     void refresh();
     return () => { sequence.current++; };
   }, [refresh]);
   useEffect(()=>{
-    let active=true,fetching=false;
+    let active=true,fetching=false,dirty=false;
     async function updatePresence(){
-      if(document.hidden||actionPending.current||selected||fitPerson||reportTarget||filterOpen||loadingMore||fetching)return;
-      fetching=true;const seq=sequence.current;
-      try{
+      if(document.hidden||actionPending.current||loading||loadingMore)return;
+      if(fetching){dirty=true;return;}
+      fetching=true;
+      try { do { dirty=false;needsRefresh.current=false;const seq=sequence.current;
+       try{
         const pageCount=order==='all'?Math.max(1,Math.ceil(listRef.current.length/24)):1;
         const pages=await Promise.all(Array.from({length:pageCount},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
         if(!active||seq!==sequence.current||actionPending.current)return;
         const latest=new Map(pages.flat().map(person=>[person.id,person]));
+        const details=new Map<string,PublicPerson|null>();
+        // An open profile can move out of the first five while remaining eligible.
+        // Re-query the authorized directory rather than freezing its old score.
+        await Promise.all([...new Map(openPeople.current.map(person=>[person.id,person])).values()].map(async person=>{
+          if(latest.has(person.id)){details.set(person.id,latest.get(person.id)!);return;}
+          const eligible=await source.discover({...filters,mode:'all',search:person.alias,offset:0});
+          details.set(person.id,eligible.find(candidate=>candidate.id===person.id)??null);
+        }));
+        if(!active||seq!==sequence.current||actionPending.current)return;
         // Reapply active filters as availability changes, including an initially empty online view.
         setList([...latest.values()]);
         setMore(order==='all'&&pages.at(-1)?.length===24);
-      }catch{/* The current view stays usable; retry on the next activity refresh. */}
-      finally{fetching=false;}
+        const fresh=(person:PublicPerson|null)=>person?(latest.get(person.id)??(details.has(person.id)?details.get(person.id)!:person)):null;
+        setSelectedPerson(fresh);setFitPerson(fresh);
+        setSelected(id=>id&&details.has(id)&&!details.get(id)?null:id);
+       }catch(error){
+        if(active&&seq===sequence.current&&denied(error)){setList([]);setSelected(null);setSelectedPerson(null);setFitPerson(null);}
+        // A transient failure keeps the current view usable until the next update.
+       }
+      } while(active&&dirty&&!document.hidden);
+      } finally {fetching=false;}
     }
+    const unwatch=source.watch(()=>{needsRefresh.current=true;void updatePresence();});
     const timer=window.setInterval(()=>void updatePresence(),60000);
     document.addEventListener('visibilitychange',updatePresence);
-    return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',updatePresence);};
-  },[source,filters,order,selected,fitPerson,reportTarget,filterOpen,loadingMore]);
+    window.addEventListener('online',updatePresence);
+    if(needsRefresh.current)void updatePresence();
+    return()=>{active=false;unwatch();clearInterval(timer);document.removeEventListener('visibilitychange',updatePresence);window.removeEventListener('online',updatePresence);};
+  },[source,filters,order,loading,loadingMore]);
   async function loadMore() {
     if(loadingMore)return;setLoadingMore(true);const seq=sequence.current;
     try{const next=await source.discover({...filters,mode:order,offset:list.length});if(seq===sequence.current){setList(current=>[...current,...next.filter(n=>!current.some(p=>p.id===n.id))]);setMore(next.length===24);}}
     catch(e){if(seq===sequence.current)setError(messageFor(e));}finally{setLoadingMore(false);}
   }
-  const person = list.find((p) => p.id === selected);
+  const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     const origin = button.querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
     listPosition.current = { id: item.id, top: button.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && button.matches(":first-child") };
     move(origin, () => {
-      flushSync(() => { setNotice(""); setError(""); setSelected(item.id); });
+      flushSync(() => { setNotice(""); setError(""); setSelected(item.id); setSelectedPerson(item); });
       const hero = identity.current;
       if (!hero) return null;
       window.scrollTo(0, 0);
@@ -625,9 +652,9 @@ function Discovery({
     const origin = identity.current;
     const shell = origin?.closest(".cm-shell");
     const anchor = listPosition.current;
-    if (!origin || !anchor || !shell) { setSelected(null); return; }
+    if (!origin || !anchor || !shell) { setSelected(null); setSelectedPerson(null); return; }
     move(origin, () => {
-      flushSync(() => setSelected(null));
+      flushSync(() => {setSelected(null);setSelectedPerson(null);});
       const button = shell.querySelector<HTMLButtonElement>(`[data-weekly-person="${CSS.escape(anchor.id)}"]`);
       if (!button) { window.scrollTo(0, anchor.scroll); return null; }
       window.scrollTo(0, window.scrollY + button.getBoundingClientRect().top - anchor.top);
@@ -1656,7 +1683,7 @@ function Requests({
         else if (intent === navigation.current) setActionError(messageFor(error));
       } finally { acting.current = false; setBusy(false); }
     };
-    return <Profile source={source} person={visitPerson} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
+    return <Profile source={source} person={existing?.person ?? visitPerson} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : 'إرسال طلب تعارف'}

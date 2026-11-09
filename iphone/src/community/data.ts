@@ -589,17 +589,19 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   const storageKey = simulationOptions.storageKey ? `${simulationOptions.storageKey}:${viewer().gender}` : undefined;
   let persistedSimulation: { eventCount?: number; log?: import('./simulation').DemoSimulationEvent[] } | undefined;
   function persist() {
-    if (!storageKey || typeof localStorage === 'undefined' || !simulation) return;
+    if (!storageKey || !simulation) return;
     try {
+      if (typeof localStorage === 'undefined') return;
       localStorage.setItem(storageKey, JSON.stringify({version:1, records:records.slice(0,40),
         messages:[...messages].map(([id,rows])=>{const text=rows.filter(row=>!row.attachment);return [id,text.length>100?[...text.slice(0,4),...text.slice(-96)]:text];}),
         hidden:[...hiddenPeople],blocked:[...blockedPeople],interested:[...interestedPeople],read:[...readThrough],steps:[...steps],agreements:[...agreements],callPermissions:[...callPermissions],
         exclusiveId,activity:activityRows.slice(-40),seen:[...celebrationsSeen],simulation:simulation.snapshot()}));
     } catch { /* Quota/private browsing must not break the test app. */ }
   }
-  if (storageKey && typeof localStorage !== 'undefined') {
+  if (storageKey) {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      // Safari can throw on the storage getter itself, before getItem is called.
+      const saved = typeof localStorage === 'undefined' ? null : JSON.parse(localStorage.getItem(storageKey) || 'null');
       if (saved?.version === 1 && Array.isArray(saved.records) && Array.isArray(saved.messages)) {
         const validPerson = (id: unknown) => typeof id === 'string' && examples.some(person=>person.id===id && person.gender!==viewer().gender);
         const restored: Local[] = saved.records.slice(0,40).filter((r:Local)=>r&&typeof r.id==='string'&&validPerson(r.peer)&&['incoming','outgoing'].includes(r.direction)&&['pending','accepted','closed'].includes(r.status)&&typeof r.createdAt==='string'&&typeof r.updatedAt==='string');

@@ -22,6 +22,17 @@ const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'"
 const {pairSource,testProfile}=await import(pairUrl);
 const {withOwnReaction,searchMessageRows}=await import(dataUrl);
 
+test('restricted browser storage does not prevent either saved tester account from opening',async t=>{
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,get(){throw new DOMException('The operation is insecure.','SecurityError');}});
+  t.after(()=>{if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete globalThis.localStorage;});
+  for(const actor of ['reham','abdulrahman']) {
+    const profile=testProfile(actor);
+    const account={actor,session:'saved-token',profile,profileRevision:'current'};
+    assert.doesNotThrow(()=>pairSource(account,()=>profile));
+  }
+});
+
 function harness(t,overrides={}){
   const calls=[],aiCalls=[];
   const remote={actor:'reham',matched:true,profileRevision:'revision',profiles:{},messages:[],read:{},stage:0,agree:{},call:null,...overrides};

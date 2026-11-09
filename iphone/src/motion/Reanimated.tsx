@@ -1,6 +1,6 @@
 import {
-  createElement, forwardRef, useEffect,
-  type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes,
+  Component, createElement, forwardRef, useEffect,
+  type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type ReactNode,
 } from 'react';
 import Animated, {
   cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming,
@@ -37,6 +37,14 @@ const DomHost = forwardRef<HTMLElement, DomHostProps>(function DomHost({ as = 'd
 });
 const AnimatedHost = Animated.createAnimatedComponent(DomHost);
 
+// Decorative motion must not make the underlying page or action unavailable.
+// Keep all animation hooks inside this boundary so commit-phase failures recover too.
+class MotionBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? this.props.fallback : this.props.children; }
+}
+
 export type MotionRevealProps = HTMLAttributes<HTMLElement> & {
   as?: Tag;
   delay?: number;
@@ -49,7 +57,7 @@ export type MotionRevealProps = HTMLAttributes<HTMLElement> & {
 };
 
 /** A semantic DOM element whose entrance is driven by Reanimated shared values. */
-export function MotionReveal({
+function AnimatedMotionReveal({
   as = 'div', delay = 0, duration = 480, active = true,
   axis = 'y', distance = 10, fromOpacity = 0, fromScale = 1, style, ...props
 }: MotionRevealProps) {
@@ -76,6 +84,17 @@ export function MotionReveal({
   return <AnimatedHost {...props} as={as} data-motion-reveal="" data-motion-engine="reanimated" style={[style, animatedStyle]} />;
 }
 
+function RevealFallback({
+  as = 'div', delay: _delay, duration: _duration, active: _active,
+  axis: _axis, distance: _distance, fromOpacity: _fromOpacity, fromScale: _fromScale, ...props
+}: MotionRevealProps) {
+  return createElement(as, { ...props, 'data-motion-reveal': '', 'data-motion-engine': 'fallback' });
+}
+
+export function MotionReveal(props: MotionRevealProps) {
+  return <MotionBoundary fallback={<RevealFallback {...props}/>}><AnimatedMotionReveal {...props}/></MotionBoundary>;
+}
+
 type ButtonHostProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style'> & { style?: HostStyle };
 const ButtonHost = forwardRef<HTMLButtonElement, ButtonHostProps>(function ButtonHost({ style, ...props }, ref) {
   return <button {...props} ref={ref} style={domStyle(style)} />;
@@ -83,7 +102,7 @@ const ButtonHost = forwardRef<HTMLButtonElement, ButtonHostProps>(function Butto
 const AnimatedButton = Animated.createAnimatedComponent(ButtonHost);
 
 /** Native button semantics, with quiet 120ms Reanimated press compression. */
-export const MotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function MotionPressButton({
+const AnimatedMotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function AnimatedMotionPressButton({
   disabled, type = 'button', style, onPointerDown, onPointerUp, onPointerCancel,
   onPointerLeave, onKeyDown, onKeyUp, onBlur, ...props
 }, ref) {
@@ -118,4 +137,10 @@ export const MotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttribu
     onKeyUp={event => { onKeyUp?.(event); if (event.key === ' ' || event.key === 'Enter') settle(); }}
     onBlur={event => { onBlur?.(event); settle(); }}
   />;
+});
+
+export const MotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function MotionPressButton(props, ref) {
+  return <MotionBoundary fallback={<button {...props} ref={ref} type={props.type ?? 'button'} data-motion-press="" data-motion-engine="fallback"/>}>
+    <AnimatedMotionPressButton {...props} ref={ref}/>
+  </MotionBoundary>;
 });

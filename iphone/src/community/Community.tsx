@@ -30,6 +30,7 @@ import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
 import './everyday.css';
 import {
+  Utensils, Footprints, Plane, Camera, Dices, Landmark, PenLine,
   ArrowLeft,
   ArrowDown,
   ArrowRight,
@@ -501,6 +502,7 @@ function PersonCard({
   );
 }
 
+const directoryInterestIcons: Record<string, typeof Heart> = {reading:BookOpen,cooking:Utensils,walking:Footprints,travel:Plane,photography:Camera,board_games:Dices,museums:Landmark,creative_writing:PenLine};
 function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
   const personality=personalityPercentage(person.fit);
@@ -516,7 +518,7 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}
       </button>
       <button className="dr-header-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`} title="غير مهتم"><EyeOff size={15}/></button>
     </div>
-    <div className="dr-row-summary"><p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p></div>
+    {person.interests.length>0&&<ul className="dr-row-interests" aria-label="الاهتمامات">{[...new Set(person.interests)].slice(0,3).map(interest=>{const Icon=directoryInterestIcons[interest]??Heart;return <li key={interest}><Icon size={14} strokeWidth={1.6} aria-hidden="true"/><span>{safeInterest(interest)}</span></li>;})}</ul>}
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>

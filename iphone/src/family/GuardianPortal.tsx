@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, Copy, Download, Eye, EyeOff, HeartHandshake, KeyRound, LockKeyhole, ShieldCheck, UsersRound } from 'lucide-react';
+import { ArrowRight, Check, Copy, Download, Eye, EyeOff, HeartHandshake, KeyRound, LockKeyhole, ShieldCheck, UsersRound } from "../BrandIcons";
 import { Brand } from '../Brand';
 import { LegalNotice } from '../legal/LegalNotice';
 import { SupportContact, SupportProvider } from '../help/SupportContact';

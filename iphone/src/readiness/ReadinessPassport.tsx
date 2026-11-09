@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowRight, BadgeCheck, BookOpenCheck, CalendarDays, Check, ChevronDown, CircleHelp, Clock3, Download, Fingerprint, LockKeyhole, Share2, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
+import { ArrowRight, BadgeCheck, BookOpenCheck, CalendarDays, Check, ChevronDown, CircleHelp, Clock3, Download, Fingerprint, LockKeyhole, Share2, ShieldCheck, Trash2, UsersRound } from "../BrandIcons";
 import { Brand } from '../Brand';
 import type { CommunitySource, Connection } from '../community/data';
 import {

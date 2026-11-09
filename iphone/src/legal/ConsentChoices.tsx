@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { Check, ChevronDown, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Check, ChevronDown, LockKeyhole, ShieldCheck } from "../BrandIcons";
 import type { SignupConsents } from './consent';
 import './consent.css';
 type Key=Exclude<keyof SignupConsents,'version'>;

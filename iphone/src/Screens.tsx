@@ -10,7 +10,7 @@ import {
   LockKeyhole,
   ShieldCheck,
   Sparkles,
-} from "lucide-react";
+} from "./BrandIcons";
 import { Brand } from "./Brand";
 import { phoneOtpEnabled } from "./cloud";
 import { PhoneAuth } from "./PhoneAuth";

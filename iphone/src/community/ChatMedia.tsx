@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { ImagePlus, Mic, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from 'lucide-react';
+import { ImagePlus, Mic, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from "../BrandIcons";
 import type { ChatAttachment, CommunitySource } from './data';
 import { useDevicePreferences, useSystemReducedMotion } from '../settings/preferences';
 import { feedback } from '../feedback/haptics';

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AudioLines, Check, ChevronDown, Headphones, Mic, MicOff, Phone, PhoneOff, ShieldCheck, Volume2 } from "lucide-react";
+import { AudioLines, Check, ChevronDown, Headphones, Mic, MicOff, Phone, PhoneOff, ShieldCheck, Volume2 } from "../BrandIcons";
 import { Brand } from "../Brand";
 import { PersonAvatar } from "../avatars/PersonAvatar";
 import type { CommunitySource, Connection } from "../community/data";

@@ -1,4 +1,4 @@
-import { LoaderCircle, RotateCcw, WifiOff } from 'lucide-react';
+import { LoaderCircle, RotateCcw, WifiOff } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import type { ThreadConnectionState } from './useThread';
 import './thread-connection.css';

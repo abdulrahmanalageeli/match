@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Settings2 } from 'lucide-react';
+import { Bell, Settings2 } from "../BrandIcons";
 import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported } from './push';
 import { needsHomeScreen } from './webPush';
 

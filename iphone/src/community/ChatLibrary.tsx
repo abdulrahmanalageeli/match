@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowUpRight, Image, LoaderCircle, LockKeyhole, MessageCircle, Mic, Search, X } from 'lucide-react';
+import { ArrowUpRight, Image, LoaderCircle, LockKeyhole, MessageCircle, Mic, Search, X } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import type { CommunitySource, Message } from './data';
 import { MessageMedia } from './ChatMedia';

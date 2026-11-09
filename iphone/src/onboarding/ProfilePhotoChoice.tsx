@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Eye, ImagePlus, LockKeyhole, Sparkles, Trash2 } from 'lucide-react';
+import { Camera, Check, Eye, ImagePlus, LockKeyhole, Sparkles, Trash2 } from "../BrandIcons";
 import { AvatarPicker } from './AvatarPicker';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';

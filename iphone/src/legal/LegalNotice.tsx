@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronDown, FileCheck2, HeartHandshake, Image, LockKeyhole, Mail, Sparkles } from 'lucide-react';
+import { ChevronDown, FileCheck2, HeartHandshake, Image, LockKeyhole, Mail, Sparkles } from "../BrandIcons";
 import './legal.css';
 
 export const LEGAL_NOTICE_VERSION = '2026-11-07-privacy';

@@ -69,3 +69,48 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .mi-tab-active { color: var(--accent); }
 .phone-app .mi-tab-active svg { stroke-width: 1.8; }
 .phone-app .mi-tab-marker { width: 16px; height: 2px; }
+
+/* Shared Nisfayn surface language: white, softly separated, quietly outlined. */
+.phone-app { --nf-card-shadow: 0 1px 5px #30242b04; --nf-card-radius: 12px; }
+.phone-app .nf-icon { flex-shrink: 0; }
+.phone-app .cm-shell .cm-title { margin-block: 14px 12px; }
+.phone-app .cm-shell .cm-title h1 { font-size: 24px; line-height: 1.4; }
+.phone-app .cm-shell .df-header { min-height: 42px; padding-block: 4px 8px; border: 0; }
+.phone-app .cm-shell .cm-title.df-title { margin: 4px 0 8px; }
+.phone-app .cm-shell .cm-title.df-title h1 { font-size: 23px; margin: 0; line-height: 1.35; }
+.phone-app .cm-shell .df-feed-tabs { gap: 16px; }
+.phone-app .cm-shell .df-feed-tabs button { min-height: 40px; padding-block: 7px; font-size: 13px; gap: 6px; }
+.phone-app .cm-shell .df-feed-controls { margin-bottom: 10px; }
+.phone-app .cm-shell .dr-tools { margin-block: 0 8px; }
+.phone-app .cm-shell .dr-tools .dr-search,
+.phone-app .cm-shell .dr-tools .dr-sort select { min-height: 38px; height: 38px; border-radius: 9px; font-size: 12px; }
+.phone-app .cm-shell .dr-tools .dr-filter-shortcut { min-height: 36px; height: 36px; width: 36px; padding: 0; border-radius: 9px; align-self: center; }
+.phone-app .cm-shell .dr-tools-recommended { display: flex; justify-content: flex-end; }
+.phone-app .cm-shell .dr-tools-recommended .dr-search,
+.phone-app .cm-shell .dr-tools-recommended .dr-sort { display: none; }
+.phone-app .cm-shell .dr-row-actions .dr-row-request { width: 32px; min-width: 32px; height: 32px; min-height: 32px; border-radius: 8px; }
+.phone-app .cm-shell .dr-row-request > .dr-invitation-mark { width: 22px; height: 22px; }
+.phone-app .cm-shell .dr-row-request > .nf-icon { width: 20px; height: 20px; }
+.phone-app .cm-shell .dr-preference-inline { gap: 5px; align-items: center; }
+.phone-app .cm-shell .dr-preference-inline > svg { color: #8b737d; }
+.phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 9px; }
+.phone-app .cm-shell .cm-request,
+.phone-app .cm-shell .cm-notification-row { padding: 12px; min-height: 76px; border: 0; border-radius: var(--nf-card-radius); background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .cm-shell .cm-notification-row { margin-bottom: 8px; }
+.phone-app .cm-shell .cm-notification-row[data-unread] { background: #fdfafb; }
+.phone-app .cm-shell .cm-request-copy strong { font-size: 17px; }
+.phone-app .cm-shell .cm-request-copy .cm-inbox-preview,
+.phone-app .nf-feed-copy > small { color: #655d63; font-size: 13px; }
+.phone-app .nf-feed-filters button { border-radius: 9px; box-shadow: none; min-height: 36px; padding: 6px 11px; font-size: 12px; }
+.phone-app .st-group { background: #fff; border: 0; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
+.phone-app .st-icon { width: 30px; height: 30px; min-width: 30px; border-radius: 8px; background: transparent; }
+.phone-app .st-icon > svg { width: 20px; height: 20px; }
+.phone-app .st-row-copy small { color: #655d63; }
+.phone-app .mp-fact-group,
+.phone-app .mp-fit-preview { background: #fff; border-color: #eee9ec; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
+.phone-app .mp-fact-icon { width: 28px; height: 28px; background: transparent; }
+.phone-app .cm-shell .cm-chat-head .cm-call-button,
+.phone-app .cm-shell .cm-chat-head .cm-guide-button { width: 36px; height: 36px; min-height: 36px; padding: 6px; border-radius: 9px; }
+.phone-app .cm-shell .cm-chat-head .cm-call-button svg,
+.phone-app .cm-shell .cm-chat-head .cm-guide-button svg { width: 21px; height: 21px; }
+.phone-app .pg-add { border-color: #ddd4d8; background: #fff; border-radius: 12px; box-shadow: none; }

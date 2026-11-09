@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CalendarDays, Check, Feather, Users, X } from 'lucide-react';
+import { CalendarDays, Check, Feather, Users, X } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement } from './data';
 import './conversation-agreement.css';
 import { HelpButton } from '../help/HelpCenter';

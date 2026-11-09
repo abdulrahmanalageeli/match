@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { ArrowUpRight, Calculator, Fingerprint, MessageCircle, ScanLine } from 'lucide-react';
+import { ArrowUpRight, Calculator, Fingerprint, MessageCircle, ScanLine } from "../BrandIcons";
 import type { MatchFit } from './model';
 import { personalityPercentage } from './model';
 import { analyzePersonality, distributionSteps, personalityDomains, personalityTopics } from './personality-analysis';

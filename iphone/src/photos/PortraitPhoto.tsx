@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { UserRound } from 'lucide-react';
+import { UserRound } from "../BrandIcons";
 import type { ProfilePortrait } from '../types';
 import type { CommunitySource } from '../community/data';
 

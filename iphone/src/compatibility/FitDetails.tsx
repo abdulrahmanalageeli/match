@@ -1,5 +1,5 @@
 import { useId, useRef } from "react";
-import { CircleHelp, Fingerprint, SlidersHorizontal } from "lucide-react";
+import { CircleHelp, Fingerprint, SlidersHorizontal } from "../BrandIcons";
 import { dimensions, preferencePercentage, personalityPercentage, type MatchFit } from "./model";
 export { preferencePercentage, personalityPercentage } from "./model";
 import { PersonalityAnalysis } from "./PersonalityAnalysis";

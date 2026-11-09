@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, HeartHandshake, X } from 'lucide-react';
+import { ArrowRight, Check, HeartHandshake, X } from "../BrandIcons";
 import { Brand } from '../Brand';
 import { SupportContact } from '../help/SupportContact';
 

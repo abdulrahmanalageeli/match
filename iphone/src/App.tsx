@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
 import { readRecoveryLink, type RecoveryLink } from './auth/passwordRecovery';

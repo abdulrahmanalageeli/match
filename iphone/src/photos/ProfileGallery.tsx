@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, ChevronLeft, ChevronRight, ImagePlus, LoaderCircle, Trash2, X } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, ImagePlus, LoaderCircle, Trash2, X } from "../BrandIcons";
 import type { CommunitySource, GalleryPhoto } from '../community/data';
 import { preparePhoto } from './photoData';
 import './gallery.css';

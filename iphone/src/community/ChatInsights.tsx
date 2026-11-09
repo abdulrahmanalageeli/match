@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { CheckCheck, ChevronLeft, ChevronRight, CircleHelp, MessageCircle, PenLine, Sparkles } from 'lucide-react';
+import { CheckCheck, ChevronLeft, ChevronRight, CircleHelp, MessageCircle, PenLine, Sparkles } from "../BrandIcons";
 import type { MatchFit } from '../compatibility/model';
 import { conversationInsights, type ConversationPrompt } from '../compatibility/conversation-insights';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';

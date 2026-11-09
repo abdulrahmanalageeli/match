@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Phone, ShieldCheck, X } from 'lucide-react';
+import { Check, Phone, ShieldCheck, X } from "../BrandIcons";
 import type { CommunitySource, Connection } from './data';
 import './call-permission.css';
 import { HelpButton } from '../help/HelpCenter';

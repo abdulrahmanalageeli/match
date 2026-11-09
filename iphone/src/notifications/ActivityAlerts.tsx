@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, MessageCircle, Route, X } from 'lucide-react';
+import { ChevronLeft, MessageCircle, Route, X } from "../BrandIcons";
 import type { ActivityNotification, CommunitySource, PublicPerson, StepProgress } from '../community/data';
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { playActivitySound } from '../community/matchSound';

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
 
 export function ConversationStarter({ source, person, disabled, choose }: {

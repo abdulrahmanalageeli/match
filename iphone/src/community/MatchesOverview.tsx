@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Clock3, Heart, MessageCircle, Search } from 'lucide-react';
+import { ArrowLeft, Check, Clock3, Heart, MessageCircle, Search } from "../BrandIcons";
 import { Brand } from '../Brand';
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';

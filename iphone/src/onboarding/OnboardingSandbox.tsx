@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowRight, LockKeyhole, Pencil, X } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Pencil, X } from "../BrandIcons";
 import { Brand } from '../Brand';
 import { GuidedApplication, type ApplicationDraft } from './GuidedApplication';
 import { LegalNotice } from '../legal/LegalNotice';

@@ -1,4 +1,4 @@
-import { Keyboard } from 'lucide-react';
+import { Keyboard } from "../BrandIcons";
 import './keyboard.css';
 
 export function KeyboardDismiss() {

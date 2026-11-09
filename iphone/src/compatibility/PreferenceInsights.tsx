@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
 import { categories, dimensions, preferencePercentage, type MatchFit } from './model';
 import { readPreferenceEvidence, type PreferenceTopicStatus } from './preference-evidence';
 import { MotionReveal } from '../motion/Reanimated';

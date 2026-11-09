@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Feather, HeartHandshake, MessageCircle, Route, Send } from 'lucide-react';
+import { ArrowLeft, BookOpen, Feather, HeartHandshake, MessageCircle, Route, Send } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement, StepProgress } from './data';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { chooseNextStep, nextStepState, type NextStepAssessment, type NextStepSnapshot, type NextStepState } from './nextStepModel';

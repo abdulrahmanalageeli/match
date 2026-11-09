@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { WifiOff } from 'lucide-react';
+import { WifiOff } from "../BrandIcons";
 import { MotionReveal, MotionPressButton } from '../motion/Reanimated';
 import { retryReadsEvent } from './readRecovery';
 import './everyday.css';

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import {
   ArrowRight, BookOpen, ChevronLeft, CirclePause, CirclePlay, CreditCard, Download, Eye, Feather,
   LogOut, MapPin, Pencil, ShieldCheck, Trash2, Type, UserRound, Volume2, Vibrate, Image, UsersRound,
-} from "lucide-react";
+} from "../BrandIcons";
 import { Brand } from "../Brand";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import type { AccountState, Profile } from "../types";

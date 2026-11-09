@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { getDevicePreferences } from '../settings/preferences';
 import './message-focus.css';

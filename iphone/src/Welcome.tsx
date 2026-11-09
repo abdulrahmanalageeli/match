@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from "./BrandIcons";
 import { feedback } from './feedback/haptics';
 import { useDevicePreferences, useSystemReducedMotion } from './settings/preferences';
 import './welcome.css';

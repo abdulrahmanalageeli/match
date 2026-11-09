@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, CircleAlert, FileCheck2, LoaderCircle, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, CircleAlert, FileCheck2, LoaderCircle, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from "../BrandIcons";
 import { Brand } from '../Brand';
 import type { Profile } from '../types';
 import { VerifiedBadge } from './VerifiedBadge';

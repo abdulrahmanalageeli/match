@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlaskConical, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import { FlaskConical, Pause, Play, RotateCcw, SkipForward } from "../BrandIcons";
 import type { CommunitySource } from '../community/data';
 import './simulation-panel.css';
 

@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { ArrowLeft, Check, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, Check, Volume2, VolumeX, X } from "../BrandIcons";
 import { getDevicePreferences, useDevicePreferences } from "../settings/preferences";
 import { playMatchSound, prepareMatchSound, stopMatchSound } from "./matchSound";
 import "./matchCelebration.css";

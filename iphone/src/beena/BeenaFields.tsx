@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Feather, HeartHandshake, LockKeyhole, MessageCircle, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Feather, HeartHandshake, LockKeyhole, MessageCircle, Sparkles, Trash2 } from "../BrandIcons";
 import { beenaProgress, beenaScenarios, beenaVersion, type BeenaAnswer, type BeenaProfile } from './model';
 import './beena.css';
 import '../onboarding/scenario-experience.css';

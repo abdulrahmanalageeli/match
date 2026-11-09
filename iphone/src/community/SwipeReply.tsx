@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type PointerEvent } from 'react';
-import { Reply } from 'lucide-react';
+import { Reply } from "../BrandIcons";
 import './replies.css';
 
 export function SwipeReply({ disabled, onReply, onHold, actionsDisabled = false, actionLabel = 'خيارات الرسالة', actionDescriptionId, children }: {

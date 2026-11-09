@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { BookOpen, CircleHelp, Search, X } from 'lucide-react';
+import { BookOpen, CircleHelp, Search, X } from "../BrandIcons";
 import { helpTopics, searchGuide, type HelpTopic } from './guide';
 import './help.css';
 import { SupportContact } from './SupportContact';

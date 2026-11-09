@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, ShieldCheck, Sparkles, UserRound } from "../BrandIcons";
 import { useLayoutEffect, useRef, useState } from 'react';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { PortraitPhoto } from '../photos/PortraitPhoto';

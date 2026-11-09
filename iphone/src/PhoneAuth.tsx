@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, MessageSquareText } from "lucide-react";
+import { ArrowLeft, MessageSquareText } from "./BrandIcons";
 import { sendPhoneOtp, verifyPhoneOtp } from "./cloud";
 import { latinDigits } from "./onboarding/draft";
 

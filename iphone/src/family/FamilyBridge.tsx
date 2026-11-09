@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowRight, Check, ChevronLeft, Clock3, Copy, Download, HeartHandshake, Link2, LockKeyhole, MessageCircle, Plus, Send, ShieldCheck, Trash2, UserPlus, UsersRound, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Clock3, Copy, Download, HeartHandshake, Link2, LockKeyhole, MessageCircle, Plus, Send, ShieldCheck, Trash2, UserPlus, UsersRound, X } from "../BrandIcons";
 import { Brand } from '../Brand';
 import { SupportContact } from '../help/SupportContact';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';

@@ -18,7 +18,7 @@ import {
   Navigation2,
   Settings2,
   WalletCards,
-} from "lucide-react";
+} from "./BrandIcons";
 import type { Proposal } from "./types";
 import { useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";

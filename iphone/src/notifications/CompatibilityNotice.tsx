@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronLeft, Orbit, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronLeft, Orbit, X } from "../BrandIcons";
 import type { CompatibilityChange } from '../compatibility/changes';
 import type { MatchFit } from '../compatibility/model';
 import { FitDetails } from '../compatibility/FitDetails';

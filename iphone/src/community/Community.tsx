@@ -42,6 +42,7 @@ import {
   Clock3,
   ChevronLeft,
   Compass,
+  Compatibility,
   Flag,
   Eye,
   EyeOff,
@@ -61,7 +62,7 @@ import {
   Trash2,
   UsersRound,
   X,
-} from "lucide-react";
+} from "../BrandIcons";
 import { Brand } from "../Brand";
 import { MemberTabs } from "../Home";
 import { interests } from "../compatibility/model";
@@ -515,7 +516,7 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
+        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><Compatibility size={15} aria-hidden="true"/></span>
       </button>
     </div>
 
@@ -776,15 +777,8 @@ function Discovery({
         <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "جميع الملفات" : "ترشيحاتك"}</span>
       </header>
       <MotionReveal className="cm-title df-title" duration={480}>
-        <div><h1>استكشف</h1><p>ملفات وتفضيلات تساعدك على الاختيار.</p></div>
-        <button
-          className={"cm-filter-button" + (count ? " selected" : "")}
-          onClick={() => setFilterOpen(true)}
-          aria-label="تصفية الملفات"
-        >
-          <SlidersHorizontal size={16} /><span>تصفية</span>{" "}
-          {count > 0 && <b>{ar.format(count)}</b>}
-        </button>
+        <div><h1>استكشف</h1></div>
+
       </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
@@ -796,10 +790,9 @@ function Discovery({
           <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
       </div>
-      <ProfileVisitNotice interest={order === 'all'} compact/>
-      {order === "all" && <div className="dr-tools"><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
+      {<div className={`dr-tools${order==='recommended'?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
         <label className="dr-sort"><span>الترتيب</span><select aria-label="ترتيب الاستكشاف" value={filters.sort??'compatibility'} onChange={e=>setFilters(f=>({...f,sort:e.target.value as Filters['sort']}))}><option value="compatibility">الأقرب توافقًا</option><option value="youngest">الأصغر عمرًا</option><option value="oldest">الأكبر عمرًا</option></select></label>
-        <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button><span className="dr-directory-note">الاهتمام يرسل إشعارًا · الطلب يفتح باب التعارف</span></div>}
+        <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (

@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check } from "../BrandIcons";
 import { skinTones, dressStyles, dressFlexibilities, type SkinTone, type DressStyle } from "../compatibility/appearance";
 import { criteriaModes, type MarriageBasics, type PartnerCriteria, type CriteriaMode } from "../compatibility/marriage";
 import type { ReactNode } from "react";

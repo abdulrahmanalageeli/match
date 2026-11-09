@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Search, X } from "../BrandIcons";
 import './ChoiceSelect.css';
 
 export type ChoiceOption = { value: string; label: string; group?: string; keywords?: readonly string[] };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Camera, Eye, ImagePlus, LockKeyhole, ShieldCheck, Trash2, X } from "lucide-react";
+import { Camera, Eye, ImagePlus, LockKeyhole, ShieldCheck, Trash2, X } from "../BrandIcons";
 import { privateUpdates, type WatchUpdates } from "../community/updates";
 import { emptyPhotos, loadPhoto, photoOwner, photoState, preparePhoto, removePhoto, sharePhoto, uploadPhoto, type PhotoState } from "./photoData";
 import "./photos.css";

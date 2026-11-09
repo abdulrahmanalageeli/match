@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { LockKeyhole, ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { LockKeyhole, ArrowLeft, ArrowRight, RotateCcw } from "../BrandIcons";
 import App from '../App';
 import { Brand } from '../Brand';
 import { testProfile,testRequest,testStorage,type Actor,type TestSession } from './pair';

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Mail, MessageCircle, X } from 'lucide-react';
+import { Mail, MessageCircle, X } from "../BrandIcons";
 import type { SupportCategory, SupportInput, SupportSource, SupportTicket } from './support';
 import { feedback } from '../feedback/haptics';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';

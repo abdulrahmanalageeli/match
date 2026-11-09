@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Download, Eye, FileJson, Share2, X } from "lucide-react";
+import { Check, Copy, Download, Eye, FileJson, Share2, X } from "../BrandIcons";
 import { callRpc } from "../cloud";
 import { interests } from "../compatibility/model";
 import type { Profile } from "../types";

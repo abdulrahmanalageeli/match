@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { Check, Feather } from 'lucide-react';
+import { Check, Feather } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { profilePrompts, answeredProfilePrompts, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';

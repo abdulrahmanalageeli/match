@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, Check, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { ArrowLeft, Check, Eye, EyeOff, LockKeyhole, Mail } from "../BrandIcons";
 import { Frame } from '../Screens';
 import { cloudLogout, createRecoveryClient } from '../cloud';
 import { clearSession } from '../session';

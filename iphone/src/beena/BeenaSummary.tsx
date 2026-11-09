@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { ArrowUpLeft, BookOpen, Check, HeartHandshake, MessageCircle, Quote } from 'lucide-react';
+import { ArrowUpLeft, BookOpen, Check, HeartHandshake, MessageCircle, Quote } from "../BrandIcons";
 import { beenaScenarios, beenaVersion, type BeenaFit } from './model';
 import './beena.css';
 

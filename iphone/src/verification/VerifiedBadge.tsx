@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BadgeCheck, FlaskConical, X } from 'lucide-react';
+import { BadgeCheck, FlaskConical, X } from "../BrandIcons";
 import { currentVerificationClaims, verificationDate, verificationKinds, type ManualVerificationClaim } from './model';
 import './verification.css';
 

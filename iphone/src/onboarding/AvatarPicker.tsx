@@ -1,4 +1,4 @@
-import { Check, Image, LockKeyhole } from "lucide-react";
+import { Check, Image, LockKeyhole } from "../BrandIcons";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import { ToneChoices } from "./AppearanceFields";

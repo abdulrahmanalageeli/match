@@ -515,8 +515,8 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        <span className="dr-preference-dial"><svg viewBox="0 0 48 48" aria-hidden="true"><circle className="dr-preference-track" cx="24" cy="24" r="21"/><circle className="dr-preference-fill" cx="24" cy="24" r="21" pathLength="100" strokeDasharray={`${preference??0} 100`}/></svg><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong></span>
-        <span>التفضيلات</span>
+        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
+        <span className="dr-preference-bar" aria-hidden="true"><i style={{width:`${preference??0}%`}}/></span>
       </button>
     </div>
 

@@ -333,3 +333,13 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-row-context .dr-row-timeline,
 .phone-app .cm-shell .dr-row-meta { color: #655d63; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request[data-connected] { background: #f0e6ea; border-color: transparent; color: #54152a; }
+
+.phone-app .cm-shell .dr-fit-visual { width: 74px; gap: 5px; }
+.phone-app .cm-shell .dr-preference-inline { display: flex; align-items: baseline; gap: 5px; }
+.phone-app .cm-shell .dr-preference-inline strong { font-size: 17px; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-preference-inline small { font-size: 8px; font-weight: 400; }
+.phone-app .cm-shell .dr-preference-inline > span { font-size: 9px; color: #756c72; }
+.phone-app .cm-shell .dr-fit-visual > .dr-preference-bar { display: block; width: 100%; height: 3px; overflow: hidden; border-radius: 2px; background: #54152a12; }
+.phone-app .cm-shell .dr-preference-bar i { display: block; height: 100%; border-radius: inherit; background: #916676; transform-origin: right; }
+@keyframes dr-bar-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .dr-preference-bar i { animation: dr-bar-reveal 500ms ease-out both; } }

@@ -453,7 +453,6 @@ function CompatibilityPill({ person }: { person: PublicPerson }) {
   const percentage = compatibilityPercentage(person);
   return <span className={"df-compatibility" + (percentage === null ? " pending" : "")}
     aria-label={percentage === null ? "توافق التفضيلات ينتظر اكتمال التقييمين" : `توافق التفضيلات ${ar.format(percentage)} بالمئة، بناءً على التقييمين`}>
-    <Sparkles size={14} aria-hidden="true" />
     {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <><strong>{ar.format(percentage)}<small>٪</small></strong><span>توافق التفضيلات</span></>}
   </span>;
 }

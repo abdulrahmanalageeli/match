@@ -114,6 +114,14 @@ import "./discovery.css";
 import "./journey.css";
 import './chat-continuity.css';
 
+function AddPersonMark() {
+  return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <g className="nf-add-person-male"><path d="M4.5 7h10M5 5.5Q9.5 2 14 5.5L16 14M5 7 3 16M6.5 8v2a3 3 0 0 0 6 0V8M3 21c0-4 2.5-6 6.5-6 1.2 0 2.3.2 3.2.6"/></g>
+    <g className="nf-add-person-female"><path d="M3 20 4.5 9a5 5 0 0 1 10 0l.7 4M7 7.5c1 1.5 2.7 2.5 5 2.7v.8a3 3 0 0 1-6 0V9M3 20c2-3 5.5-4.5 9-4"/></g>
+    <path d="M18.5 15v7M15 18.5h7"/>
+  </svg>;
+}
+
 type Tab = "discover" | "curated" | "inbox" | "chats";
 type CommunityProps = {
   viewerGender?: "man" | "woman";
@@ -529,7 +537,7 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     <div className="dr-row-actions">
-      <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<span className="nf-add-person-mark" aria-hidden="true"/>}</button>
+      <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<AddPersonMark/>}</button>
     </div>
     </div>
   </article>;
@@ -765,7 +773,7 @@ function Discovery({
         featured={listPosition.current?.featured}
         primary={<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<span className="nf-add-person-mark" aria-hidden="true"/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           <p className="cm-help"><LockKeyhole size={14} />{person.connectionId ? "تواصل خاص بينكما." : person.atCapacity || person.viewerAtCapacity ? "الحد الأقصى تعارفان متزامنان. يمكنك العودة لاحقًا." : "لن تُفتح المحادثة إلا بعد قبول الطرف الآخر."}</p>
           {error&&<Banner alert text={error}/>}
@@ -1846,7 +1854,7 @@ function Requests({
     return <Profile source={source} person={existing?.person ?? visitPerson} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
-        {!existing && <span className="nf-add-person-mark" aria-hidden="true"/>}
+        {!existing && <AddPersonMark/>}
         {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : 'إرسال طلب تعارف'}
       </button>
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}

@@ -1991,6 +1991,15 @@ export function Community(props: CommunityProps) {
   const [requestToOpen, setRequestToOpen] = useState<RequestEntry>();
   const [conversationToOpen, setConversationToOpen] = useState<string>();
   const { tab, source, onTab, onAccount, onHome, paused, onResume } = props;
+  const [requestUnread,setRequestUnread]=useState(0);
+  useEffect(()=>{
+    let active=true,sequence=0;
+    setRequestUnread(0);
+    const refresh=async()=>{if(document.hidden)return;const current=++sequence;try{const rows=await source.inbox();if(active&&current===sequence)setRequestUnread(rows.filter(row=>row.status==='pending'&&row.direction==='incoming').length);}catch{/* Keep the last known count while reconnecting. */}};
+    void refresh();const unwatch=source.watch(()=>void refresh());
+    document.addEventListener('visibilitychange',refresh);window.addEventListener('online',refresh);
+    return()=>{active=false;unwatch();document.removeEventListener('visibilitychange',refresh);window.removeEventListener('online',refresh);};
+  },[source,tab]);
   const discoveryUnavailable = paused || Boolean(props.profileReviewPending);
   useEffect(() => {
     if (tab === "inbox" && requestToOpen) setRequestToOpen(undefined);
@@ -2029,6 +2038,7 @@ export function Community(props: CommunityProps) {
           onDiscover={() => onTab("discover")}
           onInbox={() => onTab("inbox")}
           onChats={props.onChats ?? (() => onTab("chats"))}
+          requestUnread={requestUnread}
           chatUnread={props.chatUnread}
           onAccount={onAccount}
         />

@@ -165,6 +165,7 @@ type TabsProps = {
   onInbox?: () => void;
   onChats?: () => void;
   chatUnread?: number;
+  requestUnread?: number;
   onAccount: () => void;
 };
 
@@ -178,6 +179,7 @@ export function MemberTabs({
   onInbox,
   onChats,
   chatUnread = 0,
+  requestUnread = 0,
   onAccount,
 }: TabsProps) {
   const marker = useRef<HTMLSpanElement>(null);
@@ -209,11 +211,12 @@ export function MemberTabs({
     <nav className="mi-tabbar" aria-label="التنقل الرئيسي">
       {items.map(({ id, text, icon: Icon, open }) => {
         if (!open && active !== id) return null;
-        const unread = id === "chats" && chatUnread > 0;
+        const count = id === "chats" ? chatUnread : id === "home" ? requestUnread : 0;
+        const unread = count > 0;
         const label = <>
           <span className="mi-tab-icon"><Icon aria-hidden="true" />{unread &&
-            <b className="mi-tab-count" aria-hidden="true">{chatUnread > 99 ? "٩٩+" : arabicNumber.format(chatUnread)}</b>}</span>
-          <span>{text}</span>{unread && <span className="mi-sr-only">{arabicNumber.format(chatUnread)} غير مقروءة</span>}
+            <b className="mi-tab-count" aria-hidden="true">{count > 99 ? "٩٩+" : arabicNumber.format(count)}</b>}</span>
+          <span>{text}</span>{unread && <span className="mi-sr-only">{arabicNumber.format(count)} {id === "home" ? "طلبات تعارف بانتظار ردك" : "غير مقروءة"}</span>}
         </>;
         return active === id
           ? <span className="mi-tab mi-tab-active" key={id} aria-current="page">

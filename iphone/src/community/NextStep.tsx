@@ -46,9 +46,9 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
     return () => { active = false; unwatch(); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source]);
   const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined);
-  if (!next) return null;
+  if (!next || next.kind === 'request') return null;
   const Icon = next.kind === 'assessment' ? BookOpen : next.kind === 'agreement' ? Feather : next.kind === 'journey' ? Route
-    : next.kind === 'capacity' ? HeartHandshake : next.kind === 'request' || next.kind === 'waiting' ? Send : MessageCircle;
+    : next.kind === 'capacity' ? HeartHandshake : next.kind === 'waiting' ? Send : MessageCircle;
   const open = () => {
     if (next.target === 'assessment') onAssessment?.();
     else if (next.connectionId) (next.target === 'request' ? onRequest : onConversation)(next.connectionId);

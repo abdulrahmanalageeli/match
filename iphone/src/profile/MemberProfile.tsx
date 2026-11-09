@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarHeart, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from 'lucide-react';
+import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarHeart, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from 'lucide-react';
 import type { CommunitySource, PublicPerson } from '../community/data';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { dressStyles, dressFlexibilities, skinTones } from '../compatibility/appearance';
@@ -30,9 +30,9 @@ const validCount = (value: unknown, min: number, max: number): value is number =
 function Story({title,children,accent=false}:{title:string;children:string;accent?:boolean}) {
   return <section className={'mp-story'+(accent?' mp-story-accent':'')}><h2>{accent?<Heart size={16}/>:<Feather size={16}/>} {title}</h2><p dir="auto">{children}</p></section>;
 }
-export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId}: {
+export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport}: {
   person: PublicPerson; source?: CommunitySource | null; back:()=>void; backText:string;
-  primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string;
+  primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void;
 }) {
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
   const [failed,setFailed]=useState(false);
@@ -65,7 +65,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   function openFit(){selectSection('fit');fitButton.current?.focus({preventScroll:true});}
   if(passportOpen&&canOpenPassport)return <SharedReadinessPassportPanel key={passportConnection} source={source} connectionId={passportConnection} name={person.alias} onBack={()=>{setPassportOpen(false);requestAnimationFrame(()=>passportButton.current?.focus());}}/>;
   return <article className="mp-profile screen-content" dir="rtl" data-self-preview={preview||undefined}>
-    <header className="mp-navigation"><button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button><span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span></header>
+    <header className="mp-navigation"><button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button><span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>{onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ عن الملف</button></details>}</header>
     {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين.</span></p>}
     <section className="mp-hero" data-weekly-featured={featured||undefined} ref={identity} aria-label={`ملف ${person.alias}`}>
       <ScenePaths className="mp-arrival-paths" parallax />

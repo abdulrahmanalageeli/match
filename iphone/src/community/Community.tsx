@@ -501,7 +501,7 @@ function PersonCard({
   );
 }
 
-function DirectoryRow({person,source,open,explain,request,interest,dismiss,report,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;report:()=>void;busy:boolean}) {
+function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
   const personality=personalityPercentage(person.fit);
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -527,7 +527,6 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>
       <button className="dr-row-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`}><EyeOff size={15}/><span>غير مهتم</span></button>
-      <button className="dr-row-report" onClick={report} disabled={busy} aria-label={`الإبلاغ عن ${person.alias}`} title="إبلاغ"><Flag size={15}/></button>
     </div>
   </article>;
 }
@@ -758,7 +757,7 @@ function Discovery({
   }
   if (person)
     return (
-      <Profile source={source} person={person} back={closeProfile} backText="استكشف" identity={identity}
+      <Profile source={source} person={person} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         featured={listPosition.current?.featured}
         primary={<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
@@ -863,7 +862,7 @@ function Discovery({
       )}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
-          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} explain={()=>setFitPerson(item)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')} report={()=>{setRowError('');setReportTarget(item);}}/>:<PersonCard
+          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} explain={()=>setFitPerson(item)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')}/>:<PersonCard
             key={item.id}
             person={item}
             source={source}

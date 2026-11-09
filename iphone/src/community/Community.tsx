@@ -115,10 +115,11 @@ import "./journey.css";
 import './chat-continuity.css';
 
 function AddPersonMark() {
-  return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <g className="nf-add-person-male"><path d="M4.5 7h10M5 5.5Q9.5 2 14 5.5L16 14M5 7 3 16M6.5 8v2a3 3 0 0 0 6 0V8M3 21c0-4 2.5-6 6.5-6 1.2 0 2.3.2 3.2.6"/></g>
-    <g className="nf-add-person-female"><path d="M3 20 4.5 9a5 5 0 0 1 10 0l.7 4M7 7.5c1 1.5 2.7 2.5 5 2.7v.8a3 3 0 0 1-6 0V9M3 20c2-3 5.5-4.5 9-4"/></g>
-    <path d="M18.5 15v7M15 18.5h7"/>
+  return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+    <path d="M2 11C3 2 13 1 16 11C11 5 6 6 2 11ZM2 13C5 8 12 8 15 12C7 8 4 17 13 24L15 27C7 23 0 20 2 13Z"/>
+    <path opacity=".6" d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
+    <circle cx="16" cy="26" r="5.5" stroke="var(--nf-icon-cutout, #fff)" strokeWidth="1.5"/>
+    <path d="M16 23.5v5M13.5 26h5" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
   </svg>;
 }
 

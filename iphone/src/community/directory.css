@@ -82,8 +82,5 @@
 @media(max-width:365px){.dr-person-row{padding:10px}.dr-row-avatar{width:54px;height:54px}.dr-row-profile{gap:8px}.dr-row-overview{gap:7px}.dr-score{min-width:42px;padding:0 5px}.dr-score strong{font-size:22px}.dr-row-fit{padding-block:6px}.dr-row-name strong{font-size:14px}.dr-row-actions{gap:3px;grid-template-columns:1.2fr .8fr 1fr 26px}.dr-row-actions button{font-size:10px;padding:5px 3px}}
 @media(prefers-reduced-motion:reduce){.dr-person-row,.dr-row-actions button{transition:none}}
 html[data-nf-motion=reduced] .dr-row-actions button{transition:none}
-.nf-add-person-mark { display: block; width: 24px; height: 24px; flex: 0 0 24px; }
-.nf-add-person-female { display: none; }
-[data-viewer-gender="man"] .nf-add-person-male { display: none; }
-[data-viewer-gender="man"] .nf-add-person-female { display: inline; }
+.nf-add-person-mark { display: block; width: 24px; height: 24px; flex: 0 0 24px; color: #916b77; }
 .phone-app .cm-shell .dr-row-request > .nf-add-person-mark { width: 24px; height: 24px; }

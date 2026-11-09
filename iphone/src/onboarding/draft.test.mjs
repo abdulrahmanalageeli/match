@@ -154,3 +154,20 @@ test("server changes to any new assessment group invalidate an older draft basel
   assert.notEqual(profileBaseline({ ...illustrated, publicAvatar: { style: "niqab", skinTone: "tone_1" } }), profileBaseline(illustrated));
   assert.notEqual(profileBaseline({ ...illustrated, appearanceVersion: undefined }), profileBaseline(illustrated));
 });
+
+
+test('signup requires a birthday, derives age, and preserves existing age-only profiles', () => {
+ const p={...answers(),birthDate:'1998-01-01',age:'99'};
+ assert.equal(validateStep('identity',p,true,true),null);
+ const result=toProfile(p);
+ assert.equal(result.age,new Date().getFullYear()-1998);
+ assert.equal(result.birthDate,'1998-01-01');
+ assert.equal(initialDraft('owner',result).answers.birthDate,'1998-01-01');
+ assert.equal(validateStep('identity',{...p,birthDate:undefined},true,true)?.field,'birthDate');
+ assert.equal(validateStep('identity',{...p,birthDate:undefined,age:'28'},true),null);
+ assert.equal(validateStep('identity',{...p,birthDate:'2020-01-01'},true,true)?.field,'birthDate');
+});
+test('contact accepts email and formatted phone numbers but rejects arbitrary text', () => {
+ for(const contact of ['name@example.com','+966 50 123 4567','٠٥٠١٢٣٤٥٦٧']) assert.equal(validateStep('preferences',{...answers(),contact},true),null);
+ for(const contact of ['hello','name@','123']) assert.equal(validateStep('preferences',{...answers(),contact},true)?.field,'contact');
+});

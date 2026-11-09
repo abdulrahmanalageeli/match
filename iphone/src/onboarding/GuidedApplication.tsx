@@ -7,6 +7,7 @@ import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
 import { intakeVault, accountDraftsAvailable } from "./persistence";
@@ -53,7 +54,7 @@ type Props = {
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, review: CheckCheck };
 const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
 const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
-  identity:['displayName','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
+  identity:['displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
   details:['marriageBasics'], avatar:['publicAvatar','portrait'], criteria:['partnerCriteria'],
   compatibility:['interestIds','surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
   beena:['beena'],
@@ -369,14 +370,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     event.preventDefault();
     if (busy||photoBusy) return;
     const agreed=consents.adult&&consents.terms&&consents.privacy;
-    const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed);
+    const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed, !editing);
     if (issue) {
       setError(issue);
       return;
     }
     if (chapter.key === "review") {
       for (const entry of steps) {
-        const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed) : null;
+        const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed, !editing) : null;
         if (sectionIssue) {
           move(entry.key, true);
           setError(sectionIssue);
@@ -435,7 +436,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
                     aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span><i className="nf-intake-choice-check" aria-hidden="true">{p.gender === gender && <Check size={13} />}</i></button>)}
                 </div></fieldset>
-                <div className="field-pair"><ChoiceSelect {...field('age')} label="العمر" value={p.age} onChange={age => update({ age })} options={ageOptions} placeholder="اختر عمرك" required />
+                <div className="field-pair"><label>تاريخ الميلاد · ميلادي<input {...field('birthDate')} type="date" dir="ltr" autoComplete="bday" value={p.birthDate ?? ''} max={latestAdultBirthday()} min="1900-01-01" required={!editing || !!initial?.birthDate} onChange={e => { const birthDate=e.target.value; const age=ageFromBirthday(birthDate); update({birthDate,age:age===null?'':String(age)}); }} />
+                  <small>{p.birthDate && ageFromBirthday(p.birthDate)! >= 18 ? `عمرك ${arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا · يظهر العمر فقط` : editing && !p.birthDate ? `العمر المسجّل: ${arabicNumber(Number(p.age))} عامًا · أضف ميلادك لتحديثه تلقائيًا` : 'خاص بك؛ يظهر العمر فقط في ملفك. الحد الأدنى ١٨ عامًا.'}</small></label>
                   <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city => update({ city })} options={cityOptions} placeholder="اختر مدينتك" required /></div>
                 <small>اختر مكان إقامتك الحالي لتكون الترشيحات ونتائج البحث أقرب إليك.</small>
               </>}
@@ -472,7 +474,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <option>بعد التعارف الأول</option><option>من البداية</option><option>نتفق على ذلك لاحقًا</option>
                 </select></label>
                 <small>يظهر تفضيل إشراك الأهل في ملفك العام للأعضاء المؤهلين.</small>
-                <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="بريد إلكتروني أو رقم تواصل" /></label>
+                <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
               {chapter.key === "review" && <>

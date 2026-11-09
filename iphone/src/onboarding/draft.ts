@@ -1,3 +1,4 @@
+import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
 import { assessmentVersion } from "../compatibility/model";
 import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
@@ -56,6 +57,7 @@ export function profileBaseline(p: Profile | null) {
   if (p.publicAvatar !== undefined || p.appearanceVersion) values.push(p.publicAvatar ?? null, p.appearanceVersion ?? "");
   if (p.portrait !== undefined) values.push(['portrait',p.portrait ? [p.portrait.id,p.portrait.path,p.portrait.blur] : null]);
   if (p.portrait?.revealPolicy) values.push(['portraitReveal',p.portrait.revealPolicy,p.portrait.hasClear===true]);
+  if (p.birthDate) values.push(["birthDate",p.birthDate]);
   if (p.beena !== undefined) values.push(['beena',p.beena]);
   return JSON.stringify(values);
 }
@@ -65,7 +67,8 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
     displayName: "", gender: "", city: "", profession: "", bio: "", contact: "",
     lookingFor: "", lifeTogether: "", education: "", marriageIntent: "", valuesStatement: "",
     familyPreference: "بعد التعارف الأول", ...initial,
-    age: initial ? String(initial.age) : "",
+    birthDate: initial?.birthDate ?? (initial ? undefined : ""),
+    age: initial ? String(initial.birthDate ? ageFromBirthday(initial.birthDate) ?? initial.age : initial.age) : "",
     preferredMinAge: String(initial?.preferredMinAge ?? 18),
     preferredMaxAge: String(initial?.preferredMaxAge ?? 65),
     interestIds: initial?.interestIds ?? [], surveyAnswers: initial?.surveyAnswers ?? {},
@@ -84,12 +87,13 @@ function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
 export type Issue = { field: keyof Answers | "consent"; text: string };
-export function validateStep(step: Chapter, p: Answers, consent: boolean): Issue | null {
+export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false): Issue | null {
   switch (step) {
     case "identity":
       if (!p.displayName.trim()) return { field: "displayName", text: "أدخل اسمًا يظهر في ملفك." };
       if (!p.gender) return { field: "gender", text: "اختر الجنس لإكمال ملفك." };
-      if (!validAge(p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
+      if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. نصفين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
+      if (!validAge(p.birthDate ? String(ageFromBirthday(p.birthDate ?? '')) : p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
       if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
       return null;
     case "story":
@@ -106,6 +110,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean): Issue
         return { field: "preferredMaxAge", text: "يجب أن يكون الحد الأعلى مساويًا للحد الأدنى أو أكبر منه." };
       }
       if (!p.contact.trim()) return { field: "contact", text: "أدخل وسيلة تواصل لاستخدامها بعد الموافقة المتبادلة." };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact.trim()) && !/^\+?\d{8,15}$/.test(latinDigits(p.contact).replace(/[\s()-]/g, ""))) return { field: "contact", text: "أدخل بريدًا إلكترونيًا صحيحًا أو رقم جوال مع رمز الدولة." };
       return null;
     case "details":
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
@@ -130,7 +135,7 @@ export function toProfile(p: Answers): Profile {
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
     ...p, assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
-    priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: Number(p.age), preferredMinAge: Number(p.preferredMinAge),
+    priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: p.birthDate ? ageFromBirthday(p.birthDate ?? '')! : Number(p.age), preferredMinAge: Number(p.preferredMinAge),
     preferredMaxAge: Number(p.preferredMaxAge), displayName: p.displayName.trim(),
     city: canonicalCity(p.city), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),
     ...(p.marriageBasics ? { marriageBasics: { ...p.marriageBasics, ...(p.marriageBasics.nationality ? { nationality: canonicalNationality(p.marriageBasics.nationality) } : {}) } } : {}),

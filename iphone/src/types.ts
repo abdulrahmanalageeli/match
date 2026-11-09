@@ -9,6 +9,8 @@ export type ProfilePortrait = { id: string; path: string; blur: number; revealPo
 
 export type Profile = {
   displayName: string;
+  /** Private date-only Gregorian birthday; never part of public person cards. */
+  birthDate?: string;
   age: number;
   gender: "woman" | "man";
   city: string;

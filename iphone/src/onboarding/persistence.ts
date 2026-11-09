@@ -13,7 +13,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
 const textLimits = { displayName: 60, age: 3, city: 80, profession: 100, bio: 1200, contact: 180,
   preferredMinAge: 3, preferredMaxAge: 3, familyPreference: 180 } as const;
-const optionalTextLimits = { lookingFor: 600, lifeTogether: 600, valuesStatement: 600, education: 100, marriageIntent: 100 } as const;
+const optionalTextLimits = { birthDate: 10, lookingFor: 600, lifeTogether: 600, valuesStatement: 600, education: 100, marriageIntent: 100 } as const;
 const surveyOptions = new Map<string, Set<string>>();
 for (const dimension of dimensions) {
   const options = new Set<string>(dimension.options.map(o => o.code));

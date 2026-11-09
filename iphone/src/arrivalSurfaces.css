@@ -96,8 +96,25 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 9px; }
 .phone-app .cm-shell .cm-request,
 .phone-app .cm-shell .cm-notification-row { padding: 12px; min-height: 76px; border: 0; border-radius: var(--nf-card-radius); background: #fff; box-shadow: var(--nf-card-shadow); }
-.phone-app .cm-shell .cm-notification-row { margin-bottom: 8px; }
-.phone-app .cm-shell .cm-notification-row[data-unread] { background: #fdfafb; }
+.phone-app .cm-shell .cm-notification-row { margin-bottom: 2px; padding: 9px 10px; min-height: 68px; gap: 10px; border-radius: 10px; box-shadow: none; border-bottom: 1px solid #eee9eb; }
+.phone-app .cm-shell .cm-notification-row[data-unread] { background: #f8f0f3; }
+.phone-app .cm-shell .cm-notification-row:not([data-unread]) .nf-feed-row-head strong { color: #72666b; font-weight: 400; }
+.phone-app .cm-shell .nf-feed-avatar { width: 38px; height: 44px; flex-basis: 38px; border-radius: 9px; }
+.phone-app .cm-shell .nf-feed-avatar > i { width: 18px; height: 18px; }
+.phone-app .cm-shell .nf-feed-avatar > i svg { width: 11px; height: 11px; }
+.phone-app .cm-shell .nf-feed-copy { gap: 2px; }
+.phone-app .cm-shell .nf-feed-row-head { gap: 6px; }
+.phone-app .cm-shell .nf-feed-row-head strong { font-size: 14px; line-height: 1.4; }
+.phone-app .cm-shell .nf-feed-copy > small { font-size: 12px; line-height: 1.4; }
+.phone-app .cm-shell .nf-feed-meta { font-size: 10px; line-height: 1.4; margin-top: 0; gap: 6px; }
+.phone-app .cm-shell .nf-feed-read-state { color: #8a7c82; }
+.phone-app .cm-shell [data-unread] .nf-feed-read-state { color: #74314b; font-weight: 600; }
+.phone-app .cm-shell .df-discovery > .nf-next-step { padding: 0 8px; margin-bottom: 10px; min-height: 44px; gap: 6px; border: 0; border-radius: 10px; background: #f7f3f4; }
+.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-icon { width: 18px; flex-basis: 18px; }
+.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-icon svg { width: 17px; height: 17px; }
+.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy { gap: 6px; }
+.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy h2 { font-size: 12px; font-weight: 500; line-height: 1.4; color: #72636b; }
+.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy button { font-size: 11px; padding: 0; min-height: 44px; }
 .phone-app .cm-shell .cm-request-copy strong { font-size: 17px; }
 .phone-app .cm-shell .cm-request-copy .cm-inbox-preview,
 .phone-app .nf-feed-copy > small { color: #655d63; font-size: 13px; }

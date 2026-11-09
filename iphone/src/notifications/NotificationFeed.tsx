@@ -105,7 +105,7 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
         <button className="cm-notification-row" data-unread={item.unread || undefined} data-kind={item.kind} disabled={!item.target || opening !== null} aria-busy={opening === item.id || undefined} onClick={() => void open(item)}>
           <span className="nf-feed-avatar" aria-hidden="true"><PersonAvatar person={item.person} source={source}/><i><EventIcon item={item}/></i></span>
           <span className="nf-feed-copy"><span className="nf-feed-row-head"><strong>{item.title}</strong>{item.unread && <i className="nf-feed-unread" aria-label="غير مقروء"/>}</span><small>{item.detail}</small>
-            <span className="nf-feed-meta">{feedTime(item.at) ? <time dateTime={item.at} title={fullDate.format(new Date(item.at!))}>{timeFormat.format(new Date(item.at!))}</time> : <span>الوقت غير متوفر</span>}{item.attention && <em>بانتظارك</em>}</span>
+            <span className="nf-feed-meta"><span className="nf-feed-read-state">{item.unread ? 'جديد' : 'مقروء'}</span>{feedTime(item.at) ? <time dateTime={item.at} title={fullDate.format(new Date(item.at!))}>{timeFormat.format(new Date(item.at!))}</time> : <span>الوقت غير متوفر</span>}{item.attention && <em>بانتظارك</em>}</span>
           </span>
           {item.target && <ChevronLeft className="nf-feed-chevron" size={15} aria-hidden="true"/>}
         </button>

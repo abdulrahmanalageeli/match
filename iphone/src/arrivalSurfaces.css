@@ -114,3 +114,18 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat-head .cm-call-button svg,
 .phone-app .cm-shell .cm-chat-head .cm-guide-button svg { width: 21px; height: 21px; }
 .phone-app .pg-add { border-color: #ddd4d8; background: #fff; border-radius: 12px; box-shadow: none; }
+
+.phone-app .mo-heading { padding-block: 14px 12px; }
+.phone-app .mo-heading h1 { font-size: 24px; }
+.phone-app .mo-summary { padding: 12px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .mo-list { gap: 10px; }
+.phone-app .mo-card { padding: 12px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .mo-profile { padding-block: 11px; gap: 12px; }
+.phone-app .mo-avatar.cm-avatar { width: 52px; height: 62px; }
+.phone-app .mo-card-status { font-size: 11px; }
+.phone-app .mo-identity > span,
+.phone-app .mo-card-foot > span { font-size: 12px; color: #655d63; }
+.phone-app .mo-action { min-height: 36px; padding: 6px 10px; border-radius: 9px; font-size: 12px; }
+.phone-app .mo-action-current { background: #f0e6ea; color: #54152a; border-color: transparent; }
+.phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon { width: 36px; height: 36px; }
+.phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon svg { width: 23px; height: 23px; }

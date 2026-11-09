@@ -102,7 +102,7 @@
 .phone-app .cm-shell .dr-row-summary { display: flex; flex-wrap: wrap; margin-block: 6px 6px; gap: 5px 9px; align-items: center; }
 .phone-app .cm-shell .dr-row-summary > .dr-row-bio { flex: 0 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; color: #575158; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .phone-app .cm-shell .dr-row-summary > .bn-compact { margin: 0; padding: 5px 8px; gap: 6px; white-space: nowrap; }
-.phone-app .cm-shell .dr-row-actions { grid-template-columns: 148px 44px 44px; justify-content: start; gap: 7px; padding-top: 0; border: 0; }
+.phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(100px,148px) 40px minmax(94px,1fr); justify-content: start; gap: 7px; padding-top: 0; border: 0; }
 .phone-app .cm-shell .dr-row-actions button { min-height: 44px; border-radius: 10px; font-size: 13px; padding: 8px 5px; font-weight: 500; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request { gap: 8px; background: #54152a; color: #fff; border: 1px solid #54152a; box-shadow: none; font-weight: 600; }
 .phone-app .cm-shell .dr-request-icon { width: 16px; height: 16px; display: grid; place-items: center; flex: none; background: transparent; }
@@ -242,7 +242,7 @@
   .phone-app .cm-shell .dr-row-fit { width: 94px; padding-inline-start: 5px; }
   .phone-app .cm-shell .dr-score > span { font-size: 10px; }
   .phone-app .cm-shell .dr-score strong { font-size: 14px; }
-  .phone-app .cm-shell .dr-row-actions { grid-template-columns: 148px 44px 44px; justify-content: start; gap: 5px; }
+  .phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(100px,148px) 40px minmax(94px,1fr); justify-content: start; gap: 5px; }
   .phone-app .cm-shell .dr-row-actions button { font-size: 12px; }
   .phone-app .mp-hero { grid-template-columns: minmax(0, 1fr) 42%; gap: 16px 12px; }
   .phone-app .mp-portrait { height: 180px; }
@@ -264,3 +264,17 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .mp-profile-menu summary { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; list-style: none; color: #716b70; }
 .phone-app .mp-profile-menu summary::-webkit-details-marker { display: none; }
 .phone-app .mp-profile-menu > button { position: absolute; inset-inline-end: 0; top: 46px; z-index: 5; display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 14px 16px; border: 1px solid #e5e2de; border-radius: 10px; background: #fff; color: #54152a; box-shadow: 0 6px 20px #24182012; font: inherit; font-size: 13px; cursor: pointer; }
+
+.phone-app .cm-shell .dr-header-dismiss { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 0; background: transparent; color: #92898d; cursor: pointer; }
+.phone-app .cm-shell .dr-row-actions .dr-compatibility-rings { justify-self: end; width: 94px; display: flex; justify-content: space-between; align-items: start; gap: 6px; padding: 0; background: none; border: 0; border-radius: 6px; }
+.phone-app .cm-shell .dr-ring-metric { display: grid; justify-items: center; gap: 1px; color: #54152a; }
+.phone-app .cm-shell .dr-ring-personality { color: #6c8272; }
+.phone-app .cm-shell .dr-ring-dial { position: relative; width: 36px; height: 36px; display: grid; place-items: center; }
+.phone-app .cm-shell .dr-ring-dial svg { position: absolute; inset: 0; width: 36px; height: 36px; transform: rotate(111.6deg); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.phone-app .cm-shell .dr-ring-track { opacity: .12; }
+.phone-app .cm-shell .dr-ring-dial strong { font-size: 12px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-ring-dial small { font-size: 7px; font-weight: 400; }
+.phone-app .cm-shell .dr-ring-label { color: #81757b; font-size: 9px; line-height: 1.5; }
+.phone-app .cm-shell :is(.dr-header-dismiss,.dr-compatibility-rings):focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
+@keyframes dr-ring-reveal { from { stroke-dasharray: 0 100; } }
+@media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .dr-ring-fill { animation: dr-ring-reveal 650ms cubic-bezier(.2,.7,.2,1) both; } }

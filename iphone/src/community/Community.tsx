@@ -514,18 +514,15 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}
         </span>
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span>{person.online===true&&<span className="dr-row-status">{status}</span>}</span>
       </button>
-      <button type="button" className="dr-row-fit" disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
-        <span className="dr-fit-metrics">
-          <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><span>التفضيلات</span><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong></span>
-          <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><span>الشخصية</span><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong></span>
-        </span>
-      </button>
+      <button className="dr-header-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`} title="غير مهتم"><EyeOff size={15}/></button>
     </div>
     <div className="dr-row-summary"><p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p></div>
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>
-      <button className="dr-row-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`}><EyeOff size={15}/><span>غير مهتم</span></button>
+      <button type="button" className="dr-compatibility-rings" disabled={!person.fit} onClick={explain} aria-label={`شرح التوافق مع ${person.alias}، التفضيلات ${preference===null?'غير مكتملة':`${ar.format(preference)} بالمئة`}، الشخصية ${personality==null?'غير مكتملة':`${ar.format(personality)} بالمئة`}`}>
+        {([{label:'التفضيلات',value:preference,kind:'preferences'},{label:'الشخصية',value:personality,kind:'personality'}] as const).map(metric=><span className={`dr-ring-metric dr-ring-${metric.kind}`} key={metric.kind}><span className="dr-ring-dial"><svg viewBox="0 0 40 40" aria-hidden="true"><circle className="dr-ring-track" cx="20" cy="20" r="17" pathLength="100" strokeDasharray="88 100"/><circle className="dr-ring-fill" cx="20" cy="20" r="17" pathLength="100" strokeDasharray={`${(metric.value??0)*.88} 100`}/></svg><strong>{metric.value==null?'—':<>{ar.format(metric.value)}<small>٪</small></>}</strong></span><span className="dr-ring-label">{metric.label}</span></span>)}
+      </button>
     </div>
   </article>;
 }

@@ -343,3 +343,12 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-preference-bar i { display: block; height: 100%; border-radius: inherit; background: #916676; transform-origin: right; }
 @keyframes dr-bar-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .dr-preference-bar i { animation: dr-bar-reveal 500ms ease-out both; } }
+
+/* Nisfayn invitation: two open halves meeting at a shared point. */
+.phone-app .cm-shell .dr-row-actions .dr-row-request { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; padding: 0; border-radius: 11px; }
+.phone-app .cm-shell .dr-invitation-mark { overflow: visible; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .dr-invitation-half { transition: transform 180ms ease; }
+  html:not([data-nf-motion="reduced"]) .dr-row-request:hover:not(:disabled) .dr-invitation-half:first-child { transform: translateX(1px); }
+  html:not([data-nf-motion="reduced"]) .dr-row-request:hover:not(:disabled) .dr-invitation-half:nth-child(2) { transform: translateX(-1px); }
+}

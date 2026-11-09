@@ -960,12 +960,10 @@ function JourneySummary({ source, id, name, open }: { source: CommunitySource; i
   }, [source, id]);
   if (!source.progress) return null;
   const next = journeyNext(progress, name);
-  return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label="مسار التعارف">
-    <span className="nf-journey-summary-mark" aria-hidden="true"><Sparkles size={17}/></span>
-    <MotionReveal as="span" className="nf-next-copy" key={`${next.title}:${next.waiting}:${next.agreed}`} distance={4} duration={220}>
-      <span className="nf-next-caption">خطوتكما القادمة<em>{next.waiting}</em></span>
-      <strong>{next.title}</strong><small>متفق عليه: {next.agreed}</small>
-    </MotionReveal><ChevronLeft size={14} aria-hidden="true"/>
+  return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label={`مسار التعارف: ${next.title}. ${next.waiting}. متفق عليه: ${next.agreed}`} title={next.title}>
+    <Sparkles size={14} aria-hidden="true"/><span>مسار التعارف</span>
+    {next.yours&&<span className="cm-journey-attention" role="status">بانتظارك</span>}
+    <ChevronLeft size={12} aria-hidden="true"/>
   </MotionPressButton>;
 }
 
@@ -1314,7 +1312,7 @@ export function Chat({
         <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>عرض الملف · قد تظهر زيارتك <ChevronLeft size={12}/></>}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -1348,7 +1346,7 @@ export function Chat({
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
-            <p>من «حديث أقرب» يمكنك اختيار فكرة من توافقكما ومراجعتها قبل الإرسال.</p>
+            <p>من خيارات المحادثة، اختر «حديث أقرب» لأفكار من توافقكما.</p>
           </div>}
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
@@ -1389,7 +1387,7 @@ export function Chat({
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
       {conversationAllowed && <div className="cm-chat-compose">
-       {!recording && !replyDraft && <MotionPressButton type="button" className="cm-chat-insight-trigger" disabled={!chatReady} aria-haspopup="dialog" onClick={() => setInsightsOpen(true)}><Sparkles size={15} aria-hidden="true"/><strong>حديث أقرب</strong><span>أفكار تفتح الحوار</span><ChevronLeft size={14} aria-hidden="true"/></MotionPressButton>}
+
        {replyDraft && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
          <strong>رد على {replyDraft.senderIsMe ? 'رسالتك' : connection.person.alias}</strong><span dir="auto">{replyDraft.body}</span>
        </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => thread.outbox.replyTo()}><X size={18}/></button></div>}

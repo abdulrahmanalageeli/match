@@ -171,3 +171,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day { gap: 9px; margin-block: 12px; font-size: 10px; color: #8a8186; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::after { flex: 0 0 24px; opacity: .4; }
+
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button { min-height: 60px; padding-block: 11px; gap: 10px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button strong { font-size: 14px; line-height: 1.4; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button small { font-size: 11px; line-height: 1.5; margin-top: 2px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-tools-intro { margin-block: 5px 10px; font-size: 12px; }

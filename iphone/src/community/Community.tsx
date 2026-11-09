@@ -523,8 +523,8 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
     <div className="dr-row-summary">
       <p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p>
       {timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`التوقيت المرغوب لإتمام الزواج: ${marriageTimelineLabels[timeline]}، عند العثور على الشخص المناسب`}><Clock3 size={12} aria-hidden="true"/><span>الزواج {timeline==='when_ready'?'حسب التوافق':marriageTimelineLabels[timeline]}</span></span>}
+      {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
     </div>
-    {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><Send size={14}/>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>

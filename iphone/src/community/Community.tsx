@@ -42,7 +42,6 @@ import {
   Clock3,
   ChevronLeft,
   Compass,
-  Compatibility,
   Flag,
   Eye,
   EyeOff,
@@ -516,7 +515,7 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><Compatibility size={15} aria-hidden="true"/></span>
+        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span className="dr-fit-caption">توافقكم</span></span>
       </button>
     </div>
 

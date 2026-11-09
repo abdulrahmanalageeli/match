@@ -129,3 +129,14 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .mo-action-current { background: #f0e6ea; color: #54152a; border-color: transparent; }
 .phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon { width: 36px; height: 36px; }
 .phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon svg { width: 23px; height: 23px; }
+
+/* Small, centered discovery title and a clearer navigation scale. */
+.phone-app .cm-shell .cm-title.df-title { justify-content: center; text-align: center; margin-block: 2px 7px; }
+.phone-app .cm-shell .cm-title.df-title h1 { font-size: 19px; font-weight: 600; line-height: 1.35; }
+.phone-app .cm-shell .dr-preference-inline { font-family: Tajawal, var(--font-ui); gap: 4px; align-items: baseline; }
+.phone-app .cm-shell .dr-preference-inline strong { font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+.phone-app .cm-shell .dr-preference-inline .dr-fit-caption { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; color: #795462; }
+.phone-app .mi-tab { font-size: 12px; font-weight: 500; gap: 5px; min-height: 56px; color: #817b80; }
+.phone-app .mi-tab svg { width: 23px; height: 23px; stroke-width: 1.65; }
+.phone-app .mi-tab-active { color: var(--accent); font-weight: 600; }
+.phone-app .cm-shell .dr-avatar-online { inset: -3px; width: auto; height: auto; border: 1.5px solid #668774; border-radius: 15px; background: transparent; box-shadow: 0 0 0 2px #fff; pointer-events: none; }

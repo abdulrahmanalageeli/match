@@ -509,16 +509,8 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
-    <div className="dr-row-overview">
-      <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
-        <span className="cm-weekly-identity dr-row-avatar">
-          <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
-        </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-meta">{person.city}{person.city&&person.occupation&&<span className="dr-meta-separator" aria-hidden="true">·</span>}{person.occupation} {person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span><span className="dr-row-context">{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`التوقيت المرغوب لإتمام الزواج: ${marriageTimelineLabels[timeline]}، عند العثور على الشخص المناسب`}><Clock3 size={12} aria-hidden="true"/><span>الزواج {timeline==='when_ready'?'حسب التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.online===true&&<span className="dr-row-status">{status}</span>}</span></span>
-      </button>
-    </div>
     <button type="button" className="dr-row-fit" disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
-      <span className="dr-fit-title"><HeartHandshake size={15} aria-hidden="true"/>توافقكما</span>
+      <HeartHandshake className="dr-fit-mark" size={16} aria-hidden="true"/>
       <span className="dr-fit-metrics">
         <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><span>تفضيلات</span><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong></span>
         <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><span>شخصية</span><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong></span>
@@ -526,6 +518,14 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
       </span>
       <ChevronLeft className="dr-fit-chevron" size={14} aria-hidden="true"/>
     </button>
+    <div className="dr-row-overview">
+      <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
+        <span className="cm-weekly-identity dr-row-avatar">
+          <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
+        </span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-meta">{person.city}{person.city&&person.occupation&&<span className="dr-meta-separator" aria-hidden="true">·</span>}{person.occupation} {person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span><span className="dr-row-context">{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`التوقيت المرغوب لإتمام الزواج: ${marriageTimelineLabels[timeline]}، عند العثور على الشخص المناسب`}><Clock3 size={12} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.online===true&&<span className="dr-row-status">{status}</span>}</span></span>
+      </button>
+    </div>
     <div className="dr-row-summary"><p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p></div>
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>

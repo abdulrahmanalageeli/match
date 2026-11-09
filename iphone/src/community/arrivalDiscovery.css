@@ -77,8 +77,8 @@
 .phone-app .cm-shell .dr-person-row { padding: 15px 0 16px; border: 0; border-bottom: 1px solid #ddd8d5; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app .cm-shell .dr-person-row:focus-within { box-shadow: none; }
 .phone-app .cm-shell .dr-row-overview { gap: 10px; align-items: center; }
-.phone-app .cm-shell .dr-row-profile { gap: 10px; min-height: 68px; }
-.phone-app .cm-shell .dr-row-avatar { width: 58px; height: 70px; flex-shrink: 0; }
+.phone-app .cm-shell .dr-row-profile { gap: 10px; min-height: 64px; }
+.phone-app .cm-shell .dr-row-avatar { width: 54px; height: 64px; flex-shrink: 0; }
 .phone-app .cm-shell .dr-row-image { border-radius: 12px; border: 1px solid #e5e2de; background: #e9e4e2; }
 .phone-app .cm-shell .dr-row-name { gap: 6px; }
 .phone-app .cm-shell .dr-row-name strong { font-size: 18px; color: #242326; font-weight: 600; }
@@ -90,9 +90,9 @@
 .phone-app .cm-shell .dr-row-context .dr-row-timeline { color: #716b70; font-size: 11px; border: 0; padding: 0; }
 .phone-app .cm-shell .dr-row-status { display: inline-flex; align-items: center; gap: 5px; color: #507461; font-size: 11px; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #4e916c; }
-.phone-app .cm-shell .dr-row-fit { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; margin: 9px 0 0; padding: 8px 0 0; border: 0; border-top: 1px solid #e9e4e1; border-radius: 0; background: transparent; }
-.phone-app .cm-shell .dr-fit-title { display: inline-flex; align-items: center; gap: 5px; flex: none; color: #54152a; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.phone-app .cm-shell .dr-fit-metrics { display: flex; grid-column: 1 / -1; grid-row: 2; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.phone-app .cm-shell .dr-row-fit { width: 100%; display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 0 0 7px; border: 0; border-bottom: 1px solid #e9e4e1; border-radius: 0; background: transparent; }
+.phone-app .cm-shell .dr-fit-mark { flex: none; color: #54152a; }
+.phone-app .cm-shell .dr-fit-metrics { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; flex: 1; }
 .phone-app .cm-shell .dr-score { display: inline-flex; align-items: baseline; gap: 3px; min-width: 0; padding: 0; white-space: nowrap; }
 .phone-app .cm-shell .dr-score + .dr-score { border: 0; }
 .phone-app .cm-shell .dr-score + .dr-score::before { content: '·'; color: #b4aaa5; margin-inline-end: 3px; }
@@ -100,8 +100,8 @@
 .phone-app .cm-shell .dr-score > span { color: #716b70; font-size: 12px; }
 .phone-app .cm-shell .dr-score-personality strong { color: #626e62; }
 .phone-app .cm-shell .dr-score-beena strong { color: #936251; }
-.phone-app .cm-shell .dr-fit-chevron { grid-column: 2; grid-row: 1; color: #9a8d8d; }
-.phone-app .cm-shell .dr-row-summary { display: flex; flex-wrap: wrap; margin-block: 7px 10px; gap: 5px 9px; align-items: center; }
+.phone-app .cm-shell .dr-fit-chevron { flex: none; color: #9a8d8d; }
+.phone-app .cm-shell .dr-row-summary { display: flex; flex-wrap: wrap; margin-block: 5px 8px; gap: 5px 9px; align-items: center; }
 .phone-app .cm-shell .dr-row-summary > .dr-row-bio { flex: 0 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; color: #575158; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .phone-app .cm-shell .dr-row-summary > .bn-compact { margin: 0; padding: 5px 8px; gap: 6px; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(0,1fr) 98px 44px 44px; gap: 7px; padding-top: 0; border: 0; }

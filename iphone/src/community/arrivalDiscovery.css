@@ -85,19 +85,23 @@
 .phone-app .cm-shell .dr-row-name > span { color: #716b70; font-size: 14px; }
 .phone-app .cm-shell .dr-row-meta,
 .phone-app .cm-shell .dr-row-occupation { font-size: 13px; color: #716b70; line-height: 1.65; }
-.phone-app .cm-shell .dr-row-fit { background: transparent; padding: 4px 0; border: 0; border-radius: 0; }
-.phone-app .cm-shell .dr-score { padding-inline: 6px; min-width: 48px; gap: 2px; }
-.phone-app .cm-shell .dr-score strong { color: #54152a; font-size: 20px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-row-fit { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 10px; padding: 8px 0; border: 1px solid #e9e4e1; border-radius: 10px; background: #fbfaf9; }
+.phone-app .cm-shell .dr-row-fit[data-scores="two"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.phone-app .cm-shell .dr-score { min-width: 0; padding-inline: 6px; gap: 2px; }
+.phone-app .cm-shell .dr-score + .dr-score { border-inline-start: 1px solid #e7e1dd; }
+.phone-app .cm-shell .dr-score strong { color: #54152a; font-size: 19px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-score > span { color: #716b70; font-size: 11px; }
-.phone-app .cm-shell .dr-score-personality { border-color: #ddd8d5; }
 .phone-app .cm-shell .dr-score-personality strong { color: #626e62; }
+.phone-app .cm-shell .dr-score-beena strong { color: #936251; }
 .phone-app .cm-shell .dr-row-summary { display: flex; flex-wrap: wrap; margin-block: 8px 9px; gap: 5px 9px; align-items: center; }
 .phone-app .cm-shell .dr-row-summary > .dr-row-bio { flex: 0 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; color: #575158; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .phone-app .cm-shell .dr-row-timeline { color: #716b70; font-size: 11px; border: 0; padding-inline-start: 0; }
 .phone-app .cm-shell .dr-row-summary > .bn-compact { margin: 0; padding: 5px 8px; gap: 6px; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(0,1fr) 98px 44px 44px; gap: 7px; padding-top: 0; border: 0; }
 .phone-app .cm-shell .dr-row-actions button { min-height: 44px; border-radius: 10px; font-size: 13px; padding: 8px 5px; font-weight: 500; }
-.phone-app .cm-shell .dr-row-actions .dr-row-request { background: #54152a; color: #fff; box-shadow: none; }
+.phone-app .cm-shell .dr-row-actions .dr-row-request { gap: 8px; background: #54152a; color: #fff; border: 1px solid #54152a; box-shadow: 0 3px 7px #54152a20; font-weight: 600; }
+.phone-app .cm-shell .dr-request-icon { width: 23px; height: 23px; display: grid; place-items: center; flex: none; border-radius: 7px; background: #ffffff1c; }
+.phone-app .cm-shell .dr-row-request:hover:not(:disabled) { background: #682139; box-shadow: 0 4px 10px #54152a2b; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest { background: transparent; border: 1px solid #d8d4d1; color: #54152a; }
 .phone-app .cm-shell .dr-row-interest[aria-pressed="true"] { background: #eee5e8 !important; border-color: #c8b4bc; color: #54152a; }
 .phone-app .cm-shell .dr-row-actions .dr-row-dismiss,

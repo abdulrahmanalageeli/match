@@ -352,3 +352,10 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
   html:not([data-nf-motion="reduced"]) .dr-row-request:hover:not(:disabled) .dr-invitation-half:first-child { transform: translateX(1px); }
   html:not([data-nf-motion="reduced"]) .dr-row-request:hover:not(:disabled) .dr-invitation-half:nth-child(2) { transform: translateX(-1px); }
 }
+
+/* Quiet, typographic compatibility in the upper-left corner. */
+.phone-app .cm-shell .dr-fit-visual { width: auto; min-height: 44px; align-self: flex-start; display: flex; align-items: center; padding: 0 1px; }
+.phone-app .cm-shell .dr-preference-inline { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.phone-app .cm-shell .dr-preference-inline strong { font-size: 18px; line-height: 1.2; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-preference-inline small { font-size: 10px; margin-inline-start: 1px; font-weight: 400; color: #8b737d; }
+.phone-app .cm-shell .dr-preference-inline > span { font-size: 10px; font-weight: 400; color: #756c72; }

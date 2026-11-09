@@ -516,7 +516,6 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
-        <span className="dr-preference-bar" aria-hidden="true"><i style={{width:`${preference??0}%`}}/></span>
       </button>
     </div>
 

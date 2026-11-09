@@ -359,3 +359,7 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-preference-inline strong { font-size: 18px; line-height: 1.2; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-preference-inline small { font-size: 10px; margin-inline-start: 1px; font-weight: 400; color: #8b737d; }
 .phone-app .cm-shell .dr-preference-inline > span { font-size: 10px; font-weight: 400; color: #756c72; }
+
+.phone-app .cm-shell .dr-row-actions .dr-row-request { width: 36px; min-width: 36px; height: 36px; min-height: 36px; border-radius: 9px; }
+.phone-app .cm-shell .dr-row-request > svg { width: 18px; height: 18px; }
+.phone-app .cm-shell .dr-row-request > .dr-invitation-mark { width: 21px; height: 21px; }

@@ -46,6 +46,7 @@ import {
   Eye,
   EyeOff,
   Heart,
+  HeartHandshake,
   Inbox as InboxIcon,
   LockKeyhole,
   MapPin,
@@ -521,10 +522,14 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
       <p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p>
       {timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`التوقيت المرغوب لإتمام الزواج: ${marriageTimelineLabels[timeline]}، عند العثور على الشخص المناسب`}><Clock3 size={12} aria-hidden="true"/><span>الزواج {timeline==='when_ready'?'حسب التوافق':marriageTimelineLabels[timeline]}</span></span>}
     </div>
-    <button type="button" className="dr-row-fit" data-scores={beena===null?'two':'three'} disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
-      <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span>التفضيلات</span></span>
-      <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong><span>الشخصية</span></span>
-      {beena!==null&&<span className="dr-score dr-score-beena" title="تقبّل متبادل في مواقف بيننا"><strong>{ar.format(beena)}<small>٪</small></strong><span>بيننا</span></span>}
+    <button type="button" className="dr-row-fit" disabled={!person.fit} onClick={explain} aria-label={`فهم التوافق مع ${person.alias}`} title="اضغط لفهم نسب التوافق">
+      <span className="dr-fit-title"><HeartHandshake size={15} aria-hidden="true"/>توافقكما</span>
+      <span className="dr-fit-metrics">
+        <span className="dr-score dr-score-preference" title={preference===null?'توافق التفضيلات: التقييم غير مكتمل':'توافق تفضيلات الطرفين'}><span>تفضيلات</span><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong></span>
+        <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><span>شخصية</span><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong></span>
+        {beena!==null&&<span className="dr-score dr-score-beena" title="تقبّل متبادل في مواقف بيننا"><span>بيننا</span><strong>{ar.format(beena)}<small>٪</small></strong></span>}
+      </span>
+      <ChevronLeft className="dr-fit-chevron" size={14} aria-hidden="true"/>
     </button>
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>

@@ -85,14 +85,17 @@
 .phone-app .cm-shell .dr-row-name > span { color: #716b70; font-size: 14px; }
 .phone-app .cm-shell .dr-row-meta,
 .phone-app .cm-shell .dr-row-occupation { font-size: 13px; color: #716b70; line-height: 1.65; }
-.phone-app .cm-shell .dr-row-fit { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 10px; padding: 8px 0; border: 1px solid #e9e4e1; border-radius: 10px; background: #fbfaf9; }
-.phone-app .cm-shell .dr-row-fit[data-scores="two"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.phone-app .cm-shell .dr-score { min-width: 0; padding-inline: 6px; gap: 2px; }
-.phone-app .cm-shell .dr-score + .dr-score { border-inline-start: 1px solid #e7e1dd; }
-.phone-app .cm-shell .dr-score strong { color: #54152a; font-size: 19px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-row-fit { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; padding: 8px 0 0; border: 0; border-top: 1px solid #e9e4e1; border-radius: 0; background: transparent; }
+.phone-app .cm-shell .dr-fit-title { display: inline-flex; align-items: center; gap: 5px; flex: none; color: #54152a; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.phone-app .cm-shell .dr-fit-metrics { display: flex; align-items: baseline; justify-content: flex-start; gap: 8px; min-width: 0; flex: 1; }
+.phone-app .cm-shell .dr-score { display: inline-flex; align-items: baseline; gap: 3px; min-width: 0; padding: 0; white-space: nowrap; }
+.phone-app .cm-shell .dr-score + .dr-score { border: 0; }
+.phone-app .cm-shell .dr-score + .dr-score::before { content: '·'; color: #b4aaa5; margin-inline-end: 3px; }
+.phone-app .cm-shell .dr-score strong { color: #54152a; font-size: 13px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-score > span { color: #716b70; font-size: 11px; }
 .phone-app .cm-shell .dr-score-personality strong { color: #626e62; }
 .phone-app .cm-shell .dr-score-beena strong { color: #936251; }
+.phone-app .cm-shell .dr-fit-chevron { flex: none; color: #9a8d8d; }
 .phone-app .cm-shell .dr-row-summary { display: flex; flex-wrap: wrap; margin-block: 8px 9px; gap: 5px 9px; align-items: center; }
 .phone-app .cm-shell .dr-row-summary > .dr-row-bio { flex: 0 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; color: #575158; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .phone-app .cm-shell .dr-row-timeline { color: #716b70; font-size: 11px; border: 0; padding-inline-start: 0; }
@@ -233,8 +236,9 @@
   .phone-app .cm-shell .dr-row-avatar { width: 52px; height: 64px; }
   .phone-app .cm-shell .dr-row-profile { gap: 9px; }
   .phone-app .cm-shell .dr-row-name strong { font-size: 17px; }
-  .phone-app .cm-shell .dr-score { min-width: 42px; padding-inline: 6px; }
-  .phone-app .cm-shell .dr-score strong { font-size: 21px; }
+  .phone-app .cm-shell .dr-row-fit { display: grid; grid-template-columns: 1fr auto; gap: 4px; }
+  .phone-app .cm-shell .dr-fit-metrics { grid-column: 1 / -1; grid-row: 2; }
+  .phone-app .cm-shell .dr-fit-chevron { grid-column: 2; grid-row: 1; }
   .phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(0,1fr) 86px 40px 40px; gap: 5px; }
   .phone-app .cm-shell .dr-row-actions button { font-size: 12px; }
   .phone-app .mp-hero { grid-template-columns: minmax(0, 1fr) 42%; gap: 16px 12px; }

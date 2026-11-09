@@ -168,7 +168,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message h2 { margin: 12px 0 7px; font-size: 20px; color: #332b30; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { margin-block: 0 10px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-starter { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; border: 0; background: none; color: #795462; font: inherit; font-size: 12px; padding: 5px 8px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day { gap: 9px; margin-block: 12px; font-size: 10px; color: #8a8186; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day { justify-content: center; gap: 9px; margin-block: 12px; font-size: 10px; color: #8a8186; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::after { flex: 0 0 24px; opacity: .4; }
 

@@ -299,7 +299,7 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-avatar-online { position: absolute; top: -2px; left: -2px; width: 11px; height: 11px; border: 2px solid #fdfdfd; border-radius: 50%; background: #63866b; box-shadow: 0 0 0 1px #63866b22; }
 
 /* A clear identity, paired compatibility, and one compact action. */
-.phone-app .cm-shell .dr-person-row { padding: 14px 12px; margin-bottom: 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 2px 9px #30242b06; }
+.phone-app .cm-shell .dr-person-row { padding: 10px 12px; margin-bottom: 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 1px 5px #30242b04; }
 .phone-app .cm-shell .dr-row-overview { gap: 18px; }
 .phone-app .cm-shell .dr-row-name strong { font-size: 19px; font-weight: 650; }
 .phone-app .cm-shell .dr-row-avatar { width: 48px; height: 56px; }
@@ -312,11 +312,11 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-fit-pair strong { font-size: 21px; line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-fit-pair small { font-size: 10px; font-weight: 400; }
 .phone-app .cm-shell .dr-fit-pair > span > span { font-size: 10px; color: #8a8185; }
-.phone-app .cm-shell .dr-row-detail { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 8px; }
-.phone-app .cm-shell .dr-bio-peek { display: block; width: 100%; margin-top: 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 0; padding: 5px 0; background: none; color: #595158; text-align: start; font: inherit; font-size: 12px; cursor: pointer; }
+.phone-app .cm-shell .dr-row-detail { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.phone-app .cm-shell .dr-bio-peek { display: block; width: 100%; margin-top: 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 0; padding: 5px 0; background: none; color: #50494f; text-align: start; font: inherit; font-size: 12px; cursor: pointer; }
 .phone-app .cm-shell .dr-row-detail > span { flex: 1; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request { min-height: 36px; border-radius: 8px; padding: 5px 12px; background: #fff; color: #54152a; border: 1px solid #d9c9cf; }
-.phone-app .cm-shell .dr-row-actions .dr-row-request[data-pending] { background: #f3f2f1; color: #797176; border-color: transparent; }
+.phone-app .cm-shell .dr-row-actions .dr-row-request[data-pending] { background: #efeeed; color: #645e62; border-color: transparent; }
 .phone-app .cm-shell .dr-fit-hero:focus-visible,.phone-app .cm-shell .dr-bio-peek:focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
 
 .phone-app .cm-shell .dr-bio-peek { flex: 1; width: auto; margin: 0; }
@@ -329,3 +329,7 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-preference-dial small { font-size: 8px; font-weight: 400; }
 .phone-app .cm-shell .dr-fit-visual:focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .dr-preference-fill { animation: dr-ring-reveal 650ms cubic-bezier(.2,.7,.2,1) both; } }
+
+.phone-app .cm-shell .dr-row-context .dr-row-timeline,
+.phone-app .cm-shell .dr-row-meta { color: #655d63; }
+.phone-app .cm-shell .dr-row-actions .dr-row-request[data-connected] { background: #f0e6ea; border-color: transparent; color: #54152a; }

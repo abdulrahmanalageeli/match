@@ -284,3 +284,16 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-row-interests svg { flex: none; color: #9b7582; }
 .phone-app .cm-shell .dr-row-interests span { overflow-wrap: anywhere; }
 .phone-app .cm-shell .dr-row-overview + .dr-row-actions { margin-top: 8px; }
+
+/* Keep directory identity and actions on one compact line. */
+.phone-app .cm-shell .dr-row-overview { display: flex; gap: 8px; }
+.phone-app .cm-shell .dr-row-profile { flex: 1; min-width: 0; }
+.phone-app .cm-shell .dr-row-identity { min-width: 0; }
+.phone-app .cm-shell .dr-row-context { flex-wrap: wrap; gap: 2px 7px; }
+.phone-app .cm-shell .dr-row-actions { display: flex; flex: none; align-items: center; gap: 0; margin: 0; }
+.phone-app .cm-shell .dr-row-actions .dr-row-request { min-width: 0; padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+.phone-app .cm-shell .dr-row-request .dr-request-icon { display: none; }
+.phone-app .cm-shell .dr-row-actions .dr-row-interest,
+.phone-app .cm-shell .dr-row-actions .dr-header-dismiss { width: 32px; min-width: 32px; padding: 8px 0; }
+.phone-app .cm-shell .dr-row-avatar { position: relative; overflow: visible; }
+.phone-app .cm-shell .dr-avatar-online { position: absolute; top: -2px; left: -2px; width: 11px; height: 11px; border: 2px solid #fdfdfd; border-radius: 50%; background: #63866b; box-shadow: 0 0 0 1px #63866b22; }

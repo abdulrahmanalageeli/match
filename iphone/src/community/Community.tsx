@@ -30,7 +30,6 @@ import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
 import './everyday.css';
 import {
-  Utensils, Footprints, Plane, Camera, Dices, Landmark, PenLine,
   ArrowLeft,
   ArrowDown,
   ArrowRight,
@@ -502,10 +501,7 @@ function PersonCard({
   );
 }
 
-const directoryInterestIcons: Record<string, typeof Heart> = {reading:BookOpen,cooking:Utensils,walking:Footprints,travel:Plane,photography:Camera,board_games:Dices,museums:Landmark,creative_writing:PenLine};
-function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;busy:boolean}) {
-  const preference=compatibilityPercentage(person);
-  const personality=personalityPercentage(person.fit);
+function DirectoryRow({person,source,open,request,interest,dismiss,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;request:()=>void;interest:()=>void;dismiss:()=>void;busy:boolean}) {
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
@@ -513,18 +509,15 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,busy}
       <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
         <span className="cm-weekly-identity dr-row-avatar">
           <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
+          {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span>{person.online===true&&<span className="dr-row-status">{status}</span>}</span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
-      <button className="dr-header-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`} title="غير مهتم"><EyeOff size={15}/></button>
-    </div>
-    {person.interests.length>0&&<ul className="dr-row-interests" aria-label="الاهتمامات">{[...new Set(person.interests)].slice(0,3).map(interest=>{const Icon=directoryInterestIcons[interest]??Heart;return <li key={interest}><Icon size={14} strokeWidth={1.6} aria-hidden="true"/><span>{safeInterest(interest)}</span></li>;})}</ul>}
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>
-      <button type="button" className="dr-compatibility-rings" disabled={!person.fit} onClick={explain} aria-label={`شرح التوافق مع ${person.alias}، التفضيلات ${preference===null?'غير مكتملة':`${ar.format(preference)} بالمئة`}، الشخصية ${personality==null?'غير مكتملة':`${ar.format(personality)} بالمئة`}`}>
-        {([{label:'التفضيلات',value:preference,kind:'preferences'},{label:'الشخصية',value:personality,kind:'personality'}] as const).map(metric=><span className={`dr-ring-metric dr-ring-${metric.kind}`} key={metric.kind}><span className="dr-ring-dial"><svg viewBox="0 0 40 40" aria-hidden="true"><circle className="dr-ring-track" cx="20" cy="20" r="17" pathLength="100" strokeDasharray="88 100"/><circle className="dr-ring-fill" cx="20" cy="20" r="17" pathLength="100" strokeDasharray={`${(metric.value??0)*.88} 100`}/></svg><strong>{metric.value==null?'—':<>{ar.format(metric.value)}<small>٪</small></>}</strong></span><span className="dr-ring-label">{metric.label}</span></span>)}
-      </button>
+      <button className="dr-header-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`} title="غير مهتم"><EyeOff size={15}/></button>
+    </div>
     </div>
   </article>;
 }
@@ -860,7 +853,7 @@ function Discovery({
       )}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
-          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} explain={()=>setFitPerson(item)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')}/>:<PersonCard
+          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} dismiss={()=>void rowAction(item,'dismiss')}/>:<PersonCard
             key={item.id}
             person={item}
             source={source}

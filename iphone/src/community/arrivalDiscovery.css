@@ -44,7 +44,7 @@
 .phone-app .cm-shell .df-feed { gap: 24px; }
 .phone-app .cm-shell .cm-person.df-person { overflow: hidden; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; box-shadow: none; }
 .phone-app .cm-shell .df-portrait-shade { background: linear-gradient(180deg, #201c2010, transparent 35%, #201c2020 60%, #201c20db 100%); }
-.phone-app .cm-shell .df-portrait-badges { inset-inline: 20px; top: 20px; gap: 8px; }
+.phone-app .cm-shell .df-portrait-badges { inset-inline: 8px; top: 8px; gap: 8px; }
 .phone-app .cm-shell .df-compatibility { min-height: 30px; padding: 5px 9px; gap: 8px; border: 1px solid #ffffff70; border-radius: 8px; background: #fffaf4ed; color: #54152a; box-shadow: 0 2px 8px #28121a08; }
 .phone-app .cm-shell .df-compatibility strong { display: inline-flex; align-items: baseline; gap: 2px; font-weight: 700; font-size: 18px; line-height: 1; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .df-compatibility strong small { font-size: 10px; font-weight: 400; margin: 0; }

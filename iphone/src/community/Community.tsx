@@ -32,7 +32,6 @@ import './everyday.css';
 import {
   ArrowLeft,
   ArrowDown,
-  ChevronDown,
   ArrowRight,
   Ban,
   BriefcaseBusiness,
@@ -504,7 +503,6 @@ function PersonCard({
 
 function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
-  const personality=personalityPercentage(person.fit);
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
@@ -516,14 +514,15 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
         </span>
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
-
-    </div>
-      {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
-    <div className="dr-row-detail">
-      <button className="dr-fit-hero" onClick={explain} disabled={!person.fit} aria-label={`شرح التوافق مع ${person.alias}`}>
-        <span className="dr-fit-heading">التوافق <ChevronDown size={11}/></span>
-        <span className="dr-fit-pair">{[{label:'الشخصية',value:personality},{label:'التفضيلات',value:preference}].map(metric=><span key={metric.label}><strong>{metric.value==null?'—':<>{ar.format(metric.value)}<small>٪</small></>}</strong><span>{metric.label}</span></span>)}</span>
+      <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
+        <span className="dr-preference-dial"><svg viewBox="0 0 48 48" aria-hidden="true"><circle className="dr-preference-track" cx="24" cy="24" r="21"/><circle className="dr-preference-fill" cx="24" cy="24" r="21" pathLength="100" strokeDasharray={`${preference??0} 100`}/></svg><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong></span>
+        <span>التفضيلات</span>
       </button>
+    </div>
+
+    <div className="dr-row-detail">
+      {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
+
     <div className="dr-row-actions">
       <button className="dr-row-request" data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><span className="dr-request-icon"><Send size={14}/></span><span>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</span></button>
     </div>

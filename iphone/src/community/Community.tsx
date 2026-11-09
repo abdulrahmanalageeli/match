@@ -502,6 +502,23 @@ function PersonCard({
 }
 
 function DirectoryRow({person,source,open,explain,request,interest,dismiss,report,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;dismiss:()=>void;report:()=>void;busy:boolean}) {
+  const optionsRef=useRef<HTMLDetailsElement>(null);
+  const [optionsOpen,setOptionsOpen]=useState(false);
+  useEffect(()=>{
+    if(!optionsOpen)return;
+    const closeOutside=(event:PointerEvent)=>{
+      const options=optionsRef.current;
+      if(options && event.target instanceof Node && !options.contains(event.target))options.open=false;
+    };
+    document.addEventListener('pointerdown',closeOutside);
+    return ()=>document.removeEventListener('pointerdown',closeOutside);
+  },[optionsOpen]);
+  const closeOptions=()=>{
+    const options=optionsRef.current;
+    if(!options)return;
+    options.open=false;
+    options.querySelector('summary')?.focus();
+  };
   const preference=compatibilityPercentage(person);
   const personality=personalityPercentage(person.fit);
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -520,16 +537,25 @@ function DirectoryRow({person,source,open,explain,request,interest,dismiss,repor
         <span className="dr-score dr-score-personality" title={personality==null?'انسجام الشخصية: التقييم غير مكتمل':'انسجام الشخصية'}><strong>{personality==null?'—':<>{ar.format(personality)}<small>٪</small></>}</strong><span>الشخصية</span></span>
       </button>
     </div>
-    <div className="dr-row-summary">
-      <p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p>
+    <p className="dr-row-bio" dir="auto">{person.bio||'اكتشف التفاصيل التي اختار مشاركتها في ملفه.'}</p>
+    {(timeline&&marriageTimelineLabels[timeline] || person.fit?.beena?.complete) && <div className="dr-row-summary">
       {timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`التوقيت المرغوب لإتمام الزواج: ${marriageTimelineLabels[timeline]}، عند العثور على الشخص المناسب`}><Clock3 size={12} aria-hidden="true"/><span>الزواج {timeline==='when_ready'?'حسب التوافق':marriageTimelineLabels[timeline]}</span></span>}
       {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
-    </div>
+    </div>}
     <div className="dr-row-actions">
       <button className="dr-row-request" onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':undefined}><Send size={14}/>{person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}</button>
       <button className="dr-row-interest" onClick={interest} disabled={busy} aria-pressed={!!person.interested} aria-label={`${person.interested?'إلغاء الاهتمام بـ':'مهتم بـ'} ${person.alias}`} title="يصل للطرف الآخر إشعار باهتمامك"><Heart size={16} fill={person.interested?'currentColor':'none'}/><span>مهتم</span></button>
-      <button className="dr-row-dismiss" onClick={dismiss} disabled={busy} aria-label={`غير مهتم بـ ${person.alias}`}><EyeOff size={15}/><span>غير مهتم</span></button>
-      <button className="dr-row-report" onClick={report} disabled={busy} aria-label={`الإبلاغ عن ${person.alias}`} title="إبلاغ"><Flag size={15}/></button>
+      <details className="dr-row-options" ref={optionsRef} onToggle={event=>setOptionsOpen(event.currentTarget.open)} onKeyDown={event=>{
+        if(event.key!=='Escape' || !event.currentTarget.open)return;
+        event.stopPropagation();
+        closeOptions();
+      }}>
+        <summary aria-label={`خيارات ملف ${person.alias}`} title="خيارات الملف"><MoreHorizontal size={20} aria-hidden="true"/></summary>
+        <div className="dr-row-option-list">
+          <button type="button" onClick={()=>{closeOptions();dismiss();}} disabled={busy}><EyeOff size={15} aria-hidden="true"/>غير مهتم</button>
+          <button type="button" onClick={()=>{closeOptions();report();}} disabled={busy}><Flag size={15} aria-hidden="true"/>إبلاغ</button>
+        </div>
+      </details>
     </div>
   </article>;
 }

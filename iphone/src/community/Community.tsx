@@ -1346,7 +1346,7 @@ export function Chat({
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
-            <p>من خيارات المحادثة، اختر «حديث أقرب» لأفكار من توافقكما.</p>
+            <button type="button" className="cm-first-starter" disabled={!chatReady} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button>
           </div>}
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);

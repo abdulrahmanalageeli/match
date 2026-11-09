@@ -105,7 +105,7 @@
 .phone-app .cm-shell .dr-row-options summary { width: 44px; min-height: 44px; display: grid; place-items: center; list-style: none; cursor: pointer; color: #716b70; border-radius: 10px; }
 .phone-app .cm-shell .dr-row-options summary::-webkit-details-marker { display: none; }
 .phone-app .cm-shell .dr-row-options:is([open], :hover) summary { background: #f1edef; }
-.phone-app .cm-shell .dr-row-option-list { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + 4px); display: grid; width: 150px; padding: 4px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; box-shadow: 0 8px 20px #32202a1a; }
+.phone-app .cm-shell .dr-row-option-list { position: absolute; inset-inline-end: 0; inset-block-end: calc(100% + 4px); display: grid; width: 150px; padding: 4px; border: 1px solid #e5e2de; border-radius: 12px; background: #fff; box-shadow: 0 8px 20px #32202a1a; }
 .phone-app .cm-shell .dr-row-options:not([open]) .dr-row-option-list { display: none; }
 .phone-app .cm-shell .dr-row-option-list button { justify-content: flex-start; gap: 8px; background: transparent; color: #54152a; }
 .phone-app .cm-shell .dr-row-option-list button:hover:not(:disabled) { background: #f5f1f3; }

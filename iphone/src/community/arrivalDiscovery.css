@@ -95,13 +95,14 @@
 .phone-app .cm-shell .dr-row-summary > .dr-row-bio { flex: 0 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; color: #575158; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .phone-app .cm-shell .dr-row-timeline { color: #716b70; font-size: 11px; border: 0; padding-inline-start: 0; }
 .phone-app .cm-shell .dr-row-summary > .bn-compact { margin: 0; padding: 5px 8px; gap: 6px; white-space: nowrap; }
-.phone-app .cm-shell .dr-row-actions { grid-template-columns: 1.25fr .85fr .85fr 44px; gap: 7px; padding-top: 0; border: 0; }
+.phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(0,1fr) 98px 44px 44px; gap: 7px; padding-top: 0; border: 0; }
 .phone-app .cm-shell .dr-row-actions button { min-height: 44px; border-radius: 10px; font-size: 13px; padding: 8px 5px; font-weight: 500; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request { background: #54152a; color: #fff; box-shadow: none; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest { background: transparent; border: 1px solid #d8d4d1; color: #54152a; }
 .phone-app .cm-shell .dr-row-interest[aria-pressed="true"] { background: #eee5e8 !important; border-color: #c8b4bc; color: #54152a; }
 .phone-app .cm-shell .dr-row-actions .dr-row-dismiss,
 .phone-app .cm-shell .dr-row-actions .dr-row-report { color: #716b70; background: transparent; }
+.phone-app .cm-shell .dr-row-dismiss span { display: none; }
 .phone-app .cm-shell .dr-row-report { width: 44px; }
 .phone-app .cm-shell .dr-filter-section { border-color: #e5e2de; border-radius: 12px; background: #fff; }
 .phone-app .cm-shell .dr-filter-section summary { min-height: 54px; padding: 16px; color: #242326; font-size: 15px; }
@@ -230,7 +231,7 @@
   .phone-app .cm-shell .dr-row-name strong { font-size: 17px; }
   .phone-app .cm-shell .dr-score { min-width: 42px; padding-inline: 6px; }
   .phone-app .cm-shell .dr-score strong { font-size: 21px; }
-  .phone-app .cm-shell .dr-row-actions { gap: 5px; }
+  .phone-app .cm-shell .dr-row-actions { grid-template-columns: minmax(0,1fr) 86px 40px 40px; gap: 5px; }
   .phone-app .cm-shell .dr-row-actions button { font-size: 12px; }
   .phone-app .mp-hero { grid-template-columns: minmax(0, 1fr) 42%; gap: 16px 12px; }
   .phone-app .mp-portrait { height: 180px; }

@@ -1,0 +1,32 @@
+/* Shared interface hierarchy. Messages intentionally retain native Arabic shaping. */
+.phone-app :is(h1, h2, h3, button, label, summary) { letter-spacing: normal; }
+.phone-app .cm-shell .cm-title h1,
+.phone-app .cm-shell .cm-title.df-title h1,
+.phone-app .st-title,
+.phone-app .mp-profile .mp-hero-copy h1,
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-intake-title h1 {
+  font-size: var(--text-title); font-weight: var(--font-weight-heading); line-height: 1.45;
+}
+.phone-app .cm-sheet h2,
+.phone-app .st-dialog h2,
+.phone-app .mp-profile .mp-story h2,
+.phone-app .mp-profile .mp-fact-heading strong {
+  font-size: var(--text-section); font-weight: var(--font-weight-heading); line-height: 1.5;
+}
+.phone-app .st-row-copy strong,
+.phone-app .cm-shell .cm-request-copy strong {
+  font-size: var(--text-body); font-weight: var(--font-weight-heading); line-height: 1.5;
+}
+.phone-app .st-row-copy small,
+.phone-app .cm-shell .df-title p,
+.phone-app .cm-shell .cm-request-copy .cm-inbox-preview {
+  font-size: var(--text-secondary); font-weight: 400; line-height: 1.6;
+}
+.phone-app .cm-shell .nf-feed-row-head strong { font-size: var(--text-secondary); }
+.phone-app .cm-shell .nf-feed-copy > small { font-size: var(--text-caption); }
+.phone-app .cm-shell .nf-feed-meta,
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta {
+  font-size: var(--text-micro); font-weight: 400; font-variant-numeric: tabular-nums;
+}
+.phone-app .cm-shell .dr-preference-inline strong { font-variant-numeric: tabular-nums; }
+.phone-app :is(input, textarea, select) { font-size: max(16px, 1em); }

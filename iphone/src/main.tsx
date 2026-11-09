@@ -18,6 +18,7 @@ import './onboarding/arrivalAssessments.css'
 import './community/arrivalDiscovery.css'
 import './community/arrivalChat.css'
 import './arrivalSurfaces.css'
+import './typography.css'
 
 document.documentElement.lang='ar'
 document.documentElement.dir='rtl'

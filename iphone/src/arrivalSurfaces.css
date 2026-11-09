@@ -150,7 +150,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 /* Small, centered discovery title and a clearer navigation scale. */
 .phone-app .cm-shell .cm-title.df-title { justify-content: center; text-align: center; margin-block: 2px 7px; }
 .phone-app .cm-shell .cm-title.df-title h1 { font-size: 19px; font-weight: 600; line-height: 1.35; }
-.phone-app .cm-shell .dr-preference-inline { font-family: Tajawal, var(--font-ui); gap: 4px; align-items: baseline; }
+.phone-app .cm-shell .dr-preference-inline { font-family: var(--font-ui); gap: 4px; align-items: baseline; }
 .phone-app .cm-shell .dr-preference-inline strong { font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .phone-app .cm-shell .dr-preference-inline .dr-fit-caption { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; color: #795462; }
 .phone-app .mi-tab { font-size: 12px; font-weight: 500; gap: 5px; min-height: 56px; color: #817b80; }
@@ -159,9 +159,9 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .dr-avatar-online { inset: -3px; width: auto; height: auto; border: 1.5px solid #668774; border-radius: 15px; background: transparent; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 
 /* Conversation-first chrome: one context row, one composer, details on demand. */
-.phone-app .cm-shell .cm-chat[data-conversation-id] { font-family: Tajawal, var(--font-ui); }
+.phone-app .cm-shell .cm-chat[data-conversation-id] { font-family: var(--font-ui); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble,
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; letter-spacing: normal; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-family: var(--font-chat); letter-spacing: normal; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble > p { font-size: 17px; font-weight: 400; line-height: 1.6; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-size: 17px; font-weight: 400; line-height: 1.5; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 10px; line-height: 1.4; margin-top: 5px; }

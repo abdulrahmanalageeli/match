@@ -17,11 +17,11 @@
 .cm-reaction-options button:focus-visible, .cm-reaction-chip:focus-visible { outline: 2px solid #b78c72; outline-offset: 2px; }
 .cm-reaction-options button:disabled { cursor: wait; opacity: .65; }
 .cm-reaction-picker > p { margin: 7px 0 0; color: #94737b; text-align: center; font-size: .65rem; line-height: 1.5; }
-.cm-message-reactions { display: flex; gap: 3px; margin: -6px 8px -7px; position: relative; z-index: 1; }
+.cm-message-reactions { display: flex; gap: 0; margin: -14px 3px -10px; position: relative; z-index: 1; }
 .cm-message-reactions[data-self] { align-self: flex-start; }
 .cm-reaction-chip { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 16px; background: transparent; color: #68354b; cursor: pointer; }
-.cm-reaction-pill { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 34px; min-height: 27px; padding: 2px 7px; border: 1px solid #e6d6c9; border-radius: 14px; background: #fffbf5; box-shadow: 0 2px 5px #59243b09; font-size: .98rem; line-height: 1; }
-.cm-reaction-chip[data-mine] .cm-reaction-pill { border-color: #bc899673; background: #f4e5e5; }
+.cm-reaction-pill { display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: 20px; line-height: 1; }
+.cm-reaction-chip[data-mine] .cm-reaction-pill { background: transparent; }
 .cm-reaction-pill small { font: inherit; font-size: .68rem; }
 .cm-reaction-chip:disabled { cursor: default; }
 .cm-reaction-error { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 12px; background: #f3e2e4; color: #7e3c51; font-size: .74rem; line-height: 1.65; }

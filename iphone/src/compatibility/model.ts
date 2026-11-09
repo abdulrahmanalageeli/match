@@ -90,6 +90,11 @@ function criterionFit(member: PairProfile, peer: PairProfile, key: keyof Partner
   const rule = member.partnerCriteria?.[key];
   const basics = peer.marriageBasics ?? {};
   if (!rule || rule.mode === "any") return null;
+  if (key === 'sharedLanguage') {
+    const own = member.marriageBasics?.spokenLanguages;
+    const other = basics.spokenLanguages;
+    return own?.length && other?.length ? own.some(language => other.includes(language)) : null;
+  }
   if (key === 'education' || key === 'profession') {
     const normalize = key === 'education' ? canonicalEducation : canonicalProfession;
     const options = key === 'education' ? educationOptions : professionOptions;

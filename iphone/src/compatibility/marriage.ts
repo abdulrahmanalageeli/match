@@ -8,6 +8,9 @@ export type MarriageBasics = {
   tribalBackground?: "tribal" | "non_tribal" | "prefer_not_to_say";
   tribeName?: string;
   nationality?: string;
+  spokenLanguages?: string[];
+  preferredLanguage?: string;
+  languageOpenness?: "shared_required" | "open_to_learning" | "flexible";
   maritalStatus?: "never_married" | "divorced" | "widowed" | "married";
   currentWives?: 1 | 2 | 3 | 4;
   polygynyPreference?: "not_open" | "open_to_discussion" | "open" | "prefer_not_to_say";
@@ -23,6 +26,7 @@ export type MarriageBasics = {
 };
 export type RangeCriterion = { mode: CriteriaMode; min?: number; max?: number };
 export type PartnerCriteria = {
+  sharedLanguage?: { mode: CriteriaMode };
   height?: RangeCriterion;
   weight?: RangeCriterion;
   tribalBackground?: { mode: CriteriaMode; target?: "tribal" | "non_tribal" | "same_tribe" };
@@ -36,6 +40,9 @@ export type PartnerCriteria = {
   dressStyle?: { mode: CriteriaMode; values?: DressStyle[] };
   dressFlexibility?: { mode: CriteriaMode; target?: "open_to_discussion" | "open_to_change" };
 };
+
+export const languageOptions = ["العربية", "الإنجليزية", "الفرنسية", "الإسبانية", "الألمانية", "التركية", "الأردية", "الفارسية", "الهندية", "البنغالية", "الإندونيسية", "الملايوية", "الصينية", "الروسية", "السواحيلية", "لغة الإشارة"] ;
+export const languageOpennessLabels = { shared_required: "أفضّل أن نتحدث لغة مشتركة", open_to_learning: "منفتح على تعلّم لغة الشريك", flexible: "مرن، نتفق على ما يناسبنا" };
 
 export const nationalityOptions = ['سعودي', 'إماراتي', 'كويتي', 'قطري', 'بحريني', 'عُماني', 'يمني', 'مصري', 'أردني', 'فلسطيني', 'سوري', 'لبناني', 'عراقي', 'سوداني', 'مغربي', 'جزائري', 'تونسي', 'ليبي', 'موريتاني', 'صومالي'] as const;
 
@@ -57,8 +64,11 @@ const oneOf = (value: unknown, values: string[]) => typeof value === "string" &&
 
 export function validMarriageBasics(value: unknown, allowIncomplete = false): value is MarriageBasics {
   if (!object(value)) return false;
-  const allowed = ["heightCm", "weightKg", "tribalBackground", "tribeName", "nationality", "maritalStatus", "currentWives", "polygynyPreference", "religiousAffiliation", "prayerPractice", "marriageTimeline", "meetingPreference", "childrenCount", "smoking", "skinTone", "dressStyle", "dressFlexibility"];
+  const allowed = ["spokenLanguages", "preferredLanguage", "languageOpenness", "heightCm", "weightKg", "tribalBackground", "tribeName", "nationality", "maritalStatus", "currentWives", "polygynyPreference", "religiousAffiliation", "prayerPractice", "marriageTimeline", "meetingPreference", "childrenCount", "smoking", "skinTone", "dressStyle", "dressFlexibility"];
   if (Object.keys(value).some(key => !allowed.includes(key))) return false;
+  if (value.spokenLanguages !== undefined && (!Array.isArray(value.spokenLanguages) || value.spokenLanguages.length > languageOptions.length || new Set(value.spokenLanguages).size !== value.spokenLanguages.length || !value.spokenLanguages.every(v => oneOf(v, languageOptions)))) return false;
+  if (value.preferredLanguage !== undefined && !oneOf(value.preferredLanguage, languageOptions)) return false;
+  if (value.languageOpenness !== undefined && !oneOf(value.languageOpenness, Object.keys(languageOpennessLabels))) return false;
   if (value.heightCm !== undefined && !(allowIncomplete ? Number.isSafeInteger(value.heightCm) : integer(value.heightCm, 120, 230))) return false;
   if (value.weightKg !== undefined && !(allowIncomplete ? Number.isSafeInteger(value.weightKg) : integer(value.weightKg, 35, 250))) return false;
   if (value.childrenCount !== undefined && !(allowIncomplete ? Number.isSafeInteger(value.childrenCount) : integer(value.childrenCount, 0, 20))) return false;
@@ -88,6 +98,11 @@ export function validMarriageBasicsDraft(value: unknown): value is MarriageBasic
 export function validPartnerCriteria(value: unknown, basics: MarriageBasics = {}, allowIncomplete = false): value is PartnerCriteria {
   if (!object(value)) return false;
   for (const [key, rule] of Object.entries(value)) {
+    if (key === "sharedLanguage") {
+      if (!object(rule) || !oneOf(rule.mode, ["any", "prefer", "require"]) || Object.keys(rule).some(field => field !== "mode")) return false;
+      if (!allowIncomplete && rule.mode !== "any" && !basics.spokenLanguages?.length) return false;
+      continue;
+    }
     if (!["height", "weight", "tribalBackground", "nationality", "education", "profession", "maritalStatus", "children", "smoking", "skinTone", "dressStyle", "dressFlexibility"].includes(key) || !object(rule) || !oneOf(rule.mode, ["any", "prefer", "require"])) return false;
     const keys = key === 'nationality' ? ['mode','values','exclude'] : key === "height" || key === "weight" ? ["mode", "min", "max"] : ["education", "profession", "maritalStatus", "skinTone", "dressStyle"].includes(key) ? ["mode", "values"] : ["mode", "target"];
     if (Object.keys(rule).some(field => !keys.includes(field))) return false;

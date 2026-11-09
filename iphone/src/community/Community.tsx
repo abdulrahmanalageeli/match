@@ -1,3 +1,4 @@
+import { languageOptions } from "../compatibility/marriage";
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -115,6 +116,7 @@ import './chat-continuity.css';
 
 type Tab = "discover" | "curated" | "inbox" | "chats";
 type CommunityProps = {
+  viewerGender?: "man" | "woman";
   onMutual: (connection: Connection) => void;
   openConversation?: string;
   openRequest?: string;
@@ -367,6 +369,10 @@ function FilterSheet({
           </select>
         </label>
         <ChoiceSelect label="المدينة" value={extra.city??''} options={cityOptions} placeholder="كل المدن" allowClear onChange={city=>setExtra(current=>({...current,city:city||undefined}))}/>
+        <details className="dr-filter-section" open={!!extra.language}><summary><span>اللغات</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
+          <ChoiceSelect label="يتحدث اللغة" value={extra.language ?? ''} options={languageOptions.map(value => ({value,label:value}))} placeholder="جميع اللغات" allowClear onChange={language => setExtra(current => ({...current,language:language || undefined}))}/>
+          <small>تظهر الملفات التي ذكرت هذه اللغة فقط.</small>
+        </div></details>
         <details className="dr-filter-section" open={!!(extra.education||extra.profession||extra.children)}><summary><span>الدراسة والعمل والعائلة</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="المؤهل التعليمي" value={extra.education??''} options={educationOptions} placeholder="كل المؤهلات" allowClear onChange={education=>setExtra(current=>({...current,education:education||undefined}))}/>
           <ChoiceSelect label="مجال العمل أو الوضع المهني" value={extra.profession??''} options={professionOptions} placeholder="كل المجالات" allowClear onChange={profession=>setExtra(current=>({...current,profession:profession||undefined}))}/>
@@ -523,7 +529,7 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     <div className="dr-row-actions">
-      <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<svg className="dr-invitation-mark" width="25" height="25" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8.5" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.65"/><circle cx="16.5" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.65"/><path className="dr-invitation-half" d="M12 12.5C8 10 3 12 3.5 15.5c.5 4 6 6.5 10 9" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/><path className="dr-invitation-half" d="M14.5 15c3-2 8-1 8 2.5 0 3-5 5-9 7" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/><path d="M22 2v6m-3-3h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}</button>
+      <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<span className="nf-add-person-mark" aria-hidden="true"/>}</button>
     </div>
     </div>
   </article>;
@@ -759,7 +765,7 @@ function Discovery({
         featured={listPosition.current?.featured}
         primary={<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<Send size={20}/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<span className="nf-add-person-mark" aria-hidden="true"/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           <p className="cm-help"><LockKeyhole size={14} />{person.connectionId ? "تواصل خاص بينكما." : person.atCapacity || person.viewerAtCapacity ? "الحد الأقصى تعارفان متزامنان. يمكنك العودة لاحقًا." : "لن تُفتح المحادثة إلا بعد قبول الطرف الآخر."}</p>
           {error&&<Banner alert text={error}/>}
@@ -804,7 +810,7 @@ function Discovery({
               {safeInterest(filters.interest)} <X size={13} />
             </button>
           )}
-          {([['city','المدينة'],['nationality','الجنسية'],['tribalBackground','الخلفية القبلية'],['maritalStatus','الحالة الاجتماعية'],['smoking','التدخين'],['dressStyle','غطاء الرأس'],['work','عمل الزوجة'],['minFit','حد التوافق'],['availableOnly','متاح للتعارف'],['onlineOnly','نشط الآن'],['excludeCities','إخفاء مدن'],['excludeNationalities','إخفاء جنسيات'],['excludeTribalBackgrounds','إخفاء خلفيات'],['excludeSmoking','إخفاء حسب التدخين'],['excludeMaritalStatuses','إخفاء حالات اجتماعية']] as const).map(([key,label])=>{
+          {([['language','اللغة'],['city','المدينة'],['nationality','الجنسية'],['tribalBackground','الخلفية القبلية'],['maritalStatus','الحالة الاجتماعية'],['smoking','التدخين'],['dressStyle','غطاء الرأس'],['work','عمل الزوجة'],['minFit','حد التوافق'],['availableOnly','متاح للتعارف'],['onlineOnly','نشط الآن'],['excludeCities','إخفاء مدن'],['excludeNationalities','إخفاء جنسيات'],['excludeTribalBackgrounds','إخفاء خلفيات'],['excludeSmoking','إخفاء حسب التدخين'],['excludeMaritalStatuses','إخفاء حالات اجتماعية']] as const).map(([key,label])=>{
             const value=filters[key];if(Array.isArray(value)?!value.length:!value)return null;
             return <button key={key} onClick={()=>setFilters(current=>({...current,[key]:undefined}))} aria-label={`إزالة ${label}`}>{label}{Array.isArray(value)?` · ${ar.format(value.length)}`:key==='city'||key==='nationality'?`: ${String(value)}`:''}<X size={13}/></button>;
           })}
@@ -1840,6 +1846,7 @@ function Requests({
     return <Profile source={source} person={existing?.person ?? visitPerson} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
+        {!existing && <span className="nf-add-person-mark" aria-hidden="true"/>}
         {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : 'إرسال طلب تعارف'}
       </button>
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
@@ -1995,7 +2002,7 @@ export function Community(props: CommunityProps) {
     if (tab === "inbox" && requestToOpen) setRequestToOpen(undefined);
   }, [tab, requestToOpen]);
   return (
-    <main className="app-screen cm-shell" dir="rtl" data-community-tab={tab}>
+    <main className="app-screen cm-shell" dir="rtl" data-community-tab={tab} data-viewer-gender={props.viewerGender}>
       {discoveryUnavailable && tab === 'discover' ? (
         <section className="screen-content cm-view">
           <header className="cm-header">

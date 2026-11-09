@@ -16,6 +16,7 @@ export function publicProfile(profile: Profile, id: string, demoPhoto?: string):
     familyPreference: profile.familyPreference, publicAvatar: visible.publicAvatar,
     portrait: profile.portrait ? { id: profile.portrait.id, path: profile.portrait.path, blur: profile.portrait.blur } : profile.portrait,
     marriageBasics: b ? {
+      spokenLanguages: b.spokenLanguages, preferredLanguage: b.preferredLanguage, languageOpenness: b.languageOpenness,
       heightCm: b.heightCm, weightKg: b.weightKg, nationality: b.nationality,
       maritalStatus: b.maritalStatus, childrenCount: b.childrenCount, smoking: b.smoking,
       tribalBackground: b.tribalBackground, tribeName: b.tribalBackground === 'tribal' ? b.tribeName : undefined,

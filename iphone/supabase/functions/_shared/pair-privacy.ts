@@ -17,7 +17,7 @@ function messageReactions(value: unknown, actor: Actor): unknown {
 }
 const publicFields = ['displayName', 'age', 'gender', 'city', 'profession', 'bio', 'lookingFor', 'valuesStatement',
   'lifeTogether', 'education', 'marriageIntent', 'familyPreference', 'interestIds', 'appearanceVersion'] as const;
-const publicBasics = ['heightCm', 'weightKg', 'nationality', 'maritalStatus', 'currentWives', 'polygynyPreference',
+const publicBasics = ['spokenLanguages', 'preferredLanguage', 'languageOpenness', 'heightCm', 'weightKg', 'nationality', 'maritalStatus', 'currentWives', 'polygynyPreference',
   'marriageTimeline', 'meetingPreference', 'childrenCount', 'smoking', 'dressStyle', 'dressFlexibility'] as const;
 const sensitiveBasics = ['tribalBackground', 'tribeName', 'religiousAffiliation', 'prayerPractice', 'skinTone'] as const;
 function pick(value: RecordValue, keys: readonly string[]): RecordValue {

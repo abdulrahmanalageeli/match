@@ -94,6 +94,8 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
         <p>{sensitivePublication?'اخترت عرض التفاصيل الحساسة للأعضاء المؤهلين.':'التفاصيل الحساسة أدناه خاصة؛ لن تظهر للأعضاء ما لم توافق على عرضها.'}</p>
         {p.marriageBasics?.heightCm && <p>الطول: {arabicNumber(p.marriageBasics.heightCm)} سم</p>}
         {p.marriageBasics?.weightKg && <p>الوزن: {arabicNumber(p.marriageBasics.weightKg)} كجم</p>}
+        {p.marriageBasics?.spokenLanguages?.length ? <p>اللغات: {p.marriageBasics.spokenLanguages.join(' · ')}</p> : null}
+        {p.marriageBasics?.preferredLanguage && <p>لغة التواصل المفضلة: {p.marriageBasics.preferredLanguage}</p>}
         {p.marriageBasics?.nationality && <p>الجنسية: {p.marriageBasics.nationality}</p>}
         {p.marriageBasics?.tribalBackground && p.marriageBasics.tribalBackground !== 'prefer_not_to_say' && <p>الخلفية القبلية: {tribalLabels[p.marriageBasics.tribalBackground]}{p.marriageBasics.tribeName ? " — " + p.marriageBasics.tribeName : ""}</p>}
         {p.marriageBasics?.maritalStatus && <p>الحالة الاجتماعية: {maritalLabels[p.marriageBasics.maritalStatus]}</p>}
@@ -115,7 +117,7 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
         {hasPortrait&&<p>إزالة التمويه: {{never:'لا تُزال تلقائيًا',matched:'بعد قبول التعارف من الطرفين',serious:'عند النقاش الجاد حول الزواج',family:'عند الخطوة الرسمية أو العائلية'}[reveal]}{reveal!=='never'&&' · للطرف المؤهل فقط، مع حفظ نسخة واضحة خاصة.'}</p>}
       </ReviewGroup>}
       {withCompatibility && <ReviewGroup title="متطلبات الشريك الخاصة" edit={() => edit("criteria")} {...groupProps('criteria')}>
-        {([['education', 'المؤهل التعليمي'], ['profession', 'المجال المهني'], ['height', 'الطول'], ['weight', 'الوزن'], ['tribalBackground', 'الخلفية القبلية'], ['nationality', 'جنسية الشريك'], ['maritalStatus', 'الحالة الاجتماعية'], ['children', 'وجود أبناء'], ['smoking', 'التدخين'], ['skinTone', 'لون البشرة'], ['dressStyle', 'اللباس الحالي'], ['dressFlexibility', 'مناقشة اللباس']] as const).map(([key, label]) => {
+        {([['sharedLanguage', 'لغة مشتركة'], ['education', 'المؤهل التعليمي'], ['profession', 'المجال المهني'], ['height', 'الطول'], ['weight', 'الوزن'], ['tribalBackground', 'الخلفية القبلية'], ['nationality', 'جنسية الشريك'], ['maritalStatus', 'الحالة الاجتماعية'], ['children', 'وجود أبناء'], ['smoking', 'التدخين'], ['skinTone', 'لون البشرة'], ['dressStyle', 'اللباس الحالي'], ['dressFlexibility', 'مناقشة اللباس']] as const).map(([key, label]) => {
           const criterion = p.partnerCriteria?.[key];
           if (!criterion || criterion.mode === "any") return null;
           let target = "";

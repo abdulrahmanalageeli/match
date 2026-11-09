@@ -1,3 +1,4 @@
+import { languageOpennessLabels } from "../compatibility/marriage";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarHeart, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
@@ -103,6 +104,9 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           person.occupation&&['مجال العمل أو الوضع المهني',person.occupation],
           person.education&&['التعليم',person.education],
           b?.nationality&&['الجنسية',b.nationality],
+          Boolean(b?.spokenLanguages?.length) && ['اللغات', b!.spokenLanguages!.join(' · ')],
+          b?.preferredLanguage && ['لغة التواصل المفضلة', b.preferredLanguage],
+          b?.languageOpenness && ['اختلاف اللغة', languageOpennessLabels[b.languageOpenness]],
           b?.maritalStatus&&['الحالة الاجتماعية',{never_married:'لم يسبق الزواج',divorced:'مطلّق / مطلّقة',widowed:'أرمل / أرملة',married:'متزوج'}[b.maritalStatus]],
           b?.maritalStatus==='married'&&validCount(b.currentWives,1,4)&&['عدد الزوجات حاليًا',ar.format(b.currentWives)],
           validCount(b?.childrenCount,0,20)&&['الأبناء',b.childrenCount===0?'ليس لدي أبناء':ar.format(b.childrenCount)],
@@ -134,3 +138,4 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;
 }
+

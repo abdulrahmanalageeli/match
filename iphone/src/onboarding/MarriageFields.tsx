@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, Sparkles, Users, type LucideIcon } from "../BrandIcons";
-import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
+import { languageOptions, languageOpennessLabels, criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
 import { personalityQuestions, personalityVersion } from "../compatibility/personality";
 import { normalizeNationality } from "../compatibility/model";
 import { arabicNumber, latinDigits } from "./draft";
@@ -43,6 +43,12 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       <div className="field-pair"><ChoiceSelect label="الطول (سم)" value={value.heightCm === undefined ? '' : String(value.heightCm)} options={heightOptions} onChange={height => change({ heightCm: optionalNumber(height) })} placeholder="اختياري" allowClear />
         <ChoiceSelect label="الوزن (كجم)" value={value.weightKg === undefined ? '' : String(value.weightKg)} options={weightOptions} onChange={weight => change({ weightKg: optionalNumber(weight) })} placeholder="اختياري" allowClear /></div>
       <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} />
+    </Group>
+    <Group title="اللغات والتواصل" note="كيف تعبّر عن نفسك وتتواصل مع شريكك؟" icon={BookOpen} summary={value.spokenLanguages?.join(' · ')}>
+      <fieldset className="nf-criterion-checks"><legend>ما اللغات التي تتحدثها؟ · اختياري</legend>{languageOptions.map(language => <label key={language}><input type="checkbox" checked={value.spokenLanguages?.includes(language) ?? false} onChange={e => change({spokenLanguages: e.target.checked ? [...(value.spokenLanguages ?? []), language] : value.spokenLanguages?.filter(item => item !== language)})}/>{language}</label>)}</fieldset>
+      <ChoiceSelect label="ما اللغة التي تفضّل التواصل بها مع شريكك؟" value={value.preferredLanguage ?? ''} options={languageOptions.map(value => ({value,label:value}))} onChange={preferredLanguage => change({preferredLanguage: preferredLanguage || undefined})} placeholder="لا تفضيل محدد" allowClear />
+      <Choices title="كيف ترى اختلاف اللغة بينكما؟" value={value.languageOpenness} labels={languageOpennessLabels} onChange={languageOpenness => change({languageOpenness})}/>
+      <small>تظهر اللغات في ملفك. حدّد أهمية اللغة المشتركة في تفضيلات الشريك لتؤثر في الترشيحات.</small>
     </Group>
     <Group title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder="اختر الجنسية · اختياري" allowClear />
@@ -95,6 +101,13 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={event => { if (event.target === event.currentTarget) setReveal(true); }}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
     <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
+    <Group title="لغة مشتركة" note="مساحة لحوار يفهمه الطرفان" icon={BookOpen} summary={selected(['sharedLanguage'])}>
+      <Mode title="أهمية وجود لغة مشتركة" value={value.sharedLanguage?.mode ?? 'any'} onChange={mode => change({sharedLanguage:{mode}})}>
+        <p>نبحث عن لغة واحدة على الأقل من اللغات التي تتحدثها.</p>
+        {!basics?.spokenLanguages?.length && <p role="alert">أضف اللغات التي تتحدثها في تفاصيلك قبل حفظ هذا التفضيل.</p>}
+        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يستبعد من لا يشاركك لغة، وكذلك من لم يذكر لغاته.</small>
+      </Mode>
+    </Group>
     <Group title="الدراسة والعمل" note="ما يناسب حياتك، دون ترتيب للمؤهلات أو المهن" icon={BookOpen} summary={selected(['education','profession'])}>
       <p>اختياراتك هنا خاصة. التشابه في الدراسة أو المهنة لا يزيد التوافق تلقائيًا؛ نراعي فقط ما تحدّده أنت.</p>
       {([{key:'education',title:'المؤهل التعليمي للشريك',options:educationOptions},{key:'profession',title:'مجال عمل الشريك أو وضعه المهني',options:professionOptions}] as const).map(({key,title,options}) => <Mode key={key} title={title} value={value[key]?.mode ?? 'any'} onChange={mode => change({[key]: mode === 'any' ? {mode} : {...value[key],mode,values:value[key]?.values ?? []}})}>

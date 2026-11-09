@@ -879,6 +879,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   else if ((view === "main" || view === "curated" || view === "discover" || view === "inbox" || view === "chats") && source) {
     screen = (
       <Community
+        viewerGender={(demo ? sampleProfile : live?.profile)?.gender}
         key={demo ? "walkthrough-" + sampleSession : token}
         tab={view === "main" ? "discover" : view}
         profileSaved={fromIntake}

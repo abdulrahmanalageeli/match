@@ -102,6 +102,7 @@ export type CallPermissionState = { status: "none" | "pending" | "accepted" | "d
 export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
+  language?: string;
   education?: string; profession?: string; minHeight?: number; maxHeight?: number; minWeight?: number; maxWeight?: number; children?: 'none' | 'has';
   excludeCities?: string[]; excludeNationalities?: string[]; excludeTribalBackgrounds?: string[]; excludeSmoking?: string[]; excludeMaritalStatuses?: string[]; nationality?: string; tribalBackground?: string; onlineOnly?: boolean;
   minAge?: number;
@@ -112,7 +113,7 @@ export type Filters = {
 };
 export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
   const b=p.marriageBasics;
-  return (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
+  return (!f.language || !!b?.spokenLanguages?.includes(f.language)) && (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
     (!f.education||!!p.education&&canonicalEducation(p.education)===canonicalEducation(f.education))&&
     (!f.profession||!!p.occupation&&canonicalProfession(p.occupation)===canonicalProfession(f.profession))&&
     (f.minHeight===undefined||b?.heightCm!==undefined&&b.heightCm>=f.minHeight)&&(f.maxHeight===undefined||b?.heightCm!==undefined&&b.heightCm<=f.maxHeight)&&

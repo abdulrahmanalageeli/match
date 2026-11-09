@@ -299,21 +299,21 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-avatar-online { position: absolute; top: -2px; left: -2px; width: 11px; height: 11px; border: 2px solid #fdfdfd; border-radius: 50%; background: #63866b; box-shadow: 0 0 0 1px #63866b22; }
 
 /* A clear identity, paired compatibility, and one compact action. */
-.phone-app .cm-shell .dr-person-row { padding-block: 15px; }
+.phone-app .cm-shell .dr-person-row { padding: 14px 12px; margin-bottom: 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 2px 9px #30242b06; }
 .phone-app .cm-shell .dr-row-overview { gap: 18px; }
 .phone-app .cm-shell .dr-row-name strong { font-size: 19px; font-weight: 650; }
 .phone-app .cm-shell .dr-row-avatar { width: 48px; height: 56px; }
-.phone-app .cm-shell .dr-fit-hero { display: grid; gap: 3px; width: 112px; flex: none; padding: 0; border: 0; background: transparent; color: #54152a; cursor: pointer; }
+.phone-app .cm-shell .dr-fit-hero { display: grid; gap: 0; width: 112px; flex: none; padding: 0; border: 0; background: transparent; color: #54152a; cursor: pointer; }
 .phone-app .cm-shell .dr-fit-heading { display: flex; align-items: center; justify-content: center; gap: 4px; color: #8a8185; font-size: 10px; }
 .phone-app .cm-shell .dr-fit-pair { display: flex; direction: rtl; }
-.phone-app .cm-shell .dr-fit-pair > span { display: grid; flex: 1; gap: 1px; text-align: center; }
+.phone-app .cm-shell .dr-fit-pair > span { display: grid; flex: 1; gap: 0; text-align: center; }
 .phone-app .cm-shell .dr-fit-pair > span:first-child { color: #687b6d; }
 .phone-app .cm-shell .dr-fit-pair > span + span { border-inline-start: 1px solid #e8e4e5; }
-.phone-app .cm-shell .dr-fit-pair strong { font-size: 25px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-fit-pair strong { font-size: 21px; line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-fit-pair small { font-size: 10px; font-weight: 400; }
 .phone-app .cm-shell .dr-fit-pair > span > span { font-size: 10px; color: #8a8185; }
-.phone-app .cm-shell .dr-row-detail { display: flex; align-items: center; gap: 16px; margin-top: 9px; }
-.phone-app .cm-shell .dr-bio-peek { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 0; padding: 5px 0; background: none; color: #7b7278; text-align: start; font: inherit; font-size: 12px; cursor: pointer; }
+.phone-app .cm-shell .dr-row-detail { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 8px; }
+.phone-app .cm-shell .dr-bio-peek { display: block; width: 100%; margin-top: 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 0; padding: 5px 0; background: none; color: #595158; text-align: start; font: inherit; font-size: 12px; cursor: pointer; }
 .phone-app .cm-shell .dr-row-detail > span { flex: 1; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request { min-height: 36px; border-radius: 8px; padding: 5px 12px; background: #fff; color: #54152a; border: 1px solid #d9c9cf; }
 .phone-app .cm-shell .dr-row-actions .dr-row-request[data-pending] { background: #f3f2f1; color: #797176; border-color: transparent; }

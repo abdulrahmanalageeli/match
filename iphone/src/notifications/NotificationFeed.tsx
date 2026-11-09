@@ -14,12 +14,13 @@ const filters: { id: FeedFilter; label: string }[] = [
   {id:'visits',label:'الزيارات'}, {id:'journey',label:'المسار'}, {id:'messages',label:'الرسائل'},
 ];
 const dateFormat = new Intl.DateTimeFormat('ar-SA', {calendar:'gregory',day:'numeric',month:'long'});
+const datedYearFormat = new Intl.DateTimeFormat('ar-SA', {calendar:'gregory',day:'numeric',month:'long',year:'numeric'});
 const timeFormat = new Intl.DateTimeFormat('ar-SA', {hour:'numeric',minute:'2-digit'});
 const fullDate = new Intl.DateTimeFormat('ar-SA', {calendar:'gregory',dateStyle:'long',timeStyle:'short'});
 function dayLabel(at?: string) {
-  if (!feedTime(at)) return 'تحديثات مستمرة';
+  if (!feedTime(at)) return 'تحديثات بلا تاريخ';
   const date = new Date(at!), today = new Date(), yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
-  return date.toDateString() === today.toDateString() ? 'اليوم' : date.toDateString() === yesterday.toDateString() ? 'أمس' : dateFormat.format(date);
+  return date.toDateString() === today.toDateString() ? 'اليوم' : date.toDateString() === yesterday.toDateString() ? 'أمس' : (date.getFullYear() === today.getFullYear() ? dateFormat : datedYearFormat).format(date);
 }
 function EventIcon({ item }: { item: FeedItem }) {
   const props = {size:12,strokeWidth:1.8,'aria-hidden':true as const};
@@ -89,7 +90,7 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     finally { openingRef.current = false; setOpening(null); }
   }
   return <section className="cm-notification-feed" aria-label="الإشعارات والتحديثات">
-    <div className="nf-feed-summary"><span>كل ما يخصّ تعارفك، في مكان واحد</span>{unread > 0 && <b>{new Intl.NumberFormat('ar').format(unread)} جديد</b>}</div>
+    <div className="nf-feed-summary"><span>آخر التحديثات</span>{unread > 0 && <b>{new Intl.NumberFormat('ar').format(unread)} جديد</b>}</div>
     <div className="nf-feed-filters" role="group" aria-label="تصفية الإشعارات">{filters.map(option => <button key={option.id} aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}{option.id === 'unread' && unread > 0 && <span>{new Intl.NumberFormat('ar').format(unread)}</span>}</button>)}</div>
     {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => { setRetry(n => n + 1); onRetry?.(); }}>إعادة المحاولة</button></div>}
     {(loading || connectionsLoading) && !rows.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}

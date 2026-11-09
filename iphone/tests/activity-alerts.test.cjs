@@ -61,7 +61,7 @@ const assert = require('node:assert/strict');
     notifications.push({id:'visit-1',kind:'profile_visit',actor:'abdulrahman',createdAt:new Date().toISOString(),readAt:null,requestId:'tester-pair'});
     await page.locator('.cm-chat-head > button').first().click();
     await page.getByRole('button',{name:'الإشعارات',exact:true}).click();
-    const visit = page.locator('.cm-notification-row').filter({hasText:'عبدالرحمن زار ملفك'});
+    const visit = page.locator('.cm-notification-row').filter({hasText:'زيارة من عبدالرحمن'});
     await visit.waitFor();
     if (process.env.SCREENSHOT) await page.screenshot({path:process.env.SCREENSHOT.replace('.png','-feed.png')});
     await visit.click();

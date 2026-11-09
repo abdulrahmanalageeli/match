@@ -18,6 +18,12 @@
 .phone-app .cm-shell .cm-inbox-search:focus-within { border-color: #54152a; box-shadow: none; }
 .phone-app .cm-shell .cm-inbox-search input { color: #242326; font-size: 15px; }
 .phone-app .cm-shell .cm-inbox-search input::placeholder { color: #817a80; }
+.phone-app .cm-shell .cm-view > .cm-panel { margin-block: 24px; padding: 28px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: start; }
+.phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon { border-radius: 10px; background: #f5f4f5; }
+.phone-app .cm-shell .cm-view > .cm-panel h2 { font-size: 20px; line-height: 1.6; }
+.phone-app .cm-shell .cm-view > .cm-panel > p { margin-inline: 0; font-size: 15px; line-height: 1.8; }
+.phone-app .cm-shell .cm-request-history { padding: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.phone-app .cm-shell .cm-request-history summary { min-height: 48px; padding-block: 14px; color: var(--muted); font-size: 13px; font-weight: 500; }
 
 /* Keep viewport, scroll restoration, and keyboard geometry with chat layout. */
 .phone-app .cm-shell .cm-chat { background: #fdfdfd; }
@@ -25,7 +31,7 @@
 .phone-app .cm-shell .cm-chat-head .cm-chat-person { gap: 12px; }
 .phone-app .cm-shell .cm-chat-head .cm-chat-person .cm-avatar { width: 43px; height: 49px; border-radius: 8px; box-shadow: none; }
 .phone-app .cm-shell .cm-chat-head .cm-chat-person-copy strong { font-size: 17px; line-height: 1.5; color: #242326; font-weight: 600; }
-.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: 12px; color: #716b70; margin-top: 3px; }
+.phone-app .cm-shell .cm-chat-head .cm-chat-person-copy small { font-size: 13px; color: #716b70; margin-top: 3px; }
 .phone-app .cm-shell .cm-chat-head .cm-call-button { background: transparent; border: 1px solid #e5e2de; color: #54152a; border-radius: 10px; }
 .phone-app .cm-shell .cm-chat-head .cm-guide-button { color: #716b70; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] { gap: 3px 10px; padding: 0 16px 7px; background: #fff; border-bottom-color: #e5e2de; box-shadow: none; }
@@ -43,7 +49,7 @@
 .phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary[data-pending] .cm-plan-mark { background: #54152a; color: #fff; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan .cm-journey-summary[data-pending] small { color: #54152a; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 36px; color: #716b70; font-size: 12px; }
-.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-end-visible { min-height: 36px; color: #716b70; font-size: 12px; }
+.phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-end-visible { min-height: 44px; padding-inline: 8px; color: #963549; font-size: 13px; font-weight: 500; }
 .phone-app .cm-shell .cm-chat-stage { background: #fdfdfd; }
 .phone-app .cm-shell .cm-chat .cm-chat-log { padding: 18px 16px 22px; gap: 8px; scrollbar-color: #c4bfbd transparent; }
 .phone-app .cm-shell .cm-chat .cm-chat-day { color: #716b70; font-size: 12px; padding: 10px 32px 18px; }
@@ -52,7 +58,7 @@
 .phone-app .cm-shell .cm-chat .cm-bubble { padding: 11px 14px 8px; border: 1px solid #e5e2de; border-radius: 12px 12px 12px 4px; background: #fff; color: #242326; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #54152a; border-radius: 12px 12px 4px 12px; background: #54152a; color: #fff; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-bubble p { font-size: 16px; line-height: 1.8; }
-.phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #817a80; font-size: 11px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #716b70; font-size: 12px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #dfcbd3; }
 .phone-app .cm-shell .cm-chat .cm-message-meta [data-receipt="read"] { color: #cadcc4; }
 .phone-app .cm-shell .cm-chat .cm-bubble.failed { border-color: #b54953; }
@@ -93,6 +99,8 @@
 .phone-app .cm-shell .cm-chat-tools > button { min-height: 76px; }
 .phone-app .cm-shell .cm-chat-tools strong { font-size: 16px; color: #242326; }
 .phone-app .cm-shell .cm-chat-tools small { font-size: 13px; color: #716b70; line-height: 1.7; }
+.cm-sheet:has(.cm-chat-insights) { border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.cm-sheet:has(.cm-chat-insights) > header h2 { font-size: 22px; font-weight: 600; color: var(--ink); }
 .phone-app .cm-shell .cm-chat-head :is(.icon-btn, .cm-guide-button, .cm-call-button),
 .phone-app .cm-shell .cm-chat-compose form button,
 .phone-app .cm-shell .cm-media-tools button,

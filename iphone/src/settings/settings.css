@@ -40,7 +40,7 @@
   padding: 10px 14px; border: 0; background: transparent; text-align: start; color: var(--ink);
   transition: background-color 130ms ease;
 }
-.st-row + .st-row::before { content: ""; position: absolute; inset: 0 48px auto 13px; border-top: 1px solid var(--gold); opacity: .7; }
+.st-row + .st-row::before, .st-marriage-group > div + div > .st-row::before { content: ""; position: absolute; inset: 0 48px auto 13px; border-top: 1px solid var(--gold); opacity: .7; }
 .st-row:hover:enabled { background-color: var(--paper); }
 .st-row:active:enabled { background-color: var(--blush); }
 .st-group .st-row:focus-visible { outline-offset: -3px; }
@@ -115,7 +115,7 @@
 .phone-app .st-section h2 { margin: 0 0 10px; color: #242326; font-size: 18px; line-height: 1.6; font-weight: 600; }
 .phone-app .st-group { border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: #fff; }
 .phone-app .st-row { min-height: 68px; padding: 16px 12px; gap: 14px; }
-.phone-app .st-row + .st-row::before { inset: 0 49px auto 12px; border-top-color: #e5e2de; opacity: 1; }
+.phone-app .st-row + .st-row::before, .phone-app .st-marriage-group > div + div > .st-row::before { inset: 0 49px auto 12px; border-top-color: #e5e2de; opacity: 1; }
 .phone-app .st-row:hover:enabled { background: #fdfdfd; }
 .phone-app .st-row:active:enabled { background: #eeece8; }
 .phone-app .st-row-copy { gap: 5px; }

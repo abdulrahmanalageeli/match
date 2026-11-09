@@ -46,9 +46,8 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
 
   return <section className="cm-chat-insights" aria-labelledby={headingId}>
     <div className="cm-insights-heading">
-      <span className="cm-insights-eyebrow"><Sparkles size={15} strokeWidth={1.5} aria-hidden="true" /> حديث يبدأ بفهم</span>
-      <h3 id={headingId}>مساحة أقرب مع <bdi>{name}</bdi></h3>
-      <p>{result.source === 'general' ? 'بدايات هادئة للتعرّف؛ تتخصّص الاقتراحات عندما تتوفر قراءة من إجاباتكما.' : 'ابنيا على ما يجمعكما، وافتحا مساحة هادئة لما يحتاج فهمًا. سؤال واحد يكفي للبداية.'}</p>
+      <h3 id={headingId}>اقتراح للحديث مع <bdi>{name}</bdi></h3>
+      <p>{result.source === 'general' ? 'أسئلة عامة للبداية. تتخصّص الاقتراحات عند اكتمال تقييميكما.' : 'أسئلة من نقاط اتفاقكما والمواضيع التي تحتاج إلى نقاش.'}</p>
     </div>
     {kinds.length > 1 && <div className="cm-insights-filters" role="group" aria-label="نوع بداية الحديث">
       {(['all', ...kinds] as const).map(value => <button key={value} type="button" aria-pressed={activeKind === value} aria-controls={cardId} onClick={() => changeKind(value)}>{value === 'all' ? 'لكما' : kindLabels[value]}</button>)}
@@ -64,7 +63,6 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
       </div>
       <div className="cm-insights-navigation" aria-label="تصفّح اقتراحات الحديث">
         <button type="button" disabled={currentIndex === 0} onClick={() => moveTo(currentIndex - 1)} aria-label="الاقتراح السابق"><ChevronRight size={17} aria-hidden="true" /><span>السابق</span></button>
-        <span aria-hidden="true">على مهل، وبأسلوبكما.</span>
         <button type="button" disabled={currentIndex === filtered.length - 1} onClick={() => moveTo(currentIndex + 1)} aria-label="الاقتراح التالي"><span>التالي</span><ChevronLeft size={17} aria-hidden="true" /></button>
       </div>
       <MotionPressButton className="cm-insights-use" disabled={locked} onClick={() => { if (!locked) choose(current.prompt); }}><PenLine size={17} strokeWidth={1.7} aria-hidden="true" />أضف إلى مسودتي</MotionPressButton>

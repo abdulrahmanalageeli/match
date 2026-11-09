@@ -19,8 +19,8 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     return {
       id: n.id, activityId: n.id, person: n.person, kind: interest ? 'interest' : visit ? 'visit' : 'exclusive',
       at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
-      title: interest ? `اهتمام جديد من ${n.person.alias}` : visit ? `${n.person.alias} زار ملفك` : `بدأ التزامك مع ${n.person.alias}`,
-      detail: interest ? 'اطّلع على الملف؛ الاهتمام لا يفتح محادثة تلقائيًا' : visit ? 'تعرّف على من لفت انتباهه ملفك' : open ? 'تعارف حصري · خطوة تختارانها معًا' : 'تحديث محفوظ من تعارف سابق',
+      title: interest ? `اهتمام جديد من ${n.person.alias}` : visit ? `زيارة من ${n.person.alias}` : `بدأ التزامك مع ${n.person.alias}`,
+      detail: interest ? 'اطّلع على الملف؛ الاهتمام لا يفتح محادثة تلقائيًا' : visit ? 'زيارة لملفك · عرض الملف' : open ? 'تعارف حصري · خطوة تختارانها معًا' : 'تحديث محفوظ من تعارف سابق',
       target: visit || interest ? 'profile' : open ? 'conversation' : null,
     };
   });
@@ -31,7 +31,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     if (c.status === 'pending') {
       const id = `request:${c.id}:${date || ''}`;
       rows.push({ id, kind: 'request', person: c.person, at: date, target: 'request', requestId: c.id,
-        title: incoming ? `${c.person.alias} يرغب بالتعارف معك` : `أرسلت طلبًا إلى ${c.person.alias}`,
+        title: incoming ? `طلب تعارف من ${c.person.alias}` : `طلب تعارف إلى ${c.person.alias}`,
         detail: incoming ? 'دعوة جديدة · الاطّلاع والرد' : 'بانتظار الرد على دعوتك',
         unread: incoming && !seen.has(id), attention: incoming });
     } else {
@@ -48,7 +48,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       const commitment = p && !p.exclusive && p.consentPeer && !p.consentMine;
       if (p && (p.rewindPeer || commitment || (p.exclusive && p.peer && !p.mine))) {
         rows.push({ id: `journey:${c.id}`, kind: 'journey', person: c.person, at: p.updatedAt,
-          title: `${c.person.alias} يقترح ${p.rewindPeer ? 'العودة خطوة إلى الوراء' : commitment ? 'الالتزام الحصري' : 'الخطوة العائلية'}`,
+          title: `اقتراح من ${c.person.alias}: ${p.rewindPeer ? 'العودة خطوة إلى الوراء' : commitment ? 'الالتزام الحصري' : 'الخطوة العائلية'}`,
           detail: 'خطوة تنتظر قراركما · مراجعة الاقتراح', unread: true, attention: true,
           target: 'conversation', requestId: c.id });
       }

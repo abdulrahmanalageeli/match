@@ -14,10 +14,10 @@
 .nf-feed-day { display: flex; align-items: center; gap: 12px; margin: 23px 0 9px; font-size: 14px; font-weight: 500; color: var(--muted); }
 .nf-feed-day::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 .cm-notification-row { width: 100%; display: flex; align-items: center; gap: 13px; min-height: 100px; padding: 17px 12px; margin: 0; border: 0; border-bottom: 1px solid color-mix(in srgb,var(--line) 62%,transparent); border-radius: 0; background: transparent; color: var(--ink); text-align: start; font: inherit; transition: background .18s ease; }
-.cm-notification-row[data-unread="true"] { background: #f6f4f5; }
+.cm-notification-row[data-unread="true"] { background: #fcfafb; }
 .cm-notification-row:disabled { opacity: 1; }
 .cm-notification-row[aria-busy="true"] { opacity: .64; }
-.cm-notification-row:active:not(:disabled) { background: var(--blush); }
+.cm-notification-row:active:not(:disabled) { background: #f6f3f4; }
 .nf-feed-avatar { position: relative; flex: 0 0 46px; width: 46px; height: 52px; border-radius: 10px; background: #eeece8; color: var(--accent-fill); box-shadow: none; }
 .nf-feed-avatar > .nf-person-avatar { width: 100%; height: 100%; border-radius: inherit; }
 .nf-feed-avatar > .nf-person-avatar > b { font-size: 25px; font-weight: 400; }
@@ -26,7 +26,7 @@
 .nf-feed-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .nf-feed-row-head { display: flex; gap: 8px; align-items: center; }
 .nf-feed-row-head strong { font-size: 14px; line-height: 1.65; font-weight: 500; }
-.nf-feed-unread { flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-fill); }
+.nf-feed-unread { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-fill); }
 .nf-feed-copy > small { font-size: 14px; line-height: 1.55; color: var(--muted); }
 .nf-feed-meta { display: flex; gap: 9px; align-items: center; font-size: 14px; color: var(--muted); line-height: 1.4; }
 .nf-feed-meta em { font-style: normal; color: var(--accent-fill); font-weight: 500; }

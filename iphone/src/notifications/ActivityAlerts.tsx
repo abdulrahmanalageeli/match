@@ -84,7 +84,7 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
           // Consecutive saves become one net change per connection, rather than a stack of alerts.
           return next.length || current.length ? next : current;
         });
-        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `اهتمام جديد من ${n.person.alias}` : n.kind === 'profile_visit' ? `${n.person.alias} زار ملفك` : 'بدأ التزامكما الحصري', detail: n.kind === 'interest' ? 'اطّلع على الملف في الإشعارات' : n.kind === 'profile_visit' ? 'اضغط لعرض الإشعارات وملف الزائر' : 'أُغلقت علاقات التعارف الأخرى', stamp: n.createdAt, person:n.person }));
+        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `اهتمام جديد من ${n.person.alias}` : n.kind === 'profile_visit' ? `زيارة من ${n.person.alias}` : 'بدأ التزامكما الحصري', detail: n.kind === 'interest' ? 'اطّلع على الملف في الإشعارات' : n.kind === 'profile_visit' ? 'زيارة لملفك · عرض الإشعارات' : 'أُغلقت علاقات التعارف الأخرى', stamp: n.createdAt, person:n.person }));
         for (const c of allConnections) if (c.status === 'pending' && c.direction === 'incoming') {
           next.push({key:c.id+':request',id:c.id,kind:'request',title:`طلب تعارف من ${c.person.alias}`,detail:'اطّلع على الملف وقرّر على مهلك',stamp:c.createdAt||c.updatedAt||c.id,person:c.person});
         }
@@ -93,13 +93,13 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
           if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `${c.unreadCount} رسالة غير مقروءة · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount), person:c.person });
           const p = progress.get(c.id), previous = stages.get(c.id);
           if (p) {
-            if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`${c.person.alias} يقترح خطوة إلى الوراء`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage),person:c.person});
+            if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`اقتراح من ${c.person.alias}: العودة خطوة إلى الوراء`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage),person:c.person});
             const achievement=confirmedMilestone(previous,p);
             if(achievement)setMilestone(current=>current??{id:c.id,name:c.person.alias,kind:achievement});
             if (previous !== undefined && p.stage > previous.stage) completed.set(c.id, { key: c.id + ':stage', id: c.id, kind: 'journey', title: 'اتفقتما على الخطوة التالية', detail: journeyStages[p.stage], stamp: String(p.stage),person:c.person });
             if (previous !== undefined && (p.stage < previous.stage || previous.exclusive && !p.exclusive)) {completed.delete(c.id);setMilestone(current=>current?.id===c.id?null:current);}
             stages.set(c.id, p);
-            if ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.peer && !p.mine && p.stage < 2)) next.push({ key: c.id + ':journey', id: c.id, kind: 'journey', title: `${c.person.alias} يقترح خطوة جديدة`, detail: (!p.exclusive ? 'التزام حصري للنقاش الجاد' : journeyStages[p.stage + 1]) + ' · بانتظار موافقتك', stamp: String(p.stage),person:c.person });
+            if ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.peer && !p.mine && p.stage < 2)) next.push({ key: c.id + ':journey', id: c.id, kind: 'journey', title: `اقتراح خطوة جديدة من ${c.person.alias}`, detail: (!p.exclusive ? 'التزام حصري للنقاش الجاد' : journeyStages[p.stage + 1]) + ' · بانتظار موافقتك', stamp: String(p.stage),person:c.person });
           }
           const done = completed.get(c.id);
           if (done) next.push(done);

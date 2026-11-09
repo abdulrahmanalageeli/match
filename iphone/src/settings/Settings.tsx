@@ -149,13 +149,18 @@ export function Settings({ state, demoMember, demo, paused, busy, onEdit, onMemb
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           {source&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صور ملفي</strong><small>إضافة وإدارة صور المعرض</small></span><ChevronLeft size={16}/></button>}
         </section>
-        {source?.verification&&<section className="st-section st-verification-entry" aria-label="توثيق بياناتي"><h2>توثيق الملف</h2><div className="st-group"><SettingRow icon={<ShieldCheck/>} title="توثيق بياناتي" detail="استقبال المستندات متوقف · متابعة الطلبات السابقة وسحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div></section>}
+        {Boolean(source?.verification || onBeena || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
+          <h2 id="st-marriage-title">ملفك وخطوات الزواج</h2>
+          <div className="st-group st-marriage-group">
+            {source?.verification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="توثيق بياناتي" detail="استقبال المستندات متوقف · متابعة الطلبات السابقة وسحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
+            {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · مواقف الحياة" detail={`${new Intl.NumberFormat('ar-SA').format(beenaProgress(member?.beena).answered)} من ٦ مواقف · كيف نعيش الحياة معًا؟`} action={onBeena} disabled={busy}/></div>}
+            {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div>}
+            {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="اربط أفراد أسرتك، وخطّطوا للخطوة الرسمية بخصوصية" action={()=>openPanel('family')} disabled={busy}/></div>}
+            {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدم معًا، الخطوبة أو الزواج · خطوات خاصة لحسابك" action={()=>setShowCompletion(true)} disabled={busy}/></div>}
+          </div>
+        </section>}
         {state?.user.profileReviewPending && <p role="status">تعديلات ملفك قيد المراجعة ويمكنك تصحيحها دون انتظار. تبقى محادثاتك المقبولة متاحة مع صلاحية العضوية؛ يرى أطرافها آخر بياناتك المعتمدة.</p>}
         {!state?.user.profileReviewPending && state?.user.nextPublicProfileEditAt && new Date(state.user.nextPublicProfileEditAt).getTime() > Date.now() && <p>التعديل التالي لبيانات ملفك العامة متاح في {new Date(state.user.nextPublicProfileEditAt).toLocaleDateString('ar-SA')}. يمكنك مراجعة التفضيلات وإيقاف مشاركة صورك من أدواتها.</p>}
-        {source?.readiness&&<section className="st-section st-readiness-entry" aria-label="جواز الجاهزية للزواج"><h2>الاستعداد للزواج</h2><div className="st-group"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div></section>}
-        {source?.family&&<section className="st-section st-family-entry" aria-label="جسر الأهل"><div className="st-group"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="اربط أفراد أسرتك، وخطّطوا للخطوة الرسمية بخصوصية" action={()=>openPanel('family')} disabled={busy}/></div></section>}
-        {onBeena&&<section className="st-section" aria-label="بيننا"><h2>التوافق والحياة المشتركة</h2><div className="st-group"><SettingRow icon={<BookOpen/>} title="بيننا · مواقف الحياة" detail={`${new Intl.NumberFormat('ar-SA').format(beenaProgress(member?.beena).answered)} من ٦ مواقف · كيف نعيش الحياة معًا؟`} action={onBeena} disabled={busy}/></div></section>}
-        {member&&<section className="st-section st-completion-entry" aria-label="نحو بداية جديدة"><h2>الخطوة الرسمية</h2><div className="st-group"><SettingRow icon={<UsersRound/>} title="نحو بداية جديدة" detail="التقدم معًا، الخطوبة أو الزواج · خطوات خاصة لحسابك" action={()=>setShowCompletion(true)} disabled={busy}/></div></section>}
         <section className="st-section" aria-labelledby="st-privacy-title">
           <h2 id="st-privacy-title">العضوية والخصوصية</h2>
           <div className="st-group">

@@ -24,7 +24,9 @@ interface NativePush {
 }
 const native = registerPlugin<NativePush>('NisfaynPush');
 export const nativePush = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
-export const pushConfigured = nativePush ? import.meta.env.VITE_MARRIAGE_PUSH_ENABLED === 'true' : webPushConfigured;
+// Native registration is always available in the signed iPhone app. Delivery is
+// controlled on the server; a missing build-time flag must not disable consent.
+export const pushConfigured = nativePush || webPushConfigured;
 export const pushSupported = () => nativePush || webPushSupported();
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();

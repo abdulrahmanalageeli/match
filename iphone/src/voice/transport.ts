@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { IAgoraRTCClient, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import type { VoiceCredentials } from "./source";
+import { nativeBackgroundCalls, nativeCalls } from './nativeCalls';
 
 type VoiceEvents = {
   peer: (present: boolean) => void;
@@ -9,6 +10,7 @@ type VoiceEvents = {
   ended: () => void;
   error: (error: unknown) => void;
   playbackBlocked: (blocked?: boolean) => void;
+  controls?: (state:{muted:boolean;route:string})=>void;
 };
 export type VoiceTransport = {
   join: (credentials: VoiceCredentials, initiallyMuted?: boolean) => Promise<void>;
@@ -25,7 +27,7 @@ interface NativeVoice {
   mute(options: { muted: boolean }): Promise<void>;
   setSpeaker(options: { enabled: boolean }): Promise<void>;
   renewToken(options: { token: string }): Promise<void>;
-  addListener(event: string, listener: (data: { state?: number; code?: number; message?: string; reason?: string }) => void): Promise<PluginListenerHandle>;
+  addListener(event: string, listener: (data: { state?: number; code?: number; message?: string; reason?: string; present?:boolean;muted?:boolean;route?:string }) => void): Promise<PluginListenerHandle>;
 }
 const native = registerPlugin<NativeVoice>("NisfaynVoice");
 export const nativeVoice = Capacitor.getPlatform() === "ios" && Capacitor.isNativePlatform();
@@ -52,7 +54,8 @@ export function createVoiceTransport(events: VoiceEvents): VoiceTransport {
         await nativeCleanup;
         if (closed) return;
         await Promise.all([
-          listen("remoteJoined", () => events.peer(true)),
+          listen("remoteJoined", data => events.peer(data.present!==false)),
+          listen("controls",data=>events.controls?.({muted:!!data.muted,route:data.route||'iPhone'})),
           listen("remoteLeft", () => events.peer(false)),
           listen("left", events.ended),
           listen("error", data => events.error(new Error(data.message || "Voice connection failed"))),
@@ -78,7 +81,14 @@ export function createVoiceTransport(events: VoiceEvents): VoiceTransport {
       mute: muted => native.mute({ muted }),
       speaker: enabled => native.setSpeaker({ enabled }),
       renew: token => native.renewToken({ token }),
-      async resume() { return !closed; },
+      async resume() {
+        if(nativeBackgroundCalls()){
+          const state=await nativeCalls.callState();
+          if(!state.callId||!state.joined)return false;
+          events.peer(state.peer);events.controls?.(state);
+        }
+        return !closed;
+      },
       play() {},
     };
   }

@@ -13,7 +13,12 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "leave", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "mute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "renewToken", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "renewToken", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "callDevice", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "configureCalls", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearCalls", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "callState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "audioRoutes", returnType: CAPPluginReturnPromise)
     ]
 
     private var engine: AgoraRtcEngineKit?
@@ -26,9 +31,37 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
     private var previousAudio: (AVAudioSession.Category, AVAudioSession.Mode, AVAudioSession.CategoryOptions)?
 
     override func load() {
+        NotificationCenter.default.addObserver(self, selector: #selector(nativeEvent(_:)), name: NisfaynCallCenter.event, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backgrounded), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(interrupted(_:)), name: AVAudioSession.interruptionNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(mediaServicesReset), name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+    }
+
+    @objc private func nativeEvent(_ note: Notification) {
+        guard let name = note.userInfo?["name"] as? String, let data = note.userInfo?["data"] as? [String:Any] else { return }
+        notifyListeners(name,data:data)
+    }
+    @objc func callDevice(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            NisfaynCallCenter.shared.boot()
+            call.resolve(["installation":NisfaynPushCenter.shared.installation,"environment":NisfaynPushCenter.shared.environment,"voipToken":NisfaynCallCenter.shared.voipToken as Any? ?? NSNull()])
+        }
+    }
+    @objc func configureCalls(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            do {
+                try NisfaynCallCenter.shared.configure(installation:call.getString("installation") ?? "",credential:call.getString("credential") ?? "",account:call.getString("account") ?? "")
+                call.resolve()
+            }catch{call.reject("تعذّر تفعيل مكالمات iPhone.")}
+        }
+    }
+    @objc func clearCalls(_ call: CAPPluginCall) { DispatchQueue.main.async { NisfaynCallCenter.shared.clear();call.resolve() } }
+    @objc func callState(_ call: CAPPluginCall) { DispatchQueue.main.async { call.resolve(NisfaynCallCenter.shared.snapshot) } }
+    @objc func audioRoutes(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let view = self.bridge?.viewController else { call.reject("افتح التطبيق لاختيار مخرج الصوت.");return }
+            NisfaynCallCenter.shared.showRoutes(from:view);call.resolve()
+        }
     }
 
     deinit {
@@ -48,6 +81,17 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func join(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            if NisfaynCallCenter.shared.configured {
+                var options: [String:Any] = [:]
+                for key in ["callId","appId","channel","token","expiresAt"] { options[key] = call.getString(key) }
+                options["uid"] = call.getInt("uid")
+                options["muted"] = call.getBool("muted") ?? false
+                NisfaynCallCenter.shared.join(options) { ok in
+                    if ok { call.resolve(["uid":call.getInt("uid") ?? 0]) }
+                    else { call.reject("تعذّر الاتصال بالمكالمة. حاول مجددًا.","VOICE_CONNECTION") }
+                }
+                return
+            }
             guard self.engine == nil, self.joinCall == nil, !self.stopping else {
                 call.reject("توجد مكالمة قيد التنفيذ. انتظر انتهاءها ثم حاول مجددًا.", "VOICE_BUSY"); return
             }
@@ -130,6 +174,7 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func leave(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            if NisfaynCallCenter.shared.active { NisfaynCallCenter.shared.end(server:true);call.resolve();return }
             self.leaveCalls.append(call)
             if !self.stopping { self.stop(reason: "local") }
         }
@@ -137,6 +182,10 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func mute(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            if NisfaynCallCenter.shared.active {
+                if NisfaynCallCenter.shared.setMute(call.getBool("muted") ?? false) { call.resolve() }
+                else { call.reject("تعذّر تغيير الميكروفون.") };return
+            }
             guard let rtc = self.engine, self.joined, let muted = call.getBool("muted") else {
                 call.reject("لا توجد مكالمة متصلة.", "VOICE_NOT_JOINED"); return
             }
@@ -148,6 +197,10 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func setSpeaker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            if NisfaynCallCenter.shared.active {
+                if NisfaynCallCenter.shared.speaker(call.getBool("enabled") ?? false) { call.resolve() }
+                else { call.reject("تعذّر تغيير مخرج الصوت.") };return
+            }
             guard let rtc = self.engine, self.joined, let enabled = call.getBool("enabled") else {
                 call.reject("لا توجد مكالمة متصلة.", "VOICE_NOT_JOINED"); return
             }
@@ -159,6 +212,8 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func renewToken(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            // Native calls renew their own server lease and token, even while locked.
+            if NisfaynCallCenter.shared.active { call.resolve();return }
             guard let rtc = self.engine, !self.stopping,
                   let token = call.getString("token"), !token.isEmpty, token.utf8.count <= 8192 else {
                 call.reject("تعذّر تجديد الاتصال بالمكالمة.", "VOICE_RENEW"); return

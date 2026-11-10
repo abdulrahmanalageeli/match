@@ -31,7 +31,19 @@ test('APNs transport sends correct fixed endpoint and headers without network',a
  assert.equal(await apns.send(job),'sent');
  assert.equal(authority,'https://api.sandbox.push.apple.com');assert.equal(captured['apns-push-type'],'alert');assert.equal(captured['apns-topic'],config.topic);assert.equal(captured['apns-id'],job.id);
  assert.equal(JSON.parse(body).requestId,job.requestId);assert.equal(await apns.send({...job,environment:'production'}),'failed');
+ const callId=randomUUID(),installation=randomUUID();
+ assert.equal(await apns.sendCall({callId,installation,token:job.token,environment:'sandbox'}),'sent');
+ assert.equal(captured['apns-push-type'],'voip');assert.equal(captured['apns-topic'],config.topic+'.voip');assert.equal(captured['apns-expiration'],'0');
+ assert.deepEqual(JSON.parse(body),{aps:{},callId,installation});
  apns.close();assert(closed);
  const broken=new EventEmitter();broken.close=()=>{};broken.request=()=>{throw new Error('closed');};
  const failure=openApns(config,()=>broken);assert.equal(await failure.send(job),'retry');failure.close();
+});
+
+test('notification payload honors privacy, groups messages and bounds content',()=>{
+ const details={preview:'private',sender:'Hidden',body:'Hidden message',badge:3,messageId:randomUUID()};
+ let payload=pushPayload({...job,details});assert.equal(payload.aps.alert.title,'نصفين');assert(!JSON.stringify(payload).includes('Hidden'));
+ payload=pushPayload({...job,details:{...details,preview:'name'}});assert.equal(payload.aps.alert.title,'Hidden');assert(!payload.aps.alert.body.includes('Hidden message'));
+ payload=pushPayload({...job,details:{...details,preview:'content',body:'x'.repeat(1000)}});
+ assert.equal(payload.aps.alert.body.length,160);assert.equal(payload.aps.badge,3);assert.equal(payload.aps['thread-id'],job.requestId);assert.equal(payload.aps.category,'NISFAYN_MESSAGE');
 });

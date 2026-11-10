@@ -34,6 +34,10 @@ verify_jwt = false
 [functions.voice-token]
 verify_jwt = false
 
+# Device-scoped, revocable call credentials; no profile/message access.
+[functions.native-call]
+verify_jwt = false
+
 [functions.pair-test]
 verify_jwt = false
 

@@ -2,18 +2,28 @@ import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } f
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
 export type PushKind = 'request' | 'mutual' | 'message';
-export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string };
+export type PushDetails={preview:'private'|'name'|'content';sender?:string;body?:string;messageId?:string;badge:number};
+export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
+export type CallPushJob = {callId:string;installation:string;token:string;environment:'sandbox'|'production'};
 
-export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind'>) {
+export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
     request: 'لديك طلب تعارف جديد. افتح نصفين للاطلاع عليه.',
     mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في نصفين.',
     message: 'لديك رسالة جديدة في نصفين.',
   };
   if (!copy[job.kind] || !/^[0-9a-f-]{36}$/i.test(job.requestId)) throw new Error('Invalid push event');
-  return { aps: { alert: { title: 'نصفين', body: copy[job.kind] }, sound: 'default' }, requestId: job.requestId, kind: job.kind };
+  const clean=(value:string,limit:number)=>value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,' ').trim().slice(0,limit);
+  const details=job.details;
+  const named=details&&['name','content'].includes(details.preview);
+  const title=named&&details.sender?clean(details.sender,50):'نصفين';
+  const body=details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
+  return { aps: { alert: { title, body }, sound: 'default', 'thread-id':job.requestId,
+    ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
+    ...(job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: job.requestId, kind: job.kind,
+    ...(details?.messageId&&/^[0-9a-f-]{36}$/i.test(details.messageId)?{messageId:details.messageId}:{}) };
 }
 
 export function providerToken(config: ApnsConfig, now = Date.now()) {
@@ -37,9 +47,9 @@ export function openApns(config: ApnsConfig, makeConnection: (authority: string)
   const token = providerToken(config);
   const client = makeConnection(config.environment === 'production' ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com');
   client.on('error', () => {}); // Individual requests surface failure without logging device addresses.
-  return {
-    close: () => client.close(),
-    send(job: PushJob): Promise<DeliveryResult> {
+  function deliver(job: PushJob | CallPushJob): Promise<DeliveryResult> {
+      const call = 'callId' in job;
+      if (call && (!/^[0-9a-f-]{36}$/i.test(job.callId)||!/^[0-9a-f-]{36}$/i.test(job.installation))) return Promise.resolve('failed');
       if (job.environment !== config.environment || !/^[0-9a-f]{32,512}$/.test(job.token)) return Promise.resolve('failed');
       return new Promise(resolve => {
         let finished = false, status = 0, body = '';
@@ -49,9 +59,9 @@ export function openApns(config: ApnsConfig, makeConnection: (authority: string)
         try {
         request = client.request({
           ':method': 'POST', ':path': '/3/device/' + job.token, authorization: 'bearer ' + token,
-          'apns-topic': config.topic, 'apns-push-type': 'alert', 'apns-priority': '10',
-          'apns-id': job.id, 'apns-expiration': String(Math.floor(new Date(job.expiresAt).getTime() / 1000)),
-          'apns-collapse-id': job.kind + ':' + job.requestId,
+          'apns-topic': config.topic + (call ? '.voip' : ''), 'apns-push-type': call ? 'voip' : 'alert', 'apns-priority': '10',
+          'apns-expiration': call ? '0' : String(Math.floor(new Date(job.expiresAt).getTime() / 1000)),
+          ...(!call ? {'apns-id': job.id, 'apns-collapse-id': job.kind + ':' + job.requestId} : {}),
           'content-type': 'application/json',
         });
         request.setEncoding('utf8');
@@ -63,9 +73,9 @@ export function openApns(config: ApnsConfig, makeConnection: (authority: string)
           try { reason = JSON.parse(body).reason; } catch { /* Successful empty response. */ }
           finish(classifyApns(status, reason));
         });
-        request.end(JSON.stringify(pushPayload(job)));
+        request.end(JSON.stringify(call ? {aps:{},callId:job.callId,installation:job.installation} : pushPayload(job)));
         } catch { finish('retry'); }
       });
-    },
-  };
+  }
+  return {close: () => client.close(),send:(job:PushJob)=>deliver(job),sendCall:(job:CallPushJob)=>deliver(job)};
 }

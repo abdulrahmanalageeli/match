@@ -36,9 +36,10 @@ import { useUnreadCount } from "./community/useUnreadCount";
 import { useMutualMatches } from "./community/useMutualMatches";
 import { MatchCelebration } from "./community/MatchCelebration";
 import { initializeMatchSound } from "./community/matchSound";
-import { usePushNotifications } from "./notifications/push";
+import { usePushNotifications, setPushBadge } from "./notifications/push";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
+import { useNativeCalls } from './voice/nativeCalls';
 import { pairSource, testProfile, type TestSession } from "./testing/pair";
 import type { ApplicationDraft } from "./onboarding/GuidedApplication";
 import type { Chapter } from "./onboarding/draft";
@@ -225,12 +226,25 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   const mutual = useMutualMatches(active && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
-  usePushNotifications(tester ? `tester:${tester.session}` : !demo && active ? token : null, (id, kind) => {
+  useNativeCalls(!demo && active ? token : null,tester?.session);
+  useEffect(()=>{
+    if(!source||!active||(demo&&!tester))return;
+    let alive=true;let timeout:ReturnType<typeof setTimeout>|undefined;
+    const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count);}).catch(()=>{});},400);};
+    refresh();const stop=source.watch(refresh);return()=>{alive=false;clearTimeout(timeout);stop();};
+  },[source,active,demo,!!tester]);
+  usePushNotifications(tester ? `tester:${tester.session}` : !demo && active ? token : null, async (id, kind,event) => {
     if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
     setConversationIntent({ source, id, requestOnly: kind === "request" });
     go(kind === "request" ? "inbox" : "chats");
+    try{
+      if(event?.action==='reply'&&event.text?.trim()&&event.actionId){
+        await source.send(id,event.text.trim().slice(0,1000),event.actionId);
+      }
+      if(event?.messageId&&['read','reply'].includes(event.action||''))await source.markRead(id,event.messageId);
+    }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح نصفين.');throw cause;}
   });
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);

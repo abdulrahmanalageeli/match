@@ -7,6 +7,8 @@ import { callProblem, voiceSource, type CallAction, type VoiceCall } from "./sou
 import { createVoiceTransport, prepareVoiceTransport, nativeVoice, type VoiceTransport } from "./transport";
 import "./voice.css";
 import { fatalVoiceError, retryVoice } from './recovery';
+import { nativeBackgroundCalls, nativeCalls } from './nativeCalls';
+import { feedback } from '../feedback/haptics';
 
 type Phase = "starting" | "ringing" | "connecting" | "connected" | "reconnecting" | "ended";
 const VoiceContext = createContext<{ start: (connection: Connection) => void; occupied: boolean } | null>(null);
@@ -26,6 +28,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState(false);
+  const [audioRoute,setAudioRoute]=useState('iPhone');
   const [playbackBlocked, setPlaybackBlocked] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
@@ -105,7 +108,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     const timer = window.setInterval(() => void refresh(), 5_000);
     const resume = () => { lastResumeAt.current = Date.now(); resumeRequested = true; void refresh(); };
     const visible = () => {
-      if (document.hidden) { if (nativeVoice) void finish(); }
+      if (document.hidden) { if (nativeVoice && !nativeBackgroundCalls()) void finish(); }
       else resume();
     };
     const offline = () => { if(current.current?.status==='active')setPhase('reconnecting'); };
@@ -139,6 +142,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     const active=()=>alive&&current.current?.id===id&&current.current.status==='active';
     const retrying=()=>{if(active())setPhase('reconnecting');};
     const renew = async () => {
+      if(nativeBackgroundCalls())return;
       if (!active() || renewing || connecting || !transport) return;
       const target = transport;
       renewing = true;
@@ -161,6 +165,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
       const ownGeneration = ++generation;
       const currentTransport = () => active() && ownGeneration === generation;
       return createVoiceTransport({
+      controls(state){if(currentTransport()){setMuted(state.muted);setAudioRoute(state.route);}},
       peer(present) {
         if (!currentTransport()) return;
         peer = present;
@@ -175,7 +180,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
       },
       renew: () => { if (currentTransport()) void renew(); },
       ended: () => { if (currentTransport()) void finish(); },
-      error: error=>{if(!currentTransport()||connecting)return;if(fatalVoiceError(error)){fail(error);return;}disconnectedSince ||= Date.now();retrying();if(!document.hidden)void connect(true);},
+      error: error=>{if(!currentTransport()||connecting)return;if(fatalVoiceError(error)||nativeBackgroundCalls()){fail(error);return;}disconnectedSince ||= Date.now();retrying();if(!document.hidden)void connect(true);},
       playbackBlocked: (blocked = true) => { if (currentTransport()) setPlaybackBlocked(blocked); },
     }); };
     async function connect(recovery=false){
@@ -187,7 +192,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
           const credentials=await api!.credentials(id);
           if(!active())return;
           const nextTransport=makeTransport();transport=nextTransport;media.current=nextTransport;
-          try{await nextTransport.join(credentials,mutedRef.current);if(active()&&transport===nextTransport){if(nativeVoice)await nextTransport.speaker(speakerRef.current);renewedAt=Date.now();}}
+          try{await nextTransport.join(credentials,mutedRef.current);if(active()&&transport===nextTransport){if(nativeVoice&&!nativeBackgroundCalls())await nextTransport.speaker(speakerRef.current);renewedAt=Date.now();}}
           catch(error){await nextTransport.leave().catch(()=>{});throw error;}
         },active,retrying);
       }catch(error){if(active())fail(error);}finally{connecting=false;recovering=false;}
@@ -264,7 +269,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     working.current = true; setBusy(true); setError("");
     try {
       const next = demo ? { ...previous, status: "active" as const, acceptedAt: new Date().toISOString() } : await api!.act(previous.id, action);
-      if (mounted.current && current.current?.id === previous.id && current.current.status !== "ended") update(next);
+      if (mounted.current && current.current?.id === previous.id && current.current.status !== "ended") {update(next);feedback('success');}
       else if (api && next.status !== "ended") void api.act(next.id, "end").catch(() => {});
     } catch (error) { if (mounted.current) setError(callProblem(error)); }
     finally { working.current = false; if (mounted.current) setBusy(false); }
@@ -275,6 +280,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     try {
       if (kind === "mute") { if (!demo) await media.current?.mute(!muted); setMuted(!muted); }
       else { if (!demo) await media.current?.speaker(!speaker); setSpeaker(!speaker); }
+      feedback('selection');
     } catch { setError("تعذّر تغيير إعداد الصوت. حاول مجددًا."); }
     finally { working.current = false; if (mounted.current) setBusy(false); }
   }
@@ -317,10 +323,10 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
           </> : <>
             {call.status === "active" && <CallControl label={muted ? "تشغيل الميكروفون" : "كتم الصوت"} icon={muted ? <MicOff/> : <Mic/>} pressed={muted} disabled={busy || phase === "connecting" || phase === 'reconnecting'} onClick={() => void control("mute")}/>}
             <CallControl label={call.status === "ringing" ? "إلغاء" : "إنهاء"} icon={<PhoneOff/>} tone="end" onClick={() => void act("end")}/>
-            {call.status === "active" && (nativeVoice || demo) && <CallControl label="مكبر الصوت" icon={<Volume2/>} pressed={speaker} disabled={busy || phase === "connecting"} onClick={() => void control("speaker")}/>}
+            {call.status === "active" && (nativeVoice || demo) && <CallControl label={nativeBackgroundCalls()?audioRoute:'مكبر الصوت'} icon={nativeBackgroundCalls()?<Headphones/>:<Volume2/>} pressed={nativeBackgroundCalls()?undefined:speaker} disabled={busy || phase === "connecting"} onClick={() => nativeBackgroundCalls()?void nativeCalls.audioRoutes().catch(()=>setError('تعذّر فتح مخارج الصوت.')):void control("speaker")}/>}
           </>}
         </div>
-        <p className="nf-call-footnote"><Headphones size={14}/> يبقى رقم هاتفك خاصًا. أبقِ التطبيق مفتوحًا أثناء المكالمة.</p>
+        <p className="nf-call-footnote"><Headphones size={14}/> يبقى رقم هاتفك خاصًا. {nativeBackgroundCalls()?'يمكنك متابعة المكالمة عند قفل الشاشة.':'أبقِ التطبيق مفتوحًا أثناء المكالمة.'}</p>
         {!nativeVoice&&!demo&&<p className="nf-call-footnote">قد يوقف المتصفح الصوت عند قفل الشاشة أو الانتقال لتطبيق آخر؛ عند العودة نحاول استعادته تلقائيًا. مخرج الصوت يحدده جهازك، ويمكنك استخدام سماعة أو بلوتوث.</p>}
         {demo && call.status === "ringing" && call.direction === "outgoing" && <div className="nf-call-simulate">
           <button className="btn-secondary" onClick={() => void act("accept")}><Check size={16}/> محاكاة الرد</button>

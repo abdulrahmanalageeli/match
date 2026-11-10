@@ -4,6 +4,7 @@ import { dimensions, interests, preferencePercentage, type MatchFit } from '../c
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
 import type { Profile, ProfilePortrait } from '../types';
 import type { VoiceCall, VoiceCredentials } from '../voice/source';
+import { ringNativePhones } from '../voice/nativeCalls';
 import { normalizeReadinessDraft } from '../readiness/model';
 import { boundedFamilyPayload, unwrapFamilyResult } from '../family/model';
 import { requestAi, requestSimulationReply } from '../ai/client';
@@ -203,7 +204,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async nextStep(id,stage,agree,exclusiveConsent=false){return id==='tester-pair'?progress(await mutate('step',{stage,agree,exclusiveConsent})):local.nextStep!(id,stage,agree,exclusiveConsent);},
  };
  const voice={
-  async start(requestId:string,clientId:string){if(requestId!=='tester-pair')throw Error('المكالمات متاحة بين عبدالرحمن ورهام فقط.');return call(await mutate('call_start',{clientId}))!;},
+  async start(requestId:string,clientId:string){if(requestId!=='tester-pair')throw Error('المكالمات متاحة بين عبدالرحمن ورهام فقط.');const next=call(await mutate('call_start',{clientId}))!;if(next.status==='ringing')void ringNativePhones(next.id,account.session);return next;},
   async state(_id:string|null){return call(await state());},
   async act(callId:string,action:'accept'|'decline'|'end'){return call(await mutate('call_'+action,{callId}))!;},
   credentials:(callId:string)=>testRequest<VoiceCredentials>('token',account.session,{callId}),

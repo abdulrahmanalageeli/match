@@ -14,7 +14,7 @@ allowed.add('typing_set');
 allowed.add('typing_state');
 allowed.add('passport');
 allowed.add('family');
-for (const action of ['push_settings','push_register','push_enable','push_unregister']) allowed.add(action);
+for (const action of ['push_settings','push_register','push_enable','push_unregister','push_privacy']) allowed.add(action);
 const validSession=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const validId=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 Deno.serve(async req=>{

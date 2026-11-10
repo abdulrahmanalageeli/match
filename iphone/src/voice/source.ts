@@ -1,5 +1,6 @@
 import { callRpc, cloud, cloudSessionId, CloudError } from "../cloud";
 import type { PublicPerson } from "../community/data";
+import { ringNativePhones } from './nativeCalls';
 
 export type VoiceCall = {
   id: string;
@@ -21,7 +22,11 @@ export function voiceSource(owner: string) {
     return callRpc<T>(name, params, owner, AbortSignal.timeout(12_000));
   }
   return {
-    start: (requestId: string, clientId: string) => rpc<VoiceCall>("marriage_call_start", { request_id: requestId, client_id: clientId }),
+    async start(requestId: string, clientId: string) {
+      const call=await rpc<VoiceCall>("marriage_call_start",{request_id:requestId,client_id:clientId});
+      if(call.status==='ringing')void ringNativePhones(call.id);
+      return call;
+    },
     state: (callId: string | null) => rpc<VoiceCall | null>("marriage_call_state", { call_id: callId }),
     act: (callId: string, action: CallAction) => rpc<VoiceCall>("marriage_call_act", { call_id: callId, action }),
     async credentials(callId: string): Promise<VoiceCredentials> {

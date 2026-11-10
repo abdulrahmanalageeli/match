@@ -88,7 +88,11 @@ async function fixture(options = {}) {
       return sdkModule;
     },
   });
-  await module.link(specifier => { assert.equal(specifier, "@capacitor/core"); return platform; });
+  const nativeBridge=new vm.SyntheticModule(['nativeBackgroundCalls','nativeCalls'],function(){
+    this.setExport('nativeBackgroundCalls',()=>false);
+    this.setExport('nativeCalls',{callState:()=>{throw Error('Native state must not run in browser tests');}});
+  },{context});
+  await module.link(specifier => { if(specifier==='./nativeCalls')return nativeBridge;assert.equal(specifier, "@capacitor/core"); return platform; });
   await module.evaluate();
   return {
     stats, clients, microphones, microphoneStarted, joinStarted, publishStarted, subscribeStarted,

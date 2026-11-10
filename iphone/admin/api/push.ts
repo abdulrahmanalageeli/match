@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { openApns, type ApnsConfig, type PushJob } from '../server/apns.js';
+import { openApns, type ApnsConfig, type PushJob, type PushDetails } from '../server/apns.js';
 import { openWebPush, type WebPushJob } from '../server/webPush.js';
 
 function authorized(value: unknown, secret: string) {
@@ -53,7 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // execution budget and risk acknowledging an incomplete delivery.
       if (Date.now() >= deadline) break;
       const batch = await Promise.allSettled(jobs.slice(start, start + 5).map(async job => {
-        const live = await rpc<boolean>(job.tester ? 'nisfayn_test_push_validate' : 'marriage_push_validate', { job_id: job.id, lease: job.leaseId });
+        const details = job.environment==='web'?null:await rpc<PushDetails|null>('nisfayn_push_content',{job_id:job.id,lease:job.leaseId,tester:!!job.tester});
+        const live = job.environment==='web'?await rpc<boolean>('marriage_push_validate', { job_id: job.id, lease: job.leaseId }):details!==null;
+        if(job.environment!=='web'&&details)job.details=details;
         const result = !live ? 'revoked' : job.environment === 'web' ? await webTransport!.send(job) : await transport!.send(job);
         await rpc(job.tester ? 'nisfayn_test_push_finish' : 'marriage_push_finish', { job_id: job.id, lease: job.leaseId, result, device_token: job.token });
         count[result]++;

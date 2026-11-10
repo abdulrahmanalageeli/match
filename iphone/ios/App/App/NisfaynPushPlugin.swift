@@ -8,7 +8,14 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     static let failureEvent = Notification.Name("NisfaynPushFailure")
     static let openEvent = Notification.Name("NisfaynPushOpen")
     var token: String?
-    var pendingOpen: [String: String]?
+    var pending: [[String:String]] = []
+    var pendingOpen: [String:String]? { pending.first }
+    func setupActions() {
+        let reply = UNTextInputNotificationAction(identifier:"NISFAYN_REPLY",title:"رد",options:[.foreground,.authenticationRequired],textInputButtonTitle:"إرسال",textInputPlaceholder:"رسالتك…")
+        let read = UNNotificationAction(identifier:"NISFAYN_READ",title:"تحديد كمقروء",options:[.foreground,.authenticationRequired])
+        let category = UNNotificationCategory(identifier:"NISFAYN_MESSAGE",actions:[reply,read],intentIdentifiers:[],hiddenPreviewsBodyPlaceholder:"رسالة جديدة",options:[])
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
     let installation: String = {
         let key = "nisfayn.push.installation"
         if let saved = UserDefaults.standard.string(forKey: key), UUID(uuidString: saved) != nil { return saved }
@@ -33,7 +40,14 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
            let kind = info["kind"] as? String, ["request", "mutual", "message"].contains(kind) {
             DispatchQueue.main.async {
-                self.pendingOpen = ["requestId": id, "kind": kind]
+                var payload = ["requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
+                if let messageId = info["messageId"] as? String,UUID(uuidString:messageId) != nil { payload["messageId"] = messageId }
+                if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
+                if response.actionIdentifier == "NISFAYN_REPLY",let reply = response as? UNTextInputNotificationResponse {
+                    payload["action"] = "reply";payload["text"] = String(reply.userText.prefix(1000))
+                }
+                self.pending.append(payload)
+                if self.pending.count > 8 { self.pending.removeFirst() }
                 NotificationCenter.default.post(name: Self.openEvent, object: nil)
             }
         }
@@ -50,6 +64,8 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unregister", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "consumeOpen", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "acknowledgeOpen", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "badge", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
     private var registration: CAPPluginCall?
@@ -84,9 +100,22 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         if let payload = NisfaynPushCenter.shared.pendingOpen { notifyListeners("opened", data: payload) }
     }
     @objc func consumeOpen(_ call: CAPPluginCall) {
-        let payload = NisfaynPushCenter.shared.pendingOpen
-        NisfaynPushCenter.shared.pendingOpen = nil
-        call.resolve(["notification": payload as Any? ?? NSNull()])
+        DispatchQueue.main.async {
+            guard NisfaynPrivacy.shared.mayOpen else { call.resolve(["notification":NSNull()]);return }
+            call.resolve(["notification":NisfaynPushCenter.shared.pendingOpen as Any? ?? NSNull()])
+        }
+    }
+    @objc func acknowledgeOpen(_ call:CAPPluginCall) {
+        DispatchQueue.main.async {
+            NisfaynPushCenter.shared.pending.removeAll{$0["actionId"] == call.getString("actionId")}
+            call.resolve()
+            if NisfaynPushCenter.shared.pendingOpen != nil { NotificationCenter.default.post(name:NisfaynPushCenter.openEvent,object:nil) }
+        }
+    }
+    @objc func badge(_ call:CAPPluginCall) {
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = min(999,max(0,call.getInt("count") ?? 0));call.resolve()
+        }
     }
     @objc func status(_ call: CAPPluginCall) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
@@ -111,7 +140,10 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
     @objc func unregister(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { UIApplication.shared.unregisterForRemoteNotifications(); call.resolve() }
+        DispatchQueue.main.async {
+            UIApplication.shared.unregisterForRemoteNotifications();UIApplication.shared.applicationIconBadgeNumber = 0
+            NisfaynPushCenter.shared.pending = [];UNUserNotificationCenter.current().removeAllDeliveredNotifications();call.resolve()
+        }
     }
     @objc func openSettings(_ call: CAPPluginCall) {
         DispatchQueue.main.async {

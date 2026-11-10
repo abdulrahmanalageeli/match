@@ -10,6 +10,7 @@ import { useDevicePreferences, useSystemReducedMotion } from "./preferences";
 import { MemberData } from "./MemberData";
 import { PhotoSettings } from "../photos/Photos";
 import { PushSettings } from "../notifications/PushSettings";
+import { NativePrivacy } from './NativePrivacy';
 import "./settings.css";
 import { ProfileGallery } from "../photos/ProfileGallery";
 import type { CommunitySource } from "../community/data";
@@ -188,6 +189,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           </div>
         </section>
         <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} />
+        <NativePrivacy />
         <section className="st-section st-access" aria-labelledby="st-access-title">
           <h2 id="st-access-title">الحساب</h2>
           <div className="st-group">

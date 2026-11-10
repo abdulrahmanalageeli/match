@@ -10,9 +10,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = UIWindow(windowScene: windowScene)
         window?.rootViewController = MarriageBridgeController()
         window?.makeKeyAndVisible()
+        if let window { NisfaynPrivacy.shared.attach(window) }
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
+
+    func sceneWillResignActive(_ scene: UIScene) { NisfaynPrivacy.shared.shield() }
+    func sceneDidEnterBackground(_ scene: UIScene) { NisfaynPrivacy.shared.background() }
+    func sceneDidBecomeActive(_ scene: UIScene) { NisfaynPrivacy.shared.active() }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)

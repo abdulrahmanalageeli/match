@@ -10,7 +10,7 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message';actionId?:string;action?:'reply'|'read';text?:string;messageId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
@@ -19,6 +19,8 @@ interface NativePush {
   unregister(): Promise<void>;
   openSettings(): Promise<void>;
   consumeOpen(): Promise<{ notification: PushOpen | null }>;
+  acknowledgeOpen(options:{actionId:string}):Promise<void>;
+  badge(options:{count:number}):Promise<void>;
   addListener(event: 'registration', listener: (device: Device) => void): Promise<PluginListenerHandle>;
   addListener(event: 'opened', listener: (event: PushOpen) => void): Promise<PluginListenerHandle>;
 }
@@ -29,6 +31,9 @@ export const pushSupported = () => nativePush || webPushSupported();
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');
+export type PushPreview='private'|'name'|'content';
+export const pushPrivacy=(owner:string,preview_mode?:PushPreview)=>pushRpc<{preview:PushPreview}>(owner,'privacy',{preview_mode:preview_mode??null});
+export const setPushBadge=(count:number)=>nativePush?native.badge({count:Math.max(0,Math.floor(count))}).catch(()=>{}):Promise.resolve();
 
 async function bind(owner: string, device: Device) {
   if (!await currentOwner(owner)) return;
@@ -51,7 +56,7 @@ export async function disablePush(owner: string) {
 }
 
 // No permission prompt on launch. Only rebind already authorized, opted-in devices.
-export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind']) => void) {
+export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>) {
   const callback = useRef(onOpen);
   callback.current = onOpen;
   useEffect(() => {
@@ -60,15 +65,21 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if (!webPushSupported()) return;
       return monitorWebPush(owner, event => callback.current(event.requestId, event.kind));
     }
-    let active = true, refreshing = false;
+    let active = true, refreshing = false, opening=false;
     const listeners: PluginListenerHandle[] = [];
     const open = async () => {
+      if(opening)return;opening=true;
+      try {
       const { notification } = await native.consumeOpen();
       if (!active || !notification || !await currentOwner(owner)) return;
       if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message'].includes(notification.kind)) {
-        if (isTester(owner) !== (notification.requestId === testerRequestId)) return;
-        callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind);
+        if (isTester(owner) !== (notification.requestId === testerRequestId)) {
+          if(notification.actionId)await native.acknowledgeOpen({actionId:notification.actionId});return;
+        }
+        await callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
+        if(notification.actionId)await native.acknowledgeOpen({actionId:notification.actionId});
       }
+      }finally{opening=false;}
     };
     const refresh = async () => {
       if (!active || refreshing || document.hidden) return;

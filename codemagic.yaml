@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 45
     # Manual runs only: do not spend build minutes on every website commit.
     integrations:
-      app_store_connect: nisfayn-apple
+      app_store_connect: Nisfayn Codemagic
     environment:
       node: 22
       xcode: latest

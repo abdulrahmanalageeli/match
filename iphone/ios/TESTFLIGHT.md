@@ -19,7 +19,7 @@ App Store or automatically inviting external testers.
    create a dedicated team API key with App Manager access. Download its `.p8`
    file and record the Issuer ID and Key ID. Keep the key out of Git and chat.
 5. In Codemagic → Team settings → Team integrations → Developer Portal → Manage
-   keys, add that key and name the integration **`nisfayn-apple`** exactly.
+   keys, add that key and name the integration **`Nisfayn Codemagic`** exactly.
 6. In Codemagic → Code signing identities → iOS certificates, generate an
    **Apple Distribution** certificate using that integration. Follow Codemagic's
    download/upload instructions so the certificate and private key are stored

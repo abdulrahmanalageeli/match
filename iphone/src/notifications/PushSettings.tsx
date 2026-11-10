@@ -10,34 +10,20 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const available = Boolean(owner && (!demo || (testerSession && nativePush)) && pushSupported() && pushConfigured);
-  const unavailableReason = demo && !(testerSession && nativePush)
-    ? testerSession ? 'إشعارات حساباتكما متاحة من تطبيق نصفين على TestFlight. افتح التطبيق لتفعيلها.' : 'إشعارات الجهاز غير متاحة في تجربة التصفح. سجّل الدخول بحسابك أولًا.'
-    : !nativePush && needsHomeScreen() ? 'أضف نصفين إلى الشاشة الرئيسية من قائمة المشاركة، ثم افتحه منها لتفعيل الإشعارات.'
-    : !owner ? 'سجّل الدخول أولًا لتفعيل الإشعارات.'
-    : !pushConfigured ? 'خدمة إشعارات المتصفح غير مفعّلة حاليًا.'
-    : !pushSupported() ? 'هذا المتصفح لا يدعم إشعارات الجهاز.' : '';
   useEffect(() => {
     let active = true;
     setEnabled(false); setError('');
-    const refresh = () => { if (available && owner) {
+    if (available && owner) {
       void Promise.all([getPushPreference(owner), pushStatus()]).then(([setting, device]) => {
         if (active) { setEnabled(setting.enabled && (!('subscribed' in device) || device.subscribed)); setPermission(device.permission); }
       }, () => { if (active) setError('تعذّر تحميل إعداد الإشعارات.'); });
-    } };
-    const onVisible = () => { if (!document.hidden) refresh(); };
-    refresh();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { active = false; document.removeEventListener('visibilitychange', onVisible); };
+    }
+    return () => { active = false; };
   }, [available, owner]);
   async function toggle() {
-    if (busy) return;
-    if (!available || !owner) { setError(unavailableReason); return; }
+    if (!available || !owner || busy) return;
     setBusy(true); setError('');
     try {
-      if (nativePush && (await pushStatus()).permission === 'denied') {
-        await openPushSettings();
-        return;
-      }
       const setting = enabled ? await disablePush(owner) : await enablePush(owner);
       setEnabled(setting.enabled);
       setPermission((await pushStatus()).permission);
@@ -50,9 +36,9 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
     <h2 id="st-push-title">الإشعارات</h2>
     <div className="st-group">
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled && permission === 'granted'}
-        disabled={busy} aria-busy={busy} onClick={() => void toggle()}>
+        disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{busy ? 'جارٍ تحديث الإشعارات…' : unavailableReason || (permission === 'denied' && nativePush ? 'اضغط للسماح بالإشعارات من إعدادات iPhone.' : 'تصلك حتى عند إغلاق نصفين، دون أسماء أو محتوى الرسائل.')}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح نصفين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل نصفين.' : 'تصلك حتى عند إغلاق نصفين، دون أسماء أو محتوى الرسائل.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {nativePush && available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>

@@ -38,10 +38,11 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, ["request", "mutual", "message"].contains(kind) {
+           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family"].contains(kind) {
             DispatchQueue.main.async {
                 var payload = ["requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
                 if let messageId = info["messageId"] as? String,UUID(uuidString:messageId) != nil { payload["messageId"] = messageId }
+                if let roomId = info["roomId"] as? String,UUID(uuidString:roomId) != nil { payload["roomId"] = roomId }
                 if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
                 if response.actionIdentifier == "NISFAYN_REPLY",let reply = response as? UNTextInputNotificationResponse {
                     payload["action"] = "reply";payload["text"] = String(reply.userText.prefix(1000))

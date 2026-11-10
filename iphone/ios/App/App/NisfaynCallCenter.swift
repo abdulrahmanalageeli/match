@@ -275,6 +275,13 @@ final class NisfaynCallCenter: NSObject, CXProviderDelegate, PKPushRegistryDeleg
             guard let self,self.generation == attempt,self.id == callId else { return }
             self.requestBusy = false
             if [401,403,404,409].contains(status) || (status == 200 && (state == nil || state?["status"] as? String == "ended")) { self.end(server:false); return }
+            if status == 200,self.direction == "incoming" {
+                let visibleName = UserDefaults.standard.bool(forKey:"nisfayn.calls.showName") ? state?["callerName"] as? String : nil
+                let name = visibleName?.isEmpty == false ? visibleName! : "مكالمة نصفين"
+                let update = CXCallUpdate();update.localizedCallerName = String(name.prefix(60))
+                update.remoteHandle = CXHandle(type:.generic,value:String(name.prefix(60)))
+                self.provider.reportCall(with:callId,updated:update)
+            }
             // A call answered on another device must not start this device's microphone.
             if status == 200,state?["status"] as? String == "active",self.rtc == nil,self.pendingCredentials == nil,!self.answering {
                 self.end(server:false,reason:.answeredElsewhere)

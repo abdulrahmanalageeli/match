@@ -47,3 +47,9 @@ test('notification payload honors privacy, groups messages and bounds content',(
  payload=pushPayload({...job,details:{...details,preview:'content',body:'x'.repeat(1000)}});
  assert.equal(payload.aps.alert.body.length,160);assert.equal(payload.aps.badge,3);assert.equal(payload.aps['thread-id'],job.requestId);assert.equal(payload.aps.category,'NISFAYN_MESSAGE');
 });
+
+test('reminders stay silent and family alerts navigate without private chat actions',()=>{
+ const reminder=pushPayload({...job,kind:'reminder'});assert.equal(reminder.aps.sound,undefined);assert.equal(reminder.aps.category,undefined);
+ const roomId=randomUUID(),messageId=randomUUID();const family=pushPayload({...job,kind:'family',details:{preview:'private',roomId,messageId,badge:2}});
+ assert.equal(family.roomId,roomId);assert.equal(family.messageId,messageId);assert.equal(family.aps.category,undefined);assert.equal(family.aps.alert.title,'نصفين');
+});

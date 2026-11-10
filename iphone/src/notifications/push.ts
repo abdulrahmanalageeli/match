@@ -10,7 +10,7 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message';actionId?:string;action?:'reply'|'read';text?:string;messageId?:string };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family';actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
@@ -68,18 +68,18 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     let active = true, refreshing = false, opening=false;
     const listeners: PluginListenerHandle[] = [];
     const open = async () => {
-      if(opening)return;opening=true;
+      if(opening || !active)return;opening=true;let acknowledged=false;
       try {
       const { notification } = await native.consumeOpen();
       if (!active || !notification || !await currentOwner(owner)) return;
-      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message'].includes(notification.kind)) {
+      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family'].includes(notification.kind)) {
         if (isTester(owner) !== (notification.requestId === testerRequestId)) {
-          if(notification.actionId)await native.acknowledgeOpen({actionId:notification.actionId});return;
+          if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }
         await callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
-        if(notification.actionId)await native.acknowledgeOpen({actionId:notification.actionId});
+        if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}
       }
-      }finally{opening=false;}
+      }finally{opening=false;if(acknowledged&&active)queueMicrotask(()=>{void open().catch(()=>{});});}
     };
     const refresh = async () => {
       if (!active || refreshing || document.hidden) return;

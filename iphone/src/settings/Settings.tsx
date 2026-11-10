@@ -189,7 +189,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           </div>
         </section>
         <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} />
-        <NativePrivacy />
+        <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} />
         <section className="st-section st-access" aria-labelledby="st-access-title">
           <h2 id="st-access-title">الحساب</h2>
           <div className="st-group">

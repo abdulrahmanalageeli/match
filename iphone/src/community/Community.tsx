@@ -128,6 +128,8 @@ type CommunityProps = {
   viewerGender?: "man" | "woman";
   onMutual: (connection: Connection) => void;
   openConversation?: string;
+  openMessage?: string;
+  openRoom?:string;openAgreement?:boolean;
   openRequest?: string;
   onConversationOpened: () => void;
   profileSaved?: boolean;
@@ -1092,9 +1094,9 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, onReported, onCompletion,
+  source, connection, back, close, backLabel, onReported, onCompletion, initialMessage, initialRoom, initialAgreement,
 }: {
-  source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
+  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   onReported?: () => void;
   onCompletion?: () => void;
 }) {
@@ -1112,7 +1114,8 @@ export function Chat({
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [familyOpen, setFamilyOpen] = useState(false);
+  const [familyOpen, setFamilyOpen] = useState(Boolean(initialRoom));
+  useEffect(()=>{if(initialRoom)setFamilyOpen(true);},[initialRoom]);
   const [endMatch, setEndMatch] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -1125,7 +1128,8 @@ export function Chat({
   const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [privateHidden, setPrivateHidden] = useState(() => document.hidden);
-  const [jumpToId, setJumpToId] = useState<string | null>(null);
+  const [jumpToId, setJumpToId] = useState<string | null>(initialRoom?null:initialMessage??null);
+  useEffect(()=>{if(initialMessage&&!initialRoom)setJumpToId(initialMessage);},[initialMessage,initialRoom]);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [replyNotice, setReplyNotice] = useState('');
   const [conversationAllowed, setConversationAllowed] = useState(!source.agreement);
@@ -1256,7 +1260,7 @@ export function Chat({
     composer.current?.focus({ preventScroll: true });
   }
   useEffect(() => {
-    if (!jumpToId || !log.current) return;
+    if (!jumpToId || !log.current || !thread.ready || thread.loading) return;
     const row = Array.from(log.current.querySelectorAll<HTMLElement>('[data-server-id]')).find(el => el.dataset.serverId === jumpToId);
     if (row) {
       atBottom.current = false;
@@ -1267,7 +1271,7 @@ export function Chat({
       if (thread.hasOlder && !thread.error) void thread.older();
       else { setReplyNotice('الرسالة الأصلية غير متاحة في السجل الحالي.'); setJumpToId(null); }
     }
-  }, [jumpToId, firstId, thread.loadingOlder, thread.hasOlder, thread.error, thread.older]);
+  }, [jumpToId, firstId, thread.ready, thread.loading, thread.loadingOlder, thread.hasOlder, thread.error, thread.older]);
   useEffect(() => {
     if (!highlightId) return;
     const timer = window.setTimeout(() => setHighlightId(null), 2200);
@@ -1316,7 +1320,7 @@ export function Chat({
   }
   function openFamily() { reading.remember(); typing.stop(); setFamilyOpen(true); }
   if (profileOpen) return <MotionReveal distance={10} fromOpacity={1} axis="x" duration={280}><Profile source={source} person={connection.person} identity={profileIdentity} connectionId={connection.id} back={returnToChat} backText="العودة للمحادثة"/></MotionReveal>;
-  if (familyOpen && source.family) return <FamilyBridgePanel source={source} connectionId={connection.id} name={connection.person.alias} onBack={() => { setFamilyOpen(false); requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-guide-button')?.focus()); }}/>;
+  if (familyOpen && source.family) return <FamilyBridgePanel initialRoom={initialRoom} initialMessage={initialMessage} source={source} connectionId={connection.id} name={connection.person.alias} onBack={() => { setFamilyOpen(false); requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-guide-button')?.focus()); }}/>;
   return (
     <section className="cm-chat" ref={screen} data-conversation-id={connection.id} data-private-hidden={privateHidden || undefined}>
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
@@ -1333,7 +1337,7 @@ export function Chat({
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || undefined}>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        <ConversationAgreement source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        <ConversationAgreement openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
       {conversationAllowed && <div className="cm-chat-stage">
@@ -1489,6 +1493,8 @@ function Requests({
   onChatChange,
   onMutual,
   openConversation,
+  openMessage,
+  openRoom,openAgreement,
   openRequest,
   onConversationOpened,
   conversations = false,
@@ -1502,6 +1508,8 @@ function Requests({
   onChatChange: (chat: boolean) => void;
   onMutual: (connection: Connection) => void;
   openConversation?: string;
+  openMessage?: string;
+  openRoom?:string;openAgreement?:boolean;
   openRequest?: string;
   onConversationOpened: () => void;
   conversations?: boolean;
@@ -1512,6 +1520,7 @@ function Requests({
   onBrowse: () => void;
 }) {
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
+  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean}|null>(null);
   const [entry] = useState(initialRequest);
   const initialRequestId = entry?.id;
   const [list, setList] = useState<Connection[]>([]);
@@ -1626,6 +1635,7 @@ function Requests({
       if (intent !== navigation.current) { onConversationOpened(); return; }
       const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : ["pending", "accepted"].includes(row.status)));
       if (target) {
+        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement});
         setSelected(target.id);
         setChat(Boolean(openConversation));
         setActionError("");
@@ -1634,7 +1644,7 @@ function Requests({
       onConversationOpened();
     });
     return () => { active = false; };
-  }, [openConversation, openRequest, refresh, onConversationOpened]);
+  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
   }, [inChat]);
@@ -1728,6 +1738,9 @@ function Requests({
     return (
       <Chat
         key={item.id}
+        initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
+        initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
+        initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
         source={source}
         onCompletion={onCompletion}
         onReported={()=>setReportSent(true)}
@@ -2032,6 +2045,8 @@ export function Community(props: CommunityProps) {
           onBrowse={() => onTab('discover')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
+          openRoom={props.openRoom} openAgreement={props.openAgreement}
+          openMessage={props.openMessage}
           openRequest={props.openRequest}
           onConversationOpened={()=>{setConversationToOpen(undefined);props.onConversationOpened();}}
           initialRequest={tab === "inbox" ? requestToOpen : undefined} />

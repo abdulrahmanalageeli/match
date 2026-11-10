@@ -224,7 +224,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
   const chatUnread = useUnreadCount(active ? source : null);
   const mutual = useMutualMatches(active && !paused ? source : null);
-  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean } | null>(null);
+  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && active ? token : null,tester?.session);
   useEffect(()=>{
@@ -237,7 +237,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
-    setConversationIntent({ source, id, requestOnly: kind === "request" });
+    setConversationIntent({ source, id, requestOnly: kind === "request", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder' });
     go(kind === "request" ? "inbox" : "chats");
     try{
       if(event?.action==='reply'&&event.text?.trim()&&event.actionId){
@@ -904,6 +904,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         source={source}
         onMutual={mutual.announce}
         openConversation={conversationIntent?.source === source && !conversationIntent.requestOnly ? conversationIntent.id : undefined}
+        openRoom={conversationIntent?.source===source?conversationIntent.roomId:undefined}
+        openAgreement={conversationIntent?.source===source&&conversationIntent.agreement}
+        openMessage={conversationIntent?.source === source ? conversationIntent.messageId : undefined}
         openRequest={conversationIntent?.source === source && conversationIntent.requestOnly ? conversationIntent.id : undefined}
         onConversationOpened={clearConversationIntent}
         onTab={go}

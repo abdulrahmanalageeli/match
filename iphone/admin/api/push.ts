@@ -37,6 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const webTransport = webEnabled ? openWebPush({ subject: env.WEB_PUSH_VAPID_SUBJECT!, publicKey: env.WEB_PUSH_VAPID_PUBLIC_KEY!, privateKey: env.WEB_PUSH_VAPID_PRIVATE_KEY! }) : undefined;
   const count = { claimed: 0, sent: 0, retry: 0, invalid: 0, failed: 0, revoked: 0 };
   try {
+    await rpc('nisfayn_enqueue_deadline_reminders',{});
     const deadline = Date.now() + 40000;
     const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
     if (nativeEnabled) {

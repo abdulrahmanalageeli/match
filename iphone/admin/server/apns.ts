@@ -1,8 +1,8 @@
 import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } from 'node:http2';
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
-export type PushKind = 'request' | 'mutual' | 'message';
-export type PushDetails={preview:'private'|'name'|'content';sender?:string;body?:string;messageId?:string;badge:number};
+export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family';
+export type PushDetails={preview:'private'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
@@ -10,6 +10,8 @@ export type CallPushJob = {callId:string;installation:string;token:string;enviro
 
 export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
+    family: 'لديك رسالة جديدة في جسر الأهل.',
+    reminder: 'لديك تذكير خاص. افتح نصفين للاطلاع عليه.',
     request: 'لديك طلب تعارف جديد. افتح نصفين للاطلاع عليه.',
     mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في نصفين.',
     message: 'لديك رسالة جديدة في نصفين.',
@@ -20,9 +22,10 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   const named=details&&['name','content'].includes(details.preview);
   const title=named&&details.sender?clean(details.sender,50):'نصفين';
   const body=details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
-  return { aps: { alert: { title, body }, sound: 'default', 'thread-id':job.requestId,
+  return { aps: { alert: { title, body }, ...(job.kind==='reminder'?{}:{sound:'default'}), 'thread-id':job.requestId,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
     ...(job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: job.requestId, kind: job.kind,
+    ...(details?.roomId&&/^[0-9a-f-]{36}$/i.test(details.roomId)?{roomId:details.roomId}:{}),
     ...(details?.messageId&&/^[0-9a-f-]{36}$/i.test(details.messageId)?{messageId:details.messageId}:{}) };
 }
 

@@ -21,7 +21,9 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         if (active) { setEnabled(setting.enabled && (!('subscribed' in device) || device.subscribed)); setPermission(device.permission); }
       }, () => { if (active) setError('تعذّر تحميل إعداد الإشعارات.'); });
     }
-    return () => { active = false; };
+    const refreshPrivacy=()=>{if(available&&owner)void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);}).catch(()=>{});};
+    window.addEventListener('nisfayn:push-privacy',refreshPrivacy);
+    return () => { active = false;window.removeEventListener('nisfayn:push-privacy',refreshPrivacy); };
   }, [available, owner]);
   async function toggle() {
     if (!available || !owner || busy) return;

@@ -12,9 +12,28 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "read", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "appearance", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise)
     ]
+
+    @objc func appearance(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            call.resolve(["icon":UIApplication.shared.alternateIconName ?? "default", "supported":UIApplication.shared.supportsAlternateIcons, "callerName":UserDefaults.standard.bool(forKey:"nisfayn.calls.showName")])
+        }
+    }
+    @objc func setAppearance(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard NisfaynPrivacy.shared.mayOpen else { call.reject("افتح قفل نصفين أولًا.");return }
+            if let show = call.getBool("callerName") { UserDefaults.standard.set(show,forKey:"nisfayn.calls.showName") }
+            guard let icon = call.getString("icon") else { self.appearance(call);return }
+            guard ["default","Quiet","Horizon"].contains(icon),UIApplication.shared.supportsAlternateIcons else { call.reject("هذه الأيقونة غير متاحة.");return }
+            UIApplication.shared.setAlternateIconName(icon == "default" ? nil : icon) { error in
+                DispatchQueue.main.async { if error != nil { call.reject("تعذّر تغيير الأيقونة. حاول مجددًا.") } else { self.appearance(call) } }
+            }
+        }
+    }
 
     @objc func privacyStatus(_ call: CAPPluginCall) {
         DispatchQueue.main.async { call.resolve(NisfaynPrivacy.shared.status) }

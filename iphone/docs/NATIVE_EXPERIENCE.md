@@ -43,6 +43,31 @@ Before describing the native experience as device-verified, use two iPhones:
 4. Verify app-switcher privacy and lock delays, including cold launch, failed
    authentication, and changing accounts. No private screen should flash first.
 
-Sender avatars in Apple's communication-notification layout and alternate app
-icons are not included in this release. They require additional native artwork/
-notification-extension work; neither changes the installed app's display name.
+## Privacy and navigation follow-up
+
+- Optional Quiet and Horizon icons are bundled as alternate iOS app icons. Selecting
+  one first saves private notification previews, then hides caller names and switches
+  the icon. The installed display name stays نصفين. Returning to the branded icon
+  does not silently re-enable message previews.
+- Incoming calls default to a generic title. An optional caller-name preference uses
+  a server-validated call-state response after the initial CallKit report.
+- Voice playback positions stay in session memory per authenticated source and
+  attachment. Leaving/reopening a chat resumes; completed notes restart. Audio and
+  signed media URLs are never saved in that memory.
+- Deadline reminders are queued once per installation/agreed deadline during the
+  final 24 hours, delivered silently with generic copy, and revalidated at send time.
+  Extensions require another participant's acceptance. No stage advances on expiry.
+- Real members now use private persisted agreements; tester accounts retain their
+  existing agreement and gain mutually approved extensions.
+- Member/tester Family Bridge alerts recheck room participation, consent and read
+  state. They open the exact authorized room/message, with no private-chat reply
+  action attached. Guardian-only accounts do not yet have native push registration.
+- Notification routes wait for authenticated connection lookup. Message targets load
+  older pages where needed; Face ID must unlock before consuming the native intent.
+
+Device checks: switch each icon and restore branding; confirm privacy settings stay
+hidden; test named/generic locked-screen calls; open message, reminder and family
+alerts after a cold launch and canceled/successful Face ID. Native Swift compilation
+and these device behaviors require the next Codemagic/TestFlight build.
+
+Sender avatars in Apple's communication-notification layout are not included.

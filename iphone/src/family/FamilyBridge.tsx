@@ -72,7 +72,7 @@ export function FamilyRoomSummary({ room, onOpen, onApprove, onAccept, busy = fa
   return <article className={'fb-room-card fb-room-' + room.status}><div className="fb-room-card-top"><span className="fb-room-mark"><UsersRound size={20} /></span><div><h3>{room.title}</h3><span className="fb-room-state">{room.leftByMe ? 'غادرت هذه المساحة' : room.status === 'active' ? 'مساحة مفتوحة' : room.status === 'closed' ? 'مساحة مغلقة' : 'بانتظار الموافقات'}</span></div>{room.unread > 0 && room.canRead && <span className="fb-unread" aria-label={`${room.unread} رسائل غير مقروءة`}>{ar.format(room.unread)}</span>}</div><div className="fb-roster">{room.participants.map(person => <span key={person.id}><span className="fb-person-dot" aria-hidden="true">{Array.from(person.name)[0]}</span>{person.name}<small>{person.left ? 'غادر المساحة' : person.role === 'family' ? 'من الأسرة' : 'طرف التعارف'}</small>{person.role === 'family' && !person.accepted && <Clock3 size={11} aria-label="لم يقبل الدعوة بعد" />}</span>)}</div>{room.needsApproval && onApprove && <div className="fb-room-approval"><p>راجع الأسماء أعلاه. موافقتك تخص هذه المساحة وهؤلاء المشاركين فقط.</p><div><button className="btn-primary" disabled={busy} onClick={() => onApprove(true)}><Check size={15} /> أوافق على المشاركين</button><button className="fb-text-button" disabled={busy} onClick={() => onApprove(false)}>رفض</button></div></div>}{room.needsAcceptance && onAccept && <div className="fb-room-approval"><p>دعوة لمحادثة عائلية منفصلة. قبولك يتيح لك الرسائل في هذه المساحة وحدها.</p><div><button className="btn-primary" disabled={busy} onClick={() => onAccept(true)}><Check size={15} /> قبول الدعوة</button><button className="fb-text-button" disabled={busy} onClick={() => onAccept(false)}>اعتذار</button></div></div>}{room.canRead && onOpen ? <button className="fb-room-open" type="button" onClick={onOpen}><MessageCircle size={16} /> فتح المحادثة <ChevronLeft size={17} /></button> : <p className="fb-room-footnote"><LockKeyhole size={12} /> {room.leftByMe ? 'غادرت المساحة وتوقف وصولك. العودة تحتاج مساحة جديدة بموافقات جديدة.' : room.status === 'closed' ? 'توقف الوصول إلى هذه المساحة.' : room.status === 'pending' ? 'تفتح بعد موافقة الطرفين وقبول أفراد الأسرة المدعوين.' : 'لست ضمن المشاركين؛ يمكنك إدارة الإذن دون قراءة الرسائل.'}</p>}</article>;
 }
 
-function FamilyChat({ room, request, guardian, onBack, onClose, onLeave }: { room: FamilyRoom; request: FamilyRequest; guardian: boolean; onBack: () => void; onClose: () => void; onLeave: () => void }) {
+function FamilyChat({ room, request, guardian, onBack, onClose, onLeave, initialMessage }: { initialMessage?:string;room: FamilyRoom; request: FamilyRequest; guardian: boolean; onBack: () => void; onClose: () => void; onLeave: () => void }) {
   const [rows, setRows] = useState<FamilyMessage[]>([]), [draft, setDraft] = useState(''), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [access, setAccess] = useState(true), [older, setOlder] = useState(false), [hasOlder, setHasOlder] = useState(false);
   const [pending, setPending] = useState<{ body: string; clientId: string; failed: boolean } | null>(null);
@@ -124,6 +124,16 @@ function FamilyChat({ room, request, guardian, onBack, onClose, onLeave }: { roo
     window.visualViewport?.addEventListener('resize', readVisible); window.visualViewport?.addEventListener('scroll', readVisible);
     return () => { window.removeEventListener('scroll', readVisible, true); window.removeEventListener('resize', readVisible); window.visualViewport?.removeEventListener('resize', readVisible); window.visualViewport?.removeEventListener('scroll', readVisible); };
   }, [readVisible]);
+  const [jumpTarget,setJumpTarget]=useState(initialMessage);
+  useEffect(()=>{setJumpTarget(initialMessage);},[initialMessage]);
+  useEffect(()=>{
+    if(!jumpTarget||loading||!access||!log.current)return;
+    atBottom.current=false;
+    const row=Array.from(log.current.querySelectorAll<HTMLElement>('[data-message-id]')).find(el=>el.dataset.messageId===jumpTarget);
+    if(row){log.current.scrollTop+=row.getBoundingClientRect().top-log.current.getBoundingClientRect().top-20;row.focus({preventScroll:true});setJumpTarget(undefined);}
+    else if(hasOlder&&!older&&!error)void loadOlder();
+    else if(!hasOlder){setError('الرسالة لم تعد متاحة في هذه المساحة.');setJumpTarget(undefined);}
+  },[jumpTarget,rows,loading,access,hasOlder,older,error]);
   async function send(retry = false) {
     if (sending.current || !room.canSend || !access) return;
     const item = retry ? pending : { body: draft.trim(), clientId: crypto.randomUUID(), failed: false };
@@ -143,7 +153,7 @@ function FamilyChat({ room, request, guardian, onBack, onClose, onLeave }: { roo
   }
   return <><section className="fb-chat" aria-label={`المحادثة العائلية: ${room.title}`}><header className="fb-chat-header"><button type="button" className="fb-back" onClick={onBack} aria-label="العودة لمساحات الأسرة"><ArrowRight size={20} /></button><div><h2>{room.title}</h2><p>{room.participants.filter(item => !item.left).map(item => item.name).join(' · ')}</p></div><KeyboardDismiss/><button className="fb-text-button" type="button" onClick={onClose}>إغلاق للجميع</button></header><div className="fb-chat-privacy"><LockKeyhole size={13} /> هذه المساحة منفصلة عن محادثة التعارف الخاصة</div><div className="fb-chat-tools"><button type="button" disabled={!access || !room.canSend || Boolean(pending) || Boolean(draft.trim())} onClick={() => setPreparing(true)}>{guardian ? 'تجهيز خطوة قادمة' : 'تجهيز تعريف أو خطوة قادمة'}</button><a href="#fb-chat-support">مساعدة أو إبلاغ</a></div><div className="fb-chat-log" ref={log} role="log" aria-label="رسائل جسر الأهل" onScroll={() => { if (log.current) atBottom.current = log.current.scrollHeight - log.current.scrollTop - log.current.clientHeight < 12; readVisible(); }}>
     {hasOlder && <button className="fb-history" disabled={older} onClick={() => void loadOlder()}>{older ? 'جارٍ التحميل…' : 'الرسائل السابقة'}</button>}{loading && <FamilyLoading view="chat"/>}{!loading && access && !rows.length && <div className="fb-first-message"><HeartHandshake size={28} /><h3>مساحة لبداية واضحة</h3><p>ابدؤوا برسالة ترحيب. ويمكنكم تجهيز اقتراح للخطوة القادمة، ومراجعته قبل إرساله.</p></div>}
-    {rows.map((item, index) => <div key={item.id}>{(!index || day(rows[index - 1].createdAt) !== day(item.createdAt)) && <p className="fb-message-day">{day(item.createdAt)}</p>}<article data-message-id={item.id} className={'fb-message' + (item.senderIsMe ? ' fb-message-mine' : '')}><strong>{item.senderIsMe ? 'أنت' : item.senderName}</strong><p dir="auto">{item.body}</p><small>{time(item.createdAt)}{item.senderIsMe && <Check size={12} aria-label="أُرسلت" />}</small></article></div>)}
+    {rows.map((item, index) => <div key={item.id}>{(!index || day(rows[index - 1].createdAt) !== day(item.createdAt)) && <p className="fb-message-day">{day(item.createdAt)}</p>}<article tabIndex={-1} data-message-id={item.id} className={'fb-message' + (item.senderIsMe ? ' fb-message-mine' : '')}><strong>{item.senderIsMe ? 'أنت' : item.senderName}</strong><p dir="auto">{item.body}</p><small>{time(item.createdAt)}{item.senderIsMe && <Check size={12} aria-label="أُرسلت" />}</small></article></div>)}
     {pending && !rows.some(item => item.clientId === pending.clientId) && <article className="fb-message fb-message-mine fb-message-pending"><strong>أنت</strong><p dir="auto">{pending.body}</p><small>{pending.failed ? 'لم تُرسل' : 'جارٍ الإرسال…'}</small>{pending.failed && <div><button type="button" onClick={() => void send(true)}>إعادة المحاولة</button><button type="button" onClick={() => { setDraft(pending.body); setPending(null); }}>تعديل</button></div>}</article>}
   </div>{error && <p className="fb-error" role="alert">{error}</p>}<form className="fb-composer" onSubmit={event => { event.preventDefault(); void send(); }}><button type="submit" className="fb-send" onPointerDown={event => { if (event.pointerType === 'touch') event.preventDefault(); }} disabled={!draft.trim() || Boolean(pending) || !access || !room.canSend} aria-label="إرسال رسالة إلى الأسرة"><Send size={18} /><span>إرسال</span></button><textarea ref={composer} enterKeyHint="enter" aria-label="رسالتك إلى الأسرة" placeholder="رسالتك إلى الأسرة…" maxLength={1000} rows={draft.includes('\n') ? 3 : 1} value={draft} disabled={!access || !room.canSend} onChange={event => setDraft(event.target.value)} /></form></section>
     <section id="fb-chat-support" className="fb-chat-support" tabIndex={-1}><button type="button" className="btn-secondary" onClick={onLeave}>مغادرة المساحة لنفسي</button><SupportContact subject="مساعدة أو بلاغ في جسر الأهل" context={`المساحة العائلية: ${room.title}`}/><p>الرجوع يترك المساحة مفتوحة. «مغادرة المساحة لنفسي» يوقف وصولك وحدك مع بقاء رسائلك للآخرين؛ العودة تحتاج مساحة جديدة بموافقات جديدة. «إغلاق للجميع» يوقف وصول الجميع. اختر بنفسك التفاصيل التي ترسلها للمساعدة.</p></section>
@@ -152,7 +162,7 @@ function FamilyChat({ room, request, guardian, onBack, onClose, onLeave }: { roo
 
 type ConfirmAction = { title: string; description: string; action: Parameters<FamilyRequest>[0]; payload: Record<string, unknown> };
 
-function FamilyHub({ request, onBack, source, connectionId: initialConnection, name, guardian = false, testMode = false }: { request: FamilyRequest; onBack?: () => void; source?: CommunitySource; connectionId?: string; name?: string; guardian?: boolean; testMode?: boolean }) {
+function FamilyHub({ request, onBack, source, connectionId: initialConnection, name, guardian = false, testMode = false, initialRoom, initialMessage }: { initialRoom?:string;initialMessage?:string;request: FamilyRequest; onBack?: () => void; source?: CommunitySource; connectionId?: string; name?: string; guardian?: boolean; testMode?: boolean }) {
   const [state, setState] = useState<FamilyState | null>(null), [connections, setConnections] = useState<Connection[]>([]), [connectionId, setConnectionId] = useState(initialConnection ?? '');
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0);
   const [invite, setInvite] = useState<{ token: string; code?: string; expiresAt: string } | null>(null), [relationship, setRelationship] = useState('father'), [claimToken, setClaimToken] = useState('');
@@ -189,6 +199,11 @@ function FamilyHub({ request, onBack, source, connectionId: initialConnection, n
     } catch (cause) { if (ticket === generation.current) { setConfirm(null); setError(message(cause)); } }
     finally { if (ticket === generation.current) { mutation.current = false; setBusy(false); } }
   }
+  const handledRoom=useRef<string|undefined>(undefined);
+  useEffect(()=>{if(!initialRoom||!state||handledRoom.current===initialRoom)return;handledRoom.current=initialRoom;
+    if(state.rooms.some(r=>r.id===initialRoom&&r.canRead&&r.status==='active'))setRoomId(initialRoom);
+    else setNotice('هذه المساحة لم تعد متاحة لك. يمكنك مراجعة المساحات الحالية.');
+  },[state,initialRoom]);
   const room = state?.rooms.find(item => item.id === roomId);
   const bridge = state?.bridge;
   const eligibleFamily = Boolean(bridge?.participants.some(person => person.role === 'family'));
@@ -199,7 +214,7 @@ function FamilyHub({ request, onBack, source, connectionId: initialConnection, n
   }, [bridge?.participants, eligibleFamily]);
   function closeRoom(item: FamilyRoom) { setConfirm({ title: 'إغلاق المساحة لجميع المشاركين؟', description: 'هذا ليس خروجًا شخصيًا. يتوقف وصول الجميع إلى هذه الرسائل، ويمكن اقتراح مساحة جديدة بموافقات جديدة. للعودة فقط استخدم زر الرجوع. يمكنك طلب المساعدة أو الإبلاغ قبل الإغلاق.', action: 'close_room', payload: { roomId: item.id } }); }
   return <FamilyFrame onBack={roomId ? () => setRoomId(null) : onBack} guardian={guardian}>
-    {room?.canRead && room.status === 'active' ? <FamilyChat key={room.id} room={room} request={request} guardian={guardian} onBack={() => setRoomId(null)} onClose={() => closeRoom(room)} onLeave={() => setConfirm({ title: 'مغادرة المساحة لنفسك؟', description: 'يتوقف وصولك إلى هذه المحادثة وحدك، وتبقى المساحة ورسائلك متاحة للمشاركين الآخرين. لن تعود إلى سجلها بالربط من جديد؛ العودة تحتاج مساحة جديدة بموافقات جديدة. لا تُسحب موافقة جسر الأهل بهذا الإجراء.', action: 'leave_room', payload: { roomId: room.id } })} /> : <>
+    {room?.canRead && room.status === 'active' ? <FamilyChat initialMessage={room.id===initialRoom?initialMessage:undefined} key={room.id} room={room} request={request} guardian={guardian} onBack={() => setRoomId(null)} onClose={() => closeRoom(room)} onLeave={() => setConfirm({ title: 'مغادرة المساحة لنفسك؟', description: 'يتوقف وصولك إلى هذه المحادثة وحدك، وتبقى المساحة ورسائلك متاحة للمشاركين الآخرين. لن تعود إلى سجلها بالربط من جديد؛ العودة تحتاج مساحة جديدة بموافقات جديدة. لا تُسحب موافقة جسر الأهل بهذا الإجراء.', action: 'leave_room', payload: { roomId: room.id } })} /> : <>
       <section className="fb-hero"><div className="fb-hero-top"><span><LockKeyhole size={13} /> مساحة للأهل، بإذن الطرفين</span><HeartHandshake size={26} strokeWidth={1.35} /></div><p className="fb-eyebrow">من التفاهم، إلى خطوة رسمية</p><h1 ref={heading} tabIndex={-1}>جسر <em>الأهل</em></h1><p>أشخاص تختارونهم. حديث مستقل.<br />ومساحة تجمعكم على الخطوة القادمة.</p><div className="fb-hero-foot"><span><ShieldCheck size={14} /> محادثتك الخاصة تبقى خاصة</span><span>نصفين</span></div></section>
       {testMode && <p className="fb-test-note">وضع التجربة · الروابط والحسابات التجريبية لا تثبت صفة ولي شرعي.</p>}
       <p className="fb-intro"><LockKeyhole size={16} /> لا يقرأ الأهل محادثة التعارف أو الصور الخاصة أو جواز الجاهزية. يصلون فقط إلى المساحات التي دُعوا إليها.</p>
@@ -232,9 +247,9 @@ function FamilyHub({ request, onBack, source, connectionId: initialConnection, n
   </FamilyFrame>;
 }
 
-export function FamilyBridgePanel({ source, onBack, connectionId, name }: { source: CommunitySource; onBack: () => void; connectionId?: string; name?: string }) {
+export function FamilyBridgePanel({ source, onBack, connectionId, name, initialRoom, initialMessage }: { initialRoom?:string;initialMessage?:string;source: CommunitySource; onBack: () => void; connectionId?: string; name?: string }) {
   if (!source.family) return <FamilyFrame onBack={onBack}><p className="fb-feedback">جسر الأهل غير متاح في هذه الجلسة.</p></FamilyFrame>;
-  return <FamilyHub request={source.family} source={source} onBack={onBack} connectionId={connectionId} name={name} testMode={source.familyTestMode} />;
+  return <FamilyHub initialRoom={initialRoom} initialMessage={initialMessage} request={source.family} source={source} onBack={onBack} connectionId={connectionId} name={name} testMode={source.familyTestMode} />;
 }
 export function FamilyGuardianDashboard({ request, onExit }: { request: FamilyRequest; onExit?: () => void }) {
   return <FamilyHub request={request} onBack={onExit} guardian />;

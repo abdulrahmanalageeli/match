@@ -99,7 +99,7 @@ export function sanitizeMessage(message: Message): Message {
   return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
-export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
+export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
   language?: string;
@@ -185,7 +185,7 @@ export interface CommunitySource extends ManualVerificationSource {
   callPermission?(requestId: string): Promise<CallPermissionState>;
   requestCallPermission?(requestId: string, action: "invite" | "accept" | "decline"): Promise<CallPermissionState>;
   agreement?(requestId:string):Promise<SeriousnessAgreement>;
-  agree?(requestId:string,action:'propose'|'accept'|'family',payload?:{days?:number;signed?:boolean;proposalId?:string;confirmed?:boolean}):Promise<SeriousnessAgreement>;
+  agree?(requestId:string,action:'propose'|'accept'|'family'|'extend'|'extension_accept',payload?:{days?:number;signed?:boolean;proposalId?:string;confirmed?:boolean}):Promise<SeriousnessAgreement>;
   unreadCount(): Promise<number>;
   markRead(requestId: string, throughId: string): Promise<void>;
   progress?(requestId: string): Promise<StepProgress>;
@@ -205,6 +205,8 @@ export function cloudCommunity(userId: string): CommunitySource {
   }
   return {
     watch: privateUpdates(userId),
+    agreement: request_id => timedRpc('marriage_agreement',{request_id}),
+    agree: (request_id,action,payload={}) => timedRpc('marriage_agreement',{request_id,action,payload}),
     ...manualVerificationSource(),
     suggestOpener: () => requestAi({mode:'opener'}),
     family: async (action, payload = {}) => unwrapFamilyResult(await timedRpc('marriage_family', { action, payload: boundedFamilyPayload(action, payload) })),
@@ -825,6 +827,12 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       } else if(action==='accept') {
         if(value.actor!=='abdulrahman'||value.status!=='proposed'||!payload.signed||payload.proposalId!==value.proposalId)throw Error('راجع الاقتراح ووقّع الميثاق.');
         agreements.set(id,{...value,status:'accepted',manSignedAt:now,deadline:new Date(Date.now()+value.days!*86400000).toISOString()});
+      } else if(action==='extend') {
+        if(![7,14].includes(payload.days??0)||!['accepted','expired'].includes(value.status))throw Error('اختر مدة صالحة.');
+        agreements.set(id,{...value,extension:{id:crypto.randomUUID(),actor:value.actor,days:payload.days!}});
+      } else if(action==='extension_accept') {
+        if(!value.extension||value.extension.actor===value.actor||payload.proposalId!==value.extension.id)throw Error('راجع الاقتراح الحالي.');
+        agreements.set(id,{...value,status:'accepted',extension:undefined,deadline:new Date(Math.max(Date.now(),Date.parse(value.deadline!))+value.extension.days*86400000).toISOString()});
       } else {
         if(!payload.confirmed||!['accepted','expired','family'].includes(value.status))throw Error('أكّد رغبتك بالخطوة العائلية.');
         agreements.set(id,{...value,familyAgreed:{...value.familyAgreed,[value.actor]:true}});

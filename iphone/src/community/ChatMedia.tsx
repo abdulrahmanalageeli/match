@@ -10,6 +10,8 @@ const seconds = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60
 const safeError = (e: unknown) => e instanceof Error && /[\u0600-\u06ff]/.test(e.message) ? e.message : 'تعذّر إرسال المرفق. حاول مجددًا.';
 type Draft = { blob: Blob; kind: ChatAttachment['kind']; url: string; clientId: string; duration?: number; viewOnce?: boolean };
 let playingVoice: HTMLAudioElement | null = null;
+// Session-only, scoped by the authenticated source; never retain audio or signed URLs.
+const voicePositions = new WeakMap<CommunitySource, Map<string, number>>();
 
 async function preparePhoto(file: File) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw Error('اختر صورة بصيغة JPEG أو PNG أو WebP.');
@@ -26,14 +28,15 @@ async function preparePhoto(file: File) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-function VoicePlayer({ url, duration, failed }: { url: string; duration?: number; failed?: () => void }) {
+function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?: number; failed?: () => void; memory?: {source: CommunitySource; key: string} }) {
+  const remember = (value: number) => { if (!memory) return; let positions = voicePositions.get(memory.source); if (!positions) { positions = new Map(); voicePositions.set(memory.source,positions); } positions.set(memory.key,value); if(positions.size>200) positions.delete(positions.keys().next().value!); };
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false), [position, setPosition] = useState(0), [length, setLength] = useState(duration || 0), [error, setError] = useState('');
   const [rate, setRate] = useState(1);
   const [buffering, setBuffering] = useState(false);
   useEffect(() => {
     const node = audio.current;
-    return () => { node?.pause(); if (playingVoice === node) playingVoice = null; };
+    return () => { if(node) remember(node.ended ? 0 : node.currentTime); node?.pause(); if (playingVoice === node) playingVoice = null; };
   }, [url]);
   async function toggle() {
     if (!audio.current) return;
@@ -45,10 +48,10 @@ function VoicePlayer({ url, duration, failed }: { url: string; duration?: number
     } catch { setBuffering(false); setError('تعذّر التشغيل. حاول مجددًا.'); }
   }
   return <div className="cm-voice-note">
-    <audio ref={audio} src={url} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { setPlaying(false); setBuffering(false); }}
+    <audio ref={audio} src={url} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { remember(0); setPosition(0); setPlaying(false); setBuffering(false); }}
       onWaiting={() => setBuffering(true)} onPlaying={() => setBuffering(false)} onCanPlay={() => setBuffering(false)}
-      onLoadedMetadata={() => { const value = audio.current?.duration; if (value && Number.isFinite(value)) setLength(value); if (audio.current) audio.current.playbackRate = rate; }}
-      onTimeUpdate={() => setPosition(audio.current?.currentTime || 0)} onError={() => { setBuffering(false); setError('تعذّر تحميل التسجيل.'); failed?.(); }}/>
+      onLoadedMetadata={() => { const value = audio.current?.duration; if (value && Number.isFinite(value)) setLength(value); if (audio.current) { audio.current.playbackRate = rate; const saved = memory ? voicePositions.get(memory.source)?.get(memory.key) : 0; if(saved && saved < (value || duration || 0) - .3) {audio.current.currentTime=saved;setPosition(saved);} } }}
+      onTimeUpdate={() => { const value=audio.current?.currentTime || 0; setPosition(value); remember(audio.current?.ended ? 0 : value); }} onError={() => { setBuffering(false); setError('تعذّر تحميل التسجيل.'); failed?.(); }}/>
     <button type="button" className="cm-audio-play" aria-label={playing ? 'إيقاف التسجيل مؤقتًا' : 'تشغيل التسجيل الصوتي'} aria-busy={buffering} onClick={() => void toggle()}>{buffering ? <LoaderCircle size={19} className="cm-spin"/> : playing ? <Pause size={19}/> : <Play size={19}/>}</button>
     <div className="cm-audio-track"><span>{buffering ? 'جارٍ تجهيز الصوت…' : 'رسالة صوتية'}</span><input aria-label="موضع تشغيل التسجيل" aria-valuetext={`${seconds(position)} من ${seconds(length)}`} type="range" min="0" max={length || 1} step="0.1" disabled={!length} value={Math.min(position,length || 1)} onChange={e => { const value = Number(e.target.value); if (audio.current) audio.current.currentTime = value; setPosition(value); }}/></div>
     <time dir="ltr">{seconds(playing || position ? position : length)}</time>
@@ -185,7 +188,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   if (error) return <button type="button" className="cm-media-retry" onClick={() => setRetry(n => n + 1)}><RotateCcw size={16}/> إعادة تحميل المرفق</button>;
   if (!url) return <div className="cm-media-loading" role="status"><LoaderCircle size={19}/> تحميل المرفق…</div>;
   return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={event => event.preventDefault()} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={false} onDragStart={event => event.preventDefault()} onError={() => setError('تعذّر تحميل الصورة.')}/></button>{viewer && <PhotoViewer url={viewer} once={false} close={closeViewer}/>}</>
-    : <VoicePlayer url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
+    : <VoicePlayer memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
 }
 
 export function ChatMediaComposer({ source, requestId, disabled, callActive, onRecording, sent }: {

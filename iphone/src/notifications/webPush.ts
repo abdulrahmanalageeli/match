@@ -81,16 +81,23 @@ export async function detachWebPush() {
   try { sessionStorage.removeItem(pendingKey); } catch { /* Restricted storage. */ }
 }
 
+function routeIds(value: {messageId?:unknown;roomId?:unknown}) {
+  return Object.fromEntries(['messageId', 'roomId'].flatMap(key => {
+    const id = value[key as keyof typeof value];
+    return typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) ? [[key,id]] : [];
+  }));
+}
+
 function validOpen(value: unknown): value is PushOpen {
   const event = value as PushOpen | undefined;
-  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message'].includes(event.kind));
+  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family'].includes(event.kind));
 }
 
 // A click can arrive while Auth is restoring the session or at the sign-in
 // screen. Keep only its opaque routing intent until the signed-in hook mounts.
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
   if (event.data?.type !== 'nisfayn-push-open' || !validOpen(event.data.notification)) return;
-  try { sessionStorage.setItem(pendingKey, JSON.stringify({ requestId: event.data.notification.requestId, kind: event.data.notification.kind })); } catch { /* Active listener still handles it. */ }
+  try { sessionStorage.setItem(pendingKey, JSON.stringify({ requestId: event.data.notification.requestId, kind: event.data.notification.kind, ...routeIds(event.data.notification) })); } catch { /* Active listener still handles it. */ }
 });
 
 export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void) {
@@ -108,9 +115,9 @@ export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void)
     try {
       if (localStorage.getItem(ownerKey) && localStorage.getItem(ownerKey) !== owner) await detachWebPush();
       const url = new URL(location.href);
-      const pending = { requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind') };
+      const pending = { requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind'), ...routeIds({messageId:url.searchParams.get('messageId'),roomId:url.searchParams.get('roomId')}) };
       if (validOpen(pending)) {
-        url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind');
+        url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind'); url.searchParams.delete('messageId'); url.searchParams.delete('roomId');
         history.replaceState(history.state, '', url);
         await open(pending);
       } else {

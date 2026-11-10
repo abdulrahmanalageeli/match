@@ -38,3 +38,11 @@ test('Web Push uses generic encrypted payload, bounded TTL and accurate provider
   assert.equal(await openWebPush({}, async () => { throw { statusCode: 410, body: 'DO NOT LOG' }; }).send(job), 'invalid');
   assert.throws(() => webPushPayload({ requestId: 'bad', kind: 'message' }));
 });
+
+test('Family routing stays exact without disclosing preview content', () => {
+  const roomId=randomUUID(),messageId=randomUUID();
+  const payload=webPushPayload({...job,kind:'family',details:{preview:'content',sender:'PRIVATE',body:'PRIVATE',badge:1,roomId,messageId}});
+  assert.equal(payload.roomId,roomId);assert.equal(payload.messageId,messageId);
+  assert(!JSON.stringify(payload).includes('PRIVATE'));
+  assert.equal(webPushPayload({...job,kind:'reminder'}).kind,'reminder');
+});

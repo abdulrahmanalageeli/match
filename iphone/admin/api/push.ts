@@ -38,10 +38,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const count = { claimed: 0, sent: 0, retry: 0, invalid: 0, failed: 0, revoked: 0 };
   try {
     const deadline = Date.now() + 40000;
-    const jobs: (PushJob | WebPushJob)[] = [];
+    const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
     if (nativeEnabled) {
       const config: ApnsConfig = { teamId: env.APNS_TEAM_ID!, keyId: env.APNS_KEY_ID!, privateKey: env.APNS_PRIVATE_KEY_BASE64!, topic: env.APNS_TOPIC!, environment: env.APNS_ENVIRONMENT as ApnsConfig['environment'] };
       jobs.push(...await rpc<PushJob[]>('marriage_push_claim', { delivery_environment: config.environment, batch_size: webEnabled ? 10 : 20 }));
+      const testerJobs = await rpc<PushJob[]>('nisfayn_test_push_claim', { delivery_environment: config.environment, batch_size: 10 });
+      jobs.push(...testerJobs.map(job => ({ ...job, tester: true })));
       if (jobs.length) transport = openApns(config);
     }
     if (webEnabled) jobs.push(...await rpc<WebPushJob[]>('marriage_push_claim', { delivery_environment: 'web', batch_size: nativeEnabled ? 10 : 20 }));
@@ -51,9 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // execution budget and risk acknowledging an incomplete delivery.
       if (Date.now() >= deadline) break;
       const batch = await Promise.allSettled(jobs.slice(start, start + 5).map(async job => {
-        const live = await rpc<boolean>('marriage_push_validate', { job_id: job.id, lease: job.leaseId });
+        const live = await rpc<boolean>(job.tester ? 'nisfayn_test_push_validate' : 'marriage_push_validate', { job_id: job.id, lease: job.leaseId });
         const result = !live ? 'revoked' : job.environment === 'web' ? await webTransport!.send(job) : await transport!.send(job);
-        await rpc('marriage_push_finish', { job_id: job.id, lease: job.leaseId, result, device_token: job.token });
+        await rpc(job.tester ? 'nisfayn_test_push_finish' : 'marriage_push_finish', { job_id: job.id, lease: job.leaseId, result, device_token: job.token });
         count[result]++;
       }));
       if (batch.some(result => result.status === 'rejected')) throw new Error('push_batch_incomplete');

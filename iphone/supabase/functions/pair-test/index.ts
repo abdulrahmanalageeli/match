@@ -14,6 +14,7 @@ allowed.add('typing_set');
 allowed.add('typing_state');
 allowed.add('passport');
 allowed.add('family');
+for (const action of ['push_settings','push_register','push_enable','push_unregister']) allowed.add(action);
 const validSession=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const validId=(s:unknown):s is string=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 Deno.serve(async req=>{
@@ -24,7 +25,7 @@ Deno.serve(async req=>{
   if(new URL(url).hostname!=='wupkifqbwhhebwrgvwai.supabase.co')throw Error('Wrong project');
   const client=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
   const rpc=async(action:string,session='',payload={})=>{
-   const {data,error}=await client.rpc('nisfayn_test_rpc',{action,session_token:session,payload});
+   const {data,error}=await client.rpc(action.startsWith('push_') ? 'nisfayn_test_push' : 'nisfayn_test_rpc',{action,session_token:session,payload});
    if(error)throw Object.assign(Error(error.code==='42501'?'انتهت الجلسة أو أُغلق التعارف.':error.message),{status:error.code==='42501'?403:400});
    if(data?.profiles&&['reham','abdulrahman'].includes(data.actor)){
     const {data:claims,error:claimError}=await client.rpc('marriage_test_manual_verification_badges',{test_token:session});

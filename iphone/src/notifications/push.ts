@@ -1,6 +1,13 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { useEffect, useRef } from 'react';
 import { callRpc, cloudSessionId } from '../cloud';
+import { testRequest } from '../testing/pair';
+const testerRequestId = '00000000-0000-4000-8000-000000000001';
+const isTester = (owner: string) => owner.startsWith('tester:');
+const currentOwner = async (owner: string) => isTester(owner) || (await cloudSessionId()) === owner;
+const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(owner)
+  ? testRequest<T>('push_' + action, owner.slice(7), payload)
+  : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
 export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' };
@@ -21,25 +28,25 @@ export const pushConfigured = nativePush ? import.meta.env.VITE_MARRIAGE_PUSH_EN
 export const pushSupported = () => nativePush || webPushSupported();
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
-export const getPushPreference = (owner: string) => callRpc<{ enabled: boolean }>('marriage_push_settings', {}, owner);
+export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');
 
 async function bind(owner: string, device: Device) {
-  if ((await cloudSessionId()) !== owner) return;
-  await callRpc('marriage_push_register', { device_token: device.token, device_environment: device.environment, installation: device.installationId }, owner);
+  if (!await currentOwner(owner)) return;
+  await pushRpc(owner, 'register', { device_token: device.token, device_environment: device.environment, installation: device.installationId });
 }
 export async function enablePush(owner: string) {
   if (!nativePush) return enableWebPush(owner);
   if (!nativePush || !pushConfigured) throw new Error('لم تُفعّل خدمة الإشعارات بعد.');
   const device = await native.register();
   await bind(owner, device);
-  return callRpc<{ enabled: boolean }>('marriage_push_enable', { enabled: true }, owner);
+  return pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: true });
 }
 export async function disablePush(owner: string) {
   if (!nativePush) return disableWebPush(owner);
-  const next = await callRpc<{ enabled: boolean }>('marriage_push_enable', { enabled: false }, owner);
+  const next = await pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: false });
   const state = await native.status();
-  await callRpc('marriage_push_unregister', { installation: state.installationId }, owner);
-  if ((await cloudSessionId()) === owner) await native.unregister();
+  await pushRpc(owner, 'unregister', { installation: state.installationId });
+  if (await currentOwner(owner)) await native.unregister();
   return next;
 }
 
@@ -48,7 +55,7 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
   const callback = useRef(onOpen);
   callback.current = onOpen;
   useEffect(() => {
-    if (!owner || !pushConfigured) return;
+    if (!owner || !pushConfigured || (isTester(owner) && !nativePush)) return;
     if (!nativePush) {
       if (!webPushSupported()) return;
       return monitorWebPush(owner, event => callback.current(event.requestId, event.kind));
@@ -57,9 +64,10 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     const listeners: PluginListenerHandle[] = [];
     const open = async () => {
       const { notification } = await native.consumeOpen();
-      if (!active || !notification || (await cloudSessionId()) !== owner) return;
+      if (!active || !notification || !await currentOwner(owner)) return;
       if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message'].includes(notification.kind)) {
-        callback.current(notification.requestId, notification.kind);
+        if (isTester(owner) !== (notification.requestId === testerRequestId)) return;
+        callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind);
       }
     };
     const refresh = async () => {

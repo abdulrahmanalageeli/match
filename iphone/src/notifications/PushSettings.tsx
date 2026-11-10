@@ -3,12 +3,13 @@ import { Bell, Settings2 } from "../BrandIcons";
 import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported } from './push';
 import { needsHomeScreen } from './webPush';
 
-export function PushSettings({ owner, demo }: { owner: string | null; demo: boolean }) {
+export function PushSettings({ owner, demo, testerSession }: { owner: string | null; demo: boolean; testerSession?: string }) {
+  owner = testerSession && nativePush ? 'tester:' + testerSession : owner;
   const [enabled, setEnabled] = useState(false);
   const [permission, setPermission] = useState('prompt');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const available = Boolean(owner && !demo && pushSupported() && pushConfigured);
+  const available = Boolean(owner && (!demo || (testerSession && nativePush)) && pushSupported() && pushConfigured);
   useEffect(() => {
     let active = true;
     setEnabled(false); setError('');
@@ -37,7 +38,7 @@ export function PushSettings({ owner, demo }: { owner: string | null; demo: bool
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled && permission === 'granted'}
         disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح نصفين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل نصفين.' : 'تصلك حتى عند إغلاق نصفين، دون أسماء أو محتوى الرسائل.'}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح نصفين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل نصفين.' : 'تصلك حتى عند إغلاق نصفين، دون أسماء أو محتوى الرسائل.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {nativePush && available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>

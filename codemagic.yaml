@@ -14,6 +14,7 @@ workflows:
         bundle_identifier: com.blindmatch.marriage
       vars:
         VITE_MARRIAGE_ENV: production
+        VITE_MARRIAGE_PUSH_ENABLED: "true"
     scripts:
       - name: Install locked frontend dependencies
         script: |

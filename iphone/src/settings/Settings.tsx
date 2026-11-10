@@ -28,6 +28,7 @@ import { SupportContact } from '../help/SupportContact';
 import { feedback, hasHaptics } from '../feedback/haptics';
 
 type Props = {
+  testerSession?: string;
   completionEntry?: number;
   onProfileChanged?: () => void;
   source?: CommunitySource | null;
@@ -100,7 +101,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
   );
 }
 
-export function Settings({ state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena,
+export function Settings({ testerSession, state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena,
   onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged }: Props) {
   const { value, setPreference } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
@@ -186,7 +187,7 @@ export function Settings({ state, demoMember, demo, paused, busy, onEdit, onMemb
             {hasHaptics() && <PreferenceSwitch icon={<Vibrate />} title="تأكيد باللمس" detail="لمسة خفيفة عند الحفظ والقرارات، دون اهتزاز أثناء التصفح" checked={value.haptics} onChange={() => setPreference('haptics', !value.haptics)} />}
           </div>
         </section>
-        <PushSettings owner={owner ?? null} demo={demo} />
+        <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} />
         <section className="st-section st-access" aria-labelledby="st-access-title">
           <h2 id="st-access-title">الحساب</h2>
           <div className="st-group">

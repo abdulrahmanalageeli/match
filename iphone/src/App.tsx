@@ -225,8 +225,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   const mutual = useMutualMatches(active && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
-  usePushNotifications(!demo && active ? token : null, (id, kind) => {
-    if (!source || demo) return;
+  usePushNotifications(tester ? `tester:${tester.session}` : !demo && active ? token : null, (id, kind) => {
+    if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
     setConversationIntent({ source, id, requestOnly: kind === "request" });
@@ -812,7 +812,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     );
   else if (view === "settings")
     screen = (
-      <Settings source={source}
+      <Settings source={source} testerSession={tester?.session}
         completionEntry={completionEntry}
         onProfileChanged={() => { if (token) void run(async () => { await refresh(token); }); }}
         state={live}

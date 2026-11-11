@@ -1,3 +1,4 @@
+import { BrandWordmark } from './Brand';
 import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import { ArrowLeft } from "./BrandIcons";
 import { feedback } from './feedback/haptics';
@@ -61,7 +62,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
           </defs>
           <image href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`} />
         </svg>
-        <img className="nf-arrival-wordmark" src="/brand/wudayn-wordmark-v3.png" alt="" width="512" height="154" />
+        <BrandWordmark className="nf-arrival-wordmark" />
         <span className="nf-arrival-brand-note" aria-hidden="true">بداية لحياة مشتركة</span>
       </header>
 

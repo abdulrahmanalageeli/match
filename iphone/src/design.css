@@ -119,3 +119,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 @media (min-width: 650px) {
   :root { background: var(--canvas); }
 }
+
+/* Real text: preserve Arabic shaping and diacritic clearance at every size. */
+.wudayn-wordmark { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none; color: #54152a; white-space: nowrap; }
+.wudayn-wordmark-ar { font-family: "IBM Plex Sans Arabic", var(--font-ui); font-size: 29px; font-weight: 600; line-height: 1.5; letter-spacing: normal; }
+.wudayn-wordmark-en { font-family: Montserrat, sans-serif; font-size: 8px; font-weight: 500; line-height: 1.4; letter-spacing: .16em; padding-inline-start: .16em; margin-top: -3px; }
+.nisfayn-brand-compact .wudayn-wordmark-ar { font-size: 26px; }
+.wudayn-opening-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wudayn-opening-brand .wudayn-wordmark-ar { font-size: 38px; }
+.wudayn-opening-brand .wudayn-wordmark-en { font-size: 10px; }

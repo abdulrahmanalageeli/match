@@ -1,3 +1,4 @@
+import { BrandWordmark } from './Brand';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
@@ -770,7 +771,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   if (loading)
     screen = (
       <div className="loading-stage">
-        <img className="nf-opening-logo" src="/brand/wudayn-lockup-v3.png" alt="وُدَين" />
+        <div className="wudayn-opening-brand"><img className="nf-opening-logo" src="/brand/wudayn-emblem-v2.png" alt="" /><BrandWordmark /></div>
         <div className="nf-opening-caption">
           <strong>توافق ذكي للزواج</strong>
           <span role="status">جارٍ فتح التطبيق…</span>

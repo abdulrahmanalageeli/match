@@ -11,7 +11,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   if (!['GET', 'POST'].includes(req.method || '')) return res.status(405).json({ error: 'method_not_allowed' });
   const env = process.env;
-  if (!env.CRON_SECRET || !authorized(req.headers.authorization, env.CRON_SECRET)) return res.status(401).json({ error: 'unauthorized' });
+  const cronAuthorized = !!env.CRON_SECRET && authorized(req.headers.authorization, env.CRON_SECRET);
+  const wakeToken = req.headers['x-push-wake'];
+  if (!cronAuthorized && (req.method !== 'POST' || typeof wakeToken !== 'string' || !/^[a-f0-9]{64}$/.test(wakeToken))) return res.status(401).json({ error: 'unauthorized' });
   const nativeEnabled = env.NISFAYN_PUSH_ENABLED === 'true';
   const webEnabled = env.NISFAYN_WEB_PUSH_ENABLED === 'true';
   const nativeReady = ['APNS_TEAM_ID', 'APNS_KEY_ID', 'APNS_PRIVATE_KEY_BASE64'].every(name => Boolean(env[name]))
@@ -37,7 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const webTransport = webEnabled ? openWebPush({ subject: env.WEB_PUSH_VAPID_SUBJECT!, publicKey: env.WEB_PUSH_VAPID_PUBLIC_KEY!, privateKey: env.WEB_PUSH_VAPID_PRIVATE_KEY! }) : undefined;
   const count = { claimed: 0, sent: 0, retry: 0, invalid: 0, failed: 0, revoked: 0 };
   try {
-    await rpc('nisfayn_enqueue_deadline_reminders',{});
+    if (!cronAuthorized && !await rpc<boolean>('nisfayn_push_wake_authorized', { candidate: wakeToken })) return res.status(401).json({ error: 'unauthorized' });
+    if (cronAuthorized) await rpc('nisfayn_enqueue_deadline_reminders',{});
     const deadline = Date.now() + 40000;
     const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
     if (nativeEnabled) {

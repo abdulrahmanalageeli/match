@@ -96,6 +96,7 @@ html[data-nf-motion="reduced"] .nf-arrival *, html[data-nf-motion="reduced"] .nf
   .nf-arrival .nf-arrival-copy h1 { font-size: 28px; }
   .nf-arrival .nf-arrival-copy p { margin-top: 9px; }
   .nf-arrival-illustration { min-height: 120px; }
+  .nf-arrival-couple { height: 100%; width: 100%; object-fit: contain; object-position: center bottom; }
   .nf-arrival-actions { padding-top: 14px; }
   .nf-arrival .nf-arrival-action-note { display: none; }
 }

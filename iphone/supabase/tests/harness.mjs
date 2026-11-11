@@ -40,7 +40,23 @@ export async function createDatabase({coreOnly=false, throughMigration}={}) {
   for (const file of (await readdir(directory)).filter(s=>s.endsWith('.sql')).sort()) {
     if(throughMigration && file>throughMigration) continue;
     if(coreOnly && !file.endsWith('_marriage_core.sql')) continue;
-    const sql=await readFile(new URL(file,directory),'utf8');
+    let sql=await readFile(new URL(file,directory),'utf8');
+    if(file.endsWith('_immediate_push_wakeup.sql')) {
+      // Hosted networking and encrypted Vault are unavailable in WASM.
+      // Capture wake requests locally; never contact a production endpoint.
+      await db.exec(`
+        create schema extensions;
+        create function extensions.gen_random_bytes(n integer) returns bytea language sql as $$ select decode(repeat('ab',n),'hex') $$;
+        create schema vault;
+        create table vault.secrets(name text, decrypted_secret text);
+        create view vault.decrypted_secrets as select * from vault.secrets;
+        create function vault.create_secret(secret text,name text) returns void language sql as $$ insert into vault.secrets values ($2,$1) $$;
+        create schema net;
+        create table net.wake_requests(id bigint generated always as identity,url text,body jsonb,headers jsonb);
+        create function net.http_post(url text,body jsonb,headers jsonb,timeout_milliseconds integer) returns bigint language sql as $$ insert into net.wake_requests(url,body,headers) values ($1,$2,$3) returning id $$;
+      `);
+      sql=sql.replace('create extension if not exists pg_net with schema extensions;','');
+    }
     try { await db.exec(sql); }
     catch(error) { throw new Error(file+' line '+sql.slice(0,Number(error.position||1)).split('\n').length+': '+error.message); }
   }

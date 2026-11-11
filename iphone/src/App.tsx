@@ -1,4 +1,5 @@
 import { BrandWordmark } from './Brand';
+import { withTestingDiscovery } from './community/testingDiscovery';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
@@ -200,12 +201,14 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   const welcomeIntent = useRef(0);
   const welcomeFocus = useRef(".nf-join");
   const liveDraftOwner = useRef<string | null>(null);
+  const realProfileRef = useRef(live?.profile);
+  realProfileRef.current = live?.profile;
   const source = useMemo(
     () =>
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
-          ? cloudCommunity(token)
+          ? withTestingDiscovery(cloudCommunity(token), () => realProfileRef.current ?? demoProfile)
           : null,
     [demo, token, sampleSession, pair],
   );

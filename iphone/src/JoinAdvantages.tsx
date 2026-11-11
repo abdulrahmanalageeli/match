@@ -11,7 +11,7 @@ export function JoinAdvantages({animate=true}:{animate?:boolean}) {
    <div><h2>خوارزمية ترى ما يجمعكما</h2><p>قيمك · شخصيتك · مواقف الحياة</p><span>توافق مُفسّر، ونقاط تستحق الحوار.</span></div>
   </MotionReveal>
   <MotionReveal className="wd-join-benefit" active={animate} delay={330} distance={7} duration={650}>
-   <svg viewBox="0 0 64 48" fill="none" aria-hidden="true"><path className="wd-join-path" d="M9 24h46"/><circle cx="9" cy="24" r="4"/><circle cx="31" cy="24" r="4"/><g className="wd-join-arrive"><path d="M53 16c-7-7-14 4 0 13 14-9 7-20 0-13Z"/><path d="m27 24 3 3 5-6"/></g></svg>
+   <svg viewBox="0 0 64 48" fill="none" aria-hidden="true"><path className="wd-join-path" d="M13 24h12m8 0h9"/><circle cx="9" cy="24" r="4"/><circle cx="29" cy="24" r="4"/><path className="wd-join-arrive" d="M51 19C47 13 40 16 43 22C45 25 48 28 51 30C54 28 57 25 59 22C62 16 55 13 51 19Z"/></svg>
    <div><h2>تعارف له وجهة</h2><p>اتفاق جدّية ← حصرية ← جسر الأهل</p><span>وقت واضح، وكل خطوة بموافقتكما.</span></div>
   </MotionReveal>
  </section>;

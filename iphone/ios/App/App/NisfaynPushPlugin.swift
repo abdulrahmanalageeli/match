@@ -50,7 +50,9 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
                 self.pending.append(payload)
                 if self.pending.count > 8 { self.pending.removeFirst() }
                 NotificationCenter.default.post(name: Self.openEvent, object: nil)
+                completionHandler()
             }
+            return
         }
         completionHandler()
     }

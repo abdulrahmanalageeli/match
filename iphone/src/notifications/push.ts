@@ -65,10 +65,13 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if (!webPushSupported()) return;
       return monitorWebPush(owner, event => callback.current(event.requestId, event.kind));
     }
-    let active = true, refreshing = false, opening=false;
+    let active = true, refreshing = false, opening=false, reopen=false, failures=0;
+    let retry:ReturnType<typeof setTimeout>|undefined;
     const listeners: PluginListenerHandle[] = [];
     const open = async () => {
-      if(opening || !active)return;opening=true;let acknowledged=false;
+      if(!active)return;
+      if(opening){reopen=true;return;}
+      opening=true;let acknowledged=false;
       try {
       const { notification } = await native.consumeOpen();
       if (!active || !notification || !await currentOwner(owner)) return;
@@ -78,11 +81,21 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
         }
         await callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
         if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}
+        failures=0;
       }
-      }finally{opening=false;if(acknowledged&&active)queueMicrotask(()=>{void open().catch(()=>{});});}
+      }catch{
+        // Keep the native action until sending succeeds. The stable actionId
+        // makes a retry safe even when a response was lost after delivery.
+        if(active&&failures<3){clearTimeout(retry);retry=setTimeout(()=>{void open();},1000*2**failures++);}
+      }finally{
+        opening=false;
+        if((acknowledged||reopen)&&active){reopen=false;queueMicrotask(()=>{void open();});}
+      }
     };
     const refresh = async () => {
       if (!active || refreshing || document.hidden) return;
+      // Reply/navigation must not wait on APNs registration or preference fetches.
+      failures=0;void open();
       refreshing = true;
       try {
         const preference = await getPushPreference(owner);
@@ -95,8 +108,9 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     void native.addListener('registration', device => { if (active) void bind(owner, device).catch(() => {}); }).then(handle => { if (active) listeners.push(handle); else void handle.remove(); }).catch(() => {});
     void native.addListener('opened', () => { void open().catch(() => {}); }).then(handle => { if (active) listeners.push(handle); else void handle.remove(); }).catch(() => {});
     document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('online', refresh);
     void refresh();
-    return () => { active = false; listeners.forEach(handle => { void handle.remove(); }); document.removeEventListener('visibilitychange', refresh); };
+    return () => { active = false; clearTimeout(retry); listeners.forEach(handle => { void handle.remove(); }); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [owner]);
 }
 

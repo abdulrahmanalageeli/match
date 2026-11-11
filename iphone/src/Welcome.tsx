@@ -1,5 +1,6 @@
 import { BrandWordmark } from './Brand';
 import {WhyWudayn} from './WhyWudayn';
+import {JoinAdvantages} from './JoinAdvantages';
 import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import { ArrowLeft } from "./BrandIcons";
 import { feedback } from './feedback/haptics';
@@ -70,7 +71,8 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       <section className="nf-arrival-copy">
         <span className="nf-arrival-eyebrow">توافق مفهوم. تعارف جاد. خطوة واضحة.</span>
         <h1 id="arrival-heading"><MotionReveal as="span" active={introducing} delay={180} duration={700} distance={7}>شريك حياة.</MotionReveal><MotionReveal as="span" active={introducing} delay={350} duration={700} distance={7}>ومستقبل تبنونه سوا.</MotionReveal></h1>
-        <MotionReveal as="p" active={introducing} delay={500} duration={700} distance={7}>ترشيحات تنطلق من قيمك وشخصيتك، وتشرح سبب التوافق.<br className="nf-arrival-desktop-break" /> ومن أول حديث، اتفاق جاد وخطوة تتفقان عليها.</MotionReveal>
+        <MotionReveal as="p" active={introducing} delay={500} duration={700} distance={7}>من خبرة لقاءات واقعية، إلى اختيار أوضح لشريك حياتك.</MotionReveal>
+        <JoinAdvantages animate={introducing&&!reduced&&!hidden}/>
       </section>
 
       <div className="nf-arrival-illustration" aria-hidden="true">

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState, type FormEvent, type ReactNode } from "react";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
+import {JoinAdvantages} from './JoinAdvantages';
 import type { SignupAgreements } from './auth/signupReturn';
 import {
   ArrowLeft,
@@ -122,7 +123,7 @@ export function Auth({
             ? "سجّل الدخول لمتابعة طلباتك ومحادثاتك."
             : phoneMode ? "ابدأ برقم جوالك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك." : "أنشئ حسابك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك."}
         </p>
-        {!login && <ol className="nf-auth-promise" aria-label="مراحل الانضمام"><li aria-current="step"><span>١</span> حسابك</li><li><span>٢</span> ملفك</li><li><span>٣</span> المراجعة</li></ol>}
+        {!login && <JoinAdvantages/>}
         <div className="nf-auth-aside" aria-hidden="true"><span>وُدَين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
       </section>
       <section className="nf-auth-panel">

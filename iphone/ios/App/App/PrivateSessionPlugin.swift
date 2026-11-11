@@ -25,7 +25,7 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func setAppearance(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            guard NisfaynPrivacy.shared.mayOpen else { call.reject("افتح قفل نصفين أولًا.");return }
+            guard NisfaynPrivacy.shared.mayOpen else { call.reject("افتح قفل وُدَين أولًا.");return }
             if let show = call.getBool("callerName") { UserDefaults.standard.set(show,forKey:"nisfayn.calls.showName") }
             guard let icon = call.getString("icon") else { self.appearance(call);return }
             guard ["default","Quiet","Horizon"].contains(icon),UIApplication.shared.supportsAlternateIcons else { call.reject("هذه الأيقونة غير متاحة.");return }
@@ -131,7 +131,7 @@ final class NisfaynPrivacy: NSObject {
         view.backgroundColor = UIColor(red: 0.99, green: 0.99, blue: 0.98, alpha: 1)
         view.accessibilityViewIsModal = true
         let title = UILabel()
-        title.text = "نصفين"
+        title.text = "وُدَين"
         title.font = .systemFont(ofSize: 32, weight: .semibold)
         title.textColor = UIColor(red: 0.33, green: 0.08, blue: 0.16, alpha: 1)
         title.textAlignment = .center
@@ -141,7 +141,7 @@ final class NisfaynPrivacy: NSObject {
         detail.font = .preferredFont(forTextStyle: .body)
         detail.textColor = .secondaryLabel
         let button = UIButton(type: .system)
-        button.setTitle("فتح نصفين", for: .normal)
+        button.setTitle("فتح وُدَين", for: .normal)
         button.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         button.addTarget(self, action: #selector(unlock), for: .touchUpInside)
         let stack = UIStackView(arrangedSubviews: [title, detail, button])
@@ -179,7 +179,7 @@ final class NisfaynPrivacy: NSObject {
         let ctx = LAContext(); ctx.localizedCancelTitle = "إلغاء"
         guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { completion(false); return }
         let id = UUID(); attempt = id; context = ctx
-        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "للحفاظ على خصوصية حسابك ومحادثاتك في نصفين") { [weak self] ok, _ in
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "للحفاظ على خصوصية حسابك ومحادثاتك في وُدَين") { [weak self] ok, _ in
             DispatchQueue.main.async {
                 guard let self, self.attempt == id else { completion(false); return }
                 self.context = nil; completion(ok)

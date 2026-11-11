@@ -243,7 +243,7 @@ export function ChatMediaComposer({ source, requestId, disabled, callActive, onR
   async function photo(file?: File) { if (!file || busy) return; setBusy(true); setError(''); const ticket = ++generation.current; try { const blob = await preparePhoto(file); if (alive.current && ticket === generation.current) preview(blob, 'photo'); } catch (e) { if (alive.current && ticket === generation.current) setError(safeError(e)); } finally { if (alive.current && ticket === generation.current) setBusy(false); } }
   async function record(handsFree = true) {
     if (busy || capturing.current || blocked.current || draft) return;
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { setError('التسجيل غير مدعوم في هذا المتصفح. افتح نصفين في Safari أو Chrome حديث.'); return; }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { setError('التسجيل غير مدعوم في هذا المتصفح. افتح وُدَين في Safari أو Chrome حديث.'); return; }
     setError(''); setBusy(true); setElapsed(0); capturing.current = true; lockedRef.current = handsFree; setLocked(handsFree); setDrag({x:0,y:0}); onRecordingRef.current(true); const ticket = ++generation.current;
     try {
       const media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });

@@ -69,20 +69,20 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
     {error && <p className="nf-support-feedback nf-support-error" role="alert">{error}</p>}{receipt && <p className="nf-support-feedback nf-support-receipt" role="status">{receipt}</p>}
     <section className="nf-support-requests" aria-label="طلبات المساعدة"><header><h3>طلباتي</h3><button type="button" disabled={loading || sending} onClick={() => void load()}>تحديث</button></header>
       {loading && (items.length ? <p className="nf-support-refresh" role="status">جارٍ تحديث طلباتك…</p> : <SupportTicketsLoading/>)}{!loading && !items.length && !error && <div className="nf-support-empty"><h4>طلباتك في مكان واحد</h4><p>اكتب ما تحتاج إليه في النموذج أعلاه. بعد الإرسال، يظهر هنا رقم طلبك وحالته ورد الفريق.</p></div>}
-      {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق نصفين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}</article>)}
+      {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}</article>)}
       {cursor && <button type="button" disabled={loading || sending} onClick={() => void load(cursor)}>طلبات أقدم</button>}
     </section>
   </dialog>;
 }
 
-export function SupportContact({ subject = 'مساعدة في نصفين', context }: { subject?: string; context?: string }) {
+export function SupportContact({ subject = 'مساعدة في وُدَين', context }: { subject?: string; context?: string }) {
   const source = useContext(Context), [openedSource, setOpenedSource] = useState<SupportSource | null>(null), [copied, setCopied] = useState(false);
   useEffect(() => { setOpenedSource(null); }, [source]);
   const body = [context, 'أحتاج مساعدة بخصوص:'].filter(Boolean).join('\n\n');
   const href = `mailto:${contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  return <aside className="nf-support-contact" aria-label="التواصل مع فريق نصفين">
+  return <aside className="nf-support-contact" aria-label="التواصل مع فريق وُدَين">
     {source && <><button type="button" onClick={() => setOpenedSource(source)}><MessageCircle size={17} aria-hidden="true"/> المساعدة وطلباتي</button><p>أرسل طلبًا وتابع رقمه وحالته ورد الفريق داخل التطبيق.</p></>}
-    <a href={href}><Mail size={17} aria-hidden="true" /> مراسلة فريق نصفين بالبريد</a>
+    <a href={href}><Mail size={17} aria-hidden="true" /> مراسلة فريق وُدَين بالبريد</a>
     <p>يفتح مسودة في تطبيق بريدك؛ راجعها وأرسلها بنفسك. لا تُرفق محادثاتك أو بيانات حسابك تلقائيًا.</p>
     <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية. لا يوجد وقت استجابة محدد معلن.</small>
     {!source && <small>تتوفر متابعة الطلبات داخل التطبيق بعد تسجيل الدخول بحساب فعلي.</small>}

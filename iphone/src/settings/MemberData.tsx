@@ -78,7 +78,7 @@ export function MemberData({ mode, owner, demo, profile, close }: Props) {
         const data = shareMode === "file"
           ? { files: [new File([json], "nisfayn-data.json", { type: "application/json" })] }
           : { text: json };
-        await navigator.share({ ...data, title: "نسخة بياناتي في نصفين" });
+        await navigator.share({ ...data, title: "نسخة بياناتي في وُدَين" });
       } catch (cause) {
         if (!(cause instanceof DOMException && cause.name === "AbortError")) {
           setStatus("تعذّرت المشاركة. يمكنك نسخ البيانات من النافذة.");

@@ -15,14 +15,14 @@ self.addEventListener('push', event => {
   try { value = event.data?.json(); } catch { return; }
   if (!validEvent(value)) return;
   const body = {
-    request: 'لديك طلب تعارف جديد. افتح نصفين للاطلاع عليه.',
-    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في نصفين.',
-    message: 'لديك رسالة جديدة في نصفين.',
-    reminder: 'لديك تذكير خاص. افتح نصفين للاطلاع عليه.',
+    request: 'لديك طلب تعارف جديد. افتح وُدَين للاطلاع عليه.',
+    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في وُدَين.',
+    message: 'لديك رسالة جديدة في وُدَين.',
+    reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',
     family: 'لديك رسالة جديدة في جسر الأهل.',
   }[value.kind];
-  event.waitUntil(self.registration.showNotification('نصفين', {
-    body, lang: 'ar', dir: 'rtl', icon: '/brand/nisfayn-icon.png',
+  event.waitUntil(self.registration.showNotification('وُدَين', {
+    body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon.png',
     tag: value.kind + ':' + value.requestId,
     silent: value.kind === 'reminder',
     data: { requestId: value.requestId, kind: value.kind, ...routeIds(value) },

@@ -92,7 +92,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
     case "identity":
       if (!p.displayName.trim()) return { field: "displayName", text: "أدخل اسمًا يظهر في ملفك." };
       if (!p.gender) return { field: "gender", text: "اختر الجنس لإكمال ملفك." };
-      if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. نصفين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
+      if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. وُدَين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
       if (!validAge(p.birthDate ? String(ageFromBirthday(p.birthDate ?? '')) : p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
       if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
       return null;
@@ -114,7 +114,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       return null;
     case "details":
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
-      if(p.marriageBasics?.currentWives===4)return{field:'marriageBasics',text:'لا يدعم نصفين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.'};
+      if(p.marriageBasics?.currentWives===4)return{field:'marriageBasics',text:'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.'};
       if (p.marriageBasics && !validMarriageBasics(p.marriageBasics)) return { field: "marriageBasics", text: "راجع التفاصيل: الطول من ١٢٠ إلى ٢٣٠ سم، والوزن من ٣٥ إلى ٢٥٠ كجم بأعداد صحيحة، والأبناء من صفر إلى ٢٠. اسم القبيلة اختياري للخلفية القبلية فقط." };
       return null;
     case "criteria":

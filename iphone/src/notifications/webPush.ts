@@ -53,7 +53,7 @@ async function subscribe(owner: string) {
 }
 
 export async function enableWebPush(owner: string) {
-  if (!webPushConfigured || !webPushSupported()) throw new Error(needsHomeScreen() ? 'أضف نصفين إلى الشاشة الرئيسية وافتحه منها، ثم فعّل الإشعارات.' : 'استخدم متصفحًا حديثًا يدعم الإشعارات.');
+  if (!webPushConfigured || !webPushSupported()) throw new Error(needsHomeScreen() ? 'أضف وُدَين إلى الشاشة الرئيسية وافتحه منها، ثم فعّل الإشعارات.' : 'استخدم متصفحًا حديثًا يدعم الإشعارات.');
   // Request directly in the button handler, before any async work loses the
   // browser's user gesture (required by Safari/iOS).
   const permission = await Notification.requestPermission();

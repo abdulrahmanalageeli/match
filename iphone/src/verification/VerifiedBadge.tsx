@@ -14,7 +14,7 @@ function BadgeDetails({ claims, onClose }: { claims: ManualVerificationClaim[]; 
     onCancel={event => { event.preventDefault(); onClose(); }}>
     <div className="mv-dialog-head"><span className="mv-dialog-symbol">{test ? <FlaskConical size={25} /> : <BadgeCheck size={25} />}</span><button type="button" className="mv-icon-button" aria-label="إغلاق تفاصيل التوثيق" onClick={onClose} autoFocus><X size={19} /></button></div>
     <h2 id={titleId}>{test ? 'توثيق تجريبي' : 'بيانات تمت مراجعتها'}</h2>
-    <p>{test ? 'هذا حساب تجريبي. الشارة لا تمثّل تحققًا من شخص حقيقي أو مستند حقيقي.' : 'راجع فريق نصفين المستندات المقدّمة للبيانات التالية يدويًا.'}</p>
+    <p>{test ? 'هذا حساب تجريبي. الشارة لا تمثّل تحققًا من شخص حقيقي أو مستند حقيقي.' : 'راجع فريق وُدَين المستندات المقدّمة للبيانات التالية يدويًا.'}</p>
     <div className="mv-badge-claims">{claims.map(claim => <article key={claim.id}>
       <strong>{verificationKinds.find(kind => kind.id === claim.kind)?.label}{claim.isTest && !test ? ' · تجريبي' : ''}</strong>
       <span>{claim.label}</span>

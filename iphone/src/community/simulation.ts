@@ -55,7 +55,7 @@ export function fictionalReply(person: PublicPerson, history: { senderIsMe: bool
   const recent = history.filter(message => message.senderIsMe).at(-1)?.body ?? '';
   const round = history.filter(message => !message.senderIsMe).length;
   const style = (hash(person.id) >>> 1) % 3;
-  if (/ذكاء اصطناعي|بوت|حقيقي[ةه]?|انسان|إنسان/.test(recent)) return 'أنا شخصية ضمن محاكاة نصفين للتجربة، مو حساب شخص حقيقي.';
+  if (/ذكاء اصطناعي|بوت|حقيقي[ةه]?|انسان|إنسان/.test(recent)) return 'أنا شخصية ضمن محاكاة وُدَين للتجربة، مو حساب شخص حقيقي.';
   if (/محتواها غير متاح/.test(recent)) return 'وصل المرفق، بس ما أقدر أشوف الصور أو أسمع الصوت في المحاكاة. اكتب لي اللي ودك تقوله وبرد عليك.';
   if (/رقم|واتساب|عنوان|موقعك|سناب/.test(recent)) return 'خلّنا نبقى هنا بالبداية لين نتعرف أكثر ونرتاح للخطوة الجاية.';
   if (/زواج|شهر|رسمي|أهل|لقاء/.test(recent)) {

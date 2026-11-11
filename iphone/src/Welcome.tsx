@@ -50,7 +50,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   return (
     <main className="nf-welcome nf-arrival" dir="rtl" data-opening={introducing && !reduced || undefined}
       data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
-      <header className="nf-arrival-brand" role="img" aria-label="نصفين">
+      <header className="nf-arrival-brand" role="img" aria-label="وُدَين">
         <svg className="nf-arrival-emblem" viewBox="0 0 768 768" aria-hidden="true">
           <defs>
             <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
@@ -59,9 +59,9 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
               <rect className="nf-arrival-ink-finish" width="768" height="768" fill="white" />
             </mask>
           </defs>
-          <image href="/brand/nisfayn-heart.png" width="768" height="768" mask={`url(#${maskId})`} />
+          <image href="/brand/wudayn-heart.png" width="768" height="768" mask={`url(#${maskId})`} />
         </svg>
-        <img className="nf-arrival-wordmark" src="/brand/nisfayn-wordmark.png" alt="" width="512" height="154" />
+        <img className="nf-arrival-wordmark" src="/brand/wudayn-wordmark.png" alt="" width="512" height="154" />
         <span className="nf-arrival-brand-note" aria-hidden="true">بداية لحياة مشتركة</span>
       </header>
 

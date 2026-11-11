@@ -1,0 +1,9 @@
+# Wudayn AI · وُدَين
+
+Brand: Wudayn AI. Arabic pronunciation: وُدَين (damma on waw, fatha on dal). Arabic spoken AI: اي اي.
+
+Public brand assets: public/brand/wudayn-*.png. Original code-drawn paired heart, burgundy/rose. Generator: scripts/generate-brand.ps1, run from repository root on Windows.
+
+Bundle ID, StoreKit product IDs, APNs topics, storage keys, database schemas, project URLs and native plugin names intentionally remain unchanged for existing users. Historical consent records and migrations must retain their original wording.
+
+Release: rebuild main in Codemagic for TestFlight. In App Store Connect update app name to Wudayn AI, Arabic localization to وُدَين اي اي, subtitle/description/screenshots/support metadata for the next version. The App Store icon comes from the new binary. No domain or legal-controller change is implied. Existing legal entity/contact details are preserved.

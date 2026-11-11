@@ -60,7 +60,7 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
   ];
   const group=groups[section];
   return <div className="nf-profile-studio pe-studio">
-    <header className="pe-heading"><span className="nf-studio-eyebrow">مساحتك في نصفين</span><h1 ref={heading} tabIndex={-1}>تعديل ملفي</h1><p>اختر قسمًا للتعديل، ثم راجع التغييرات واحفظها.</p></header>
+    <header className="pe-heading"><span className="nf-studio-eyebrow">مساحتك في وُدَين</span><h1 ref={heading} tabIndex={-1}>تعديل ملفي</h1><p>اختر قسمًا للتعديل، ثم راجع التغييرات واحفظها.</p></header>
     <div className="pe-member"><div className="nf-studio-avatar"><ProfilePortraitPreview answers={p} photoUrl={photoUrl} portraitSource={portraitSource}/></div><div><strong>{p.displayName||'ملفي الشخصي'}</strong><small>{[p.city,p.profession].filter(Boolean).join(' · ')}</small></div><span className="pe-draft-status" data-changed={changed||undefined}>{changed?'مسودة':<><Check size={12}/> محفوظ</>}</span></div>
     <div className="pe-tabs" role="group" aria-label="أقسام تعديل الملف">{groups.map((item,index)=><button key={item.title} type="button" aria-pressed={section===index} onClick={()=>setSection(index)}>{index===0?<UserRound size={15}/>:<LockKeyhole size={14}/>} {item.title}</button>)}</div>
     <section className="pe-section" key={section}><p className="pe-section-note">{group.note}</p><div className="nf-studio-sections">

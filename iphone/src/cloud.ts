@@ -59,7 +59,7 @@ function authFailure(e: AuthError): never {
     /email address not authorized/i.test(e.message)
   )
     failure(
-      "تعذّر إرسال رابط التفعيل حاليًا. حاول لاحقًا أو تواصل مع فريق نصفين.",
+      "تعذّر إرسال رابط التفعيل حاليًا. حاول لاحقًا أو تواصل مع فريق وُدَين.",
       400,
     );
   if (e.code === "email_not_confirmed")
@@ -82,7 +82,7 @@ export async function cloudSessionId(): Promise<string | null> {
 }
 function signupDestination() {
   const redirect = signupRedirectUrl(window.location.href, import.meta.env.VITE_MARRIAGE_SIGNUP_REDIRECT_URL);
-  if (!redirect) failure("تعذّر إعداد رابط تأكيد البريد. تواصل مع فريق نصفين.", 503);
+  if (!redirect) failure("تعذّر إعداد رابط تأكيد البريد. تواصل مع فريق وُدَين.", 503);
   return redirect;
 }
 export async function resendSignupConfirmation(email: string) {

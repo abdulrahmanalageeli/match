@@ -147,7 +147,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         <h1 className="st-title">الإعدادات</h1>
         <p className="st-intro">ملفك، خصوصيتك، وتفضيلات حسابك.</p>
         <section className="st-member-card" aria-label="ملفي الشخصي">
-          <div className="st-member-identity"><span className="st-member-avatar" aria-hidden="true">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}</span><div><span className="st-profile-kicker">مساحتك في نصفين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
+          <div className="st-member-identity"><span className="st-member-avatar" aria-hidden="true">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}</span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           {source&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صور ملفي</strong><small>إضافة وإدارة صور المعرض</small></span><ChevronLeft size={16}/></button>}
         </section>
@@ -177,7 +177,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {owner && <SettingRow icon={<Download />} title="نسخة من بياناتي" action={() => setDataSheet({ mode: "export", owner })} />}
           </div>
         </section>
-        <section className="st-section" aria-label="المساعدة"><h2>المساعدة والدعم</h2><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في نصفين" detail="التوافق، الصور، المكالمات، الحصرية، والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div></section>
+        <section className="st-section" aria-label="المساعدة"><h2>المساعدة والدعم</h2><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="التوافق، الصور، المكالمات، الحصرية، والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div></section>
         <SupportContact />
         <section className="st-section" aria-labelledby="st-device-title">
           <h2 id="st-device-title">التجربة على هذا الجهاز</h2>

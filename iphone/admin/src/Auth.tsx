@@ -3,7 +3,7 @@ import { ArrowLeft, CheckCircle2, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { client, configurationError, friendly } from './client';
 
 export function Brand({ large = false }: { large?: boolean }) {
-  return <div className={large ? 'brand large' : 'brand'}><img src="/brand/nisfayn-heart.png" alt="" /><img src="/brand/nisfayn-wordmark.png" alt="نصفين" /><span>مساحة الإدارة</span></div>;
+  return <div className={large ? 'brand large' : 'brand'}><img src="/brand/wudayn-heart.png" alt="" /><img src="/brand/wudayn-wordmark.png" alt="وُدَين" /><span>مساحة الإدارة</span></div>;
 }
 
 export function Login({ onDemo }: { onDemo: () => void }) {
@@ -21,8 +21,8 @@ export function Login({ onDemo }: { onDemo: () => void }) {
     finally { setBusy(false); }
   }
   return <main className="login-layout">
-    <section className="login-story"><Brand large /><div><span className="eyebrow">مساحة موثوقة، لبدايات تستحق.</span><h1>كل بداية جادة<br />تستحق عناية.</h1><p>راجع طلبات العضوية، وتابع البلاغات، واحفظ لكل قرار سياقه. من مساحة واحدة، صُمّمت لنصفين.</p></div><span className="story-foot"><ShieldCheck size={18} /> وصول مخصص للفريق · تحقق بخطوتين</span></section>
-    <section className="login-panel"><div className="login-card"><span className="login-symbol"><LockKeyhole size={25} /></span><p className="eyebrow">أهلًا بك في نصفين</p><h2>{signup ? 'إعداد حساب الإدارة' : 'تسجيل الدخول'}</h2><p className="muted">{signup ? 'استخدم البريد المحجوز لك. إنشاء الحساب وحده لا يمنح صلاحية الإدارة.' : 'استخدم حساب الفريق، ثم أكمل التحقق بخطوتين.'}</p>
+    <section className="login-story"><Brand large /><div><span className="eyebrow">مساحة موثوقة، لبدايات تستحق.</span><h1>كل بداية جادة<br />تستحق عناية.</h1><p>راجع طلبات العضوية، وتابع البلاغات، واحفظ لكل قرار سياقه. من مساحة واحدة، صُمّمت لوُدَين.</p></div><span className="story-foot"><ShieldCheck size={18} /> وصول مخصص للفريق · تحقق بخطوتين</span></section>
+    <section className="login-panel"><div className="login-card"><span className="login-symbol"><LockKeyhole size={25} /></span><p className="eyebrow">أهلًا بك في وُدَين</p><h2>{signup ? 'إعداد حساب الإدارة' : 'تسجيل الدخول'}</h2><p className="muted">{signup ? 'استخدم البريد المحجوز لك. إنشاء الحساب وحده لا يمنح صلاحية الإدارة.' : 'استخدم حساب الفريق، ثم أكمل التحقق بخطوتين.'}</p>
       {configurationError && <p className="notice error" role="alert">{configurationError}</p>}
       {!client && !configurationError && <p className="notice">هذه نسخة تجريبية مستقلة. يمكنك استكشاف الواجهة ببيانات خيالية.</p>}
       {client && <form onSubmit={submit}><label>البريد الإلكتروني<input type="email" dir="ltr" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>

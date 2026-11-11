@@ -165,7 +165,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   const refreshSequence = useRef(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(signupReturn === 'invalid'
-    ? "رابط تأكيد البريد غير صالح أو انتهت صلاحيته. سجّل الدخول أو تواصل مع فريق نصفين للمساعدة."
+    ? "رابط تأكيد البريد غير صالح أو انتهت صلاحيته. سجّل الدخول أو تواصل مع فريق وُدَين للمساعدة."
     : signupReturn ? "سجّل الدخول لإكمال حسابك بعد تأكيد البريد الإلكتروني." : "");
   const [fromIntake, setFromIntake] = useState(false);
   const navigationVersion = useRef(0);
@@ -244,7 +244,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         await source.send(id,event.text.trim().slice(0,1000),event.actionId);
       }
       if(event?.messageId&&['read','reply'].includes(event.action||''))await source.markRead(id,event.messageId);
-    }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح نصفين.');throw cause;}
+    }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح وُدَين.');throw cause;}
   });
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
@@ -770,7 +770,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   if (loading)
     screen = (
       <div className="loading-stage">
-        <img className="nf-opening-logo" src="/brand/nisfayn-lockup.png" alt="نصفين" />
+        <img className="nf-opening-logo" src="/brand/wudayn-lockup.png" alt="وُدَين" />
         <div className="nf-opening-caption">
           <strong>توافق ذكي للزواج</strong>
           <span role="status">جارٍ فتح التطبيق…</span>
@@ -1052,7 +1052,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
               disabled={busy}
             /></label>
             <p>يصل السبب وما تكتبه إلى الفريق للمراجعة. لا تُرفق بيانات هوية أو معلومات لا تتعلق بالمشكلة. انتظر تأكيد الإرسال؛ لا يوجد وقت استجابة محدد معلن.</p>
-            <SupportContact subject="مساعدة بشأن بلاغ في نصفين" />
+            <SupportContact subject="مساعدة بشأن بلاغ في وُدَين" />
           </>)}
           {error && (
             <p role="alert" className="form-error">
@@ -1084,7 +1084,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       {reportReceipt && reportReceipt.owner === (demo ? 'demo-' + sampleSession : token) && <Modal title={reportReceipt.demo ? 'تجربة الإبلاغ' : 'تم إرسال البلاغ'} close={() => setReportReceipt(null)}>
         <p>{reportReceipt.demo ? 'هذه محاكاة بملف خيالي؛ لم يُرسل بلاغ حقيقي.' : 'وصل البلاغ للمراجعة وأُغلق هذا الترشيح. تأكيد الإرسال لا يعني صدور قرار، ولا يوجد وقت استجابة محدد معلن.'}</p>
         {!reportReceipt.demo && <p>معرّف الترشيح للمتابعة: <bdi>{reportReceipt.reference}</bdi></p>}
-        <SupportContact subject="متابعة بلاغ في نصفين" context={reportReceipt.demo ? undefined : `معرّف الترشيح: ${reportReceipt.reference}`} />
+        <SupportContact subject="متابعة بلاغ في وُدَين" context={reportReceipt.demo ? undefined : `معرّف الترشيح: ${reportReceipt.reference}`} />
         <button className="f-primary" onClick={() => setReportReceipt(null)}>فهمت</button>
       </Modal>}
     </div>

@@ -25,7 +25,7 @@ export function LegalNotice({ preview = false }: { preview?: boolean }) {
       <span className="nf-legal-emblem"><FileCheck2 size={23} aria-hidden="true" /></span>
       <div><small>اختيارات واضحة، من البداية</small><h2>خصوصيتك وحقوقك</h2></div>
     </header>
-    <p className="nf-legal-intro">تعارف جاد يبدأ بالوضوح. هذه أهم المعلومات عن استخدام نصفين، وما تختار مشاركته، وكيف تتحكم في بياناتك.</p>
+    <p className="nf-legal-intro">تعارف جاد يبدأ بالوضوح. هذه أهم المعلومات عن استخدام وُدَين، وما تختار مشاركته، وكيف تتحكم في بياناتك.</p>
     {preview && <p className="nf-legal-preview"><Sparkles size={16} aria-hidden="true" /> إكمال الملف لا يُنشئ حسابًا أو يرسل طلب عضوية تلقائيًا. إنشاء الحساب وتأكيد الإرسال خطوتان منفصلتان.</p>}
 
     <div className="nf-legal-principles">
@@ -38,7 +38,7 @@ export function LegalNotice({ preview = false }: { preview?: boolean }) {
       <p>جهة التحكم ومقدّم الخدمة: <bdi>BlindMatch Establishment</bdi>.</p>
       <p>الرقم الوطني للمنشأة / السجل التجاري: <bdi>7054871681</bdi>.</p>
       <a className="nf-legal-contact" href="mailto:privacy@blindmatch.app"><Mail size={16} aria-hidden="true" /><bdi>privacy@blindmatch.app</bdi></a>
-      <p className="nf-legal-caption">للاستفسارات وطلبات الخصوصية، مع توضيح أن طلبك يتعلق بنصفين.</p>
+      <p className="nf-legal-caption">للاستفسارات وطلبات الخصوصية، مع توضيح أن طلبك يتعلق بوُدَين.</p>
     </NoticeSection>
 
     <NoticeSection title="بياناتك وما يظهر في ملفك">
@@ -123,7 +123,7 @@ export function LegalNotice({ preview = false }: { preview?: boolean }) {
 
     <NoticeSection title="شروط الاستخدام والعضوية">
       <p>الخدمة للبالغين من عمر ١٨ عامًا فأكثر وللتعارف الجاد بقصد الزواج. قدّم معلومات صحيحة واستخدم صورًا تملك حق استخدامها. يُمنع انتحال الشخصية والتحرش والتهديد والابتزاز والإعلانات واستغلال الخدمة أو نشر محتوى غير مشروع.</p>
-      <p>احترم حدود الطرف الآخر. يمكنك إنهاء التعارف أو الحظر أو الإبلاغ عند الحاجة، وقد تُراجع البلاغات وتُقيّد الحسابات المخالفة. لا يضمن نصفين قبول طلبك أو توفر شريك أو الوصول إلى الزواج، ولا يحل محل الإجراءات النظامية لعقد الزواج.</p>
+      <p>احترم حدود الطرف الآخر. يمكنك إنهاء التعارف أو الحظر أو الإبلاغ عند الحاجة، وقد تُراجع البلاغات وتُقيّد الحسابات المخالفة. لا يضمن وُدَين قبول طلبك أو توفر شريك أو الوصول إلى الزواج، ولا يحل محل الإجراءات النظامية لعقد الزواج.</p>
       <p>قبل أي دفع، راجع السعر ومدة العضوية وشروط التجديد والإلغاء المعروضة. إذا اشتركت عبر Apple، تُدار العضوية والإلغاء عبر اشتراكات Apple؛ حذف الحساب أو إيقاف الترشيحات لا يلغي الاشتراك هناك.</p>
       <div className="nf-legal-links"><a href="https://support.apple.com/ar-sa/118428" target="_blank" rel="noreferrer">إدارة اشتراك Apple</a><a href="https://reportaproblem.apple.com/" target="_blank" rel="noreferrer">طلب استرداد من Apple</a></div>
     </NoticeSection>

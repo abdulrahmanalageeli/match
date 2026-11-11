@@ -56,7 +56,7 @@ export function JourneyCompletion({ paused, busy, demo, canPause, onBack, onPaus
       <p>تجد «نسخة من بياناتي» و«حذف حسابي» في الإعدادات. المشاركة الخاصة بالصور والجواز قابلة للإيقاف من أدواتها؛ لا يمكن سحب ما احتفظ به الآخرون سابقًا.</p>
       {onMembership && <button className="btn-secondary" onClick={onMembership}>مراجعة العضوية وإدارة الاشتراك</button>}
     </section>
-    <SupportContact subject="مساعدة في إكمال رحلتي في نصفين"/>
+    <SupportContact subject="مساعدة في إكمال رحلتي في وُدَين"/>
     {confirmPause && <PauseForNextStep busy={busy} close={() => setConfirmPause(false)} confirm={onPause}/>}
   </div></main>;
 }

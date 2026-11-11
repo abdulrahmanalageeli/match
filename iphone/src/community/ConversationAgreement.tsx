@@ -38,7 +38,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
       {onJourney&&<button className="btn-secondary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة الخطوة التالية</button>}
       {onEnd&&<button className="fb-text-button" onClick={()=>{setExpanded(false);onEnd();}}>إنهاء التعارف باحترام</button>}
     </div>}
-    <small>هذا اتفاق بينكما، ولا يرسل نصفين أي رسالة إلى العائلة.</small>{error&&<p role="alert">{error}</p>}
+    <small>هذا اتفاق بينكما، ولا يرسل وُدَين أي رسالة إلى العائلة.</small>{error&&<p role="alert">{error}</p>}
     <HelpButton topic="journey" label="ما الذي يحدث بعد ذلك؟"/>
   </AgreementDetails>}
  </div>;

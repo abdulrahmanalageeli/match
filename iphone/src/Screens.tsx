@@ -123,7 +123,7 @@ export function Auth({
             : phoneMode ? "ابدأ برقم جوالك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك." : "أنشئ حسابك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك."}
         </p>
         {!login && <ol className="nf-auth-promise" aria-label="مراحل الانضمام"><li aria-current="step"><span>١</span> حسابك</li><li><span>٢</span> ملفك</li><li><span>٣</span> المراجعة</li></ol>}
-        <div className="nf-auth-aside" aria-hidden="true"><span>نصفين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
+        <div className="nf-auth-aside" aria-hidden="true"><span>وُدَين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
       </section>
       <section className="nf-auth-panel">
       {phoneMode && consentReview}
@@ -246,7 +246,7 @@ export function Pending({
       <button className="f-secondary" onClick={refresh} disabled={busy}>
         {busy ? "جارٍ تحديث الحالة…" : "تحديث حالة الطلب"}
       </button>
-      <SupportContact subject="استفسار عن مراجعة ملف نصفين" context="أرغب في الاستفسار عن حالة مراجعة ملفي." />
+      <SupportContact subject="استفسار عن مراجعة ملف وُدَين" context="أرغب في الاستفسار عن حالة مراجعة ملفي." />
     </Frame>
   );
 }
@@ -283,18 +283,18 @@ export function Membership({
   const until = expiry ? new Date(expiry) : null;
   return (
     <Frame title="العضوية" back={back}>
-      <h1>{active ? "عضويتك الحالية" : "عضوية نصفين"}</h1>
+      <h1>{active ? "عضويتك الحالية" : "عضوية وُدَين"}</h1>
       <p className="flow-intro">
         {active || canStart
           ? "مساحتك الخاصة للترشيحات وطلبات التعارف."
           : "تم اعتماد طلبك. ننتظر توفر عضو تتوافق تفضيلاته مع تفضيلاتك قبل فتح الاشتراك."}
       </p>
-      {!active && !canStart && <div className="flow-card nf-waiting-guidance"><h2>ملفك معتمد، وننتظر توفرًا مناسبًا</h2><p>هذه مرحلة مختلفة عن مراجعة الملف. لا تحتاج إلى شراء العضوية الآن، ولا توجد مدة مضمونة لتوفر ترشيح. قلة الملفات المناسبة لا تعني وجود مشكلة فيك، ولا يلزم تغيير حدودك الأساسية.</p><p>يمكنك تحديث الحالة هنا أو مراجعة تفضيلاتك من الإعدادات باختيارك.</p><SupportContact subject="استفسار عن توفر الترشيحات في نصفين" /></div>}
+      {!active && !canStart && <div className="flow-card nf-waiting-guidance"><h2>ملفك معتمد، وننتظر توفرًا مناسبًا</h2><p>هذه مرحلة مختلفة عن مراجعة الملف. لا تحتاج إلى شراء العضوية الآن، ولا توجد مدة مضمونة لتوفر ترشيح. قلة الملفات المناسبة لا تعني وجود مشكلة فيك، ولا يلزم تغيير حدودك الأساسية.</p><p>يمكنك تحديث الحالة هنا أو مراجعة تفضيلاتك من الإعدادات باختيارك.</p><SupportContact subject="استفسار عن توفر الترشيحات في وُدَين" /></div>}
       <section className="nf-membership" aria-label="تفاصيل العضوية">
         <header>
-          <span>عضوية نصفين</span>
+          <span>عضوية وُدَين</span>
           <span className="nf-membership-seal" aria-hidden="true">
-            <img src="/brand/nisfayn-emblem.png" alt="" width="29" height="30" />
+            <img src="/brand/wudayn-emblem.png" alt="" width="29" height="30" />
           </span>
         </header>
         <b className="nf-member-price">
@@ -364,7 +364,7 @@ export function Membership({
           )}
           {!canBuy && (
             <p className="flow-note">
-              يتاح الاشتراك من تطبيق نصفين على iPhone.
+              يتاح الاشتراك من تطبيق وُدَين على iPhone.
             </p>
           )}
         </>

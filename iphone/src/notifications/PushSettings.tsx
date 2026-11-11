@@ -44,7 +44,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled && permission === 'granted'}
         disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح نصفين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل نصفين.' : 'تصلك حتى عند إغلاق نصفين. أنت تختار ما يظهر فيها.'}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'تصلك حتى عند إغلاق وُدَين. أنت تختار ما يظهر فيها.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {nativePush&&available&&enabled&&<label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>الاسم أو النص قد يظهران على شاشة القفل. لا تظهر الصور الخاصة.</small></span>
@@ -56,7 +56,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
       {nativePush && available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
         <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>يمكنك السماح بالإشعارات من إعدادات الجهاز.</small></span>
       </button>}
-      {!nativePush && available && permission === 'denied' && <p className="st-notice" role="status">السماح بالإشعارات متوقف في إعدادات جهازك أو متصفحك. غيّر الإذن لنصفين، ثم فعّله هنا.</p>}
+      {!nativePush && available && permission === 'denied' && <p className="st-notice" role="status">السماح بالإشعارات متوقف في إعدادات جهازك أو متصفحك. غيّر الإذن لوُدَين، ثم فعّله هنا.</p>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
   </section>;

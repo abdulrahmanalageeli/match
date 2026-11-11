@@ -74,7 +74,7 @@ export class AppBoundary extends Component<{children:ReactNode},{failed:boolean;
     else window.location.reload();
   };
   render(){return this.state.failed?<main className="loading-stage" dir="rtl" lang="ar">
-    <img src="/brand/nisfayn-wordmark.png" alt="نصفين" width="160" />
+    <img src="/brand/wudayn-wordmark.png" alt="وُدَين" width="160" />
     <h1>{this.state.recovering?'لحظة واحدة':this.state.offline?'تحقق من الاتصال':'لنحاول من جديد'}</h1>
     <p role="status">{this.state.recovering?'جارٍ التحقق من أحدث نسخة للتطبيق…':this.state.offline?'اتصل بالإنترنت، ثم أعد المحاولة لفتح الصفحة.':this.state.chunkFailure?'تعذّر تحميل هذه الصفحة. أعد فتح التطبيق لتحميل النسخة المتاحة.':'تعذّر عرض هذه الصفحة. يمكنك إعادة فتح التطبيق.'}</p>
     <button className="btn-primary" disabled={this.state.recovering} onClick={this.reopen}>{this.state.offline?'إعادة المحاولة':'إعادة فتح التطبيق'}</button>

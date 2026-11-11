@@ -41,7 +41,7 @@ export function passwordRecoveryError(cause: unknown): string {
   if (code === 'weak_password') return 'اختر كلمة مرور أقوى من ١٠ أحرف على الأقل.';
   if ((cause as { status?: number })?.status === 429) return 'طلبات كثيرة. انتظر قليلًا ثم حاول مجددًا.';
   if (cause instanceof Error && /[\u0600-\u06ff]/.test(cause.message)) return cause.message;
-  return 'تعذّر إتمام الاستعادة. حاول مجددًا أو تواصل مع فريق نصفين.';
+  return 'تعذّر إتمام الاستعادة. حاول مجددًا أو تواصل مع فريق وُدَين.';
 }
 
 /** An isolated, nonpersistent auth client is required. It never supplies the app's session. */

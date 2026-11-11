@@ -47,7 +47,7 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
           </details>
         </>:<div className="nf-personality-legacy"><h3>قراءة موجزة متاحة</h3><p>تعكس النسبة تقارب إجاباتكما. تفصيل الحساب والمحاور غير متاح لهذه النتيجة حاليًا، لذلك لا نعرض درجات تقديرية.</p>{legacyTopics.length>0&&<p><strong>مواضيع شملها التقييم: </strong>{legacyTopics.join('، ')}.</p>}</div>}
       <p className="nf-personality-boundary">هذه قراءة وصفية لتشابه الإجابات، وليست اختبارًا نفسيًا معتمدًا أو نسبة لاحتمال نجاح الزواج. لا يكشف التحليل اختيارات الطرف الآخر حرفيًا، وقد تحمل الطباع المختلفة تكاملًا لا تقيسه هذه النسبة.</p>
-      <details className="nf-personality-research"><summary>حدود القراءة والمرجع البحثي</summary><p>العبارات والأوزان هنا صُممت لنصفين ولم تُتحقق صلاحيتها باختبار نفسي معياري. توضح أبحاث العلاقات أن التنبؤ بتغيّر جودتها من تقارير الأشخاص عن أنفسهم محدود.</p><a href="https://sites.lsa.umich.edu/whirl/wp-content/uploads/sites/792/2020/08/Joel-et-al-2020-PNAS.pdf" target="_blank" rel="noreferrer">قراءة بحثية عن حدود التنبؤ بالعلاقات (PNAS، ٢٠٢٠)</a><p>المرجع يوضح حدود التنبؤ، ولا يعتمد أسئلة نصفين أو أوزانها.</p></details>
+      <details className="nf-personality-research"><summary>حدود القراءة والمرجع البحثي</summary><p>العبارات والأوزان هنا صُممت لوُدَين ولم تُتحقق صلاحيتها باختبار نفسي معياري. توضح أبحاث العلاقات أن التنبؤ بتغيّر جودتها من تقارير الأشخاص عن أنفسهم محدود.</p><a href="https://sites.lsa.umich.edu/whirl/wp-content/uploads/sites/792/2020/08/Joel-et-al-2020-PNAS.pdf" target="_blank" rel="noreferrer">قراءة بحثية عن حدود التنبؤ بالعلاقات (PNAS، ٢٠٢٠)</a><p>المرجع يوضح حدود التنبؤ، ولا يعتمد أسئلة وُدَين أو أوزانها.</p></details>
     </div>
   </details>;
 }

@@ -65,7 +65,7 @@ export function MemberPasswordRecovery({ callback, onBack }: { callback?: Recove
   const available = Boolean(flow && redirect);
   return <Frame title="استعادة كلمة المرور" back={() => void leave()} backDisabled={busy || stage === 'checking'}>
     <div className="nf-auth-heading"><span className="nf-letter">{stage === 'done' ? <Check size={23}/> : <LockKeyhole size={23}/>}</span>
-      <h1>{stage === 'done' ? 'تم تغيير كلمة المرور' : stage === 'reset' ? 'اختر كلمة مرور جديدة' : 'استعد دخولك إلى نصفين'}</h1>
+      <h1>{stage === 'done' ? 'تم تغيير كلمة المرور' : stage === 'reset' ? 'اختر كلمة مرور جديدة' : 'استعد دخولك إلى وُدَين'}</h1>
     </div>
     {stage === 'checking' && <p className="flow-intro" role="status">جارٍ التحقق من رابط الاستعادة…</p>}
     {stage === 'done' ? <>
@@ -82,7 +82,7 @@ export function MemberPasswordRecovery({ callback, onBack }: { callback?: Recove
         <button className="f-primary" disabled={busy || remaining > 0}>{remaining > 0 ? `إعادة الإرسال بعد ${remaining.toLocaleString('ar-SA')} ث` : sent ? 'إعادة إرسال الرابط' : 'إرسال رابط الاستعادة'}<Mail size={18}/></button>
       </form>
       {sent && <p className="flow-note" role="status">إذا كان البريد مرتبطًا بحساب، ستصلك رسالة استعادة. راجع البريد غير المرغوب فيه، واستخدم أحدث رابط.</p>}
-    </> : <p className="flow-intro">استعادة كلمة المرور عبر البريد غير متاحة في هذه النسخة. تواصل مع فريق نصفين للحصول على المساعدة.</p> : stage === 'reset' ? <>
+    </> : <p className="flow-intro">استعادة كلمة المرور عبر البريد غير متاحة في هذه النسخة. تواصل مع فريق وُدَين للحصول على المساعدة.</p> : stage === 'reset' ? <>
       <p className="flow-intro">استخدم من ١٠ إلى ١٢٨ حرفًا. بعد الحفظ ستحتاج إلى تسجيل الدخول من جديد.</p>
       <form className="flow-form" onSubmit={event => void submit(event)}>
         <label>كلمة المرور الجديدة<span className="password-wrap"><input type={visible ? 'text' : 'password'} dir="ltr" autoComplete="new-password" minLength={10} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} required disabled={busy}/><button type="button" onClick={() => setVisible(!visible)} aria-label={visible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>{visible ? <EyeOff size={19}/> : <Eye size={19}/>}</button></span></label>
@@ -91,6 +91,6 @@ export function MemberPasswordRecovery({ callback, onBack }: { callback?: Recove
       </form>
     </> : null}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {stage !== 'checking' && <SupportContact subject="مساعدة في استعادة حساب نصفين"/>}
+    {stage !== 'checking' && <SupportContact subject="مساعدة في استعادة حساب وُدَين"/>}
   </Frame>;
 }

@@ -302,7 +302,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
       <AudioLines size={20}/><span>مكالمة مع {call.person?.alias || "الطرف الآخر"}</span><b dir="ltr">{duration}</b>
     </button> : call && <VoiceDialog minimize={call.status === "active" ? () => setMinimized(true) : undefined}
       close={() => call.status === "ended" ? dismiss() : call.status === "active" ? setMinimized(true) : void act(call.direction === "incoming" ? "decline" : "end")}>
-      <header><Brand/><span><ShieldCheck size={14}/> مكالمة داخل نصفين</span></header>
+      <header><Brand/><span><ShieldCheck size={14}/> مكالمة داخل وُدَين</span></header>
       {demo && <p className="nf-call-demo">معاينة تجريبية · لا يُستخدم الميكروفون ولا يُتصل بأي شخص</p>}
       <div className="nf-call-identity">
         <div className="nf-call-halo" data-active={call.status !== "ended" || undefined}>

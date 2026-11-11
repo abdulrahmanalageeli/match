@@ -25,7 +25,7 @@ export async function testRequest<T>(action:string,session='',payload:unknown={}
 }
 export function testProfile(actor:Actor,profile?:Partial<Profile>):Profile{
  const defaults:Profile={...demoProfile,beena:null,displayName:actor==='reham'?'رهام':'عبدالرحمن',gender:actor==='reham'?'woman':'man',age:actor==='reham'?27:29,
- profession:actor==='reham'?'ملف اختبار':'تطوير نصفين',bio:actor==='reham'?'ملف رهام لتجربة نصفين مع عبدالرحمن. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.':'أطوّر تجربة نصفين وأختبر التعارف والمحادثات مع رهام. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.',
+ profession:actor==='reham'?'ملف اختبار':'تطوير وُدَين',bio:actor==='reham'?'ملف رهام لتجربة وُدَين مع عبدالرحمن. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.':'أطوّر تجربة وُدَين وأختبر التعارف والمحادثات مع رهام. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.',
  contact:actor+'@example.invalid',publicAvatar:actor==='reham'?{style:'hijab',skinTone:'tone_3'}:null,
  marriageBasics:actor==='reham'?demoProfile.marriageBasics:{heightCm:178,weightKg:78,nationality:'سعودي',maritalStatus:'never_married',smoking:'never',childrenCount:0,tribalBackground:'prefer_not_to_say'},
  };

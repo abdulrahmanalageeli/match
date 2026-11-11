@@ -178,7 +178,7 @@ function ProfileVisitNotice({ interest = false, compact = false }: { interest?: 
 }
 
 function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
-  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذا بلاغ تجريبي عن شخصية توضيحية.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في نصفين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
+  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذا بلاغ تجريبي عن شخصية توضيحية.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
 }
 
 function RequestWaiting({ connection }: { connection: Connection }) {

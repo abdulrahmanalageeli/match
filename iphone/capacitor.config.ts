@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.blindmatch.marriage',
-  appName: 'نصفين',
+  appName: 'Wudayn AI',
   loggingBehavior: 'none',
   webDir: 'dist',
   backgroundColor: '#faf6ee',

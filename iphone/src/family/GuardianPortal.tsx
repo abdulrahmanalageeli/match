@@ -117,7 +117,7 @@ export function GuardianPortal({ inviteToken, onExit }: { inviteToken?: string; 
     try { await guardianLogout(); forgetFamilyInvite(); setAccount(null); setUserId(null); setPassword(''); setRecovery(''); setPendingLogin(null); onExit(); }
     catch (cause) { setError(guardianError(cause)); }
   }
-  function recoveryRecord() { return `نصفين · جسر الأهل\nاسم المستخدم: ${username.trim().toLowerCase()}\nمفتاح الاسترداد: ${recovery}\nهذا المفتاح سري، وليس رمز ربط العضو. احفظه مع اسم المستخدم. يتغير بعد استخدامه، ولا تشاركه مع الأسرة أو الدعم.\n`; }
+  function recoveryRecord() { return `وُدَين · جسر الأهل\nاسم المستخدم: ${username.trim().toLowerCase()}\nمفتاح الاسترداد: ${recovery}\nهذا المفتاح سري، وليس رمز ربط العضو. احفظه مع اسم المستخدم. يتغير بعد استخدامه، ولا تشاركه مع الأسرة أو الدعم.\n`; }
   function downloadRecovery() {
     const blob = new Blob([recoveryRecord()], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'nisfayn-family-recovery.txt'; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -134,7 +134,7 @@ export function GuardianPortal({ inviteToken, onExit }: { inviteToken?: string; 
     {feedback}<FamilyGuardianDashboard key={dashboardVersion} request={request} onExit={() => void exit()}/>
   </div></SupportProvider>;
   return <main className="app-screen fg-portal" dir="rtl"><div className="screen-content fg-content">
-    <header className="fg-navigation"><button className="fg-back" disabled={busy} onClick={() => userId ? void exit() : onExit()}><ArrowRight size={18}/> نصفين</button><Brand compact/></header>
+    <header className="fg-navigation"><button className="fg-back" disabled={busy} onClick={() => userId ? void exit() : onExit()}><ArrowRight size={18}/> وُدَين</button><Brand compact/></header>
     <section className="fg-cover"><span className="fg-emblem"><UsersRound size={28}/></span><span className="fg-eyebrow">قرب الأهل، بحدود واضحة</span><h1>جسر الأهل</h1><p>مساحتك لمساندة ابنك أو ابنتك أو قريبك وتنسيق الخطوة الرسمية. يختار صاحب الحساب مشاركتك، وتبقى قراراته وخصوصيته له.</p><span className="fg-private"><LockKeyhole size={14}/> محادثة العائلة منفصلة عن المحادثة الخاصة</span></section>
     <ol className="fg-journey" aria-label="كيف تبدأ مشاركة الأهل"><li><strong>حسابك المستقل</strong><span>أنشئ حسابًا واحفظ بيانات استرداده؛ لا يظهر حساب الأهل في الاستكشاف.</span></li><li><strong>ربط بإذن صاحب الحساب</strong><span>استخدم دعوته أو رمزه. يحتاج الربط موافقته واعتماد الإدارة، دون طلب رقم هوية.</span></li><li><strong>دعوة إلى مساحة محددة</strong><span>راجع الأسماء واقبل الدعوة. ترى رسائل هذه المساحة وحدها.</span></li></ol>
     {pendingInvite && !account?.account && <p className="fg-invite-note"><HeartHandshake size={17}/> لديك دعوة. أكمل الدخول ثم أرسل طلب الربط.</p>}{feedback}

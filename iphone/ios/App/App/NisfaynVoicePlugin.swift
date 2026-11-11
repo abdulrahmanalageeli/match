@@ -112,7 +112,7 @@ final class NisfaynVoicePlugin: CAPPlugin, CAPBridgedPlugin {
                 DispatchQueue.main.async {
                     guard let self, self.generation == attempt, self.joinCall != nil else { return }
                     guard granted else {
-                        self.fail(code: -1, key: "VOICE_MICROPHONE_DENIED", message: "اسمح لنصفين باستخدام الميكروفون من إعدادات iPhone لإجراء المكالمة.")
+                        self.fail(code: -1, key: "VOICE_MICROPHONE_DENIED", message: "اسمح لوُدَين باستخدام الميكروفون من إعدادات iPhone لإجراء المكالمة.")
                         return
                     }
                     guard UIApplication.shared.applicationState != .background else {

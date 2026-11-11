@@ -11,16 +11,16 @@ export type CallPushJob = {callId:string;installation:string;token:string;enviro
 export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
     family: 'لديك رسالة جديدة في جسر الأهل.',
-    reminder: 'لديك تذكير خاص. افتح نصفين للاطلاع عليه.',
-    request: 'لديك طلب تعارف جديد. افتح نصفين للاطلاع عليه.',
-    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في نصفين.',
-    message: 'لديك رسالة جديدة في نصفين.',
+    reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',
+    request: 'لديك طلب تعارف جديد. افتح وُدَين للاطلاع عليه.',
+    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في وُدَين.',
+    message: 'لديك رسالة جديدة في وُدَين.',
   };
   if (!copy[job.kind] || !/^[0-9a-f-]{36}$/i.test(job.requestId)) throw new Error('Invalid push event');
   const clean=(value:string,limit:number)=>value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,' ').trim().slice(0,limit);
   const details=job.details;
   const named=details&&['name','content'].includes(details.preview);
-  const title=named&&details.sender?clean(details.sender,50):'نصفين';
+  const title=named&&details.sender?clean(details.sender,50):'وُدَين';
   const body=details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
   return { aps: { alert: { title, body }, ...(job.kind==='reminder'?{}:{sound:'default'}), 'thread-id':job.requestId,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),

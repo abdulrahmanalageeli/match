@@ -109,8 +109,8 @@ final class NisfaynCallCenter: NSObject, CXProviderDelegate, PKPushRegistryDeleg
     func pushRegistry(_ registry:PKPushRegistry,didReceiveIncomingPushWith payload:PKPushPayload,for type:PKPushType,completion:@escaping ()->Void) {
         let callId = (payload.dictionaryPayload["callId"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
         // Report before network I/O, including malformed/stale pushes, as required by iOS.
-        let update = CXCallUpdate(); update.remoteHandle = CXHandle(type:.generic,value:"نصفين")
-        update.localizedCallerName = "مكالمة نصفين"; update.hasVideo = false
+        let update = CXCallUpdate(); update.remoteHandle = CXHandle(type:.generic,value:"وُدَين")
+        update.localizedCallerName = "مكالمة وُدَين"; update.hasVideo = false
         update.supportsHolding = false; update.supportsGrouping = false; update.supportsUngrouping = false
         provider.reportNewIncomingCall(with:callId,update:update) { [weak self] error in
             DispatchQueue.main.async {
@@ -138,7 +138,7 @@ final class NisfaynCallCenter: NSObject, CXProviderDelegate, PKPushRegistryDeleg
             id = callId; direction = credentials["uid"] as? Int == 2 ? "incoming" : "outgoing"; generation = UUID()
             muted = credentials["muted"] as? Bool ?? false
             if direction == "incoming" {
-                let update = CXCallUpdate();update.remoteHandle = CXHandle(type:.generic,value:"نصفين")
+                let update = CXCallUpdate();update.remoteHandle = CXHandle(type:.generic,value:"وُدَين")
                 update.hasVideo = false;update.supportsHolding = false;update.supportsGrouping = false;update.supportsUngrouping = false
                 provider.reportNewIncomingCall(with:callId,update:update) { [weak self] error in
                     DispatchQueue.main.async {
@@ -150,7 +150,7 @@ final class NisfaynCallCenter: NSObject, CXProviderDelegate, PKPushRegistryDeleg
                     }
                 }
             } else {
-                let action = CXStartCallAction(call:callId,handle:CXHandle(type:.generic,value:"نصفين"))
+                let action = CXStartCallAction(call:callId,handle:CXHandle(type:.generic,value:"وُدَين"))
                 action.isVideo = false
                 controller.request(CXTransaction(action:action)) { [weak self] error in
                     DispatchQueue.main.async { if self?.id == callId,error != nil { self?.fail() } }
@@ -277,7 +277,7 @@ final class NisfaynCallCenter: NSObject, CXProviderDelegate, PKPushRegistryDeleg
             if [401,403,404,409].contains(status) || (status == 200 && (state == nil || state?["status"] as? String == "ended")) { self.end(server:false); return }
             if status == 200,self.direction == "incoming" {
                 let visibleName = UserDefaults.standard.bool(forKey:"nisfayn.calls.showName") ? state?["callerName"] as? String : nil
-                let name = visibleName?.isEmpty == false ? visibleName! : "مكالمة نصفين"
+                let name = visibleName?.isEmpty == false ? visibleName! : "مكالمة وُدَين"
                 let update = CXCallUpdate();update.localizedCallerName = String(name.prefix(60))
                 update.remoteHandle = CXHandle(type:.generic,value:String(name.prefix(60)))
                 self.provider.reportCall(with:callId,updated:update)

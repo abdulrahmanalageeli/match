@@ -32,7 +32,7 @@ export function FamilyPreparation({ room, guardian, open, onDraft, onClose }: { 
   const fields = kind === 'plan' ? planFields : introductionFields;
   const lines = fields.flatMap(([id, label]) => values[id]?.trim() ? [`${label}: ${values[id].trim()}`] : []);
   const chosenQuestions = kind === 'plan' ? questions : [];
-  const body = [kind === 'plan' ? 'اقتراح للخطوة العائلية التالية' : 'تعريف أختار مشاركته مع الأسرة', ...lines, ...(chosenQuestions.length ? ['أسئلة نناقشها معًا:', ...chosenQuestions.map(question => `• ${question}`)] : []), kind === 'plan' ? 'هذا اقتراح للنقاش، وليس موعدًا أو اتفاقًا نهائيًا. ننتظر رأي كل شخص معني.' : 'هذه إفادتي الشخصية، وليست بيانات تحققت منها نصفين.'].join('\n');
+  const body = [kind === 'plan' ? 'اقتراح للخطوة العائلية التالية' : 'تعريف أختار مشاركته مع الأسرة', ...lines, ...(chosenQuestions.length ? ['أسئلة نناقشها معًا:', ...chosenQuestions.map(question => `• ${question}`)] : []), kind === 'plan' ? 'هذا اقتراح للنقاش، وليس موعدًا أو اتفاقًا نهائيًا. ننتظر رأي كل شخص معني.' : 'هذه إفادتي الشخصية، وليست بيانات تحققت منها وُدَين.'].join('\n');
   const canPrepare = consent && (lines.length > 0 || chosenQuestions.length > 0) && body.length <= 1000;
   useEffect(() => { const element = dialog.current; setConsent(false); if (open) element?.showModal(); else element?.close(); return () => element?.close(); }, [open]);
   return <dialog ref={dialog} className="fb-preparation" dir="rtl" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}>

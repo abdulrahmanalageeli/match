@@ -1,4 +1,5 @@
 import { BrandWordmark } from './Brand';
+import {WhyWudayn} from './WhyWudayn';
 import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import { ArrowLeft } from "./BrandIcons";
 import { feedback } from './feedback/haptics';
@@ -67,9 +68,9 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       </header>
 
       <section className="nf-arrival-copy">
-        <span className="nf-arrival-eyebrow">تعارف جاد، بقصد الزواج</span>
+        <span className="nf-arrival-eyebrow">توافق مفهوم. تعارف جاد. خطوة واضحة.</span>
         <h1 id="arrival-heading"><MotionReveal as="span" active={introducing} delay={180} duration={700} distance={7}>شريك حياة.</MotionReveal><MotionReveal as="span" active={introducing} delay={350} duration={700} distance={7}>ومستقبل تبنونه سوا.</MotionReveal></h1>
-        <MotionReveal as="p" active={introducing} delay={500} duration={700} distance={7}>ابدأ من قيمك وما يهمّك، واكتشف من يشاركك<br className="nf-arrival-desktop-break" /> رؤيتك للزواج. بخطوات واضحة، وعلى مهل.</MotionReveal>
+        <MotionReveal as="p" active={introducing} delay={500} duration={700} distance={7}>ترشيحات تنطلق من قيمك وشخصيتك، وتشرح سبب التوافق.<br className="nf-arrival-desktop-break" /> ومن أول حديث، اتفاق جاد وخطوة تتفقان عليها.</MotionReveal>
       </section>
 
       <div className="nf-arrival-illustration" aria-hidden="true">
@@ -101,6 +102,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
             <span>ابدأ رحلتك</span><ArrowLeft size={21} strokeWidth={1.6} aria-hidden="true" />
           </MotionPressButton>
         </MotionReveal>
+        <WhyWudayn label="من لقاءات واقعية إلى توافق تفهمه"/>
         <p className="nf-arrival-login">عندك حساب؟ <button type="button" className="nf-mast-login" onClick={onLogin}>تسجيل الدخول</button></p>
         <button type="button" className="nf-arrival-privacy" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button>
       </footer>

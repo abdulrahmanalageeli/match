@@ -419,6 +419,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             {steps.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
           </div>}
         </div>
+        {assessmentStep&&<WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
           <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 18 : -18} duration={380} data-dir={direction.current} inert={busy || leaving || checkingDevice || storageState==='loadError'}>
             <div className="nf-intake-title">
@@ -510,3 +511,4 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     </main>
   );
 }
+import {WhyWudayn} from '../WhyWudayn';

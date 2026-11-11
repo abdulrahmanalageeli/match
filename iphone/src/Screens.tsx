@@ -309,10 +309,11 @@ export function Membership({
         {demo && <small>سعر توضيحي للتجربة؛ السعر الفعلي يظهر من Apple قبل الشراء.</small>}
       </section>
       <ul className="nf-member-benefits">
-        <li><Check size={16} aria-hidden="true" /> اكتشاف ملفات تتوافق مع تفضيلاتك</li>
-        <li><Check size={16} aria-hidden="true" /> إرسال طلبات تعارف واستقبالها</li>
-        <li><Check size={16} aria-hidden="true" /> محادثات خاصة بعد القبول المتبادل</li>
+        <li><Check size={16} aria-hidden="true" /> توافق مُفسّر: ما يجمعكما وما يستحق النقاش</li>
+        <li><Check size={16} aria-hidden="true" /> اتفاق جدّية ومدة وخطوة تالية واضحة</li>
+        <li><Check size={16} aria-hidden="true" /> تعارف حصري بموافقتكما وجسر خاص للأهل</li>
       </ul>
+      <WhyWudayn label="تعرّف على المنهج وراء عضويتك"/>
       {active ? (
         <p className="flow-note">
           {demo
@@ -403,3 +404,4 @@ export function DemoNotice({ onExit, gender, onGenderChange }: { onExit: Click; 
     </div>
   );
 }
+import {WhyWudayn} from './WhyWudayn';

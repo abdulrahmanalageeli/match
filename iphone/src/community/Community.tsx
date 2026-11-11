@@ -792,7 +792,7 @@ function Discovery({
         <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "جميع الملفات" : "ترشيحاتك"}</span>
       </header>
       <MotionReveal className="cm-title df-title" duration={480}>
-        <div><h1>استكشف</h1></div>
+        <div><h1>استكشف</h1><WhyWudayn label="كيف نختار من يناسبك؟"/></div>
 
       </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
@@ -1044,7 +1044,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     <MotionReveal className="nf-journey-current" distance={6} duration={280}>
       <span className="nf-journey-eyebrow">خطوة بخطوة، باتفاقكما</span>
       <h3>{progress ? stages[progress.stage] : 'مسار واضح لكما'}</h3>
-      <p>{progress?.exclusive ? 'تعارف حصري · ملتزمان ببعضكما' : 'تتعارفان على مهل. كل انتقال يحدث بموافقتكما.'}</p>
+      <p>{progress?.exclusive ? 'اخترتما التركيز على بعضكما. الترشيحات الأخرى متوقفة ما دام التعارف حصريًا.' : 'للحديث وجهة: اتفقا على الوقت والخطوة التالية. كل انتقال يحدث بموافقتكما.'}</p>
       {progress && <ol className="nf-journey-track" aria-label="مراحل التعارف">{['التعارف', 'النقاش الجاد', 'الخطوة العائلية'].map((label,index)=><li key={label} aria-current={index===progress.stage?'step':undefined} data-complete={index < progress.stage || undefined}><span aria-hidden="true">{index < progress.stage ? <Check size={12}/> : ar.format(index+1)}</span><small>{label}</small></li>)}</ol>}
     </MotionReveal>
     {savedStep&&<SuccessNotice {...savedStep} close={()=>setSavedStep(null)}/>}
@@ -2066,3 +2066,4 @@ export function Community(props: CommunityProps) {
     </main>
   );
 }
+import {WhyWudayn} from '../WhyWudayn';

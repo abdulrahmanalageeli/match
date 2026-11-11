@@ -17,9 +17,9 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile):Co
         if(rows.length<24||filters.mode!=='all')break;
       }
       if(people.length>=offset+limit)return people.slice(offset,offset+limit);
-      const fixtures=await samples.discover({...filters,mode:'all',offset:0,afterId:undefined});
+      const fixtures=await samples.discover({...filters,mode:'all',offset:Math.max(0,offset-people.length),afterId:undefined});
       for(const person of fixtures)sampleIds.add(person.id);
-      return [...people,...fixtures.map(person=>({...person,isDemo:true,online:false}))].slice(offset,offset+limit);
+      return [...people.slice(offset),...fixtures.map(person=>({...person,isDemo:true,online:false}))].slice(0,limit);
     },
     noteProfileOpen:async id=>{if(!sampleIds.has(id))await real.noteProfileOpen?.(id);},
     gallery:async id=>id&&sampleIds.has(id)?[]:await real.gallery?.(id)??[],

@@ -58,6 +58,7 @@ export type Proposal = {
 };
 
 export type AccountState = {
+  testingTrial?: {enabled:boolean;expiresAt:string|null};
   user: {
     id: string;
     email: string | null;

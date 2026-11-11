@@ -96,7 +96,7 @@ try {
  }
  await page.getByLabel('الاسم المعروض').fill('مريم الاختبار');
  await page.getByRole('button',{name:'امرأة',exact:true}).click();
- await chooseOption('العمر','29','٢٩ عامًا');
+ await page.locator('input[type="date"]').fill('1997-01-01');
  await chooseOption('مدينة الإقامة','الرياض','الرياض');
  await page.locator('.nf-intake-save-status[data-state="saved"]').waitFor();
  assert.equal(drafts.get(owner).answers.displayName,'مريم الاختبار');
@@ -137,7 +137,7 @@ try {
  assert.equal(await page.locator('textarea[data-field="bio"]').inputValue(),'أحب القراءة والمشي والوقت الهادئ مع الأسرة، وأتطلع إلى شراكة قائمة على الاحترام والتفاهم.');
  await page.getByRole('button',{name:'رجوع',exact:true}).click();
  assert.equal(await page.getByLabel('الاسم المعروض').inputValue(),'مريم الاختبار');
- assert.equal(await page.getByRole('combobox',{name:'العمر',exact:true}).inputValue(),'٢٩ عامًا');
+ assert.equal(await page.locator('input[type="date"]').inputValue(),'1997-01-01');
  assert.equal(await page.getByRole('combobox',{name:'مدينة الإقامة',exact:true}).inputValue(),'الرياض');
  await page.locator('.nf-intake-save-status[data-state="saved"]').waitFor();
  const viewport=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));

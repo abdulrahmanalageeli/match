@@ -46,7 +46,7 @@ export function Mfa({ onVerified, onExit }: { onVerified: () => void; onExit: ()
     void client!.auth.mfa.listFactors().then(({ data, error: problem }) => {
       if (!current) return;
       if (problem) setError('تعذّر تحميل وسائل التحقق. حاول مجددًا.');
-      else { setFactorId(data.totp.find(f => f.status === 'verified')?.id || ''); setUnverified(data.all.filter(f => f.status !== 'verified' && f.friendly_name === 'Nisfayn Admin').map(f => f.id)); }
+      else { setFactorId(data.totp.find(f => f.status === 'verified')?.id || ''); setUnverified(data.all.filter(f => f.status !== 'verified' && ['Nisfayn Admin', 'Wudayn AI Admin'].includes(f.friendly_name || '')).map(f => f.id)); }
       setLoading(false);
     }, () => { if (current) { setLoading(false); setError('تعذّر الاتصال بخدمة التحقق.'); } });
     return () => { current = false; };
@@ -55,7 +55,7 @@ export function Mfa({ onVerified, onExit }: { onVerified: () => void; onExit: ()
     if (busy || !client) return; setBusy(true); setError('');
     try {
       for (const old of unverified) { const result = await client.auth.mfa.unenroll({ factorId: old }); if (result.error) throw result.error; }
-      const { data, error: problem } = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Nisfayn Admin' });
+      const { data, error: problem } = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Wudayn AI Admin' });
       if (problem) throw problem;
       setFactorId(data.id); setQr(data.totp.qr_code); setSecret(data.totp.secret); setUnverified([]);
     } catch { setError('تعذّر بدء إعداد تطبيق التحقق. أعد المحاولة.'); }

@@ -91,11 +91,11 @@ html[data-nf-ambient-paused] .nf-arrival *, html[data-nf-ambient-paused] .nf-arr
 }
 html[data-nf-motion="reduced"] .nf-arrival *, html[data-nf-motion="reduced"] .nf-arrival *::after { animation: none !important; transition: none !important; }
 @media (max-height: 740px) and (max-width: 759px) {
-  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival { padding-top: max(12px, env(safe-area-inset-top)); grid-template-rows: auto auto minmax(172px, 1fr) auto; }
+  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival { padding-top: max(12px, env(safe-area-inset-top)); grid-template-rows: auto auto minmax(120px, 1fr) auto; }
   .nf-arrival-copy { padding-top: 18px; padding-bottom: 18px; }
   .nf-arrival .nf-arrival-copy h1 { font-size: 28px; }
   .nf-arrival .nf-arrival-copy p { margin-top: 9px; }
-  .nf-arrival-illustration { min-height: 172px; }
+  .nf-arrival-illustration { min-height: 120px; }
   .nf-arrival-actions { padding-top: 14px; }
   .nf-arrival .nf-arrival-action-note { display: none; }
 }

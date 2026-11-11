@@ -51,16 +51,17 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     <main className="nf-welcome nf-arrival" dir="rtl" data-opening={introducing && !reduced || undefined}
       data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
       <header className="nf-arrival-brand" role="img" aria-label="وُدَين">
-        <svg className="nf-arrival-emblem" viewBox="0 0 1220 1312" aria-hidden="true">
+        <svg className="nf-arrival-emblem" viewBox="0 0 768 768" aria-hidden="true">
           <defs>
-            <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="1220" height="1312">
+            <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
               <path className="nf-arrival-ink nf-arrival-ink-first" d="M 270 165 C 285 220 175 280 194 408 S 280 545 346 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round" />
               <path className="nf-arrival-ink nf-arrival-ink-second" d="M 500 265 C 599 300 594 424 515 482 S 405 535 347 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round" />
-              <rect className="nf-arrival-ink-finish" width="1220" height="1312" fill="white" />
+              <rect className="nf-arrival-ink-finish" width="768" height="768" fill="white" />
             </mask>
           </defs>
-          <image href="/brand/wudayn-lockup-v2.png" width="1220" height="1312" mask={`url(#${maskId})`} />
+          <image href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`} />
         </svg>
+        <img className="nf-arrival-wordmark" src="/brand/wudayn-wordmark-v3.png" alt="" width="512" height="154" />
         <span className="nf-arrival-brand-note" aria-hidden="true">بداية لحياة مشتركة</span>
       </header>
 

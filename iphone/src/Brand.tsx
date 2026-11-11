@@ -1,7 +1,14 @@
-type BrandProps = { compact?: boolean };
+type BrandProps = {
+  compact?: boolean;
+};
+
 export function Brand({ compact = false }: BrandProps) {
-  return <span className={compact ? "nisfayn-brand nisfayn-brand-compact" : "nisfayn-brand"}>
-    <img src={compact ? "/brand/wudayn-wordmark.png" : "/brand/wudayn-lockup-v2.png"}
-      className={compact ? "nisfayn-brand-name" : "wudayn-brand-lockup"} alt="وُدَين · Wudayn AI" />
-  </span>;
+  return (
+    <span className={compact ? "nisfayn-brand nisfayn-brand-compact" : "nisfayn-brand"}>
+      {!compact && (
+        <img className="nisfayn-brand-symbol" src="/brand/wudayn-emblem-v2.png" alt="" width="34" height="40" />
+      )}
+      <img className="nisfayn-brand-name" src="/brand/wudayn-wordmark-v3.png" alt="وُدَين" width="65" height="25" />
+    </span>
+  );
 }

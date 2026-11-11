@@ -23,7 +23,7 @@
 .nf-welcome.nf-arrival::after { content: none; }
 .nf-arrival button { -webkit-tap-highlight-color: transparent; }
 .nf-arrival-brand { display: flex; align-items: center; gap: 5px; min-height: 46px; }
-.nf-arrival-emblem { width: 88px; height: 94px; overflow: visible; }
+.nf-arrival-emblem { width: 48px; height: 48px; overflow: visible; }
 .nf-arrival-wordmark { width: 78px; height: auto; }
 .nf-arrival-brand-note { margin-inline-start: auto; padding-inline-start: 18px; color: #716b70; font-size: 14px; font-weight: 400; }
 .nf-arrival-copy { padding: clamp(22px, 3.8svh, 40px) 0 22px; }

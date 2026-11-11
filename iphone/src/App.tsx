@@ -770,7 +770,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   if (loading)
     screen = (
       <div className="loading-stage">
-        <img className="nf-opening-logo" src="/brand/wudayn-lockup-v2.png" alt="وُدَين" />
+        <img className="nf-opening-logo" src="/brand/wudayn-lockup-v3.png" alt="وُدَين" />
         <div className="nf-opening-caption">
           <strong>توافق ذكي للزواج</strong>
           <span role="status">جارٍ فتح التطبيق…</span>

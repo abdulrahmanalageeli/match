@@ -25,6 +25,7 @@ workflows:
         script: |
           set -euo pipefail
           cd "$CM_BUILD_DIR/iphone"
+          node scripts/check-ios-icons.mjs
           npm run build
           npx cap sync ios
       - name: Resolve native Swift packages

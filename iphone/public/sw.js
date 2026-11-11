@@ -22,7 +22,7 @@ self.addEventListener('push', event => {
     family: 'لديك رسالة جديدة في جسر الأهل.',
   }[value.kind];
   event.waitUntil(self.registration.showNotification('وُدَين', {
-    body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon.png',
+    body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon-v2.png',
     tag: value.kind + ':' + value.requestId,
     silent: value.kind === 'reminder',
     data: { requestId: value.requestId, kind: value.kind, ...routeIds(value) },

@@ -10,5 +10,5 @@
   "display": "standalone",
   "background_color": "#fdfdfd",
   "theme_color": "#54152a",
-  "icons": [{ "src": "/brand/wudayn-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
+  "icons": [{ "src": "/brand/wudayn-icon-v2.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
 }

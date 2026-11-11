@@ -309,7 +309,7 @@ export function Home({
           <section className="mi-empty">
             <div className="mi-empty-mark" aria-hidden="true">
               <img
-                src="/brand/wudayn-emblem.png"
+                src="/brand/wudayn-emblem-v2.png"
                 alt=""
                 width="72"
                 height="72"

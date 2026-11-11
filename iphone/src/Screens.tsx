@@ -294,7 +294,7 @@ export function Membership({
         <header>
           <span>عضوية وُدَين</span>
           <span className="nf-membership-seal" aria-hidden="true">
-            <img src="/brand/wudayn-emblem.png" alt="" width="29" height="30" />
+            <img src="/brand/wudayn-emblem-v2.png" alt="" width="29" height="30" />
           </span>
         </header>
         <b className="nf-member-price">

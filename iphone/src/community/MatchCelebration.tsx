@@ -64,7 +64,7 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "Ø
     title.current?.focus({ preventScroll: true });
     respectMotion();
     const logo = new Image();
-    logo.src = "/brand/wudayn-heart.png";
+    logo.src = "/brand/wudayn-heart-v2.png";
     const ready = () => {
       if (active && !settled) element.dataset.motion = "play";
       if (active && !document.hidden && getDevicePreferences().matchSound) {
@@ -108,9 +108,9 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "Ø
           {Array.from({ length: 20 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
         </div>
         <div className="nf-match-heart">
-          <img className="nf-match-half nf-match-half-left" src="/brand/wudayn-heart.png" alt="" draggable="false" />
-          <img className="nf-match-half nf-match-half-right" src="/brand/wudayn-heart.png" alt="" draggable="false" />
-          <img className="nf-match-whole" src="/brand/wudayn-heart.png" alt="" draggable="false" />
+          <img className="nf-match-half nf-match-half-left" src="/brand/wudayn-heart-v2.png" alt="" draggable="false" />
+          <img className="nf-match-half nf-match-half-right" src="/brand/wudayn-heart-v2.png" alt="" draggable="false" />
+          <img className="nf-match-whole" src="/brand/wudayn-heart-v2.png" alt="" draggable="false" />
         </div>
         <span className="nf-match-seal"><Check size={16} strokeWidth={1.8} /></span>
       </div>

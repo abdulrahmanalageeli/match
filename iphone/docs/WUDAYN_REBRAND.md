@@ -2,7 +2,7 @@
 
 Brand: Wudayn AI. Arabic pronunciation: وُدَين (damma on waw, fatha on dal). Arabic spoken AI: اي اي.
 
-Public brand assets: public/brand/wudayn-*.png. Original code-drawn paired heart, burgundy/rose. Generator: scripts/generate-brand.ps1, run from repository root on Windows.
+Public brand assets: public/brand/wudayn-*.png. Original Saudi couple/heart emblem restored unchanged for app icons and match animations. Integrated Arabic/English lockup: wudayn-lockup-v2.png, edited with the built-in image tool from the original nisfayn-lockup.png; instruction: preserve emblem and integrate وُدَين / WUDAYN AI into its base. The earlier generic-heart rendition is superseded.
 
 Bundle ID, StoreKit product IDs, APNs topics, storage keys, database schemas, project URLs and native plugin names intentionally remain unchanged for existing users. Historical consent records and migrations must retain their original wording.
 

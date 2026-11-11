@@ -119,3 +119,5 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 @media (min-width: 650px) {
   :root { background: var(--canvas); }
 }
+
+.wudayn-brand-lockup { width: 58px; height: 62px; object-fit: contain; }

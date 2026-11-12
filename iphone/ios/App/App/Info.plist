@@ -8,6 +8,8 @@
   <string>يمكنك استخدام Face ID لحماية فتح وُدَين ومحادثاتك الخاصة.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>يستخدم وُدَين الميكروفون للمكالمات الصوتية التي تبدأها أو توافق عليها داخل التطبيق.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>يستخدم وُدَين الكاميرا، بموافقتك، لالتقاط صورة جديدة ومطابقتها مع صورة ملفك عبر Authentica.</string>
   <key>NisfaynAPNsEnvironment</key>
   <string>$(NISFAYN_APNS_ENVIRONMENT)</string>
   <key>CAPACITOR_DEBUG</key>

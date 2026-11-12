@@ -1,0 +1,9 @@
+.nf-face-dialog{border:1px solid #e9e5e5;border-radius:24px;background:#fff;color:#30282c;width:min(420px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;box-sizing:border-box;overflow:auto;font:inherit;box-shadow:0 24px 80px #28121d22;animation:face-arrive .22s ease-out}
+.nf-face-dialog::backdrop{background:#20151b99;backdrop-filter:blur(8px)}
+.nf-face-dialog h2{font-size:23px;margin:10px 0 8px}.nf-face-dialog p{font-size:14px;line-height:1.75;color:#665d62}.nf-face-dialog>svg{color:#5a0f28}
+.nf-face-close{position:absolute;left:14px;top:14px;background:transparent;border:0;width:40px;height:40px;color:inherit}
+.nf-face-camera{position:relative;height:min(30dvh,250px);background:#f5f3f3;border-radius:18px;overflow:hidden;display:grid;place-items:center;margin:16px 0;color:#76656e}
+.nf-face-camera video,.nf-face-camera img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}.nf-face-camera video{transform:scaleX(-1)}.nf-face-camera video[hidden]{display:none}
+.nf-face-consent{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.8}.nf-face-consent input{margin-top:5px;accent-color:#5a0f28;flex-shrink:0;width:18px;height:18px}
+.nf-face-dialog .nf-face-detail{font-size:11px}.nf-face-detail a{color:#5a0f28}.nf-face-dialog button.btn-primary,.nf-face-dialog button.btn-secondary{width:100%;min-height:44px;border-radius:12px;font:inherit}.nf-face-actions{display:grid;gap:8px}
+@keyframes face-arrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.nf-face-dialog{animation:none}}

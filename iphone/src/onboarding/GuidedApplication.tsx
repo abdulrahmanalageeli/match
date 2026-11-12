@@ -1,3 +1,4 @@
+import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "../BrandIcons";
 import { Brand } from "../Brand";
@@ -113,7 +114,7 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
         {p.marriageBasics?.dressFlexibility && <p>مناقشة اللباس: {appearanceNames[p.marriageBasics.dressFlexibility]}</p>}
         {!Object.values(p.marriageBasics ?? {}).some(v => v !== undefined && v !== "" && v !== 'prefer_not_to_say') && <p>لم تضف تفاصيل اختيارية.</p>}
       </ReviewGroup>
-      {p.gender === "woman" && <ReviewGroup title="صورة ملفك" edit={() => edit("avatar")} {...groupProps('avatar')}>
+      {<ReviewGroup title="صورة ملفك" edit={() => edit("avatar")} {...groupProps('avatar')}>
         <div className="nf-review-avatar"><div className="nf-studio-avatar nf-review-portrait"><ProfilePortraitPreview answers={{...p,publicAvatar:sensitivePublication?p.publicAvatar:null}} photoUrl={photoUrl} portraitSource={portraitSource}/></div><p>{hasPortrait ? <>صورتك كما ستظهر للأعضاء المؤهلين.<br/>درجة التمويه: {arabicNumber(portraitChange?.blur??p.portrait?.blur??0)}٪</> : p.publicAvatar&&sensitivePublication ? <>{appearanceNames[p.publicAvatar.style]} · {appearanceNames[p.publicAvatar.skinTone]}<br/>رسم توضيحي يظهر في ملفك، دون صورة شخصية.</> : <>سيظهر حرف من اسمك. عرض الرسم الذي يعكس البشرة يحتاج إلى موافقتك على عرض التفاصيل الحساسة.</>}</p></div>
         {hasPortrait&&<p>إزالة التمويه: {{never:'لا تُزال تلقائيًا',matched:'بعد قبول التعارف من الطرفين',serious:'عند النقاش الجاد حول الزواج',family:'عند الخطوة الرسمية أو العائلية'}[reveal]}{reveal!=='never'&&' · للطرف المؤهل فقط، مع حفظ نسخة واضحة خاصة.'}</p>}
       </ReviewGroup>}
@@ -205,7 +206,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const form = useRef<HTMLFormElement>(null);
   const previousStep = useRef(draft.step);
   const direction = useRef<"next" | "back">("next");
-  const steps = chapters.filter(entry => (includeCompatibility || !["compatibility", "criteria", "personality", "beena"].includes(entry.key)) && (entry.key !== "avatar" || draft.answers.gender === "woman"));
+  const steps = chapters.filter(entry => (includeCompatibility || !["compatibility", "criteria", "personality", "beena"].includes(entry.key)) );
   const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
   const chapter = steps[idx];
   const Icon = chapterIcons[chapter.key];
@@ -255,7 +256,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
       if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
-      if (restored.step === "avatar" && restored.answers.gender !== "woman") restored.step = "details";
+
       current.current = restored;
       if (restored.permissions) {
         const choices = {...consentRef.current, sensitiveProfile:restored.permissions.sensitiveProfile, assessment:restored.permissions.assessment};
@@ -332,6 +333,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     const marriageBasics = { ...p.marriageBasics }, partnerCriteria = { ...p.partnerCriteria };
     if (gender === "man") { delete marriageBasics.dressStyle; delete marriageBasics.dressFlexibility; }
     else { delete partnerCriteria.dressStyle; delete partnerCriteria.dressFlexibility; }
+    setPortraitChange(undefined); setPortraitPolicy(undefined); chooseConsent('photo',false);
     update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
   }
   function move(step: Chapter, returnToReview = false) {
@@ -375,6 +377,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       setError(issue);
       return;
     }
+    if (["avatar","review"].includes(chapter.key) && p.gender === "man" && !editing && !portraitChange && !initial?.portrait) { move("avatar",true);setError({field:"portrait",text:"أضف صورة واضحة لك للمتابعة."});return; }
     if (chapter.key === "review") {
       for (const entry of steps) {
         const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed, !editing) : null;
@@ -458,7 +461,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div></details>
               </>}
               {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
-              {chapter.key === "avatar" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
+              {chapter.key === "avatar" && p.gender === "man" && <MensPhotoChoice change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} onBusy={setPhotoBusy}/>}
+              {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {(['criteria','personality','compatibility'].includes(chapter.key)||(chapter.key==='beena'&&(!consents.assessment||!editing)))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing}/>}
               {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing}/>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}

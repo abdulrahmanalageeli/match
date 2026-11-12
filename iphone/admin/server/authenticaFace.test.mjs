@@ -32,7 +32,7 @@ test('rejects missing, malformed and different-member provider results', async (
 test('rejects invalid input before making a paid request', async () => {
   let calls = 0;
   const options = { key: 'key', fetcher: async () => { calls++; return reply(good(true)); } };
-  for (const change of [{ memberId: 'body-user' }, { referenceJpeg: Buffer.alloc(1024 * 1024 + 1) }, { cameraJpeg: Buffer.from('not an image') }, { cameraJpeg: input.referenceJpeg }]) {
+  for (const change of [{ memberId: 'body-user' }, { referenceJpeg: Buffer.alloc(3 * 1024 * 1024 + 1) }, { cameraJpeg: Buffer.from('not an image') }, { cameraJpeg: input.referenceJpeg }]) {
     await assert.rejects(compareAuthenticaFaces({ ...input, ...change }, options), /FACE_(INPUT_INVALID|CAPTURE_REQUIRED)/);
   }
   await assert.rejects(compareAuthenticaFaces(input, { ...options, key: '' }), /FACE_SERVICE_UNAVAILABLE/);

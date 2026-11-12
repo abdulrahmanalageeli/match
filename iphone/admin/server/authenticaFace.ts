@@ -9,7 +9,7 @@ export type FaceComparisonInput = {
 };
 
 const endpoint = 'https://api.authentica.sa/api/v2/verify-by-face';
-const maxImageBytes = 1024 * 1024;
+const maxImageBytes = 3 * 1024 * 1024;
 
 function validJpeg(value: Buffer): boolean {
   return Buffer.isBuffer(value) && value.length >= 4 && value.length <= maxImageBytes

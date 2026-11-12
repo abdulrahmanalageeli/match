@@ -1,3 +1,4 @@
+import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
 import { cloud } from "../cloud";
 import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession } from '../profile/profileOptions';
 import { requestAi } from '../ai/client';
@@ -228,6 +229,7 @@ export function cloudCommunity(userId: string): CommunitySource {
       if (!cloud) throw Error("الخدمة غير متاحة.");
       validatePortraitUpload(file, blur);
       const policy = validatePortraitReveal(blur, reveal);
+      const selfie = await captureForPhoto();
       const photo = await timedRpc<ProfilePortrait & { clearPath?: string }>("marriage_portrait_prepare_v2", { blur_level: blur, reveal_policy: policy });
       const storage = cloud.storage.from("nisfayn-profile-portraits");
       const { error } = await storage.upload(photo.path, file, { contentType: "image/jpeg", upsert: false, cacheControl: "0" });
@@ -238,11 +240,13 @@ export function cloudCommunity(userId: string): CommunitySource {
         if (clearError) throw Error('تعذّر رفع النسخة الخاصة. لم تتغير صورة ملفك الحالية.');
       }
       try {
+        await verifyUploadedPhoto(photo.id, "portrait", selfie);
         return await timedRpc<ProfilePortrait>("marriage_portrait_commit", { photo_id: photo.id });
       } catch (cause) {
         // A lost response can follow a successful commit. Never delete a possibly published photo.
         const current = await timedRpc<ProfilePortrait | null>("marriage_portrait_info", { subject: null }).catch(() => null);
         if (current?.id === photo.id) return current;
+        await timedRpc("marriage_photo_discard", { photo: photo.id, photo_kind: "portrait" }).catch(() => null);
         throw cause;
       }
     },
@@ -262,10 +266,17 @@ export function cloudCommunity(userId: string): CommunitySource {
     },
     async addGallery(file) {
       if (!cloud) throw Error("الخدمة غير متاحة.");
+      const selfie = await captureForPhoto();
       const p = await timedRpc<GalleryPhoto>("marriage_gallery", { action: "prepare" });
       const { error } = await cloud.storage.from("nisfayn-profile-gallery").upload(p.path!, file, { contentType: "image/jpeg", upsert: false });
       if (error) { await timedRpc("marriage_gallery", { action: "remove", photo_id: p.id }); throw Error("تعذّر رفع الصورة."); }
-      await timedRpc("marriage_gallery", { action: "commit", photo_id: p.id });
+      try {
+        await verifyUploadedPhoto(p.id, "gallery", selfie);
+        await timedRpc("marriage_gallery", { action: "commit", photo_id: p.id });
+      } catch (cause) {
+        await timedRpc("marriage_photo_discard", { photo: p.id, photo_kind: "gallery" }).catch(() => null);
+        throw cause;
+      }
     },
     async removeGallery(photo) {
       const p = await timedRpc<GalleryPhoto>("marriage_gallery", { action: "remove", photo_id: photo.id });

@@ -1,20 +1,27 @@
-# Authentica face verification — integration status
+# Authentica profile-photo verification
 
-Prepared: server-only comparison adapter in `admin/server/authenticaFace.ts`, using `AUTHENTICA_KEY` and the documented `/api/v2/verify-by-face` contract. Unit tests use synthetic bytes and mocked responses; no biometric data or paid requests were sent. This adapter is not exposed as an endpoint or connected to signup yet.
+Implemented for real male members: a profile photo step in onboarding/settings, explicit consent, camera-only selfie capture with preview/retake/cancel, server-side Authentica comparison, and database-enforced publication checks for profile portraits and gallery images.
 
-## Blocking dependency
+## Contract and scope
 
-The [API documentation](https://docs.authentica.sa/api-reference/face-verification/verify-by-face) documents two base64 images and a boolean match result. It does not document a liveness decision, capture SDK, signed evidence, session creation, or server verification of capture evidence. The [product page](https://authentica.sa/en/face-recognition-en/) advertises passive liveness and an SDK, but those claims do not specify an implementable protocol.
+Uses `POST https://api.authentica.sa/api/v2/verify-by-face`, with `AUTHENTICA_KEY` held only in the admin server environment. A match requires `success === true`, the authenticated member's `data.user_id`, and `data.result === true`.
 
-Obtain Authentica's Web/iOS liveness SDK documentation, session/token creation and verification contract, account entitlement, and biometric retention/deletion terms. Never embed the account API key in the browser or iOS bundle. A camera snapshot, blink animation, or local face detector alone cannot establish presentation-attack resistance. No successful still-image comparison should be recorded as liveness or government identity verification.
+The current endpoint documentation describes image matching. No independent liveness or national-identity claim is made. Camera capture has no file-picker fallback, but a client camera flow is not itself proof against spoofing. Provider liveness guarantees remain unconfirmed.
 
-## Required integration once the contract is available
+Existing photos are grandfathered. New male portraits and gallery uploads require successful comparison before publication. Women's privacy/blur choices and the isolated Reham/Abdulrahman testing backend are unchanged. The new onboarding UI requires a photo for men; this does not convert an existing account into an identity-verified account or guarantee account uniqueness. Private chat media are outside this profile-photo rule.
 
-- Explicit biometric consent before sending either image, explaining the provider and purpose. Confirm retention and international processing disclosures before publishing them.
-- Authenticated server-created, short-lived, single-use capture session. Rate-limit durably per account before paid provider calls. Bind provider evidence to that session, the authenticated member, and the hash of the exact final profile image.
-- Verify both provider liveness evidence and image match on the server. Do not trust client booleans or client-supplied member IDs. Save only necessary proof/status metadata; avoid storing capture images, base64 payloads, or provider response bodies in logs.
-- Add men's photo/camera step to registration and profile editing. Current onboarding photo step is women-only. Include permission denial, cancellation, retry, provider outage, and accessible capture instructions.
-- Enforce approvals at portrait/gallery publication in the database/storage workflow, including direct RPC calls. Every replacement/additional image needs a matching proof; avoid verifying one blob then publishing another. Preserve existing photos while replacements fail. Define existing-member rollout explicitly.
-- Test mismatch, replay, altered uploads, cross-account proof reuse, expired proof, double submission, denied camera access, and device camera flow. Test accounts must remain usable without allowing test bypasses for ordinary members.
+## Security
 
-No liveness gate or verified badge has been enabled by this preparatory change.
+- The endpoint validates the signed-in user and current member session. Member identity and storage paths are server-derived.
+- It downloads the exact pending Storage object, compares it, and records proof for that member/photo/object ID plus SHA-256. Clients cannot approve proofs.
+- Profile objects cannot be overwritten. Gallery deletion cannot occur while its metadata still exists, preventing delete/re-upload substitution during verification.
+- Database triggers require fresh, unused proof for publication. Failed replacements leave the previous portrait intact. Failed pending uploads are discarded safely; existing cleanup workers remove their stored objects.
+- Requests require versioned explicit consent. Limits: three attempts/minute and ten/24 hours per real member. Provider timeout is 15 seconds; errors expose no provider bodies or credentials.
+- Selfies are processed in memory, never saved to app Storage, and never logged by this implementation. Provider retention remains governed by Authentica's terms; no unverified retention promise is made.
+- Test accounts do not receive an identity or liveness badge.
+
+## Validation
+
+Targeted adapter and HTTP-handler tests mock the provider. Database tests exercise publication denial, proof ownership, single-use consumption, expiry, rate limiting, object substitution, replacement preservation and female uploads. No real biometric request was made during automated tests.
+
+iOS requires a new TestFlight build for `NSCameraUsageDescription` and bundled UI. The actual device camera and paid provider acceptance must be verified with a consenting user. Ensure `AUTHENTICA_KEY` is configured on the production `nisfayn-admin` deployment.

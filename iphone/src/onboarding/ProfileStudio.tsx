@@ -46,7 +46,7 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
       { key: 'identity', title: 'الأساسيات', note: [p.displayName, p.city].filter(Boolean).join(' · ') || 'الاسم والعمر والمدينة', icon: UserRound },
       { key: 'story', title: 'نبذتي وحياتي', note: 'المهنة، نبذتك، وإجابات تحكي عنك', icon: Feather },
       { key: 'details', title: 'التفاصيل الشخصية', note: 'الطول، الحالة الاجتماعية، وبقية تفاصيلك', icon: UserRound },
-      ...(p.gender === 'woman' ? [{ key: 'avatar', title: 'صورة ملفي', note: photoUrl || (photoUrl!==null&&p.portrait) ? 'تغيير صورتك أو درجة التمويه' : p.publicAvatar ? 'تغيير الرسم المختار أو إضافة صورة بتمويه' : 'صورة بتمويه تختارينه، أو رسم يعبّر عنك', icon: ShieldCheck }] : []),
+      ...[{ key: 'avatar', title: 'صورة ملفي', note: p.gender === 'man' ? 'صورتك الشخصية ومطابقتها عبر الكاميرا' : photoUrl || (photoUrl!==null&&p.portrait) ? 'تغيير صورتك أو درجة التمويه' : p.publicAvatar ? 'تغيير الرسم المختار أو إضافة صورة بتمويه' : 'صورة بتمويه تختارينه، أو رسم يعبّر عنك', icon: ShieldCheck }],
     ] },
     { title: 'تفضيلاتي والتوافق', note: 'إجابات التقييم وشروط الشريك خاصة. يظهر تفضيل إشراك الأسرة وأي قصة تختار مشاركتها في «بيننا».', items: [
       ...(withCompatibility ? [

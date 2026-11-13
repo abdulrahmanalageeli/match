@@ -33,6 +33,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   const systemReduced = useSystemReducedMotion();
   const reduced = value.reducedMotion || systemReduced;
   const [introducing, setIntroducing] = useState(() => (replayIntro || !arrivalSeen) && !reduced && !document.hidden);
+  const [revealDelay, setRevealDelay] = useState(() => introducing ? 1750 : 0);
   const [hidden, setHidden] = useState(() => document.hidden);
   const [selected, setSelected] = useState(0);
   const launchRef = useRef<HTMLDivElement>(null);
@@ -56,6 +57,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     return () => { window.clearTimeout(dock); window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
   }, [introducing]);
   function skipIntro() {
+    setRevealDelay(0);
     setIntroducing(false); setDocking(false);
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.nf-join')?.focus({ preventScroll: true }));
   }
@@ -80,7 +82,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     </header>
 
     <section className="wd-welcome-hero">
-      <MotionReveal key={introducing ? "opening" : "ready"} className="wd-hero-copy" duration={700} distance={14}>
+      <MotionReveal className="wd-hero-copy" delay={revealDelay} duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
         <p>توافق مبني على شخصيتك وتفضيلاتك، بمساعدة الذكاء الاصطناعي.</p>

@@ -88,7 +88,7 @@
 .wd-launch-screen .wd-logo-stroke { stroke-dasharray: 1; animation: wd-logo-draw 1250ms cubic-bezier(.4,0,.2,1) both; }
 .wd-launch-screen .wd-logo-second { animation-delay: 130ms; }
 .wd-launch-screen .wd-logo-finish { animation: wd-logo-fill 350ms 1050ms both; }
-.wd-welcome[data-opening] .wd-hero-copy { visibility: hidden; }
+
 .wd-welcome[data-opening] > .wd-welcome-hero { animation: wd-welcome-enter 850ms 1450ms both; }
 @keyframes wd-logo-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes wd-logo-fill { from { opacity: 0; } to { opacity: 1; } }
@@ -139,11 +139,11 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .phone-app:has(.wd-welcome) { background: #fdfdfc; }
 .wd-welcome-nav { position: absolute; z-index: 3; inset: 0 24px auto; padding: max(22px,env(safe-area-inset-top)) 0 0; border: 0; }
 .wd-welcome-nav .wd-welcome-brand { filter: none; }
-.wd-welcome .wd-welcome-login { color: #54152a; text-shadow: none; }
+.wd-welcome .wd-welcome-login { color: #fff; text-shadow: 0 1px 4px #17171380; }
 .wd-welcome-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: min(900px,100svh); min-height: max(700px,min(900px,100svh)); margin-inline: -24px; padding: 330px 24px max(30px,env(safe-area-inset-bottom)); gap: 0; }
 .wd-hero-art { position: absolute; z-index: -2; inset: 0; height: 100%; border-radius: 0; }
 .wd-hero-art picture img { object-position: 86% 36%; }
-.wd-hero-art::after { inset: 0; background: linear-gradient(180deg,#fffaf0ed 0%,#fffaf0b8 12%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
+.wd-hero-art::after { inset: 0; background: linear-gradient(180deg,transparent 0%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
 .wd-hero-copy { width: 100%; max-width: 540px; color: white; }
 .wd-hero-copy .wd-welcome-kicker { color: #eee7dc; font-size: 11px; }
 .wd-welcome .wd-hero-copy h1 { color: #fff; font-size: clamp(30px,8.2vw,44px); line-height: 1.45; margin: 12px 0; letter-spacing: -.5px; }
@@ -159,7 +159,7 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-launch-screen::before { content: none; }
 .wd-launch-door { position: absolute; inset: 0; clip-path: inset(23% 24% 24% round 50% 50% 2px 2px); animation: wd-door-enter 2150ms cubic-bezier(.55,0,.16,1) both; }
 .wd-launch-door img { width: 100%; height: 100%; object-fit: cover; object-position: 86% 36%; animation: wd-door-depth 2150ms cubic-bezier(.55,0,.16,1) both; }
-.wd-launch-door::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg,#fffaf0ed 0%,#fffaf0b8 12%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
+.wd-launch-door::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg,transparent 0%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
 .wd-launch-brand { position: absolute; top: max(24px,env(safe-area-inset-top)); margin: 0; }
 .wd-launch-emblem { width: 54px; height: 54px; }
 .wd-launch-wordmark { width: 78px; margin-top: 0; }
@@ -167,12 +167,12 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-launch-brand p { margin-top: 8px; font-size: 12px; }
 .wd-launch-screen[data-docking] .wd-launch-brand { opacity: 0; transition: opacity 300ms; }
 @keyframes wd-door-enter { 0%,20% { clip-path: inset(23% 24% 24% round 50% 50% 2px 2px); } 84%,100% { clip-path: inset(0% 0% 0% round 0% 0% 0 0); } }
-@keyframes wd-door-depth { 0%,20% { transform: scale(.82); } 100% { transform: scale(1); } }
+@keyframes wd-door-depth { 0%,20% { transform: scale(.82); } 84%,100% { transform: scale(1); } }
 @media(min-width:760px) { .phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 0 48px 30px; } .wd-welcome-nav { inset-inline: 48px; } .wd-welcome-hero { margin-inline: -48px; padding-inline: 48px; min-height: 800px; } .wd-hero-art { height: 100%; border-radius: 0; } .wd-hero-art picture img { object-position: center 45%; } .wd-hero-copy { max-width: 460px; } .wd-welcome .wd-hero-copy h1 { font-size: 46px; } .wd-launch-door { max-width: 1080px; margin: auto; } }
 @media(max-width:360px) { .phone-app .nf-welcome.nf-arrival.wd-welcome { padding-inline: 20px; } .wd-welcome-hero { margin-inline: -20px; padding-inline: 20px; min-height: 710px; } .wd-welcome-nav { inset-inline: 20px; } }
 
 .wd-welcome-nav { flex-wrap: wrap; row-gap: 10px; }
-.wd-name-meaning { flex-basis: 100%; display: flex; align-items: baseline; gap: 9px; margin: 0; padding-top: 10px; border-top: 0; color: #684450; font-size: 11px; line-height: 1.8; text-shadow: none; }
+.wd-name-meaning { flex-basis: 100%; display: flex; align-items: baseline; gap: 9px; margin: 0; padding-top: 10px; border-top: 0; color: #fff; font-size: 11px; line-height: 1.8; text-shadow: 0 1px 4px #17171380; }
 .wd-name-meaning strong { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
 
 .wd-launch-screen { animation: wd-arrival-dissolve 2150ms linear both; }

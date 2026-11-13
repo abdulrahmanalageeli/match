@@ -49,6 +49,12 @@ export async function compareAuthenticaFaces(
     phase = 'response_json';
     const result = await response.json();
     phase = 'response_contract';
+    // Production can serialize the match boolean as text. Never use truthiness:
+    // Boolean('false') would incorrectly approve a failed comparison.
+    const rawMatch = result?.data?.result;
+    const matchText = typeof rawMatch === 'string' ? rawMatch.trim().toLowerCase() : null;
+    const matched = typeof rawMatch === 'boolean' ? rawMatch
+      : matchText === 'true' ? true : matchText === 'false' ? false : null;
     // Log only fixed field types and checks, never provider values or image data.
     responseShape = {
       successType: typeof result?.success,
@@ -56,10 +62,12 @@ export async function compareAuthenticaFaces(
       memberType: typeof result?.data?.user_id,
       memberMatches: result?.data?.user_id === input.memberId,
       resultType: typeof result?.data?.result,
+      resultRecognized: matched !== null,
+      resultLabel: matchText && ['true', 'false', 'match', 'no_match', 'matched', 'not_matched', 'verified', 'not_verified'].includes(matchText) ? matchText : 'other',
     };
     if (result?.success !== true || result?.data?.user_id !== input.memberId
-      || typeof result?.data?.result !== 'boolean') throw new Error('invalid_response');
-    return { matched: result.data.result, liveness: 'not_verified' };
+      || matched === null) throw new Error('invalid_response');
+    return { matched, liveness: 'not_verified' };
   } catch (error) {
     console.warn('authentica_face_failure', {
       phase, httpStatus, elapsedMs: Date.now() - startedAt, responseShape,

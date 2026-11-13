@@ -24,8 +24,21 @@ test('a completed comparison can still be a non-match', async () => {
 });
 
 test('rejects missing, malformed and different-member provider results', async () => {
-  for (const response of [{ success: true }, { success: false, data: good(true).data }, { success: true, data: { user_id: memberId, result: 'true' } }, { success: true, data: { user_id: 'someone-else', result: true } }]) {
+  for (const response of [{ success: true }, { success: false, data: good(true).data }, { success: true, data: { user_id: memberId, result: 'unknown' } }, { success: true, data: { user_id: 'someone-else', result: true } }, { success: true, data: { user_id: 'someone-else', result: 'true' } }]) {
     await assert.rejects(compareAuthenticaFaces(input, { key: 'key', fetcher: async () => reply(response) }), /FACE_SERVICE_UNAVAILABLE/);
+  }
+});
+
+test('accepts explicit text booleans without treating false as a match', async () => {
+  for (const [value, expected] of [['true', true], ['false', false], [' TRUE ', true], [' False ', false]]) {
+    assert.deepEqual(await compareAuthenticaFaces(input, { key: 'key', fetcher: async () => reply(good(value)) }), { matched: expected, liveness: 'not_verified' });
+  }
+});
+
+test('unknown or ambiguous result values never approve a photo', async t => {
+  t.mock.method(console, 'warn', () => {});
+  for (const value of ['', 'success', 'match', '1', 1, 0, null, {}, [], ['true']]) {
+    await assert.rejects(compareAuthenticaFaces(input, { key: 'key', fetcher: async () => reply(good(value)) }), /FACE_SERVICE_UNAVAILABLE/);
   }
 });
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Check, CheckCheck, ChevronDown, HeartHandshake, LockKeyhole, MessageCircle, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
+import { ArrowLeft, Check, ChevronDown, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
@@ -14,7 +14,7 @@ const number = (value: number) => value.toLocaleString('ar-SA');
 export function InterviewEntry({ available, open }: { available: boolean; open: () => void }) {
   if (!available) return null;
   return <section className="wi-entry" aria-labelledby="wi-entry-title">
-    <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><HeartHandshake size={23}/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
+    <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
     <p>مواقف من الحياة، وحوار يفهم ما يناسبك. أنت تراجع ما نفهمه وتختار ما يُضاف إلى تفضيلاتك.</p>
     <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;
@@ -214,24 +214,25 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
 
   return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
-      <header className="wi-header"><div><HeartHandshake size={21} aria-hidden="true"/><span id="wi-dialog-name">جلسة التوافق</span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
+      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>مع وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
       <div className="wi-content">
         {!loaded ? <div className="wi-loading" role="status"><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span><p>نفتح مساحتك الخاصة…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
-        : !doc ? <MotionReveal className="wi-welcome" duration={400} inert={!!busy}>
-          <div className="wi-welcome-symbol" aria-hidden="true"><MessageCircle size={30}/><span><HeartHandshake size={17}/></span></div>
+        : !doc ? <MotionReveal key="welcome" className="wi-welcome" duration={400} distance={8} inert={!!busy}>
+          <InterviewSignature/>
           <span className="wi-eyebrow">حوار قصير. فهم أقرب.</span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>وش يخلّي الحياة<br/>بينكم أجمل؟</h1>
           <p className="wi-lead">نبدأ بمواقف بسيطة، ونبني على إجاباتك. ما فيه جواب مثالي؛ المهم تكون الصورة قريبة منك.</p>
+          <p className="wi-reassurance"><LockKeyhole size={14} aria-hidden="true"/><span>حوار خاص · تراجع كل تفسير · تكمل على راحتك</span></p>
           <ol className="wi-how"><li><span>١</span><div><strong>تكلّم بطريقتك</strong><p>عن الحياة، والقرب، والقرارات المشتركة.</p></div></li><li><span>٢</span><div><strong>راجع ما فهمناه</strong><p>صحّح أي تفسير واختر ما يمثّلك.</p></div></li><li><span>٣</span><div><strong>تفضيلات أوضح</strong><p>تُضاف فقط الإجابات التي تؤكدها إلى مسودة ملفك.</p></div></li></ol>
           <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على معالجة إجاباتي بواسطة OpenAI ‏(Luna) لفهم تفضيلاتي، وحفظ الجلسة في حسابي بخصوصية.</span></label><details><summary>كيف تُستخدم إجاباتي؟ <ChevronDown size={13}/></summary><p>تُرسل إجابات هذه الجلسة إلى مزوّد الذكاء الاصطناعي. لا ترسل أرقام هوية أو حسابات أو معلومات عن أشخاص آخرين. تُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. قد يحتفظ المزوّد بسجلات لمراقبة إساءة الاستخدام وفق سياسته؛ لا نعد بانعدام الاحتفاظ.</p><p>لا يطّلع الطرف الآخر على الحوار. لا تُعد الملخصات تشخيصًا للشخصية أو توثيقًا لهويتك أو قرار قبول عضوية، ولا تُضاف شروط إلزامية تلقائيًا. مشاركة ملخص الاستعداد مع فريق العضوية اختيار مستقل في المراجعة.</p></details></div>
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!consent || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'خلّنا نبدأ'}<ArrowLeft size={18}/></MotionPressButton>
           <button type="button" className="wi-link wi-centered" onClick={onClose} disabled={!!busy}>أفضّل الأسئلة المباشرة</button>
         </MotionReveal>
-        : applied ? <MotionReveal className="wi-complete" duration={450}><span className="wi-complete-mark"><CheckCheck size={30}/></span><span className="wi-eyebrow">أنت صاحب الكلمة الأخيرة</span><h1 id="wi-title" ref={heading} tabIndex={-1}>الصورة صارت أوضح.</h1><p>أضفنا الإجابات التي أكّدتها إلى مسودة ملفك. راجع الملف واحفظه لتدخل في حساب التوافق والترشيحات.</p><div className="wi-complete-count"><strong>{number(doc.confirmed.length)}</strong><span>إجابة مؤكدة<br/>بكلماتك واختيارك</span></div><p className="wi-small">تبقى أسئلة الشخصية والشروط الأساسية مستقلة. يمكنك تعديل إجاباتك في أي وقت.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>العودة إلى ملفي <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>مراجعة الجلسة وخيارات المشاركة</button></MotionReveal>
-        : reviewMode ? <MotionReveal className="wi-review" duration={350} inert={!!busy}>
+        : applied ? <MotionReveal key="complete" className="wi-complete" duration={450}><span className="wi-complete-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20"/><path d="m15 24 6 6 12-13" pathLength="1"/></svg></span><span className="wi-eyebrow">أنت صاحب الكلمة الأخيرة</span><h1 id="wi-title" ref={heading} tabIndex={-1}>الصورة صارت أوضح.</h1><p>أضفنا الإجابات التي أكّدتها إلى مسودة ملفك. راجع الملف واحفظه لتدخل في حساب التوافق والترشيحات.</p><div className="wi-complete-count"><strong>{number(doc.confirmed.length)}</strong><span>إجابة مؤكدة<br/>بكلماتك واختيارك</span></div><p className="wi-small">تبقى أسئلة الشخصية والشروط الأساسية مستقلة. يمكنك تعديل إجاباتك في أي وقت.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>العودة إلى ملفي <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>مراجعة الجلسة وخيارات المشاركة</button></MotionReveal>
+        : reviewMode ? <MotionReveal key="review" className="wi-review" duration={350} distance={8} inert={!!busy}>
           <span className="wi-eyebrow">المراجعة · القرار لك</span><h1 id="wi-title" ref={heading} tabIndex={-1}>هل هذه الصورة تمثّلك؟</h1><p className="wi-lead">اختر الإجابات التي توافق عليها. افتح أي نقطة لتراجع كلماتك الأصلية أو تعدّل التفسير.</p>
           {doc.pendingAnalysis && <div className="wi-notice"><p>حفظنا إجاباتك، لكن التحليل لم يكتمل. يمكنك إعادة المحاولة أو متابعة الأسئلة المباشرة. ستراجع أي تفسيرات جديدة قبل إضافتها.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة التحليل</button></div>}
-          {validProposals.length > 0 ? <><div className="wi-review-selection"><span>{number(included.size)} إجابة مختارة</span><button type="button" onClick={() => setIncluded(new Set(validProposals.filter(item => !item.needsClarification).map(item => item.id)))}>اختيار الواضح منها</button><button type="button" onClick={() => setIncluded(new Set())}>إلغاء الاختيار</button></div>
+          {validProposals.length > 0 ? <><div className="wi-review-selection"><span role="status"><strong>{number(included.size)}</strong> من {number(validProposals.length)} مختارة</span><button type="button" onClick={() => setIncluded(new Set(validProposals.filter(item => !item.needsClarification).map(item => item.id)))}>اختيار الواضح منها</button>{included.size > 0 && <button type="button" onClick={() => setIncluded(new Set())}>إلغاء الاختيار</button>}</div>
             {(['self','partner','importance'] as const).map(side => {
               const group = validProposals.filter(proposal => proposal.side === side);
               if (!group.length) return null;
@@ -248,9 +249,10 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
           {doc.pendingAnalysis && <button type="button" className="wi-link wi-centered" onClick={onClose}>العودة إلى الأسئلة المباشرة</button>}
         </MotionReveal>
         : <>
-          <div className="wi-topic-progress" aria-label="محاور الجلسة">{topics.map(topic => <span key={topic.id} title={topic.title} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/>{topic.id === doc.currentQuestion?.topic && <b>{topic.title}</b>}</span>)}<small>{number(covered.size)} / {number(topics.length)} محاور</small></div>
+          <div className="wi-progress-heading"><span>{currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><small>{number(covered.size)} من {number(topics.length)} محاور</small></div>
+          <div className="wi-topic-progress" aria-label={`أجبت عن ${number(covered.size)} من ${number(topics.length)} محاور`}>{topics.map(topic => <span key={topic.id} title={topic.title} aria-current={topic.id === doc.currentQuestion?.topic ? 'step' : undefined} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/></span>)}</div>
           <MotionReveal key={doc.currentQuestion?.text} className="wi-question" axis="x" distance={-12} duration={320}>
-            <span className="wi-eyebrow">{currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><h1 id="wi-title" ref={heading} tabIndex={-1}>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عن الحياة التي تتمنّاها؟'}</h1>
+            <h1 id="wi-title" ref={heading} tabIndex={-1}>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عن الحياة التي تتمنّاها؟'}</h1>
             <label className="wi-answer-label" htmlFor="wi-answer">إجابتك، بطريقتك</label><textarea id="wi-answer" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={5} placeholder="خذ راحتك… موقف صغير أو مثال يكفي." autoComplete="off" spellCheck dir="auto" disabled={actionBlocked}/>
             <div className="wi-answer-meta"><span role="status"><LockKeyhole size={12}/>{saveMessage}</span><small>{number(answer.length)} / ١٢٠٠</small></div>
             {!!doc.currentQuestion?.suggestions.length && <div className="wi-suggestions" aria-label="بدايات اختيارية للإجابة">{doc.currentQuestion.suggestions.slice(0,3).map(suggestion => <button type="button" key={suggestion} disabled={!!busy} onClick={() => changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion)}>{suggestion}</button>)}</div>}
@@ -266,6 +268,13 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
       </div>
     </div>
   </dialog>, document.body);
+}
+
+function InterviewSignature() {
+  return <div className="wi-signature" aria-hidden="true">
+    <svg viewBox="0 0 240 70" fill="none"><path d="M8 49C33 49 37 28 61 28H79" pathLength="1"/><path d="M232 49C207 49 203 28 179 28H161" pathLength="1"/></svg>
+    <img src="/brand/wudayn-emblem-v2.png" width="48" height="56" alt=""/>
+  </div>;
 }
 
 function ProposalReview({ proposal, selected, values, onSelect, onValues }: { proposal: InterviewProposal; selected: boolean; values: string[]; onSelect: (value: boolean) => void; onValues: (values: string[]) => void }) {

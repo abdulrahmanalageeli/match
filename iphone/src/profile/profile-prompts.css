@@ -23,6 +23,8 @@
 .nf-prompt-choices button[aria-pressed=true] { background: #74354d; border-color: #74354d; color: #fff9ef; }
 .nf-intake .nf-prompt-writing > label { display: block; color: #623046; font-size: .94rem; font-weight: 650; line-height: 1.85; }
 .nf-intake .nf-prompt-writing > p { font-size: .73rem; color: #8c6b79; line-height: 1.9; margin: 6px 0 10px; }
+.nf-prompt-rephrase { display:flex; align-items:center; gap:6px; width:fit-content; min-height:40px; margin:-3px 0 9px auto; padding:7px 9px; border:0; border-radius:10px; background:transparent; color:#71354e; font:inherit; font-size:.72rem; font-weight:700; cursor:pointer; }
+.nf-prompt-rephrase:hover { background:#efe2e4; }
 .nf-intake .nf-prompt-writing > textarea { width: 100%; min-height: 108px; background: #fffdfa; font: inherit; line-height: 1.9; font-size: .9rem; border: 1px solid #d9bdc1; border-radius: 15px; padding: 13px; resize: vertical; }
 .nf-prompt-counter,.nf-prompt-privacy { display: block; color: #896975; font-size: .66rem; line-height: 1.9; margin-top: 9px; }
 .nf-prompt-privacy { border-top: 1px solid #cdaeb52f; padding-top: 11px; }

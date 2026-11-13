@@ -7,7 +7,7 @@ import { InterviewError, requestInterview, type InterviewAuth } from './api';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
 import topics from './catalog.json';
-import type { InterviewProposal, InterviewSnapshot } from './types';
+import type { InterviewDocument, InterviewProposal, InterviewSnapshot } from './types';
 import './interview.css';
 
 const number = (value: number) => value.toLocaleString('ar-SA');
@@ -52,7 +52,7 @@ type Props = {
   profileContext?: ProfileContext;
   assessmentContext?: InterviewSelection[];
   sensitiveProfileAllowed?: boolean;
-  onProfileApply?: (confirmed: ProfileProposal[]) => void;
+  onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
 export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, assessmentContext, sensitiveProfileAllowed = false, onProfileApply }: Props) {
@@ -80,6 +80,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [ignoredProfile, setIgnoredProfile] = useState<string[]>([]);
   const contextRef = useRef(profileContext); contextRef.current = profileContext;
   const assessmentContextRef = useRef(assessmentContext); assessmentContextRef.current = assessmentContext;
+  const sensitiveProfileAllowedRef = useRef(sensitiveProfileAllowed); sensitiveProfileAllowedRef.current = sensitiveProfileAllowed;
   const profileApplyRef = useRef(onProfileApply); profileApplyRef.current = onProfileApply;
   const [answerHelp, setAnswerHelp] = useState(false);
   const answerRef = useRef(answer);
@@ -120,7 +121,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     activeRequest.current = { action, settled };
     const before = current.current;
     try {
-      const next = await requestInterview(auth, { action, ...(action === 'load' || action === 'start' ? {} : { revision: current.current.revision }), ...(['start','answer','retry','review'].includes(action) ? { ...(contextRef.current ? { profileContext: contextRef.current } : {}), ...(assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}) } : {}), ...payload });
+      const next = await requestInterview(auth, { action, ...(action === 'load' || action === 'start' ? {} : { revision: current.current.revision }), ...(['start','answer','retry','review'].includes(action) ? { sensitiveProfileAllowed: sensitiveProfileAllowedRef.current, ...(contextRef.current ? { profileContext: contextRef.current } : {}), ...(assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}) } : {}), ...payload });
       if (!mounted.current) return null;
       if (['answer','retry','review'].includes(action) && next.document && !next.document.pendingAnalysis) {
         const changes = messageChanges(before, next), turnId = next.document.turns.at(-1)?.id;
@@ -286,7 +287,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     const result = await call('confirm', { choices, shareReview, ...(profileChoices.length ? { profileChoices: profileChoices.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
     if (result?.document) {
       const selectedProfile = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
-      if (selectedProfile.length) profileApplyRef.current?.(selectedProfile);
+      if (selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
       if (result.document.confirmed.length) { onApply(result.document.confirmed); setApplied(true); }
       else setSharingSaved(true);
       feedback('success');
@@ -299,7 +300,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     const result = await call('profileConfirm', { profileChoices: profileChoices.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) });
     if (result?.document) {
       const selected = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
-      if (selected.length) profileApplyRef.current?.(selected);
+      if (selected.length) profileApplyRef.current?.(selected, result.document);
       setProfileReview(false); feedback('success');
     }
   }

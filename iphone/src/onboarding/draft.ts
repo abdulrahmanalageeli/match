@@ -87,6 +87,23 @@ function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
 export type Issue = { field: keyof Answers | "consent"; text: string };
+
+/** Detail groups Luna did not already resolve; numeric ids match the signup slideshow. */
+export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[] {
+  const b=p.marriageBasics??{};
+  const complete: Record<number,boolean> = {
+    1: b.heightCm!==undefined&&b.weightKg!==undefined&&(!sensitive||Boolean(b.skinTone))&&
+      (p.gender!=='woman'||Boolean(b.dressStyle&&b.dressFlexibility)),
+    2: Boolean(b.spokenLanguages?.length&&b.preferredLanguage&&b.languageOpenness),
+    3: Boolean(b.nationality)&&(!sensitive||Boolean(b.tribalBackground)),
+    4: Boolean(b.marriageTimeline&&b.meetingPreference),
+    5: Boolean(b.maritalStatus&&b.polygynyPreference&&(b.maritalStatus!=='married'||b.currentWives)),
+    6: b.childrenCount!==undefined&&Boolean(b.smoking),
+    7: !sensitive||Boolean(b.religiousAffiliation&&b.prayerPractice),
+  };
+  return [1,2,3,4,5,6,7].filter(slide=>!complete[slide]&&(slide!==7||sensitive));
+}
+
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {
   switch (step) {
     case 'compatibility':
@@ -101,6 +118,9 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. وُدَين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
       if (!validAge(p.birthDate ? String(ageFromBirthday(p.birthDate ?? '')) : p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
       if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
+      if (requireAssessment && (!p.marriageBasics?.maritalStatus || !p.marriageBasics.polygynyPreference || (p.marriageBasics.maritalStatus === 'married' && !p.marriageBasics.currentWives))) return { field: 'marriageBasics', text: 'أكمل وضعك الحالي وموقفك من التعدد قبل جلسة التوافق.' };
+      if (requireAssessment && p.marriageBasics?.maritalStatus === 'married' && p.gender !== 'man') return { field: 'marriageBasics', text: 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.' };
+      if (requireAssessment && p.marriageBasics?.currentWives === 4) return { field: 'marriageBasics', text: 'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.' };
       return null;
     case "story":
       if (!p.profession.trim()) return { field: "profession", text: "اختر مجال العمل أو الوضع المهني." };

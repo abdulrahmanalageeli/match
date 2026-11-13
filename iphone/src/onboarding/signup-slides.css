@@ -18,6 +18,8 @@
 .wd-slide-content label{display:flex;flex-direction:column;gap:10px;font-size:14px;font-weight:500}
 .wd-slide-description{font-size:14px!important;line-height:1.9;color:#776b71;margin:-10px 0 0!important}
 .wd-slide-detail{font-size:15px;color:#6a2440;margin:-8px 0 0;font-variant-numeric:tabular-nums}
+.wd-slide-rephrase{display:flex;align-items:center;gap:6px;width:fit-content;min-height:42px;margin:-9px 0 -7px auto;padding:7px 9px;border:0;border-radius:10px;background:transparent;color:#6a2440;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.wd-slide-rephrase:hover{background:#f5ecef}
 .wd-slide-content input,.wd-slide-content textarea{font:inherit;background:#fff;border:1px solid #e5dde0;border-radius:13px;padding:15px 16px;color:#34252d;min-height:54px;transition:border-color 180ms,box-shadow 180ms}
 .wd-slide-content input:focus,.wd-slide-content textarea:focus{outline:none;border-color:#9d667b;box-shadow:0 0 0 3px #6a24400b}
 .wd-slide-content textarea{line-height:1.9;resize:vertical;min-height:150px}

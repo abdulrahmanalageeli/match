@@ -50,6 +50,7 @@ import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
 import { pairSource, testProfile, type TestSession } from "./testing/pair";
 import type { ApplicationDraft } from "./onboarding/GuidedApplication";
+import type { ProfileAnswerProvenance } from './interview/profileProvenance';
 import type { Chapter } from "./onboarding/draft";
 import { beenaProgress } from './beena/model';
 import { clearSavedIntake, discardLocalIntake } from "./onboarding/persistence";
@@ -574,7 +575,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     acceptLive(s, t, seq);
     if (tokenRef.current === t && version.current === seq) return s;
   }
-  function saveApplication(p: Profile, portraitChange?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy) {
+  function saveApplication(p: Profile, portraitChange?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[]) {
     const editingExisting = demo ? !newDemoIntake : Boolean(live?.profile) && live?.user.applicationStatus !== 'draft';
     if (tester) p = { ...p, gender: tester.actor === 'reham' ? 'woman' : 'man' };
     const currentNavigation = navigationVersion.current;
@@ -585,6 +586,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       if (!demo) {
         const saved = await update("/application", "PUT", {
           ...p,
+          ...(provenance ? { _answerProvenance: provenance } : {}),
           consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
         });
         if (!saved) return;

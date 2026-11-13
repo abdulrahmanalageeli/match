@@ -5,7 +5,7 @@ type Storage = {
   write: (key: string, value: string) => Promise<void>;
   remove: (key: string) => Promise<void>;
 };
-export const draftTTL = 7 * 24 * 60 * 60 * 1000;
+export const draftTTL = 30 * 24 * 60 * 60 * 1000;
 const memberId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const keyFor = (owner: string) => "nisfayn.intake.v1." + owner;
 

@@ -1,11 +1,11 @@
 import { useEffect, useId, useState } from 'react';
-import { Check, Feather } from "../BrandIcons";
+import { Check, Feather, Sparkles } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { profilePrompts, answeredProfilePrompts, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';
 
-export function ProfilePromptFields({ answers, update, invalidField, required = false }: {
-  answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean;
+export function ProfilePromptFields({ answers, update, invalidField, required = false, rephrase }: {
+  answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; rephrase?: (key:ProfilePromptKey)=>void;
 }) {
   const [selected, setSelected] = useState<ProfilePromptKey>(() => profilePrompts.find(prompt => !answers[prompt.key]?.trim())?.key ?? 'lookingFor');
   const id = useId();
@@ -21,6 +21,7 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
     </div>
     <MotionReveal id={`${id}-editor`} className="nf-prompt-writing" key={selected} duration={240} distance={5}>
       <label htmlFor={`${id}-${selected}`}>{prompt.question}</label><p id={`${id}-hint`}>{prompt.hint}</p>
+      {rephrase&&<MotionPressButton type="button" className="nf-prompt-rephrase" onClick={()=>rephrase(selected)}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</MotionPressButton>}
       <textarea id={`${id}-${selected}`} data-field={selected} value={value} onChange={event => update({ [selected]: event.target.value })} maxLength={600} rows={3} placeholder={prompt.placeholder} aria-invalid={invalidField === selected || undefined} aria-describedby={`${id}-hint${invalidField === selected ? ' nf-intake-error' : ''}`} dir="auto"/>
       <small className="nf-prompt-counter">{new Intl.NumberFormat('ar-SA').format(value.length)} / ٦٠٠ · {required ? 'بكلماتك، دون إجابة مثالية' : 'يمكنك تركها فارغة أو تعديلها لاحقًا'}</small>
     </MotionReveal>

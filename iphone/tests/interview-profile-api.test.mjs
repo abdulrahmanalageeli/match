@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { initialInterviewDocument,parseInterviewInput,validateProposal,validateProfileProposal,validProfileValues,validateProfileContext,validateAssessmentContext,applyInterviewCompletion,confirmProfileChoices,interviewCoverage,interviewCompletionRequest,createInterviewService,CONSENT_VERSION } from '../api/_lib/interview.mjs';
+import { initialInterviewDocument,parseInterviewInput,validateProposal,validateProfileProposal,validProfileValues,validateProfileContext,validateAssessmentContext,applyInterviewCompletion,confirmProfileChoices,interviewCoverage,interviewCompletionRequest,redactSensitiveInterviewText,createInterviewService,CONSENT_VERSION } from '../api/_lib/interview.mjs';
 import preferences from '../src/compatibility/catalog.json' with {type:'json'};
 import traits from '../src/compatibility/personality-catalog.json' with {type:'json'};
 import profileFields from '../src/interview/profile-catalog.json' with {type:'json'};
@@ -63,6 +63,45 @@ test('bounded contexts and independent review cannot smuggle account or assessme
  assert.throws(()=>confirmProfileChoices({...base(),pendingAnalysis:true,profileProposals:[proposal]},[]),e=>e.code==='analysis_pending');
  const approved=confirmProfileChoices({...base(),profileProposals:[proposal]},[{id:proposal.id,values:['hijab'],mode:'require',exclude:false}]);
  assert.equal(approved.status,'active');assert.equal(approved.confirmed.length,0);assert.equal(approved.profileConfirmed.length,1);
+});
+test('provider input excludes sensitive fields and locally redacts incidental disclosures without consent',()=>{
+ const safeContext={fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false};
+ const sensitiveContext={fieldId:'marriageBasics.tribalBackground',values:['tribal'],mode:null,exclude:false};
+ const raw='أنا شمري ومذهبي سني وبشرتي سمراء، ورقمي 0551234567. أبغى الزواج خلال ستة أشهر.';
+ const classified=redactSensitiveInterviewText(raw);
+ assert.deepEqual(new Set(classified.categories),new Set(['identifier','tribal_background','religion','skin_tone']));
+ assert.doesNotMatch(classified.text,/شمري|سني|سمراء|0551234567/);
+ assert.match(classified.text,/خلال ستة أشهر/);
+ const privateProposal={...proposal,id:'profile:marriageBasics.tribalBackground',fieldId:'marriageBasics.tribalBackground',values:['tribal']};
+ const source={...turn,answer:raw};
+ const doc={...base(),turns:[source],profileContext:[safeContext,sensitiveContext],profileProposals:[proposal,privateProposal],profileConfirmed:[privateProposal]};
+ const request=interviewCompletionRequest(doc,false,false),context=JSON.parse(request.messages[1].content);
+ assert.doesNotMatch(JSON.stringify(context.transcript),/شمري|سني|سمراء|0551234567/);
+ assert.match(context.transcript[0].answer,/خلال ستة أشهر/);
+ assert.deepEqual(context.knownProfileContext,[safeContext]);
+ assert.ok(context.profileCatalog.every(field=>!field.sensitive));
+ assert.ok(!context.previousProfileProposals.some(item=>item.fieldId==='marriageBasics.tribalBackground'));
+ assert.ok(!context.profileConfirmed.some(item=>item.fieldId==='marriageBasics.tribalBackground'));
+ assert.ok(!request.response_format.json_schema.schema.properties.profileProposals.items.properties.fieldId.enum.includes('marriageBasics.tribalBackground'));
+ assert.match(request.messages[0].content,/بديل خصوصية/);
+});
+test('explicit sensitive-processing consent keeps sensitive values available to Luna',()=>{
+ const sensitiveContext={fieldId:'marriageBasics.tribalBackground',values:['tribal'],mode:null,exclude:false};
+ const source={...turn,answer:'أنا شمري'};
+ const request=interviewCompletionRequest({...base(),turns:[source],profileContext:[sensitiveContext]},false,true);
+ const context=JSON.parse(request.messages[1].content);
+ assert.equal(context.transcript[0].answer,source.answer);
+ assert.deepEqual(context.knownProfileContext,[sensitiveContext]);
+ assert.ok(context.profileCatalog.some(field=>field.fieldId==='marriageBasics.tribalBackground'&&field.sensitive));
+ assert.ok(request.response_format.json_schema.schema.properties.profileProposals.items.properties.fieldId.enum.includes('marriageBasics.tribalBackground'));
+});
+test('sensitive consent is a boolean and unconsented callers cannot submit sensitive context',()=>{
+ const sensitiveContext={fieldId:'marriageBasics.tribalBackground',values:['tribal'],mode:null,exclude:false};
+ const baseInput={action:'start',consentVersion:CONSENT_VERSION,profileContext:[sensitiveContext]};
+ assert.deepEqual(parseInterviewInput({...baseInput}).profileContext,[]);
+ assert.deepEqual(parseInterviewInput({...baseInput,sensitiveProfileAllowed:false}).profileContext,[]);
+ assert.deepEqual(parseInterviewInput({...baseInput,sensitiveProfileAllowed:true}).profileContext,[sensitiveContext]);
+ assert.throws(()=>parseInterviewInput({...baseInput,sensitiveProfileAllowed:'true'}));
 });
 test('stored profile and assessment context suppress known fields without invented transcript evidence',async()=>{
  let state={document:null,revision:0};

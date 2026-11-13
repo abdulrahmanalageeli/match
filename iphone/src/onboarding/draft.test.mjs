@@ -2,11 +2,11 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 
-let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions;
+let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, unresolvedDetailSlides;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
-  ({ initialDraft, validateStep, toProfile, profileBaseline } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
+  ({ initialDraft, validateStep, toProfile, profileBaseline, unresolvedDetailSlides } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
   ({ dimensions } = await loader.ssrLoadModule("/src/compatibility/model.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
 });
@@ -167,6 +167,25 @@ test('signup requires a birthday, derives age, and preserves existing age-only p
  assert.equal(validateStep('identity',{...p,birthDate:undefined},true,true)?.field,'birthDate');
  assert.equal(validateStep('identity',{...p,birthDate:undefined,age:'28'},true),null);
  assert.equal(validateStep('identity',{...p,birthDate:'2020-01-01'},true,true)?.field,'birthDate');
+});
+test('new applicants clear marriage eligibility before the Luna step', () => {
+ const base={...answers(),birthDate:'1998-01-01',marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}};
+ assert.equal(validateStep('identity',base,true,true,true),null);
+ assert.equal(validateStep('identity',{...base,marriageBasics:{}},true,true,true)?.field,'marriageBasics');
+ assert.equal(validateStep('identity',{...base,marriageBasics:{maritalStatus:'married',polygynyPreference:'not_open',currentWives:1}},true,true,true)?.field,'marriageBasics');
+ assert.match(validateStep('identity',{...base,gender:'man',marriageBasics:{maritalStatus:'married',polygynyPreference:'open',currentWives:4}},true,true,true)?.text??'',/أربع/);
+ // Existing profile editing remains compatible with its historical flow.
+ assert.equal(validateStep('identity',{...base,marriageBasics:{}},true,true,false),null);
+});
+
+test('details slideshow contains only unresolved applicable groups', () => {
+ const p={...answers(),marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}};
+ assert.deepEqual(unresolvedDetailSlides(p,false),[1,2,3,4,6]);
+ p.marriageBasics={...p.marriageBasics,heightCm:165,weightKg:60,dressStyle:'hijab',dressFlexibility:'keep',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',marriageTimeline:'when_ready',meetingPreference:'discuss_together',childrenCount:0,smoking:'never'};
+ assert.deepEqual(unresolvedDetailSlides(p,false),[]);
+ assert.deepEqual(unresolvedDetailSlides(p,true),[1,3,7]);
+ p.marriageBasics={...p.marriageBasics,skinTone:'tone_4',tribalBackground:'prefer_not_to_say',religiousAffiliation:'prefer_not_to_say',prayerPractice:'prefer_not_to_say'};
+ assert.deepEqual(unresolvedDetailSlides(p,true),[]);
 });
 test('contact accepts email and formatted phone numbers but rejects arbitrary text', () => {
  for(const contact of ['name@example.com','+966 50 123 4567','٠٥٠١٢٣٤٥٦٧']) assert.equal(validateStep('preferences',{...answers(),contact},true),null);

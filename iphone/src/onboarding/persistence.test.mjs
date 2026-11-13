@@ -33,6 +33,10 @@ function fixture() {
   return { rows, storage, draft, vault, advance: amount => { time += amount; } };
 }
 
+test("application drafts remain recoverable for thirty days", () => {
+  assert.equal(draftTTL, 30 * 24 * 60 * 60 * 1000);
+});
+
 test("explicit save survives a new app lifetime, isolates owners, and restores without consent", async () => {
   const f = fixture();
   const first = f.vault();

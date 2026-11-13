@@ -35,7 +35,9 @@ import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
 import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
 import { assessmentContextFromAnswers } from '../interview/assessmentContext';
+import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
 import { requestInterview, type InterviewAuth } from '../interview/api';
+import type { InterviewDocument } from '../interview/types';
 import type { SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
 
@@ -49,7 +51,7 @@ type Props = {
   busy: boolean;
   back: () => void;
   onPrivacy: () => void;
-  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy) => void;
+  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[]) => void;
   portraitSource?:CommunitySource|null;
   preview?:boolean;
   exitPreview?: () => void;
@@ -199,13 +201,17 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [aiComplete, setAiComplete] = useState(false);
   const [interviewApplied, setInterviewApplied] = useState(false);
   const [interviewRevision, setInterviewRevision] = useState(0);
+  const confirmedProfileProposals = useRef<ProfileProposal[]>([]);
+  const interviewVersion = useRef<{model?:string|null;promptVersion?:string|null;confirmedAt?:string|null}>({});
   const baseline = profileBaseline(initial);
   const deviceDraft = !demo && intakeVault.available(draftOwner);
   const accountDraft = deviceDraft && accountDraftsAvailable();
   const [draft, setDraft] = useState<ApplicationDraft>(() => {
     const saved = draftOwner && draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline
       ? draftRef.current : initialDraft(draftOwner, initial);
-    const step = startAt ?? saved.step;
+    const requestedStep = startAt ?? saved.step;
+    const step = !initial && requestedStep !== 'identity' && validateStep('identity', saved.answers, true, true, includeCompatibility)
+      ? 'identity' : requestedStep;
     return withDefaultContact({...saved, step: !initial && ["personality", "beena"].includes(step) ? "compatibility" : step, returnToReview: startAt ? Boolean(initial) : saved.returnToReview}, defaultContact);
   });
   const [assessmentPath, setAssessmentPath] = useState<'choice'|'questions'>(() =>
@@ -292,7 +298,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
+    if(kind==='assessment'&&!value){confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
   }
 
@@ -302,11 +308,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(previous => ({ ...previous, adult: previous.adult || recorded.adult, terms: previous.terms || recorded.terms, privacy: previous.privacy || recorded.privacy }));
   }, [accountAgreements, initial?.signupConsents]);
   useEffect(() => {
-    if (editing || checkingDevice || !interviewAuth) return;
+    if (editing || checkingDevice || !interviewAuth || !consentRef.current.assessment) return;
     let active = true;
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
       setFallbackAvailable(snapshot.fallbackAvailable === true);
+      confirmedProfileProposals.current = snapshot.document?.profileConfirmed ?? [];
+      interviewVersion.current = snapshot.document ? { model:snapshot.document.model, promptVersion:snapshot.document.promptVersion, confirmedAt:snapshot.document.confirmedAt } : {};
       if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
       const knownProfileFields = new Set(profileContextFromAnswers(current.current.answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
       const restoreProfile = (snapshot.document?.profileConfirmed ?? []).filter(field => !knownProfileFields.has(field.fieldId));
@@ -320,7 +328,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       }
     }).catch(() => { /* The session itself offers a retry; a network error is not a bypass. */ });
     return () => { active = false; };
-  }, [checkingDevice, editing, interviewAuth?.token, interviewAuth?.testSession]);
+  }, [checkingDevice, consents.assessment, editing, interviewAuth?.token, interviewAuth?.testSession]);
   useEffect(() => {
     if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
       const fresh = withDefaultContact(initialDraft(draftOwner, latestInitial.current), defaultContact);
@@ -329,6 +337,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (draftRef) draftRef.current = null;
       setStorageState(null);
       setDraft(fresh);
+      confirmedProfileProposals.current=[];interviewVersion.current={};
       setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
     }
     if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
@@ -344,6 +353,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       restored=withDefaultContact(restored,defaultContact);
       if(!latestInitial.current && ['personality','beena'].includes(restored.step)) restored.step='compatibility';
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
+      if (!latestInitial.current && restored.step !== 'identity' && validateStep('identity', restored.answers, true, true, includeCompatibility)) restored.step='identity';
 
       current.current = restored;
       if (restored.permissions) {
@@ -418,7 +428,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (error && error.field in values) setError(null);
     commit({ answers: { ...current.current.answers, ...values }, consent: false });
   }
-  function applyCapturedProfile(proposals: ProfileProposal[]) {
+  function applyCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
+    confirmedProfileProposals.current=document.profileConfirmed ?? proposals;
+    interviewVersion.current={model:document.model,promptVersion:document.promptVersion,confirmedAt:document.confirmedAt};
     update(applyProfileProposals(current.current.answers, proposals, consentRef.current.sensitiveProfile));
     void saveProgressNow();
   }
@@ -494,7 +506,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if(portraitChange&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة عرض الصورة، أو أزيليها للمتابعة.'});return;}
       if(portraitChange&&portraitPolicy!==undefined&&portraitChange.revealPolicy!==portraitPolicy){move('avatar',true);setError({field:'portrait',text:'لم يكتمل تجهيز إعداد الصورة الجديد. أعيدي اختيار الصورة قبل الحفظ.'});return;}
       if(portraitPolicy&&portraitPolicy!=='never'&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة استخدام الصورة قبل تفعيل كشفها.'});return;}
-      save(applyConsentChoices(toProfile(reviewAnswers),consents),portraitChange,portraitPolicy);
+      const profile=applyConsentChoices(toProfile(reviewAnswers),consents);
+      save(profile,portraitChange,portraitPolicy,buildProfileAnswerProvenance(profile,confirmedProfileProposals.current,interviewVersion.current));
     } else if (editing && !draft.returnToReview) {
       setEditorHome(true); window.scrollTo(0, 0);
     } else {
@@ -632,7 +645,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
             <div className="nf-intake-action-meta">
               {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
-              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "تُحفظ إجاباتك تلقائيًا في مسودة خاصة بحسابك لمدة سبعة أيام من آخر حفظ. يمكنك تسجيل الدخول والمتابعة من جهاز آخر. لا تظهر للأعضاء قبل إرسال الملف ومراجعته، ولا تُعد موافقة على نشره." : deviceDraft ? "تُحفظ إجاباتك تلقائيًا على هذا الجهاز لسبعة أيام." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصورة التي أكملت رفعها محفوظة بخصوصية مع حالة التحقق. أما اختيار صورة لم يكتمل رفعها أو تعديل إعداداتها، فيحتاج إلى إكماله قبل المغادرة.</p></details>}
+              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "تُحفظ إجاباتك تلقائيًا في مسودة خاصة بحسابك لمدة ثلاثين يومًا من آخر حفظ. يمكنك تسجيل الدخول والمتابعة من جهاز آخر. لا تظهر للأعضاء قبل إرسال الملف ومراجعته، ولا تُعد موافقة على نشره." : deviceDraft ? "تُحفظ إجاباتك تلقائيًا على هذا الجهاز لثلاثين يومًا." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصورة التي أكملت رفعها محفوظة بخصوصية مع حالة التحقق. أما اختيار صورة لم يكتمل رفعها أو تعديل إعداداتها، فيحتاج إلى إكماله قبل المغادرة.</p></details>}
             </div>
           </footer>
           {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>هذا التعديل على الصورة لم يُحفظ بعد. يمكنك العودة لإكماله، أو حفظ إجاباتك الآن واختياره مجددًا لاحقًا. صورتك المحفوظة لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}

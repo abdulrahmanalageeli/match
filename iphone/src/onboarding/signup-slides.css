@@ -1,14 +1,18 @@
-.wd-signup-slides{width:100%;scroll-margin-top:88px;padding:8px 0 2px;color:#30282c}
-.wd-slide-progress{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:#6d5d64;margin-bottom:12px}
+.wd-signup-slides{width:100%;scroll-margin-top:88px;padding:4px 0 2px;color:#30282c}
+.wd-slide-progress{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:#6d5d64;margin-bottom:10px;padding-inline:3px}
 .wd-slide-progress i{font-style:normal;color:#9a8d92}
-.wd-slide-track{display:flex;gap:5px;margin-bottom:32px;height:3px}
+.wd-slide-track{display:flex;gap:5px;margin-bottom:18px;height:3px}
 .wd-slide-track>span{flex:1;background:#eee8eb;border-radius:3px;transition:background 240ms ease}
 .wd-slide-track>span[data-done]{background:#6a2440}
-.wd-slide-content{display:flex;flex-direction:column;gap:22px;min-height:300px}
-.wd-slide-content h2{font-size:clamp(24px,6.6vw,31px);font-weight:700;line-height:1.5;letter-spacing:-.45px;margin:0;color:#34252d;outline:none}
+.wd-slide-content{display:flex;flex-direction:column;gap:0;min-height:0;padding:22px 20px 24px;border:1px solid #ebe3e6;border-radius:24px;background:linear-gradient(150deg,#fff 0%,#fffdfd 64%,#fbf6f8 100%);box-shadow:0 12px 28px rgba(66,32,47,.055)}
+.wd-slide-heading{display:flex;align-items:flex-start;gap:13px}
+.wd-slide-icon{display:grid;place-items:center;flex:none;width:43px;height:43px;border:1px solid #e7d7de;border-radius:14px;background:#faf2f5;color:#6a2440;box-shadow:0 4px 12px rgba(106,36,64,.07)}
+.wd-slide-kicker{display:block;margin:2px 0 4px;color:#8a707a;font-size:12px;line-height:1.65}
+.wd-slide-heading h2{font-size:clamp(24px,6.6vw,31px);font-weight:700;line-height:1.35;letter-spacing:-.45px;margin:0;color:#34252d;outline:none}
+.wd-slide-body{display:grid;gap:18px;margin-top:24px}
 .wd-slide-content label{display:flex;flex-direction:column;gap:10px;font-size:14px;font-weight:500}
 .wd-slide-description{font-size:14px!important;line-height:1.9;color:#776b71;margin:-10px 0 0!important}
-.wd-slide-detail{font-size:23px;color:#6a2440;margin:0;font-variant-numeric:tabular-nums}
+.wd-slide-detail{font-size:15px;color:#6a2440;margin:-8px 0 0;font-variant-numeric:tabular-nums}
 .wd-slide-content input,.wd-slide-content textarea{font:inherit;background:#fff;border:1px solid #e5dde0;border-radius:13px;padding:15px 16px;color:#34252d;min-height:54px;transition:border-color 180ms,box-shadow 180ms}
 .wd-slide-content input:focus,.wd-slide-content textarea:focus{outline:none;border-color:#9d667b;box-shadow:0 0 0 3px #6a24400b}
 .wd-slide-content textarea{line-height:1.9;resize:vertical;min-height:150px}
@@ -18,7 +22,12 @@
 .wd-slide-options{display:flex;flex-direction:column;gap:10px}
 .wd-slide-options button{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right;padding:18px;min-height:62px;background:#fff;color:#44343c;border:1px solid #e4dce0;border-radius:14px;font:inherit;font-size:14px}
 .wd-slide-options button[aria-pressed=true]{border-color:#9c6077;background:#f9f4f6;color:#5b1731}
-.wd-slide-foot{display:flex;align-items:center;justify-content:space-between;margin-top:24px;color:#91848a;font-size:11px;min-height:44px}
+.wd-slide-ai-note{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid #eadce2;border-radius:15px;background:#fcf7f9;color:#6a2440}
+.wd-slide-ai-note svg{flex:none;margin-top:2px}
+.wd-slide-ai-note div{display:grid;gap:3px}
+.wd-slide-ai-note strong{font-size:13px;line-height:1.65}
+.wd-slide-ai-note span{font-size:12px;line-height:1.75;color:#776a71}
+.wd-slide-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-inline:3px;color:#91848a;font-size:11px;min-height:42px}
 .wd-slide-foot button{display:flex;align-items:center;gap:4px;border:0;background:none;color:#65545d;font:inherit;font-size:13px;min-height:44px;padding:0 3px}
 .wd-slide-error{margin:16px 0 0;font-size:13px;line-height:1.8;color:#8b2945}
 .wd-slide-content .nf-marriage-fields[data-slideshow]>.nf-detail-intro,.wd-slide-content .nf-marriage-fields[data-slideshow]>.nf-detail-footnote,.wd-slide-content .nf-marriage-fields[data-slideshow]>.nf-sensitive-note{display:none}
@@ -29,7 +38,25 @@
 .wd-slide-content .nf-detail-choices legend{font-size:14px;line-height:1.7}
 .wd-slide-content .nf-tone-choices{gap:8px}
 .wd-slide-content .nf-sheet-choice-row{background:#fff;border-radius:13px;min-height:62px}
+.wd-slide-content .nf-marriage-fields{margin:0;padding:0;background:transparent}
+.wd-slide-content .nf-marriage-fields .nf-detail-intro{display:none}
+.wd-slide-content .nf-marriage-fields .nf-marriage-content{background:#fff;border:1px solid #ebe3e6;border-radius:18px;padding:16px}
+.wd-slide-content .nf-marriage-fields .nf-marriage-content .field-pair{gap:10px}
+.wd-slide-content .nf-marriage-fields .nf-detail-choices{gap:9px}
+.wd-slide-content .nf-marriage-fields .nf-detail-choices legend{font-size:13px}
+.wd-slide-content .nf-consent-gate{margin:0;border-radius:18px;background:linear-gradient(145deg,#fffaf3,#f8eef0);border-color:#e1cdd3}
+.wd-slide-content .nf-consent-choice{padding:8px 0}
+.wd-slide-content .nf-consent-required-receipt{margin:0}
+.wd-slide-content .nf-gender-segment{margin:0;padding:0;border:0}
+.wd-slide-content .nf-gender-segment legend{font-size:13px;margin-bottom:8px;color:#6d5d64}
+.wd-slide-content .nf-gender-segment .choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wd-slide-content .nf-gender-segment .choice-row button{min-height:52px;border:1px solid #e5dce0;border-radius:14px;background:#fff;color:#594850;font:inherit;font-size:14px}
+.wd-slide-content .nf-gender-segment .choice-row button[aria-pressed=true]{border-color:#9c6077;background:#f9f1f4;color:#5a1530;box-shadow:0 4px 12px rgba(106,36,64,.08)}
+.wd-slide-content .nf-sheet-choice-row:focus-within{box-shadow:0 0 0 3px rgba(106,36,64,.08)}
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-title,.phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-progress{display:none}
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-stage{padding-top:0}
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-fields{padding-top:0}
 @media(prefers-reduced-motion:reduce){.wd-signup-slides *{transition:none!important}}
+@media(prefers-reduced-motion:no-preference){.wd-slide-icon{animation:wd-icon-settle 520ms ease-out both}.wd-slide-track>span[data-done]{transition:background 260ms ease,transform 320ms ease}.wd-slide-track>span[data-done]:last-child{transform:scaleY(1.35)}}
+@keyframes wd-icon-settle{from{opacity:0;transform:translateY(4px) scale(.94)}to{opacity:1;transform:none}}
+html[data-nf-motion=reduced] .wd-slide-icon{animation:none}

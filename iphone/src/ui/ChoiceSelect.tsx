@@ -63,6 +63,9 @@ export function ChoiceSelect({ label, value, onChange, options, placeholder = 'Ø
       frame = requestAnimationFrame(() => {
         const element = panel.current;
         if (!element) return;
+        // The keyboard viewport owns focused-field placement. Scrolling this
+        // panel independently would push its search input above the header.
+        if (element.closest('[data-nf-keyboard-form]')) return;
         const viewport = window.visualViewport;
         const top = viewport?.offsetTop ?? 0;
         const bottom = top + (viewport?.height ?? window.innerHeight);

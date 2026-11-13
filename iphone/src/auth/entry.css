@@ -1,0 +1,83 @@
+/* Account entry shares the quiet ivory/burgundy registration palette. */
+.phone-app main.nf-auth-frame {
+  --auth-ink: #30232c;
+  --auth-muted: #746870;
+  --auth-line: #e5dde0;
+  background: #fbfaf8;
+  color: var(--auth-ink);
+  padding-inline: clamp(20px, 5vw, 28px);
+}
+.phone-app .nf-auth-frame .flow-header {
+  gap: 12px;
+  min-height: 68px;
+  padding-inline: 0;
+  border-bottom: 1px solid var(--auth-line);
+  color: var(--auth-muted);
+  font-size: 14px;
+}
+.phone-app .nf-auth-frame .flow-header .f-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #f0ebed;
+  color: #5a0f28;
+}
+.phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss { flex: none; padding-inline: 8px; }
+.phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss span { display: none; }
+.phone-app .nf-auth-frame .flow-body { padding: 26px 0 max(24px, env(safe-area-inset-bottom)); }
+.phone-app .nf-auth-frame .nf-auth-hero { padding-bottom: 24px; }
+.phone-app .nf-auth-frame .nf-auth-eyebrow { color: #815b6c; font-size: 13px; margin-bottom: 8px; }
+.phone-app .nf-auth-frame .nf-auth-hero h1 { color: var(--auth-ink); font-size: 28px; font-weight: 650; line-height: 1.5; }
+.phone-app .nf-auth-frame .nf-auth-hero .flow-intro { font-size: 15px; line-height: 1.8; color: var(--auth-muted); margin-top: 7px; }
+.nf-auth-steps { display: flex; align-items: center; gap: 14px; list-style: none; padding: 0; margin: 22px 0 0; }
+.nf-auth-steps li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #776b72; }
+.nf-auth-steps li + li::before { content: ''; width: 12px; height: 1px; margin-inline-end: 3px; background: #d9cbd1; }
+.nf-auth-steps li > span { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; border: 1px solid #d9cbd1; }
+.nf-auth-steps li[aria-current] { color: #5a0f28; font-weight: 650; }
+.nf-auth-steps li[aria-current] > span { background: #5a0f28; color: white; border-color: #5a0f28; }
+.phone-app .nf-auth-frame .nf-auth-panel { min-width: 0; gap: 12px; }
+.phone-app .nf-auth-frame .flow-form { gap: 22px; }
+.phone-app .nf-auth-frame .flow-form label { gap: 9px; color: var(--auth-ink); font-size: 14px; font-weight: 500; min-width: 0; }
+.phone-app .nf-auth-frame .flow-form input:not([type=checkbox]) {
+  min-width: 0;
+  min-height: 54px;
+  max-width: 100%;
+  border: 1px solid #ded3d8;
+  border-radius: 13px;
+  padding: 13px 15px;
+  background: #fff;
+  color: var(--auth-ink);
+  font-size: 16px;
+  box-shadow: 0 2px 5px #30232c03;
+}
+.phone-app .nf-auth-frame .flow-form input:not([type=checkbox]):focus { border-color: #996479; outline: 3px solid #5a0f2810; outline-offset: 1px; }
+.phone-app .nf-auth-frame .password-wrap button { top: 5px; width: 44px; height: 44px; }
+.phone-app .nf-auth-frame .nf-auth-field-help { font-size: 12px; font-weight: 400; line-height: 1.7; color: var(--auth-muted); }
+.phone-app .nf-auth-frame .nf-consent-review { border-top: 1px solid var(--auth-line); padding-top: 20px; margin: 2px 0 0; }
+.phone-app .nf-auth-frame .nf-consent-review legend { color: var(--auth-ink); font-size: 14px; font-weight: 650; padding-bottom: 8px; }
+.phone-app .nf-auth-frame .nf-consent-choice { gap: 12px; padding-block: 10px; }
+.phone-app .nf-auth-frame .nf-consent-choice input { flex: none; width: 21px; height: 21px; margin-top: 2px; }
+.phone-app .nf-auth-frame .nf-consent-choice strong { font-size: 14px; font-weight: 550; color: var(--auth-ink); }
+.phone-app .nf-auth-frame .nf-consent-choice small,
+.phone-app .nf-auth-frame .nf-consent-review > p { font-size: 12px; line-height: 1.8; color: var(--auth-muted); }
+.phone-app .nf-auth-frame .nf-privacy-link { font-size: 13px; min-height: 44px; color: #5a0f28; }
+.phone-app .nf-auth-frame .f-primary { min-height: 54px; border-radius: 14px; background: #5a0f28; border-color: #5a0f28; box-shadow: 0 5px 12px #5a0f2810; font-size: 16px; }
+.phone-app .nf-auth-frame .f-primary:disabled { box-shadow: none; background: #e8e1e4; color: #766b71; border-color: #e8e1e4; }
+.phone-app .nf-auth-frame .f-link { min-height: 44px; font-size: 14px; }
+.phone-app .nf-auth-frame .form-error { background: #fff0f2; border: 1px solid #ebcdd5; border-radius: 11px; padding: 10px 12px; color: #8e2942; }
+.nf-auth-more { border-top: 1px solid var(--auth-line); padding-top: 8px; margin-top: 2px; }
+.nf-auth-more > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: #6d5360; font-size: 13px; cursor: pointer; list-style: none; }
+.nf-auth-more > summary::-webkit-details-marker { display: none; }
+.nf-auth-more[open] > summary svg { transform: rotate(-90deg); }
+.nf-auth-more > p { font-size: 13px; line-height: 1.8; color: var(--auth-muted); margin: 4px 0 12px; }
+.phone-app .nf-auth-frame :is(button, summary):focus-visible { outline: 2px solid #996479; outline-offset: 3px; }
+@media (min-width: 760px) {
+  .phone-app main.nf-auth-frame { padding: 14px 40px 40px; }
+  .phone-app .nf-auth-frame .flow-body { padding-top: 44px; gap: 60px; }
+  .phone-app .nf-auth-frame .nf-auth-panel { background: #ffffff80; border: 1px solid var(--auth-line); border-radius: 22px; padding: 26px; }
+  .phone-app .nf-auth-frame .nf-auth-aside { margin-top: 44px; }
+}
+@media (max-width: 360px) {
+  .nf-auth-steps { gap: 9px; }
+  .nf-auth-steps li + li::before { width: 7px; margin-inline-end: 0; }
+}

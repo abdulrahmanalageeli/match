@@ -2,11 +2,11 @@
 .phone-app .nf-intake.nf-intake--new,
 .nf-signup-status,
 .phone-app .nf-onboarding-sandbox {
-  --journey-canvas: #fdfdfd;
-  --journey-ink: #242326;
-  --journey-muted: #716b70;
-  --journey-line: #e5e2de;
-  --intake-pad: clamp(22px, 6vw, 32px);
+  --journey-canvas: #fcfaf8;
+  --journey-ink: #30232c;
+  --journey-muted: #746870;
+  --journey-line: #e9e1df;
+  --intake-pad: clamp(20px, 5.5vw, 28px);
   background: var(--journey-canvas);
   color: var(--journey-ink);
   position: relative;
@@ -22,26 +22,26 @@
   position: sticky;
   top: 0;
   z-index: 9;
-  min-height: 74px;
+  min-height: 66px;
   padding: max(12px, env(safe-area-inset-top)) 20px 12px;
   border-bottom: 1px solid var(--journey-line);
-  background: #fdfdfdf5;
+  background: #fcfaf8f5;
   backdrop-filter: blur(16px);
   box-shadow: none;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-header .f-icon {
   width: 44px; height: 44px; flex: none; min-height: 44px;
-  border: 1px solid var(--journey-line); border-radius: 10px;
+  border: 1px solid var(--journey-line); border-radius: 12px;
   background: #fff; box-shadow: none; color: var(--journey-ink);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 500; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 24px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 6px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-progress {
-  padding: 0 0 28px; margin: 0;
+  padding: 0 0 20px; margin: 0;
   border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
 }
-.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 12px; font-size: 14px; line-height: 1.6; color: var(--journey-muted); }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 9px; font-size: 12px; line-height: 1.6; color: var(--journey-muted); }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: var(--journey-ink); font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child::before { content: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter { gap: 5px; }
@@ -52,15 +52,15 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-title,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title {
   display: flex; flex-direction: column; align-items: stretch;
-  padding: 0; margin: 0 0 28px; min-height: 0;
+  padding: 0; margin: 0 0 22px; min-height: 0;
   border: 0; background: none; overflow: visible;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::before,
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::after,
 .phone-app .nf-intake.nf-intake--new .nf-intake-ridge,
 .phone-app .nf-intake.nf-intake--new .nf-intake-seal { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: 28px; font-weight: 600; line-height: 1.45; letter-spacing: 0; text-wrap: balance; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: 16px; font-weight: 400; line-height: 1.8; margin: 10px 0 0; text-wrap: pretty; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: 24px; font-weight: 700; line-height: 1.45; letter-spacing: 0; text-wrap: balance; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: 14px; font-weight: 400; line-height: 1.8; margin: 7px 0 0; text-wrap: pretty; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-heading-tools {
   position: static; inset: auto; order: 2;
@@ -75,27 +75,28 @@
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 20px; line-height: 1.5; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title { margin-bottom: 16px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-section-guide p { font-size: 14px; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 24px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 22px; }
 .phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
-  min-height: 56px; padding: 14px 15px; border: 1px solid #c9c4c1; border-radius: 10px;
-  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 16px; font-weight: 400;
+  min-height: 54px; padding: 12px 14px; border: 1px solid #d8cccd; border-radius: 12px;
+  background: #fffefd; color: var(--journey-ink); box-shadow: 0 2px 3px #30232c03; font-size: 16px; font-weight: 400;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: #817b80; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: #54152a; background: #fff; outline: 3px solid #54152a16; box-shadow: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select, button)[aria-invalid=true] { border-color: #a12b45; }
-.phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #cfcac7; background: #fff; color: var(--journey-ink); min-height: 60px; border-radius: 10px; font-size: 16px; font-weight: 500; line-height: 1.6; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
-.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] { background: #f4eef0; border-color: #54152a; box-shadow: inset 0 0 0 1px #54152a; color: #54152a; }
+.phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #d8cccd; background: #fffefd; color: var(--journey-ink); min-height: 52px; border-radius: 12px; font-size: 16px; font-weight: 500; line-height: 1.6; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
+.phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] { background: #f4e9ed; border-color: #956176; box-shadow: none; color: #54152a; }
 .phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions {
-  z-index: 8; margin-top: 32px; padding-top: 16px;
-  border-top: 1px solid var(--journey-line); background: #fdfdfdf5; backdrop-filter: blur(16px);
+  position: static;
+  z-index: 8; margin-top: 26px; padding-top: 14px;
+  border-top: 1px solid var(--journey-line); background: #fcfaf8f5; backdrop-filter: blur(16px);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
-  min-height: 56px; border: 1px solid #54152a; border-radius: 10px;
+  min-height: 56px; border: 1px solid #54152a; border-radius: 12px;
   background: #54152a; color: #fff; font-size: 16px; font-weight: 500; line-height: 1.5; letter-spacing: 0;
   box-shadow: none; transition: transform 120ms ease-out, background-color 160ms ease;
 }
@@ -106,7 +107,7 @@
 .phone-app .nf-intake.nf-intake--new :is(.nf-intake-action-meta > small, .nf-intake-draft-help, .nf-intake-note, .nf-intake-wordcount) { color: var(--journey-muted); font-size: 14px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter { position: static; background: transparent; border-top-color: var(--journey-line); backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter .f-primary { background: transparent; color: #54152a; border-color: #bfaeb4; box-shadow: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-error { background: #fff; border: 1px solid #b85268; border-radius: 10px; color: #922b43; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-error { background: #fff; border: 1px solid #b85268; border-radius: 12px; color: #922b43; }
 .phone-app .nf-intake.nf-intake--new :is(summary, button):focus-visible { outline-color: #54152a; }
 
 /* Status and local preview completion share the same quiet layout. */
@@ -114,8 +115,8 @@
 .nf-signup-status .flow-symbol { color: #54152a; border: 1px solid var(--journey-line); background: #fff; border-radius: 12px; box-shadow: none; }
 .nf-signup-status .flow-body > h1 { color: var(--journey-ink); }
 .nf-signup-status .flow-card { border: 1px solid var(--journey-line); border-radius: 12px; background: #fff; box-shadow: none; }
-.nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 10px; min-height: 52px; }
-.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #fdfdfdf5; border-bottom: 1px solid var(--journey-line); }
+.nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 52px; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #fcfaf8f5; border-bottom: 1px solid var(--journey-line); }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: none; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: start; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-check { width: 66px; height: 66px; margin: 20px 0 28px; border: 1px solid #d3dcd5; border-radius: 50%; background: #edf3ee; box-shadow: none; color: #3a6348; }
@@ -150,7 +151,7 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
   .phone-app .nf-intake.nf-intake--new { --intake-pad: 20px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header { padding-inline: 12px; gap: 8px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 4px; }
-  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 28px; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 24px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 20px; }
 }
 
@@ -193,4 +194,4 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
 .phone-app .nf-intake.nf-intake--new :is(.nf-intake-note, .nf-intake-wordcount, .nf-intake-action-meta > small, .nf-intake-draft-help) { font-weight: 400; letter-spacing: 0; }
 .phone-app .nf-intake.nf-intake--new :is(.nf-review-edit, .nf-intake-policy) { font-size: 14px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-consent { border-radius: 12px; font-weight: 400; }
-.phone-app .nf-onboarding-sandbox .nf-sandbox-finish h1 { font-size: 28px; font-weight: 600; line-height: 1.45; letter-spacing: 0; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish h1 { font-size: 24px; font-weight: 700; line-height: 1.45; letter-spacing: 0; }

@@ -321,6 +321,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (editorHome) return;
     previousStep.current = draft.step;
     heading.current?.focus({ preventScroll: true });
+    heading.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo(0, 0);
   }, [draft.step, editorHome]);
   useLayoutEffect(() => {
@@ -419,6 +420,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const savedCompatibilityCount = dimensions.reduce((count,d) => count + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.id])) + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.partnerId])),0);
   const savedPersonalityCount = personalityQuestions.filter(q=>q.options.some(o=>o.code===p.personalityAnswers?.[q.id])).length;
   const choosingAssessment = !editing && !!interviewAuth && chapter.key==='compatibility' && consents.assessment && assessmentPath==='choice' && !savedCompatibilityCount;
+  const journeyPhase = ['identity', 'story', 'details', 'avatar'].includes(chapter.key) ? 0 : chapter.key === 'review' ? 2 : 1;
   const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال التوافق لاحقًا' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
@@ -435,6 +437,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
         <div className="nf-intake-progress">
+          {!editing && <ol className="nf-intake-phases" aria-label="مراحل إعداد ملفك">
+            {['عن نفسك', 'ما يجمعكما', 'ملفك جاهز'].map((label, phase) => <li key={label} data-state={phase < journeyPhase ? 'done' : phase === journeyPhase ? 'current' : 'upcoming'} aria-current={phase === journeyPhase ? 'step' : undefined}><span aria-hidden="true">{phase < journeyPhase ? <Check size={12}/> : arabicNumber(phase + 1)}</span>{label}</li>)}
+          </ol>}
           <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}`}</span></div>
           {!editing && <div className="nf-intake-meter" aria-label="تقدم إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-valuetext={`الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}: ${chapter.label}`}>
             {steps.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
@@ -449,19 +454,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
               </svg>
               <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div><HelpButton topic="profile" label={assessmentStep ? "مساعدة" : "الخصوصية ولماذا نسأل"}/></div>
-              {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.note}</p></>}
+              {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'لنبدأ بما يعرّف عنك.' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'اسمك، عمرك، ومدينتك. بداية بسيطة لملف يشبهك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
               {chapter.key === "identity" && <>
-                <label>الاسم المعروض<input {...field("displayName")} autoComplete="off" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label>
+                <label>بأي اسم تحب أن تظهر؟<input {...field("displayName")} autoComplete="nickname" enterKeyHint="next" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label>
                 <fieldset><legend>أنا</legend><div className="choice-row">
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
                     aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span><i className="nf-intake-choice-check" aria-hidden="true">{p.gender === gender && <Check size={13} />}</i></button>)}
                 </div></fieldset>
-                <div className="field-pair"><label>تاريخ الميلاد · ميلادي<input {...field('birthDate')} type="date" dir="ltr" autoComplete="bday" value={p.birthDate ?? ''} max={latestAdultBirthday()} min="1900-01-01" required={!editing || !!initial?.birthDate} onChange={e => { const birthDate=e.target.value; const age=ageFromBirthday(birthDate); update({birthDate,age:age===null?'':String(age)}); }} />
-                  <small>{p.birthDate && ageFromBirthday(p.birthDate)! >= 18 ? `عمرك ${arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا · يظهر العمر فقط` : editing && !p.birthDate ? `العمر المسجّل: ${arabicNumber(Number(p.age))} عامًا · أضف ميلادك لتحديثه تلقائيًا` : 'خاص بك؛ يظهر العمر فقط في ملفك. الحد الأدنى ١٨ عامًا.'}</small></label>
+                <div className="field-pair"><label><span className="nf-intake-field-label">تاريخ الميلاد <span>ميلادي</span></span><input {...field('birthDate')} type="date" dir="ltr" autoComplete="bday" aria-describedby={[error?.field==='birthDate'?'nf-intake-error':'','nf-birthday-help'].filter(Boolean).join(' ')} value={p.birthDate ?? ''} max={latestAdultBirthday()} min="1900-01-01" required={!editing || !!initial?.birthDate} onChange={e => { const birthDate=e.target.value; const age=ageFromBirthday(birthDate); update({birthDate,age:age===null?'':String(age)}); }} />
+                  <small id="nf-birthday-help" className="nf-intake-field-help"><LockKeyhole size={13} aria-hidden="true"/>{p.birthDate && ageFromBirthday(p.birthDate)! >= 18 ? `عمرك ${arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا · يظهر العمر فقط` : editing && !p.birthDate ? `العمر المسجّل: ${arabicNumber(Number(p.age))} عامًا · أضف ميلادك لتحديثه تلقائيًا` : 'يظهر عمرك فقط، وليس تاريخ ميلادك. +١٨'}</small></label>
                   <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city => update({ city })} options={cityOptions} placeholder="اختر مدينتك" required /></div>
-                <small>اختر مكان إقامتك الحالي لتكون الترشيحات ونتائج البحث أقرب إليك.</small>
+                <small className="nf-intake-city-help">مكان إقامتك الحالي يساعدنا في ترشيح أشخاص أقرب إليك.</small>
               </>}
               {chapter.key === "story" && <>
                 <ChoiceSelect {...field('profession')} label="مجال العمل أو الوضع المهني" value={p.profession} onChange={profession => update({ profession })} options={professionOptions} placeholder="اختر ما يصف حياتك اليوم" required />

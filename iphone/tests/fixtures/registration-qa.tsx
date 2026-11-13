@@ -9,6 +9,10 @@ import '../../src/screens.css';
 import '../../src/motion.css';
 import '../../src/ambient.css';
 import '../../src/mobile/keyboard.css';
+import '../../src/onboarding/arrivalJourney.css';
+import '../../src/onboarding/arrivalAssessments.css';
+import '../../src/arrivalSurfaces.css';
+import '../../src/typography.css';
 import { initializeKeyboardViewport } from '../../src/mobile/keyboardViewport';
 import { initializeDevicePreferences } from '../../src/settings/preferences';
 

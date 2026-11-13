@@ -1,6 +1,6 @@
 /* Keep Safari from zooming small fields on focus; user pinch zoom remains available. */
 @media (any-pointer: coarse) {
-  html body :is(.fb-field input, .fb-field select, .fb-composer textarea) {
+  html body :is(.fb-field input, .fb-field select, .fb-composer textarea, .nf-intake input, .nf-intake textarea, .nf-intake select, .nf-auth-frame input) {
     font-size: max(16px, 1rem);
   }
 }
@@ -10,7 +10,28 @@ html[data-nf-keyboard] .nf-keyboard-dismiss {
   min-height: 44px; padding: 8px 12px; border: 0; border-radius: 12px;
   background: transparent; color: var(--accent); font: inherit; font-size: .82rem;
 }
-html[data-nf-keyboard] :is(.nf-intake-actions, .nf-studio-actions) { bottom: var(--nf-keyboard-inset, 0px); padding-bottom: 8px; }
+/* A single scroll surface avoids Safari stretching the page behind the keyboard.
+   Actions stay in the form instead of jumping up by the entire keyboard height. */
+html[data-nf-form-viewport], html[data-nf-form-viewport] body {
+  position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden;
+}
+html[data-nf-form-viewport] .phone-app [data-nf-keyboard-form] {
+  position: fixed; top: var(--nf-visual-top, 0px); inset-inline: 0; bottom: auto;
+  width: 100%; max-width: var(--app-width); margin-inline: auto;
+  height: var(--nf-visual-height, 100dvh); min-height: 0; max-height: var(--nf-visual-height, 100dvh);
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch; scroll-behavior: auto; scroll-padding-block: 16px;
+}
+html[data-nf-form-viewport] [data-nf-keyboard-form] > * { flex-shrink: 0; }
+html[data-nf-form-viewport] [data-nf-keyboard-form] :is(.nf-intake-actions, .nf-studio-actions) {
+  position: static; bottom: auto; padding-bottom: 12px;
+}
+html[data-nf-form-viewport] [data-nf-keyboard-form] .nf-choice-panel {
+  display: flex; flex-direction: column; max-height: min(240px, calc(var(--nf-visual-height) - 180px));
+  scroll-margin-block: 0;
+}
+html[data-nf-form-viewport] [data-nf-keyboard-form] .nf-choice-list { min-height: 0; max-height: none; }
+html[data-nf-form-viewport] [data-nf-keyboard-form] :is(.nf-choice-hint, .nf-choice-clear) { flex-shrink: 0; }
 html[data-nf-keyboard] :is(.nf-support-dialog, .fb-preparation) {
   position: fixed; top: calc(var(--nf-visual-top, 0px) + 12px); bottom: auto;
   margin-block: 0; max-height: calc(var(--nf-visual-height, 100dvh) - 24px);

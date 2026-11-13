@@ -20,6 +20,8 @@ import { PhoneAuth } from "./PhoneAuth";
 import { LegalNotice, LEGAL_NOTICE_VERSION } from "./legal/LegalNotice";
 import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
+import './auth/entry.css';
+import { KeyboardDismiss } from './mobile/KeyboardDismiss';
 
 type Click = () => void;
 export function Frame({
@@ -28,12 +30,14 @@ export function Frame({
   children,
   backDisabled = false,
   className = "",
+  headerAction,
 }: {
   title: string;
   back: Click;
   children: ReactNode;
   backDisabled?: boolean;
   className?: string;
+  headerAction?: ReactNode;
 }) {
   return (
     <main className={`flow-frame ${className}`.trim()} dir="rtl">
@@ -48,6 +52,7 @@ export function Frame({
           <ArrowRight size={22} />
         </button>
         <span>{title}</span>
+        {headerAction}
         <span className="flow-brand">
           <Brand compact />
         </span>
@@ -123,27 +128,31 @@ export function Auth({
     {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
   </fieldset> : null;
   return (
-    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame">
+    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section className="nf-auth-hero">
-        <span className="nf-auth-eyebrow">{login ? "نكمّل من حيث بدأنا" : "الخطوة الأولى · حسابك"}</span>
+        <span className="nf-auth-eyebrow">{login ? "نكمّل من حيث بدأنا" : "بداية جادة، وخطوات واضحة"}</span>
         <h1>{login ? "أهلًا بعودتك." : "أنشئ حسابك"}</h1>
         <p className="flow-intro">
           {login
             ? "سجّل الدخول لمتابعة طلباتك ومحادثاتك."
-            : phoneMode ? "ابدأ برقم جوالك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك." : "أنشئ حسابك. بعدها نتعرّف إليك وإلى ما تبحث عنه في شريك حياتك."}
+            : "نبدأ بحسابك، ثم نبني ملفًا يعبّر عنك وعن شريك الحياة الذي تبحث عنه."}
         </p>
-        {!login && <JoinAdvantages/>}
+        {!login && <ol className="nf-auth-steps" aria-label="رحلتك مع وُدَين"><li aria-current="step"><span>١</span> حسابك</li><li><span>٢</span> ملفك</li><li><span>٣</span> المراجعة</li></ol>}
         <div className="nf-auth-aside" aria-hidden="true"><span>وُدَين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
       </section>
       <section className="nf-auth-panel">
       {phoneMode && consentReview}
       {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready ? (
-        <form className="flow-form" onSubmit={send}>
+        <form className="flow-form" onSubmit={send} aria-busy={locked}>
           <label>
             البريد الإلكتروني
             <input
               dir="ltr"
               autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="email"
+              enterKeyHint="next"
               type="email"
               name="email"
               required
@@ -162,20 +171,23 @@ export function Auth({
                 minLength={login ? 1 : 10}
                 maxLength={128}
                 required
+                enterKeyHint={login ? "go" : "done"}
+                aria-describedby={login ? undefined : "nf-password-help"}
               />
               <button
                 type="button"
                 onClick={() => setVisible(!visible)}
                 aria-label={visible ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                aria-pressed={visible}
               >
                 {visible ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </span>
+            {!login && <small id="nf-password-help" className="nf-auth-field-help">١٠ أحرف على الأقل. اختر كلمة مرور خاصة بهذا الحساب.</small>}
           </label>
-          {!login && <small className="nf-password-help">استخدم ١٠ أحرف على الأقل.</small>}
           {consentReview}
           <button className="f-primary" disabled={locked || !accepted}>
-            {login ? "تسجيل الدخول" : "إنشاء الحساب"}
+            {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : "إنشاء الحساب"}
             <ArrowLeft size={18} />
           </button>
         </form>
@@ -198,11 +210,7 @@ export function Auth({
         </button>
         </>
       )}
-      {ready && !login && (
-        <button type="button" className="nf-privacy-link" onClick={onPrivacy}>
-          <LockKeyhole size={14} aria-hidden="true" /> كيف نستخدم بياناتك؟
-        </button>
-      )}
+      {ready && !login && <details className="nf-auth-more"><summary>ماذا بعد إنشاء الحساب؟<ArrowLeft size={15} aria-hidden="true" /></summary><p>تُكمل ملفك وتفضيلاتك، ثم تراجع ما سيظهر للأعضاء قبل إرسال طلب العضوية.</p><JoinAdvantages animate={false}/></details>}
       {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
         <p>اختَر حسابك</p>
         <div>

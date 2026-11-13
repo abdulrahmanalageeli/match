@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
   const token = req.headers.authorization;
   if (!token || !/^Bearer [^\s]+$/.test(token)) return res.status(401).json({ error: 'sign_in' });
-  const { photoId, kind, selfie, consent } = req.body ?? {};
+  const { photoId, kind, selfie, consent, staged } = req.body ?? {};
   if (typeof photoId !== 'string' || !/^[0-9a-f-]{36}$/i.test(photoId) || !['portrait', 'gallery'].includes(kind)
     || consent !== 'face-photo-v1' || typeof selfie !== 'string' || selfie.length > 1400000
     || !/^[A-Za-z0-9+/]+={0,2}$/.test(selfie) || selfie.length % 4 !== 0) return res.status(400).json({ error: 'invalid_capture' });
@@ -28,8 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error || !data.user) return res.status(401).json({ error: 'sign_in' });
     const member = createClient(url, key, { ...options, global: { ...options.global, headers: { Authorization: token } } });
     // Checks the member's current session and server-owned gender, not user metadata.
-    const required = await member.rpc('marriage_photo_face_required');
-    if (required.error || required.data !== true) return res.status(403).json({ error: 'not_allowed' });
+    const required = staged === true && kind === 'portrait'
+      ? await member.rpc('marriage_portrait_stage_action', { photo: photoId, action: 'status' })
+      : await member.rpc('marriage_photo_face_required');
+    if (required.error || (staged === true ? required.data?.requiresFace !== true : required.data !== true)) return res.status(403).json({ error: 'not_allowed' });
     const start = await admin.rpc('marriage_photo_face_begin', { member: data.user.id, photo: photoId, photo_kind: kind, consent });
     if (start.error) return res.status(start.error.message.includes('rate_limited') ? 429 : 403).json({ error: start.error.message.includes('rate_limited') ? 'rate_limited' : 'photo_unavailable' });
     const target = start.data as { attempt: string; bucket: string; path: string };

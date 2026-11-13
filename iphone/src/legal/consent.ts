@@ -2,6 +2,13 @@ import type { Profile } from '../types';
 import { LEGAL_NOTICE_VERSION } from './LegalNotice';
 export type SignupConsents = {version:typeof LEGAL_NOTICE_VERSION|'2026-11-06-onboarding';adult:boolean;terms:boolean;privacy:boolean;sensitiveProfile:boolean;sensitivePublication:boolean;assessment:boolean;photo:boolean};
 export function emptyConsents():SignupConsents{return{version:LEGAL_NOTICE_VERSION,adult:false,terms:false,privacy:false,sensitiveProfile:false,sensitivePublication:false,assessment:false,photo:false};}
+/** Only restore a current receipt returned by the account service, never local defaults. */
+export function recordedAccountAgreements(receipt: unknown): Pick<SignupConsents, 'adult'|'terms'|'privacy'> {
+  const value = receipt && typeof receipt === 'object' ? receipt as Record<string, unknown> : {};
+  return value.version === LEGAL_NOTICE_VERSION
+    ? { adult: value.adult === true, terms: value.terms === true, privacy: value.privacy === true }
+    : { adult: false, terms: false, privacy: false };
+}
 export function withoutSensitive<T extends Pick<Partial<Profile>,'marriageBasics'|'partnerCriteria'|'publicAvatar'>>(profile:T):T {
   const basics={...profile.marriageBasics},criteria={...profile.partnerCriteria};
   for(const field of ['skinTone','tribalBackground','tribeName','religiousAffiliation','prayerPractice'] as const)delete basics[field];

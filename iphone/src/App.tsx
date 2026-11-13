@@ -1,3 +1,4 @@
+import { finalizeStagedPortrait } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
@@ -163,6 +164,15 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [accountAgreements, setAccountAgreements] = useState<SignupAgreements | null>(null);
+  useEffect(() => {
+    let active = true;
+    setAccountAgreements(null);
+    if (token && cloud) void cloud.auth.getUser().then(({ data }) => {
+      if (active && data.user?.id === token) setAccountAgreements(data.user.app_metadata?.signupConsent ?? null);
+    }).catch(() => { /* The explicit agreement controls remain available if the receipt cannot be loaded. */ });
+    return () => { active = false; };
+  }, [token]);
   const tokenRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -581,7 +591,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       }
       if(portraitChange!==undefined||(portraitPolicy!==undefined&&p.portrait&&portraitPolicy!==(p.portrait.revealPolicy??'never'))){
         try {
-          if(portraitChange){if(!source?.setPortrait)throw Error('خدمة صور الملف غير متاحة.');p={...p,portrait:await source.setPortrait(portraitChange.blob,portraitChange.blur,{policy:portraitChange.revealPolicy,clearBlob:portraitChange.clearBlob})};}
+          if(portraitChange){if(portraitChange.staged){p={...p,portrait:await finalizeStagedPortrait(portraitChange)};}else{if(!source?.setPortrait)throw Error('خدمة صور الملف غير متاحة.');p={...p,portrait:await source.setPortrait(portraitChange.blob,portraitChange.blur,{policy:portraitChange.revealPolicy,clearBlob:portraitChange.clearBlob})};}}
           else if(portraitChange===null){await source?.removePortrait?.();p={...p,portrait:null};}
           else if(p.portrait&&portraitPolicy!==undefined){if(!source?.setPortraitPolicy)throw Error('إعداد كشف الصورة غير متاح.');p={...p,portrait:await source.setPortraitPolicy(p.portrait,portraitPolicy)};}
           if(!demo&&token)await refresh(token);
@@ -877,6 +887,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         demo={demo} draftRef={intakeDraft}
         draftOwner={demo ? 'demo-'+sampleSession : live?.user.id}
         interviewAuth={tester ? {testSession:tester.session} : !demo && token ? {token} : null}
+        accountAgreements={accountAgreements}
         previouslyApproved={!demo && (accepted || Boolean(live?.user.profileReviewPending))}
         nextPublicProfileEditAt={live?.user.nextPublicProfileEditAt}
         profileReviewPending={Boolean(live?.user.profileReviewPending)}

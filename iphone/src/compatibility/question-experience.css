@@ -58,6 +58,7 @@
 .nf-intake--new .compat-previous { flex: 0 0 auto; padding: 10px 4px; color: #7f6974; }
 .nf-intake--new .compat-previous:disabled { opacity: .35; }
 .nf-intake--new .compat-next { flex: 1; padding: 13px 12px; justify-content: space-between; color: #fff; border-color: #5a0f28; background: #5a0f28; }
+.nf-intake--new :is(.compat-next,.compat-perspective button,.compat-sections button):disabled { opacity: .4; cursor: default; }
 .nf-intake--new .compat-finish { flex: 1; min-width: 0; font-size: .86rem; line-height: 1.7; color: #5a0f28; }
 .nf-intake--new .compat-assessment-recap { margin-top: 20px; padding: 19px; border-color: #e7d6de; border-radius: 20px; background: #f4ebef; box-shadow: none; }
 .nf-intake--new .compat-assessment-recap strong { font-size: 1rem; }

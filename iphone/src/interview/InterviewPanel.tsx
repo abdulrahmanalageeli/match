@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Check, ChevronDown, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
-import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { ArrowLeft, ArrowUp, Check, ChevronDown, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
+import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
@@ -26,10 +26,13 @@ type Props = {
   onClose: () => void;
   onDirectQuestions?: () => void;
   onboarding?: boolean;
+  consentGranted?: boolean;
+  onUnavailable?: () => void;
+  onFallbackApply?: (confirmed: InterviewProposal[]) => void;
   onApply: (confirmed: InterviewProposal[]) => void;
 };
 
-export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, onApply }: Props) {
+export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -48,10 +51,16 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const answerRef = useRef(answer);
   const [draftState, setDraftState] = useState<'saved'|'pending'|'error'>('saved');
   const [selections, setSelections] = useState<Record<string, string[]>>({});
-  const [included, setIncluded] = useState<Set<string>>(new Set());
+  const thread = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const autoStarted = useRef(false);
+  const failureNotified = useRef(false);
+  const unavailableCallback = useRef(onUnavailable);
+  unavailableCallback.current = onUnavailable;
   const [shareReview, setShareReview] = useState(false);
   const [deleteWarning, setDeleteWarning] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [fallbackReview, setFallbackReview] = useState(false);
   const [sharingSaved, setSharingSaved] = useState(false);
   const requestId = useRef<{ answer: string; skip: boolean; id: string } | null>(null);
   const doc = snapshot.document;
@@ -80,6 +89,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         setError(cause instanceof Error ? cause.message : 'تعذّر إكمال الخطوة. حاول مجددًا.');
         setErrorCode(cause instanceof InterviewError ? cause.code : 'unavailable');
       }
+      if (action !== 'load' && action !== 'draft') {
+        try {
+          const recovered = await requestInterview(auth, { action: 'load' });
+          if (mounted.current) assign(recovered, action === 'answer' && recovered.document?.lastRequestId === payload.requestId);
+        } catch { /* Keep the written answer and offer a retry if the connection is still unavailable. */ }
+      }
       return null;
     } finally {
       busyRef.current = false; activeRequest.current = null;
@@ -98,14 +113,32 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   useEffect(() => {
     if (!doc || !['review', 'confirmed'].includes(doc.status)) return;
     const confirmed = new Map(doc.confirmed.map(item => [item.id, item.values]));
-    setSelections(Object.fromEntries(doc.proposals.map(proposal => [proposal.id, confirmed.get(proposal.id) ?? proposal.values])));
-    setIncluded(new Set(doc.confirmed.map(item => item.id)));
+    setSelections(Object.fromEntries(doc.proposals.map(proposal => [proposal.id, confirmed.get(proposal.id) ?? (proposal.needsClarification ? [] : proposal.values)])));
   }, [reviewVersion]);
   useEffect(() => { setShareReview(doc?.reviewSharing ?? false); }, [doc?.reviewSharing]);
 
   useEffect(() => {
     if (open && loaded) { dialog.current?.scrollTo({ top: 0 }); heading.current?.focus({ preventScroll: true }); }
-  }, [open, loaded, doc?.currentQuestion?.text, doc?.status]);
+  }, [open, loaded, doc?.status, fallbackReview]);
+
+  useEffect(() => {
+    if (!open || !loaded || doc || !consentGranted || autoStarted.current) return;
+    autoStarted.current = true;
+    void call('start', { consentVersion: 'wudayn-interview-v1' }, true);
+  }, [open, loaded, doc, consentGranted, call]);
+  useEffect(() => {
+    const viewport = thread.current;
+    if (open && viewport) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+  }, [open, doc?.turns.length, doc?.currentQuestion?.text, busy === 'answer']);
+  useEffect(() => {
+    const viewport = thread.current;
+    if (!open || !viewport || typeof ResizeObserver === 'undefined') return;
+    const resize = new ResizeObserver(() => {
+      if (document.activeElement === composer.current) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+    });
+    resize.observe(viewport);
+    return () => resize.disconnect();
+  }, [open, loaded, doc?.status, fallbackReview]);
 
   useEffect(() => {
     if (!open || !doc || doc.status !== 'active' || busy || queuedIntent || answer === doc.draftAnswer || draftState === 'error') return;
@@ -168,7 +201,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   }
 
   async function send(skip = false) {
-    if (queuedIntentRef.current) return;
+    if (queuedIntentRef.current || current.current.document?.pendingAnalysis) return;
     if (activeRequest.current?.action === 'draft' && !await afterDraft('answer')) return;
     const text = skip ? '' : answerRef.current.trim();
     if (busyRef.current || (!skip && !text)) return;
@@ -179,7 +212,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   }
 
   async function confirm() {
-    const choices: InterviewSelection[] = (doc?.proposals ?? []).filter(proposal => included.has(proposal.id)).map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? [] }));
+    const choices: InterviewSelection[] = validProposals.map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values) }));
+    if (!choices.length || choices.some(choice => !choice.values.length)) return;
     const result = await call('confirm', { choices, shareReview });
     if (result?.document) {
       if (result.document.confirmed.length) { onApply(result.document.confirmed); setApplied(true); }
@@ -194,98 +228,99 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (result) { setSharingSaved(true); feedback('selection'); }
   }
 
-  async function review() {
-    if (queuedIntentRef.current) return;
-    if (activeRequest.current?.action === 'draft' && !await afterDraft('review')) return;
-    if (busyRef.current) return;
-    if (answerRef.current.trim()) {
-      const sent = await send();
-      if (!sent || sent.document?.status !== 'active') return;
-    }
-    await call('review', {}, true);
+  function changeAnswer(value: string) { answerRef.current = value; setAnswer(value); setDraftState('pending'); }
+  const validProposals = (doc?.proposals ?? []).filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
+  const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
+  const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
+  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ الحفظ…' : draftState === 'error' ? 'تعذّر حفظ آخر كتابة' : 'محفوظ بخصوصية';
+  const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
+  const unavailable = snapshot.fallbackAvailable === true;
+  const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
+  const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
+  const isChat = Boolean(loaded && doc && !applied && !reviewMode);
+  useEffect(() => {
+    if (unavailable && !failureNotified.current) { failureNotified.current = true; unavailableCallback.current?.(); }
+  }, [unavailable]);
+  function useFallback() {
+    if (!unavailable) return;
+    if (validProposals.length && onFallbackApply) {
+      setSelections(Object.fromEntries(validProposals.map(proposal => [proposal.id, selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)])));
+      setFallbackReview(true);
+    } else { unavailableCallback.current?.(); onDirectQuestions(); }
+  }
+  function finishFallbackReview() {
+    if (!unavailable || !fallbackReview) return;
+    const reviewed = validProposals.flatMap(proposal => {
+      const values = selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values);
+      return values.length && values.every(value => proposalOptions(proposal).some(option => option.value === value)) ? [{ ...proposal, values, needsClarification: false }] : [];
+    });
+    if (reviewed.length) onFallbackApply?.(reviewed);
+    setFallbackReview(false);
+    unavailableCallback.current?.(); onDirectQuestions();
   }
 
-  function changeAnswer(value: string) { answerRef.current = value; setAnswer(value); setDraftState('pending'); }
-  function toggle(id: string, checked: boolean) { setIncluded(previous => { const next = new Set(previous); checked ? next.add(id) : next.delete(id); return next; }); }
-  const validProposals = (doc?.proposals ?? []).filter(item => proposalOptions(item).length > 0);
-  const covered = new Set(doc?.turns.filter(turn => !turn.skipped).map(turn => turn.topic));
-  const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
-  const refiningAnswers = doc?.status === 'active' && covered.size >= topics.length;
-  const reviewMode = doc?.status === 'review' || doc?.status === 'confirmed';
-  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ حفظ إجابتك…' : draftState === 'error' ? 'لم تُحفظ آخر كتابة بعد' : 'محفوظة بخصوصية';
-  const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
-
-  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" onCancel={event => { event.preventDefault(); void close(); }}>
+  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-chat={isChat || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
-      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>مع وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
-      <div className="wi-content">
-        {!loaded ? <div className="wi-loading" role="status"><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span><p>نفتح مساحتك الخاصة…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
-        : !doc ? <MotionReveal key="welcome" className="wi-welcome" duration={400} distance={8} inert={!!busy}>
-          <InterviewSignature/>
-          <span className="wi-eyebrow">حوار قصير. فهم أقرب.</span>
-          <h1 id="wi-title" ref={heading} tabIndex={-1}>وش يخلّي الحياة<br/>بينكم أجمل؟</h1>
-          <p className="wi-lead">عن شخصيتك، وتفضيلاتك، ومواقف الحياة. حوار واحد، وتراجع ما فهمناه قبل أن يدخل في التوافق.</p>
-          <p className="wi-reassurance"><LockKeyhole size={14} aria-hidden="true"/><span>حوار خاص · تراجع كل تفسير · تكمل على راحتك</span></p>
-          <ol className="wi-how"><li><span>١</span><div><strong>تكلّم بطريقتك</strong><p>عن الحياة، والقرب، والقرارات المشتركة.</p></div></li><li><span>٢</span><div><strong>راجع ما فهمناه</strong><p>صحّح أي تفسير واختر ما يمثّلك.</p></div></li><li><span>٣</span><div><strong>تفضيلات أوضح</strong><p>تُضاف فقط الإجابات التي تؤكدها إلى مسودة ملفك.</p></div></li></ol>
-          <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على معالجة إجاباتي بواسطة OpenAI ‏(Luna) لفهم شخصيتي وتفضيلاتي، وحفظ الجلسة في حسابي بخصوصية.</span></label><details><summary>كيف تُستخدم إجاباتي؟ <ChevronDown size={13}/></summary><p>تُرسل إجابات هذه الجلسة إلى مزوّد الذكاء الاصطناعي. لا ترسل أرقام هوية أو حسابات أو معلومات عن أشخاص آخرين. تُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. قد يحتفظ المزوّد بسجلات لمراقبة إساءة الاستخدام وفق سياسته؛ لا نعد بانعدام الاحتفاظ.</p><p>لا يطّلع الطرف الآخر على الحوار. لا تُعد الملخصات تشخيصًا للشخصية أو توثيقًا لهويتك أو قرار قبول عضوية، ولا تُضاف شروط إلزامية تلقائيًا. مشاركة ملخص الاستعداد مع فريق العضوية اختيار مستقل في المراجعة.</p></details></div>
-          <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!consent || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'خلّنا نبدأ'}<ArrowLeft size={18}/></MotionPressButton>
-          <button type="button" className="wi-link wi-centered" onClick={onDirectQuestions} disabled={!!busy}>أفضّل الأسئلة المباشرة</button>
-        </MotionReveal>
-        : applied ? <MotionReveal key="complete" className="wi-complete" duration={450}><span className="wi-complete-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20"/><path d="m15 24 6 6 12-13" pathLength="1"/></svg></span><span className="wi-eyebrow">أنت صاحب الكلمة الأخيرة</span><h1 id="wi-title" ref={heading} tabIndex={-1}>الصورة صارت أوضح.</h1><p>أضفنا الإجابات التي أكّدتها إلى مسودة ملفك. راجع الملف واحفظه لتدخل في حساب التوافق والترشيحات.</p><div className="wi-complete-count"><strong>{number(doc.confirmed.length)}</strong><span>إجابة مؤكدة<br/>بكلماتك واختيارك</span></div><p className="wi-small">تدخل ملامح الشخصية التي تؤكدها في التقييم نفسه. ما لم تجب عنه يبقى مفتوحًا، والشروط الأساسية تختارها بنفسك.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? "إكمال ما تبقّى" : "العودة إلى ملفي"} <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>مراجعة الجلسة وخيارات المشاركة</button></MotionReveal>
-        : reviewMode ? <MotionReveal key="review" className="wi-review" duration={350} distance={8} inert={!!busy}>
-          <span className="wi-eyebrow">المراجعة · القرار لك</span><h1 id="wi-title" ref={heading} tabIndex={-1}>هل هذه الصورة تمثّلك؟</h1><p className="wi-lead">اختر الإجابات التي توافق عليها. افتح أي نقطة لتراجع كلماتك الأصلية أو تعدّل التفسير.</p>
-          {doc.pendingAnalysis && <div className="wi-notice"><p>حفظنا إجاباتك، لكن التحليل لم يكتمل. يمكنك إعادة المحاولة أو متابعة الأسئلة المباشرة. ستراجع أي تفسيرات جديدة قبل إضافتها.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة التحليل</button></div>}
-          {validProposals.length > 0 ? <><div className="wi-review-selection"><span role="status"><strong>{number(included.size)}</strong> من {number(validProposals.length)} مختارة</span><button type="button" onClick={() => setIncluded(new Set(validProposals.filter(item => !item.needsClarification).map(item => item.id)))}>اختيار الواضح منها</button>{included.size > 0 && <button type="button" onClick={() => setIncluded(new Set())}>إلغاء الاختيار</button>}</div>
-            {(['personality','self','partner','importance'] as const).map(side => {
-              const group = validProposals.filter(proposal => side === 'personality' ? proposal.kind === 'personality' : proposal.kind !== 'personality' && proposal.side === side);
-              if (!group.length) return null;
-              return <section className="wi-review-group" key={side}><h2>{side === 'personality' ? 'ملامح شخصيتك' : side === 'self' ? 'كيف أعيش وأتواصل' : side === 'partner' ? 'ما يناسبني في شريك الحياة' : 'ما يهمّني أكثر'}</h2>{side === 'personality' && <p className="wi-small">وصف لأسلوبك من كلامك. راجع العبارة ودرجة انطباقها عليك؛ لا يُعتمد شيء دون تأكيدك.</p>}{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} selected={included.has(proposal.id)} values={selections[proposal.id] ?? proposal.values} onSelect={checked => toggle(proposal.id, checked)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</section>;
-            })}</> : <div className="wi-notice"><p>لا توجد إجابات واضحة جاهزة للإضافة بعد. لا نملأ الفراغات بالتخمين؛ يمكنك إكمال الأسئلة المباشرة بطريقتك.</p></div>}
-          {!!doc.readiness.length && <section className="wi-private-notes"><h2>خطوتك القادمة <span>خاص بك</span></h2><p>ملخص لما ذكرته عن استعدادك؛ لا يُعد توثيقًا أو تقييمًا لقيمتك.</p><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></section>}
-          {!!doc.clarifications.length && <section className="wi-private-notes"><h2>نقاط تستحق التوضيح</h2><p>هذه أسئلة مفتوحة، وليست أحكامًا أو أسباب رفض تلقائية.</p><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></section>}
-          <label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط مع فريق مراجعة العضوية.<small>اختياري. لا يشمل الحوار أو إجابات الشخصية والتوافق. يمكنك سحب هذه الموافقة هنا.</small></span></label>
-          {shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}
-          {sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة، دون تغيير إجابات ملفك.</p>}
-          <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => void confirm()} disabled={!!busy || doc.pendingAnalysis}>{busy === 'confirm' ? 'نحفظ اختيارك…' : included.size ? `تأكيد ${number(included.size)} إجابة` : 'حفظ خيارات المشاركة'}<Check size={18}/></MotionPressButton>
-          <p className="wi-small wi-centered">لن يتغير ملفك المنشور حتى تراجعه وتحفظه.</p>
-          {doc.turns.length < 12 && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={() => void call('resume', {}, true).then(result => { if (result) { setApplied(false); setSharingSaved(false); } })}>أكمل الحوار <ArrowLeft size={14}/></button>}
-          {!doc.pendingAnalysis && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={()=>void call('review').then(result=>{if(result){setApplied(false);setSharingSaved(false);}})}><RotateCcw size={14}/>تحديث قراءة الجلسة</button>}
-          <button type="button" className="wi-link wi-centered" onClick={onDirectQuestions} disabled={!!busy}>العودة إلى الأسئلة المباشرة</button>
-        </MotionReveal>
-        : <>
-          <div className="wi-progress-heading"><span>{refiningAnswers ? 'تفاصيل تكمّل الصورة' : currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><small>{refiningAnswers ? 'نبني على إجاباتك' : `${number(covered.size)} من ${number(topics.length)} محاور`}</small></div>
-          <div className="wi-topic-progress" aria-label={refiningAnswers ? 'أسئلة متابعة مبنية على إجاباتك' : `أجبت عن ${number(covered.size)} من ${number(topics.length)} محاور`}>{topics.map(topic => <span key={topic.id} title={topic.title} aria-current={topic.id === doc.currentQuestion?.topic ? 'step' : undefined} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/></span>)}</div>
-          <MotionReveal key={doc.currentQuestion?.text} className="wi-question" axis="x" distance={-12} duration={320}>
-            <h1 id="wi-title" ref={heading} tabIndex={-1}>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عن الحياة التي تتمنّاها؟'}</h1>
-            <label className="wi-answer-label" htmlFor="wi-answer">إجابتك، بطريقتك</label><textarea id="wi-answer" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={5} placeholder="خذ راحتك… موقف صغير أو مثال يكفي." autoComplete="off" spellCheck dir="auto" disabled={actionBlocked}/>
-            <div className="wi-answer-meta"><span role="status"><LockKeyhole size={12}/>{saveMessage}</span><small>{number(answer.length)} / ١٢٠٠</small></div>
-            {!!doc.currentQuestion?.suggestions.length && <div className="wi-suggestions" aria-label="بدايات اختيارية للإجابة">{doc.currentQuestion.suggestions.slice(0,3).map(suggestion => <button type="button" key={suggestion} disabled={!!busy} onClick={() => changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion)}>{suggestion}</button>)}</div>}
-          </MotionReveal>
-          {doc.lastMode === 'guided' && doc.pendingAnalysis && <p className="wi-fallback" role="status">التحليل غير متاح مؤقتًا. نتابع بأسئلة مُعدّة، وإجاباتك محفوظة للمراجعة.</p>}
-          <div className="wi-question-actions"><MotionPressButton className="wi-button wi-button-primary" disabled={actionBlocked || !answer.trim()} onClick={() => void send()}>{busy === 'answer' ? <><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span> نفهم إجابتك…</> : queuedIntent === 'answer' ? 'نجهّز الخطوة التالية…' : <>متابعة <ArrowLeft size={18}/></>}</MotionPressButton><button type="button" className="wi-link" disabled={actionBlocked} onClick={() => void send(true)}>تجاوز السؤال</button></div>
-          <div className="wi-question-bottom"><button type="button" className="wi-link" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button>{doc.turns.length > 0 && <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => void review()}>مراجعة ما فهمناه <ArrowLeft size={13}/></button>}</div>
-          {!!doc.turns.length && <details className="wi-history"><summary>إجاباتي السابقة <ChevronDown size={14}/></summary><p>يمكنك تصحيح التفسيرات قبل إضافتها إلى ملفك في المراجعة.</p>{doc.turns.map(turn => <div key={turn.id}><strong>{turn.question}</strong><p>{turn.skipped ? 'تجاوزت هذا السؤال' : turn.answer}</p></div>)}</details>}
-        </>}
+      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>مرافقك الذكي في وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
+      <div className="wi-content" data-chat={isChat || undefined}>
+        {!loaded ? <div className="wi-loading" role="status"><TypingDots/><p>نفتح جلستك…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
+        : !doc ? <section className="wi-welcome">
+          <span className="wi-welcome-emblem" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="42" height="49" alt=""/></span>
+          <h1 id="wi-title" ref={heading} tabIndex={-1}>نتعرّف إليك، بكلماتك.</h1>
+          <p className="wi-lead">نتحدث عن حياتك وما يهمّك في شريكك. في النهاية، تراجع ملخصًا واحدًا وتعدّل ما يحتاج إلى تصحيح.</p>
+          {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على تحليل إجاباتي بالذكاء الاصطناعي لتكوين تقييمي، وحفظ الجلسة بشكل خاص في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>تُرسل إجابات الجلسة إلى مزوّد معالجة خارجي، وتُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. لا ترسل أرقام هوية أو معلومات تخص أشخاصًا آخرين. الحوار لا يظهر للأعضاء.</p><p>هذا مرافق آلي للتعارف، وليس مستشارًا بشريًا أو تشخيصًا نفسيًا. تُراجع الإجابات قبل اعتمادها.</p></details></div>}
+          <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
+        </section>
+        : applied ? <section className="wi-complete"><span className="wi-complete-mark" aria-hidden="true"><Check size={30}/></span><h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1><p>أضفنا إجاباتك إلى مسودة ملفك. يمكنك مراجعتها قبل إرساله.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button></section>
+        : reviewMode ? <section className="wi-review">
+          <h1 id="wi-title" ref={heading} tabIndex={-1}>{fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'هذه إجاباتك كما فهمناها من الحوار. افتح أي قسم للتفاصيل أو التعديل، ثم اعتمد الملخص كاملًا بخطوة واحدة.'}</p>
+          {doc.pendingAnalysis && !fallbackReview && <div className="wi-notice"><p>إجاباتك محفوظة، لكن تحليلها لم يكتمل.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة المحاولة</button></div>}
+          {unresolved > 0 && <p className="wi-review-attention" role="status">{fallbackReview ? 'النقاط التي لم تتضح بعد ستبقى لك لتجيب عنها مباشرة.' : <>نحتاج توضيح {number(unresolved)} {unresolved === 1 ? 'إجابة' : 'إجابات'} قبل اعتماد الملخص.</>}</p>}
+          {validProposals.length ? (['self','partner','personality','importance'] as const).map(side => {
+            const group = validProposals.filter(proposal => side === 'personality' ? proposal.kind === 'personality' : proposal.kind !== 'personality' && proposal.side === side);
+            if (!group.length) return null;
+            const needsCorrection = group.some(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length);
+            return <details className="wi-review-group" key={side} open={needsCorrection || undefined}><summary><span><strong>{side === 'personality' ? 'طريقتك في الحياة والتواصل' : side === 'self' ? 'عن حياتك' : side === 'partner' ? 'ما تريده في شريكك' : 'أولوياتك'}</strong><small>{number(group.length)} إجابة · {needsCorrection ? 'تحتاج توضيحك' : 'عرض التفاصيل والتعديل'}</small></span><ChevronDown size={17}/></summary><div className="wi-review-rows">{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div></details>;
+
+          }) : <div className="wi-notice"><p>لم يتكوّن ملخص واضح بعد. نحتاج أن نكمل الحوار دون تخمين إجاباتك.</p></div>}
+          {!!doc.readiness.length && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+          {!!doc.clarifications.length && <details className="wi-private-notes"><summary>نقاط للحوار لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+          {!fallbackReview && <details className="wi-sharing-options"><summary>مشاركة الملخص مع فريق العضوية <ChevronDown size={14}/></summary><label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط.<small>اختياري. الحوار وإجابات التوافق تبقى خاصة.</small></span></label>{shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}{sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة، دون تغيير إجابات ملفك.</p>}</details>}
+          {incomplete && !fallbackReview && <p className="wi-review-attention">بقيت نقاط نحتاج إجابتك عنها لنكمل التقييم.</p>}
+          {fallbackReview ? <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!!busy} onClick={finishFallbackReview}>اعتماد ما راجعته وإكمال المتبقي<ArrowLeft size={18}/></MotionPressButton> : <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => void confirm()} disabled={!!busy || doc.pendingAnalysis || unresolved > 0 || incomplete || !validProposals.length}>{busy === 'confirm' ? 'جارٍ الحفظ…' : 'هذا يمثّلني، اعتماد الملخص'}<Check size={18}/></MotionPressButton>}
+          {!fallbackReview && (incomplete || !validProposals.length) && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={() => void call('resume', {}, true).then(result => { if (result) { setApplied(false); setSharingSaved(false); } })}>إكمال الحوار <ArrowLeft size={14}/></button>}
+        </section>
+        : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
+          <div className="wi-chat-context"><span>{currentTopic?.title ?? 'نتعرّف إليك'}</span><span><LockKeyhole size={12}/> حوار خاص</span></div>
+          <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite">
+            {doc.turns.map(turn => <div className="wi-exchange" key={turn.id}><div className="wi-bubble wi-bubble-guide"><span className="wi-speaker">وُدَين</span><p>{turn.question}</p></div><div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div></div>)}
+            <div className="wi-bubble wi-bubble-guide" key={doc.currentQuestion?.text}><span className="wi-speaker">وُدَين</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
+            {(busy === 'answer' || busy === 'retry' || queuedIntent === 'answer') && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/></div>}
+          </div>
+          <form className="wi-composer" onSubmit={event => { event.preventDefault(); void send(); }}>
+            {!!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="أفكار تساعدك على البدء">{doc.currentQuestion.suggestions.slice(0,2).map(suggestion => <button type="button" key={suggestion} disabled={actionBlocked} onClick={() => { changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion); composer.current?.focus(); }}>{suggestion}</button>)}</div>}
+            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={2} placeholder="اكتب بطريقتك…" autoComplete="off" spellCheck dir="auto" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
+            <div className="wi-compose-meta"><span role="status">{saveMessage}</span>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
+          </form>
+        </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}
-        {doc && !applied && <footer className="wi-private-footer"><span><LockKeyhole size={12}/> حوارك لا يظهر للأعضاء</span><button type="button" className="wi-link" onClick={() => setDeleteWarning(value => !value)} disabled={!!busy}><Trash2 size={13}/> حذف الجلسة</button></footer>}
-        {deleteWarning && <div className="wi-delete-warning" role="alert"><strong>حذف الجلسة وسحب مشاركة ملخصها؟</strong><p>يُحذف الحوار وملخصه الخاص. الإجابات التي سبق أن حفظتها في ملفك تبقى قابلة للتعديل من الملف.</p><div><button type="button" className="wi-button" onClick={() => setDeleteWarning(false)}>إبقاء الجلسة</button><button type="button" className="wi-button wi-button-danger" disabled={!!busy} onClick={() => void call('delete', {}, true).then(result => { if (result) { setDeleteWarning(false); setConsent(false); setApplied(false); } })}>حذف الجلسة</button></div></div>}
+        {isChat && doc?.pendingAnalysis && !unavailable && <div className="wi-recovery" role="status"><p>إجابتك محفوظة. نحتاج إكمال تحليلها قبل السؤال التالي.</p><button type="button" className="wi-link" onClick={() => void call('retry', {}, true)} disabled={actionBlocked}>إعادة المحاولة</button></div>}
+        {unavailable && !applied && !fallbackReview && <div className="wi-recovery" role="status"><p>تعذّر إكمال الحوار الآن. إجاباتك محفوظة؛ يمكنك المحاولة مجددًا أو إكمال النقاط المتبقية مباشرة.</p>{doc && <button type="button" className="wi-link" onClick={() => void call('retry', {}, true)} disabled={actionBlocked}>إعادة المحاولة</button>}<button type="button" className="wi-link" onClick={useFallback} disabled={actionBlocked}>إكمال الأسئلة مباشرة</button></div>}
+        {doc && !applied && !isChat && <footer className="wi-private-footer"><span><LockKeyhole size={12}/> حوارك لا يظهر للأعضاء</span><button type="button" className="wi-link" onClick={() => setDeleteWarning(value => !value)} disabled={!!busy}><Trash2 size={13}/> حذف الجلسة</button></footer>}
+        {deleteWarning && <div className="wi-delete-warning" role="alert"><p>حذف الحوار والملخص الخاص؟ إجاباتك التي سبق حفظها في الملف لا تتغير.</p><div><button className="wi-button" type="button" onClick={() => setDeleteWarning(false)}>تراجع</button><button className="wi-button wi-button-danger" type="button" disabled={!!busy} onClick={() => void call('delete', {}, true).then(result => { if (result) { setDeleteWarning(false); setApplied(false); setSharingSaved(false); autoStarted.current = true; } })}>حذف الجلسة</button></div></div>}
       </div>
     </div>
   </dialog>, document.body);
 }
 
-function InterviewSignature() {
-  return <div className="wi-signature" aria-hidden="true">
-    <svg viewBox="0 0 240 70" fill="none"><path d="M8 49C33 49 37 28 61 28H79" pathLength="1"/><path d="M232 49C207 49 203 28 179 28H161" pathLength="1"/></svg>
-    <img src="/brand/wudayn-emblem-v2.png" width="48" height="56" alt=""/>
-  </div>;
-}
+function TypingDots() { return <span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span>; }
 
-function ProposalReview({ proposal, selected, values, onSelect, onValues }: { proposal: InterviewProposal; selected: boolean; values: string[]; onSelect: (value: boolean) => void; onValues: (values: string[]) => void }) {
+function ProposalReview({ proposal, values, onValues }: { proposal: InterviewProposal; values: string[]; onValues: (values: string[]) => void }) {
   const options = proposalOptions(proposal);
   const multiple = proposal.kind === 'beena' && proposal.side === 'partner';
-  return <article className="wi-proposal" data-selected={selected||undefined}>
-    <label className="wi-proposal-choice"><input type="checkbox" checked={selected} onChange={event => onSelect(event.target.checked)} disabled={!values.length}/><span><small>{proposalTitle(proposal)}{proposal.needsClarification && <em>راجعها قبل التأكيد</em>}</small>{proposalStatement(proposal) && <span className="wi-personality-statement">{proposalStatement(proposal)}</span>}<strong>{options.filter(option => values.includes(option.value)).map(option => option.label).join('، ') || 'اختر ما يمثّلك'}</strong></span></label>
-    <details><summary><Pencil size={12}/> التفسير والتعديل <ChevronDown size={13}/></summary><p>{proposal.summary}</p>{proposal.evidence.map((evidence, index) => <blockquote key={`${evidence.turnId}-${index}`}>{evidence.quote}</blockquote>)}<fieldset><legend>{proposalSide(proposal)}</legend>{multiple ? <div className="wi-multiple">{options.map(option => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={event => { const next = event.target.checked ? [...values, option.value] : values.filter(value => value !== option.value); onValues(next); if (!next.length) onSelect(false); }}/><span>{option.label}</span></label>)}</div> : <select value={values[0] ?? ''} onChange={event => onValues([event.target.value])} aria-label={`تعديل ${proposalTitle(proposal)}: ${proposalSide(proposal)}`}><option value="" disabled>اختر ما يمثّلك</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}</fieldset></details>
-  </article>;
+  const label = options.filter(option => values.includes(option.value)).map(option => option.label).join('، ');
+  return <details className="wi-proposal" open={!values.length || undefined}>
+    <summary className="wi-proposal-summary"><span><small>{proposalTitle(proposal)}</small>{proposalStatement(proposal) && <span className="wi-personality-statement">{proposalStatement(proposal)}</span>}<strong>{label || 'نحتاج توضيحك لهذه النقطة'}</strong></span><Pencil size={16} aria-label="تعديل الإجابة"/></summary>
+    <div className="wi-proposal-editor"><fieldset><legend>{proposalSide(proposal)}</legend>{multiple ? <div className="wi-multiple">{options.map(option => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={event => onValues(event.target.checked ? [...values, option.value] : values.filter(value => value !== option.value))}/><span>{option.label}</span></label>)}</div> : <select value={values[0] ?? ''} onChange={event => onValues([event.target.value])} aria-label={`تعديل ${proposalTitle(proposal)}: ${proposalSide(proposal)}`}><option value="" disabled>اختر ما يمثّلك</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}</fieldset><details className="wi-evidence"><summary>من كلامك <ChevronDown size={13}/></summary><p>{proposal.summary}</p>{proposal.evidence.map((evidence, index) => <blockquote key={`${evidence.turnId}-${index}`}>{evidence.quote}</blockquote>)}</details></div>
+  </details>;
 }

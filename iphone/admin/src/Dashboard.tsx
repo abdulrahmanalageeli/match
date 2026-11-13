@@ -6,6 +6,7 @@ import { FamilyBridgeAdmin } from './FamilyBridge';
 import { VerificationAdmin } from './Verification';
 import { SupportAdmin } from './Support';
 import { InterviewReview } from './InterviewReview';
+import { PortraitReview } from './PortraitReview';
 import { AdminError, friendly, mode } from './client';
 import type { Access, AdminApi, AuditRow, MemberDetail, MemberRow, Operations, Overview, ReportAction, ReportRow, ReviewAction, StaffRole } from './types';
 
@@ -220,7 +221,7 @@ export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: 
       {page === 'audit' && <section className="panel queue-panel"><div className="panel-heading"><span className="panel-icon"><FileClock size={21} /></span><div><h2>أثر كل قرار</h2><p>الفاعل والسبب والتوقيت، دون نسخ المحادثات أو الإجابات الخاصة.</p></div></div>{!audit.length ? loading ? <Loading /> : !error && <Empty title="لا توجد إجراءات لعرضها">تظهر هنا المراجعات والقرارات بعد تسجيلها.</Empty> : <ol className="audit-list">{audit.map(row => <li key={row.id}><span className="audit-dot"><Check size={12} /></span><div><strong>{actionNames[row.action] || 'إجراء إداري'}</strong><p>{row.reason}</p><small>{row.actorName} · {roleNames[row.actorRole] || row.actorRole} · <bdi>{row.targetId.slice(0, 8)}</bdi></small></div><time>{date(row.createdAt)}</time></li>)}</ol>}</section>}
       {page === 'operations' && <OperationsPanel api={api} role={role} demo={demo} onError={onError} />}
       {page === 'family' && <FamilyBridgeAdmin api={api} role={role} refresh={revision} onError={onError}/>}
-      {page === 'verification' && <VerificationAdmin api={api} role={role} refresh={revision} onError={onError}/>}
+      {page === 'verification' && <><PortraitReview refresh={revision} onError={onError}/><VerificationAdmin api={api} role={role} refresh={revision} onError={onError}/></>}
       {page === 'support' && role !== 'reviewer' && <SupportAdmin api={api} refresh={revision} onError={onError}/>}
       {more && <button className="secondary more-button" disabled={loading} onClick={() => void loadMore()}>{loading ? 'جارٍ التحميل…' : 'تحميل المزيد'}<ArrowDownLeft size={16} /></button>}
       <footer className="workspace-footer"><span>وُدَين · توافق ذكي للزواج</span><span><LockMark /> الوصول بحسب الدور، والقرار باسم صاحبه.</span></footer>

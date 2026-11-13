@@ -14,6 +14,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const textOf = node => typeof node === 'string' || typeof node === 'number' ? String(node) : Array.isArray(node) ? node.map(textOf).join('') : textOf(node?.props?.children ?? '');
 const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
 const find = (tree, label) => nodes(tree).find(node => node.props?.onClick && textOf(node).includes(label));
+const sendAction = tree => ({ props: { disabled: nodes(tree).find(node => node.props?.['aria-label'] === 'إرسال الرسالة').props.disabled, onClick: () => nodes(tree).find(node => node.type === 'form' && node.props.className === 'wi-composer').props.onSubmit({preventDefault:noop}) } });
 const clone = value => JSON.parse(JSON.stringify(value));
 const proposal = { id: 'p1', kind: 'preference', fieldId: 'children_plan', side: 'self', values: ['A'], summary: 'تريد أطفالًا', evidence: [{ turnId: 't1', quote: 'أبغى أطفال' }], needsClarification: false };
 const baseDocument = () => ({ version: 'interview-v1', consentVersion: 'wudayn-interview-v1', model: 'gpt-6-luna', promptVersion: 'wudayn-interview-1', status: 'active', turns: [], currentQuestion: { topic: 'intent', text: topics[0].question, suggestions: [] }, proposals: [], readiness: [], clarifications: [], confirmed: [], lastRequestId: null, lastMode: 'luna', pendingAnalysis: false, draftAnswer: '', reviewSharing: false, confirmedAt: null });
@@ -73,26 +74,25 @@ function mount(initial, intercept = () => null) {
 test('the actual welcome component requires explicit consent and sends no interview text merely on opening', async () => {
   const ui=mount({document:null,revision:0});ui.render();await tick();let tree=ui.render();
   assert.deepEqual(ui.calls.map(call=>call.action),['load']);
-  assert.equal(find(tree,'خلّنا نبدأ').props.disabled,true);
+  assert.equal(find(tree,'ابدأ الحوار').props.disabled,true);
   nodes(tree).find(node=>node.type==='input'&&node.props.type==='checkbox').props.onChange({target:{checked:true}});
-  tree=ui.render();assert.equal(find(tree,'خلّنا نبدأ').props.disabled,false);
-  find(tree,'خلّنا نبدأ').props.onClick();await tick();ui.render();
+  tree=ui.render();assert.equal(find(tree,'ابدأ الحوار').props.disabled,false);
+  find(tree,'ابدأ الحوار').props.onClick();await tick();ui.render();
   assert.equal(ui.calls[1].consentVersion,'wudayn-interview-v1');assert.equal(ui.applied.length,0);ui.unmount();
 });
 
-test('personality follow-ups explain why the conversation continues after all themes', async () => {
-  const ordinary=mount({document:baseDocument(),revision:1});ordinary.render();await tick();let tree=ordinary.render();
-  let heading=nodes(tree).find(node=>node.props?.className==='wi-progress-heading');assert.match(textOf(heading),/محاور/);assert(!textOf(heading).includes('تفاصيل تكمّل الصورة'));ordinary.unmount();
-  const document={...baseDocument(),turns:topics.map((topic,index)=>({id:'covered-'+index,topic:topic.id,question:topic.question,answer:'إجابة محفوظة',skipped:false}))};
-  const followUp=mount({document,revision:7});followUp.render();await tick();tree=followUp.render();heading=nodes(tree).find(node=>node.props?.className==='wi-progress-heading');
-  assert.equal(textOf(heading),'تفاصيل تكمّل الصورةنبني على إجاباتك');assert.equal(nodes(tree).find(node=>node.props?.className==='wi-topic-progress').props['aria-label'],'أسئلة متابعة مبنية على إجاباتك');assert.ok(find(tree,'مراجعة ما فهمناه'));followUp.unmount();
+test('the active experience is an ordered conversation with a composer and no survey skip controls', async () => {
+  const document={...baseDocument(),turns:[{id:'t1',topic:'intent',question:'ما الذي تبحث عنه؟',answer:'زواج جاد',skipped:false}],currentQuestion:{topic:'family',text:'متى تحب إشراك الأهل؟',suggestions:[]}};
+  const ui=mount({document,revision:2});ui.render();await tick();const tree=ui.render();
+  const log=nodes(tree).find(node=>node.props?.role==='log');assert(log);assert.match(textOf(log),/ما الذي تبحث عنه؟.*زواج جاد.*متى تحب إشراك الأهل؟/);
+  assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
 });
 
 test('draft save is serialized with submitting and newer typing remains visible when an older save completes', async () => {
   const waiting=deferred();const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
   nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أول إجابة'}});ui.render();ui.timers();tree=ui.render();
-  assert.equal(find(tree,'متابعة').props.disabled,false,'autosave must not swallow the next action');
+  assert.equal(sendAction(tree).props.disabled,false,'autosave must not swallow the next action');
   const textarea=nodes(tree).find(node=>node.type==='textarea');assert.equal(textarea.props.disabled,false);
   textarea.props.onChange({target:{value:'أول إجابة مع تفاصيل إضافية'}});ui.render();
   waiting.resolve({document:{...initial.document,draftAnswer:'أول إجابة'},revision:2});await tick();tree=ui.render();
@@ -109,58 +109,37 @@ test('withdrawing staff sharing does not reapply saved assessment answers', asyn
   assert.match(textOf(tree),/دون تغيير إجابات ملفك/);ui.unmount();
 });
 
-test('only an explicit confirmation applies selected values, while reopening and continuing does not', async () => {
+test('one explicit confirmation applies the whole summary without per-answer approval checkboxes', async () => {
   const document={...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal]};
-  const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();
-  assert.equal(ui.applied.length,0);find(tree,'اختيار الواضح منها').props.onClick();tree=ui.render();find(tree,'تأكيد').props.onClick();await tick();tree=ui.render();
-  assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/راجع الملف واحفظه/);
-  find(tree,'مراجعة الجلسة وخيارات المشاركة').props.onClick();tree=ui.render();find(tree,'أكمل الحوار').props.onClick();await tick();tree=ui.render();
-  assert.equal(ui.calls.at(-1).action,'resume');assert.equal(ui.applied.length,1);assert.ok(nodes(tree).some(node=>node.type==='textarea'));ui.unmount();
+  const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();assert.equal(ui.applied.length,0);
+  const rows=nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');assert.equal(rows.length,1);
+  assert.equal(nodes(rows[0].type(rows[0].props)).filter(node=>node.type==='input'&&node.props.type==='checkbox').length,0);
+  find(tree,'اعتماد الملخص').props.onClick();await tick();tree=ui.render();assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/مسودة ملفك/);
+  find(tree,'عرض الملخص').props.onClick();ui.render();assert.equal(ui.applied.length,1);ui.unmount();
 });
 
-test('personality review displays the actual statement, excludes uncertain suggestions and applies only edited confirmed answers', async () => {
+test('uncertain interpretations require correction while clear answers need no repeated approvals', async () => {
   const known={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
   const uncertain={...known,id:'personality:openness:self',fieldId:'openness',values:['C'],needsClarification:true};
-  const document={...baseDocument(),status:'review',currentQuestion:null,proposals:[known,uncertain]};
-  const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();
-  assert.equal(ui.applied.length,0);
-  assert.match(textOf(tree),/ملامح شخصيتك/);
-  const reviews=()=>nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');
-  assert.equal(reviews().length,2);
-  const rendered=reviews()[0].type(reviews()[0].props);
-  assert.match(textOf(rendered),/أقول بوضوح ما أحتاجه وما يزعجني في العلاقة/);
-  assert.match(textOf(rendered),/يشبهني غالبًا/);
-  assert.equal(nodes(rendered).find(node=>node.type==='input').props.checked,false);
-  find(tree,'اختيار الواضح منها').props.onClick();tree=ui.render();
-  assert.equal(reviews()[0].props.selected,true);assert.equal(reviews()[1].props.selected,false);
-  const selected=reviews()[0].type(reviews()[0].props);
-  nodes(selected).find(node=>node.type==='select').props.onChange({target:{value:'B'}});tree=ui.render();
-  assert.equal(ui.applied.length,0);
-  find(tree,'تأكيد').props.onClick();await tick();ui.render();
-  assert.deepEqual(ui.applied[0].map(({kind,fieldId,values})=>({kind,fieldId,values})),[{kind:'personality',fieldId:'directness',values:['B']}]);
-  ui.unmount();
+  const ui=mount({document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[known,uncertain]},revision:2});ui.render();await tick();let tree=ui.render();
+  const reviews=()=>nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');assert.equal(reviews().length,2);
+  assert.match(textOf(reviews()[0].type(reviews()[0].props)),/أقول بوضوح ما أحتاجه وما يزعجني في العلاقة/);
+  assert.equal(find(tree,'اعتماد الملخص').props.disabled,true);
+  nodes(reviews()[1].type(reviews()[1].props)).find(node=>node.type==='select').props.onChange({target:{value:'B'}});tree=ui.render();
+  assert.equal(find(tree,'اعتماد الملخص').props.disabled,false);find(tree,'اعتماد الملخص').props.onClick();await tick();ui.render();
+  assert.deepEqual(ui.applied[0].map(({fieldId,values})=>({fieldId,values})),[{fieldId:'directness',values:['D']},{fieldId:'openness',values:['B']}]);ui.unmount();
 });
 
-test('a completed legacy twelve-turn interview can be reinterpreted without applying or deleting answers', async () => {
-  const turns=Array.from({length:12},(_,index)=>({id:'legacy-'+index,topic:topics[index%topics.length].id,question:'سؤال محفوظ',answer:'إجابة محفوظة',skipped:false}));
-  const document={...baseDocument(),status:'confirmed',currentQuestion:null,turns,proposals:[proposal],confirmed:[proposal]};
-  const personality={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
-  const ui=mount({document,revision:12},payload=>payload.action==='review'?Promise.resolve({document:{...document,promptVersion:'wudayn-interview-2',status:'review',proposals:[proposal,personality],confirmed:[]},revision:14}):null);
-  ui.render();await tick();let tree=ui.render();
-  assert.equal(find(tree,'أكمل الحوار'),undefined);
-  assert.ok(find(tree,'العودة إلى الأسئلة المباشرة'));
-  find(tree,'تحديث قراءة الجلسة').props.onClick();await tick();tree=ui.render();
-  assert.equal(ui.calls.at(-1).action,'review');assert.equal(ui.calls.at(-1).revision,12);
-  assert.equal(ui.applied.length,0);assert.equal(ui.calls.some(call=>call.action==='delete'||call.action==='start'),false);
-  assert.match(textOf(tree),/ملامح شخصيتك/);
-  assert.equal(nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview').every(node=>node.props.selected===false),true);
-  find(tree,'العودة إلى الأسئلة المباشرة').props.onClick();assert.equal(ui.closed,1);ui.unmount();
+test('manual fallback is available only after the server confirms a recoverable failure', async () => {
+  const initial={document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal],pendingAnalysis:true},revision:2};
+  const without=mount(initial);without.render();await tick();assert.equal(find(without.render(),'إكمال الأسئلة مباشرة'),undefined);without.unmount();
+  const ui=mount({...initial,fallbackAvailable:true});ui.render();await tick();let tree=ui.render();assert.ok(find(tree,'إكمال الأسئلة مباشرة'));find(tree,'إكمال الأسئلة مباشرة').props.onClick();assert.equal(ui.closed,1);ui.unmount();
 });
 
 test('closing during model processing is allowed and never commits answers to the profile', async () => {
   const waiting=deferred();const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='answer'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
-  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أبغى نرتب خطوتنا مع الأهل'}});tree=ui.render();find(tree,'متابعة').props.onClick();tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أبغى نرتب خطوتنا مع الأهل'}});tree=ui.render();sendAction(tree).props.onClick();tree=ui.render();
   const close=nodes(tree).find(node=>node.props?.['aria-label']==='حفظ وإغلاق الجلسة');assert.equal(close.props.disabled,false);close.props.onClick();assert.equal(ui.closed,1);
   waiting.resolve({document:{...initial.document,draftAnswer:''},revision:2});await tick();ui.render();assert.equal(ui.applied.length,0);ui.unmount();
 });
@@ -168,24 +147,24 @@ test('closing during model processing is allowed and never commits answers to th
 test('a late confirmation response after leaving the account cannot update the profile', async () => {
   const waiting=deferred();const document={...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal]};
   const ui=mount({document,revision:2},payload=>payload.action==='confirm'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
-  find(tree,'اختيار الواضح منها').props.onClick();tree=ui.render();find(tree,'تأكيد').props.onClick();ui.render();ui.unmount();
+  find(tree,'اعتماد الملخص').props.onClick();ui.render();ui.unmount();
   waiting.resolve({document:{...document,status:'confirmed',confirmed:[proposal]},revision:3});await tick();assert.equal(ui.applied.length,0);
 });
 
 test('an uncertain send retries the same request ID without dropping the written answer', async () => {
   let attempts=0;const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='answer'&&++attempts===1?Promise.reject(new Error('انقطع الاتصال')):null);ui.render();await tick();let tree=ui.render();
-  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أتمنى نتفق على توقيت مناسب'}});tree=ui.render();find(tree,'متابعة').props.onClick();await tick();tree=ui.render();
-  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'أتمنى نتفق على توقيت مناسب');find(tree,'متابعة').props.onClick();await tick();ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أتمنى نتفق على توقيت مناسب'}});tree=ui.render();sendAction(tree).props.onClick();await tick();tree=ui.render();
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'أتمنى نتفق على توقيت مناسب');sendAction(tree).props.onClick();await tick();ui.render();
   const sends=ui.calls.filter(call=>call.action==='answer');assert.equal(sends.length,2);assert.equal(sends[0].requestId,sends[1].requestId);ui.unmount();
 });
 
 test('an unfinished analysis cannot be applied or shared; the direct questionnaire remains available', async () => {
   const document={...baseDocument(),status:'review',currentQuestion:null,pendingAnalysis:true,proposals:[proposal]};
-  const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();find(tree,'اختيار الواضح منها').props.onClick();tree=ui.render();
-  assert.equal(find(tree,'تأكيد').props.disabled,true);
+  const ui=mount({document,revision:2,fallbackAvailable:true});ui.render();await tick();let tree=ui.render();
+  assert.equal(find(tree,'اعتماد الملخص').props.disabled,true);
   const sharing=nodes(tree).find(node=>node.type==='label'&&node.props.className==='wi-sharing');assert.equal(nodes(sharing).find(node=>node.type==='input').props.disabled,true);
-  assert.ok(find(tree,'إعادة التحليل'));assert.ok(find(tree,'العودة إلى الأسئلة المباشرة'));assert.equal(ui.applied.length,0);ui.unmount();
+  assert.ok(find(tree,'إعادة المحاولة'));assert.ok(find(tree,'إكمال الأسئلة مباشرة'));assert.equal(ui.applied.length,0);ui.unmount();
 });
 
 test('Continue pressed during autosave waits for its revision and sends the newest draft exactly once', async () => {
@@ -193,7 +172,7 @@ test('Continue pressed during autosave waits for its revision and sends the newe
   const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
   nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'إجابة أولى'}});ui.render();ui.timers();tree=ui.render();
   nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'إجابة أحدث جاهزة للإرسال'}});tree=ui.render();
-  const send=find(tree,'متابعة');assert.equal(send.props.disabled,false);send.props.onClick();send.props.onClick();ui.render();
+  const send=sendAction(tree);assert.equal(send.props.disabled,false);send.props.onClick();send.props.onClick();ui.render();
   assert.equal(ui.calls.filter(call=>call.action==='answer').length,0);
   waiting.resolve({document:{...initial.document,draftAnswer:'إجابة أولى'},revision:9});await tick();ui.render();
   const sends=ui.calls.filter(call=>call.action==='answer');assert.equal(sends.length,1);assert.equal(sends[0].revision,9);assert.equal(sends[0].answer,'إجابة أحدث جاهزة للإرسال');ui.unmount();
@@ -207,4 +186,43 @@ test('closing during autosave waits and flushes newer typing before leaving', as
   nodes(tree).find(node=>node.props?.['aria-label']==='حفظ وإغلاق الجلسة').props.onClick();assert.equal(ui.closed,0);
   waiting.resolve({document:{...initial.document,draftAnswer:'مسودة أولى'},revision:4});await tick();ui.render();
   const drafts=ui.calls.filter(call=>call.action==='draft');assert.equal(drafts.length,2);assert.equal(drafts[1].answer,'مسودة أحدث');assert.equal(drafts[1].revision,4);assert.equal(ui.closed,1);ui.unmount();
+});
+
+
+test('existing explicit analysis consent starts the conversation without another checkbox', async () => {
+  const ui=mount({document:null,revision:0});ui.render({consentGranted:true});await tick();ui.render();await tick();const tree=ui.render();
+  assert.deepEqual(ui.calls.map(call=>call.action),['load','start']);assert.equal(ui.applied.length,0);assert.equal(nodes(tree).filter(node=>node.type==='input'&&node.props.type==='checkbox').length,0);assert(!/OpenAI|Luna|gpt-/i.test(textOf(tree)));ui.unmount();
+});
+
+test('the server coverage gate blocks applying an incomplete required assessment', async () => {
+  const ui=mount({document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal]},revision:2,coverage:{answered:1,required:44}});ui.render();await tick();const tree=ui.render();
+  assert.equal(find(tree,'اعتماد الملخص').props.disabled,true);assert.ok(find(tree,'إكمال الحوار'));assert.equal(ui.applied.length,0);ui.unmount();
+});
+
+
+test('a failed confirmation reloads the pending server state so retry is offered without granting manual fallback', async () => {
+  const initial={document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal]},revision:2};let failed=false;
+  const ui=mount(initial,payload=>{
+    if(payload.action==='confirm'){failed=true;return Promise.reject(new Error('تعذّر حفظ نتيجة التحليل'));}
+    if(payload.action==='load'&&failed)return Promise.resolve({...initial,revision:3,document:{...initial.document,pendingAnalysis:true},fallbackAvailable:false});
+    return null;
+  });
+  ui.render();await tick();find(ui.render(),'اعتماد الملخص').props.onClick();await tick();const tree=ui.render();
+  assert.equal(ui.calls.filter(call=>call.action==='load').length,2);assert.equal(find(tree,'اعتماد الملخص').props.disabled,true);assert.ok(find(tree,'إعادة المحاولة'));assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(ui.applied.length,0);ui.unmount();
+});
+
+
+test('fallback reviews extracted answers once and preserves only resolved choices without confirming a partial AI assessment', async () => {
+  const partial=[];const unclear={...proposal,id:'p2',fieldId:'residence_plan',needsClarification:true};
+  const ui=mount({document:{...baseDocument(),pendingAnalysis:true,proposals:[proposal,unclear]},revision:2,fallbackAvailable:true,coverage:{answered:1,required:44}});
+  ui.render({onFallbackApply:value=>partial.push(clone(value))});await tick();find(ui.render(),'إكمال الأسئلة مباشرة').props.onClick();let tree=ui.render();
+  assert.match(textOf(tree),/نكمل من حيث وصلنا/);assert.equal(ui.closed,0);assert.equal(partial.length,0);assert.equal(find(tree,'اعتماد الملخص'),undefined);
+  find(tree,'اعتماد ما راجعته وإكمال المتبقي').props.onClick();tree=ui.render();
+  assert.equal(partial.length,1);assert.deepEqual(partial[0].map(item=>item.id),['p1']);assert.equal(ui.calls.filter(call=>call.action==='confirm').length,0);assert.equal(ui.applied.length,0);assert.equal(ui.closed,1);ui.unmount();
+});
+
+
+test('pending active analysis offers retry without a manual bypass or another answer submission', async () => {
+  const ui=mount({document:{...baseDocument(),pendingAnalysis:true},revision:2,fallbackAvailable:false});ui.render();await tick();const tree=ui.render();
+  assert.ok(find(tree,'إعادة المحاولة'));assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,true);assert.equal(sendAction(tree).props.disabled,true);ui.unmount();
 });

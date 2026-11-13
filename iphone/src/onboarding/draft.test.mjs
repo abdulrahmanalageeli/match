@@ -2,11 +2,12 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 
-let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion;
+let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
   ({ initialDraft, validateStep, toProfile, profileBaseline } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
+  ({ dimensions } = await loader.ssrLoadModule("/src/compatibility/model.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
 });
 after(() => loader?.close());
@@ -170,4 +171,32 @@ test('signup requires a birthday, derives age, and preserves existing age-only p
 test('contact accepts email and formatted phone numbers but rejects arbitrary text', () => {
  for(const contact of ['name@example.com','+966 50 123 4567','٠٥٠١٢٣٤٥٦٧']) assert.equal(validateStep('preferences',{...answers(),contact},true),null);
  for(const contact of ['hello','name@','123']) assert.equal(validateStep('preferences',{...answers(),contact},true)?.field,'contact');
+});
+
+
+test('new onboarding requires all 44 answers while legacy edits stay compatible', () => {
+  const p = answers();
+  assert.equal(validateStep('compatibility',p,true,false,true)?.field,'surveyAnswers');
+  p.surveyAnswers = Object.fromEntries(dimensions.flatMap(d => [[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
+  assert.equal(validateStep('compatibility',p,true,false,true)?.field,'personalityAnswers');
+  p.personalityAnswers = Object.fromEntries(personalityQuestions.map(q => [q.id,q.options[0].code]));
+  assert.equal(validateStep('compatibility',p,true,false,true),null);
+  for (const d of dimensions) for (const key of [d.id,d.partnerId]) assert.equal(validateStep('compatibility',{...p,surveyAnswers:{...p.surveyAnswers,[key]:'invalid'}},true,false,true)?.field,'surveyAnswers');
+  for (const q of personalityQuestions) assert.equal(validateStep('compatibility',{...p,personalityAnswers:{...p.personalityAnswers,[q.id]:''}},true,false,true)?.field,'personalityAnswers');
+  assert.equal(validateStep('compatibility',answers(),true),null);
+});
+
+test('new onboarding requires public details and explicit preference modes without forcing sensitive disclosures', () => {
+  const p = answers();
+  assert.ok(validateStep('story',p,true,false,true));
+  Object.assign(p,{lookingFor:'شريك متفهم',lifeTogether:'حياة هادئة',education:'بكالوريوس',marriageIntent:'الزواج',valuesStatement:'الاحترام'});
+  assert.equal(validateStep('story',p,true,false,true),null);
+  assert.ok(validateStep('details',p,true,false,true));
+  p.marriageBasics={heightCm:165,weightKg:65,spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'};
+  assert.equal(validateStep('details',p,true,false,true),null);
+  for(const key of Object.keys(p.marriageBasics)){const marriageBasics={...p.marriageBasics};delete marriageBasics[key];assert.ok(validateStep('details',{...p,marriageBasics},true,false,true),key);}
+  assert.ok(validateStep('criteria',p,true,false,true));
+  p.partnerCriteria=Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(key=>[key,{mode:'any'}]));
+  assert.equal(validateStep('criteria',p,true,false,true),null);
+  for(const key of Object.keys(p.partnerCriteria)){const partnerCriteria={...p.partnerCriteria};delete partnerCriteria[key];assert.ok(validateStep('criteria',{...p,partnerCriteria},true,false,true),key);}
 });

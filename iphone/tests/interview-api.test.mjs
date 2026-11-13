@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createInterviewService, initialInterviewDocument, parseInterviewInput, interviewCompletionRequest,
-  applyInterviewCompletion, confirmInterviewChoices, validateProposal, INTERVIEW_MODEL, CONSENT_VERSION } from '../api/_lib/interview.mjs';
+  applyInterviewCompletion, confirmInterviewChoices, validateProposal, interviewCoverage, INTERVIEW_MODEL, CONSENT_VERSION } from '../api/_lib/interview.mjs';
 import handler from '../api/interview.mjs';
+import preferenceCatalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
-const headers = { authorization: 'Bearer real.jwt.token' };
+const headers = { authorization: 'Bearer header.' + Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111'})).toString('base64url') + '.signature' };
 const answer = 'إذا اتفقنا، أبغى الخطوة الرسمية خلال ستة أشهر.';
 const turn = { id: randomUUID(), topic: 'intent', question: 'متى يناسبك الزواج؟', answer, skipped: false };
 const candidate = { kind: 'preference', fieldId: 'marriage_timeline', side: 'self', values: ['A'], summary: 'تفضّل الخطوة الرسمية خلال ستة أشهر.',
@@ -18,14 +19,15 @@ const document = () => ({ ...initialInterviewDocument(), turns: [turn] });
 function harness(options = {}) {
   let state = structuredClone(options.initial ?? { document: null, revision: 0 }), counter = state.revision, revoked = false;
   const calls = [], modelCalls = [];
-  const service = createInterviewService({ env: options.noKey ? {} : { OPENAI_API_KEY: 'server-secret', NISFAYN_AI_MODEL: 'do-not-use' },
+  const service = createInterviewService({ env: { SUPABASE_SERVICE_ROLE_KEY: 'service-secret', ...(options.noKey ? {} : { OPENAI_API_KEY: 'server-secret', NISFAYN_AI_MODEL: 'do-not-use' }) },
     fetcher: async (url, init) => {
       const input = JSON.parse(init.body); calls.push({ url, init, ...input });
       if (revoked) return Response.json({ code: '42501' }, { status: 403 });
+      if (url.endsWith('marriage_interview_attest')) { if (options.attestationFailure) return Response.json({code:'unavailable'},{status:503}); if (options.attestationConflict) return Response.json({code:'40001'},{status:409}); if (input.event === 'fallback') state.fallbackAvailable = true; return Response.json({ok:true}); }
       const { command, payload } = input;
       if (['save', 'delete', 'reserve'].includes(command) && payload.expectedRevision !== state.revision) return Response.json({ code: '40001' }, { status: 409 });
-      if (command === 'start' && !state.document) state = { document: structuredClone(payload.document), revision: ++counter };
-      if (command === 'save') state = { document: structuredClone(payload.document), revision: ++counter };
+      if (command === 'start' && !state.document) state = { ...state, document: structuredClone(payload.document), revision: ++counter };
+      if (command === 'save') state = { ...state, document: structuredClone(payload.document), revision: ++counter };
       if (command === 'delete') state = { document: null, revision: 0 };
       if (command === 'reserve') return Response.json({ status: options.limited ? 'limited' : 'allowed', revision: state.revision });
       return Response.json(state);
@@ -84,7 +86,8 @@ test('session start does not call model; draft autosaves privately and answer us
   assert.equal(h.modelCalls[0].runtime.maxRetries, 0);
   assert.match(request.messages[0].content,/summary بحد أقصى8 كلمات/);
   assert.match(request.messages[0].content,/readiness=\[\]/);
-  assert.equal(h.calls.at(-1).init.headers.Authorization, 'Bearer real.jwt.token');
+  assert.equal(h.calls.at(-1).init.headers.Authorization, 'Bearer service-secret');
+  assert.equal(sent.coverage.required,44); assert.equal(sent.coverage.answered,1); assert.equal(sent.fallbackAvailable,false);
 });
 
 test('submitted answers survive provider outage; retry uses saved transcript without duplicate turn', async () => {
@@ -223,26 +226,12 @@ test('personality proposals require one canonical self response and literal non-
   assert.equal(analyzed.personalityAnswers, undefined);
 });
 
-test('personality remains unconfirmed until an explicit editable selection; load preserves that choice', async () => {
-  const text = 'غالبًا أقول بوضوح ما أحتاجه وما يزعجني، وأحيانًا أفضّل أهدأ قبل مناقشة الخلاف.';
-  const h = harness({ proposals: turns => ['directness', 'conflict_pace'].map(fieldId => ({
-    ...candidate, kind: 'personality', fieldId, side: 'self', values: ['D'],
-    summary: 'تفسير مبدئي قابل للتعديل.', needsClarification: fieldId === 'conflict_pace',
-    evidence: [{ turnId: turns[0].id, quote: turns[0].answer }],
-  })) });
-  const first = await start(h), sent = await send(h, first.revision, text);
-  assert.equal(sent.document.proposals.length, 2);
-  assert.deepEqual(sent.document.confirmed, []);
-  const reviewed = await h.service({ action: 'review', revision: sent.revision }, headers);
-  const confirmed = await h.service({ action: 'confirm', revision: reviewed.revision,
-    choices: [{ id: 'personality:directness:self', values: ['C'] }], shareReview: false }, headers);
-  assert.equal(confirmed.document.confirmed.length, 1);
-  assert.equal(confirmed.document.confirmed[0].fieldId, 'directness');
-  assert.deepEqual(confirmed.document.confirmed[0].values, ['C']);
-  assert.equal(confirmed.document.reviewSharing, false);
-  const loaded = await h.service({ action: 'load' }, headers);
-  assert.deepEqual(loaded.document.confirmed, confirmed.document.confirmed);
-  assert.equal(h.calls.some(call => /apply|profile/.test(call.command)), false);
+test('partial personality interpretations cannot confirm a required session', async () => {
+  const h=harness(),first=await start(h),sent=await send(h,first.revision);
+  const reviewed=await h.service({action:'review',revision:sent.revision},headers);
+  assert.equal(reviewed.document.status,'active');
+  await assert.rejects(h.service({action:'confirm',revision:reviewed.revision,choices:[{id:'preference:marriage_timeline:self',values:['A']}]},headers), e=>e.code==='assessment_incomplete');
+  assert.deepEqual(h.state.document.confirmed,[]);
 });
 
 test('remaining personality gets a contextual follow-up after eight turns without repeating covered themes', () => {
@@ -343,32 +332,26 @@ test('an existing v1 twelve-turn interview is reanalyzed in place and requires f
   const turns=Array.from({length:12},(_,index)=>({...turn,id:randomUUID(),topic:themes[index%themes.length],answer:'غالبًا أقول بوضوح ما أحتاجه وما يزعجني.'}));
   const legacy={...initialInterviewDocument(),promptVersion:'wudayn-interview-1',status:'confirmed',currentQuestion:null,turns};
   const h=harness({initial:{document:legacy,revision:25},proposals:transcript=>[{...candidate,kind:'personality',fieldId:'directness',side:'self',values:['D'],evidence:[{turnId:transcript[0].id,quote:transcript[0].answer}]}]});
-  const loaded=await h.service({action:'load'},headers);assert.equal(loaded.document.promptVersion,'wudayn-interview-1');
+  const loaded=await h.service({action:'load'},headers);assert.equal(loaded.document.promptVersion,'wudayn-interview-3');assert.equal(loaded.document.pendingAnalysis,true);
   const refreshed=await h.service({action:'review',revision:loaded.revision},headers);
   assert.deepEqual(refreshed.document.turns,turns);
-  assert.equal(refreshed.document.promptVersion,'wudayn-interview-2');assert.equal(refreshed.document.status,'review');
+  assert.equal(refreshed.document.promptVersion,'wudayn-interview-3');assert.equal(refreshed.document.status,'active');
   assert.equal(refreshed.document.proposals[0].kind,'personality');assert.deepEqual(refreshed.document.confirmed,[]);
-  assert.equal(refreshed.document.currentQuestion,null);assert.equal(h.modelCalls.length,1);
+  assert.ok(refreshed.document.currentQuestion);assert.equal(h.modelCalls.length,1);
   assert.equal(h.calls.some(call=>call.command==='delete'||call.command==='start'),false);
 });
 
-test('skip does not spend AI budget or infer preferences and final review keeps Luna', async () => {
-  const h = harness(), first = await start(h);
-  const skipped = await h.service({ action: 'answer', revision: first.revision, requestId: randomUUID(), answer: '', skip: true }, headers);
-  assert.equal(skipped.document.turns[0].skipped, true);
-  assert.equal(h.modelCalls.length, 0);
-  const sent = await send(h, skipped.revision);
-  const reviewed = await h.service({ action: 'review', revision: sent.revision }, headers);
-  assert.equal(reviewed.document.status, 'review'); assert.equal(reviewed.document.currentQuestion, null);
-  assert.equal(h.modelCalls.at(-1).request.model, 'gpt-6-luna');
-  assert.equal(h.modelCalls.at(-1).runtime.timeout, 36000);
-  assert.equal(h.modelCalls.at(-1).config.timeout, 36000);
-  assert.equal(h.modelCalls.at(-1).runtime.maxRetries, 0);
-  assert.match(h.modelCalls.at(-1).request.messages[0].content, /هذه مراجعة نهائية/);
-  assert.match(h.modelCalls.at(-1).request.messages[0].content, /وصف الذات ورغبة الشريك بشكل مستقل/);
-  assert.match(h.modelCalls.at(-1).request.messages[0].content, /القواميس الثلاثة كاملة/);
-  assert.match(h.modelCalls.at(-1).request.messages[0].content, /فأخرج الاقتراحين مع الدليل نفسه/);
-  assert.doesNotMatch(h.modelCalls.at(-1).request.messages[0].content,/readiness=\[\]/);
+test('required sessions reject skipping and early review cannot end missing answers', async () => {
+  const h=harness(),first=await start(h);
+  await assert.rejects(h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer:'',skip:true},headers),e=>e.code==='answer_required');
+  assert.equal(h.modelCalls.length,0);assert.equal(h.state.document.turns.length,0);
+  const empty=await h.service({action:'review',revision:first.revision},headers);assert.equal(empty.document.status,'active');
+  const sent=await send(h,empty.revision),reviewed=await h.service({action:'review',revision:sent.revision},headers);
+  assert.equal(reviewed.document.status,'active');assert.ok(reviewed.document.currentQuestion);
+  const request=h.modelCalls.at(-1).request,context=JSON.parse(request.messages[1].content);
+  assert.equal(context.beenaCatalog,undefined);assert.equal(context.missingFields.length,43);
+  assert.deepEqual(request.response_format.json_schema.schema.properties.proposals.items.properties.kind.enum,['preference','personality']);
+  assert.match(request.messages[0].content,/٣٢ إجابة تفضيلات/);
 });
 
 test('the automatic terminal answer runs complete final review within the same provider request', async () => {
@@ -417,4 +400,41 @@ test('HTTP handler enforces methods, native preflight, no-store and body bounds'
   const native = recorder(); await handler({ method: 'OPTIONS', headers: { origin: 'capacitor://localhost', 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type' } }, native);
   assert.equal(native.statusCode, 204); assert.equal(native.headers['Cache-Control'], 'private, no-store');
   const foreign = recorder(); await handler({ method: 'OPTIONS', headers: { origin: 'https://other.example', 'access-control-request-method': 'POST' } }, foreign); assert.equal(foreign.statusCode, 403);
+});
+
+test('all 44 explicit interpretations can be reviewed once, edited and attested without Beena',async()=>{
+ const proposals=turns=>preferenceCatalog.dimensions.flatMap(d=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turns[0].id,quote:turns[0].answer}]}))).concat(personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:turns[0].answer}]})));
+ const h=harness({proposals}),first=await start(h),sent=await send(h,first.revision);
+ assert.equal(sent.document.status,'review');assert.deepEqual(sent.coverage,{answered:44,required:44});
+ assert.equal(h.calls.at(-1).event,'analyzed');
+ const choices=sent.document.proposals.map(p=>({id:p.id,values:p.values}));
+ await assert.rejects(h.service({action:'confirm',revision:sent.revision,choices:choices.slice(1)},headers),e=>e.code==='assessment_incomplete');
+ const confirmed=await h.service({action:'confirm',revision:sent.revision,choices},headers);
+ assert.equal(confirmed.document.confirmed.length,44);assert.equal(confirmed.document.reviewSharing,false);
+ assert.equal(h.calls.at(-1).event,'complete');assert.equal(h.calls.at(-1).member_id,'11111111-1111-4111-8111-111111111111');
+ assert.equal((await h.service({action:'load'},headers)).document.status,'confirmed');
+});
+test('manual fallback is granted by a server failure receipt and survives reload',async()=>{
+ for(const options of [{failure:true},{limited:true},{noKey:true}]){
+  const h=harness(options),first=await start(h);assert.equal(first.fallbackAvailable,false);
+  const failed=await send(h,first.revision);assert.equal(failed.fallbackAvailable,true);
+  assert.equal(h.calls.at(-1).event,'fallback');assert.ok(['unavailable','capacity'].includes(h.calls.at(-1).reason));
+  assert.equal((await h.service({action:'load'},headers)).fallbackAvailable,true);
+ }
+});
+test('required final review cannot infer completion from visited topics or personality-only coverage',()=>{
+ const strict={...initialInterviewDocument(true),turns:['intent','communication','closeness','family','practical','everyday'].map(topic=>({...turn,id:randomUUID(),topic}))};
+ const proposals=personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:strict.turns[0].id,quote:'خلال ستة أشهر'}]}));
+ const out=applyInterviewCompletion(strict,completion({...result,proposals}),true);
+ assert.equal(out.status,'active');assert.deepEqual(interviewCoverage(out),{answered:12,required:44});
+ assert.throws(()=>confirmInterviewChoices({...out,status:'review'},out.proposals.map(p=>({id:p.id,values:p.values}))),e=>e.code==='assessment_incomplete');
+});
+
+test('interrupted service attestation keeps analysis retryable and never grants fallback',async()=>{
+ const options={attestationFailure:true},h=harness(options),first=await start(h);
+ await assert.rejects(send(h,first.revision),e=>e.code==='unavailable');
+ const loaded=await h.service({action:'load'},headers);assert.equal(loaded.document.pendingAnalysis,true);assert.equal(loaded.fallbackAvailable,false);
+ options.attestationFailure=false;
+ const retried=await h.service({action:'retry',revision:loaded.revision},headers);assert.equal(retried.document.pendingAnalysis,false);
+ options.attestationConflict=true;await assert.rejects(send(h,retried.revision),e=>e.code==='conflict');
 });

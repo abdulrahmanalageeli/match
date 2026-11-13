@@ -1,23 +1,23 @@
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
-import { assessmentVersion } from "../compatibility/model";
+import { assessmentVersion, dimensions } from "../compatibility/model";
 import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
-import { personalityVersion } from "../compatibility/personality";
+import { personalityVersion, personalityQuestions } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
 
 export const chapters = [
-  { key: "identity", label: "الأساسيات", title: "لنبدأ بالتعارف", note: "اختر الاسم الذي تحب أن يراه الأعضاء، وأضف بعض التفاصيل عنك." },
-  { key: "story", label: "حياتك", title: "لمحة عن حياتك", note: "قدّم نفسك بكلماتك. ما الذي تود أن يعرفه شريك الحياة عنك؟" },
-  { key: "details", label: "تفاصيلك", title: "تفاصيل تُكمل الصورة", note: "شارك ما ترتاح إليه عن مظهرك وخلفيتك وحياتك اليوم." },
-  { key: "avatar", label: "صورتك", title: "حضورك، بخصوصيتك", note: "اختر طريقة ظهورك، مع خيارات خصوصية تناسبك. يمكنك تغييرها لاحقًا." },
-  { key: "criteria", label: "ما يناسبك", title: "ما يهمك في الشريك", note: "فرّق بين ما تفضّله وما لا تتنازل عنه، أو اختر أن الأمر لا يهمك." },
-  { key: "compatibility", label: "التوافق", title: "ما الذي يجمعكما؟", note: "اختر ما يصفك وما تفضّله في شريك الحياة. يمكنك ترك أي سؤال لوقت لاحق." },
-  { key: "personality", label: "شخصيتك", title: "أقرب إلى طبيعتك", note: "ملامح أسلوبك في الحياة والتواصل، من إجاباتك التي تؤكدها. يمكنك إكمالها بالحوار أو مباشرة." },
-  { key: "beena", label: "بيننا", title: "الحياة، كما نعيشها معًا", note: "مواقف صغيرة تكشف كيف تتعامل مع الحياة، وما ترحّب به من شريكك. لا توجد إجابة مثالية، ويمكنك الإكمال لاحقًا." },
-  { key: "preferences", label: "تفضيلاتك", title: "كيف تود أن يبدأ التعارف؟", note: "حدّد من ترغب بالتعرّف إليه، ومتى تفضّل إشراك الأهل." },
-  { key: "review", label: "المراجعة", title: "راجع ملفك", note: "راجع ما سيظهر للطرف الآخر قبل إرسال طلبك." },
+  { key: "identity", label: "الأساسيات", title: "يا هلا، خلّنا نتعرّف عليك", note: "وش الاسم اللي تحب تظهر فيه؟ نبدأ بمعلوماتك الأساسية، وبعدها نأخذ راحتنا في التفاصيل." },
+  { key: "story", label: "حياتك", title: "لمحة عن حياتك", note: "اكتب بطريقتك، مو لازم كلام مرتب. وش تحب في يومك؟ ووش ودّك يشاركه معك شريك حياتك؟" },
+  { key: "details", label: "تفاصيلك", title: "تفاصيل تُكمل الصورة", note: "شارك التفاصيل اللي ترتاح لها. الهدف تكون الصورة واضحة من البداية." },
+  { key: "avatar", label: "صورتك", title: "صورتك، بالطريقة اللي تريحك", note: "خلّ ظهورك يعكسك. خيارات الصورة والخصوصية قدّامك، وتقدر تغيّرها لاحقًا." },
+  { key: "criteria", label: "ما يناسبك", title: "ما يهمك في الشريك", note: "وش أساسي عندك، ووش ممكن تتفاهمون عليه؟ مو لازم يكون كل شيء شرط." },
+  { key: "compatibility", label: "جلسة التوافق", title: "خلّنا نسمع منك", note: "نتكلم عن حياتك واللي تتمناه في شريكك. بعدها تشوف وش فهمنا، وتعدّل وتؤكد بنفسك." },
+  { key: "personality", label: "شخصيتك", title: "أقرب إلى طبيعتك", note: "نبني على الكلام اللي أكدته، ما نطلب منك تعيده. وإذا بقي شيء، تكمله بالحوار أو من الأسئلة." },
+  { key: "beena", label: "بيننا", title: "لو صار بينكم هذا الموقف؟", note: "مواقف من الحياة: الأهل، المصاريف، والاختلافات الصغيرة. جاوب باللي يشبهك، مو بالإجابة اللي تحس إنها الأفضل." },
+  { key: "preferences", label: "تفضيلاتك", title: "كيف تود أن يبدأ التعارف؟", note: "وش يناسبك في بداية التعارف؟ ومتى تحب تكون الخطوة مع الأهل؟" },
+  { key: "review", label: "المراجعة", title: "راجع ملفك", note: "خذ نظرة أخيرة. هذا اللي بيشوفه الطرف الآخر، وتقدر تعدّل أي شيء قبل الإرسال." },
 ] as const;
 
 export type Chapter = (typeof chapters)[number]["key"];
@@ -34,7 +34,7 @@ export type ApplicationDraft = {
   step: Chapter;
   returnToReview: boolean;
   consent: boolean;
-  permissions?: { version: string; sensitiveProfile: boolean; assessment: boolean };
+  permissions?: { version: string; sensitiveProfile: boolean; assessment: boolean; interview?: boolean };
 };
 const numbers = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab", useGrouping: false });
 export const arabicNumber = (n: number) => numbers.format(n);
@@ -87,8 +87,14 @@ function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
 export type Issue = { field: keyof Answers | "consent"; text: string };
-export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false): Issue | null {
+export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false): Issue | null {
   switch (step) {
+    case 'compatibility':
+      if (requireAssessment && dimensions.some(d => [d.id, d.partnerId].some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
+      if (requireAssessment && personalityQuestions.some(q => !q.options.some(o => o.code === p.personalityAnswers?.[q.id]))) return { field: 'personalityAnswers', text: 'بقيت نقاط عن شخصيتك. أكملها في الجلسة قبل المتابعة.' };
+      return null;
+    case 'personality':
+      return requireAssessment && personalityQuestions.some(q => !q.options.some(o => o.code === p.personalityAnswers?.[q.id])) ? { field: 'personalityAnswers', text: 'أكمل إجابات الشخصية قبل المتابعة.' } : null;
     case "identity":
       if (!p.displayName.trim()) return { field: "displayName", text: "أدخل اسمًا يظهر في ملفك." };
       if (!p.gender) return { field: "gender", text: "اختر الجنس لإكمال ملفك." };
@@ -100,6 +106,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (!p.profession.trim()) return { field: "profession", text: "اختر مجال العمل أو الوضع المهني." };
       if (!p.bio.trim()) return { field: "bio", text: "اكتب نبذة قصيرة تعبّر عنك." };
       for (const key of ["lookingFor", "lifeTogether", "education", "marriageIntent", "valuesStatement"] as const) {
+        if (requireAssessment && !p[key]?.trim()) return { field: key, text: 'أكمل هذه الإجابة لتكتمل حكايتك. جملة قصيرة تكفي.' };
         if ((p[key]?.length ?? 0) > (key === "education" ? 100 : key === "marriageIntent" ? 100 : 600)) return { field: key, text: "اختصر إجابتك ضمن المساحة المتاحة." };
       }
       return null;
@@ -113,11 +120,13 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact.trim()) && !/^\+?\d{8,15}$/.test(latinDigits(p.contact).replace(/[\s()-]/g, ""))) return { field: "contact", text: "أدخل بريدًا إلكترونيًا صحيحًا أو رقم جوال مع رمز الدولة." };
       return null;
     case "details":
+      if (requireAssessment && (['heightCm','weightKg','preferredLanguage','languageOpenness','nationality','maritalStatus','polygynyPreference','childrenCount','smoking','marriageTimeline','meetingPreference'] as const).some(key => p.marriageBasics?.[key] === undefined || p.marriageBasics?.[key] === '') || requireAssessment && !p.marriageBasics?.spokenLanguages?.length) return { field: 'marriageBasics', text: 'أكمل تفاصيلك الأساسية في كل مجموعة، بما فيها اللغات. المعلومات الحساسة تبقى باختيارك.' };
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
       if(p.marriageBasics?.currentWives===4)return{field:'marriageBasics',text:'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.'};
       if (p.marriageBasics && !validMarriageBasics(p.marriageBasics)) return { field: "marriageBasics", text: "راجع التفاصيل: الطول من ١٢٠ إلى ٢٣٠ سم، والوزن من ٣٥ إلى ٢٥٠ كجم بأعداد صحيحة، والأبناء من صفر إلى ٢٠. اسم القبيلة اختياري للخلفية القبلية فقط." };
       return null;
     case "criteria":
+      if (requireAssessment && (['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'] as const).some(key => !p.partnerCriteria?.[key]?.mode)) return { field: 'partnerCriteria', text: 'حدّد موقفك من كل معيار. «لا يهمني» إجابة كاملة عندما لا يكون لديك تفضيل.' };
       if (p.partnerCriteria && !validPartnerCriteria(p.partnerCriteria, p.marriageBasics)) return { field: "partnerCriteria", text: "حدّد الخيارات لكل معيار مهم لك، بما فيها البشرة واللباس إذا اخترتهما. راجع نطاق الطول والوزن والحالات الاجتماعية. «نفس قبيلتي» يحتاج اسم قبيلتك في تفاصيلك." };
       return null;
     case "avatar":

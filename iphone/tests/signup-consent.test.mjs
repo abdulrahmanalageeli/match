@@ -8,7 +8,7 @@ const notice=await readFile(new URL('../src/legal/LegalNotice.tsx',import.meta.u
 const version=notice.match(/export const LEGAL_NOTICE_VERSION\s*=\s*'([^']+)'/)[1];
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText
  .replace(/import\s*\{\s*LEGAL_NOTICE_VERSION\s*\}\s*from\s*['"]\.\/LegalNotice['"];?/,`const LEGAL_NOTICE_VERSION=${JSON.stringify(version)};`);
-const{emptyConsents,withoutSensitive,withoutAssessment,applyConsentChoices,publicSensitiveFields}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const{recordedAccountAgreements,emptyConsents,withoutSensitive,withoutAssessment,applyConsentChoices,publicSensitiveFields}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 function sample(){return{displayName:'مثال',age:29,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة عامة',contact:'private@example.test',
  preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد الاتفاق',portrait:{id:'existing',path:'private/path.jpg',blur:60},
  marriageBasics:{heightCm:164,nationality:'سعودية',skinTone:'tone_3',tribalBackground:'tribal',tribeName:'اختبار',religiousAffiliation:'sunni',prayerPractice:'regular',dressStyle:'hijab'},
@@ -56,4 +56,12 @@ test('publication defaults closed while private sensitive data remains available
  assert.deepEqual(saved.marriageBasics,original.marriageBasics);assert.deepEqual(saved.partnerCriteria,original.partnerCriteria);
  assert.deepEqual(publicSensitiveFields({...saved,signupConsents:{...choices,sensitivePublication:true}}),{marriageBasics:original.marriageBasics,publicAvatar:original.publicAvatar});
  assert.equal(applyConsentChoices(original,{...choices,sensitiveProfile:false,sensitivePublication:true}).signupConsents.sensitivePublication,false);
+});
+
+
+test('only a current account receipt restores prior agreements',()=>{
+  for(const receipt of [null,undefined,{}, {version:'old',adult:true,terms:true,privacy:true}]) assert.deepEqual(recordedAccountAgreements(receipt),{adult:false,terms:false,privacy:false});
+  assert.deepEqual(recordedAccountAgreements({version,adult:true,terms:true,privacy:true}),{adult:true,terms:true,privacy:true});
+  assert.deepEqual(recordedAccountAgreements({version,adult:true,terms:'yes',privacy:false}),{adult:true,terms:false,privacy:false});
+  assert.equal(emptyConsents().assessment,false);
 });

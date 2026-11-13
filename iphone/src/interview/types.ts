@@ -16,7 +16,7 @@ export type InterviewDocument = {
   version: 'interview-v1';
   consentVersion: 'wudayn-interview-v1';
   model: 'gpt-6-luna';
-  promptVersion: 'wudayn-interview-1' | 'wudayn-interview-2';
+  promptVersion: 'wudayn-interview-1' | 'wudayn-interview-2' | 'wudayn-interview-3';
   status: 'active' | 'review' | 'confirmed';
   turns: InterviewTurn[];
   currentQuestion: InterviewQuestion | null;
@@ -36,4 +36,6 @@ export type InterviewSnapshot = {
   revision: number;
   updatedAt?: string | null;
   expiresAt?: string | null;
+  fallbackAvailable?: boolean;
+  coverage?: { answered: number; required: number };
 };

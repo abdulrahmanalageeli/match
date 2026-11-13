@@ -1,7 +1,8 @@
 import { blurPixels } from './portraitBlur';
-import type { PortraitRevealPolicy } from '../types';
+import type { ProfilePortrait, PortraitRevealPolicy } from '../types';
 export { blurPixels } from './portraitBlur';
-export type PortraitDraft = { blob: Blob; url: string; blur: number; revealPolicy: PortraitRevealPolicy; clearBlob?: Blob };
+export type PortraitStage = { id: string; status: 'uploaded' | 'ready' | 'verified' | 'moderation' | 'approved' | 'rejected'; portrait: ProfilePortrait };
+export type PortraitDraft = { blob: Blob; url: string; blur: number; revealPolicy: PortraitRevealPolicy; clearBlob?: Blob; staged?: PortraitStage };
 
 export async function blurPortraitPixels(data: Uint8ClampedArray,width:number,height:number,radius:number):Promise<void> {
   if (!radius) return;

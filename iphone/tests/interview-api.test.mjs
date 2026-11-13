@@ -248,12 +248,37 @@ test('remaining personality gets a contextual follow-up after eight turns withou
   assert.equal(continued.status, 'active');
   assert.equal(continued.currentQuestion.topic, 'practical');
   assert.match(continued.currentQuestion.text, /إجازة قصيرة/);
+  assert.doesNotMatch(continued.currentQuestion.text, /مكان جديد|المألوف/,'the covered novelty trait is not asked again');
   assert.notEqual(continued.currentQuestion.text, 'سؤال يعود لمحور سابق');
   const complete = applyInterviewCompletion(atEight, completion({ ...result, proposals: personalityProposals }));
   assert.equal(complete.status, 'review');
   assert.equal(complete.currentQuestion, null);
   const uncertain = personalityProposals.map(item => ({ ...item, needsClarification: item.fieldId === 'planning' }));
   assert.equal(applyInterviewCompletion(atEight, completion({ ...result, proposals: uncertain })).currentQuestion.topic, 'practical');
+  const context=JSON.parse(interviewCompletionRequest({...atEight,proposals:partial}).messages[1].content);
+  assert.deepEqual(context.nextTopic.personalityIds,['planning']);
+  assert.doesNotMatch(context.nextTopic.personalityQuestion,/مكان جديد|المألوف/);
+});
+
+test('six covered themes and complete personality do not force two more questions', () => {
+  const turns=['intent','communication','closeness','family','practical','everyday'].map(topic=>({...turn,id:randomUUID(),topic}));
+  const proposals=personalityCatalog.map(item=>({...candidate,kind:'personality',fieldId:item.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}));
+  const completed=applyInterviewCompletion({...document(),turns,proposals:[]},completion({...result,proposals}));
+  assert.equal(completed.status,'review');assert.equal(completed.currentQuestion,null);
+  const uncertain=proposals.map(item=>({...item,needsClarification:item.fieldId==='quiet_comfort'}));
+  const incomplete=applyInterviewCompletion({...document(),turns,proposals:[]},completion({...result,proposals:uncertain}));
+  assert.equal(incomplete.currentQuestion.topic,'everyday');
+  assert.match(incomplete.currentQuestion.text,/الصمت/);assert.doesNotMatch(incomplete.currentQuestion.text,/جمعة مع الناس/);
+});
+
+test('model questions cannot repeat a prior question with only punctuation or Arabic marks changed', () => {
+  const repeated='مَتى يُناسبك الزَّواج ؟!!';
+  const output=applyInterviewCompletion(document(),completion({...result,question:repeated}));
+  assert.equal(output.currentQuestion.topic,'communication');assert.notEqual(output.currentQuestion.text,repeated);
+  assert.match(output.currentQuestion.text,/سوء فهم/);
+  const sameTopic=applyInterviewCompletion(document(),completion({...result,followUp:true,question:repeated}));
+  assert.equal(sameTopic.currentQuestion.topic,'intent');assert.notEqual(sameTopic.currentQuestion.text,repeated);
+  assert.match(sameTopic.currentQuestion.text,/تبادر/);
 });
 
 test('combined assessments fit the bounded confirmation payload', () => {

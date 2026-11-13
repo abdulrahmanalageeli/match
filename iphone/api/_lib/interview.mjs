@@ -33,6 +33,20 @@ const personalityThemes = {
   practical: { ids: ['planning', 'novelty'], question: 'لو تخططون لإجازة قصيرة، تحب غالبًا ترتيب التفاصيل مبكرًا؟ وتميل لتجربة مكان جديد أو العودة للمألوف؟' },
   everyday: { ids: ['social_energy', 'quiet_comfort'], question: 'بعد جمعة مع الناس، عادةً طاقتك تزيد أو تحتاج هدوء؟ وكيف تشعر بلحظات الصمت مع شخص قريب؟' },
 };
+const personalityFollowUps = {
+  initiative: 'مع شخص جديد، عادةً تبادر بفتح المواضيع أو تنتظر الطرف الآخر يبدأ؟',
+  depth: 'في الحوار، عادةً تستمتع بالتعمّق في موضوع واحد أو التنقّل بين مواضيع مختلفة؟',
+  conflict_pace: 'وقت الاختلاف، عادةً تفضّل تناقشه فورًا أو تنتظر إلى وقت أهدأ؟',
+  directness: 'إذا احتجت شيء أو تضايقت، كيف تعبّر عنه عادةً للشخص القريب منك؟',
+  closeness: 'في أغلب أيامك، كم تحب مشاركة تفاصيل يومك والتواصل مع شريكك؟',
+  reassurance: 'قد إيش يطمئنك التعبير الواضح والمتكرر عن الاهتمام؟',
+  openness: 'إذا حسّيت بالأمان مع شخص، هل يسهل عليك عادةً مشاركة مشاعرك وتجربتك؟',
+  support: 'وقت الضغط، عادةً ترتاح للحديث مع شخص تثق به أو تفضّل تتعامل معه بنفسك؟',
+  planning: 'لو تخططون لإجازة قصيرة، عادةً تحب ترتيب تفاصيلها مبكرًا أو تتركها لوقتها؟',
+  novelty: 'في وقت فراغك، عادةً تتحمّس لتجربة أماكن وأنشطة جديدة أو تفضّل المألوف؟',
+  social_energy: 'بعد جمعة مع الناس، عادةً تحس بنشاط أكبر أو تحتاج وقتًا تستعيد فيه طاقتك؟',
+  quiet_comfort: 'كيف تحس بلحظات الصمت مع شخص قريب: مريحة أو تفضّل تفتحون موضوعًا؟',
+};
 export class InterviewError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
@@ -151,6 +165,9 @@ function validDocument(document) {
     model: INTERVIEW_MODEL, promptVersion: PROMPT_VERSION };
 }
 
+function missingPersonality(topic, document) {
+  return personalityThemes[topic.id].ids.filter(id => !document.proposals.some(proposal => proposal.kind === 'personality' && proposal.fieldId === id && !proposal.needsClarification));
+}
 function nextTopic(document, followUp) {
   if (document.turns.length >= MAX_TURNS) return null;
   const count = new Map(topics.map(topic => [topic.id, document.turns.filter(turn => turn.topic === topic.id).length]));
@@ -158,17 +175,19 @@ function nextTopic(document, followUp) {
   if (followUp && last && !last.skipped && count.get(last.topic) < 2) return topicById.get(last.topic);
   const missing = topics.find(topic => !count.get(topic.id));
   if (missing) return missing;
-  const uncovered = new Set(personality.filter(item => !document.proposals.some(proposal => proposal.kind === 'personality' && proposal.fieldId === item.id && !proposal.needsClarification)).map(item => item.id));
-  const personalityFollowUp = topics.find(topic => count.get(topic.id) < 2 && personalityThemes[topic.id].ids.some(id => uncovered.has(id)));
-  if (personalityFollowUp) return personalityFollowUp;
-  if (document.turns.length >= 8) return null;
-  return topics.find(topic => count.get(topic.id) < 2) ?? null;
+  return topics.find(topic => count.get(topic.id) < 2 && missingPersonality(topic, document).length) ?? null;
+}
+function personalityQuestion(topic, document) {
+  const missing = missingPersonality(topic, document);
+  return missing.length === 1 ? personalityFollowUps[missing[0]] : missing.length ? personalityThemes[topic.id].question : '';
 }
 function focusedQuestion(topic, document) {
   if (!topic) return null;
   const repeated = document.turns.some(turn => turn.topic === topic.id);
-  return { ...questionFrom(topic), ...(repeated ? { text: personalityThemes[topic.id].question } : {}) };
+  return { ...questionFrom(topic), ...(repeated ? { text: personalityQuestion(topic, document) || `في جانب ${topic.title}، وش التفصيل اللي تحب توضّحه أكثر؟` } : {}) };
 }
+const normalizedQuestion = value => value.normalize('NFKC').replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+const alreadyAsked = (question, document) => document.turns.some(turn => normalizedQuestion(turn.question) === normalizedQuestion(question));
 
 const evidenceSchema = { type: 'array', items: { type: 'object', additionalProperties: false,
   properties: { turnId: { type: 'string' }, quote: { type: 'string' } }, required: ['turnId', 'quote'] } };
@@ -199,8 +218,8 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: 7000,
     messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({
       transcript: document.turns,
-      nextTopic: next ? { ...next, personalityIds: personalityThemes[next.id].ids, personalityQuestion: focusedQuestion(next, document).text } : null,
-      possibleFollowUpTopic: same ? { ...same, personalityIds: personalityThemes[same.id].ids, personalityQuestion: personalityThemes[same.id].question } : null,
+      nextTopic: next ? { ...next, personalityIds: missingPersonality(next, document), personalityQuestion: personalityQuestion(next, document) } : null,
+      possibleFollowUpTopic: same ? { ...same, personalityIds: missingPersonality(same, document), personalityQuestion: personalityQuestion(same, document) } : null,
       preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options }) => ({ id, title, selfPrompt, partnerPrompt, options })),
       beenaCatalog: scenarios.map(({ id, title, scene, options }) => ({ id, title, scene, options })),
       personalityCatalog: personality, personalityOptions,
@@ -224,12 +243,16 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     seen.add(proposal.id);
     return [proposal];
   });
-  const next = finalReview ? null : nextTopic({ ...document, proposals }, result.followUp);
+  const updated = { ...document, proposals };
+  const next = finalReview ? null : nextTopic(updated, result.followUp);
   const expected = nextTopic(document, result.followUp);
   const followUpHonored = next?.id === expected?.id && (!result.followUp || next?.id === document.turns.at(-1)?.topic);
+  const question = focusedQuestion(next, updated);
+  if (question && followUpHonored && safeText(result.question, 500) && !alreadyAsked(result.question, document)) question.text = result.question.trim();
+  if (question && alreadyAsked(question.text, document)) question.text = `عن ${next.title}، وش الجانب اللي ما تطرقنا له وتحب توضّحه؟`;
   return { ...document, model: INTERVIEW_MODEL, promptVersion: PROMPT_VERSION,
     proposals, readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
-    currentQuestion: next ? { ...focusedQuestion(next, document), text: followUpHonored && safeText(result.question, 500) ? result.question.trim() : focusedQuestion(next, document).text } : null,
+    currentQuestion: question,
     status: next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
 }

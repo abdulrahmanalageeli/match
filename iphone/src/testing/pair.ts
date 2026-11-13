@@ -1,4 +1,4 @@
-import { demoCommunity, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
+import { demoCommunity, demoProfile, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
 import { marriageProjectUrl, marriagePublishableKey } from '../deployment';
 import { dimensions, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
@@ -163,8 +163,8 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const s=await state();if(s.exclusive)return [];
    const full=(await local.inbox()).filter(c=>c.status==='accepted').length+Number(s.matched)>=2;
    const partner=person(s);
-   const includePeer=(s.matched||s.allowRematch)&&!s.hiddenPeople?.[account.actor]&&matchesDiscoveryFilters(partner,filters)&&
-    !filters.work;
+   // Keep the real paired tester visible regardless of directory filters.
+   const includePeer=(s.matched||s.allowRematch)&&!s.hiddenPeople?.[account.actor];
    const people=[...(includePeer?[{...partner,connectionId:s.matched||s.rematchRequestedBy?'tester-pair':undefined,connectionStatus:s.matched?'accepted' as const:s.rematchRequestedBy?'pending' as const:undefined}]:[]),
     ...await local.discover({...filters,offset:0,afterId:undefined})].map(p=>({...p,viewerAtCapacity:full}));
    people.sort(filters.sort==='youngest'?(a,b)=>a.age-b.age:filters.sort==='oldest'?(a,b)=>b.age-a.age:

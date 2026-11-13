@@ -34,7 +34,7 @@ try {
     await page.waitForTimeout(700); // Allow the real chapter reveal to settle before measuring and capturing.
     if (['details', 'criteria'].includes(chapter)) {
       const permission = page.locator('.nf-consent-gate input[type=checkbox]').first();
-      if (await permission.count()) await permission.check(); // Local QA only: include controls behind the explicit opt-in.
+      if (await permission.count()) await permission.click(); // Local QA only: include controls behind the explicit opt-in.
       const group = page.locator('details.nf-marriage-group').first();
       if (await group.count() && !await group.evaluate(element => element.open)) await group.locator('summary').first().click();
       await page.waitForTimeout(250);
@@ -131,3 +131,4 @@ try {
   await browser?.close();
   await server.close();
 }
+

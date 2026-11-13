@@ -69,6 +69,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [sharingSaved, setSharingSaved] = useState(false);
   const requestId = useRef<{ answer: string; skip: boolean; id: string } | null>(null);
   const doc = snapshot.document;
+  const openingTurn = Boolean(doc?.status === 'active' && doc.turns.length === 0);
   const owner = auth.testSession ?? auth.token ?? '';
   const reviewVersion = doc ? JSON.stringify([doc.status, doc.proposals, doc.confirmed]) : '';
 
@@ -328,21 +329,22 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {coverage && <div className="wi-session-progress" role="progressbar" aria-label="النقاط التي اتضحت من الحوار" aria-valuemin={0} aria-valuemax={coverage.required} aria-valuenow={coverage.answered}><span style={{transform:`scaleX(${progress})`}}/></div>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
-            {doc.turns.length===0 && <div className="wi-opening-note"><span>حوار واحد، وصورة أوضح.</span><p>جزء من طلب عضويتك، لفهم نيتك للزواج وما يناسبك. جاوب بطريقتك؛ تراجع الملخص في النهاية.</p></div>}
+            {openingTurn && <div className="wi-opening-note"><span>ابدأ من قصتك.</span><p>عرّفنا عن حياتك وما تريده من الزواج في فقرة واحدة. سنفهم منها ما نستطيع، ثم نسأل فقط عمّا بقي.</p></div>}
             {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history"><p>{turn.question}</p></div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
             </div>)}
-            <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>{currentTopic?.title ?? 'نتعرّف إليك'}</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
+            <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>{openingTurn ? 'بدايتك' : currentTopic?.title ?? 'نتعرّف إليك'}</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
-            {!responding && coverageGain > 1 && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت أكثر من جانب</span></div>}
+            {!responding && coverageGain > 1 && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}
           </div>
-          <form className="wi-composer" onSubmit={event => { event.preventDefault(); void send(); }}>
-            {answerHelp && <p id="wi-answer-help" className="wi-answer-help">ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.</p>}
+          <form className="wi-composer" data-opening={openingTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
+            {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يعنيه لك الزواج الجاد والخطوة الرسمية. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
+            {openingTurn && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div>}
-            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={1} wrap="soft" placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
+            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-help' : undefined} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
             <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}

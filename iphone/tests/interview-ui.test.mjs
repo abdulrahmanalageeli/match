@@ -89,6 +89,28 @@ test('the active experience is an ordered conversation with a composer and no su
   assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));const input=nodes(tree).find(node=>node.type==='textarea');assert.equal(input.props.dir,'rtl');assert.equal(input.props.lang,'ar');assert.equal(input.props.wrap,'soft');assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
 });
 
+test('the first turn invites one rich introduction before switching to compact gap questions', async () => {
+  const ui=mount({document:baseDocument(),revision:1});ui.render();await tick();let tree=ui.render();
+  const form=nodes(tree).find(node=>node.type==='form'&&node.props.className==='wi-composer');
+  const input=nodes(tree).find(node=>node.type==='textarea');
+  assert.equal(form.props['data-opening'],true);
+  assert.equal(input.props.rows,4);
+  assert.match(input.props.placeholder,/عرّفنا عن نفسك/);
+  assert.match(textOf(tree),/عنّك.*حياتك اليوم.*الشريك الذي تبحث عنه.*استعدادك للزواج/);
+  assert.match(textOf(tree),/فقرة واحدة.*نسأل فقط عمّا بقي/);
+  find(tree,'كيف أبدأ؟').props.onClick();tree=ui.render();
+  assert.match(textOf(tree),/ما يعنيه لك الزواج الجاد والخطوة الرسمية/);
+  ui.unmount();
+
+  const later=mount({document:{...baseDocument(),turns:[{id:'t1',topic:'intent',question:'عرّفنا عن نفسك',answer:'أنا جاد في الزواج',skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور دور الأهل؟',suggestions:[]}},revision:2});
+  later.render();await tick();tree=later.render();
+  assert.equal(nodes(tree).find(node=>node.type==='form'&&node.props.className==='wi-composer').props['data-opening'],undefined);
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.rows,1);
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.placeholder,'قل لنا بطريقتك…');
+  assert.doesNotMatch(textOf(tree),/الشريك الذي تبحث عنه.*استعدادك للزواج/);
+  later.unmount();
+});
+
 test('draft save is serialized with submitting and newer typing remains visible when an older save completes', async () => {
   const waiting=deferred();const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();

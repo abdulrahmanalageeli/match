@@ -122,11 +122,13 @@ function identityHeaders(headers) {
 export function initialInterviewDocument(required = false) {
   return {
     version: 'interview-v1', consentVersion: CONSENT_VERSION, model: INTERVIEW_MODEL, promptVersion: required ? PROMPT_VERSION : 'wudayn-interview-2',
-    status: 'active', turns: [], currentQuestion: questionFrom(topics[0]), proposals: [], readiness: [], clarifications: [], confirmed: [],
+    status: 'active', turns: [], currentQuestion: required ? openingQuestion() : questionFrom(topics[0]), proposals: [], readiness: [], clarifications: [], confirmed: [],
     lastRequestId: null, lastMode: 'guided', pendingAnalysis: false, draftAnswer: '', reviewSharing: false, confirmedAt: null,
   };
 }
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
+const REQUIRED_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
+function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
   if (kind === 'personality') return personalityById.has(fieldId) && side === 'self' && values.length === 1 && personalityOptions.some(option => option.code === values[0]);
@@ -189,7 +191,8 @@ function validDocument(document) {
   const question = document.currentQuestion;
   if (question !== null && (!record(question) || !topicById.has(question.topic) || !safeText(question.text, 500))) throw invalid();
   return { ...initialInterviewDocument(), ...document, proposals: (Array.isArray(document.proposals) ? document.proposals : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns)).filter(Boolean),
-    currentQuestion: question ? { topic: question.topic, text: question.text, suggestions: questionSuggestions(question.suggestions, question.text) } : null,
+    currentQuestion: document.promptVersion === PROMPT_VERSION && document.status === 'active' && document.turns.length === 0
+      ? openingQuestion() : question ? { topic: question.topic, text: question.text, suggestions: questionSuggestions(question.suggestions, question.text) } : null,
     readiness: validateNotes(document.readiness, document.turns, true), clarifications: validateNotes(document.clarifications, document.turns),
     confirmed: (Array.isArray(document.confirmed) ? document.confirmed : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns)).filter(Boolean),
     model: INTERVIEW_MODEL, promptVersion: document.promptVersion === PROMPT_VERSION ? PROMPT_VERSION : 'wudayn-interview-2' };
@@ -231,6 +234,7 @@ function personalityQuestion(topic, document) {
 }
 function focusedQuestion(topic, document) {
   if (!topic) return null;
+  if (requiredInterview(document) && document.turns.length === 0 && topic.id === 'intent') return openingQuestion();
   const repeated = document.turns.some(turn => turn.topic === topic.id);
   if (requiredInterview(document) && repeated) {
     const missing = missingFields(document, topic);
@@ -242,7 +246,8 @@ function focusedQuestion(topic, document) {
       const text = preferenceFollowUps[field.fieldId]?.[field.side === 'self' ? 0 : 1] ?? (field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt);
       // One coherent topic can cover both perspectives, without assuming that
       // the member wants a partner identical to themselves.
-      if (bothSides) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟` };
+      if (bothSides) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟`,
+        suggestions: dimension.options.map(option => `أنا ${option.self}، وأفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
       return { ...questionFrom(topic), text, suggestions: dimension.options.map(option => field.side === 'self' ? option.self : `أفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
     }
   }
@@ -318,6 +323,8 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
       .replace(/التفضيلات ومواقف بيننا قواميس متكاملة[^\n]+/, '')
       .replace('افحص القواميس الثلاثة كاملة', 'افحص قاموسي التفضيلات والشخصية كاملين');
     instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ إجابة تفضيلات (الذات والشريك مستقلان) و١٢ إجابة شخصية، دون تخمين أي قيمة ناقصة. هذه ٤٤ خانة فهم وليست ٤٤ سؤالًا: اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، مثل ما يفضّله هو وما يقبله من الشريك، أو أسلوب حل الخلاف وما يقوله عن سلوكه المعتاد. لا تجمع مواضيع متباعدة ولا تُخفي سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
+السؤال الأول دعوة لفقرة تعريف واحدة عن الشخص وحياته وما يبحث عنه في شريك وزواج واستعداده وتوقيته. افحص هذه الفقرة كاملة أمام قاموسي التفضيلات والشخصية، واستخرج فورًا كل قيمة صريحة تسندها حتى لو غطت محاور لاحقة. بعد أول إجابة لا تعِد سؤال التعريف العام؛ اسأل فقط عن missingFields المتبقية. الاستعداد يُسجل فقط كإفادات صريحة عن النية والتوقيت والتحضير والخطوة القادمة، ولا يثبت الصدق ولا ينتج درجة جدية أو أهلية.
+إذا بقي جانبا self وpartner لنفس تفضيل واحد، اسأل عنهما معًا في سؤال قصير واحد، وأدرج المعرّفين معًا في questionFields. فسّر كل جانب مستقلًا ولا تستنتج أحدهما من الآخر. إن قدّمت quickReplies لهذا السؤال المركب، يجب أن يصرّح كل خيار بما يصف العضو وما يفضله في الشريك معًا؛ وإلا أعد [] واترك الكتابة الحرة متاحة.
 أسلوب الجلسة قريب وعفوي مع جدية موضوع الزواج: عربية سعودية بيضاء مفهومة، دون مبالغة في العامية أو تقمص دور معالج أو مستشار بشري. اجعل كل رسالة سطرًا أو سطرين، لا محاضرة ولا دردشة مفتوحة بلا غرض. رد على المعنى قبل سؤالك، ولا تردد إجابة العضو بصياغة ثانية. لا تبدأ كل رد بـ«فهمتك» أو «جميل» أو «واضح»، ولا تمدح شخصيته أو نضجه بسبب إجابة. نوّع الإيقاع حسب الكلام، لا حسب قالب ثابت.
 اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب» فاسأل بهدوء: على حسب أي جانب؟ إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
@@ -411,9 +418,17 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   const revisiting = next && document.turns.some(turn => turn.topic === next.id);
   const pendingIds = new Set(missingFields(routing, next).map(field => field.id));
   const targetsMissing = result.questionFields === undefined || (result.questionFields.length > 0 && result.questionFields.every(id => pendingIds.has(id)));
-  if (question && targetsMissing && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
+  const targetIds = new Set(result.questionFields ?? []);
+  const splitsPreferencePair = [...targetIds].some(id => {
+    const field = requiredFields.find(item => item.id === id && item.kind === 'preference');
+    if (!field) return false;
+    const counterpart = requiredFields.find(item => item.kind === 'preference' && item.fieldId === field.fieldId && item.side !== field.side);
+    return counterpart && pendingIds.has(counterpart.id) && !targetIds.has(counterpart.id);
+  });
+  if (question && targetsMissing && !splitsPreferencePair && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
     question.text = result.question.trim();
-    question.suggestions = questionSuggestions(result.quickReplies, question.text);
+    const suggestions = questionSuggestions(result.quickReplies, question.text);
+    if (suggestions.length) question.suggestions = suggestions;
   }
   if (question && alreadyAsked(question.text, document)) question.text = requiredInterview(document) ? `خلّنا نوضح هذه النقطة: ${question.text}`.slice(0, 500) : `عن ${next.title}، وش الجانب اللي ما تطرقنا له وتحب توضّحه؟`;
   if (question && result.reply.trim()) {

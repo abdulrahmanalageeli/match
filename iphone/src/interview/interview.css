@@ -240,14 +240,20 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-compose-meta { gap:8px; color:#8b7480; }
 .wi-compose-meta > button { min-height:36px; font-size:11px; }
 .wi-answer-help { margin:0 3px 12px; padding:10px 12px; background:#f1e9ee; border-radius:12px; color:#755b68; font-size:12px; line-height:1.85; animation:wi-turn-in .18s ease-out both; }
+.wi-intro-cues { display:flex; flex-wrap:wrap; gap:6px; margin:0 3px 10px; animation:wi-turn-in .22s ease-out both; }
+.wi-intro-cues span { padding:5px 9px; border:1px solid #e7dfe2; border-radius:999px; background:#fff; color:#796771; font-size:10px; line-height:1.4; }
+.wi-composer[data-opening] .wi-compose-row { align-items:flex-end; border-color:#d9cbd2; border-radius:19px; }
+.wi-dialog .wi-composer[data-opening] .wi-compose-row textarea { min-height:112px; max-height:180px; line-height:1.75; }
 .wi-review::before { content:''; display:block; width:32px; height:2px; background:#b28a9c; margin-bottom:18px; }
 .wi-complete-mark { animation:wi-turn-in .3s ease-out both; }
 @keyframes wi-turn-in { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
 html[data-nf-keyboard] .wi-session-compass { padding-bottom:7px; }
 html[data-nf-keyboard] .wi-session-compass .wi-chat-context { padding-block:4px 6px; }
 html[data-nf-keyboard] .wi-opening-note { padding-top:12px; }
+html[data-nf-keyboard] .wi-intro-cues { display:none; }
+html[data-nf-keyboard] .wi-dialog .wi-composer[data-opening] .wi-compose-row textarea { min-height:64px; max-height:110px; }
 @media (prefers-reduced-motion:reduce) { .wi-current-question,.wi-new-answer,.wi-answer-help,.wi-complete-mark { animation:none; } .wi-session-progress > span,.wi-send,.wi-compose-row { transition:none; } }
-html[data-nf-motion=reduced] :is(.wi-current-question,.wi-new-answer,.wi-answer-help,.wi-complete-mark,.wi-loading-dots i) { animation:none!important; }
+html[data-nf-motion=reduced] :is(.wi-current-question,.wi-new-answer,.wi-answer-help,.wi-intro-cues,.wi-complete-mark,.wi-loading-dots i) { animation:none!important; }
 html[data-nf-motion=reduced] :is(.wi-session-progress > span,.wi-send,.wi-compose-row) { transition:none; }
 
 /* A calm, responsive conversation with a consistent Arabic reading edge. */
@@ -282,6 +288,6 @@ html[data-nf-motion=reduced] :is(.wi-session-progress > span,.wi-send,.wi-compos
 .wi-review-group[open]>summary { border-bottom:1px solid #eee8eb; }
 
 @media(max-width:350px) { .wi-thread { padding-inline:16px; } .wi-composer { padding-inline:12px; } .wi-current-question { padding:16px; } .wi-chat-suggestions button { padding-inline:10px; font-size:12px; } }
-@media(prefers-reduced-motion:reduce) { .wi-chat-suggestions,.wi-coverage-note { animation:none; } .wi-chat-suggestions button { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .wi-chat-suggestions,.wi-coverage-note,.wi-intro-cues { animation:none; } .wi-chat-suggestions button { transition:none; } }
 html[data-nf-motion=reduced] :is(.wi-chat-suggestions,.wi-coverage-note) { animation:none!important; }
 html[data-nf-motion=reduced] .wi-chat-suggestions button { transition:none!important; }

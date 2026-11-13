@@ -66,6 +66,12 @@ test('session start does not call model; draft autosaves privately and answer us
   const h = harness();
   const first = await start(h);
   assert.equal(first.document.reviewSharing, false);
+  assert.equal(first.document.currentQuestion.topic, 'intent');
+  assert.match(first.document.currentQuestion.text, /عرّفنا عن نفسك/);
+  assert.match(first.document.currentQuestion.text, /ما الذي تبحث عنه في شريك حياتك/);
+  assert.match(first.document.currentQuestion.text, /الزواج الجاد/);
+  assert.match(first.document.currentQuestion.text, /استعدادك.*التوقيت/);
+  assert.deepEqual(first.document.currentQuestion.suggestions, []);
   assert.equal(h.modelCalls.length, 0);
   const draft = await h.service({ action: 'draft', revision: first.revision, answer }, headers);
   assert.equal(draft.document.draftAnswer, answer);
@@ -601,18 +607,31 @@ test('missing self and partner sides share a prompt; single-side followups get m
  const source={...initialInterviewDocument(true),turns};
  const grouped=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[]}));
  assert.match(grouped.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
- assert.deepEqual(grouped.currentQuestion.suggestions,[]);
+ assert.ok(grouped.currentQuestion.suggestions.length>=2);
+ assert.ok(grouped.currentQuestion.suggestions.every(value=>value.startsWith('أنا ')&&value.includes('وأفضّل شريكًا')));
  const single=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[{...candidate,evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}]}));
  assert.equal(single.currentQuestion.topic,'intent');
  assert.ok(single.currentQuestion.suggestions.length>=2);
  assert.ok(single.currentQuestion.suggestions.every(value=>value.startsWith('أفضّل شريكًا')));
 });
 
+test('a model question cannot split self from partner while both sides of one preference are missing',()=>{
+ const source={...initialInterviewDocument(true),turns:[turn]};
+ const modelQuestion='متى يناسبك أنت الانتقال إلى الخطوة الرسمية؟';
+ const out=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:modelQuestion,
+  questionFields:['preference:marriage_timeline:self'],quickReplies:['خلال ستة أشهر','بعد سنة'],proposals:[]}));
+ assert.doesNotMatch(out.currentQuestion.text,new RegExp(modelQuestion));
+ assert.match(out.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
+ assert.ok(out.currentQuestion.suggestions.every(value=>value.includes('وأفضّل شريكًا')));
+});
+
 test('loading a saved session sanitizes current quick replies',async()=>{
  const initial={...initialInterviewDocument(true),currentQuestion:{topic:'intent',text:'هل تناسبك الخطوة الرسمية قريبًا؟',suggestions:['نعم','https://unsafe.invalid']}};
  const h=harness({initial:{document:initial,revision:1}});
  const loaded=await h.service({action:'load'},headers);
- assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);assert.equal(h.modelCalls.length,0);
+ assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);
+ assert.match(loaded.document.currentQuestion.text,/عرّفنا عن نفسك/,'an untouched saved signup receives the richer opening too');
+ assert.equal(h.modelCalls.length,0);
 });
 
 test('one answer covers future topics and overlapping personality without an extra model request',async()=>{
@@ -626,6 +645,10 @@ test('one answer covers future topics and overlapping personality without an ext
  const request=interviewCompletionRequest(sent.document),context=JSON.parse(request.messages[1].content);
  for(const id of ['preference:children_plan:self','preference:wife_work:self','preference:conversation_initiative_preference:self','personality:initiative:self'])assert.equal(context.missingFields.some(p=>p.id===id),false);
  assert.match(request.messages[0].content,/٤٤ خانة فهم وليست ٤٤ سؤالًا/);
+ assert.match(request.messages[0].content,/السؤال الأول دعوة لفقرة تعريف واحدة/);
+ assert.match(request.messages[0].content,/بعد أول إجابة لا تعِد سؤال التعريف العام/);
+ assert.match(request.messages[0].content,/أدرج المعرّفين معًا في questionFields/);
+ assert.match(request.messages[0].content,/لا ينتج درجة جدية أو أهلية/);
  assert.match(request.messages[0].content,/تفضيلًا وسلوك شخصية/);
  assert.match(request.messages[0].content,/مرة واحدة في النهاية/);
 });

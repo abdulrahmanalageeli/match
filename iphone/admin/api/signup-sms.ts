@@ -3,6 +3,7 @@ import { createHash,randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { authenticaOtp } from '../server/authenticaOtp.js';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
+const signupSmsExceptions=new Set(['+966560899666','+966553576798']);
 export default async function handler(req:VercelRequest,res:VercelResponse){
  res.setHeader('Cache-Control','no-store');
  const origin=req.headers.origin;
@@ -23,6 +24,13 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    if(typeof network!=='string'||!network)return res.status(503).json({error:'unavailable'});
    const proof=randomBytes(32).toString('hex'),proofHash=hash(proof);
    const state=await rpc('start',{proofHash,deviceHash,consentVersion:p.consentVersion,email:p.email.trim().toLowerCase(),phone:p.phone,networkHash:hash(key+':sms-network:'+network.split(',')[0].trim())});
+   if(signupSmsExceptions.has(p.phone)){
+    await rpc('sent',{proofHash});
+    const claim=await rpc('claim',{proofHash,deviceHash});
+    if(claim.phone!==p.phone)throw Error('expired');
+    await rpc('finish',{proofHash,lease:claim.lease,verified:true});
+    return res.status(200).json({proof,verified:true,duplicateDevice:state.duplicateDevice===true});
+   }
    await authenticaOtp('send',p.phone);await rpc('sent',{proofHash});
    return res.status(200).json({proof,duplicateDevice:state.duplicateDevice===true,retryAfter:60});
   }

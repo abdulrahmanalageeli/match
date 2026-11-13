@@ -24,7 +24,7 @@ function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(res
  useEffect(()=>{if(cooldown<=0)return;const timer=setTimeout(()=>setCooldown(n=>n-1),1000);return()=>clearTimeout(timer);},[cooldown]);
  async function send(){
   if(busy||cooldown>0)return;setError('');setBusy(true);
-  try{const normalized=normalizeSignupPhone(phone);const value=await api({action:'send',email,phone:normalized,deviceId,consent:true,consentVersion:'signup-sms-device-v1'});if(!alive.current)return;setPhone(normalized);setProof(value.proof);setDuplicate(value.duplicateDevice===true);setCooldown(60);setCode('');}
+  try{const normalized=normalizeSignupPhone(phone);const value=await api({action:'send',email,phone:normalized,deviceId,consent:true,consentVersion:'signup-sms-device-v1'});if(!alive.current)return;if(value.verified===true){done({phoneProof:value.proof,deviceId});return;}setPhone(normalized);setProof(value.proof);setDuplicate(value.duplicateDevice===true);setCooldown(60);setCode('');}
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'تعذّر إرسال الرمز.');}
   finally{if(alive.current)setBusy(false);}
  }

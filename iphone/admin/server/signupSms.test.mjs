@@ -36,3 +36,13 @@ test('provider failures release verification lease without logging or marking su
  providerFails=true;const result=await invoke({action:'verify',proof:'a'.repeat(64),otp:'123456'});assert.equal(result.code,503);assert.deepEqual(result.body,{error:'unavailable'});assert.equal(calls.at(-1)[1].verified,false);
 });
 test('database rate limit prevents provider spend',async()=>{rateLimited=true;assert.equal((await invoke()).code,429);assert.ok(!calls.some(c=>c[0]==='provider'));});
+test('only the two authorized phones finish signup proof without Authentica',async()=>{
+ for(const phone of ['+966560899666','+966553576798']){
+  calls=[];globalThis.__smsClient=()=>({rpc:async(name,args)=>{calls.push([args.action,args.payload]);return {data:args.action==='claim'?{phone,lease:'server-lease'}:{duplicateDevice:false}};}});
+  const result=await invoke({phone});assert.equal(result.code,200);assert.equal(result.body.verified,true);
+  assert.deepEqual(calls.map(c=>c[0]),['start','sent','claim','finish']);assert.equal(calls.at(-1)[1].verified,true);
+ }
+});
+test('an exception cannot finish a proof bound to another phone',async()=>{
+ const result=await invoke({phone:'+966560899666'});assert.equal(result.code,409);assert.ok(!calls.some(c=>c[0]==='finish'||c[0]==='provider'));
+});

@@ -38,7 +38,7 @@ assert(Array.isArray(steps)&&steps.length>0,'Capture an interview first, or pass
 const snapshotOf=value=>value?.snapshot??value;
 const initial=snapshotOf(session.initialSnapshot??session.initial);
 assert(initial?.document?.currentQuestion,'Capture must include initial snapshot');
-let snapshot={document:null,revision:0},answerIndex=0;
+let snapshot={document:null,revision:0},answerIndex=0,captureIndex=0;
 const cloudMock=`
 export const cloud={},cloudSelected=true,cloudConnection={url:'http://127.0.0.1',key:'mock'},phoneOtpEnabled=false;
 export class CloudError extends Error{}
@@ -53,7 +53,7 @@ export async function verifyPhoneOtp(){throw Error('No SMS in this check')}
 `;
 const apiMock=`
 export class InterviewError extends Error{}
-export async function requestInterview(auth,payload){const response=await fetch('/__full-interview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!response.ok)throw Error(await response.text());return response.json()}
+export async function requestInterview(auth,payload){const response=await fetch('/__full-interview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!response.ok)throw Error(await response.text());const next=await response.json();window.__interviewReplay=next;window.__interviewLastAction=payload.action;if(payload.action==='answer'||payload.action==='review')window.__interviewCapturedActions=(window.__interviewCapturedActions??0)+1;return next}
 `;
 const fixture=`
 import React,{useRef,useState}from'react';import{createRoot}from'react-dom/client';
@@ -77,10 +77,10 @@ const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),
    if(action==='start')snapshot={document:structuredClone(initial.document),revision:snapshot.revision+1};
    else if(action==='draft')snapshot={document:{...snapshot.document,draftAnswer:input.answer},revision:snapshot.revision+1};
    else if(action==='answer'){
-    const step=steps[answerIndex++];assert(step,'Unexpected repeated interview turn');assert.equal(input.answer,step.answer,'Browser sends the captured persona answer');
+    const step=steps[captureIndex++];answerIndex++;assert(step,'Unexpected repeated interview turn');assert.equal(step.action??'answer','answer');assert.equal(input.answer,step.answer,'Browser sends the captured persona answer');
     snapshot={document:structuredClone(snapshotOf(step).document),revision:snapshot.revision+1};
    }else if(action==='review'){
-    const reviewed=snapshotOf(session.finalSnapshot??session.final??steps.at(-1));snapshot={document:{...structuredClone(reviewed.document),status:'review',currentQuestion:null},revision:snapshot.revision+1};
+    const step=steps[captureIndex];const reviewed=snapshotOf(step?.action==='review'?steps[captureIndex++]:session.finalSnapshot??session.final??steps.at(-1));assert.equal(reviewed.document.status,'review','A review response must actually be captured; never fabricate a successful review');snapshot={document:structuredClone(reviewed.document),revision:snapshot.revision+1};
    }else if(action==='confirm')snapshot={document:confirmInterviewChoices(snapshot.document,input.choices,input.shareReview),revision:snapshot.revision+1};
    else assert.equal(action,'load','No deletion or unexpected API action during check');
    res.end(JSON.stringify(snapshot));return;
@@ -101,18 +101,24 @@ try{
  await choose('مجال العمل أو الوضع المهني','الهندسة والعمارة');await page.locator('textarea[data-field="bio"]').fill('أحب الهدوء والقراءة والمشي. أبحث عن حياة مستقرة فيها تفاهم ووضوح، مع شريك يقدّر الحوار والعمل والعائلة.');await next('details');await capture('signup-02-details');
  await next('avatar');await capture('signup-03-avatar');await next('criteria');await page.getByRole('checkbox',{name:/أوافق على تحليل إجاباتي للتوافق/}).click();await next('compatibility');await capture('signup-04-interview-choice');checks.push('fresh identity, birthday, searchable city/profession, bio, optional details/photo, and assessment consent completed');
  await page.getByRole('button',{name:'ابدأ الحوار',exact:true}).click();await page.locator('.wi-consent input').check();await page.getByRole('button',{name:'خلّنا نبدأ',exact:true}).click();
- const seen=[];
+ const seen=[];let expectedDocument=initial.document;
  for(let i=0;i<steps.length;i++){
-  const expected=i===0?initial.document.currentQuestion:snapshotOf(steps[i-1]).document.currentQuestion;
-  await page.locator('#wi-answer').waitFor();const actual=await page.locator('.wi-question h1').innerText();assert.equal(actual,expected.text);assert(!seen.includes(actual),'No identical question repeats in actual conversation');seen.push(actual);
-  await page.locator('#wi-answer').fill(steps[i].answer);if(i===0||i===steps.length-1)await capture('signup-interview-'+String(i+1).padStart(2,'0'));await page.getByRole('button',{name:'متابعة',exact:true}).click();
-  if(i+1<steps.length)await page.waitForFunction(question=>document.querySelector('.wi-question h1')?.textContent!==question,actual);
+  const step=steps[i],action=step.action??'answer',expected=expectedDocument.currentQuestion;
+  if(action==='answer'){
+   await page.locator('#wi-answer').waitFor();const actual=await page.locator('.wi-question h1').innerText();assert.equal(actual,expected.text);assert(!seen.includes(actual),'No identical question repeats in actual conversation');seen.push(actual);
+   await page.locator('#wi-answer').fill(step.answer);if(i===0||i===steps.length-1)await capture('signup-interview-'+String(i+1).padStart(2,'0'));if(new Set(expectedDocument.turns.filter(turn=>!turn.skipped).map(turn=>turn.topic)).size===topics.length&&!screens.includes('signup-interview-followup')){assert.equal(await page.locator('.wi-progress-heading>span').innerText(),'تفاصيل تكمّل الصورة');await capture('signup-interview-followup')}await page.getByRole('button',{name:'متابعة',exact:true}).click();
+  }else{assert.equal(action,'review','Only captured answer/review actions are supported');await page.getByRole('button',{name:expectedDocument.status==='active'?'مراجعة ما فهمناه':'تحديث قراءة الجلسة',exact:true}).click()}
+  expectedDocument=snapshotOf(step).document;
+  await page.waitForFunction(({action,count,status,captured})=>window.__interviewCapturedActions===captured&&window.__interviewLastAction===action&&window.__interviewReplay?.document.turns.length===count&&window.__interviewReplay.document.status===status,{action,count:expectedDocument.turns.length,status:expectedDocument.status,captured:i+1});
+  if(expectedDocument.pendingAnalysis)await page.locator(expectedDocument.status==='active'?'.wi-fallback':'.wi-notice').waitFor();
+  if(expectedDocument.currentQuestion)await page.waitForFunction(question=>document.querySelector('.wi-question h1')?.textContent===question,expectedDocument.currentQuestion.text);
  }
  if(snapshotOf(steps.at(-1)).document.status==='active')await page.getByRole('button',{name:'مراجعة ما فهمناه',exact:true}).click();await page.locator('.wi-review').waitFor();
  assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.personalityAnswers??{}).length),0);assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.surveyAnswers??{}).length),0);checks.push(`${synthetic?'simulated navigation':'captured Luna'} turns rendered with animation and no identical repeats; no assessment writes before confirmation`);
- const proposed=snapshot.document.proposals,personalityProposal=proposed.find(p=>p.kind==='personality'),excluded=proposed.find(p=>p.kind!=='personality'&&!p.needsClarification);
+ const proposed=snapshot.document.proposals,personalityProposal=(!synthetic&&proposed.find(p=>p.kind==='personality'&&p.fieldId==='planning'))||proposed.find(p=>p.kind==='personality'),excluded=proposed.find(p=>synthetic?p.kind!=='personality'&&!p.needsClarification:p.kind==='preference'&&p.side==='self'&&p.fieldId!=='children_plan'&&!p.needsClarification),reviewEdits=[];
  assert(personalityProposal,'capture contains a personality interpretation');await page.getByRole('button',{name:'اختيار الواضح منها',exact:true}).click();
- const personalityCard=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id===personalityProposal.fieldId).prompt})});await personalityCard.locator('details>summary').click();const changed=personalityProposal.values[0]==='C'?'D':'C';await personalityCard.locator('select').selectOption(changed);await personalityCard.locator('input[type=checkbox]').check();
+ const personalityCard=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id===personalityProposal.fieldId).prompt})});await personalityCard.locator('details>summary').click();const changed=!synthetic&&personalityProposal.fieldId==='planning'?'D':personalityProposal.values[0]==='C'?'D':'C';await personalityCard.locator('select').selectOption(changed);await personalityCard.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:personalityProposal.fieldId,proposed:personalityProposal.values[0],confirmed:changed});
+ if(!synthetic){const social=proposed.find(p=>p.kind==='personality'&&p.fieldId==='social_energy');if(social){const card=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id==='social_energy').prompt})});await card.locator('details>summary').click();await card.locator('select').selectOption('B');await card.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:social.fieldId,proposed:social.values[0],confirmed:'B',explicitlyReviewed:true})}}
  if(excluded){const rendered=['personality','self','partner','importance'].flatMap(group=>proposed.filter(p=>group==='personality'?p.kind==='personality':p.kind!=='personality'&&p.side===group));await page.locator('.wi-proposal').nth(rendered.findIndex(p=>p.id===excluded.id)).locator('input[type=checkbox]').uncheck();}
  await personalityCard.scrollIntoViewIfNeeded();await page.screenshot({path:resolve(artifacts,'signup-05-review-interpretation.png')});
  assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.personalityAnswers??{}).length),0);await page.locator('.wi-review>.wi-button-primary').click();await page.locator('.wi-complete').waitFor();await page.locator('.wi-complete>.wi-button-primary').click();await page.locator('[data-chapter="compatibility"]').waitFor();
@@ -126,6 +132,6 @@ try{
  const submitted=await page.evaluate(()=>window.__fullSubmitted);assert.equal(submitted.personalityAnswers[personalityProposal.fieldId],changed);assert.equal(submitted.personalityVersion,'personality-v1');assert.equal(submitted.signupConsents.assessment,true);assert.equal(submitted.displayName,'سارة');assert.equal(submitted.birthDate,'1997-04-15');assert.equal(submitted.city,'الرياض');
  for(const p of confirmed){if(p.kind==='personality')assert.equal(submitted.personalityAnswers[p.fieldId],p.values[0]);if(p.kind==='preference'){const d=preferences.dimensions.find(d=>d.id===p.fieldId);assert.equal(submitted.surveyAnswers[p.side==='self'?d.id:d.partnerId],p.values[0])}}
  const scores=await page.evaluate(profile=>window.__compareSignup(profile),submitted);assert.equal(scores.before.fit.personality.percentage,null);if(confirmedPersonality.length===12)assert.equal(scores.after.fit.personality.percentage,100);assert(scores.after.fit.covered>=scores.before.fit.covered);checks.push('confirmed choices survive final signup submission and feed the actual compatibility model');
- assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);await writeFile(resolve(artifacts,'full-signup-submitted.json'),JSON.stringify(submitted,null,2));await writeFile(resolve(artifacts,'full-signup-browser-results.json'),JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen,confirmed:confirmed.length,personalityCoverage:confirmedPersonality.length,preferenceCoverage:scores.after.fit.covered,scores,errors,externalRequests,screens},null,2));console.log(JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen.length,confirmed:confirmed.length,personalityCoverage:confirmedPersonality.length,artifacts}));
+ assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);await writeFile(resolve(artifacts,'full-signup-submitted.json'),JSON.stringify(submitted,null,2));await writeFile(resolve(artifacts,'full-signup-browser-results.json'),JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen,confirmed:confirmed.length,reviewEdits,excluded:excluded?.id??null,personalityCoverage:confirmedPersonality.length,preferenceCoverage:scores.after.fit.covered,scores,errors,externalRequests,screens},null,2));console.log(JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen.length,confirmed:confirmed.length,personalityCoverage:confirmedPersonality.length,artifacts}));
 }catch(error){await page?.screenshot({path:resolve(artifacts,'full-signup-failure.png'),fullPage:true}).catch(()=>{});await writeFile(resolve(artifacts,'full-signup-failure.json'),JSON.stringify({error:error.message,errors,externalRequests,answerIndex,chapter:await page?.locator('main[data-chapter]').getAttribute('data-chapter').catch(()=>null)},null,2));throw error}
 finally{await browser?.close();await server.close()}

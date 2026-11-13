@@ -80,6 +80,14 @@ test('the actual welcome component requires explicit consent and sends no interv
   assert.equal(ui.calls[1].consentVersion,'wudayn-interview-v1');assert.equal(ui.applied.length,0);ui.unmount();
 });
 
+test('personality follow-ups explain why the conversation continues after all themes', async () => {
+  const ordinary=mount({document:baseDocument(),revision:1});ordinary.render();await tick();let tree=ordinary.render();
+  let heading=nodes(tree).find(node=>node.props?.className==='wi-progress-heading');assert.match(textOf(heading),/محاور/);assert(!textOf(heading).includes('تفاصيل تكمّل الصورة'));ordinary.unmount();
+  const document={...baseDocument(),turns:topics.map((topic,index)=>({id:'covered-'+index,topic:topic.id,question:topic.question,answer:'إجابة محفوظة',skipped:false}))};
+  const followUp=mount({document,revision:7});followUp.render();await tick();tree=followUp.render();heading=nodes(tree).find(node=>node.props?.className==='wi-progress-heading');
+  assert.equal(textOf(heading),'تفاصيل تكمّل الصورةنبني على إجاباتك');assert.equal(nodes(tree).find(node=>node.props?.className==='wi-topic-progress').props['aria-label'],'أسئلة متابعة مبنية على إجاباتك');assert.ok(find(tree,'مراجعة ما فهمناه'));followUp.unmount();
+});
+
 test('draft save is serialized with submitting and newer typing remains visible when an older save completes', async () => {
   const waiting=deferred();const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();

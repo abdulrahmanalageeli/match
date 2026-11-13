@@ -134,7 +134,8 @@ try{
   assert.equal(Object.hasOwn(rpc[0].args.payload,'proposals'),false);
   assert.equal(Object.hasOwn(rpc[0].args.payload,'transcript'),false);
   const report={source:artifactPath,sha256:createHash('sha256').update(raw).digest('hex'),turns:doc.turns.length,
-    sourceMode:process.argv.includes('--simulated')?'simulated provider responses; no live model inference':artifact.sourceMode??'supplied artifact; live model provenance not asserted by this verifier',
+    sourceMode:process.argv.includes('--simulated')?'simulated provider responses; no live model inference':artifact.sourceMode??artifact.modelExecution??'supplied artifact; live model provenance not asserted by this verifier',
+    sourceProvider:artifact.source??artifact.provider??null,model:artifact.model??null,
     proposals:doc.proposals.length,confirmedClear:selected.length,uncertainExcluded:doc.proposals.length-selected.length,
     preferences:{answers:Object.keys(answers.surveyAnswers).length,covered:after.fit.covered,total:after.fit.total,percentage:after.fit.percentage,rankBefore:before.rankValue,rankAfter:after.rankValue,orderBefore,orderAfter},
     personality:{covered:after.fit.personality.covered,total:after.fit.personality.total,percentage:after.fit.personality.percentage,edit:personalityEdit},
@@ -146,26 +147,39 @@ try{
     const submittedPath=resolve(process.argv[submittedIndex+1]);
     const uiPayload=JSON.parse(await readFile(submittedPath,'utf8'));
     const uiProfile={...uiPayload,id:owner};
-    const uiBefore=matching.describeFit({...uiProfile,personalityAnswers:{},surveyAnswers:{},beena:undefined},aligned);
-    const uiAfter=matching.describeFit(uiProfile,aligned);
+    const rawPersonality=Object.fromEntries(doc.proposals.filter(p=>p.kind==='personality').map(p=>[p.fieldId,p.values[0]]));
+    const uiComparator={...aligned,personalityAnswers:Object.fromEntries(personalityCatalog.map(q=>[q.id,rawPersonality[q.id]??'C']))};
+    const uiBefore=matching.describeFit({...uiProfile,personalityAnswers:{},surveyAnswers:{},beena:undefined},uiComparator);
+    const uiAfter=matching.describeFit(uiProfile,uiComparator);
     assert.equal(uiBefore.fit.personality.percentage,null);
     assert.equal(uiBefore.fit.personality.covered,0);
-    assert.equal(uiPayload.personalityAnswers.social_energy,'C','The actual browser-confirmed edit must be preserved');
-    assert.equal(saved.personalityAnswers.social_energy,'D','The simulated model originally proposed D');
-    assert.equal(uiAfter.fit.personality.covered,12);
-    assert.equal(after.fit.personality.percentage,100);
-    assert.equal(uiAfter.fit.personality.percentage,98,'The browser correction C must change score against unchanged D comparator');
-    assert.equal(uiPayload.surveyAnswers.children_plan,undefined,'The browser-excluded self proposal must remain missing');
-    assert.equal(uiPayload.surveyAnswers.partner_children_plan,'A');
-    assert.equal(uiAfter.fit.covered,0);
-    assert.equal(uiAfter.fit.percentage,null);
-    assert.equal(uiAfter.rankValue,0,'A deliberately excluded half-pair cannot fabricate recommendation evidence');
+    const actualPersonality=Object.entries(uiPayload.personalityAnswers??{});
+    assert(actualPersonality.every(([id])=>Object.hasOwn(rawPersonality,id)),'The browser may not fill personality gaps outside the captured interpretations');
+    const browserEdits=actualPersonality.filter(([id,value])=>rawPersonality[id]!==value).map(([field,value])=>({field,proposed:rawPersonality[field],confirmed:value}));
+    assert(browserEdits.length>0,'The full browser check must exercise editing an interpretation');
+    const expectedPersonality=actualPersonality.length===personalityCatalog.length?Math.round(100*(1-actualPersonality.reduce((sum,[id,value])=>sum+Math.abs('ABCDE'.indexOf(value)-'ABCDE'.indexOf(uiComparator.personalityAnswers[id])),0)/(4*personalityCatalog.length))):null;
+    assert.equal(uiAfter.fit.personality.covered,actualPersonality.length);
+    assert.equal(uiAfter.fit.personality.percentage,expectedPersonality,'Actual confirmed choices must determine the existing score arithmetic');
+    const originalComparison=matching.describeFit({...uiProfile,personalityAnswers:rawPersonality},uiComparator).fit.personality;
+    if(uiAfter.fit.personality.complete){assert(uiAfter.fit.personality.percentage<originalComparison.percentage,'A changed browser choice must affect the comparison with the unchanged proposal comparator');}
+    const excludedPreferences=doc.proposals.filter(p=>p.kind==='preference'&&!Object.hasOwn(uiPayload.surveyAnswers??{},p.side==='partner'?matching.dimensions.find(d=>d.id===p.fieldId).partnerId:p.fieldId)).map(p=>({field:p.fieldId,side:p.side}));
+    const excludedScenarios=doc.proposals.filter(p=>p.kind==='beena'&&!Object.hasOwn(uiPayload.beena?.answers?.[p.fieldId]??{},p.side)).map(p=>({field:p.fieldId,side:p.side}));
+    assert(excludedPreferences.length+excludedScenarios.length>0,'The browser test must leave an excluded interpretation absent');
+    const uiCovered=matching.dimensions.filter(d=>uiPayload.surveyAnswers?.[d.id]&&uiPayload.surveyAnswers?.[d.partnerId]).length;
+    assert.equal(uiAfter.fit.covered,uiCovered);
+    if(uiCovered<matching.dimensions.length)assert.equal(uiAfter.fit.percentage,null);
+    if(uiCovered===0)assert.equal(uiAfter.rankValue,0,'An excluded half-pair cannot fabricate recommendation evidence');
+    const uiOrderBefore=matching.rankPreferences({...uiProfile,personalityAnswers:{},surveyAnswers:{},beena:undefined},[uiComparator,different]).map(row=>row.person.id);
+    const uiOrderAfter=matching.rankPreferences(uiProfile,[different,uiComparator]).map(row=>row.person.id);
+    if(uiCovered>0){assert.equal(uiOrderBefore[0],different.id);assert.equal(uiOrderAfter[0],uiComparator.id,'The actual final signup answers must change recommendation order');}
+    const uiDiscussion=personalityAnalysis.analyzePersonality(uiAfter.fit.personality)?.discussion.map(topic=>topic.id)??[];
+    if(uiAfter.fit.personality.complete&&browserEdits.some(edit=>Math.abs('ABCDE'.indexOf(edit.proposed)-'ABCDE'.indexOf(edit.confirmed))>=2))assert(uiDiscussion.some(id=>browserEdits.some(edit=>edit.field===id)));
     await cloud.namespace.cloudRequest('/application','PUT',owner,uiPayload);
     const uiRpc=rpc.at(-1);
     assert.equal(uiRpc.name,'marriage_apply');
     for(const field of ['surveyAnswers','personalityAnswers','beena','signupConsents'])assert.deepEqual(uiRpc.args.payload[field],plain(uiPayload[field]));
-    report.browserSubmission={source:submittedPath,personality:{beforeConfirmation:null,proposed:100,afterConfirmedBrowserEdit:98,covered:12,total:12},
-      correctedField:'social_energy',correctedValue:'C',excludedChildrenSelfPreserved:true,preferencePercentage:null,preferenceCovered:0,rankValue:0,
+    report.browserSubmission={source:submittedPath,personality:{beforeConfirmation:null,proposedComparison:originalComparison.percentage,afterConfirmedBrowserEdit:uiAfter.fit.personality.percentage,covered:actualPersonality.length,total:personalityCatalog.length},
+      confirmedEdits:browserEdits,personalityDiscussion:uiDiscussion,excludedPreferences,excludedScenarios,preferencePercentage:uiAfter.fit.percentage,preferenceCovered:uiCovered,rankValue:uiAfter.rankValue,orderBefore:uiOrderBefore,orderAfter:uiOrderAfter,
       exactFinalAnswersReachApplicationRPC:true};
   }
   await writeFile(resolve(dirname(artifactPath),'scoring-proof.json'),JSON.stringify(report,null,2));

@@ -287,6 +287,18 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+.nf-intake[data-chapter="identity"] .nf-intake-fields .field-pair {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.nf-intake[data-chapter="identity"] .field-pair > * {
+  min-width: 0;
+}
+.nf-intake[data-chapter="identity"] input[type="date"] {
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .choice-row button {
   display: flex;
   justify-content: center;

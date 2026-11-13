@@ -1,7 +1,7 @@
 export type InterviewEvidence = { turnId: string; quote: string };
 export type InterviewProposal = {
   id: string;
-  kind: 'preference' | 'beena';
+  kind: 'preference' | 'beena' | 'personality';
   fieldId: string;
   side: 'self' | 'partner' | 'importance';
   values: string[];
@@ -16,7 +16,7 @@ export type InterviewDocument = {
   version: 'interview-v1';
   consentVersion: 'wudayn-interview-v1';
   model: 'gpt-6-luna';
-  promptVersion: 'wudayn-interview-1';
+  promptVersion: 'wudayn-interview-1' | 'wudayn-interview-2';
   status: 'active' | 'review' | 'confirmed';
   turns: InterviewTurn[];
   currentQuestion: InterviewQuestion | null;

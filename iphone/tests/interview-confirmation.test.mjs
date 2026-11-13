@@ -5,13 +5,21 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import compatibility from '../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../src/beena/catalog.json' with { type: 'json' };
+import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
 async function loadModel() {
   const source = await readFile(new URL('../src/interview/model.ts', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
   const context = vm.createContext({});
   const module = new vm.SourceTextModule(compiled, { context });
-  await module.link(name => {
+  await module.link(async name => {
+    if (name.endsWith('/personality')) {
+      const personalitySource = await readFile(new URL('../src/compatibility/personality.ts', import.meta.url), 'utf8');
+      const personalityCompiled = ts.transpileModule(personalitySource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+      const personalityModule = new vm.SourceTextModule(personalityCompiled, { context });
+      await personalityModule.link(() => new vm.SyntheticModule(['default'], function () { this.setExport('default', personalityCatalog); }, { context }));
+      return personalityModule;
+    }
     const value = name.includes('compatibility') ? compatibility : scenarios;
     return new vm.SyntheticModule(['default'], function () { this.setExport('default', value); }, { context });
   });
@@ -57,7 +65,43 @@ test('Beena accepts multiple desired approaches and explicit importance while ke
 });
 
 test('choosing no interpretation makes no assessment changes', () => {
-  assert.deepEqual(plain(model.applyInterviewAnswers({ surveyAnswers: { children_plan: 'A' } }, [])), {});
+  assert.deepEqual(plain(model.applyInterviewAnswers({ surveyAnswers: { children_plan: 'A' }, personalityAnswers: { planning: 'C' } }, [])), {});
+});
+
+test('confirmed personality answers merge independently without altering unselected answers or source records', () => {
+  const current = { personalityAnswers: { planning: 'B', social_energy: 'A', quiet_comfort: 'D' }, surveyAnswers: { children_plan: 'C' } };
+  const updated = plain(model.applyInterviewAnswers(current, [
+    proposal({ kind: 'personality', fieldId: 'planning', values: ['E'] }),
+    proposal({ id: 'p2', kind: 'personality', fieldId: 'directness', values: ['D'] }),
+  ]));
+  assert.deepEqual(updated, { personalityAnswers: { planning: 'E', social_energy: 'A', quiet_comfort: 'D', directness: 'D' } });
+  assert.deepEqual(current.personalityAnswers, { planning: 'B', social_energy: 'A', quiet_comfort: 'D' });
+  assert.equal('surveyAnswers' in updated, false);
+  assert.equal('beena' in updated, false);
+});
+
+test('personality rejects invented questions, partner/importance interpretations and noncanonical values', () => {
+  const updated = model.applyInterviewAnswers({}, [
+    proposal({ kind: 'personality', fieldId: 'diagnosis', values: ['A'] }),
+    proposal({ kind: 'personality', fieldId: 'planning', side: 'partner', values: ['A'] }),
+    proposal({ kind: 'personality', fieldId: 'planning', side: 'importance', values: ['2'] }),
+    proposal({ kind: 'personality', fieldId: 'planning', values: ['A', 'B'] }),
+    proposal({ kind: 'personality', fieldId: 'planning', values: ['F'] }),
+    proposal({ kind: 'personality', fieldId: 'planning', values: [] }),
+  ]);
+  assert.deepEqual(plain(updated), {});
+});
+
+test('personality review shows the exact self-report statement and five editable scale choices', () => {
+  const labels = ['لا يشبهني إطلاقًا', 'يشبهني قليلًا', 'يشبهني أحيانًا', 'يشبهني غالبًا', 'يشبهني كثيرًا'];
+  for (const question of personalityCatalog) {
+    const choice = proposal({ kind: 'personality', fieldId: question.id });
+    assert.equal(model.proposalTitle(choice), question.title);
+    assert.equal(model.proposalStatement(choice), question.prompt);
+    assert.deepEqual(plain(model.proposalOptions(choice)), labels.map((label, index) => ({ value: 'ABCDE'[index], label })));
+    assert.deepEqual(plain(model.proposalOptions({ ...choice, side: 'partner' })), []);
+  }
+  assert.equal(model.proposalStatement(proposal()), '');
 });
 
 test('review options describe each existing catalog choice faithfully', () => {

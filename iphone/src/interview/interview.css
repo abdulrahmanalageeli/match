@@ -134,3 +134,6 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-onboarding-actions { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .wi-onboarding-resume { margin:0 0 12px; }
 .wi-direct-path:focus-visible,.wi-onboarding-summary button:focus-visible { outline:2px solid #8b4159; outline-offset:3px; }
+.wi-proposal-choice .wi-personality-statement { font-size:14px; line-height:1.9; color:#4d3d46; margin:5px 0 7px; }
+.wi-personality-actions { margin:14px 0; }
+.wi-personality-actions .wi-button { width:100%; }

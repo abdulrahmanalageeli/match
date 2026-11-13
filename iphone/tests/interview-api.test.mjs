@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createInterviewService, initialInterviewDocument, parseInterviewInput, interviewCompletionRequest,
   applyInterviewCompletion, confirmInterviewChoices, validateProposal, INTERVIEW_MODEL, CONSENT_VERSION } from '../api/_lib/interview.mjs';
 import handler from '../api/interview.mjs';
+import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
 const headers = { authorization: 'Bearer real.jwt.token' };
 const answer = 'إذا اتفقنا، أبغى الخطوة الرسمية خلال ستة أشهر.';
@@ -15,7 +16,7 @@ const completion = value => ({ choices: [{ finish_reason: 'stop', message: { con
 const document = () => ({ ...initialInterviewDocument(), turns: [turn] });
 
 function harness(options = {}) {
-  let state = { document: null, revision: 0 }, counter = 0, revoked = false;
+  let state = structuredClone(options.initial ?? { document: null, revision: 0 }), counter = state.revision, revoked = false;
   const calls = [], modelCalls = [];
   const service = createInterviewService({ env: options.noKey ? {} : { OPENAI_API_KEY: 'server-secret', NISFAYN_AI_MODEL: 'do-not-use' },
     fetcher: async (url, init) => {
@@ -37,7 +38,7 @@ function harness(options = {}) {
         if (options.failure) throw new Error('PRIVATE PROVIDER ERROR');
         const transcript = JSON.parse(request.messages[1].content).transcript;
         const source = transcript.find(turn => !turn.skipped);
-        return completion({ ...result, proposals: source ? [{ ...candidate, evidence: [{ turnId: source.id, quote: 'خلال ستة أشهر' }] }] : [] });
+        return completion({ ...result, proposals: options.proposals ? options.proposals(transcript) : source ? [{ ...candidate, evidence: [{ turnId: source.id, quote: 'خلال ستة أشهر' }] }] : [] });
       } } } };
     },
   });
@@ -178,6 +179,101 @@ test('confirmation includes selected user-edited values only, sharing opt-in and
   assert.equal(confirmInterviewChoices(reviewed, []).confirmed.length, 0);
   assert.throws(() => confirmInterviewChoices(reviewed, [{ id: 'invented', values: ['A'] }]));
   assert.throws(() => confirmInterviewChoices(reviewed, [{ id: reviewed.proposals[0].id, values: ['Z'] }]));
+});
+
+test('personality extraction uses the existing statements, exact response scale and uncertainty safeguards', () => {
+  const request = interviewCompletionRequest(document());
+  const context = JSON.parse(request.messages[1].content);
+  assert.deepEqual(context.personalityCatalog, personalityCatalog);
+  assert.deepEqual(context.personalityOptions.map(option => option.code), ['A', 'B', 'C', 'D', 'E']);
+  assert.equal(context.personalityOptions[0].label, 'لا يشبهني إطلاقًا');
+  assert.equal(context.personalityOptions[4].label, 'يشبهني كثيرًا');
+  assert.deepEqual(context.nextTopic.personalityIds, ['conflict_pace', 'directness']);
+  assert.match(request.messages[0].content, /side=self دائمًا/);
+  assert.match(request.messages[0].content, /لا تستنتج الإجابة من أسلوب الكتابة/);
+  assert.match(request.messages[0].content, /لا تجعل غياب الكلام عن صفة إجابة محايدة C/);
+  assert.match(request.messages[0].content, /needsClarification=true/);
+  assert.match(request.messages[0].content, /لا تدخل التوافق حتى يراجعها ويؤكدها المستخدم/);
+  assert.deepEqual(request.response_format.json_schema.schema.properties.proposals.items.properties.kind.enum, ['preference', 'beena', 'personality']);
+});
+
+test('personality proposals require one canonical self response and literal non-skipped evidence', () => {
+  const source = { ...turn, answer: 'غالبًا أقول بوضوح ما أحتاجه وما يزعجني.' };
+  const proposal = { ...candidate, kind: 'personality', fieldId: 'directness', side: 'self', values: ['D'],
+    summary: 'غالبًا تعبّر بوضوح عن احتياجك.', evidence: [{ turnId: source.id, quote: source.answer }] };
+  assert.equal(validateProposal(proposal, [source]).id, 'personality:directness:self');
+  assert.equal(validateProposal({ ...proposal, needsClarification: true }, [source]).needsClarification, true);
+  for (const patch of [{ side: 'partner' }, { side: 'importance' }, { fieldId: 'attachment_style' },
+    { fieldId: 'marriage_timeline' }, { values: ['1'] }, { values: ['A', 'E'] }, { values: ['F'] },
+    { evidence: [{ turnId: source.id, quote: source.question }] }]) {
+    assert.equal(validateProposal({ ...proposal, ...patch }, [source]), null);
+  }
+  assert.equal(validateProposal(proposal, [{ ...source, skipped: true }]), null);
+  const analyzed = applyInterviewCompletion({ ...document(), turns: [source] }, completion({ ...result, proposals: [proposal] }), true);
+  assert.equal(analyzed.proposals.length, 1);
+  assert.deepEqual(analyzed.confirmed, []);
+  assert.equal(analyzed.personalityAnswers, undefined);
+});
+
+test('personality remains unconfirmed until an explicit editable selection; load preserves that choice', async () => {
+  const text = 'غالبًا أقول بوضوح ما أحتاجه وما يزعجني، وأحيانًا أفضّل أهدأ قبل مناقشة الخلاف.';
+  const h = harness({ proposals: turns => ['directness', 'conflict_pace'].map(fieldId => ({
+    ...candidate, kind: 'personality', fieldId, side: 'self', values: ['D'],
+    summary: 'تفسير مبدئي قابل للتعديل.', needsClarification: fieldId === 'conflict_pace',
+    evidence: [{ turnId: turns[0].id, quote: turns[0].answer }],
+  })) });
+  const first = await start(h), sent = await send(h, first.revision, text);
+  assert.equal(sent.document.proposals.length, 2);
+  assert.deepEqual(sent.document.confirmed, []);
+  const reviewed = await h.service({ action: 'review', revision: sent.revision }, headers);
+  const confirmed = await h.service({ action: 'confirm', revision: reviewed.revision,
+    choices: [{ id: 'personality:directness:self', values: ['C'] }], shareReview: false }, headers);
+  assert.equal(confirmed.document.confirmed.length, 1);
+  assert.equal(confirmed.document.confirmed[0].fieldId, 'directness');
+  assert.deepEqual(confirmed.document.confirmed[0].values, ['C']);
+  assert.equal(confirmed.document.reviewSharing, false);
+  const loaded = await h.service({ action: 'load' }, headers);
+  assert.deepEqual(loaded.document.confirmed, confirmed.document.confirmed);
+  assert.equal(h.calls.some(call => /apply|profile/.test(call.command)), false);
+});
+
+test('remaining personality gets a contextual follow-up after eight turns without repeating covered themes', () => {
+  const themes = ['intent', 'communication', 'closeness', 'family', 'practical', 'everyday', 'intent', 'communication'];
+  const turns = themes.map(topic => ({ ...turn, id: randomUUID(), topic }));
+  const personalityProposals = personalityCatalog.map(item => ({ ...candidate, kind: 'personality', fieldId: item.id,
+    side: 'self', values: ['D'], evidence: [{ turnId: turns[0].id, quote: 'خلال ستة أشهر' }] }));
+  const atEight = { ...document(), turns, proposals: [] };
+  const partial = personalityProposals.filter(item => item.fieldId !== 'planning');
+  const continued = applyInterviewCompletion(atEight, completion({ ...result, question: 'سؤال يعود لمحور سابق', proposals: partial }));
+  assert.equal(continued.status, 'active');
+  assert.equal(continued.currentQuestion.topic, 'practical');
+  assert.match(continued.currentQuestion.text, /إجازة قصيرة/);
+  assert.notEqual(continued.currentQuestion.text, 'سؤال يعود لمحور سابق');
+  const complete = applyInterviewCompletion(atEight, completion({ ...result, proposals: personalityProposals }));
+  assert.equal(complete.status, 'review');
+  assert.equal(complete.currentQuestion, null);
+  const uncertain = personalityProposals.map(item => ({ ...item, needsClarification: item.fieldId === 'planning' }));
+  assert.equal(applyInterviewCompletion(atEight, completion({ ...result, proposals: uncertain })).currentQuestion.topic, 'practical');
+});
+
+test('combined assessments fit the bounded confirmation payload', () => {
+  const choices = Array.from({ length: 64 }, (_, index) => ({ id: 'item-'+index, values: ['A'] }));
+  assert.equal(parseInterviewInput({ action: 'confirm', revision: 1, choices }).choices.length, 64);
+  assert.throws(() => parseInterviewInput({ action: 'confirm', revision: 1, choices: [...choices, { id: 'overflow', values: ['A'] }] }));
+});
+
+test('an existing v1 twelve-turn interview is reanalyzed in place and requires fresh confirmation', async () => {
+  const themes=['intent','communication','closeness','family','practical','everyday'];
+  const turns=Array.from({length:12},(_,index)=>({...turn,id:randomUUID(),topic:themes[index%themes.length],answer:'غالبًا أقول بوضوح ما أحتاجه وما يزعجني.'}));
+  const legacy={...initialInterviewDocument(),promptVersion:'wudayn-interview-1',status:'confirmed',currentQuestion:null,turns};
+  const h=harness({initial:{document:legacy,revision:25},proposals:transcript=>[{...candidate,kind:'personality',fieldId:'directness',side:'self',values:['D'],evidence:[{turnId:transcript[0].id,quote:transcript[0].answer}]}]});
+  const loaded=await h.service({action:'load'},headers);assert.equal(loaded.document.promptVersion,'wudayn-interview-1');
+  const refreshed=await h.service({action:'review',revision:loaded.revision},headers);
+  assert.deepEqual(refreshed.document.turns,turns);
+  assert.equal(refreshed.document.promptVersion,'wudayn-interview-2');assert.equal(refreshed.document.status,'review');
+  assert.equal(refreshed.document.proposals[0].kind,'personality');assert.deepEqual(refreshed.document.confirmed,[]);
+  assert.equal(refreshed.document.currentQuestion,null);assert.equal(h.modelCalls.length,1);
+  assert.equal(h.calls.some(call=>call.command==='delete'||call.command==='start'),false);
 });
 
 test('skip does not spend AI budget or infer preferences and final review keeps Luna', async () => {

@@ -1,12 +1,17 @@
 import compatibility from '../compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../beena/catalog.json' with { type: 'json' };
+import { personalityOptions, personalityQuestions } from '../compatibility/personality';
 import type { BeenaProfile } from '../beena/model';
 import type { InterviewProposal } from './types';
 
 export type InterviewSelection = { id: string; values: string[] };
-export type InterviewAnswers = { surveyAnswers?: Record<string, string>; beena?: BeenaProfile | null };
+export type InterviewAnswers = { surveyAnswers?: Record<string, string>; personalityAnswers?: Record<string, string>; beena?: BeenaProfile | null };
 
 export function proposalOptions(proposal: InterviewProposal): Array<{ value: string; label: string }> {
+  if (proposal.kind === 'personality') {
+    if (proposal.side !== 'self' || !personalityQuestions.some(question => question.id === proposal.fieldId)) return [];
+    return personalityOptions.map(option => ({ value: option.code, label: option.label }));
+  }
   if (proposal.kind === 'preference') {
     const dimension = compatibility.dimensions.find(item => item.id === proposal.fieldId);
     if (!dimension || !['self', 'partner'].includes(proposal.side)) return [];
@@ -21,9 +26,14 @@ export function proposalOptions(proposal: InterviewProposal): Array<{ value: str
 }
 
 export function proposalTitle(proposal: InterviewProposal) {
+  if (proposal.kind === 'personality') return personalityQuestions.find(question => question.id === proposal.fieldId)?.title ?? '';
   return proposal.kind === 'preference'
     ? compatibility.dimensions.find(item => item.id === proposal.fieldId)?.title ?? ''
     : scenarios.find(item => item.id === proposal.fieldId)?.title ?? '';
+}
+
+export function proposalStatement(proposal: InterviewProposal) {
+  return proposal.kind === 'personality' ? personalityQuestions.find(question => question.id === proposal.fieldId)?.prompt ?? '' : '';
 }
 
 export function proposalSide(proposal: InterviewProposal) {
@@ -31,15 +41,17 @@ export function proposalSide(proposal: InterviewProposal) {
 }
 
 /** Only explicit, catalog-valid confirmations enter the existing assessment.
- * No personality answer, hard requirement, biography or public story is inferred.
+ * Personality choices use the existing self-report scale after member review.
+ * No hard requirement, biography or public story is inferred.
  */
-export function applyInterviewAnswers(current: InterviewAnswers, confirmed: InterviewProposal[]): { surveyAnswers?: Record<string,string>; beena?: BeenaProfile } {
+export function applyInterviewAnswers(current: InterviewAnswers, confirmed: InterviewProposal[]): { surveyAnswers?: Record<string,string>; personalityAnswers?: Record<string,string>; beena?: BeenaProfile } {
   const surveyAnswers = { ...current.surveyAnswers };
+  const personalityAnswers = { ...current.personalityAnswers };
   const beena: BeenaProfile = {
     version: 'beena-v1', answers: Object.fromEntries(Object.entries(current.beena?.answers ?? {}).map(([key, value]) => [key, { ...value, ...(value.partner ? { partner: [...value.partner] } : {}) }])),
     ...(current.beena?.story ? { story: { ...current.beena.story } } : {}),
   };
-  let changedPreferences = false, changedBeena = false;
+  let changedPreferences = false, changedPersonality = false, changedBeena = false;
   for (const proposal of confirmed) {
     const allowed = new Set(proposalOptions(proposal).map(option => option.value));
     const values = [...new Set(proposal.values)];
@@ -49,6 +61,10 @@ export function applyInterviewAnswers(current: InterviewAnswers, confirmed: Inte
       const dimension = compatibility.dimensions.find(item => item.id === proposal.fieldId)!;
       surveyAnswers[proposal.side === 'partner' ? dimension.partnerId : dimension.id] = values[0];
       changedPreferences = true;
+    } else if (proposal.kind === 'personality') {
+      if (values.length !== 1) continue;
+      personalityAnswers[proposal.fieldId] = values[0];
+      changedPersonality = true;
     } else {
       if (proposal.side !== 'partner' && values.length !== 1) continue;
       const previous = beena.answers[proposal.fieldId] ?? {};
@@ -59,5 +75,5 @@ export function applyInterviewAnswers(current: InterviewAnswers, confirmed: Inte
       changedBeena = true;
     }
   }
-  return { ...(changedPreferences ? { surveyAnswers } : {}), ...(changedBeena ? { beena } : {}) };
+  return { ...(changedPreferences ? { surveyAnswers } : {}), ...(changedPersonality ? { personalityAnswers } : {}), ...(changedBeena ? { beena } : {}) };
 }

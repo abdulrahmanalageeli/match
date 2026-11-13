@@ -5,10 +5,11 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { confirmInterviewChoices } from '../api/_lib/interview.mjs';
+import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
 const owner = '11111111-1111-4111-8111-111111111111';
 const plain = value => JSON.parse(JSON.stringify(value));
-let loader, interview, draft, consent, compatibility, beena, decodeDraft, createDraftVault;
+let loader, interview, draft, consent, compatibility, personalityAnalysis, beena, decodeDraft, createDraftVault;
 before(async () => {
   loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error',
     plugins: [{ name: 'interview-integration-no-live-services', enforce: 'pre', load(id) {
@@ -20,6 +21,7 @@ before(async () => {
   draft = await loader.ssrLoadModule('/src/onboarding/draft.ts');
   consent = await loader.ssrLoadModule('/src/legal/consent.ts');
   compatibility = await loader.ssrLoadModule('/src/compatibility/model.ts');
+  personalityAnalysis = await loader.ssrLoadModule('/src/compatibility/personality-analysis.ts');
   beena = await loader.ssrLoadModule('/src/beena/model.ts');
   ({ decodeDraft } = await loader.ssrLoadModule('/src/onboarding/persistence.ts'));
   ({ createDraftVault } = await loader.ssrLoadModule('/src/onboarding/vault.ts'));
@@ -31,6 +33,11 @@ function preferences(code) {
     id: `${dimension.id}:${side}`, kind: 'preference', fieldId: dimension.id, side, values: [code],
     summary: 'اختيار مؤكد للاختبار', evidence: [{ turnId: 'synthetic', quote: 'إجابة افتراضية' }], needsClarification: false,
   })));
+}
+function personality(code) {
+  return personalityCatalog.map(question => ({
+    ...preferences('A')[0], id: `${question.id}:personality`, kind: 'personality', fieldId: question.id, side: 'self', values: [code],
+  }));
 }
 function confirmed(proposals, ids = proposals.map(value => value.id)) {
   const document = { status: 'review', pendingAnalysis: false, proposals, confirmed: [] };
@@ -73,7 +80,7 @@ async function cloudBoundary() {
 
 test('confirmed interview answers survive onboarding resume and reach the real application RPC payload', async () => {
   const initial = newDraft();
-  initial.answers = { ...initial.answers, ...interview.applyInterviewAnswers(initial.answers, confirmed(preferences('A'))) };
+  initial.answers = { ...initial.answers, ...interview.applyInterviewAnswers(initial.answers, confirmed([...preferences('A'), ...personality('D')])) };
   const rows = new Map();
   const storage = { read: async key => rows.get(key) ?? null, write: async (key, value) => rows.set(key, value), remove: async key => rows.delete(key) };
   const first = createDraftVault(() => storage, decodeDraft);
@@ -82,12 +89,15 @@ test('confirmed interview answers survive onboarding resume and reach the real a
   const restored = await resumed.load(owner, 'new', resumed.revision(owner));
   assert(restored, 'a fresh signup session must recover the confirmed answers');
   assert.deepEqual(plain(restored.answers.surveyAnswers), plain(initial.answers.surveyAnswers));
+  assert.deepEqual(plain(restored.answers.personalityAnswers), plain(initial.answers.personalityAnswers));
   assert.equal(restored.consent, false, 'resuming must not grant final signup consent');
   const submitted = profile(restored.answers), boundary = await cloudBoundary();
   await boundary.request('/application', 'PUT', owner, submitted);
   assert.equal(boundary.calls.length, 1);
   assert.equal(boundary.calls[0].name, 'marriage_apply');
   assert.deepEqual(boundary.calls[0].args.payload.surveyAnswers, plain(initial.answers.surveyAnswers));
+  assert.deepEqual(boundary.calls[0].args.payload.personalityAnswers, plain(initial.answers.personalityAnswers));
+  assert.equal(boundary.calls[0].args.payload.personalityVersion, 'personality-v1');
   assert.equal(boundary.calls[0].args.payload.assessmentVersion, compatibility.assessmentVersion);
   assert.equal(boundary.calls[0].args.payload.signupConsents.assessment, true);
   assert.equal(Object.hasOwn(boundary.calls[0].args.payload, 'proposals'), false);
@@ -128,6 +138,37 @@ test('unselected proposals and partial confirmations never invent an assessment 
   assert(partial.rankValue > 0, 'valid incomplete answers still contribute to ranking with a coverage penalty');
 });
 
+test('personality proposals affect actual scoring and explanations only after confirmation and completion', () => {
+  const base = newDraft().answers;
+  const peer = { ...profile({ ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D'))) }), id: 'peer', gender: 'man' };
+  const submitted = answers => ({ ...profile(answers), id: owner });
+  const fit = answers => compatibility.describeFit(submitted(answers), peer).fit.personality;
+  const unanswered = fit(base);
+  assert.equal(unanswered.percentage, null);
+  assert.equal(unanswered.covered, 0);
+  const unselected = { ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D'), [])) };
+  assert.deepEqual(plain(fit(unselected)), plain(unanswered), 'unconfirmed AI interpretations do not change matching');
+  const partial = { ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D').slice(0, 1))) };
+  assert.equal(fit(partial).covered, 1);
+  assert.equal(fit(partial).percentage, null, 'one answer cannot fabricate a full personality percentage');
+  const first = { ...partial, ...interview.applyInterviewAnswers(partial, confirmed(personality('D').slice(1))) };
+  const originalFit = fit(first);
+  assert.equal(originalFit.complete, true);
+  assert.equal(originalFit.percentage, 100);
+  assert.equal(originalFit.similarities.length, personalityCatalog.length);
+  assert.equal(personalityAnalysis.analyzePersonality(originalFit).discussion.length, 0);
+  const proposals = personality('A');
+  const firstId = proposals[0].id;
+  const edited = confirmInterviewChoices({ status: 'review', pendingAnalysis: false, proposals, confirmed: [] }, [{ id: firstId, values: ['B'] }], false).confirmed;
+  const changed = { ...first, ...interview.applyInterviewAnswers(first, edited) };
+  const changedFit = fit(changed);
+  assert.equal(changed.personalityAnswers[proposals[0].fieldId], 'B', 'member-edited interpretation overrides the proposed A');
+  assert.equal(changedFit.percentage, 96);
+  assert.deepEqual(plain(changedFit.differences), [proposals[0].fieldId]);
+  assert.equal(personalityAnalysis.analyzePersonality(changedFit).discussion[0].id, proposals[0].fieldId);
+  assert.equal(first.personalityAnswers[proposals[0].fieldId], 'D', 'the prior saved answers remain unmutated');
+});
+
 test('confirmed Beena answers feed the same scenario matching while unselected scenarios remain unanswered', () => {
   const base = newDraft().answers;
   const proposals = beena.beenaScenarios.flatMap(scenario => ['self', 'partner'].map(side => ({
@@ -144,7 +185,7 @@ test('confirmed Beena answers feed the same scenario matching while unselected s
 
 test('declining assessment consent strips previously confirmed interview answers before signup submission', async () => {
   const base = newDraft().answers;
-  const merged = { ...base, ...interview.applyInterviewAnswers(base, confirmed(preferences('A'))) };
+  const merged = { ...base, ...interview.applyInterviewAnswers(base, confirmed([...preferences('A'), ...personality('D')])) };
   const payload = consent.applyConsentChoices(draft.toProfile(merged), { ...choices(), assessment: false });
   const boundary = await cloudBoundary();
   await boundary.request('/application', 'PUT', owner, payload);

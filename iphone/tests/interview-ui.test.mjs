@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
 import topics from '../src/interview/catalog.json' with { type: 'json' };
+import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const code = compile(await readFile(new URL('../src/interview/InterviewPanel.tsx', import.meta.url), 'utf8'));
@@ -34,7 +35,7 @@ function mount(initial, intercept = () => null) {
     if (payload.action === 'load') return clone(snapshot);
     if (payload.action === 'start') snapshot = { document: baseDocument(), revision: 1 };
     if (payload.action === 'draft') snapshot = { document: { ...snapshot.document, draftAnswer: payload.answer }, revision: snapshot.revision + 1 };
-    if (payload.action === 'confirm') snapshot = { document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => ({ ...proposal, ...choice })), reviewSharing: payload.shareReview }, revision: snapshot.revision + 1 };
+    if (payload.action === 'confirm') snapshot = { document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => ({ ...snapshot.document.proposals.find(item=>item.id===choice.id), ...choice })), reviewSharing: payload.shareReview }, revision: snapshot.revision + 1 };
     if (payload.action === 'delete') snapshot = { document: null, revision: 0 };
     if (payload.action === 'resume') snapshot = { document: { ...snapshot.document, status:'active', currentQuestion: { topic: 'family', text: topics[3].question, suggestions: [] }, confirmed:[], reviewSharing:false }, revision:snapshot.revision+1 };
     return clone(snapshot);
@@ -49,7 +50,12 @@ function mount(initial, intercept = () => null) {
     if (name === '../motion/Reanimated') return { MotionReveal: 'motion-section', MotionPressButton: 'motion-button' };
     if (name === '../feedback/haptics') return { feedback: noop };
     if (name === './api') return { requestInterview, InterviewError: class extends Error {} };
-    if (name === './model') return { proposalOptions: () => options, proposalSide: () => 'ما يصفني', proposalTitle: () => 'الأطفال' };
+    if (name === './model') return {
+      proposalOptions: item => item.kind==='personality' ? ['A','B','C','D','E'].map((value,index)=>({value,label:['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'][index]})) : options,
+      proposalSide: () => 'ما يصفني',
+      proposalTitle: item => item.kind==='personality' ? personalityCatalog.find(question=>question.id===item.fieldId)?.title??'' : 'الأطفال',
+      proposalStatement: item => item.kind==='personality' ? personalityCatalog.find(question=>question.id===item.fieldId)?.prompt??'' : '',
+    };
     if (name === './catalog.json') return { default: topics };
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected import ${name}`);
@@ -102,6 +108,45 @@ test('only an explicit confirmation applies selected values, while reopening and
   assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/راجع الملف واحفظه/);
   find(tree,'مراجعة الجلسة وخيارات المشاركة').props.onClick();tree=ui.render();find(tree,'أكمل الحوار').props.onClick();await tick();tree=ui.render();
   assert.equal(ui.calls.at(-1).action,'resume');assert.equal(ui.applied.length,1);assert.ok(nodes(tree).some(node=>node.type==='textarea'));ui.unmount();
+});
+
+test('personality review displays the actual statement, excludes uncertain suggestions and applies only edited confirmed answers', async () => {
+  const known={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
+  const uncertain={...known,id:'personality:openness:self',fieldId:'openness',values:['C'],needsClarification:true};
+  const document={...baseDocument(),status:'review',currentQuestion:null,proposals:[known,uncertain]};
+  const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();
+  assert.equal(ui.applied.length,0);
+  assert.match(textOf(tree),/ملامح شخصيتك/);
+  const reviews=()=>nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');
+  assert.equal(reviews().length,2);
+  const rendered=reviews()[0].type(reviews()[0].props);
+  assert.match(textOf(rendered),/أقول بوضوح ما أحتاجه وما يزعجني في العلاقة/);
+  assert.match(textOf(rendered),/يشبهني غالبًا/);
+  assert.equal(nodes(rendered).find(node=>node.type==='input').props.checked,false);
+  find(tree,'اختيار الواضح منها').props.onClick();tree=ui.render();
+  assert.equal(reviews()[0].props.selected,true);assert.equal(reviews()[1].props.selected,false);
+  const selected=reviews()[0].type(reviews()[0].props);
+  nodes(selected).find(node=>node.type==='select').props.onChange({target:{value:'B'}});tree=ui.render();
+  assert.equal(ui.applied.length,0);
+  find(tree,'تأكيد').props.onClick();await tick();ui.render();
+  assert.deepEqual(ui.applied[0].map(({kind,fieldId,values})=>({kind,fieldId,values})),[{kind:'personality',fieldId:'directness',values:['B']}]);
+  ui.unmount();
+});
+
+test('a completed legacy twelve-turn interview can be reinterpreted without applying or deleting answers', async () => {
+  const turns=Array.from({length:12},(_,index)=>({id:'legacy-'+index,topic:topics[index%topics.length].id,question:'سؤال محفوظ',answer:'إجابة محفوظة',skipped:false}));
+  const document={...baseDocument(),status:'confirmed',currentQuestion:null,turns,proposals:[proposal],confirmed:[proposal]};
+  const personality={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
+  const ui=mount({document,revision:12},payload=>payload.action==='review'?Promise.resolve({document:{...document,promptVersion:'wudayn-interview-2',status:'review',proposals:[proposal,personality],confirmed:[]},revision:14}):null);
+  ui.render();await tick();let tree=ui.render();
+  assert.equal(find(tree,'أكمل الحوار'),undefined);
+  assert.ok(find(tree,'العودة إلى الأسئلة المباشرة'));
+  find(tree,'تحديث قراءة الجلسة').props.onClick();await tick();tree=ui.render();
+  assert.equal(ui.calls.at(-1).action,'review');assert.equal(ui.calls.at(-1).revision,12);
+  assert.equal(ui.applied.length,0);assert.equal(ui.calls.some(call=>call.action==='delete'||call.action==='start'),false);
+  assert.match(textOf(tree),/ملامح شخصيتك/);
+  assert.equal(nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview').every(node=>node.props.selected===false),true);
+  find(tree,'العودة إلى الأسئلة المباشرة').props.onClick();assert.equal(ui.closed,1);ui.unmount();
 });
 
 test('closing during model processing is allowed and never commits answers to the profile', async () => {

@@ -187,6 +187,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     dimensions.some(d => d.options.some(o => o.code === draft.answers.surveyAnswers?.[d.id] || o.code === draft.answers.surveyAnswers?.[d.partnerId])) ? 'questions' : 'choice');
   const [reviewAllCompatibility, setReviewAllCompatibility] = useState(false);
   const [reviewAllBeena, setReviewAllBeena] = useState(false);
+  const [reviewAllPersonality, setReviewAllPersonality] = useState(false);
+  const [personalityDirect, setPersonalityDirect] = useState(false);
   const current = useRef(draft);
   const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true,assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
   const consentRef = useRef(consents);
@@ -242,7 +244,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{version:next.version,sensitiveProfile:next.sensitiveProfile,assessment:next.assessment}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);}
+    if(kind==='assessment'&&!value){update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
   }
 
@@ -255,7 +257,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (draftRef) draftRef.current = null;
       setStorageState(null);
       setDraft(fresh);
-      setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
+      setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
     }
     if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
       setCheckingDevice(false);
@@ -415,6 +417,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }
   const assessmentStep = !editing && consents.assessment && ['compatibility','personality','beena'].includes(chapter.key);
   const savedCompatibilityCount = dimensions.reduce((count,d) => count + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.id])) + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.partnerId])),0);
+  const savedPersonalityCount = personalityQuestions.filter(q=>q.options.some(o=>o.code===p.personalityAnswers?.[q.id])).length;
   const choosingAssessment = !editing && !!interviewAuth && chapter.key==='compatibility' && consents.assessment && assessmentPath==='choice' && !savedCompatibilityCount;
   const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال التوافق لاحقًا' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
@@ -484,7 +487,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <BeenaFields key={interviewRevision} value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing} remainingOnly={!editing&&!reviewAllBeena}/>
               </>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
-              {chapter.key === "personality" && consents.assessment && <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} />}
+              {chapter.key === "personality" && consents.assessment && <>
+                {editing || !interviewAuth ? <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
+                  {savedPersonalityCount>0 ? <div className="wi-onboarding-summary"><div><CheckCheck size={18} aria-hidden="true"/><p><strong>{savedPersonalityCount===personalityQuestions.length ? 'ملامحك مؤكدة. لا تحتاج لإعادتها.' : 'نبني على ما أكّدته'}<small>{arabicNumber(savedPersonalityCount)} من {arabicNumber(personalityQuestions.length)} ملمحًا</small></strong><span>{savedPersonalityCount===personalityQuestions.length ? 'تُستخدم اختياراتك في انسجام الشخصية بعد حفظ ملفك. يمكنك مراجعتها وتعديلها متى شئت.' : 'المؤكد محفوظ، وما لم يتضح يبقى مفتوحًا. أكمل الحوار، أو أجب مباشرة عن المتبقي.'}</span></p></div><button type="button" onClick={()=>{setReviewAllPersonality(value=>!value);setPersonalityDirect(true);}}>{reviewAllPersonality ? 'إظهار المتبقي فقط' : 'مراجعة ملامح شخصيتي'}<ChevronLeft size={14}/></button></div> : <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
+                  {savedPersonalityCount>0&&savedPersonalityCount<personalityQuestions.length&&<div className="wi-personality-actions"><MotionPressButton className="wi-button wi-button-primary" onClick={()=>setInterviewOpen(true)}>أكمل ملامحي عبر الحوار<ArrowLeft size={17}/></MotionPressButton></div>}
+                  {(savedPersonalityCount<personalityQuestions.length||reviewAllPersonality)&&<details className="wi-manual wi-personality-manual" open={personalityDirect||reviewAllPersonality||undefined}><summary><span>{savedPersonalityCount===personalityQuestions.length ? 'مراجعة الإجابات وتعديلها' : 'أفضّل إكمال المتبقي مباشرة'}</span><ChevronLeft size={16}/></summary><PersonalityFields key={`${interviewRevision}:${reviewAllPersonality}`} answers={p.personalityAnswers ?? {}} onChange={update} registration remainingOnly={!reviewAllPersonality}/></details>}
+                </>}
+              </>}
               {chapter.key === "compatibility" && consents.assessment && <>
                 {editing ? <>
                   <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>
@@ -543,7 +552,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         </form>
        </>}
       </div>
-      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onboarding={!editing} onClose={() => setInterviewOpen(false)} onDirectQuestions={()=>{setInterviewOpen(false);setAssessmentPath('questions');}} onApply={confirmed => { update(applyInterviewAnswers(current.current.answers, confirmed)); setInterviewApplied(true);setInterviewRevision(value=>value+1);setAssessmentPath('questions');setReviewAllCompatibility(false);setReviewAllBeena(false);void saveProgressNow(); }}/>}
+      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onboarding={!editing} onClose={() => setInterviewOpen(false)} onDirectQuestions={()=>{setInterviewOpen(false);setAssessmentPath('questions');if(current.current.step==='personality')setPersonalityDirect(true);}} onApply={confirmed => { update(applyInterviewAnswers(current.current.answers, confirmed)); setInterviewApplied(true);setInterviewRevision(value=>value+1);setAssessmentPath('questions');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);void saveProgressNow(); }}/>}
     </main>
   );
 }

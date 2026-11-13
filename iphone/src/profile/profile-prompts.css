@@ -13,13 +13,17 @@
 .nf-prompt-editor > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #71354e; }
 .nf-prompt-editor > header > span { display: flex; gap: 7px; align-items: center; }
 .nf-prompt-editor > header > small { color: #9a7381; font-size: .7rem; }
+.nf-prompt-progress { display: inline-flex; align-items: center; gap: 4px; direction: rtl; }
+.nf-prompt-progress i { width: 15px; height: 4px; border-radius: 99px; background: #e3d7db; transition: background 180ms ease,transform 180ms ease; }
+.nf-prompt-progress i[data-done] { background: #74354d; transform: scaleY(1.2); }
+.nf-prompt-progress b { margin-inline-start: 3px; color: #8b727b; font-size: .68rem; font-weight: 600; white-space: nowrap; }
 .nf-intake .nf-prompt-note { color: #866573; font-size: .76rem; line-height: 1.9; margin: 12px 0; }
 .nf-prompt-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
 .nf-prompt-choices button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 1px solid #d6b9bf; border-radius: 13px; background: #fffaf590; color: #875b70; font: inherit; font-size: .71rem; cursor: pointer; }
 .nf-prompt-choices button[aria-pressed=true] { background: #74354d; border-color: #74354d; color: #fff9ef; }
 .nf-intake .nf-prompt-writing > label { display: block; color: #623046; font-size: .94rem; font-weight: 650; line-height: 1.85; }
 .nf-intake .nf-prompt-writing > p { font-size: .73rem; color: #8c6b79; line-height: 1.9; margin: 6px 0 10px; }
-.nf-intake .nf-prompt-writing > textarea { width: 100%; min-height: 125px; background: #fffdfa; font: inherit; line-height: 1.9; font-size: .9rem; border: 1px solid #d9bdc1; border-radius: 15px; padding: 13px; resize: vertical; }
+.nf-intake .nf-prompt-writing > textarea { width: 100%; min-height: 108px; background: #fffdfa; font: inherit; line-height: 1.9; font-size: .9rem; border: 1px solid #d9bdc1; border-radius: 15px; padding: 13px; resize: vertical; }
 .nf-prompt-counter,.nf-prompt-privacy { display: block; color: #896975; font-size: .66rem; line-height: 1.9; margin-top: 9px; }
 .nf-prompt-privacy { border-top: 1px solid #cdaeb52f; padding-top: 11px; }
 .pe-prompt-invite { display: flex; align-items: center; gap: 10px; width: 100%; text-align: start; padding: 15px; border: 1px solid #ddc5be; border-radius: 18px; background: linear-gradient(120deg,#fff9f1,#f5e3dd); color: #78475d; font: inherit; cursor: pointer; }

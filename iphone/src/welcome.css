@@ -75,20 +75,34 @@
 .wd-welcome-footer .wudayn-wordmark { width: 58px; }
 .wd-welcome-footer > span:not(.wudayn-wordmark) { color: #75636a; font-size: 11px; }
 .wd-welcome-footer button { width: 100%; text-align: start; border: 0; padding: 4px 0; min-height: 44px; color: #75636a; background: none; font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
-/* The brand is revealed in two strokes, then settles; all controls stay available. */
-.wd-welcome[data-opening] .wd-logo-stroke { stroke-dasharray: 1; animation: wd-logo-draw 1.4s cubic-bezier(.4,0,.2,1) both; }
-.wd-welcome[data-opening] .wd-logo-second { animation-delay: .15s; }
-.wd-welcome[data-opening] .wd-logo-finish { animation: wd-logo-fill .35s 1.15s both; }
-.wd-welcome[data-opening] .wd-welcome-emblem { animation: wd-logo-settle 1.7s ease-out both; }
-.wd-welcome[data-opening] .wd-welcome-wordmark { animation: wd-wordmark-in .8s .35s both; }
-.wd-welcome[data-opening] .wd-hero-art { animation: wd-hero-in 1s .2s both; }
+/* Full-viewport opening, portalled outside transformed route containers. */
+.wd-launch-screen { outline: none; position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; overflow: hidden; background: #fcfaf7; color: #54152a; font-family: var(--font-ui); animation: wd-launch-away 750ms 1550ms cubic-bezier(.22,.7,.25,1) both; }
+.wd-launch-brand { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: -28px; animation: wd-launch-brand-away 700ms 1500ms cubic-bezier(.22,.7,.25,1) both; }
+.wd-launch-emblem { width: clamp(150px, 36vw, 195px); height: clamp(150px, 36vw, 195px); overflow: visible; animation: wd-launch-mark-in 1250ms cubic-bezier(.22,.7,.25,1) both; }
+.wd-launch-wordmark { width: 126px; margin-top: 13px; animation: wd-launch-type-in 800ms 380ms both; }
+.wd-launch-wordmark .wudayn-wordmark-ar { font-size: 42px; }
+.wd-launch-wordmark .wudayn-wordmark-en { font-size: 10px; }
+.wd-launch-brand p { margin: 24px 0 0; color: #83616e; font-size: 14px; font-weight: 400; animation: wd-launch-type-in 750ms 650ms both; }
+.wd-launch-orbit { position: absolute; width: min(82vw, 420px); aspect-ratio: 1; border: 1px solid #e8dcd5; border-radius: 50%; opacity: .6; animation: wd-launch-orbit-in 1600ms ease-out both; }
+.wd-launch-orbit::after { content: ''; position: absolute; inset: -20px; border: 1px solid #eee4dd; border-radius: 50%; }
+.wd-launch-skip { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); inset-inline-end: max(24px, env(safe-area-inset-right)); min-height: 44px; display: inline-flex; align-items: center; gap: 7px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: #795764; font: inherit; font-size: 12px; cursor: pointer; }
+.wd-launch-skip:focus-visible { outline: 2px solid #9b7281; outline-offset: 3px; }
+.wd-launch-screen .wd-logo-stroke { stroke-dasharray: 1; animation: wd-logo-draw 1250ms cubic-bezier(.4,0,.2,1) both; }
+.wd-launch-screen .wd-logo-second { animation-delay: 130ms; }
+.wd-launch-screen .wd-logo-finish { animation: wd-logo-fill 350ms 1050ms both; }
+.wd-welcome[data-opening] > .wd-welcome-nav { animation: wd-welcome-enter 750ms 1500ms both; }
+.wd-welcome[data-opening] > .wd-welcome-hero { animation: wd-welcome-enter 850ms 1450ms both; }
 @keyframes wd-logo-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes wd-logo-fill { from { opacity: 0; } to { opacity: 1; } }
-@keyframes wd-logo-settle { from { transform: scale(1.18); } to { transform: scale(1); } }
-@keyframes wd-wordmark-in { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
-@keyframes wd-hero-in { from { opacity: .25; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes wd-launch-mark-in { from { opacity: .2; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes wd-launch-type-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes wd-launch-orbit-in { from { opacity: 0; transform: scale(.93); } to { opacity: .6; transform: scale(1); } }
+@keyframes wd-launch-brand-away { to { opacity: 0; transform: translateY(-16px) scale(.97); } }
+@keyframes wd-launch-away { to { opacity: 0; } }
+@keyframes wd-welcome-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 .wd-welcome[data-still] *,html[data-nf-motion='reduced'] .wd-welcome * { animation: none !important; transition: none !important; }
-@media (prefers-reduced-motion: reduce) { .wd-welcome * { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .wd-welcome * { animation: none !important; transition: none !important; } .wd-launch-screen { display: none; } }
+html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 @media (max-width: 360px) {
   .phone-app .nf-welcome.nf-arrival.wd-welcome { padding-inline: 19px; }
   .wd-welcome-hero { padding-top: 28px; gap: 23px; }

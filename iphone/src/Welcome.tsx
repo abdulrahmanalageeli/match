@@ -1,6 +1,7 @@
 import { BrandWordmark } from './Brand';
 import { WhyWudayn } from './WhyWudayn';
-import { useEffect, useId, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowDown, Check, Compass, HeartHandshake, LockKeyhole, UsersRound } from './BrandIcons';
 import { feedback } from './feedback/haptics';
 import { useDevicePreferences, useSystemReducedMotion } from './settings/preferences';
@@ -16,6 +17,14 @@ const previews = [
   { id: 'compatibility', label: 'افهم التوافق', icon: HeartHandshake, title: 'وراء كل نسبة، معنى.', description: 'تفضيلات الحياة، والشخصية، ومواقف «بيننا». افهم ما يجمعكما وما يستحق أن تتحدثا عنه.', detail: 'أسباب مفهومة · أفكار تفتح الحوار', alt: 'معاينة شرح التوافق ونقاط الاتفاق والمواضيع التي تستحق الحوار' },
   { id: 'journey', label: 'تقدّما معًا', icon: UsersRound, title: 'حديث يعرف خطوته التالية.', description: 'اتفاق على الجدّية والمدة، ثم حصرية بموافقتكما، ومساحة مستقلة للأهل حين تكونان مستعدّين.', detail: 'قرارات مشتركة · خصوصية لحديثكما', alt: 'معاينة مسار التعارف والانتقال إلى الخطوة العائلية بموافقة الطرفين' },
 ] as const;
+function WelcomeLogo({ maskId, className }: { maskId: string; className: string }) {
+  return <svg className={className} viewBox="0 0 768 768" aria-hidden="true"><defs><mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
+          <path className="wd-logo-stroke wd-logo-first" d="M270 165C285 220 175 280 194 408S280 545 346 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
+          <path className="wd-logo-stroke wd-logo-second" d="M500 265C599 300 594 424 515 482S405 535 347 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
+          <rect className="wd-logo-finish" width="768" height="768" fill="white"/>
+        </mask></defs><image href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`}/></svg>;
+}
+
 // Returning from login/privacy never restarts the opening in this app session.
 let arrivalSeen = false;
 
@@ -26,6 +35,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   const [introducing, setIntroducing] = useState(() => (replayIntro || !arrivalSeen) && !reduced && !document.hidden);
   const [hidden, setHidden] = useState(() => document.hidden);
   const [selected, setSelected] = useState(0);
+  const launchRef = useRef<HTMLDivElement>(null);
   const maskId = useId().replaceAll(':', '');
   const previewId = useId();
   const preview = previews[selected];
@@ -35,16 +45,33 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     document.addEventListener('visibilitychange', visibility);
     return () => document.removeEventListener('visibilitychange', visibility);
   }, []);
+  useLayoutEffect(() => {
+    if (!introducing) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    launchRef.current?.focus({ preventScroll: true });
+    const timer = window.setTimeout(() => setIntroducing(false), 2300);
+    return () => { window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
+  }, [introducing]);
+  function skipIntro() {
+    setIntroducing(false);
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.nf-join')?.focus({ preventScroll: true }));
+  }
   function begin() { feedback('selection'); onRegister(); }
 
-  return <main className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
+  return <>
+    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
+      if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
+      if (event.key === 'Tab') { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('button')?.focus(); }
+    }}>
+      <div className="wd-launch-orbit" aria-hidden="true"/>
+      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/><p>بداية لحياة مشتركة</p></div>
+      <button type="button" className="wd-launch-skip" onClick={skipIntro}>تخطي المقدمة <ArrowLeft size={14} aria-hidden="true"/></button>
+    </div>, document.body)}
+    <main inert={introducing || undefined} aria-hidden={introducing || undefined} className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
     <header className="wd-welcome-nav">
       <div className="wd-welcome-brand" role="img" aria-label="وُدَين">
-        <svg className="wd-welcome-emblem" viewBox="0 0 768 768" aria-hidden="true"><defs><mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
-          <path className="wd-logo-stroke wd-logo-first" d="M270 165C285 220 175 280 194 408S280 545 346 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
-          <path className="wd-logo-stroke wd-logo-second" d="M500 265C599 300 594 424 515 482S405 535 347 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
-          <rect className="wd-logo-finish" width="768" height="768" fill="white"/>
-        </mask></defs><image href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`}/></svg>
+        <WelcomeLogo maskId={maskId} className="wd-welcome-emblem"/>
         <BrandWordmark className="wd-welcome-wordmark"/>
       </div>
       <button type="button" className="nf-mast-login wd-welcome-login" onClick={onLogin}>تسجيل الدخول <ArrowLeft size={15} aria-hidden="true"/></button>
@@ -87,5 +114,5 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
 
     <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">صُمّم لبداية تتجاوز التطبيق</span><h2 id="welcome-purpose-heading">أجمل نهاية هنا،<br/>بداية حياتكما معًا.</h2><p>حين تتفقان على التعارف الحصري، تتوقف الترشيحات الجديدة وتُغلق التعارفات الأخرى. لتمنحا قراركما مساحة، وتختارا خطوتكما التالية معًا.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ بما يهمّك فعلًا <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><span className="wd-purpose-note">التوافق يساعد على الفهم؛ والقرار لكما.</span></section>
     <footer className="wd-welcome-footer"><BrandWordmark/><span>بداية لحياة مشتركة</span><button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
-  </main>;
+  </main></>;
 }

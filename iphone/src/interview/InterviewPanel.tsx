@@ -210,6 +210,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const validProposals = (doc?.proposals ?? []).filter(item => proposalOptions(item).length > 0);
   const covered = new Set(doc?.turns.filter(turn => !turn.skipped).map(turn => turn.topic));
   const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
+  const refiningAnswers = doc?.status === 'active' && covered.size >= topics.length;
   const reviewMode = doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ حفظ إجابتك…' : draftState === 'error' ? 'لم تُحفظ آخر كتابة بعد' : 'محفوظة بخصوصية';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
@@ -252,8 +253,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <button type="button" className="wi-link wi-centered" onClick={onDirectQuestions} disabled={!!busy}>العودة إلى الأسئلة المباشرة</button>
         </MotionReveal>
         : <>
-          <div className="wi-progress-heading"><span>{currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><small>{number(covered.size)} من {number(topics.length)} محاور</small></div>
-          <div className="wi-topic-progress" aria-label={`أجبت عن ${number(covered.size)} من ${number(topics.length)} محاور`}>{topics.map(topic => <span key={topic.id} title={topic.title} aria-current={topic.id === doc.currentQuestion?.topic ? 'step' : undefined} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/></span>)}</div>
+          <div className="wi-progress-heading"><span>{refiningAnswers ? 'تفاصيل تكمّل الصورة' : currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><small>{refiningAnswers ? 'نبني على إجاباتك' : `${number(covered.size)} من ${number(topics.length)} محاور`}</small></div>
+          <div className="wi-topic-progress" aria-label={refiningAnswers ? 'أسئلة متابعة مبنية على إجاباتك' : `أجبت عن ${number(covered.size)} من ${number(topics.length)} محاور`}>{topics.map(topic => <span key={topic.id} title={topic.title} aria-current={topic.id === doc.currentQuestion?.topic ? 'step' : undefined} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/></span>)}</div>
           <MotionReveal key={doc.currentQuestion?.text} className="wi-question" axis="x" distance={-12} duration={320}>
             <h1 id="wi-title" ref={heading} tabIndex={-1}>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عن الحياة التي تتمنّاها؟'}</h1>
             <label className="wi-answer-label" htmlFor="wi-answer">إجابتك، بطريقتك</label><textarea id="wi-answer" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={5} placeholder="خذ راحتك… موقف صغير أو مثال يكفي." autoComplete="off" spellCheck dir="auto" disabled={actionBlocked}/>

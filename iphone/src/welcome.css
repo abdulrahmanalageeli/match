@@ -1,128 +1,115 @@
-/* The artwork has its own space: type and actions never sit over the people. */
-.phone-app .nf-welcome.nf-arrival,
-.nf-welcome.nf-arrival {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(200px, 1fr) auto;
-  gap: 0;
-  width: 100%;
-  max-width: 520px;
-  min-height: 100svh;
-  margin-inline: auto;
-  padding: max(20px, env(safe-area-inset-top)) 24px max(16px, env(safe-area-inset-bottom));
-  overflow: hidden;
-  background: #fdfdfd;
-  color: #242326;
-  text-align: start;
+/* A calm, editorial welcome. Intro never blocks the entry actions. */
+.phone-app .nf-welcome.nf-arrival.wd-welcome {
+  display: block; position: relative; isolation: isolate; width: 100%; max-width: 1080px;
+  min-height: 100svh; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  background: #fcfaf7; color: #30282c; overflow: clip; text-align: start;
 }
-.phone-app .nf-welcome.nf-arrival::before,
-.phone-app .nf-welcome.nf-arrival::after,
-.nf-welcome.nf-arrival::before,
-.nf-welcome.nf-arrival::after { content: none; }
-.nf-arrival button { -webkit-tap-highlight-color: transparent; }
-.nf-arrival-brand { display: flex; align-items: center; gap: 5px; min-height: 46px; }
-.nf-arrival-emblem { width: 48px; height: 48px; overflow: visible; }
-.nf-arrival-wordmark { width: 78px; height: auto; }
-.nf-arrival-brand-note { margin-inline-start: auto; padding-inline-start: 18px; color: #716b70; font-size: 14px; font-weight: 400; }
-.nf-arrival-copy { padding: clamp(22px, 3.8svh, 40px) 0 22px; }
-.nf-arrival-eyebrow { display: block; margin-bottom: 10px; color: #54152a; font-size: 14px; font-weight: 500; }
-.nf-arrival .nf-arrival-copy h1 { max-width: none; margin: 0; color: #242326; font-size: clamp(28px, 7.5vw, 34px); font-weight: 600; line-height: 1.5; letter-spacing: 0; }
-.nf-arrival-copy h1 span { display: block; }
-.nf-arrival .nf-arrival-copy p { max-width: 38ch; margin: 12px 0 0; color: #716b70; font-size: 16px; font-weight: 400; line-height: 1.7; }
-.nf-arrival-desktop-break { display: none; }
-.nf-arrival-illustration { position: relative; isolation: isolate; min-height: 200px; max-height: 340px; width: 100%; overflow: hidden; border-radius: 12px; background: #dfd6c9; pointer-events: none; }
-.nf-arrival-scene { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
-.nf-arrival-distance { position: absolute; inset: -4px; animation: nf-arrival-city-drift 70s ease-in-out infinite alternate; }
-.nf-arrival-scene img { width: 100%; height: 100%; object-fit: cover; object-position: center 74%; filter: saturate(.48); }
-.nf-arrival-sky { position: absolute; inset: 0; background: #f0e9db; mix-blend-mode: color; opacity: .42; }
-.nf-arrival-lights { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
-.nf-arrival-arches { position: absolute; z-index: -1; width: 116%; height: 105%; left: -8%; bottom: 0; overflow: visible; opacity: .65; }
-.nf-arrival-arches > svg { width: 100%; height: 100%; }
-.nf-arrival-arches path { stroke: #fff9ec; stroke-width: 1.35; opacity: .88; vector-effect: non-scaling-stroke; }
-.nf-arrival-couple { position: absolute; width: 100%; max-width: none; height: auto; left: 0; bottom: -1px; filter: saturate(.7); }
-.nf-arrival-actions { position: relative; width: 100%; padding-top: 18px; text-align: center; }
-.nf-arrival .nf-arrival-action-note { margin: 0 0 13px; color: #716b70; font-size: 14px; line-height: 1.4; }
-.nf-arrival .nf-arrival-cta {
-  width: 100%;
-  min-height: 56px;
-  display: grid;
-  grid-template-columns: 24px 1fr 24px;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 14px 20px;
-  border: 1px solid #54152a;
-  border-radius: 10px;
-  background: #54152a;
-  color: #fff;
-  box-shadow: none;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.5;
-  transition: background 120ms ease-out;
-}
-.nf-arrival-cta > span { grid-column: 2; }
-.nf-arrival-cta > svg { grid-column: 3; }
-.nf-arrival .nf-arrival-cta:hover { background: #421021; }
-.nf-arrival .nf-arrival-cta:focus-visible { outline: 3px solid #b3919d; outline-offset: 4px; }
-.nf-arrival .nf-arrival-login { margin: 8px 0 0; font-size: 16px; line-height: 1.4; color: #716b70; }
-.nf-arrival-login button { min-height: 44px; padding: 6px; border: 0; background: transparent; font-weight: 500; color: #54152a; }
-.nf-arrival-privacy { padding: 5px 9px; min-height: 36px; border: 0; background: transparent; font-size: 14px; color: #716b70; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #c8c2c4; }
-@media (max-width: 360px) { .nf-arrival-brand-note { display: none; } }
-
-/* A brief arrival; the primary action is available from the first frame. */
-.nf-arrival[data-opening] .nf-arrival-ink { stroke-dasharray: 1; animation: nf-arrival-draw 1.5s cubic-bezier(.4,0,.25,1) both; }
-.nf-arrival[data-opening] .nf-arrival-ink-second { animation-delay: .18s; }
-.nf-arrival[data-opening] .nf-arrival-ink-finish { animation: nf-arrival-fill .45s 1.2s both; }
-.nf-arrival[data-opening] .nf-arrival-wordmark { animation: nf-arrival-wordmark .8s .4s cubic-bezier(.2,.65,.3,1) both; }
-.nf-arrival[data-opening] .nf-arrival-lights rect { animation: nf-arrival-window 3s 1.6s ease-out both; }
-.nf-arrival[data-opening] .nf-arrival-lights rect:nth-child(2n) { animation-delay: 2.4s; }
-@keyframes nf-arrival-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes nf-arrival-fill { from { opacity: 0; } to { opacity: 1; } }
-@keyframes nf-arrival-wordmark { from { clip-path: inset(0 0 0 100%); opacity: .2; } to { clip-path: inset(0); opacity: 1; } }
-@keyframes nf-arrival-window { from { opacity: .05; } to { opacity: .8; } }
-@keyframes nf-arrival-city-drift { from { transform: translate3d(-1px, 0, 0); } to { transform: translate3d(2px, -1px, 0); } }
-.nf-arrival[data-still] *, .nf-arrival[data-still] *::after { animation: none !important; }
-html[data-nf-ambient-paused] .nf-arrival *, html[data-nf-ambient-paused] .nf-arrival *::after { animation-play-state: paused !important; }
-@media (prefers-reduced-motion: reduce) {
-  .nf-arrival *, .nf-arrival *::after { animation: none !important; transition: none !important; }
-}
-html[data-nf-motion="reduced"] .nf-arrival *, html[data-nf-motion="reduced"] .nf-arrival *::after { animation: none !important; transition: none !important; }
-@media (max-height: 740px) and (max-width: 759px) {
-  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival { padding-top: max(12px, env(safe-area-inset-top)); grid-template-rows: auto auto minmax(120px, 1fr) auto; }
-  .nf-arrival-copy { padding-top: 18px; padding-bottom: 18px; }
-  .nf-arrival .nf-arrival-copy h1 { font-size: 28px; }
-  .nf-arrival .nf-arrival-copy p { margin-top: 9px; }
-  .nf-arrival-illustration { min-height: 120px; }
-  .nf-arrival-couple { height: 100%; width: 100%; object-fit: contain; object-position: center bottom; }
-  .nf-arrival-actions { padding-top: 14px; }
-  .nf-arrival .nf-arrival-action-note { display: none; }
+.phone-app:has(.wd-welcome) { max-width: 1080px; background: #fcfaf7; }
+.wd-welcome::before,.wd-welcome::after { content: none !important; }
+.wd-welcome button,.wd-welcome a { -webkit-tap-highlight-color: transparent; }
+.wd-welcome button:focus-visible,.wd-welcome a:focus-visible { outline: 2px solid #7a364e; outline-offset: 5px; }
+.wd-welcome-nav { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 48px; }
+.wd-welcome-brand { display: flex; align-items: center; gap: 4px; }
+.wd-welcome-emblem { width: 52px; height: 52px; overflow: visible; }
+.wd-welcome-wordmark { width: 74px; }
+.wd-welcome .wd-welcome-login { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px 0; border: 0; background: transparent; color: #54152a; font-size: 13px; font-weight: 500; }
+.wd-welcome-hero { display: grid; gap: 28px; padding-top: 34px; }
+.wd-welcome-kicker { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #815464; }
+.wd-welcome-kicker > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.wd-welcome .wd-hero-copy h1 { margin: 14px 0 15px; max-width: none; font-size: clamp(31px, 8.8vw, 42px); font-weight: 700; line-height: 1.4; letter-spacing: -.7px; }
+.wd-hero-copy h1 em { font-style: normal; color: #7a364e; }
+.wd-welcome .wd-hero-copy > p { margin: 0; max-width: 39ch; font-size: 15px; line-height: 1.9; color: #6e6467; }
+.wd-hero-actions { display: flex; align-items: center; gap: 18px; margin-top: 24px; }
+.wd-welcome .wd-welcome-primary { display: inline-flex; align-items: center; justify-content: center; gap: 24px; min-height: 52px; min-width: 154px; padding: 13px 19px; border: 1px solid transparent; border-radius: 9px; background: #54152a; color: #fff; font: inherit; font-size: 15px; font-weight: 500; text-decoration: none; cursor: pointer; }
+.wd-welcome .wd-welcome-primary:hover { background: #6c263f; }
+.wd-welcome-explore { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: #684c58; font-size: 12px; text-decoration: none; white-space: nowrap; }
+.wd-welcome-explore:hover { text-decoration: underline; text-underline-offset: 4px; }
+.wd-hero-note { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 11px; color: #786c70; }
+.wd-hero-art { position: relative; margin: 0; min-width: 0; height: 245px; border-radius: 90px 9px 9px 9px; overflow: hidden; background: #e7decd; }
+.wd-hero-art picture,.wd-hero-art picture img { display: block; width: 100%; height: 100%; }
+.wd-hero-art picture img { object-fit: cover; object-position: 65% 58%; }
+.wd-hero-art::after { content: ''; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent,#30231d9c); pointer-events: none; }
+.wd-hero-art figcaption { position: absolute; z-index: 1; inset-inline: 20px; bottom: 18px; display: grid; gap: 1px; color: #fff; }
+.wd-hero-art figcaption > span:first-child { font-size: 11px; color: #f2e8db; }
+.wd-hero-art figcaption strong { font-size: 21px; font-weight: 500; }
+.wd-art-line { position: absolute; inset-inline-end: 0; bottom: 12px; width: 54px; height: 1px; background: #ffffff8c; }
+.wd-welcome-principles { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 10px; padding: 24px 0; border-bottom: 1px solid #e8dfdb; }
+.wd-welcome-principles > span { display: inline-flex; gap: 5px; align-items: center; color: #77616a; font-size: 11px; }
+.wd-welcome-principles svg { color: #916573; flex: none; }
+.wd-product-story { display: grid; gap: 26px; padding: 48px 0 42px; scroll-margin-top: 22px; }
+.wd-welcome h2 { margin: 10px 0 14px; font-size: 31px; font-weight: 700; line-height: 1.45; letter-spacing: -.35px; }
+.wd-section-intro { margin: 0; max-width: 39ch; color: #776c70; font-size: 14px; line-height: 1.85; }
+.wd-preview-controls { display: flex; gap: 5px; margin: 23px 0 20px; padding: 4px; border-radius: 10px; background: #eee7e3; }
+.wd-preview-controls button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-height: 45px; border: 0; border-radius: 7px; padding: 5px 7px; color: #74606a; background: transparent; font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.wd-preview-controls button[aria-pressed='true'] { background: #fffdfb; color: #54152a; box-shadow: 0 1px 4px #38242b0a; }
+.wd-preview-controls svg { flex-shrink: 0; }
+.wd-preview-description { min-height: 135px; }
+.wd-welcome .wd-preview-description h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+.wd-preview-description p { margin: 0; max-width: 39ch; font-size: 14px; line-height: 1.85; color: #71646a; }
+.wd-preview-description > span { display: block; margin-top: 12px; font-size: 11px; color: #8b6976; }
+.wd-product-copy .wd-why-link { justify-content: flex-start; min-height: 44px; padding: 6px 0; margin-top: 6px; font-size: 12px; }
+.wd-product-figure { position: relative; margin: 0; isolation: isolate; display: flex; flex-direction: column; align-items: center; padding: 14px 10px 0; }
+.wd-product-halo { position: absolute; z-index: -1; inset: 13% -24px 16%; border-radius: 50% 50% 8px 8px; background: #eee4de; }
+.wd-device { width: min(100%, 300px); overflow: hidden; border: 5px solid #fffdfa; outline: 1px solid #ded3cd; border-radius: 26px; background: #fff; box-shadow: 0 18px 40px -18px #62473335; transform: rotate(-2deg); }
+.wd-device-top { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 17px; background: #fff; font-size: 10px; color: #917e86; }
+.wd-device-top i { width: 40px; height: 5px; border-radius: 8px; background: #e8e2df; }
+.wd-device-screen { aspect-ratio: 390/560; overflow: hidden; background: #fff; }
+.wd-device-screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.wd-product-figure figcaption { margin-top: 22px; text-align: center; font-size: 11px; color: #75636a; }
+.wd-intention { display: grid; gap: 14px; padding: 38px 0 45px; border-top: 1px solid #e8dfdb; }
+.wd-intention-list { list-style: none; margin: 0; padding: 0; }
+.wd-intention-list li { display: flex; gap: 17px; padding: 20px 0; }
+.wd-intention-list li + li { border-top: 1px solid #e8dfdb; }
+.wd-intention-list li > span { padding-top: 1px; color: #b08c96; font-size: 14px; font-variant-numeric: tabular-nums; }
+.wd-welcome .wd-intention-list h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+.wd-intention-list p { margin: 0; max-width: 42ch; font-size: 14px; line-height: 1.85; color: #776b70; }
+.wd-welcome-purpose { position: relative; isolation: isolate; overflow: hidden; padding: 32px 23px; border-radius: 12px 12px 60px 12px; background: #4a1c2d; color: #fff; }
+.wd-welcome-purpose > img { position: absolute; z-index: -1; left: -100px; top: -25px; width: 340px; height: 340px; opacity: .1; filter: grayscale(1) brightness(5); }
+.wd-welcome-purpose .wd-welcome-kicker { color: #d4b4c0; font-size: 11px; }
+.wd-welcome .wd-welcome-purpose h2 { font-size: clamp(25px,7.3vw,34px); margin: 16px 0; color: #fffaf4; }
+.wd-welcome-purpose p { max-width: 48ch; color: #e0cbd1; font-size: 14px; line-height: 1.95; margin: 0 0 22px; }
+.wd-welcome .wd-purpose-cta { background: #fcf6ee; color: #54152a; border: 0; font-size: 14px; }
+.wd-welcome .wd-purpose-cta:hover { background: #efe3d9; }
+.wd-purpose-note { display: block; margin-top: 14px; font-size: 11px; color: #d3b8c2; }
+.wd-welcome-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding-top: 32px; }
+.wd-welcome-footer .wudayn-wordmark { width: 58px; }
+.wd-welcome-footer > span:not(.wudayn-wordmark) { color: #75636a; font-size: 11px; }
+.wd-welcome-footer button { width: 100%; text-align: start; border: 0; padding: 4px 0; min-height: 44px; color: #75636a; background: none; font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
+/* The brand is revealed in two strokes, then settles; all controls stay available. */
+.wd-welcome[data-opening] .wd-logo-stroke { stroke-dasharray: 1; animation: wd-logo-draw 1.4s cubic-bezier(.4,0,.2,1) both; }
+.wd-welcome[data-opening] .wd-logo-second { animation-delay: .15s; }
+.wd-welcome[data-opening] .wd-logo-finish { animation: wd-logo-fill .35s 1.15s both; }
+.wd-welcome[data-opening] .wd-welcome-emblem { animation: wd-logo-settle 1.7s ease-out both; }
+.wd-welcome[data-opening] .wd-welcome-wordmark { animation: wd-wordmark-in .8s .35s both; }
+.wd-welcome[data-opening] .wd-hero-art { animation: wd-hero-in 1s .2s both; }
+@keyframes wd-logo-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes wd-logo-fill { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wd-logo-settle { from { transform: scale(1.18); } to { transform: scale(1); } }
+@keyframes wd-wordmark-in { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
+@keyframes wd-hero-in { from { opacity: .25; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.wd-welcome[data-still] *,html[data-nf-motion='reduced'] .wd-welcome * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .wd-welcome * { animation: none !important; transition: none !important; } }
+@media (max-width: 360px) {
+  .phone-app .nf-welcome.nf-arrival.wd-welcome { padding-inline: 19px; }
+  .wd-welcome-hero { padding-top: 28px; gap: 23px; }
+  .wd-hero-actions { gap: 13px; }.wd-welcome .wd-welcome-primary { min-width: 140px; gap: 16px; padding-inline: 14px; }
+  .wd-preview-controls button { gap: 4px; padding-inline: 4px; font-size: 10px; }.wd-preview-controls svg { width: 14px; }
+  .wd-welcome-principles { justify-content: flex-start; }.wd-hero-art { height: 220px; }
 }
 @media (min-width: 760px) {
-  .phone-app .nf-welcome.nf-arrival, .nf-welcome.nf-arrival {
-    max-width: 1080px;
-    min-height: min(850px, 100svh);
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto 1fr auto;
-    column-gap: clamp(40px, 6vw, 88px);
-    padding: 32px 40px 48px;
-    align-content: center;
-  }
-  .nf-arrival-brand { grid-column: 1 / -1; margin-bottom: 34px; }
-  .nf-arrival-brand-note { padding: 0; }
-  .nf-arrival-copy { grid-column: 1; grid-row: 2; align-self: end; padding: 30px 0 28px; }
-  .nf-arrival-eyebrow { margin-bottom: 16px; }
-  .nf-arrival .nf-arrival-copy h1 { font-size: clamp(32px, 3.4vw, 42px); line-height: 1.5; }
-  .nf-arrival .nf-arrival-copy p { font-size: 18px; line-height: 1.85; margin-top: 20px; }
-  .nf-arrival-illustration { grid-column: 2; grid-row: 2 / 4; align-self: stretch; min-height: 510px; max-height: none; }
-  .nf-arrival-scene img { object-position: 60% bottom; }
-  .nf-arrival-couple { width: 136%; left: -18%; }
-  .nf-arrival-actions { grid-column: 1; grid-row: 3; padding-top: 0; padding-bottom: 35px; text-align: start; }
-  .nf-arrival .nf-arrival-action-note { margin-bottom: 20px; }
-  .nf-arrival .nf-arrival-cta { max-width: 360px; }
-  .nf-arrival .nf-arrival-login { margin-top: 12px; }
-  .nf-arrival-privacy { padding-inline: 0; }
+  .phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 28px 48px 30px; }
+  .wd-welcome-nav { padding-bottom: 18px; border-bottom: 1px solid #e8dfdb; }
+  .wd-welcome-hero { grid-template-columns: 1fr 1fr; gap: 42px; align-items: center; padding: 46px 0 34px; }
+  .wd-welcome .wd-hero-copy h1 { font-size: clamp(36px,4.4vw,49px); }
+  .wd-welcome .wd-hero-copy > p { font-size: 16px; }
+  .wd-hero-art { height: 440px; border-start-start-radius: 130px; }
+  .wd-hero-art picture img { object-position: 69% center; }
+  .wd-welcome-principles { padding: 23px 0; justify-content: space-around; }.wd-welcome-principles > span { font-size: 13px; }
+  .wd-product-story { grid-template-columns: 1fr 1fr; gap: 70px; align-items: center; padding: 70px 0; }
+  .wd-welcome h2 { font-size: 38px; }.wd-preview-description { min-height: 140px; }
+  .wd-device { width: 310px; }.wd-product-halo { inset-inline: -5px; }
+  .wd-intention { grid-template-columns: 1fr 1fr; gap: 60px; padding: 60px 0; }.wd-intention-heading { padding-top: 18px; }
+  .wd-welcome-purpose { padding: 48px; border-end-start-radius: 85px; }.wd-welcome .wd-welcome-purpose h2 { font-size: 40px; }
+  .wd-welcome-purpose > img { width: 500px; height: 500px; top: -50px; left: 0; }
+  .wd-welcome-footer button { width: auto; }.wd-welcome-footer > span:not(.wudayn-wordmark) { margin-inline-end: auto; }
 }
-@media (min-width: 1000px) { .nf-arrival-desktop-break { display: inline; } }

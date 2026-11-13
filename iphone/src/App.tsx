@@ -849,6 +849,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         onMembership={openMembership}
         onEdit={() => {setApplicationChapter(undefined);go("application");}}
         onBeena={demo||cloud ? ()=>{setApplicationChapter('beena');go('application');}:undefined}
+        onInterview={tester || (!demo && token) ? ()=>{setApplicationChapter('compatibility');go('application');}:undefined}
         onToggle={togglePause}
         onExit={signOut}
         onDelete={() => setConfirm("delete")}

@@ -35,6 +35,9 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState('');
   const busyRef = useRef(false);
+  const activeRequest = useRef<{ action: string; settled: Promise<void> } | null>(null);
+  const queuedIntentRef = useRef('');
+  const [queuedIntent, setQueuedIntent] = useState('');
   const mounted = useRef(true);
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
@@ -63,6 +66,9 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   const call = useCallback(async (action: string, payload: Record<string, unknown> = {}, replaceAnswer = false) => {
     if (busyRef.current) return null;
     busyRef.current = true; setBusy(action); setError(''); setErrorCode('');
+    let release!: () => void;
+    const settled = new Promise<void>(resolve => { release = resolve; });
+    activeRequest.current = { action, settled };
     try {
       const next = await requestInterview(auth, { action, ...(action === 'load' || action === 'start' ? {} : { revision: current.current.revision }), ...payload });
       if (!mounted.current) return null;
@@ -73,7 +79,11 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
         setErrorCode(cause instanceof InterviewError ? cause.code : 'unavailable');
       }
       return null;
-    } finally { busyRef.current = false; if (mounted.current) setBusy(''); }
+    } finally {
+      busyRef.current = false; activeRequest.current = null;
+      if (mounted.current) setBusy('');
+      release();
+    }
   }, [owner, assign]);
 
   useEffect(() => {
@@ -96,7 +106,7 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   }, [open, loaded, doc?.currentQuestion?.text, doc?.status]);
 
   useEffect(() => {
-    if (!open || !doc || doc.status !== 'active' || busy || answer === doc.draftAnswer || draftState === 'error') return;
+    if (!open || !doc || doc.status !== 'active' || busy || queuedIntent || answer === doc.draftAnswer || draftState === 'error') return;
     setDraftState('pending');
     const timer = window.setTimeout(() => {
       const saving = answerRef.current;
@@ -106,7 +116,7 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [open, answer, doc?.draftAnswer, doc?.status, busy, draftState, call]);
+  }, [open, answer, doc?.draftAnswer, doc?.status, busy, queuedIntent, draftState, call]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -118,7 +128,7 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
 
   useEffect(() => {
     const flush = () => {
-      if (!document.hidden || busyRef.current || current.current.document?.status !== 'active'
+      if (!document.hidden || busyRef.current || queuedIntentRef.current || current.current.document?.status !== 'active'
         || answerRef.current === current.current.document.draftAnswer) return;
       const saving = answerRef.current;
       void call('draft', { answer: saving }).then(result => {
@@ -129,11 +139,25 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
     return () => document.removeEventListener('visibilitychange', flush);
   }, [call]);
 
+  async function afterDraft(intent: string) {
+    if (queuedIntentRef.current) return false;
+    const pending = activeRequest.current;
+    if (pending?.action !== 'draft') return !busyRef.current;
+    queuedIntentRef.current = intent; setQueuedIntent(intent);
+    await pending.settled;
+    queuedIntentRef.current = '';
+    if (!mounted.current) return false;
+    setQueuedIntent('');
+    return !busyRef.current;
+  }
+
   async function close() {
-    if (busyRef.current) {
-      if (['answer', 'review', 'retry'].includes(busy)) onClose();
+    if (queuedIntentRef.current) return;
+    if (busyRef.current && activeRequest.current?.action !== 'draft') {
+      if (['answer', 'review', 'retry'].includes(activeRequest.current?.action ?? '')) onClose();
       return;
     }
+    if (activeRequest.current?.action === 'draft' && !await afterDraft('close')) return;
     if (current.current.document?.status === 'active' && answerRef.current !== current.current.document.draftAnswer) {
       const saved = await call('draft', { answer: answerRef.current });
       if (!saved) { setDraftState('error'); return; }
@@ -142,6 +166,8 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   }
 
   async function send(skip = false) {
+    if (queuedIntentRef.current) return;
+    if (activeRequest.current?.action === 'draft' && !await afterDraft('answer')) return;
     const text = skip ? '' : answerRef.current.trim();
     if (busyRef.current || (!skip && !text)) return;
     if (!requestId.current || requestId.current.answer !== text || requestId.current.skip !== skip) requestId.current = { answer: text, skip, id: crypto.randomUUID() };
@@ -167,6 +193,8 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   }
 
   async function review() {
+    if (queuedIntentRef.current) return;
+    if (activeRequest.current?.action === 'draft' && !await afterDraft('review')) return;
     if (busyRef.current) return;
     if (answerRef.current.trim()) {
       const sent = await send();
@@ -182,10 +210,11 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
   const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
   const reviewMode = doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ حفظ إجابتك…' : draftState === 'error' ? 'لم تُحفظ آخر كتابة بعد' : 'محفوظة بخصوصية';
+  const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
 
   return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
-      <header className="wi-header"><div><HeartHandshake size={21} aria-hidden="true"/><span id="wi-dialog-name">جلسة التوافق</span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!busy && !['answer','review','retry'].includes(busy)} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
+      <header className="wi-header"><div><HeartHandshake size={21} aria-hidden="true"/><span id="wi-dialog-name">جلسة التوافق</span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
       <div className="wi-content">
         {!loaded ? <div className="wi-loading" role="status"><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span><p>نفتح مساحتك الخاصة…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
         : !doc ? <MotionReveal className="wi-welcome" duration={400} inert={!!busy}>
@@ -222,13 +251,13 @@ export function InterviewPanel({ open, auth, onClose, onApply }: Props) {
           <div className="wi-topic-progress" aria-label="محاور الجلسة">{topics.map(topic => <span key={topic.id} title={topic.title} data-state={topic.id === doc.currentQuestion?.topic ? 'current' : covered.has(topic.id) ? 'done' : undefined}><i aria-hidden="true"/>{topic.id === doc.currentQuestion?.topic && <b>{topic.title}</b>}</span>)}<small>{number(covered.size)} / {number(topics.length)} محاور</small></div>
           <MotionReveal key={doc.currentQuestion?.text} className="wi-question" axis="x" distance={-12} duration={320}>
             <span className="wi-eyebrow">{currentTopic?.title ?? 'نتعرّف إلى ما يناسبك'}</span><h1 id="wi-title" ref={heading} tabIndex={-1}>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عن الحياة التي تتمنّاها؟'}</h1>
-            <label className="wi-answer-label" htmlFor="wi-answer">إجابتك، بطريقتك</label><textarea id="wi-answer" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={5} placeholder="خذ راحتك… موقف صغير أو مثال يكفي." autoComplete="off" spellCheck dir="auto" disabled={!!busy && busy !== 'draft'}/>
+            <label className="wi-answer-label" htmlFor="wi-answer">إجابتك، بطريقتك</label><textarea id="wi-answer" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={5} placeholder="خذ راحتك… موقف صغير أو مثال يكفي." autoComplete="off" spellCheck dir="auto" disabled={actionBlocked}/>
             <div className="wi-answer-meta"><span role="status"><LockKeyhole size={12}/>{saveMessage}</span><small>{number(answer.length)} / ١٢٠٠</small></div>
             {!!doc.currentQuestion?.suggestions.length && <div className="wi-suggestions" aria-label="بدايات اختيارية للإجابة">{doc.currentQuestion.suggestions.slice(0,3).map(suggestion => <button type="button" key={suggestion} disabled={!!busy} onClick={() => changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion)}>{suggestion}</button>)}</div>}
           </MotionReveal>
           {doc.lastMode === 'guided' && doc.pendingAnalysis && <p className="wi-fallback" role="status">التحليل غير متاح مؤقتًا. نتابع بأسئلة مُعدّة، وإجاباتك محفوظة للمراجعة.</p>}
-          <div className="wi-question-actions"><MotionPressButton className="wi-button wi-button-primary" disabled={!!busy || !answer.trim()} onClick={() => void send()}>{busy === 'answer' ? <><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span> نفهم إجابتك…</> : <>متابعة <ArrowLeft size={18}/></>}</MotionPressButton><button type="button" className="wi-link" disabled={!!busy} onClick={() => void send(true)}>تجاوز السؤال</button></div>
-          <div className="wi-question-bottom"><button type="button" className="wi-link" onClick={() => void close()} disabled={!!busy}>إكمال لاحقًا</button>{doc.turns.length > 0 && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void review()}>مراجعة ما فهمناه <ArrowLeft size={13}/></button>}</div>
+          <div className="wi-question-actions"><MotionPressButton className="wi-button wi-button-primary" disabled={actionBlocked || !answer.trim()} onClick={() => void send()}>{busy === 'answer' ? <><span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span> نفهم إجابتك…</> : queuedIntent === 'answer' ? 'نجهّز الخطوة التالية…' : <>متابعة <ArrowLeft size={18}/></>}</MotionPressButton><button type="button" className="wi-link" disabled={actionBlocked} onClick={() => void send(true)}>تجاوز السؤال</button></div>
+          <div className="wi-question-bottom"><button type="button" className="wi-link" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button>{doc.turns.length > 0 && <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => void review()}>مراجعة ما فهمناه <ArrowLeft size={13}/></button>}</div>
           {!!doc.turns.length && <details className="wi-history"><summary>إجاباتي السابقة <ChevronDown size={14}/></summary><p>يمكنك تصحيح التفسيرات قبل إضافتها إلى ملفك في المراجعة.</p>{doc.turns.map(turn => <div key={turn.id}><strong>{turn.question}</strong><p>{turn.skipped ? 'تجاوزت هذا السؤال' : turn.answer}</p></div>)}</details>}
         </>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}

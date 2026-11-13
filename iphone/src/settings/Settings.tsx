@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight, BookOpen, ChevronLeft, CirclePause, CirclePlay, CreditCard, Download, Eye, Feather,
-  LogOut, MapPin, Pencil, ShieldCheck, Trash2, Type, UserRound, Volume2, Vibrate, Image, UsersRound,
+  LogOut, MapPin, Pencil, ShieldCheck, Trash2, Type, UserRound, Volume2, Vibrate, Image, UsersRound, HeartHandshake,
 } from "../BrandIcons";
 import { Brand } from "../Brand";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
@@ -41,6 +41,7 @@ type Props = {
   busy: boolean;
   onEdit: () => void;
   onBeena?: () => void;
+  onInterview?: () => void;
   onTryOnboarding?: () => void;
   onMembership: () => void;
   onToggle: () => void;
@@ -102,7 +103,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
   );
 }
 
-export function Settings({ testerSession, state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena,
+export function Settings({ testerSession, state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena, onInterview,
   onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged }: Props) {
   const { value, setPreference } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
@@ -151,10 +152,11 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           {source&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صور ملفي</strong><small>إضافة وإدارة صور المعرض</small></span><ChevronLeft size={16}/></button>}
         </section>
-        {Boolean(source?.verification || onBeena || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
+        {Boolean(source?.verification || onBeena || onInterview || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
           <h2 id="st-marriage-title">ملفك وخطوات الزواج</h2>
           <div className="st-group st-marriage-group">
             {source?.verification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="توثيق بياناتي" detail="استقبال المستندات متوقف · متابعة الطلبات السابقة وسحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
+            {onInterview&&<div className="st-interview-entry"><SettingRow icon={<HeartHandshake/>} title="جلسة التوافق" detail="حوار خاص لفهم ما يناسبك" action={onInterview} disabled={busy}/></div>}
             {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · مواقف الحياة" detail={`${new Intl.NumberFormat('ar-SA').format(beenaProgress(member?.beena).answered)} من ٦ مواقف · كيف نعيش الحياة معًا؟`} action={onBeena} disabled={busy}/></div>}
             {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div>}
             {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="اربط أفراد أسرتك، وخطّطوا للخطوة الرسمية بخصوصية" action={()=>openPanel('family')} disabled={busy}/></div>}

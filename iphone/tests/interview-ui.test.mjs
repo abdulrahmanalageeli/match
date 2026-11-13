@@ -78,7 +78,7 @@ test('draft save is serialized with submitting and newer typing remains visible 
   const waiting=deferred();const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
   nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أول إجابة'}});ui.render();ui.timers();tree=ui.render();
-  assert.equal(find(tree,'متابعة').props.disabled,true);
+  assert.equal(find(tree,'متابعة').props.disabled,false,'autosave must not swallow the next action');
   const textarea=nodes(tree).find(node=>node.type==='textarea');assert.equal(textarea.props.disabled,false);
   textarea.props.onChange({target:{value:'أول إجابة مع تفاصيل إضافية'}});ui.render();
   waiting.resolve({document:{...initial.document,draftAnswer:'أول إجابة'},revision:2});await tick();tree=ui.render();
@@ -133,4 +133,25 @@ test('an unfinished analysis cannot be applied or shared; the direct questionnai
   assert.equal(find(tree,'تأكيد').props.disabled,true);
   const sharing=nodes(tree).find(node=>node.type==='label'&&node.props.className==='wi-sharing');assert.equal(nodes(sharing).find(node=>node.type==='input').props.disabled,true);
   assert.ok(find(tree,'إعادة التحليل'));assert.ok(find(tree,'العودة إلى الأسئلة المباشرة'));assert.equal(ui.applied.length,0);ui.unmount();
+});
+
+test('Continue pressed during autosave waits for its revision and sends the newest draft exactly once', async () => {
+  const waiting=deferred();const initial={document:baseDocument(),revision:1};
+  const ui=mount(initial,payload=>payload.action==='draft'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'إجابة أولى'}});ui.render();ui.timers();tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'إجابة أحدث جاهزة للإرسال'}});tree=ui.render();
+  const send=find(tree,'متابعة');assert.equal(send.props.disabled,false);send.props.onClick();send.props.onClick();ui.render();
+  assert.equal(ui.calls.filter(call=>call.action==='answer').length,0);
+  waiting.resolve({document:{...initial.document,draftAnswer:'إجابة أولى'},revision:9});await tick();ui.render();
+  const sends=ui.calls.filter(call=>call.action==='answer');assert.equal(sends.length,1);assert.equal(sends[0].revision,9);assert.equal(sends[0].answer,'إجابة أحدث جاهزة للإرسال');ui.unmount();
+});
+
+test('closing during autosave waits and flushes newer typing before leaving', async () => {
+  const waiting=deferred();const initial={document:baseDocument(),revision:1};let saves=0;
+  const ui=mount(initial,payload=>payload.action==='draft'&&++saves===1?waiting.promise:null);ui.render();await tick();let tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'مسودة أولى'}});ui.render();ui.timers();tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'مسودة أحدث'}});tree=ui.render();
+  nodes(tree).find(node=>node.props?.['aria-label']==='حفظ وإغلاق الجلسة').props.onClick();assert.equal(ui.closed,0);
+  waiting.resolve({document:{...initial.document,draftAnswer:'مسودة أولى'},revision:4});await tick();ui.render();
+  const drafts=ui.calls.filter(call=>call.action==='draft');assert.equal(drafts.length,2);assert.equal(drafts[1].answer,'مسودة أحدث');assert.equal(drafts[1].revision,4);assert.equal(ui.closed,1);ui.unmount();
 });

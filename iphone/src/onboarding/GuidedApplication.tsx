@@ -1,3 +1,4 @@
+import { SignupBasicsSlides, type SignupSlidesHandle } from './SignupBasicsSlides';
 import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "../BrandIcons";
@@ -240,6 +241,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [error, setError] = useState<Issue | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
+  const basicSlides = useRef<SignupSlidesHandle>(null);
   const previousStep = useRef(draft.step);
   const direction = useRef<"next" | "back">("next");
   const editing = Boolean(initial);
@@ -248,6 +250,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
   const chapter = steps[idx];
   const Icon = chapterIcons[chapter.key];
+  const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
   let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
   if(!consents.assessment)reviewAnswers=withoutAssessment(reviewAnswers);
@@ -405,6 +408,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (step !== chapter.key) feedback('selection');
   }
   function goBack() {
+    if (usesBasicSlides && basicSlides.current?.back()) return;
     if (editorHome) { void leaveForLater(); return; }
     if (draft.returnToReview) { move("review"); return; }
     if (editing) { setEditorHome(true); window.scrollTo(0, 0); return; }
@@ -432,12 +436,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function submit(event: FormEvent) {
     event.preventDefault();
     if (busy||photoBusy) return;
+    if (usesBasicSlides && basicSlides.current?.advance()) return;
     const agreed=consents.adult&&consents.terms&&consents.privacy;
     if(!editing && includeCompatibility && ['compatibility','criteria','review'].includes(chapter.key)) {
       if(!consents.assessment){setError({field:'consent',text:'جلسة التوافق جزء أساسي من إعداد الملف. راجع موافقة التحليل لنبدأ.'});if(chapter.key!=='compatibility')move('compatibility');return;}
       if(!demo&&!preview&&!aiComplete&&!fallbackAvailable){if(chapter.key!=='compatibility')move('compatibility');setError({field:'surveyAnswers',text:'أكمل جلسة التوافق واعتمد ملخصك أولًا.'});setInterviewOpen(true);return;}
     }
-    const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed, !editing, !editing&&includeCompatibility);
+    const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed, !editing, !editing&&includeCompatibility, !editing&&consents.sensitiveProfile);
     if (issue) {
       setError(issue);
       return;
@@ -449,7 +454,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     }
     if (chapter.key === "review") {
       for (const entry of steps) {
-        const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed, !editing, !editing&&includeCompatibility) : null;
+        const sectionIssue = entry.key !== 'review' ? validateStep(entry.key, reviewAnswers, agreed, !editing, !editing&&includeCompatibility, !editing&&consents.sensitiveProfile) : null;
         if (sectionIssue) {
           move(entry.key, true);
           setError(sectionIssue);
@@ -473,10 +478,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const savedCompatibilityCount = dimensions.reduce((count,d) => count + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.id])) + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.partnerId])),0);
   const savedPersonalityCount = personalityQuestions.filter(q=>q.options.some(o=>o.code===p.personalityAnswers?.[q.id])).length;
   const choosingAssessment = !editing && chapter.key==='compatibility' && !aiComplete && !(fallbackAvailable && assessmentPath==='questions') && !demo && !preview;
-  const submitLabel = chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
+  const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
-    <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
+    <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-basic-slides={usesBasicSlides||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       {!editing && <ScenePaths className="nf-intake-arrival-paths" parallax />}
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
@@ -506,7 +511,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {chapter.key === "identity" && <>
+              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {!usesBasicSlides && chapter.key === "identity" && <>
                 <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
@@ -516,7 +522,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city => update({ city })} options={cityOptions} placeholder="اختر مدينتك" required /></div>
                 <small id="nf-birthday-help" className="nf-intake-field-help"><LockKeyhole size={13} aria-hidden="true"/>{p.birthDate && ageFromBirthday(p.birthDate)! >= 18 ? `يظهر عمرك ${arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا، وليس تاريخ ميلادك.` : editing && !p.birthDate ? `العمر المسجّل: ${arabicNumber(Number(p.age))} عامًا. أضف ميلادك لتحديثه.` : 'تاريخ ميلادك خاص بك. التسجيل من عمر ١٨ عامًا.'}</small>
               </>}
-              {chapter.key === "story" && <>
+              {!usesBasicSlides && chapter.key === "story" && <>
                 <ChoiceSelect {...field('profession')} label="مجال العمل أو الوضع المهني" value={p.profession} onChange={profession => update({ profession })} options={professionOptions} placeholder="اختر ما يصف حياتك اليوم" required />
                 <small>يمكنك ذكر مسمّاك المهني وتخصصك بكلماتك في النبذة.</small>
                 <label>نبذة قصيرة<textarea {...field("bio")} value={p.bio} onChange={e => update({bio: e.target.value})} maxLength={1200} rows={4} required placeholder="ما الذي تحب أن يعرفه الطرف الآخر عنك؟" /></label>
@@ -531,7 +537,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </select></label>
                 </div></details>
               </>}
-              {chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
+              {!usesBasicSlides && chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
               {chapter.key === "avatar" && p.gender === "man" && <MensPhotoChoice change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} onBusy={setPhotoBusy}/>}
               {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {((editing&&['criteria','personality','compatibility','beena'].includes(chapter.key)&&!consents.assessment)||(!editing&&chapter.key==='compatibility'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing} required={!editing}/>}

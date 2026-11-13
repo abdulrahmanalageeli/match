@@ -21,8 +21,9 @@ const heightOptions = numericOptions(120, 230, 'سم');
 const weightOptions = numericOptions(35, 250, 'كجم');
 const childrenOptions = numericOptions(0, 20).map(option => option.value === '0' ? { ...option, label: 'دون أبناء' } : option);
 
-function Group({ title, note, children, open = false, icon: Icon, summary }: { title: string; note: string; children: ReactNode; open?: boolean; icon: LucideIcon; summary?: string }) {
-  return <details className="nf-marriage-group" data-section={title} open={open || undefined}><summary><span className="nf-marriage-emblem"><Icon size={20} strokeWidth={1.5} aria-hidden="true" /></span><span className="nf-marriage-summary"><strong>{title}</strong><small>{summary || note}</small></span><span className="nf-marriage-open"><ChevronLeft size={16} aria-hidden="true" /></span></summary><div className="nf-marriage-content">{children}</div></details>;
+function Group({ title, note, children, open = false, icon: Icon, summary, activeSection }: { title: string; note: string; children: ReactNode; open?: boolean; icon: LucideIcon; summary?: string; activeSection?: string }) {
+  if (activeSection && activeSection !== title) return null;
+  return <details className="nf-marriage-group" data-section={title} open={Boolean(activeSection) || open || undefined}><summary><span className="nf-marriage-emblem"><Icon size={20} strokeWidth={1.5} aria-hidden="true" /></span><span className="nf-marriage-summary"><strong>{title}</strong><small>{summary || note}</small></span><span className="nf-marriage-open"><ChevronLeft size={16} aria-hidden="true" /></span></summary><div className="nf-marriage-content">{children}</div></details>;
 }
 
 function Choices<T extends string>({ title, value, labels, onChange, required = false }: { required?: boolean; title: string; value?: T; labels: Partial<Record<T, string>>; onChange: (value: T | undefined) => void }) {
@@ -32,7 +33,7 @@ function Choices<T extends string>({ title, value, labels, onChange, required = 
   </div></fieldset>;
 }
 
-export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAllowed = true, required = false }: { required?: boolean; value?: MarriageBasics; gender?: string; onChange: (value: MarriageBasics) => void; sensitiveAllowed?: boolean }) {
+export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAllowed = true, required = false, activeSection, skinRequired = false }: { activeSection?: string; skinRequired?: boolean; required?: boolean; value?: MarriageBasics; gender?: string; onChange: (value: MarriageBasics) => void; sensitiveAllowed?: boolean }) {
   const [reveal, setReveal] = useState<string | null>(null);
   function revealMissing(event: FocusEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
@@ -51,42 +52,42 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
   const change = (patch: Partial<MarriageBasics>) => onChange({ ...value, ...patch });
   const selfMaritalLabels = gender === "man" ? maritalLabels : { never_married: "لم يسبق لي الزواج", divorced: "مطلّقة", widowed: "أرملة" };
   const pluralMarriageLabels = gender === "woman" ? { not_open: "لا أقبل التعدد", open_to_discussion: "منفتحة على النقاش", open: "منفتحة على التعدد", prefer_not_to_say: "أفضل مناقشته لاحقًا" } : polygynyLabels;
-  return <div className="nf-marriage-fields" data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
+  return <div className="nf-marriage-fields" data-slideshow={Boolean(activeSection) || undefined} data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><Leaf size={20} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفاصيل تُكمل الصورة.</strong><span>{required ? "أكمل كل مجموعة بلمسات بسيطة. التفاصيل الحساسة فقط باختيارك." : "افتح ما ترغب بإضافته. هذه التفاصيل اختيارية وتظهر للأعضاء المؤهلين."}</span></p></div>
-    <Group title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={Sparkles} open={reveal === "المظهر واللباس" || (required && reveal === null)} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
+    <Group activeSection={activeSection} title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={Sparkles} open={reveal === "المظهر واللباس" || (required && reveal === null)} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
       <div className="field-pair"><ChoiceSelect label="الطول (سم)" value={value.heightCm === undefined ? '' : String(value.heightCm)} options={heightOptions} onChange={height => change({ heightCm: optionalNumber(height) })} placeholder={required ? "اختر" : "اختياري"} required={required} allowClear={!required} />
         <ChoiceSelect label="الوزن (كجم)" value={value.weightKg === undefined ? '' : String(value.weightKg)} options={weightOptions} onChange={weight => change({ weightKg: optionalNumber(weight) })} placeholder={required ? "اختر" : "اختياري"} required={required} allowClear={!required} /></div>
-      <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} />
+      <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} skinRequired={skinRequired} />
     </Group>
-    <Group title="اللغات والتواصل" note="كيف تعبّر عن نفسك وتتواصل مع شريكك؟" icon={BookOpen} open={reveal === "اللغات والتواصل"} summary={value.spokenLanguages?.join(' · ')}>
+    <Group activeSection={activeSection} title="اللغات والتواصل" note="كيف تعبّر عن نفسك وتتواصل مع شريكك؟" icon={BookOpen} open={reveal === "اللغات والتواصل"} summary={value.spokenLanguages?.join(' · ')}>
       <fieldset className="nf-criterion-checks nf-language-options"><legend>ما اللغات التي تتحدثها؟{!required && " · اختياري"}</legend>{languageOptions.map(language => <label key={language}><input type="checkbox" checked={value.spokenLanguages?.includes(language) ?? false} onChange={e => change({spokenLanguages: e.target.checked ? [...(value.spokenLanguages ?? []), language] : value.spokenLanguages?.filter(item => item !== language)})}/>{language}</label>)}</fieldset>
       <ChoiceSelect label="ما اللغة التي تفضّل التواصل بها مع شريكك؟" value={value.preferredLanguage ?? ''} options={languageOptions.map(value => ({value,label:value}))} onChange={preferredLanguage => change({preferredLanguage: preferredLanguage || undefined})} placeholder={required ? "اختر اللغة" : "لا تفضيل محدد"} required={required} allowClear={!required} />
       <Choices title="كيف ترى اختلاف اللغة بينكما؟" required={required} value={value.languageOpenness} labels={languageOpennessLabels} onChange={languageOpenness => change({languageOpenness})}/>
       <small>تظهر اللغات في ملفك. حدّد أهمية اللغة المشتركة في تفضيلات الشريك لتؤثر في الترشيحات.</small>
     </Group>
-    <Group title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal === "الخلفية والعائلة"} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
+    <Group activeSection={activeSection} title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal === "الخلفية والعائلة"} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder={required ? "اختر الجنسية" : "اختر الجنسية · اختياري"} required={required} allowClear={!required} />
       {sensitiveAllowed && <Choices title="الخلفية القبلية" value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
       {sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
       <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>
     </Group>
-    <Group title="بداية تناسبك" note="توقيت الزواج وطريقتك المفضلة للقاء" icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
+    <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت الزواج وطريقتك المفضلة للقاء" icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
       <Choices title="متى تود إتمام الزواج إذا وجدت الشخص المناسب؟" required={required} value={value.marriageTimeline} labels={marriageTimelineLabels} onChange={marriageTimeline => change({ marriageTimeline })} />
       <small>هذا توقيت الزواج نفسه، وهو منفصل عن موعد الخطوة الرسمية في تقييم التوافق. يظهر اختيارك للأعضاء في الاستكشاف وملفك.</small>
       <Choices title="كيف تفضّل ترتيب اللقاء والخطوة الرسمية؟" required={required} value={value.meetingPreference} labels={meetingPreferenceLabels} onChange={meetingPreference => change({ meetingPreference })} />
       <small>يظهر تفضيل اللقاء في ملفك، وهو بداية للحوار وليس موافقة على لقاء بعينه. تبقى التفاصيل باتفاق الطرفين.</small>
     </Group>
-    <Group title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
+    <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
       <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined })} />
       {gender === "man" && value.maritalStatus === "married" && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
       <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
       <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small>
     </Group>
-    <Group title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
+    <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="عدد الأبناء" value={value.childrenCount === undefined ? '' : String(value.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />
       <Choices title="التدخين" required={required} value={value.smoking} labels={smokingLabels} onChange={smoking => change({ smoking })} />
     </Group>
-    {sensitiveAllowed ? <Group title="الدين في حياتي" note="معلومات حساسة، تختار مشاركتها أو تركها" icon={BookOpen} open={reveal === "الدين في حياتي"} summary={[value.religiousAffiliation && value.religiousAffiliation !== 'prefer_not_to_say' && religiousAffiliationLabels[value.religiousAffiliation], value.prayerPractice && value.prayerPractice !== 'prefer_not_to_say' && 'موقفك من الصلاة محدد'].filter(Boolean).join(' · ')}>
+    {sensitiveAllowed ? <Group activeSection={activeSection} title="الدين في حياتي" note="معلومات حساسة، تختار مشاركتها أو تركها" icon={BookOpen} open={reveal === "الدين في حياتي"} summary={[value.religiousAffiliation && value.religiousAffiliation !== 'prefer_not_to_say' && religiousAffiliationLabels[value.religiousAffiliation], value.prayerPractice && value.prayerPractice !== 'prefer_not_to_say' && 'موقفك من الصلاة محدد'].filter(Boolean).join(' · ')}>
       <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>هذه الإجابات اختيارية وحساسة. تُعرض في ملفك فقط إذا اخترت إضافتها ووافقت على مشاركتها. لا نستنتجها من اسمك أو صورتك، ولا نستخدمها لتقييم تدينك.</span></p>
       <Choices title="المذهب" value={value.religiousAffiliation} labels={religiousAffiliationLabels} onChange={religiousAffiliation => change({ religiousAffiliation })} />
       <Choices title="الصلاة في حياتي" value={value.prayerPractice} labels={prayerPracticeLabels} onChange={prayerPractice => change({ prayerPractice })} />

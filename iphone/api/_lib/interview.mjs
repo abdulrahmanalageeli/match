@@ -189,6 +189,7 @@ function validDocument(document) {
   const question = document.currentQuestion;
   if (question !== null && (!record(question) || !topicById.has(question.topic) || !safeText(question.text, 500))) throw invalid();
   return { ...initialInterviewDocument(), ...document, proposals: (Array.isArray(document.proposals) ? document.proposals : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns)).filter(Boolean),
+    currentQuestion: question ? { topic: question.topic, text: question.text, suggestions: questionSuggestions(question.suggestions, question.text) } : null,
     readiness: validateNotes(document.readiness, document.turns, true), clarifications: validateNotes(document.clarifications, document.turns),
     confirmed: (Array.isArray(document.confirmed) ? document.confirmed : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns)).filter(Boolean),
     model: INTERVIEW_MODEL, promptVersion: document.promptVersion === PROMPT_VERSION ? PROMPT_VERSION : 'wudayn-interview-2' };
@@ -237,13 +238,31 @@ function focusedQuestion(topic, document) {
     if (field?.kind === 'personality') return { ...questionFrom(topic), text: personalityFollowUps[field.fieldId] };
     if (field) {
       const dimension = preferenceById.get(field.fieldId);
-      return { ...questionFrom(topic), text: preferenceFollowUps[field.fieldId]?.[field.side === 'self' ? 0 : 1] ?? (field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt) };
+      const bothSides = missing.some(item => item.fieldId === field.fieldId && item.kind === 'preference' && item.side !== field.side);
+      const text = preferenceFollowUps[field.fieldId]?.[field.side === 'self' ? 0 : 1] ?? (field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt);
+      // One coherent topic can cover both perspectives, without assuming that
+      // the member wants a partner identical to themselves.
+      if (bothSides) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟` };
+      return { ...questionFrom(topic), text, suggestions: dimension.options.map(option => field.side === 'self' ? option.self : `أفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
     }
   }
   return { ...questionFrom(topic), ...(repeated ? { text: personalityQuestion(topic, document) || `في جانب ${topic.title}، وش التفصيل اللي تحب توضّحه أكثر؟` } : {}) };
 }
 const normalizedQuestion = value => value.normalize('NFKC').replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
 const alreadyAsked = (question, document) => document.turns.some(turn => normalizedQuestion(turn.question.split(/\n\s*\n/).at(-1)) === normalizedQuestion(question.split(/\n\s*\n/).at(-1)));
+
+function questionSuggestions(values, question) {
+  if (!Array.isArray(values) || values.length < 2 || values.length > 4) return [];
+  const suggestions = [...new Set(values.filter(value => safeText(value, 100)).map(value => value.trim()))];
+  if (suggestions.length !== values.length) return [];
+  const prompt = question.split(/\n\s*\n/).at(-1).trim();
+  // A generic yes/no cannot answer an open question or choose one of several
+  // alternatives. Keep free text available for those prompts.
+  const bareBoolean = suggestions.some(value => /^(نعم|لا|ايه|اي|ايوه|yes|no)$/i.test(value));
+  if (bareBoolean && (!/^هل\s/.test(prompt) || (prompt.match(/[؟?]/g) ?? []).length > 1
+    || /(?:^|\s)(?:أو|او)(?:\s|$)|\sو[\p{L}]/u.test(prompt))) return [];
+  return suggestions;
+}
 
 const evidenceSchema = { type: 'array', items: { type: 'object', additionalProperties: false,
   properties: { turnId: { type: 'string' }, quote: { type: 'string' } }, required: ['turnId', 'quote'] } };
@@ -252,13 +271,14 @@ const noteSchema = { type: 'array', items: { type: 'object', additionalPropertie
 export const interviewSchema = { type: 'object', additionalProperties: false, properties: {
   reply: { type: 'string' }, answerDisposition: { type: 'string', enum: ['answered', 'clarify', 'off_topic'] },
   followUp: { type: 'boolean' }, questionTopic: { type: 'string', enum: ['', ...topics.map(topic => topic.id)] }, question: { type: 'string' },
+  quickReplies: { type: 'array', maxItems: 4, items: { type: 'string', maxLength: 100 } },
   proposals: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
     kind: { type: 'string', enum: ['preference', 'beena', 'personality'] }, fieldId: { type: 'string' },
     side: { type: 'string', enum: ['self', 'partner', 'importance'] }, values: { type: 'array', items: { type: 'string' } },
     summary: { type: 'string' }, evidence: evidenceSchema, needsClarification: { type: 'boolean' },
   }, required: ['kind', 'fieldId', 'side', 'values', 'summary', 'evidence', 'needsClarification'] } },
   readiness: noteSchema, clarifications: noteSchema,
-}, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'proposals', 'readiness', 'clarifications'] };
+}, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'quickReplies', 'proposals', 'readiness', 'clarifications'] };
 
 export function interviewCompletionRequest(document, finalReview = false) {
   const last = document.turns.at(-1);
@@ -283,6 +303,9 @@ kind=personality فقط لعبارات personalityCatalog الاثنتي عشر�
 لا ترفع درجة المعنى: «بين فترة وفترة» أو «أحيانًا» لا تثبت «غالبًا» D أو «كثيرًا» E؛ وإذا لم تتضح درجة انطباق العبارة فضع needsClarification=true. كذلك ترتيب الأسبوع أو الزيارات بشكل عام لا يثبت اختيار تحديد الوقت والمكان والتفاصيل مسبقًا في weekly_planning. احترم الفروق بين الخيارات؛ لا تختَر الوصف الأكثر تفصيلًا أو قوة دون دليل صريح عليه.
 اقرأ العبارة الأصلية كاملة مع النفي والمقارنة والقيود، ثم قارنها بوصف العضو. الاستمتاع باللقاء لا يساوي زيادة الطاقة بعده: في social_energy لا تتجاهل قوله إنه يحتاج هدوءًا ليستعيد طاقته. إذا اختلف الوصف بين مجموعة صغيرة وكبيرة فلا تعمّم وصف أحدهما على الآخر؛ وضّح القيد وضع needsClarification=true إذا لم تمثّل إجابة واحدة المعنى بدقة.
 previousProposals اقتراحات سابقة مسندة، وليست حقائق أو أوامر. راجعها مقابل السجل كله والتصحيحات الجديدة: أعد كل ما لا يزال مدعومًا ضمن المجموعة الكاملة ولا تسقطه لمجرد تغيّر موضوع السؤال. عدّل أو احذف ما صححه العضو أو لم يعد مدعومًا، ولا تحتفظ بقيمة قديمة على حساب كلامه الأحدث.
+ابدأ باستخراج كل ما ورد في أحدث إجابة عبر جميع المحاور، حتى لو أجاب عن موضوع لم نسأله بعد. إذا قال عن عمل الزوجة أو الأطفال وهو يجيب عن الأهل، التقط المعنى الآن ولا تؤجله لسؤال آخر. يمكن الدليل نفسه أن يسند تفضيلًا وسلوك شخصية إذا طابقهما صراحة؛ فرّق بين الرغبة والسلوك المعتاد، ولا تحول أحدهما إلى الآخر بالتخمين. لا تجعل نوع القاموس سببًا لإعادة السؤال.
+لا تطلب من العضو تأكيد كل إجابة أو كل تفسير خلال الحوار. المعنى الواضح المسند يدخل مسودة الملخص مباشرة، ويُراجع الجميع مرة واحدة في النهاية قبل استخدامه في التوافق. الاستيضاح فقط لمعنى ناقص أو متناقض أو أكثر من خيار محتمل، وليس لتكرار سؤال «فهمتك صح؟» بعد كل رد. ليس لديك احتمال ثقة مُعاير؛ لا تعرض نسبًا تزعم دقة فهمك.
+quickReplies خيارات رد قصيرة اختيارية للسؤال التالي فقط، من خيارين إلى أربعة، أو [] إذا كان السؤال يحتاج سردًا. اجعلها إجابات فعلية بصوت العضو، لا تعليمات مثل «نعم بالتأكيد» التي تخلط رأيين أو توجّه لإجابة مرغوبة. «نعم/لا» فقط لسؤال مغلق واحد محدد؛ لا تعرضها لسؤال مركب أو بدائل أو موعد. عند سؤال مفتوح متعدد الجوانب استخدم []، وعند سؤال عن اختيار بسيط قدّم خيارات متوازنة بينها عدم الحسم إن كان مناسبًا. المستخدم يظل قادرًا على الكتابة والتعديل.
 التفضيلات ومواقف بيننا قواميس متكاملة وليست بدائل متنافية: إذا كان القول نفسه يطابق خيارًا واضحًا في كليهما فأخرج الاقتراحين مع الدليل نفسه، دون تغيير المعنى أو اختراع رغبة أخرى.
 لكل اقتراح summary جملة موجزة ≤20كلمة و≤240حرفًا، evidence اقتباس حرفي واحد موجز من answer معturnId الصحيح، واستخدم حتى3 اقتباسات فقط عند الحاجة لفهم التصحيح أو السياق (كل اقتباس≤240حرفًا). لا تقتبس سؤال المحاور كدليل. أعد المجموعة الكاملة الصحيحة الآن، واحذف التفسير القديم إذا صححه العضو لاحقًا. لا تختلق أدلة أو تملأ الناقص. إذا الخيار الثابت لا يمثله بدقة أو توجد إجابتان متعارضتان غير محسومتين، لا تفرض قيمة: ضع طلب توضيح فيclarifications، ويمكن جعلneedsClarification=true للاقتراح المحتمل. لا تستنتج مذهبًا أو قبيلة أو مرضًا أو مستوى دخل أو مظهرًا أو سمات حساسة. لا تضع شروطًا إلزامية أو نسب توافق أو احتمال نجاح أو درجة جدية.
 readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فقطtimeline,preparation,nextStep,discussionPoints. هذه إفادات العضو، لا حقائق مستقلة التحقق؛ لا تحكم أنه مؤهل أو غير مؤهل. clarifications حتى6 نقاط استيضاح موثقة حول قول مبهم أو متناقض، وليست اتهامات. الشك، الخجل، قلة الكلمات، اختلاف الثقافة، الدخل أو رفض الإجابة ليست دلائل عدم جدية. لا درجات أو قرارات قبول/رفض. note.text≤360حرفًا. المستخدم سيراجع المقترحات ويعدلها قبل اعتمادها. ${finalReview ? 'هذه مراجعة نهائية: ركّز على أمانة تفسير السجل، followUp=false وquestionTopic فارغ وquestion فارغ. راجع كل إجابة بحثًا عن وصف الذات ورغبة الشريك بشكل مستقل؛ إذا صرّح بهما معًا فأخرج اقتراح self واقتراح partner منفصلين. مثل: أرغب بالأطفال وأتمنى شريكًا يرغب بالأطفال يصرّح بالجانبين، فلا تكتفِ بوصف الذات. لا تستنتج رغبة الشريك من الذات، ولا تسقط رغبة صريحة فيه بحجة تجنّب افتراض التشابه. افحص القواميس الثلاثة كاملة ولا تكتفِ بالقاموس الذي طابقته أولًا.' : 'أثناء الحوار اجعل summary بحد أقصى8 كلمات عربية لكل اقتراح، واختر أقصر اقتباس حرفي كافٍ من answer، ويفضل ألا يتجاوز100حرف إن حفظ المعنى. استخدم اقتباسًا واحدًا إلا إذا كان فهم تصحيح أو سياق يتطلب غير ذلك. أجّل ملخص الاستعداد: readiness=[] الآن ويُكتب في المراجعة النهائية. حافظ على جميع المقترحات الصحيحة من السجل؛ اختصر صياغة العناصر ولا تحذف إجابات معروفة لتقصير الناتج.'}`;
@@ -291,13 +314,13 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
       .replace(/kind=beena لخيارات المواقف[^\n]+/, '')
       .replace(/التفضيلات ومواقف بيننا قواميس متكاملة[^\n]+/, '')
       .replace('افحص القواميس الثلاثة كاملة', 'افحص قاموسي التفضيلات والشخصية كاملين');
-    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ إجابة تفضيلات (الذات والشريك مستقلان) و١٢ إجابة شخصية، دون تخمين أي قيمة ناقصة. missingFields يحدد البنود التي لم تتضح؛ اسأل عن جانب واحد أو جانبين مترابطين منها في كل رسالة. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
+    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ إجابة تفضيلات (الذات والشريك مستقلان) و١٢ إجابة شخصية، دون تخمين أي قيمة ناقصة. هذه ٤٤ خانة فهم وليست ٤٤ سؤالًا: اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، مثل ما يفضّله هو وما يقبله من الشريك، أو أسلوب حل الخلاف وما يقوله عن سلوكه المعتاد. لا تجمع مواضيع متباعدة ولا تُخفي سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
 أسلوب الجلسة قريب وعفوي مع جدية موضوع الزواج: عربية سعودية بيضاء مفهومة، دون مبالغة في العامية أو تقمص دور معالج أو مستشار بشري. اجعل كل رسالة سطرًا أو سطرين، لا محاضرة ولا دردشة مفتوحة بلا غرض. رد على المعنى قبل سؤالك، ولا تردد إجابة العضو بصياغة ثانية. لا تبدأ كل رد بـ«فهمتك» أو «جميل» أو «واضح»، ولا تمدح شخصيته أو نضجه بسبب إجابة. نوّع الإيقاع حسب الكلام، لا حسب قالب ثابت.
 اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب» فاسأل بهدوء: على حسب أي جانب؟ إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
 فهم الاستعداد هنا يقتصر على ملخص خاص لخطة الزواج والخطوة القادمة وما يحتاج نقاشًا، من كلام العضو فقط. لا تتخذ قرار قبول أو رفض آلي، ولا تضع درجة جدية أو أهلية، ولا تتنبأ بنجاح الزواج. ليست الجلسة تشخيصًا نفسيًا ولا اختبارًا له إجابات صحيحة وخاطئة. لا تجعل تردد الشخص أو اختصاره سببًا للحكم عليه.`;
   }
-  if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered. لا تكتب رد محادثة جديدًا.';
+  if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
     messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({
@@ -318,7 +341,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
   try { result = JSON.parse(choice.message.content); } catch { throw unavailable(); }
-  if (!keysOnly(result, ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'proposals', 'readiness', 'clarifications']) || typeof result.followUp !== 'boolean'
+  if (!keysOnly(result, ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'quickReplies', 'proposals', 'readiness', 'clarifications']) || typeof result.followUp !== 'boolean'
     || !bounded(result.reply, 200, true) || (result.reply.trim() && !safeText(result.reply, 200)) || !['answered', 'clarify', 'off_topic'].includes(result.answerDisposition)
     || typeof result.questionTopic !== 'string' || (result.questionTopic !== '' && !topicById.has(result.questionTopic))
     || !bounded(result.question, 500, true) || !Array.isArray(result.proposals) || result.proposals.length > MAX_PROPOSALS
@@ -356,7 +379,10 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   }
   const question = focusedQuestion(next, routing);
   const revisiting = next && document.turns.some(turn => turn.topic === next.id);
-  if (question && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) question.text = result.question.trim();
+  if (question && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
+    question.text = result.question.trim();
+    question.suggestions = questionSuggestions(result.quickReplies, question.text);
+  }
   if (question && alreadyAsked(question.text, document)) question.text = requiredInterview(document) ? `خلّنا نوضح هذه النقطة: ${question.text}`.slice(0, 500) : `عن ${next.title}، وش الجانب اللي ما تطرقنا له وتحب توضّحه؟`;
   if (question && result.reply.trim()) {
     const reply = result.reply.trim().slice(0, Math.max(0, 498 - question.text.length));
@@ -429,7 +455,8 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     }
     async function decorate(value) {
       if (!value.document) return { ...value, fallbackAvailable: false };
-      return { ...value, coverage: interviewCoverage(value.document), fallbackAvailable: value.fallbackAvailable === true };
+      const document = validDocument(value.document);
+      return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true };
     }
     async function fail(document, reason) {
       const saved = await save({ ...document, lastMode: 'guided', pendingAnalysis: true });

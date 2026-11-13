@@ -15,7 +15,7 @@ export function InterviewEntry({ available, open }: { available: boolean; open: 
   if (!available) return null;
   return <section className="wi-entry" aria-labelledby="wi-entry-title">
     <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
-    <p>حوار عن شخصيتك وما يناسبك. راجع ما فهمناه وصحّحه، ثم أكّد ما يُضاف إلى تقييمك.</p>
+    <p>حوار واحد يجمع شخصيتك وتطلعاتك للزواج. وفي النهاية، ملخص تراجعه وتعدّله قبل الاعتماد.</p>
     <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;
 }
@@ -49,6 +49,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [consent, setConsent] = useState(false);
   const [answer, setAnswer] = useState('');
   const [pendingReply, setPendingReply] = useState<{ id: string; text: string } | null>(null);
+  const [coverageGain, setCoverageGain] = useState(0);
   const [answerHelp, setAnswerHelp] = useState(false);
   const answerRef = useRef(answer);
   const [draftState, setDraftState] = useState<'saved'|'pending'|'error'>('saved');
@@ -213,18 +214,22 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     onClose();
   }
 
-  async function send(skip = false) {
+  async function send(skip = false, quickReply?: string) {
     if (queuedIntentRef.current || current.current.document?.pendingAnalysis) return;
+    // A quick choice must never discard a draft the member has already written.
+    if (quickReply !== undefined && answerRef.current.trim()) return;
     if (activeRequest.current?.action === 'draft' && !await afterDraft('answer')) return;
-    const text = skip ? '' : answerRef.current.trim();
+    if (quickReply !== undefined && answerRef.current.trim()) return;
+    const text = skip ? '' : quickReply?.trim() ?? answerRef.current.trim();
     if (busyRef.current || (!skip && !text)) return;
     if (!requestId.current || requestId.current.answer !== text || requestId.current.skip !== skip) requestId.current = { answer: text, skip, id: crypto.randomUUID() };
     const sentId = requestId.current.id;
     followConversation.current = true;
-    setPendingReply({ id: sentId, text }); setAnswerHelp(false);
+    const previousCoverage = current.current.coverage?.answered ?? 0;
+    setPendingReply({ id: sentId, text }); setAnswerHelp(false); setCoverageGain(0);
     answerRef.current = ''; setAnswer(''); feedback('selection');
     const result = await call('answer', { answer: text, skip, requestId: sentId }, true);
-    if (result) requestId.current = null;
+    if (result) { requestId.current = null; setCoverageGain(Math.max(0, (result.coverage?.answered ?? previousCoverage) - previousCoverage)); }
     else if (mounted.current && current.current.document?.lastRequestId !== sentId) {
       answerRef.current = text; setAnswer(text); setDraftState('error');
     }
@@ -293,7 +298,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         : !doc ? <section className="wi-welcome">
           <span className="wi-welcome-emblem" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="42" height="49" alt=""/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>نتعرّف إليك، بكلماتك.</h1>
-          <p className="wi-lead">نتحدث عن حياتك وما يهمّك في شريكك. في النهاية، تراجع ملخصًا واحدًا وتعدّل ما يحتاج إلى تصحيح.</p>
+          <p className="wi-lead">حوار خفيف عن حياتك وما تريده من الزواج. إجابة واحدة قد توضّح أكثر من جانب، ثم تراجع ملخصك مرة واحدة.</p>
+          <p className="wi-screening-note"><HeartHandshake size={16} aria-hidden="true"/>جزء من طلب العضوية، لتوضيح نية الزواج وتوقعاتك.</p>
           {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على تحليل إجاباتي بالذكاء الاصطناعي لتكوين تقييمي، وحفظ الجلسة بشكل خاص في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>تُرسل إجابات الجلسة إلى مزوّد معالجة خارجي، وتُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. لا ترسل أرقام هوية أو معلومات تخص أشخاصًا آخرين. الحوار لا يظهر للأعضاء.</p><p>هذا مرافق آلي للتعارف، وليس مستشارًا بشريًا أو تشخيصًا نفسيًا. تُراجع الإجابات قبل اعتمادها.</p></details></div>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
         </section>
@@ -322,7 +328,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {coverage && <div className="wi-session-progress" role="progressbar" aria-label="النقاط التي اتضحت من الحوار" aria-valuemin={0} aria-valuemax={coverage.required} aria-valuenow={coverage.answered}><span style={{transform:`scaleX(${progress})`}}/></div>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
-            {doc.turns.length===0 && <div className="wi-opening-note"><span>مساحة لك، قبل أن تكون بين اثنين.</span><p>خذ راحتك. نسمع منك، نفهم ما يهمّك، ثم تراجع الصورة بنفسك.</p></div>}
+            {doc.turns.length===0 && <div className="wi-opening-note"><span>حوار واحد، وصورة أوضح.</span><p>جزء من طلب عضويتك، لفهم نيتك للزواج وما يناسبك. جاوب بطريقتك؛ تراجع الملخص في النهاية.</p></div>}
             {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history"><p>{turn.question}</p></div>
@@ -330,12 +336,13 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             </div>)}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>{currentTopic?.title ?? 'نتعرّف إليك'}</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
-            {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نرتّب ما فهمناه من كلامك…</span></div>}
+            {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
+            {!responding && coverageGain > 1 && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت أكثر من جانب</span></div>}
           </div>
           <form className="wi-composer" onSubmit={event => { event.preventDefault(); void send(); }}>
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.</p>}
-            {!!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="أفكار تساعدك على البدء">{doc.currentQuestion.suggestions.slice(0,2).map(suggestion => <button type="button" key={suggestion} disabled={actionBlocked} onClick={() => { changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion); composer.current?.focus(); }}>{suggestion}</button>)}</div>}
-            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={1} wrap="soft" placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
+            {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div>}
+            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={1} wrap="soft" placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
             <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}

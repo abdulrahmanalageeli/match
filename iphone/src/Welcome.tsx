@@ -36,6 +36,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   const [hidden, setHidden] = useState(() => document.hidden);
   const [selected, setSelected] = useState(0);
   const launchRef = useRef<HTMLDivElement>(null);
+  const [docking, setDocking] = useState(false);
   const maskId = useId().replaceAll(':', '');
   const previewId = useId();
   const preview = previews[selected];
@@ -50,17 +51,34 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     launchRef.current?.focus({ preventScroll: true });
-    const timer = window.setTimeout(() => setIntroducing(false), 2300);
-    return () => { window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
+    const animations: Animation[] = [];
+    const dock = window.setTimeout(() => {
+      const overlay = launchRef.current;
+      if (!overlay) return;
+      for (const [from, to] of [['.wd-launch-emblem', '.wd-welcome-emblem'], ['.wd-launch-wordmark', '.wd-welcome-wordmark']]) {
+        const origin = overlay.querySelector<HTMLElement>(from);
+        const target = document.querySelector<HTMLElement>(to);
+        if (!origin || !target) continue;
+        const a = origin.getBoundingClientRect(), b = target.getBoundingClientRect();
+        origin.style.animation = 'none';
+        animations.push(origin.animate([
+          { transform: 'translate(0,0) scale(1,1)' },
+          { transform: `translate(${b.left-a.left}px,${b.top-a.top}px) scale(${b.width/a.width},${b.height/a.height})` },
+        ], { duration: 950, easing: 'cubic-bezier(.22,.75,.2,1)', fill: 'forwards' }));
+      }
+      setDocking(true);
+    }, 1400);
+    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2370);
+    return () => { window.clearTimeout(dock); window.clearTimeout(timer); animations.forEach(animation => animation.cancel()); document.body.style.overflow = previousOverflow; };
   }, [introducing]);
   function skipIntro() {
-    setIntroducing(false);
+    setIntroducing(false); setDocking(false);
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.nf-join')?.focus({ preventScroll: true }));
   }
   function begin() { feedback('selection'); onRegister(); }
 
   return <>
-    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
+    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
       if (event.key === 'Tab') { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('button')?.focus(); }
     }}>

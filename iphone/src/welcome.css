@@ -76,8 +76,8 @@
 .wd-welcome-footer > span:not(.wudayn-wordmark) { color: #75636a; font-size: 11px; }
 .wd-welcome-footer button { width: 100%; text-align: start; border: 0; padding: 4px 0; min-height: 44px; color: #75636a; background: none; font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
 /* Full-viewport opening, portalled outside transformed route containers. */
-.wd-launch-screen { outline: none; position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; overflow: hidden; background: #fcfaf7; color: #54152a; font-family: var(--font-ui); animation: wd-launch-away 750ms 1550ms cubic-bezier(.22,.7,.25,1) both; }
-.wd-launch-brand { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: -28px; animation: wd-launch-brand-away 700ms 1500ms cubic-bezier(.22,.7,.25,1) both; }
+.wd-launch-screen { outline: none; position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; overflow: hidden; background: #fcfaf7; color: #54152a; font-family: var(--font-ui); background: transparent; }
+.wd-launch-brand { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: -28px;  }
 .wd-launch-emblem { width: clamp(150px, 36vw, 195px); height: clamp(150px, 36vw, 195px); overflow: visible; animation: wd-launch-mark-in 1250ms cubic-bezier(.22,.7,.25,1) both; }
 .wd-launch-wordmark { width: 126px; margin-top: 13px; animation: wd-launch-type-in 800ms 380ms both; }
 .wd-launch-wordmark .wudayn-wordmark-ar { font-size: 42px; }
@@ -90,7 +90,7 @@
 .wd-launch-screen .wd-logo-stroke { stroke-dasharray: 1; animation: wd-logo-draw 1250ms cubic-bezier(.4,0,.2,1) both; }
 .wd-launch-screen .wd-logo-second { animation-delay: 130ms; }
 .wd-launch-screen .wd-logo-finish { animation: wd-logo-fill 350ms 1050ms both; }
-.wd-welcome[data-opening] > .wd-welcome-nav { animation: wd-welcome-enter 750ms 1500ms both; }
+.wd-welcome[data-opening] .wd-welcome-brand { visibility: hidden; }
 .wd-welcome[data-opening] > .wd-welcome-hero { animation: wd-welcome-enter 850ms 1450ms both; }
 @keyframes wd-logo-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes wd-logo-fill { from { opacity: 0; } to { opacity: 1; } }
@@ -127,3 +127,13 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
   .wd-welcome-purpose > img { width: 500px; height: 500px; top: -50px; left: 0; }
   .wd-welcome-footer button { width: auto; }.wd-welcome-footer > span:not(.wudayn-wordmark) { margin-inline-end: auto; }
 }
+
+/* The same visible mark and wordmark dock into the measured header bounds. */
+.wd-launch-screen::before { content: ''; position: absolute; inset: 0; background: #fcfaf7; transition: opacity 850ms cubic-bezier(.22,.7,.25,1); }
+.wd-launch-screen[data-docking]::before { opacity: 0; }
+.wd-launch-emblem, .wd-launch-wordmark { transform-origin: top left; }
+.wd-launch-wordmark { width: 107.172px; }
+.wd-launch-wordmark .wudayn-wordmark-en { font-size: 11.586px; }
+.wd-launch-screen[data-docking] .wd-launch-orbit,
+.wd-launch-screen[data-docking] .wd-launch-brand p,
+.wd-launch-screen[data-docking] .wd-launch-skip { opacity: 0; animation: none; transition: opacity 280ms ease; }

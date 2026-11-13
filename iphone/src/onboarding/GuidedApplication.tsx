@@ -575,11 +575,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
-                <label>متى تفضّل إشراك الأهل؟<select value={p.familyPreference} onChange={e => update({ familyPreference: e.target.value })}>
-                  {!["بعد التعارف الأول","من البداية","نتفق على ذلك لاحقًا"].includes(p.familyPreference) && <option value={p.familyPreference}>{p.familyPreference || "ليس لدي تفضيل محدد"}</option>}
-                  <option>بعد التعارف الأول</option><option>من البداية</option><option>نتفق على ذلك لاحقًا</option>
-                </select></label>
-                <small>يظهر تفضيل إشراك الأهل في ملفك العام للأعضاء المؤهلين.</small>
+                <fieldset className="nf-family-choice"><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
                 <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}

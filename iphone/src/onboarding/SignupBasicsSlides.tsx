@@ -64,11 +64,12 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   });
   const [error,setError]=useState<string|null>(null);
   const [direction,setDirection]=useState<'next'|'back'>('next');
+  const [interacted,setInteracted]=useState(false);
   const heading=useRef<HTMLHeadingElement>(null);
   const container=useRef<HTMLDivElement>(null);
   const previous=useRef(index);
   const last=index===total-1||(chapter==='details'&&index===total-2&&!consents.sensitiveProfile);
-  function move(next:number){setDirection(next>index?'next':'back');setError(null);setIndex(next);}
+  function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
     advance(){const issue=signupSlideError(chapter,index,p,required,consents.sensitiveProfile);if(issue){setError(issue);return true;}if(last)return false;move(index+1);return true;},
     back(){if(index===0)return false;move(index-1);return true;},
@@ -78,24 +79,25 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const title=chapter==='identity'?identityTitles[index]:chapter==='story'?storyTitles[index]:index===0?'تفاصيلك، باختيارك.':details[index-1];
   const count=chapter==='details'&&!consents.sensitiveProfile?total-1:total;
   const basics=p.marriageBasics??{};
-  const answer=(value:Partial<Answers>)=>{setError(null);update(value);};
+  const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,index-1) : index];
+  const complete=interacted&&!signupSlideError(chapter,index,p,required,consents.sensitiveProfile);
   return <section ref={container} className="wd-signup-slides" aria-label="خطوات إعداد الملف" data-chapter={chapter} data-slide-index={index}>
-    <div className="wd-slide-progress"><span>{slideLabels[slideChapter]}</span><span>خطوة {arabicNumber(index+1)} <i>من {arabicNumber(count)}</i></span></div>
-    <div className="wd-slide-track" role="progressbar" aria-label="الخطوة الحالية في هذا القسم" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index+1}>{Array.from({length:count},(_,i)=><span key={i} data-done={i<=index||undefined}/>)}</div>
-    <MotionReveal key={`${chapter}:${index}`} className="wd-slide-content" axis="x" distance={direction==='next'?-18:18} duration={320}>
-      <div className="wd-slide-heading"><span className="wd-slide-icon" aria-hidden="true"><SlideIcon size={20} strokeWidth={1.7}/></span><div><span className="wd-slide-kicker">{subtitle}</span><h2 ref={heading} tabIndex={-1}>{title}</h2></div></div>
+    <div className="wd-slide-progress"><span>{slideLabels[slideChapter]}</span><span className="wd-slide-position" data-complete={complete||undefined}>خطوة {arabicNumber(index+1)} <i>من {arabicNumber(count)}</i>{complete&&<Check size={13} aria-label="اكتملت الخطوة"/>}</span></div>
+    <div className="wd-slide-track" role="progressbar" aria-label="الخطوة الحالية في هذا القسم" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index+1}>{Array.from({length:count},(_,i)=><span key={i} data-state={i<index?'done':i===index?'current':undefined}/>)}</div>
+    <MotionReveal key={`${chapter}:${index}`} className="wd-slide-content" data-complete={complete||undefined} axis="x" distance={direction==='next'?-18:18} duration={320}>
+      <div className="wd-slide-heading"><span className="wd-slide-icon" data-complete={complete||undefined} aria-hidden="true">{complete?<Check size={20} strokeWidth={1.9}/>:<SlideIcon size={20} strokeWidth={1.7}/>}</span><div><span className="wd-slide-kicker">{subtitle}</span><h2 ref={heading} tabIndex={-1}>{title}</h2></div></div>
       <div className="wd-slide-body">
-      {chapter==='identity'&&index===0&&<><label>الاسم المعروض<input data-field="displayName" autoComplete="nickname" value={p.displayName} maxLength={60} placeholder="اسمك الأول" required onChange={e=>answer({displayName:e.target.value})}/></label><fieldset className="nf-gender-segment"><legend>كيف نعرّفك؟</legend><div className="choice-row">{(['woman','man']as const).map(value=><button type="button" key={value} aria-pressed={p.gender===value} onClick={()=>{setError(null);gender(value);}}>{value==='woman'?'امرأة':'رجل'}{p.gender===value&&<Check size={16}/>}</button>)}</div></fieldset></>}
+      {chapter==='identity'&&index===0&&<><label>الاسم المعروض<input data-field="displayName" autoComplete="nickname" value={p.displayName} maxLength={60} placeholder="اسمك الأول" required onChange={e=>answer({displayName:e.target.value})}/></label><fieldset className="nf-gender-segment"><legend>كيف نعرّفك؟</legend><div className="choice-row">{(['woman','man']as const).map(value=><button type="button" key={value} aria-pressed={p.gender===value} onClick={()=>{setError(null);setInteracted(true);gender(value);}}>{value==='woman'?'امرأة':'رجل'}{p.gender===value&&<Check size={16}/>}</button>)}</div></fieldset></>}
       {chapter==='identity'&&index===1&&<><label>تاريخ الميلاد · ميلادي<input data-field="birthDate" type="date" dir="ltr" autoComplete="bday" value={p.birthDate??''} min="1900-01-01" max={latestAdultBirthday()} required onChange={e=>{const birthDate=e.target.value,age=ageFromBirthday(birthDate);answer({birthDate,age:age===null?'':String(age)});}}/></label>{p.birthDate&&ageFromBirthday(p.birthDate)!>=18&&<p className="wd-slide-detail">يظهر في ملفك: {arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا</p>}</>}
       {chapter==='identity'&&index===2&&<><p className="wd-slide-description">نقرّب لك الخيارات التي تناسب مكان حياتك.</p><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/></>}
       {chapter==='story'&&index===0&&<><SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/><SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/></>}
-      {chapter==='story'&&index===1&&<><p className="wd-slide-description">وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.</p><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={4} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
+      {chapter==='story'&&index===1&&<><p className="wd-slide-description">وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.</p><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&index===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
       {chapter==='story'&&index===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>بعدها نبدأ جلسة التوافق بالذكاء الاصطناعي.</strong><span>تساعدنا على فهم تفضيلاتك وشخصيتك، ثم تراجع الملخص بنفسك قبل أن يؤثر في الترشيحات.</span></div></div></>}
-      {chapter==='details'&&index===0&&<><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>consent('sensitiveProfile',v)} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>consent('sensitivePublication',v)}/>}<p className="wd-slide-description">الاختيار محفوظ لك. الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.</p></>}
+      {chapter==='details'&&index===0&&<><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">الاختيار محفوظ لك. الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.</p></>}
       {chapter==='details'&&index>0&&<MarriageBasicsFields activeSection={details[index-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>

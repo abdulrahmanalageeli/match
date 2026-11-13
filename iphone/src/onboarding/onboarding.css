@@ -59,6 +59,11 @@
 .nf-intake-private small, .nf-review-meta, .nf-review-contact { display: flex; align-items: center; gap: 6px; }
 .nf-intake-private small svg, .nf-review-meta svg, .nf-review-contact svg { color: var(--brass); flex: none; }
 .nf-intake-private input:placeholder-shown { direction: rtl; text-align: start; }
+.nf-family-choice { display: grid; gap: 10px; padding: 0; border: 0; }
+.nf-family-choice > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.nf-family-choice button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 58px; padding: 8px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--ink); font: inherit; font-size: .78rem; line-height: 1.55; }
+.nf-family-choice button[aria-pressed="true"] { border-color: #956176; background: #f5ecef; color: var(--accent); box-shadow: 0 4px 12px rgba(84,21,42,.06); }
+.nf-family-choice > small { color: var(--muted); font-size: .78rem; }
 .nf-intake-actions { margin-top: auto; padding-top: 22px; text-align: center; }
 .nf-intake-actions .f-primary { justify-content: space-between; padding-inline: 19px; }
 .nf-intake-actions small { display: block; margin: 9px auto 0; color: var(--muted); font-size: .82rem; }

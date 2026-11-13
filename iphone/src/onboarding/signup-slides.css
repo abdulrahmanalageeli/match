@@ -1,12 +1,17 @@
 .wd-signup-slides{width:100%;scroll-margin-top:88px;padding:4px 0 2px;color:#30282c}
 .wd-slide-progress{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:#6d5d64;margin-bottom:10px;padding-inline:3px}
 .wd-slide-progress i{font-style:normal;color:#9a8d92}
+.wd-slide-position{display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+.wd-slide-position>svg{color:#6c806c}
 .wd-slide-track{display:flex;gap:5px;margin-bottom:18px;height:3px}
 .wd-slide-track>span{flex:1;background:#eee8eb;border-radius:3px;transition:background 240ms ease}
-.wd-slide-track>span[data-done]{background:#6a2440}
-.wd-slide-content{display:flex;flex-direction:column;gap:0;min-height:0;padding:22px 20px 24px;border:1px solid #ebe3e6;border-radius:24px;background:linear-gradient(150deg,#fff 0%,#fffdfd 64%,#fbf6f8 100%);box-shadow:0 12px 28px rgba(66,32,47,.055)}
+.wd-slide-track>span[data-state=done]{background:#c8aab5}
+.wd-slide-track>span[data-state=current]{background:#6a2440;transform:scaleY(1.35)}
+.wd-slide-content{display:flex;flex-direction:column;gap:0;min-height:0;padding:22px 20px 24px;border:1px solid #ebe3e6;border-radius:24px;background:linear-gradient(150deg,#fff 0%,#fffdfd 64%,#fbf6f8 100%);box-shadow:0 12px 28px rgba(66,32,47,.055);transition:border-color 220ms ease,box-shadow 220ms ease}
+.wd-slide-content[data-complete]{border-color:#dfd6d7;box-shadow:0 14px 32px rgba(66,32,47,.065)}
 .wd-slide-heading{display:flex;align-items:flex-start;gap:13px}
 .wd-slide-icon{display:grid;place-items:center;flex:none;width:43px;height:43px;border:1px solid #e7d7de;border-radius:14px;background:#faf2f5;color:#6a2440;box-shadow:0 4px 12px rgba(106,36,64,.07)}
+.wd-slide-icon[data-complete]{border-color:#d8ddd4;background:#f2f5f0;color:#647764}
 .wd-slide-kicker{display:block;margin:2px 0 4px;color:#8a707a;font-size:12px;line-height:1.65}
 .wd-slide-heading h2{font-size:clamp(24px,6.6vw,31px);font-weight:700;line-height:1.35;letter-spacing:-.45px;margin:0;color:#34252d;outline:none}
 .wd-slide-body{display:grid;gap:18px;margin-top:24px}
@@ -57,6 +62,8 @@
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-stage{padding-top:0}
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-fields{padding-top:0}
 @media(prefers-reduced-motion:reduce){.wd-signup-slides *{transition:none!important}}
-@media(prefers-reduced-motion:no-preference){.wd-slide-icon{animation:wd-icon-settle 520ms ease-out both}.wd-slide-track>span[data-done]{transition:background 260ms ease,transform 320ms ease}.wd-slide-track>span[data-done]:last-child{transform:scaleY(1.35)}}
+@media(prefers-reduced-motion:no-preference){.wd-slide-icon{animation:wd-icon-settle 520ms ease-out both}.wd-slide-icon[data-complete]{animation:wd-complete-settle 360ms cubic-bezier(.2,.8,.2,1) both}.wd-slide-track>span{transition:background 260ms ease,transform 320ms ease}.wd-slide-track>span[data-state=current]{animation:wd-progress-arrive 360ms ease-out both}}
 @keyframes wd-icon-settle{from{opacity:0;transform:translateY(4px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes wd-complete-settle{0%{transform:scale(.88)}60%{transform:scale(1.06)}100%{transform:none}}
+@keyframes wd-progress-arrive{from{transform:scaleX(.35) scaleY(1.35);transform-origin:right}to{transform:scaleX(1) scaleY(1.35);transform-origin:right}}
 html[data-nf-motion=reduced] .wd-slide-icon{animation:none}

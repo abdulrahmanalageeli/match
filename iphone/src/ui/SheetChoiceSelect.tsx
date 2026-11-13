@@ -33,6 +33,14 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
     if (!expanded) return;
     const sheet = dialog.current;
     if (!sheet) return;
+    const opener = trigger.current;
+    const pagePosition = { left: window.scrollX, top: window.scrollY };
+    const scrollParents: { node: HTMLElement; top: number; left: number }[] = [];
+    for (let node = opener?.parentElement; node && node !== document.body; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth) {
+        scrollParents.push({ node, top: node.scrollTop, left: node.scrollLeft });
+      }
+    }
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     sheet.showModal();
@@ -40,7 +48,15 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
     return () => {
       sheet.close();
       document.body.style.overflow = overflow;
-      trigger.current?.focus({ preventScroll: true });
+      if (opener?.isConnected) {
+        opener.focus({ preventScroll: true });
+        // Native dialog close can restore focus with a scroll before our focus call.
+        // Keep both document and keyboard-form scroll positions at the original field.
+        for (const { node, top, left } of scrollParents) {
+          if (node.isConnected) node.scrollTo({ top, left, behavior: 'instant' });
+        }
+        window.scrollTo({ ...pagePosition, behavior: 'instant' });
+      }
     };
   }, [expanded]);
 

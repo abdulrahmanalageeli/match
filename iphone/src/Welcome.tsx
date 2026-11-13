@@ -51,8 +51,8 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     launchRef.current?.focus({ preventScroll: true });
-    const dock = window.setTimeout(() => setDocking(true), 950);
-    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2450);
+    const dock = window.setTimeout(() => setDocking(true), 800);
+    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2150);
     return () => { window.clearTimeout(dock); window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
   }, [introducing]);
   function skipIntro() {
@@ -62,14 +62,12 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   function begin() { feedback('selection'); onRegister(); }
 
   return <>
-    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
+    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onPointerDown={skipIntro} onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
-      if (event.key === 'Tab') { const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button')); const i = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(i + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus(); }
+      if (event.key === 'Tab') { event.preventDefault(); skipIntro(); }
     }}>
       <div className="wd-launch-door" aria-hidden="true"><img src="/brand/welcome/shared-future.webp" alt=""/></div>
-      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/><p>يا هلا. لبداية على بيّنة.</p></div>
-      <button type="button" className="wd-launch-skip" onClick={skipIntro}>تخطي المقدمة <ArrowLeft size={14} aria-hidden="true"/></button>
-      <button type="button" className="wd-launch-begin" onClick={() => { setIntroducing(false); begin(); }}>ابدأ التعارف <ArrowLeft size={16}/></button>
+      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/></div>
     </div>, document.body)}
     <main inert={introducing || undefined} aria-hidden={introducing || undefined} className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
     <header className="wd-welcome-nav">
@@ -78,14 +76,14 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
         <BrandWordmark className="wd-welcome-wordmark"/>
       </div>
       <button type="button" className="nf-mast-login wd-welcome-login" onClick={onLogin}>تسجيل الدخول <ArrowLeft size={15} aria-hidden="true"/></button>
-      <p className="wd-name-meaning"><strong>وُدَين</strong><span>مستوحى من الوُدّ؛ محبّة وألفة بين اثنين.</span></p>
+      <p className="wd-name-meaning"><span>من الوُدّ؛ محبّة وألفة بين اثنين.</span></p>
     </header>
 
     <section className="wd-welcome-hero">
       <MotionReveal key={introducing ? "opening" : "ready"} className="wd-hero-copy" duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
-        <p>نحلّل إجاباتك عن الشخصية وتفضيلات الزواج بالذكاء الاصطناعي، عشان تعرفون وين تتفقون ووش يحتاج حوار. أنت تراجع وتؤكد، والقرار لك.</p>
+        <p>توافق مبني على شخصيتك وتفضيلاتك، بمساعدة الذكاء الاصطناعي.</p>
         <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ التعارف <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">كيف يبدأ التعارف؟ <ArrowDown size={15} aria-hidden="true"/></a></div>
         <span className="wd-hero-note"><LockKeyhole size={13} aria-hidden="true"/> لا تبدأ المحادثة إلا بقبول الطرفين</span>
       </MotionReveal>

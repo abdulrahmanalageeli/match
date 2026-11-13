@@ -325,7 +325,7 @@ export function Membership({
         <b className="nf-member-price">
           {price ||
             (demo
-              ? "١٢٩ ر.س."
+              ? "سعر التجربة حسب الملف"
               : active
                 ? "عضوية فعّالة"
                 : "السعر متاح عبر App Store")}

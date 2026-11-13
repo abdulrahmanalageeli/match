@@ -3,6 +3,7 @@ import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
 import {TestingTrial} from './TestingTrial';
+import {membershipPriceLabel} from './membershipPricing';
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
@@ -763,7 +764,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       back={back}
       active={active}
       demo={demo}
-      price={demo ? "١٢٩ ر.س." : price}
+      price={demo ? membershipPriceLabel(sampleProfile.gender) : price}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -873,7 +874,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       </Settings>
     );
   else if (view === 'membership' && live?.testingTrial?.expiresAt && !demo)
-    screen = <TestingTrial busy={busy} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>{}}/>;
+    screen = <TestingTrial busy={busy} gender={live.profile?.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>{}}/>;
   else if (view === "membership" && active)
     screen = membership(() => go(returnFromMembership));
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
@@ -900,7 +901,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
       />
     );
   else if (!demo && !active && live?.testingTrial?.enabled && live.profile && !live.user.profileReviewPending)
-    screen = <TestingTrial busy={busy} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>void run(async()=>{
+    screen = <TestingTrial busy={busy} gender={live.profile.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>void run(async()=>{
       const owner=tokenRef.current;if(!owner)return;
       await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
       await refresh(owner);if(tokenRef.current===owner)go('discover');

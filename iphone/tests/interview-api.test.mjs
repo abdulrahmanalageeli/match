@@ -438,3 +438,34 @@ test('interrupted service attestation keeps analysis retryable and never grants 
  const retried=await h.service({action:'retry',revision:loaded.revision},headers);assert.equal(retried.document.pendingAnalysis,false);
  options.attestationConflict=true;await assert.rejects(send(h,retried.revision),e=>e.code==='conflict');
 });
+
+test('required dialogue scopes follow-up context to missing sides and avoids survey headings',()=>{
+ const turns=['intent','communication','closeness','family','practical','everyday'].map(topic=>({...turn,id:randomUUID(),topic}));
+ const all=preferenceCatalog.dimensions.flatMap(d=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).concat(personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).map(p=>validateProposal(p,turns));
+ const partial=all.filter(p=>p.id!=='preference:repair_after_conflict:partner');
+ const source={...initialInterviewDocument(true),turns,proposals:partial};
+ const request=interviewCompletionRequest(source),context=JSON.parse(request.messages[1].content);
+ assert.deepEqual(context.nextTopic.dimensionIds,['repair_after_conflict']);
+ assert.deepEqual(context.nextTopic.personalityIds,[]);
+ assert.deepEqual(context.nextTopic.missingFields.map(p=>[p.fieldId,p.side]),[['repair_after_conflict','partner']]);
+ assert.equal(context.nextTopic.scenarioIds,undefined);assert.equal(context.possibleFollowUpTopic,null);
+ assert.match(context.nextTopic.question,/شريكك.*الحوار/);assert.doesNotMatch(context.nextTopic.question,/:|أي أسلوب/);
+ const fallback=applyInterviewCompletion(source,completion({...result,question:'',proposals:partial}));
+ assert.equal(fallback.currentQuestion.text,context.nextTopic.question);
+ const conversation='نرجع لطريقة الصلح بينكم. بعد الزعل، وش التصرف اللي تنتظره من شريكك عشان ترجعون مرتاحين؟';
+ const natural=applyInterviewCompletion(source,completion({...result,question:conversation,proposals:partial}));
+ assert.equal(natural.currentQuestion.text,conversation);assert.equal(natural.status,'active');
+ assert.match(request.messages[0].content,/لا تردد إجابة العضو/);
+ assert.match(request.messages[0].content,/لا تبدأ كل رد/);
+ assert.match(request.messages[0].content,/لا تتخذ قرار قبول أو رفض آلي/);
+ assert.match(request.messages[0].content,/إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها/);
+});
+
+test('required dialogue can clarify a genuinely missing current topic after two turns',()=>{
+ const source={...initialInterviewDocument(true),turns:[turn,{...turn,id:randomUUID()}]};
+ const context=JSON.parse(interviewCompletionRequest(source).messages[1].content);
+ assert.equal(context.possibleFollowUpTopic.id,'intent');
+ assert.deepEqual(context.possibleFollowUpTopic.dimensionIds,['marriage_timeline']);
+ assert.ok(context.possibleFollowUpTopic.missingFields.every(field=>['marriage_timeline','initiative','depth'].includes(field.fieldId)));
+ assert.equal(interviewCoverage(source).required,44);
+});

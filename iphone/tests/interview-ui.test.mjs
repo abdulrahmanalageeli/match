@@ -154,7 +154,7 @@ test('a late confirmation response after leaving the account cannot update the p
 test('an uncertain send retries the same request ID without dropping the written answer', async () => {
   let attempts=0;const initial={document:baseDocument(),revision:1};
   const ui=mount(initial,payload=>payload.action==='answer'&&++attempts===1?Promise.reject(new Error('انقطع الاتصال')):null);ui.render();await tick();let tree=ui.render();
-  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أتمنى نتفق على توقيت مناسب'}});tree=ui.render();sendAction(tree).props.onClick();await tick();tree=ui.render();
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أتمنى نتفق على توقيت مناسب'}});tree=ui.render();sendAction(tree).props.onClick();tree=ui.render();assert.equal(nodes(tree).filter(node=>node.props?.className?.includes('wi-new-answer')).length,1);await tick();tree=ui.render();assert.equal(nodes(tree).filter(node=>node.props?.className?.includes('wi-new-answer')).length,0);
   assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'أتمنى نتفق على توقيت مناسب');sendAction(tree).props.onClick();await tick();ui.render();
   const sends=ui.calls.filter(call=>call.action==='answer');assert.equal(sends.length,2);assert.equal(sends[0].requestId,sends[1].requestId);ui.unmount();
 });
@@ -225,4 +225,42 @@ test('fallback reviews extracted answers once and preserves only resolved choice
 test('pending active analysis offers retry without a manual bypass or another answer submission', async () => {
   const ui=mount({document:{...baseDocument(),pendingAnalysis:true},revision:2,fallbackAvailable:false});ui.render();await tick();const tree=ui.render();
   assert.ok(find(tree,'إعادة المحاولة'));assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,true);assert.equal(sendAction(tree).props.disabled,true);ui.unmount();
+});
+
+
+test('sending immediately shows one pending reply, then replaces it with the acknowledged turn', async () => {
+  const waiting=deferred(),initial={document:baseDocument(),revision:1};
+  const ui=mount(initial,payload=>payload.action==='answer'?waiting.promise:null);ui.render();await tick();let tree=ui.render();
+  const answer='أحب نسمع بعض بهدوء ونوصل إلى اتفاق';nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:answer}});tree=ui.render();sendAction(tree).props.onClick();tree=ui.render();
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'');assert.equal(sendAction(tree).props.disabled,true);
+  assert.equal(nodes(tree).filter(node=>node.props?.className?.includes('wi-new-answer')).length,1);assert.match(textOf(tree),/جارٍ الإرسال/);
+  const sent=ui.calls.find(call=>call.action==='answer');
+  waiting.resolve({document:{...initial.document,lastRequestId:sent.requestId,turns:[{id:'sent-turn',topic:'intent',question:initial.document.currentQuestion.text,answer,skipped:false}],currentQuestion:{topic:'family',text:'وماذا عن وقتكم مع الأهل؟',suggestions:[]}},revision:2});await tick();tree=ui.render();
+  assert.equal(nodes(tree).filter(node=>node.props?.className?.includes('wi-new-answer')).length,0);
+  const log=nodes(tree).find(node=>node.props?.role==='log');assert.equal(nodes(log).filter(node=>node.type==='p'&&textOf(node)===answer).length,1);assert.match(textOf(log),/وماذا عن وقتكم مع الأهل/);ui.unmount();
+});
+
+test('a lost response recovered from the server does not duplicate or restore an already-delivered reply', async () => {
+  const initial={document:baseDocument(),revision:1};let sent;
+  const ui=mount(initial,payload=>{
+    if(payload.action==='answer'){sent=payload;return Promise.reject(new Error('انقطع الاتصال'));}
+    if(payload.action==='load'&&sent)return Promise.resolve({document:{...initial.document,lastRequestId:sent.requestId,turns:[{id:'delivered-turn',topic:'intent',question:initial.document.currentQuestion.text,answer:sent.answer,skipped:false}],currentQuestion:{topic:'family',text:'كيف تحب ترتيب وقت الأهل؟',suggestions:[]}},revision:2});
+    return null;
+  });
+  ui.render();await tick();let tree=ui.render();nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'نرتب موعدًا يناسبنا'}});tree=ui.render();sendAction(tree).props.onClick();await tick();tree=ui.render();
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'');assert.equal(nodes(tree).filter(node=>node.props?.className?.includes('wi-new-answer')).length,0);
+  const log=nodes(tree).find(node=>node.props?.role==='log');assert.equal(nodes(log).filter(node=>node.type==='p'&&textOf(node)==='نرتب موعدًا يناسبنا').length,1);assert.equal(ui.calls.filter(call=>call.action==='answer').length,1);ui.unmount();
+});
+
+
+test('sending follows the new turn, while reading history during processing preserves the reader position', async () => {
+  const waiting=deferred(),initial={document:baseDocument(),revision:1};const ui=mount(initial,payload=>payload.action==='answer'?waiting.promise:null);
+  ui.render();await tick();let tree=ui.render();const scrolls=[];
+  const viewport={scrollHeight:2400,scrollTop:0,clientHeight:400,scrollTo(value){this.scrollTop=value.top;scrolls.push(value.top);}};
+  nodes(tree).find(node=>node.props?.role==='log').props.ref.current=viewport;
+  ui.render({open:false});ui.render({open:true});tree=ui.render();assert.equal(scrolls.length,1,'opening the conversation starts at its latest turn');
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أحب الوضوح في علاقتنا'}});tree=ui.render();sendAction(tree).props.onClick();tree=ui.render();assert.equal(scrolls.length,2,'own send follows the pending reply');
+  viewport.scrollTop=100;nodes(tree).find(node=>node.props?.role==='log').props.onScroll({currentTarget:viewport});
+  const sent=ui.calls.find(call=>call.action==='answer');waiting.resolve({document:{...initial.document,lastRequestId:sent.requestId,turns:[{id:'new',topic:'intent',question:initial.document.currentQuestion.text,answer:sent.answer,skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور وقت العائلة؟',suggestions:[]}},revision:2});await tick();ui.render();
+  assert.equal(viewport.scrollTop,100);assert.equal(scrolls.length,2,'arrival does not pull someone away from earlier answers');ui.unmount();
 });

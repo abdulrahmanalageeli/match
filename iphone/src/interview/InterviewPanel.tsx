@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowUp, Check, ChevronDown, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
+import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
 import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
@@ -48,10 +48,14 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [errorCode, setErrorCode] = useState('');
   const [consent, setConsent] = useState(false);
   const [answer, setAnswer] = useState('');
+  const [pendingReply, setPendingReply] = useState<{ id: string; text: string } | null>(null);
+  const [answerHelp, setAnswerHelp] = useState(false);
   const answerRef = useRef(answer);
   const [draftState, setDraftState] = useState<'saved'|'pending'|'error'>('saved');
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const thread = useRef<HTMLDivElement>(null);
+  const followConversation = useRef(true);
+  const firstConversation = useRef(true);
   const composer = useRef<HTMLTextAreaElement>(null);
   const autoStarted = useRef(false);
   const failureNotified = useRef(false);
@@ -128,8 +132,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   }, [open, loaded, doc, consentGranted, call]);
   useEffect(() => {
     const viewport = thread.current;
-    if (open && viewport) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
-  }, [open, doc?.turns.length, doc?.currentQuestion?.text, busy === 'answer']);
+    if (open && viewport && (firstConversation.current || followConversation.current)) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+      firstConversation.current = false;
+    }
+  }, [open, doc?.turns.length, doc?.currentQuestion?.text, pendingReply?.id, busy === 'answer']);
   useEffect(() => {
     const viewport = thread.current;
     if (!open || !viewport || typeof ResizeObserver === 'undefined') return;
@@ -206,8 +213,16 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     const text = skip ? '' : answerRef.current.trim();
     if (busyRef.current || (!skip && !text)) return;
     if (!requestId.current || requestId.current.answer !== text || requestId.current.skip !== skip) requestId.current = { answer: text, skip, id: crypto.randomUUID() };
-    const result = await call('answer', { answer: text, skip, requestId: requestId.current.id }, true);
-    if (result) { requestId.current = null; feedback('selection'); }
+    const sentId = requestId.current.id;
+    followConversation.current = true;
+    setPendingReply({ id: sentId, text }); setAnswerHelp(false);
+    answerRef.current = ''; setAnswer(''); feedback('selection');
+    const result = await call('answer', { answer: text, skip, requestId: sentId }, true);
+    if (result) requestId.current = null;
+    else if (mounted.current && current.current.document?.lastRequestId !== sentId) {
+      answerRef.current = text; setAnswer(text); setDraftState('error');
+    }
+    if (mounted.current) setPendingReply(null);
     return result;
   }
 
@@ -231,6 +246,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   function changeAnswer(value: string) { answerRef.current = value; setAnswer(value); setDraftState('pending'); }
   const validProposals = (doc?.proposals ?? []).filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
   const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
+  const coverage = snapshot.coverage;
+  const progress = coverage?.required ? Math.min(1, Math.max(0, coverage.answered / coverage.required)) : 0;
+  const progressLabel = progress >= .85 ? 'نوضح آخر التفاصيل' : progress >= .45 ? 'الصورة تتضح' : 'نتعرّف إليك';
+  const responding = busy === 'answer' || busy === 'retry' || queuedIntent === 'answer';
+  const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ الحفظ…' : draftState === 'error' ? 'تعذّر حفظ آخر كتابة' : 'محفوظ بخصوصية';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
@@ -291,16 +311,26 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {!fallbackReview && (incomplete || !validProposals.length) && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={() => void call('resume', {}, true).then(result => { if (result) { setApplied(false); setSharingSaved(false); } })}>إكمال الحوار <ArrowLeft size={14}/></button>}
         </section>
         : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
-          <div className="wi-chat-context"><span>{currentTopic?.title ?? 'نتعرّف إليك'}</span><span><LockKeyhole size={12}/> حوار خاص</span></div>
-          <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite">
-            {doc.turns.map(turn => <div className="wi-exchange" key={turn.id}><div className="wi-bubble wi-bubble-guide"><span className="wi-speaker">وُدَين</span><p>{turn.question}</p></div><div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div></div>)}
-            <div className="wi-bubble wi-bubble-guide" key={doc.currentQuestion?.text}><span className="wi-speaker">وُدَين</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
-            {(busy === 'answer' || busy === 'retry' || queuedIntent === 'answer') && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/></div>}
+          <div className="wi-session-compass">
+            <div className="wi-chat-context"><span><HeartHandshake size={15}/>{progressLabel}</span><span><LockKeyhole size={12}/> حوار خاص</span></div>
+            {coverage && <div className="wi-session-progress" role="progressbar" aria-label="النقاط التي اتضحت من الحوار" aria-valuemin={0} aria-valuemax={coverage.required} aria-valuenow={coverage.answered}><span style={{transform:`scaleX(${progress})`}}/></div>}
+          </div>
+          <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
+            {doc.turns.length===0 && <div className="wi-opening-note"><span>مساحة لك، قبل أن تكون بين اثنين.</span><p>خذ راحتك. نسمع منك، نفهم ما يهمّك، ثم تراجع الصورة بنفسك.</p></div>}
+            {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
+              {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
+              <div className="wi-bubble wi-bubble-guide wi-bubble-history"><p>{turn.question}</p></div>
+              <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
+            </div>)}
+            <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>{currentTopic?.title ?? 'نتعرّف إليك'}</span><p>{doc.currentQuestion?.text ?? 'ما الذي تود إضافته عمّا تبحث عنه؟'}</p></div>
+            {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
+            {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نرتّب ما فهمناه من كلامك…</span></div>}
           </div>
           <form className="wi-composer" onSubmit={event => { event.preventDefault(); void send(); }}>
+            {answerHelp && <p id="wi-answer-help" className="wi-answer-help">ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.</p>}
             {!!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="أفكار تساعدك على البدء">{doc.currentQuestion.suggestions.slice(0,2).map(suggestion => <button type="button" key={suggestion} disabled={actionBlocked} onClick={() => { changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion); composer.current?.focus(); }}>{suggestion}</button>)}</div>}
-            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={2} placeholder="اكتب بطريقتك…" autoComplete="off" spellCheck dir="auto" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
-            <div className="wi-compose-meta"><span role="status">{saveMessage}</span>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
+            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={2} placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="auto" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
+            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}

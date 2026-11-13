@@ -78,13 +78,14 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
         <BrandWordmark className="wd-welcome-wordmark"/>
       </div>
       <button type="button" className="nf-mast-login wd-welcome-login" onClick={onLogin}>تسجيل الدخول <ArrowLeft size={15} aria-hidden="true"/></button>
+      <p className="wd-name-meaning"><strong>وُدَين</strong><span>مستوحى من الوُدّ؛ محبّة وألفة بين اثنين.</span></p>
     </header>
 
     <section className="wd-welcome-hero">
       <MotionReveal key={introducing ? "opening" : "ready"} className="wd-hero-copy" duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
-        <p>من البداية، تعرفون وش يهم كل واحد. وإذا حصل القبول، تكون الخطوة الجاية واضحة لكم ولأهلكم.</p>
+        <p>نحلّل إجاباتك عن الشخصية وتفضيلات الزواج بالذكاء الاصطناعي، عشان تعرفون وين تتفقون ووش يحتاج حوار. أنت تراجع وتؤكد، والقرار لك.</p>
         <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ التعارف <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">كيف يبدأ التعارف؟ <ArrowDown size={15} aria-hidden="true"/></a></div>
         <span className="wd-hero-note"><LockKeyhole size={13} aria-hidden="true"/> لا تبدأ المحادثة إلا بقبول الطرفين</span>
       </MotionReveal>

@@ -177,3 +177,7 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 @keyframes wd-door-depth { 0%,25% { transform: scale(.82); } 100% { transform: scale(1); } }
 @media(min-width:760px) { .phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 0 48px 30px; } .wd-welcome-nav { inset-inline: 48px; } .wd-welcome-hero { margin-inline: -48px; padding-inline: 48px; min-height: 800px; } .wd-hero-art { height: 100%; border-radius: 0; } .wd-hero-art picture img { object-position: center 45%; } .wd-hero-copy { max-width: 460px; } .wd-welcome .wd-hero-copy h1 { font-size: 46px; } .wd-launch-door { max-width: 1080px; margin: auto; } }
 @media(max-width:360px) { .phone-app .nf-welcome.nf-arrival.wd-welcome { padding-inline: 20px; } .wd-welcome-hero { margin-inline: -20px; padding-inline: 20px; min-height: 710px; } .wd-welcome-nav { inset-inline: 20px; } }
+
+.wd-welcome-nav { flex-wrap: wrap; row-gap: 10px; }
+.wd-name-meaning { flex-basis: 100%; display: flex; align-items: baseline; gap: 9px; margin: 0; padding-top: 10px; border-top: 1px solid #ffffff30; color: #fff5e8; font-size: 11px; line-height: 1.8; text-shadow: 0 1px 8px #0008; }
+.wd-name-meaning strong { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }

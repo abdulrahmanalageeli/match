@@ -1,8 +1,7 @@
 import { confirmSignupSms } from './auth/SignupSms';
 import type { SignupVerification } from './auth/registrationDevice';
-import { useLayoutEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
-import {JoinAdvantages} from './JoinAdvantages';
 import type { SignupAgreements } from './auth/signupReturn';
 import {
   ArrowLeft,
@@ -91,24 +90,35 @@ export function Auth({
   const [phonePending, setPhonePending] = useState(false);
   const [agreements, setAgreements] = useState({ adult: false, terms: false, privacy: false });
   const [agreementError, setAgreementError] = useState("");
+  const [entryStep, setEntryStep] = useState<'credentials' | 'consent'>('credentials');
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
+  const heading = useRef<HTMLHeadingElement>(null);
+  const reviewing = !login && entryStep === 'consent';
   const locked = busy || phonePending;
   const accepted = login || (agreements.adult && agreements.terms && agreements.privacy);
   useLayoutEffect(() => {
     setAgreements({ adult: false, terms: false, privacy: false });
     setAgreementError("");
+    setEntryStep('credentials');
+    setPhoneMode(false);
   }, [login]);
+  useLayoutEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+    heading.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [entryStep, login]);
   async function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!ready || locked) return;
+    if (!e.currentTarget.reportValidity()) return;
+    setAgreementError("");
+    const email = credentials.email.trim(), password = credentials.password;
+    if (login) { submit(email, password); return; }
+    if (!reviewing) { setEntryStep('consent'); return; }
     if (!accepted) {
       setAgreementError("أكّد العمر، واقبل الشروط، واطّلع على إشعار الخصوصية قبل إنشاء الحساب.");
       return;
     }
-    if (!e.currentTarget.reportValidity()) return;
-    setAgreementError("");
-    const f = new FormData(e.currentTarget);
-    const email=String(f.get("email")).trim(), password=String(f.get("password"));
-    if(login){submit(email,password);return;}
     setPhonePending(true);
     try{
       const verification=await confirmSignupSms(email);
@@ -118,7 +128,7 @@ export function Auth({
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
   const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
-    <legend>قبل إنشاء حسابك</legend>
+    <legend className="nf-auth-sr-only">الموافقات المطلوبة لإنشاء الحساب</legend>
     {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
       setAgreements(current => ({ ...current, [kind]: value }));
       setAgreementError("");
@@ -128,23 +138,16 @@ export function Auth({
     {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
   </fieldset> : null;
   return (
-    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
+    <Frame back={reviewing ? () => setEntryStep('credentials') : back} backDisabled={locked} title={login ? "تسجيل الدخول" : reviewing ? "مراجعة الحساب" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section className="nf-auth-hero">
-        <span className="nf-auth-eyebrow">{login ? "نكمّل من حيث بدأنا" : "بداية جادة، وخطوات واضحة"}</span>
-        <h1>{login ? "أهلًا بعودتك." : "أنشئ حسابك"}</h1>
-        <p className="flow-intro">
-          {login
-            ? "سجّل الدخول لمتابعة طلباتك ومحادثاتك."
-            : "نبدأ بحسابك، ثم نبني ملفًا يعبّر عنك وعن شريك الحياة الذي تبحث عنه."}
-        </p>
-        {!login && <ol className="nf-auth-steps" aria-label="رحلتك مع وُدَين"><li aria-current="step"><span>١</span> حسابك</li><li><span>٢</span> ملفك</li><li><span>٣</span> المراجعة</li></ol>}
-        <div className="nf-auth-aside" aria-hidden="true"><span>وُدَين</span><p>ما يهمّك في الحياة،<br />هو بداية التوافق.</p><div /></div>
+        <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : reviewing ? "قبل أن نبدأ" : "حسابك في وُدَين"}</h1>
+        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "راجع الشروط وخيارات الخصوصية، ثم أكمل إنشاء حسابك." : "بريدك وكلمة مرورك. لتعود إلى حسابك متى شئت."}</p>
       </section>
       <section className="nf-auth-panel">
       {phoneMode && consentReview}
       {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready ? (
-        <form className="flow-form" onSubmit={send} aria-busy={locked}>
-          <label>
+        <form className="flow-form" onSubmit={send} aria-busy={locked} data-entry-step={reviewing ? 'consent' : 'credentials'}>
+          {!reviewing && <div className="nf-auth-input-group"><label>
             البريد الإلكتروني
             <input
               dir="ltr"
@@ -155,6 +158,8 @@ export function Auth({
               enterKeyHint="next"
               type="email"
               name="email"
+              value={credentials.email}
+              onChange={event => setCredentials(current => ({ ...current, email: event.target.value }))}
               required
               maxLength={254}
               placeholder="name@example.com"
@@ -168,6 +173,9 @@ export function Auth({
                 autoComplete={login ? "current-password" : "new-password"}
                 type={visible ? "text" : "password"}
                 name="password"
+                value={credentials.password}
+                onChange={event => setCredentials(current => ({ ...current, password: event.target.value }))}
+                placeholder={login ? "كلمة المرور" : "١٠ أحرف على الأقل"}
                 minLength={login ? 1 : 10}
                 maxLength={128}
                 required
@@ -183,11 +191,11 @@ export function Auth({
                 {visible ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </span>
-            {!login && <small id="nf-password-help" className="nf-auth-field-help">١٠ أحرف على الأقل. اختر كلمة مرور خاصة بهذا الحساب.</small>}
-          </label>
-          {consentReview}
-          <button className="f-primary" disabled={locked || !accepted}>
-            {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : "إنشاء الحساب"}
+          </label></div>}
+          {!login && !reviewing && <p id="nf-password-help" className="nf-auth-field-help">اختر كلمة مرور من ١٠ أحرف على الأقل، خاصة بهذا الحساب.</p>}
+          {reviewing && <><div className="nf-auth-account-summary"><span>البريد الإلكتروني</span><bdi dir="ltr">{credentials.email.trim()}</bdi><button type="button" onClick={() => setEntryStep('credentials')} disabled={locked}>تعديل</button></div>{consentReview}</>}
+          <button className="f-primary" disabled={locked || (reviewing && !accepted)}>
+            {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : reviewing ? "إنشاء الحساب" : "متابعة"}
             <ArrowLeft size={18} />
           </button>
         </form>
@@ -210,7 +218,6 @@ export function Auth({
         </button>
         </>
       )}
-      {ready && !login && <details className="nf-auth-more"><summary>ماذا بعد إنشاء الحساب؟<ArrowLeft size={15} aria-hidden="true" /></summary><p>تُكمل ملفك وتفضيلاتك، ثم تراجع ما سيظهر للأعضاء قبل إرسال طلب العضوية.</p><JoinAdvantages animate={false}/></details>}
       {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
         <p>اختَر حسابك</p>
         <div>

@@ -2,7 +2,7 @@
 .phone-app .nf-intake.nf-intake--new,
 .nf-signup-status,
 .phone-app .nf-onboarding-sandbox {
-  --journey-canvas: #fcfaf8;
+  --journey-canvas: #f5f3f4;
   --journey-ink: #30232c;
   --journey-muted: #746870;
   --journey-line: #e9e1df;
@@ -24,35 +24,35 @@
   z-index: 9;
   min-height: 66px;
   padding: max(12px, env(safe-area-inset-top)) 20px 12px;
-  border-bottom: 1px solid var(--journey-line);
-  background: #fcfaf8f5;
+  border-bottom: 0;
+  background: #f5f3f4f5;
   backdrop-filter: blur(16px);
   box-shadow: none;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-header .f-icon {
   width: 44px; height: 44px; flex: none; min-height: 44px;
-  border: 1px solid var(--journey-line); border-radius: 12px;
-  background: #fff; box-shadow: none; color: var(--journey-ink);
+  border: 0; border-radius: 50%;
+  background: transparent; box-shadow: none; color: var(--journey-ink);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 6px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-progress {
-  padding: 0 0 20px; margin: 0;
+  padding: 0 0 22px; margin: 0;
   border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 9px; font-size: 12px; line-height: 1.6; color: var(--journey-muted); }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: var(--journey-ink); font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child::before { content: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter { gap: 5px; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-meter i { height: 3px; background: #ddd9d5; border-radius: 0; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-meter i { height: 2px; background: #e1dade; border-radius: 99px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=done]::after { background: #ad8b96; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=current]::after { background: #54152a; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i::after { transition: transform 360ms ease-out, background-color 240ms ease; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-title,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title {
   display: flex; flex-direction: column; align-items: stretch;
-  padding: 0; margin: 0 0 22px; min-height: 0;
+  padding: 0; margin: 0 0 24px; min-height: 0;
   border: 0; background: none; overflow: visible;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::before,
@@ -79,11 +79,12 @@
 .phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
-  min-height: 54px; padding: 12px 14px; border: 1px solid #d8cccd; border-radius: 12px;
-  background: #fffefd; color: var(--journey-ink); box-shadow: 0 2px 3px #30232c03; font-size: 16px; font-weight: 400;
+  min-height: 54px; padding: 14px 16px; border: 1px solid transparent; border-radius: 14px;
+  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 16px; font-weight: 400;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: #817b80; }
+.phone-app .nf-intake .nf-intake-fields textarea { resize: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: #54152a; background: #fff; outline: 3px solid #54152a16; box-shadow: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select, button)[aria-invalid=true] { border-color: #a12b45; }
 .phone-app .nf-intake.nf-intake--new .choice-row button { border-color: #d8cccd; background: #fffefd; color: var(--journey-ink); min-height: 52px; border-radius: 12px; font-size: 16px; font-weight: 500; line-height: 1.6; transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease; }
@@ -92,11 +93,11 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions {
   position: static;
   z-index: 8; margin-top: 26px; padding-top: 14px;
-  border-top: 1px solid var(--journey-line); background: #fcfaf8f5; backdrop-filter: blur(16px);
+  border-top: 0; background: transparent; backdrop-filter: blur(16px);
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
-  min-height: 56px; border: 1px solid #54152a; border-radius: 12px;
+  min-height: 54px; border: 1px solid #54152a; border-radius: 16px;
   background: #54152a; color: #fff; font-size: 16px; font-weight: 500; line-height: 1.5; letter-spacing: 0;
   box-shadow: none; transition: transform 120ms ease-out, background-color 160ms ease;
 }
@@ -110,13 +111,45 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-error { background: #fff; border: 1px solid #b85268; border-radius: 12px; color: #922b43; }
 .phone-app .nf-intake.nf-intake--new :is(summary, button):focus-visible { outline-color: #54152a; }
 
+/* Inset rows keep setup close to the rest of the iPhone interface. */
+.phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 5px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-header-actions .nf-help-link { width: 44px; height: 44px; min-height: 44px; justify-content: center; padding: 0; font-size: 0; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-header-actions .nf-help-link svg { width: 19px; height: 19px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools { display: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { font-size: 12px; }
+.phone-app .nf-intake.nf-intake--new .nf-name-entry { display: flex; align-items: center; gap: 15px; padding: 18px 16px; border-radius: 18px; background: #fff; }
+.phone-app .nf-intake.nf-intake--new .nf-name-avatar { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; background: #f3ecef; color: #683148; }
+.phone-app .nf-intake.nf-intake--new .nf-name-entry label { flex: 1; min-width: 0; gap: 0; font-size: 12px; color: var(--journey-muted); }
+.phone-app .nf-intake.nf-intake--new .nf-name-entry input { padding: 7px 0 0; min-height: 36px; border-radius: 0; background: none; border: 0; font-size: 18px; }
+.phone-app .nf-intake.nf-intake--new .nf-name-entry:focus-within { outline: 2px solid #956176; outline-offset: 2px; }
+.phone-app .nf-intake.nf-intake--new .nf-name-entry input:focus-visible { outline: none; }
+.phone-app .nf-intake.nf-intake--new .nf-gender-segment { display: flex; align-items: center; gap: 16px; }
+.phone-app .nf-intake.nf-intake--new .nf-gender-segment legend { float: inline-start; padding: 12px 0; font-size: 15px; }
+.phone-app .nf-intake.nf-intake--new .nf-gender-segment .choice-row { flex: 1; display: grid; padding: 4px; gap: 3px; background: #eae5e8; border-radius: 13px; }
+.phone-app .nf-intake.nf-intake--new .nf-gender-segment .choice-row button { min-height: 44px; justify-content: center; gap: 8px; padding: 8px; background: transparent; border: 0; border-radius: 10px; }
+.phone-app .nf-intake.nf-intake--new .nf-gender-segment .choice-row button[aria-pressed=true] { background: #fff; box-shadow: 0 1px 4px #30232c12; color: #54152a; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields .nf-identity-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; overflow: hidden; border-radius: 18px; background: #fff; }
+.phone-app .nf-intake.nf-intake--new .nf-identity-group > * + * { border-top: 1px solid #eee8eb; }
+.phone-app .nf-intake.nf-intake--new .nf-identity-group > .nf-sheet-choice-row { border-radius: 0; }
+.phone-app .nf-intake.nf-intake--new .nf-birthday-row { padding: 15px 16px 10px; gap: 4px; }
+.phone-app .nf-intake.nf-intake--new .nf-birthday-row input { min-height: 44px; padding: 6px 0; border-radius: 0; border: 0; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields > .nf-intake-field-help { margin-top: -12px; padding-inline: 8px; font-size: 12px; }
+.phone-app .nf-intake.nf-intake--new .nf-story-more { padding: 0 16px; border: 0; border-radius: 16px; background: #fff; }
+.phone-app .nf-intake.nf-intake--new .nf-story-more > summary { font-size: 16px; font-weight: 500; padding-block: 16px; }
+.phone-app .nf-intake.nf-intake--new .nf-story-more > summary small { font-size: 12px; }
+.phone-app .nf-intake.nf-intake--new .nf-story-prompts .nf-prompt-editor { border: 0; padding: 0; }
+.phone-app .nf-intake.nf-intake--new .nf-story-prompts .nf-prompt-editor > header { display: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { justify-content: center; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta > small { display: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-draft-help { font-size: 12px; }
+
 /* Status and local preview completion share the same quiet layout. */
 .nf-signup-status .flow-body { padding-top: 32px; }
 .nf-signup-status .flow-symbol { color: #54152a; border: 1px solid var(--journey-line); background: #fff; border-radius: 12px; box-shadow: none; }
 .nf-signup-status .flow-body > h1 { color: var(--journey-ink); }
-.nf-signup-status .flow-card { border: 1px solid var(--journey-line); border-radius: 12px; background: #fff; box-shadow: none; }
+.nf-signup-status .flow-card { border: 0; border-radius: 50%; background: #fff; box-shadow: none; }
 .nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 52px; }
-.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #fcfaf8f5; border-bottom: 1px solid var(--journey-line); }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f5f3f4f5; border-bottom: 0; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: none; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: start; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-check { width: 66px; height: 66px; margin: 20px 0 28px; border: 1px solid #d3dcd5; border-radius: 50%; background: #edf3ee; box-shadow: none; color: #3a6348; }
@@ -127,18 +160,10 @@
 .phone-app .nf-onboarding-sandbox .nf-sandbox-reassurance { padding: 16px 0; border: 0; border-block: 1px solid var(--journey-line); border-radius: 0; background: none; color: var(--journey-muted); font-size: 14px; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-restart { min-height: 48px; color: #54152a; font-size: 14px; }
 
-@keyframes nf-join-step { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
-@keyframes nf-join-step-back { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
-@keyframes nf-join-field { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes nf-join-complete { from { stroke-dashoffset: 1; opacity: .3; } to { stroke-dashoffset: 0; opacity: 1; } }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-stage { animation: nf-join-step 380ms cubic-bezier(.2,.75,.3,1) both; }
-  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-stage[data-dir=back] { animation-name: nf-join-step-back; }
   html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-title,
   html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields { animation: none; }
-  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > * { animation: nf-join-field 340ms ease-out 70ms both; }
-  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > :nth-child(2) { animation-delay: 120ms; }
-  html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields > :nth-child(n+3) { animation-delay: 170ms; }
   html:not([data-nf-motion="reduced"]) .phone-app .nf-onboarding-sandbox .nf-sandbox-check polyline { stroke-dasharray: 1; animation: nf-join-complete 700ms 150ms ease both; }
 }
 @media (prefers-reduced-motion: reduce) {

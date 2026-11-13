@@ -7,7 +7,7 @@ import { arabicNumber, latinDigits } from "./draft";
 import "./marriage-fields.css";
 import "./scenario-experience.css";
 import { SelfAppearanceFields, AppearanceCriteriaFields } from "./AppearanceFields";
-import { ChoiceSelect } from "../ui/ChoiceSelect";
+import { SheetChoiceSelect as ChoiceSelect } from "../ui/SheetChoiceSelect";
 import { educationOptions, professionOptions, nationalityChoices, numericOptions } from "../profile/profileOptions";
 
 export const maritalLabels = { never_married: "لم يسبق الزواج", divorced: "مطلّق / مطلّقة", widowed: "أرمل / أرملة", married: "متزوج حاليًا" };

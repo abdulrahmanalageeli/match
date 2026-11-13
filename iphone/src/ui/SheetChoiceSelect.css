@@ -1,0 +1,31 @@
+.phone-app .nf-sheet-choice-row { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 60px; padding: 16px; border: 0; border-radius: 14px; background: #fff; color: #30232c; text-align: start; font: inherit; box-shadow: none; }
+.nf-sheet-choice-label { flex: 1; min-width: 0; font-size: 16px; }
+.nf-sheet-choice-value { max-width: 55%; color: #5a0f28; font-size: 15px; overflow-wrap: anywhere; }
+.nf-sheet-choice-value[data-empty] { color: #81777d; }
+.nf-sheet-choice-row > svg { flex: none; color: #a39a9e; }
+.phone-app .nf-sheet-choice-row[aria-invalid=true] { outline: 1px solid #a12b45; outline-offset: -1px; }
+.phone-app .nf-sheet-choice-row:focus-visible { outline: 2px solid #956176; outline-offset: 3px; }
+.nf-choice-sheet { position: fixed; inset: auto 0 0; margin: 0 auto; padding: 0 0 max(12px, env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: min(82svh, 700px); border: 0; border-radius: 24px 24px 0 0; background: #fbfaf8; color: #30232c; box-shadow: 0 -12px 60px #2716201c; overflow: hidden; font-family: var(--font-ui); }
+.nf-choice-sheet[open] { display: flex; flex-direction: column; }
+@keyframes nf-choice-sheet-in { from { opacity: .6; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .nf-choice-sheet[open] { animation: nf-choice-sheet-in 180ms ease-out; } }
+.nf-choice-sheet::backdrop { background: #21182066; }
+.nf-choice-sheet-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; flex: none; gap: 8px; padding: 12px 12px 4px; }
+.nf-choice-sheet-header h2 { margin: 0; text-align: center; font-size: 18px; font-weight: 700; line-height: 1.5; }
+.nf-choice-sheet-header button { min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: none; color: #5a0f28; font-size: 15px; }
+.nf-choice-sheet-search { display: flex; align-items: center; flex: none; gap: 8px; min-height: 46px; margin: 8px 20px 14px; padding-inline: 12px; border-radius: 11px; background: #eee9e9; color: #887b82; }
+.nf-choice-sheet-search input { width: 100%; min-width: 0; min-height: 46px; padding: 10px 0; border: 0; outline: none; background: none; font: inherit; font-size: 16px; color: #30232c; }
+.nf-choice-sheet-search input::-webkit-search-cancel-button { display: none; }
+.nf-choice-sheet-search:focus-within { outline: 2px solid #956176; outline-offset: 2px; }
+.nf-choice-sheet-search > svg { flex: none; }
+.nf-choice-sheet-search button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; margin-inline-end: -10px; border: 0; background: none; color: #746870; }
+.nf-choice-sheet-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #d8ccd0 transparent; }
+.nf-choice-sheet-group { padding: 12px 2px 6px; color: #81777d; font-size: 12px; }
+.nf-choice-sheet-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 52px; padding: 12px 2px; border: 0; border-bottom: 1px solid #eae4e4; border-radius: 0; background: none; color: #30232c; font: inherit; font-size: 16px; text-align: start; }
+.nf-choice-sheet-option svg { color: #5a0f28; flex: none; }
+.nf-choice-sheet-option[aria-selected=true] { color: #5a0f28; font-weight: 700; }
+.nf-choice-sheet-option:focus-visible, .nf-choice-sheet button:focus-visible { outline: 2px solid #956176; outline-offset: -2px; border-radius: 8px; }
+.nf-choice-sheet-empty { margin: 16px 0 24px; color: #746870; text-align: center; font-size: 14px; }
+.nf-choice-sheet-clear { min-height: 48px; flex: none; margin: 4px 20px 0; padding: 10px; border: 0; border-top: 1px solid #eae4e4; background: none; color: #5a0f28; font-size: 14px; }
+html[data-nf-keyboard] .nf-choice-sheet { top: calc(var(--nf-visual-top, 0px) + 8px); bottom: auto; height: calc(var(--nf-visual-height, 100dvh) - 16px); max-height: calc(var(--nf-visual-height, 100dvh) - 16px); border-radius: 20px; }
+@media (min-width: 600px) { .nf-choice-sheet { inset: 0; margin: auto; width: calc(100% - 48px); border-radius: 24px; } html[data-nf-keyboard] .nf-choice-sheet { margin-block: 0; margin-inline: auto; } }

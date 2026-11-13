@@ -18,7 +18,7 @@ type Props = {
   'aria-describedby'?: string;
 };
 
-const searchable = (text: string) => text.normalize('NFKC').toLocaleLowerCase().replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x6f0)).replace(/[\u064B-\u065F\u0670ـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
+export const normalizeChoiceSearch = (text: string) => text.normalize('NFKC').toLocaleLowerCase().replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x6f0)).replace(/[\u064B-\u065F\u0670ـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
 
 /** Only an explicit option selection changes the saved answer; typing is search only. */
 export function ChoiceSelect({ label, value, onChange, options, placeholder = 'اختر من القائمة', allowClear = false, disabled = false, required = false, id, ...field }: Props) {
@@ -36,9 +36,9 @@ export function ChoiceSelect({ label, value, onChange, options, placeholder = '�
   const choices = useMemo<readonly ChoiceOption[]>(() => value && !options.some(option => option.value === value)
     ? [{ value, label: value, group: 'القيمة المحفوظة' }, ...options] : options, [options, value]);
   const filtered = useMemo(() => {
-    const words = searchable(query).split(/\s+/).filter(Boolean);
+    const words = normalizeChoiceSearch(query).split(/\s+/).filter(Boolean);
     return choices.filter(option => {
-      const text = searchable([option.label, option.group ?? '', ...(option.keywords ?? [])].join(' '));
+      const text = normalizeChoiceSearch([option.label, option.group ?? '', ...(option.keywords ?? [])].join(' '));
       return words.every(word => text.includes(word));
     });
   }, [choices, query]);

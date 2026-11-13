@@ -40,7 +40,7 @@ function harness(options = {}) {
         if (options.failure) throw new Error('PRIVATE PROVIDER ERROR');
         const transcript = JSON.parse(request.messages[1].content).transcript;
         const source = transcript.find(turn => !turn.skipped);
-        return completion({ ...result, proposals: options.proposals ? options.proposals(transcript) : source ? [{ ...candidate, evidence: [{ turnId: source.id, quote: 'خلال ستة أشهر' }] }] : [] });
+        return completion({ ...result, proposals: options.proposals ? options.proposals(transcript) : source ? [{ ...candidate, evidence: [{ turnId: source.id, quote: 'خلال ستة أشهر' }] }] : [], ...(options.response ? options.response(transcript) : {}) });
       } } } };
     },
   });
@@ -628,4 +628,72 @@ test('one answer covers future topics and overlapping personality without an ext
  assert.match(request.messages[0].content,/٤٤ خانة فهم وليست ٤٤ سؤالًا/);
  assert.match(request.messages[0].content,/تفضيلًا وسلوك شخصية/);
  assert.match(request.messages[0].content,/مرة واحدة في النهاية/);
+});
+
+test('saved signup answers can be corrected without losing unrelated answers or repeating the covered family question',async()=>{
+ const familyTurn={...turn,id:randomUUID(),topic:'family',question:'متى تستشيرون الأهل في قرارات البيت؟',answer:'أستفيد من رأي الأهل من البداية وأحب شريكي يكون مثلي.'};
+ const previous=['self','partner'].map(side=>validateProposal({...candidate,fieldId:'family_boundaries',side,values:['B'],evidence:[{turnId:familyTurn.id,quote:familyTurn.answer}]},[familyTurn]));
+ const prior=validateProposal(candidate,[turn]);
+ const initial={...initialInterviewDocument(true),turns:[turn,familyTurn],proposals:[prior,...previous],currentQuestion:{topic:'family',text:'كيف تحب يكون دور الأهل في قرارات بيتكم؟',suggestions:[]}};
+ const text='لا، قصدي قرارات بيتنا بيننا أولًا وأفضل شريك يتفق معي.';
+ const h=harness({initial:{document:initial,revision:5},response:turns=>{
+  const correction=turns.at(-1),evidence=[{turnId:correction.id,quote:text}];
+  return {...result,answerDisposition:'answered',followUp:true,questionTopic:'family',question:'وش الدور اللي تتمنى يكون لأهلك في قرارات البيت؟',questionFields:previous.map(p=>p.id),
+   invalidatedProposals:previous.map(p=>({id:p.id,evidence})),
+   proposals:previous.map(p=>({...p,values:['A'],summary:'التشاور بين الزوجين أولًا.',evidence}))};
+ }});
+ const corrected=await send(h,5,text);
+ assert.equal(corrected.document.turns.length,3);assert.equal(h.modelCalls.length,1);
+ assert.equal(corrected.coverage.answered,3,'omitted unrelated timeline remains understood');
+ for(const previousValue of previous) {
+  const saved=corrected.document.proposals.find(p=>p.id===previousValue.id);
+  assert.deepEqual(saved.values,['A']);assert.equal(saved.evidence[0].quote,text);
+ }
+ assert.equal(corrected.document.currentQuestion.topic,'family');
+ assert.match(corrected.document.currentQuestion.text,/الأطفال/,'move to a genuinely missing family detail, not consultation again');
+ assert.doesNotMatch(corrected.document.currentQuestion.text,/قرارات البيت/);
+ assert.deepEqual(corrected.document.confirmed,[]);
+ const loaded=await h.service({action:'load'},headers);
+ assert.deepEqual(loaded.document.proposals,corrected.document.proposals);
+ assert.equal(h.modelCalls.length,1,'loading does not automatically start another model request');
+ const prompt=h.modelCalls[0].request.messages[0].content;
+ assert.match(prompt,/التصحيح الصريح إجابة مفيدة/);assert.match(prompt,/answerDisposition=answered إذا حسم التصحيح معناه/);
+});
+
+test('newer correction evidence wins duplicate preference and personality proposals in either order',()=>{
+ const old={...turn,id:randomUUID(),topic:'family',answer:'أستشير الأهل من البداية، ونادرًا أشارك مشاعري.'};
+ const corrected={...old,id:randomUUID(),answer:'تصحيح: نتشاور بيننا أولًا، وأنا أشارك مشاعري غالبًا عندما أشعر بالأمان.'};
+ const first=[{...candidate,fieldId:'family_boundaries',values:['B']},{...candidate,kind:'personality',fieldId:'openness',values:['B']}].map(p=>({...p,evidence:[{turnId:old.id,quote:old.answer}]}));
+ const updates=first.map(p=>({...p,values:[p.kind==='personality'?'D':'A'],evidence:[{turnId:corrected.id,quote:corrected.answer}]}));
+ for(const proposals of [[...first,...updates],[...updates,...first]]){
+  const out=applyInterviewCompletion({...initialInterviewDocument(true),turns:[old,corrected]},completion({...result,proposals}));
+  for(const update of updates){const saved=out.proposals.find(p=>p.fieldId===update.fieldId);assert.deepEqual(saved.values,update.values);assert.deepEqual(saved.evidence,update.evidence);}
+ }
+});
+
+test('a grounded withdrawal removes the old value without fabricating a replacement',()=>{
+ const prior=validateProposal(candidate,[turn]);
+ const correction={...turn,id:randomUUID(),answer:'تصحيح: لم أحسم التوقيت بعد، لا تعتمد إجابتي السابقة.'};
+ const source={...initialInterviewDocument(true),turns:[turn,correction],proposals:[prior]};
+ const revoked={id:prior.id,evidence:[{turnId:correction.id,quote:correction.answer}]};
+ const out=applyInterviewCompletion(source,completion({...result,answerDisposition:'clarify',invalidatedProposals:[revoked],proposals:[prior]}));
+ assert.deepEqual(out.proposals,[],'a replayed old quote cannot restore a withdrawn answer');
+ assert.equal(interviewCoverage(out).answered,0);assert.deepEqual(out.confirmed,[]);
+ const invented=applyInterviewCompletion(source,completion({...result,invalidatedProposals:[{...revoked,evidence:[{turnId:correction.id,quote:'a fabricated correction'}]}],proposals:[]}));
+ assert.deepEqual(invented.proposals,[prior],'withdrawals also require real evidence');
+});
+
+test('already answered reminders retain progress and target a genuinely missing family field',()=>{
+ const earlier={...turn,id:randomUUID(),topic:'family',answer:'قرارات بيتنا بيننا أولًا وأفضل شريك يتفق معي.'};
+ const repeated={...earlier,id:randomUUID(),answer:'سبق جاوبت على نفس السؤال، ليش تكرره؟'};
+ const previous=['self','partner'].map(side=>validateProposal({...candidate,fieldId:'family_boundaries',side,values:['A'],evidence:[{turnId:earlier.id,quote:earlier.answer}]},[earlier]));
+ const out=applyInterviewCompletion({...initialInterviewDocument(true),turns:[earlier,repeated],proposals:previous},completion({...result,
+  answerDisposition:'off_topic',followUp:true,questionTopic:'family',question:'متى تدخلون الأهل في قرارات البيت؟',questionFields:previous.map(p=>p.id),proposals:[]}));
+ assert.equal(interviewCoverage(out).answered,2);assert.match(out.currentQuestion.text,/الأطفال/);
+ assert.deepEqual(out.proposals,previous,'the reminder is not another personality or preference answer');
+});
+
+test('same-evidence conflicting duplicate values remain unresolved instead of depending on array order',()=>{
+ const out=applyInterviewCompletion({...initialInterviewDocument(true),turns:[turn]},completion({...result,proposals:[candidate,{...candidate,values:['B']}]}));
+ assert.equal(out.proposals.length,1);assert.equal(out.proposals[0].needsClarification,true);assert.equal(interviewCoverage(out).answered,0);
 });

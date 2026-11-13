@@ -271,14 +271,17 @@ const noteSchema = { type: 'array', items: { type: 'object', additionalPropertie
 export const interviewSchema = { type: 'object', additionalProperties: false, properties: {
   reply: { type: 'string' }, answerDisposition: { type: 'string', enum: ['answered', 'clarify', 'off_topic'] },
   followUp: { type: 'boolean' }, questionTopic: { type: 'string', enum: ['', ...topics.map(topic => topic.id)] }, question: { type: 'string' },
+  questionFields: { type: 'array', maxItems: 3, items: { type: 'string', enum: requiredFields.map(field => field.id) } },
   quickReplies: { type: 'array', maxItems: 4, items: { type: 'string', maxLength: 100 } },
+  invalidatedProposals: { type: 'array', maxItems: MAX_PROPOSALS, items: { type: 'object', additionalProperties: false,
+    properties: { id: { type: 'string' }, evidence: evidenceSchema }, required: ['id', 'evidence'] } },
   proposals: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
     kind: { type: 'string', enum: ['preference', 'beena', 'personality'] }, fieldId: { type: 'string' },
     side: { type: 'string', enum: ['self', 'partner', 'importance'] }, values: { type: 'array', items: { type: 'string' } },
     summary: { type: 'string' }, evidence: evidenceSchema, needsClarification: { type: 'boolean' },
   }, required: ['kind', 'fieldId', 'side', 'values', 'summary', 'evidence', 'needsClarification'] } },
   readiness: noteSchema, clarifications: noteSchema,
-}, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'quickReplies', 'proposals', 'readiness', 'clarifications'] };
+}, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'questionFields', 'quickReplies', 'invalidatedProposals', 'proposals', 'readiness', 'clarifications'] };
 
 export function interviewCompletionRequest(document, finalReview = false) {
   const last = document.turns.at(-1);
@@ -320,6 +323,7 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
 فهم الاستعداد هنا يقتصر على ملخص خاص لخطة الزواج والخطوة القادمة وما يحتاج نقاشًا، من كلام العضو فقط. لا تتخذ قرار قبول أو رفض آلي، ولا تضع درجة جدية أو أهلية، ولا تتنبأ بنجاح الزواج. ليست الجلسة تشخيصًا نفسيًا ولا اختبارًا له إجابات صحيحة وخاطئة. لا تجعل تردد الشخص أو اختصاره سببًا للحكم عليه.`;
   }
+  instructions += '\nالتصحيح الصريح إجابة مفيدة: إذا قال العضو «لا، قصدي…» فاعتمد المعنى الأحدث لنفس الحقل، لا تطلب منه إثباته أو إعادة السؤال. answerDisposition=answered إذا حسم التصحيح معناه. أخرج اقتراحًا واحدًا فقط لكل kind:fieldId:side؛ لا تجمع النسخة القديمة والجديدة. invalidatedProposals قائمة بمعرّف أي تفسير سابق صححه العضو أو سحبه، مع اقتباس حرفي من التصحيح وturnId. ضع الحقل فيها حتى إذا لم يتضح بديله بعد؛ لا تختلق بديلًا. إذا اتضح البديل فأخرجه في proposals بدليل التصحيح الأحدث. ترك حقل سابق خارج proposals لا يعني إلغاءه، لذا استخدم invalidatedProposals للإلغاء صراحة. لا تُلغِ معلومات أخرى لم يصححها العضو. questionFields معرّفات الجوانب التي يسألها question فقط (واحد إلى ثلاثة من القاموس)، لا تسأل عن جانب اتضح في الاقتراحات بعد أحدث إجابة. في المراجعة النهائية اجعل questionFields=[].';
   if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
@@ -341,29 +345,55 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
   try { result = JSON.parse(choice.message.content); } catch { throw unavailable(); }
-  if (!keysOnly(result, ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'quickReplies', 'proposals', 'readiness', 'clarifications']) || typeof result.followUp !== 'boolean'
+  if (!keysOnly(result, ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'questionFields', 'quickReplies', 'invalidatedProposals', 'proposals', 'readiness', 'clarifications']) || typeof result.followUp !== 'boolean'
     || !bounded(result.reply, 200, true) || (result.reply.trim() && !safeText(result.reply, 200)) || !['answered', 'clarify', 'off_topic'].includes(result.answerDisposition)
     || typeof result.questionTopic !== 'string' || (result.questionTopic !== '' && !topicById.has(result.questionTopic))
     || !bounded(result.question, 500, true) || !Array.isArray(result.proposals) || result.proposals.length > MAX_PROPOSALS
-    || !Array.isArray(result.readiness) || !Array.isArray(result.clarifications)) throw unavailable();
-  const seen = new Set();
+    || !Array.isArray(result.readiness) || !Array.isArray(result.clarifications)
+    || (result.invalidatedProposals !== undefined && (!Array.isArray(result.invalidatedProposals) || result.invalidatedProposals.length > MAX_PROPOSALS))
+    || (result.questionFields !== undefined && (!Array.isArray(result.questionFields) || result.questionFields.length > 3))) throw unavailable();
   const last = document.turns.at(-1);
   const needsClarification = !finalReview && (result.answerDisposition !== 'answered' || (last && unclearConfirmation(last)));
   const previous = previousProposals.map(value => validateProposal(value, document.turns)).filter(Boolean);
-  const proposals = result.proposals.flatMap(value => {
+  const evidencePosition = evidence => Math.max(...evidence.map(item => document.turns.findIndex(turn => turn.id === item.turnId)));
+  const invalidated = new Map();
+  for (const value of result.invalidatedProposals ?? []) {
+    const evidence = evidenceFor(value?.evidence, document.turns);
+    const prior = previous.find(item => item.id === value?.id);
+    if (!keysOnly(value, ['id', 'evidence']) || !requiredFields.some(field => field.id === value.id) || !evidence
+      || evidence.every(item => unclearConfirmation(document.turns.find(turn => turn.id === item.turnId)))
+      || (prior && evidencePosition(evidence) < evidencePosition(prior.evidence))) continue;
+    invalidated.set(value.id, evidencePosition(evidence));
+  }
+  const fresh = new Map();
+  for (const value of result.proposals) {
     let proposal = validateProposal(value, document.turns);
-    if (!proposal || (requiredInterview(document) && proposal.kind === 'beena') || seen.has(proposal.id)) return [];
+    if (!proposal || (requiredInterview(document) && proposal.kind === 'beena')) continue;
+    const correctionPosition = invalidated.get(proposal.id);
+    if (correctionPosition !== undefined && evidencePosition(proposal.evidence) < correctionPosition) continue;
     if (needsClarification && proposal.evidence.some(item => item.turnId === last?.id)) {
       const prior = previous.find(item => item.id === proposal.id && JSON.stringify(item.values) === JSON.stringify(proposal.values));
-      if (!prior) return [];
-      proposal = prior;
+      if (correctionPosition === undefined) {
+        if (!prior) continue;
+        proposal = prior;
+      }
     }
-    seen.add(proposal.id);
-    return [proposal];
-  });
+    const duplicate = fresh.get(proposal.id);
+    if (!duplicate || evidencePosition(proposal.evidence) > evidencePosition(duplicate.evidence)) fresh.set(proposal.id, proposal);
+    else if (evidencePosition(proposal.evidence) === evidencePosition(duplicate.evidence)
+      && JSON.stringify(proposal.values) !== JSON.stringify(duplicate.values)) fresh.set(proposal.id, { ...duplicate, needsClarification: true });
+  }
+  // Signup extraction is cumulative. Omitting an unaffected earlier answer is
+  // not a retraction; only a grounded correction can withdraw or replace it.
+  const retained = new Map(requiredInterview(document) ? previous.filter(value => !invalidated.has(value.id)).map(value => [value.id, value]) : []);
+  for (const proposal of fresh.values()) {
+    const prior = retained.get(proposal.id);
+    if (!prior || evidencePosition(proposal.evidence) >= evidencePosition(prior.evidence)) retained.set(proposal.id, proposal);
+  }
+  const proposals = [...retained.values()];
   // Previously captured fields help avoid re-asking because an extraction
   // accidentally omitted one. These values never enter confirmable results.
-  const coverage = new Map(previous.map(value => [value.id, value]));
+  const coverage = new Map(previous.filter(value => !invalidated.has(value.id)).map(value => [value.id, value]));
   for (const proposal of proposals) coverage.set(proposal.id, proposal);
   const routing = { ...document, proposals: requiredInterview(document) ? proposals : [...coverage.values()] };
   const followUp = result.followUp && result.questionTopic === last?.topic;
@@ -379,7 +409,9 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   }
   const question = focusedQuestion(next, routing);
   const revisiting = next && document.turns.some(turn => turn.topic === next.id);
-  if (question && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
+  const pendingIds = new Set(missingFields(routing, next).map(field => field.id));
+  const targetsMissing = result.questionFields === undefined || (result.questionFields.length > 0 && result.questionFields.every(id => pendingIds.has(id)));
+  if (question && targetsMissing && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
     question.text = result.question.trim();
     question.suggestions = questionSuggestions(result.quickReplies, question.text);
   }

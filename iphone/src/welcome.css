@@ -153,8 +153,8 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-hero-copy h1 em { color: #fff; }
 .wd-welcome .wd-hero-copy > p { color: #f0e9df; font-size: 14px; line-height: 1.85; max-width: 35ch; }
 .wd-hero-actions { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 22px; }
-.wd-welcome .wd-hero-actions .wd-welcome-primary { width: 100%; background: #fcfaf6; color: #54152a; border-radius: 9px; min-height: 52px; }
-.wd-welcome .wd-hero-actions .wd-welcome-primary:hover { background: #eee8df; }
+.wd-welcome .wd-hero-actions .wd-welcome-primary { width: 100%; justify-content: space-between; padding-inline: 22px; background: #54152a; color: #fffaf4; border: 1px solid #ffffff30; border-radius: 14px; min-height: 54px; font-weight: 600; box-shadow: 0 4px 16px #17171320; transition: background 180ms ease; }
+.wd-welcome .wd-hero-actions .wd-welcome-primary:hover { background: #68213a; }
 .wd-welcome-explore { justify-content: center; color: #f4eee6; }
 .wd-hero-note { margin: 6px 0 0; color: #ded4c7; justify-content: center; font-size: 10px; }
 .wd-welcome[data-opening] > .wd-welcome-hero { animation: none; }

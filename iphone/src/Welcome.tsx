@@ -51,8 +51,8 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     launchRef.current?.focus({ preventScroll: true });
-    const dock = window.setTimeout(() => setDocking(true), 950);
-    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2450);
+    const dock = window.setTimeout(() => setDocking(true), 800);
+    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2150);
     return () => { window.clearTimeout(dock); window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
   }, [introducing]);
   function skipIntro() {
@@ -62,14 +62,12 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   function begin() { feedback('selection'); onRegister(); }
 
   return <>
-    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
+    {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onPointerDown={skipIntro} onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
-      if (event.key === 'Tab') { const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button')); const i = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(i + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus(); }
+      if (event.key === 'Tab') { event.preventDefault(); skipIntro(); }
     }}>
       <div className="wd-launch-door" aria-hidden="true"><img src="/brand/welcome/shared-future.webp" alt=""/></div>
-      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/><p>يا هلا. لبداية على بيّنة.</p></div>
-      <button type="button" className="wd-launch-skip" onClick={skipIntro}>تخطي المقدمة <ArrowLeft size={14} aria-hidden="true"/></button>
-      <button type="button" className="wd-launch-begin" onClick={() => { setIntroducing(false); begin(); }}>ابدأ التعارف <ArrowLeft size={16}/></button>
+      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/></div>
     </div>, document.body)}
     <main inert={introducing || undefined} aria-hidden={introducing || undefined} className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
     <header className="wd-welcome-nav">

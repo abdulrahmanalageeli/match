@@ -887,6 +887,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         exitPreview={demo && newDemoIntake ? exitDemo : undefined}
         demo={demo} draftRef={intakeDraft}
         draftOwner={demo ? 'demo-'+sampleSession : live?.user.id}
+        defaultContact={demo ? undefined : live?.user.email ?? undefined}
         interviewAuth={tester ? {testSession:tester.session} : !demo && token ? {token} : null}
         accountAgreements={accountAgreements}
         previouslyApproved={!demo && (accepted || Boolean(live?.user.profileReviewPending))}

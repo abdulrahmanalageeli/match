@@ -11,6 +11,11 @@ import type { InterviewProposal, InterviewSnapshot } from './types';
 import './interview.css';
 
 const number = (value: number) => value.toLocaleString('ar-SA');
+const interviewChapters = [
+  { id: 'self', label: 'حياتك وشخصيتك', shortLabel: 'أنت', topics: ['intent', 'communication'] },
+  { id: 'partner', label: 'الشريك اللي يناسبك', shortLabel: 'الشريك', topics: ['closeness', 'family'] },
+  { id: 'shared', label: 'الحياة الزوجية', shortLabel: 'الحياة معًا', topics: ['practical', 'everyday'] },
+] as const;
 type ProfileChoice = Pick<ProfileProposal, 'id' | 'fieldId' | 'values' | 'mode' | 'exclude'>;
 type MessageChange = { id: string; title: string; value: string; changed: boolean; profile: boolean };
 const captureSignature = (proposal: { values: string[]; mode?: unknown; exclude?: unknown }) => JSON.stringify([proposal.values, proposal.mode, proposal.exclude]);
@@ -316,12 +321,15 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const captureBadge=(change:MessageChange)=>change.profile&&profileField(change.id.slice('profile:'.length))?.sensitive&&!sensitiveProfileAllowed?'معلّق للموافقة':change.changed?'تغيّر':'أُضيف للملخص';
   const currentTopic = topics.find(topic => topic.id === doc?.currentQuestion?.topic);
   const coverage = snapshot.coverage;
-  const progress = coverage?.required ? Math.min(1, Math.max(0, coverage.answered / coverage.required)) : 0;
-  const progressLabel = progress >= .85 ? 'نوضح آخر التفاصيل' : progress >= .45 ? 'الصورة تتضح' : 'نتعرّف إليك';
+  const chapterIndex = Math.max(0, ...[...(doc?.turns ?? []).map(turn => turn.topic), doc?.currentQuestion?.topic]
+    .filter((topic): topic is string => Boolean(topic))
+    .map(topic => interviewChapters.findIndex(chapter => chapter.topics.some(chapterTopic => chapterTopic === topic)))
+    .filter(index => index >= 0));
+  const activeChapter = interviewChapters[chapterIndex] ?? interviewChapters[0];
   const responding = busy === 'answer' || busy === 'retry' || queuedIntent === 'answer';
   const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
-  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ الحفظ…' : draftState === 'error' ? 'تعذّر حفظ آخر كتابة' : 'محفوظ بخصوصية';
+  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : 'حفظنا آخر تعديل';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
@@ -358,7 +366,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <h1 id="wi-title" ref={heading} tabIndex={-1}>نتعرّف إليك، بكلماتك.</h1>
           <p className="wi-lead">حوار خفيف عن حياتك وما تريده من الزواج. إجابة واحدة قد توضّح أكثر من جانب، ثم تراجع ملخصك مرة واحدة.</p>
           <p className="wi-screening-note"><HeartHandshake size={16} aria-hidden="true"/>جزء من طلب العضوية، لتوضيح نية الزواج وتوقعاتك.</p>
-          {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على تحليل إجاباتي بالذكاء الاصطناعي لتكوين تقييمي، وحفظ الجلسة بشكل خاص في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>تُرسل إجابات الجلسة إلى مزوّد معالجة خارجي، وتُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. لا ترسل أرقام هوية أو معلومات تخص أشخاصًا آخرين. الحوار لا يظهر للأعضاء.</p><p>هذا مرافق آلي للتعارف، وليس مستشارًا بشريًا أو تشخيصًا نفسيًا. تُراجع الإجابات قبل اعتمادها.</p></details></div>}
+          {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على تحليل إجاباتي بالذكاء الاصطناعي لتكوين تقييمي، وحفظ الجلسة بشكل خاص في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>تُرسل إجابات الجلسة إلى مزوّد معالجة خارجي، وتُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. لا ترسل أرقام هوية أو معلومات تخص أشخاصًا آخرين. الحوار لا يظهر للأعضاء.</p><p>هذا مرافق آلي لفهم التوافق، وليس مستشارًا بشريًا أو تشخيصًا نفسيًا. تُراجع الإجابات قبل اعتمادها.</p></details></div>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
         </section>
         : profileReview ? <section className="wi-profile-review">
@@ -378,10 +386,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             const group = validProposals.filter(proposal => side === 'personality' ? proposal.kind === 'personality' : proposal.kind !== 'personality' && proposal.side === side);
             if (!group.length) return null;
             const needsCorrection = group.some(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length);
-            return <details className="wi-review-group" key={side} open={needsCorrection || undefined}><summary><span><strong>{side === 'personality' ? 'طريقتك في الحياة والتواصل' : side === 'self' ? 'عن حياتك' : side === 'partner' ? 'ما تريده في شريكك' : 'أولوياتك'}</strong><small>{number(group.length)} إجابة · {needsCorrection ? 'تحتاج توضيحك' : 'عرض التفاصيل والتعديل'}</small></span><ChevronDown size={17}/></summary><div className="wi-review-rows">{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div></details>;
+            return <details className="wi-review-group" key={side} open={needsCorrection || undefined} data-attention={needsCorrection || undefined}><summary><span><strong>{side === 'personality' ? 'طريقتك في الحياة والتواصل' : side === 'self' ? 'عن حياتك' : side === 'partner' ? 'ما تريده في شريكك' : 'أولوياتك'}</strong><small>{needsCorrection ? 'تحتاج نقطة إلى توضيحك' : 'جاهز للمراجعة والتعديل'}</small></span><span className="wi-review-state" aria-hidden="true">{needsCorrection ? 'راجع' : <Check size={14}/>}</span><ChevronDown size={17}/></summary><div className="wi-review-rows">{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div></details>;
 
           }) : <div className="wi-notice"><p>لم يتكوّن ملخص واضح بعد. نحتاج أن نكمل الحوار دون تخمين إجاباتك.</p></div>}
-          {!!profileProposals.length && <details className="wi-review-group wi-profile-group"><summary><span><strong>ملفك وما يناسبك في الشريك</strong><small>{number(profileProposals.length)} تفاصيل من الحوار · راجعها قبل الاعتماد</small></span><ChevronDown size={17}/></summary><div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div></details>}
+          {!!profileProposals.length && <details className="wi-review-group wi-profile-group"><summary><span><strong>ملفك وما يناسبك في الشريك</strong><small>مسودة من كلامك · راجعها قبل الإضافة</small></span><ChevronDown size={17}/></summary><div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div></details>}
           {!!doc.readiness.length && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
           {!!doc.clarifications.length && <details className="wi-private-notes"><summary>نقاط للحوار لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
           {!fallbackReview && <details className="wi-sharing-options"><summary>مشاركة الملخص مع فريق العضوية <ChevronDown size={14}/></summary><label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط.<small>اختياري. الحوار وإجابات التوافق تبقى خاصة.</small></span></label>{shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}{sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة، دون تغيير إجابات ملفك.</p>}</details>}
@@ -391,8 +399,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         </section>
         : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
           <div className="wi-session-compass">
-            <div className="wi-chat-context"><span><HeartHandshake size={15}/>{progressLabel}</span><span><LockKeyhole size={12}/> حوار خاص</span></div>
-            {coverage && <div className="wi-session-progress" role="progressbar" aria-label="النقاط التي اتضحت من الحوار" aria-valuemin={0} aria-valuemax={coverage.required} aria-valuenow={coverage.answered}><span style={{transform:`scaleX(${progress})`}}/></div>}
+            <div className="wi-chat-context"><span><HeartHandshake size={15}/>{activeChapter.label}</span><span><LockKeyhole size={12}/> خاص · لا يظهر للأعضاء</span></div>
+            <ol className="wi-session-milestones" aria-label="مراحل جلسة التوافق">
+              {interviewChapters.map((chapter,index)=><li key={chapter.id} data-state={index<chapterIndex?'done':index===chapterIndex?'current':'next'} aria-current={index===chapterIndex?'step':undefined} aria-label={chapter.label}><i aria-hidden="true">{index<chapterIndex?<Check size={10}/>:index+1}</i><span>{chapter.shortLabel}</span></li>)}
+            </ol>
             {!!profileProposals.length && <button className="wi-profile-summary-link" type="button" onClick={()=>setProfileReview(true)} disabled={actionBlocked}><span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل لملفك وتفضيلاتك</span><span>مراجعة <ArrowLeft size={13}/></span></button>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
@@ -411,7 +421,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <form className="wi-composer" data-opening={openingTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يعنيه لك الزواج الجاد والخطوة الرسمية. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
             {openingTurn && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
-            {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div>}
+            {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-help' : undefined} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
             <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>

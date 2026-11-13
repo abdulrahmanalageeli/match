@@ -18,9 +18,10 @@ async function api(body:Record<string,unknown>){
  return value;
 }
 function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(result:SignupVerification|null)=>void}){
- const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true);
+ const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true),phoneInput=useRef<HTMLInputElement>(null),codeInput=useRef<HTMLInputElement>(null);
  const [phone,setPhone]=useState(''),[code,setCode]=useState(''),[proof,setProof]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[duplicate,setDuplicate]=useState(false),[cooldown,setCooldown]=useState(0);
  useEffect(()=>{dialog.current?.showModal();return()=>{alive.current=false;};},[]);
+ useEffect(()=>{requestAnimationFrame(()=>{(proof?codeInput:phoneInput).current?.focus({preventScroll:true});});},[proof]);
  useEffect(()=>{if(cooldown<=0)return;const timer=setTimeout(()=>setCooldown(n=>n-1),1000);return()=>clearTimeout(timer);},[cooldown]);
  async function send(){
   if(busy||cooldown>0)return;setError('');setBusy(true);
@@ -34,18 +35,19 @@ function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(res
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'تعذّر تأكيد الرمز.');}
   finally{if(alive.current)setBusy(false);}
  }
- return <dialog ref={dialog} className="nf-sms-dialog" dir="rtl" aria-labelledby="signup-sms-title" onCancel={e=>{e.preventDefault();if(!busy)done(null);}}>
-  <button className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
+ return <dialog ref={dialog} className="nf-sms-dialog" dir="rtl" aria-labelledby="signup-sms-title" aria-describedby="signup-sms-description" onCancel={e=>{e.preventDefault();if(!busy)done(null);}}>
+  <button type="button" className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
   <ShieldCheck size={28}/><p className="nf-sms-eyebrow">حسابك · خطوة الأمان</p><h2 id="signup-sms-title">{proof?'رمز واحد، وبداية أوثق':'نؤكّد رقم جوالك'}</h2>
-  <p>{proof?'أدخل رمز التحقق الذي وصلك برسالة نصية. رقمك لا يظهر للأعضاء.':'نرسل لك رمزًا برسالة نصية لتأكيد رقم جوالك. رقمك لا يظهر للأعضاء.'}</p>
+  <p id="signup-sms-description">{proof?'أدخل رمز التحقق الذي وصلك برسالة نصية. رقمك لا يظهر للأعضاء.':'نرسل لك رمزًا برسالة نصية للتأكد من أنك تملك الرقم. رقمك لا يظهر للأعضاء.'}</p>
+  {!proof&&<p className="nf-sms-precision">تأكيد الجوال يحمي الحساب، لكنه لا يُعد تحققًا من الهوية الوطنية.</p>}
   {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر خلال فترة الاختبار.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
-   <label>رقم الجوال<input type="tel" dir="ltr" autoComplete="tel" placeholder="05XXXXXXXX" required value={phone} disabled={busy} readOnly={Boolean(proof)} onChange={e=>setPhone(e.target.value)}/></label>
-   {proof&&<label>رمز التحقق<input className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} onChange={e=>setCode(e.target.value.replace(/[^0-9٠-٩]/g,''))}/></label>}
+   <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} readOnly={Boolean(proof)} onChange={e=>setPhone(e.target.value)}/></label>
+   {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} onChange={e=>setCode(e.target.value.replace(/[^0-9٠-٩]/g,''))}/></label>}
    {error&&<p role="alert" className="form-error">{error}</p>}
    <button className="f-primary" disabled={busy||(!proof&&cooldown>0)}>{busy?'لحظات…':!proof&&cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:proof?'تأكيد وإنشاء حسابي':'إرسال رمز التحقق'}</button>
   </form>
-  {proof&&<div className="nf-sms-links"><button disabled={busy||cooldown>0} onClick={()=>void send()}>{cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:'إرسال رمز جديد'}</button><button disabled={busy} onClick={()=>{setProof('');setCode('');setError('');}}>تعديل الرقم</button></div>}
+  {proof&&<div className="nf-sms-links"><button type="button" aria-live="polite" disabled={busy||cooldown>0} onClick={()=>void send()}>{cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:'إرسال رمز جديد'}</button><button type="button" disabled={busy} onClick={()=>{setProof('');setCode('');setError('');}}>تعديل الرقم</button></div>}
  </dialog>;
 }
 export async function confirmSignupSms(email:string):Promise<SignupVerification|null>{

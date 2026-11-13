@@ -32,6 +32,11 @@
 .wd-slide-ai-note div{display:grid;gap:3px}
 .wd-slide-ai-note strong{font-size:13px;line-height:1.65}
 .wd-slide-ai-note span{font-size:12px;line-height:1.75;color:#776a71}
+.wd-slide-draft-note{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid #dfe4dc;border-radius:15px;background:#f8faf6;color:#53614f}
+.wd-slide-draft-note>svg{flex:none;margin-top:2px}
+.wd-slide-draft-note>div{display:grid;gap:2px}
+.wd-slide-draft-note strong{font-size:13px;line-height:1.65}
+.wd-slide-draft-note span{font-size:12px;line-height:1.7;color:#6d756a}
 .wd-slide-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-inline:3px;color:#91848a;font-size:11px;min-height:42px}
 .wd-slide-foot button{display:flex;align-items:center;gap:4px;border:0;background:none;color:#65545d;font:inherit;font-size:13px;min-height:44px;padding:0 3px}
 .wd-slide-error{margin:16px 0 0;font-size:13px;line-height:1.8;color:#8b2945}

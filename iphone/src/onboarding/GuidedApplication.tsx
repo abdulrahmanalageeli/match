@@ -60,6 +60,7 @@ type Props = {
   demo?: boolean;
   interviewAuth?: InterviewAuth | null;
   accountAgreements?: SignupAgreements | null;
+  defaultContact?: string;
 };
 
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, review: CheckCheck };
@@ -71,6 +72,21 @@ const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
   beena:['beena'],
   preferences:['preferredMinAge','preferredMaxAge','familyPreference','contact'],
 };
+
+const registrationMilestones = [
+  { key: 'basics', label: 'الأساسيات', chapters: ['identity'] },
+  { key: 'assessment', label: 'جلسة التوافق', chapters: ['compatibility'] },
+  { key: 'details', label: 'تفاصيلك', chapters: ['details'] },
+  { key: 'criteria', label: 'معايير الشريك', chapters: ['criteria', 'preferences'] },
+  { key: 'profile', label: 'ملفك وصورتك', chapters: ['story', 'avatar'] },
+  { key: 'review', label: 'المراجعة', chapters: ['review'] },
+] as const satisfies ReadonlyArray<{ key: string; label: string; chapters: readonly Chapter[] }>;
+
+function withDefaultContact(draft: ApplicationDraft, value?: string): ApplicationDraft {
+  const contact = value?.trim();
+  if (!contact || draft.baseline !== 'new' || draft.answers.contact.trim()) return draft;
+  return { ...draft, answers: { ...draft.answers, contact } };
+}
 
 function ReviewGroup({ title, edit, children, visible=true, expanded=false }: { title: string; edit: () => void; children: ReactNode; visible?:boolean; expanded?:boolean }) {
   if(!visible)return null;
@@ -177,7 +193,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
 }
 
 export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
-  includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null }: Props) {
+  includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
   const [aiComplete, setAiComplete] = useState(false);
@@ -190,7 +206,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     const saved = draftOwner && draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline
       ? draftRef.current : initialDraft(draftOwner, initial);
     const step = startAt ?? saved.step;
-    return {...saved, step: !initial && ["personality", "beena"].includes(step) ? "compatibility" : step, returnToReview: startAt ? Boolean(initial) : saved.returnToReview};
+    return withDefaultContact({...saved, step: !initial && ["personality", "beena"].includes(step) ? "compatibility" : step, returnToReview: startAt ? Boolean(initial) : saved.returnToReview}, defaultContact);
   });
   const [assessmentPath, setAssessmentPath] = useState<'choice'|'questions'>(() =>
     dimensions.some(d => d.options.some(o => o.code === draft.answers.surveyAnswers?.[d.id] || o.code === draft.answers.surveyAnswers?.[d.partnerId])) ? 'questions' : 'choice');
@@ -247,10 +263,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const previousStep = useRef(draft.step);
   const direction = useRef<"next" | "back">("next");
   const editing = Boolean(initial);
-  const registrationOrder: Chapter[] = ['identity','story','details','avatar','compatibility','criteria','preferences','review'];
+  const registrationOrder: Chapter[] = ['identity','compatibility','details','criteria','preferences','story','avatar','review'];
   const steps = (editing ? chapters : registrationOrder.map(key => chapters.find(entry => entry.key === key)!)).filter(entry => includeCompatibility || !['compatibility','criteria','personality','beena'].includes(entry.key));
   const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
   const chapter = steps[idx];
+  const milestones = registrationMilestones.filter(milestone => milestone.chapters.some(key => steps.some(step => step.key === key)));
+  const milestoneIdx = Math.max(0, milestones.findIndex(milestone => (milestone.chapters as readonly Chapter[]).includes(chapter.key)));
+  const milestone = milestones[milestoneIdx];
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
@@ -288,6 +307,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
       setFallbackAvailable(snapshot.fallbackAvailable === true);
+      if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
       const knownProfileFields = new Set(profileContextFromAnswers(current.current.answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
       const restoreProfile = (snapshot.document?.profileConfirmed ?? []).filter(field => !knownProfileFields.has(field.fieldId));
       if (restoreProfile.length) update(applyProfileProposals(current.current.answers, restoreProfile, consentRef.current.sensitiveProfile));
@@ -303,7 +323,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }, [checkingDevice, editing, interviewAuth?.token, interviewAuth?.testSession]);
   useEffect(() => {
     if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
-      const fresh = initialDraft(draftOwner, latestInitial.current);
+      const fresh = withDefaultContact(initialDraft(draftOwner, latestInitial.current), defaultContact);
       current.current = fresh;
       touched.current = false;
       if (draftRef) draftRef.current = null;
@@ -321,6 +341,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     void intakeVault.load(draftOwner, baseline, lease.current).then(restored => {
       if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
       if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
+      restored=withDefaultContact(restored,defaultContact);
       if(!latestInitial.current && ['personality','beena'].includes(restored.step)) restored.step='compatibility';
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
 
@@ -338,7 +359,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     }).catch(() => { if (active && !touched.current) { loadFailed.current = true; setStorageState("loadError"); } })
       .finally(() => { if (active) setCheckingDevice(false); });
     return () => { active = false; };
-  }, [baseline, deviceDraft, draftOwner, draftRef, includeCompatibility, restoreAttempt, startAt]);
+  }, [baseline, defaultContact, deviceDraft, draftOwner, draftRef, includeCompatibility, restoreAttempt, startAt]);
   function privateSnapshot():ApplicationDraft {
     const choices=consentRef.current;
     let answers=choices.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
@@ -503,9 +524,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
         <div className="nf-intake-progress">
-          <div className="nf-intake-kicker"><span>{editing ? 'ملفك / ' : ''}{chapter.label}</span><span>{editing ? 'تعديل الملف' : `${arabicNumber(idx + 1)} / ${arabicNumber(steps.length)}`}</span></div>
-          {!editing && <div className="nf-intake-meter" aria-label="تقدم إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-valuetext={`الخطوة ${arabicNumber(idx + 1)} من ${arabicNumber(steps.length)}: ${chapter.label}`}>
-            {steps.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < idx ? "done" : n === idx ? "current" : undefined} />)}
+          <div className="nf-intake-kicker"><span>{editing ? `ملفك / ${chapter.label}` : milestone?.label ?? chapter.label}</span><span>{editing ? 'تعديل الملف' : `المرحلة ${arabicNumber(milestoneIdx + 1)} من ${arabicNumber(milestones.length)}`}</span></div>
+          {!editing && <div className="nf-intake-meter" aria-label="مراحل إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={milestones.length} aria-valuenow={milestoneIdx + 1} aria-valuetext={`المرحلة ${arabicNumber(milestoneIdx + 1)} من ${arabicNumber(milestones.length)}: ${milestone?.label ?? chapter.label}`}>
+            {milestones.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < milestoneIdx ? "done" : n === milestoneIdx ? "current" : undefined} />)}
           </div>}
         </div>
         {assessmentStep&&<WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
@@ -520,7 +541,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility} aiDraftsReady={chapter.key==='story'&&interviewApplied}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">

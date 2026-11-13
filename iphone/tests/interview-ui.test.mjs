@@ -94,6 +94,15 @@ test('the active experience is an ordered conversation with a composer and no su
   assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));const input=nodes(tree).find(node=>node.type==='textarea');assert.equal(input.props.dir,'rtl');assert.equal(input.props.lang,'ar');assert.equal(input.props.wrap,'soft');assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
 });
 
+test('adaptive progress uses calm milestones without exposing a numeric assessment total', async () => {
+  const document={...baseDocument(),turns:[{id:'t1',topic:'communication',question:'كيف تتعامل مع الاختلاف؟',answer:'بهدوء',skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور دور الأهل؟',suggestions:[]}};
+  const ui=mount({document,revision:2,coverage:{answered:17,required:44}});ui.render();await tick();const tree=ui.render();
+  const milestones=nodes(tree).find(node=>node.type==='ol'&&node.props.className==='wi-session-milestones');
+  assert.ok(milestones);assert.match(textOf(milestones),/أنت.*الشريك.*الحياة معًا/);
+  assert.equal(nodes(tree).find(node=>node.props?.role==='progressbar'),undefined);
+  assert.match(textOf(tree),/خاص · لا يظهر للأعضاء/);assert.doesNotMatch(textOf(tree),/17|44|١٧|٤٤/);ui.unmount();
+});
+
 test('the first turn invites one rich introduction before switching to compact gap questions', async () => {
   const ui=mount({document:baseDocument(),revision:1});ui.render();await tick();let tree=ui.render();
   const form=nodes(tree).find(node=>node.type==='form'&&node.props.className==='wi-composer');
@@ -149,6 +158,7 @@ test('one explicit confirmation applies the whole summary without per-answer app
 test('quick replies send the exact choice once without opening a confirmation or replacing a draft', async () => {
   const document={...baseDocument(),currentQuestion:{topic:'family',text:'هل ترغب في الإنجاب؟',suggestions:['نعم، أرغب في الإنجاب','لا أرغب في الإنجاب']}};
   const ui=mount({document,revision:1});ui.render();await tick();let tree=ui.render();
+  assert.match(textOf(tree),/اختر الأقرب لك، أو اكتب إجابتك بطريقتك/);
   const quick=find(tree,'نعم، أرغب في الإنجاب');assert.ok(quick);quick.props.onClick();await tick();tree=ui.render();
   assert.equal(ui.calls.filter(call=>call.action==='answer').length,1);
   assert.equal(ui.calls.find(call=>call.action==='answer').answer,'نعم، أرغب في الإنجاب');assert.equal(ui.applied.length,0);
@@ -181,6 +191,16 @@ test('manual fallback is available only after the server confirms a recoverable 
   const initial={document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[proposal],pendingAnalysis:true},revision:2};
   const without=mount(initial);without.render();await tick();assert.equal(find(without.render(),'إكمال الأسئلة مباشرة'),undefined);without.unmount();
   const ui=mount({...initial,fallbackAvailable:true});ui.render();await tick();let tree=ui.render();assert.ok(find(tree,'إكمال الأسئلة مباشرة'));find(tree,'إكمال الأسئلة مباشرة').props.onClick();assert.equal(ui.closed,1);ui.unmount();
+});
+
+test('a successful retry hides the old failure receipt and restores the composer',async()=>{
+ const initial={document:{...baseDocument(),pendingAnalysis:true},revision:2,fallbackAvailable:true};
+ const ui=mount(initial,(payload,snapshot)=>payload.action==='retry'?Promise.resolve({...snapshot,revision:3,document:{...snapshot.document,pendingAnalysis:false,lastMode:'luna'}}):null);
+ ui.render();await tick();let tree=ui.render();
+ assert.match(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.ok(find(tree,'إكمال الأسئلة مباشرة'));assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,true);
+ find(tree,'إعادة المحاولة').props.onClick();await tick();tree=ui.render();
+ assert.doesNotMatch(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,false);
+ ui.unmount();
 });
 
 test('closing during model processing is allowed and never commits answers to the profile', async () => {
@@ -346,14 +366,3 @@ test('unclear unrestricted criteria and sensitive disclosures are not silently a
   const ui=mount({document:{...baseDocument(),profileProposals:[proposal]},revision:1});ui.render();await tick();let tree=ui.render();find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.equal(find(tree,'تفاصيل إلى مسودتي').props.disabled,true);assert.equal(ui.profileApplied.length,0);ui.unmount();
  }
 });
-
-test('a successful retry hides the old failure receipt and restores the composer',async()=>{
- const initial={document:{...baseDocument(),pendingAnalysis:true},revision:2,fallbackAvailable:true};
- const ui=mount(initial,(payload,snapshot)=>payload.action==='retry'?Promise.resolve({...snapshot,revision:3,document:{...snapshot.document,pendingAnalysis:false,lastMode:'luna'}}):null);
- ui.render();await tick();let tree=ui.render();
- assert.match(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.ok(find(tree,'إكمال الأسئلة مباشرة'));assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,true);
- find(tree,'إعادة المحاولة').props.onClick();await tick();tree=ui.render();
- assert.doesNotMatch(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,false);
- ui.unmount();
-});
-

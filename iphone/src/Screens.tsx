@@ -21,6 +21,7 @@ import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
 import './auth/entry.css';
 import { KeyboardDismiss } from './mobile/KeyboardDismiss';
+import { membershipPriceLabel } from './membershipPricing';
 
 type Click = () => void;
 export function Frame({
@@ -141,7 +142,16 @@ export function Auth({
     <Frame back={reviewing ? () => setEntryStep('credentials') : back} backDisabled={locked} title={login ? "تسجيل الدخول" : reviewing ? "مراجعة الحساب" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section className="nf-auth-hero">
         <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : reviewing ? "قبل أن نبدأ" : "حسابك في وُدَين"}</h1>
-        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "راجع الشروط وخيارات الخصوصية، ثم أكمل إنشاء حسابك." : "بريدك وكلمة مرورك. لتعود إلى حسابك متى شئت."}</p>
+        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "راجع الموافقات، ثم نؤكد رقم جوالك السعودي وننشئ حسابك." : "أنشئ حسابك الآمن أولًا؛ بعدها نؤكد الجوال ونحفظ تقدّمك في طلب العضوية."}</p>
+        {!login && !reviewing && <section className="nf-auth-brief" aria-label="مسار طلب العضوية وتكلفته">
+          <p><strong>المسار واضح من البداية</strong><span>لا قبول ولا دفع بمجرد إنشاء الحساب.</span></p>
+          <ul>
+            <li><ShieldCheck size={18} aria-hidden="true"/><span><strong>مراجعة عضوية</strong><small>بعد اكتمال الملف</small></span></li>
+            <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>وتعتمد تفسيرها بنفسك</small></span></li>
+            <li><Check size={18} aria-hidden="true"/><span><strong>٧ أيام بلا دفع</strong><small>لا نطلب بطاقة</small></span></li>
+          </ul>
+          <p className="nf-auth-price">بعد التجربة: {membershipPriceLabel()} شهريًا حسب نوع العضوية. أي شراء لاحق يحتاج موافقتك في Apple.</p>
+        </section>}
       </section>
       <section className="nf-auth-panel">
       {phoneMode && consentReview}
@@ -246,7 +256,7 @@ export function Pending({
       </div>
       <h1>طلبك قيد المراجعة</h1>
       <p className="flow-intro">
-        وصل ملفك، والخطوة الحالية هي مراجعته. بعد الاعتماد نتحقق من توفر عضو تتوافق معه التفضيلات قبل فتح الاشتراك.
+        وصل ملفك، والخطوة الحالية هي مراجعته. بعد المراجعة نوضح لك النتيجة والخطوة المتاحة في حسابك، دون وعد بموعد أو ترشيح محدد.
       </p>
       <div className="flow-card timeline">
         <strong>
@@ -256,10 +266,10 @@ export function Pending({
           <span className="timeline-dot" /> نراجع الملف
         </strong>
         <span>
-          <span className="timeline-dot hollow" /> اعتماد الملف وتوفر ترشيح مناسب
+          <span className="timeline-dot hollow" /> نتيجة المراجعة وإتاحة التعارف عند القبول
         </span>
         <span>
-          <span className="timeline-dot hollow" /> اختيار العضوية وتأكيد الشراء
+          <span className="timeline-dot hollow" /> اختيار العضوية عند توفرها وتأكيد الشراء
         </span>
       </div>
       <div className="flow-card nf-waiting-guidance">

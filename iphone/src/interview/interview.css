@@ -318,6 +318,23 @@ html[data-nf-motion=reduced] .wi-chat-suggestions button { transition:none!impor
 .wi-profile-editor legend{padding:0 0 8px}
 .wi-profile-editor input:not([type=checkbox]),.wi-profile-editor select,.wi-profile-editor textarea{box-sizing:border-box;min-width:0;width:100%;border:1px solid #ded0d9;border-radius:11px;background:#fff;color:#49323f;padding:10px 12px;font:inherit;font-size:16px;line-height:1.65;direction:rtl;text-align:right}
 .wi-profile-editor textarea{resize:vertical;min-height:96px;max-height:220px}
+
+/* Milestones keep the adaptive interview honest without turning it into a 44-item test. */
+.wi-session-milestones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0;margin:0;list-style:none}
+.wi-session-milestones li{min-width:0;display:flex;align-items:center;gap:6px;color:#96868e;font-size:10px;line-height:1.45}
+.wi-session-milestones li:not(:last-child)::after{content:'';height:1px;flex:1;min-width:8px;background:#e7dfe3}
+.wi-session-milestones i{width:18px;height:18px;flex:none;display:grid;place-items:center;border:1px solid #ded3d9;border-radius:50%;color:#8d7d85;font-style:normal;font-size:9px}
+.wi-session-milestones li>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wi-session-milestones [data-state=current]{color:#5e2a42;font-weight:600}
+.wi-session-milestones [data-state=current] i{border-color:#7d425d;background:#7d425d;color:#fff}
+.wi-session-milestones [data-state=done]{color:#66766b}
+.wi-session-milestones [data-state=done] i{border-color:#b8c2ba;background:#eef2ee;color:#627167}
+.wi-choice-intro{margin:0 3px 8px;color:#756b70;font-size:11px;line-height:1.6}
+.wi-review-state{display:grid;place-items:center;min-width:29px;min-height:29px;padding-inline:7px;border-radius:999px;background:#eef3ef;color:#617267;font-size:9px}
+.wi-review-group[data-attention] .wi-review-state{background:#f6ecef;color:#884960}
+html[data-nf-keyboard] .wi-session-milestones{display:none}
+@media(max-width:350px){.wi-session-milestones li>span{display:none}.wi-session-milestones li:not(:last-child)::after{min-width:16px}}
+@media(prefers-reduced-motion:reduce){.wi-session-milestones *{transition:none!important}}
 .wi-profile-editor input[type=checkbox]{accent-color:#702c4e}
 .wi-profile-range{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .wi-profile-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:220px;overflow:auto;overscroll-behavior:contain}

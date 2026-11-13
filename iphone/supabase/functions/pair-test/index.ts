@@ -35,6 +35,11 @@ Deno.serve(async req=>{
    }
    return projectPairState(data);
   };
+  const liveRehamPortrait=async(session:string,id:string)=>{
+   const {data,error}=await client.rpc('nisfayn_test_live_reham_portrait',{test_token:session,photo_id:id});
+   if(error)throw Object.assign(Error(error.code==='42501'?'انتهت الجلسة أو الصورة غير متاحة.':error.message),{status:error.code==='42501'?403:400});
+   return data;
+  };
   const galleryUpload=new URL(req.url).searchParams.get('action')==='gallery_upload';
   const portraitUpload=new URL(req.url).searchParams.get('action')==='portrait_upload';
   const upload=new URL(req.url).searchParams.get('action')==='upload';
@@ -122,7 +127,7 @@ Deno.serve(async req=>{
   }
   if(new URL(req.url).searchParams.get('action')==='portrait_download'){
    if(!validSession(body.session)||!validId(body.payload?.id))return Response.json({error:'يرجى تسجيل الدخول.'},{status:401,headers});
-   const photo=await rpc('portrait_info',body.session,{id:body.payload.id});
+   const photo=await rpc('portrait_info',body.session,{id:body.payload.id})||await liveRehamPortrait(body.session,body.payload.id);
    if(!photo?.path||photo.id!==body.payload.id)throw Error('الصورة غير متاحة.');
    const {data:image,error}=await client.storage.from('nisfayn-profile-portraits').download(photo.path);
    if(error||!image)throw Error('تعذّر تحميل الصورة.');
@@ -138,6 +143,7 @@ Deno.serve(async req=>{
   }
   if(!allowed.has(body.action)||!validSession(body.session))return Response.json({error:'يرجى تسجيل الدخول.'},{status:401,headers});
   let data=await rpc(body.action,body.session,body.payload||{});
+  if(body.action==='portrait_info'&&!data&&validId(body.payload?.id))data=await liveRehamPortrait(body.session,body.payload.id);
   if(body.action==='message_delete'&&data){
    const path=data._deletedMediaPath;delete data._deletedMediaPath;
    if(typeof path==='string'&&chatObjectPath.test(path)){

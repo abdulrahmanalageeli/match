@@ -5,7 +5,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowDown, Check, Compass, HeartHandshake, LockKeyhole, UsersRound } from './BrandIcons';
 import { feedback } from './feedback/haptics';
 import { useDevicePreferences, useSystemReducedMotion } from './settings/preferences';
-import { MotionPressButton } from './motion/Reanimated';
+import { MotionPressButton, MotionReveal } from './motion/Reanimated';
 import './welcome.css';
 
 type WelcomeProps = {
@@ -13,9 +13,9 @@ type WelcomeProps = {
   onDemo?: () => void; onDemoIntake?: () => void; replayIntro?: boolean;
 };
 const previews = [
-  { id: 'discovery', label: 'اكتشف', icon: Compass, title: 'من يناسب حياتك، لا صورتك فقط.', description: 'ملفات تعطيك صورة أوضح عن الشخص، وتفضيلاته، والوقت الذي يتطلع فيه للزواج.', detail: 'تصفية حسب ما يهمّك · اهتمام وطلب تعارف', alt: 'معاينة شاشة اكتشاف الملفات ونسب توافق التفضيلات، ببيانات توضيحية' },
-  { id: 'compatibility', label: 'افهم التوافق', icon: HeartHandshake, title: 'وراء كل نسبة، معنى.', description: 'تفضيلات الحياة، والشخصية، ومواقف «بيننا». افهم ما يجمعكما وما يستحق أن تتحدثا عنه.', detail: 'أسباب مفهومة · أفكار تفتح الحوار', alt: 'معاينة شرح التوافق ونقاط الاتفاق والمواضيع التي تستحق الحوار' },
-  { id: 'journey', label: 'تقدّما معًا', icon: UsersRound, title: 'حديث يعرف خطوته التالية.', description: 'اتفاق على الجدّية والمدة، ثم حصرية بموافقتكما، ومساحة مستقلة للأهل حين تكونان مستعدّين.', detail: 'قرارات مشتركة · خصوصية لحديثكما', alt: 'معاينة مسار التعارف والانتقال إلى الخطوة العائلية بموافقة الطرفين' },
+  { id: 'discovery', label: 'اكتشف', icon: Compass, title: 'أكثر من صورة واسم.', description: 'وش يهمّه؟ كيف يتخيّل حياته؟ ومتى يناسبه الزواج؟ تفاصيل تساعدك تعرف إذا بينكم أرضية مشتركة.', detail: 'تصفية حسب ما يهمّك · اهتمام وطلب تعارف', alt: 'معاينة شاشة اكتشاف الملفات ونسب توافق التفضيلات، ببيانات توضيحية' },
+  { id: 'compatibility', label: 'افهم التوافق', icon: HeartHandshake, title: 'النسبة بداية للسؤال.', description: 'نقارن إجاباتكم عن الحياة والشخصية ومواقف «بيننا». ونوضّح وين تتفقون، ووش يحتاج تتكلمون عنه.', detail: 'أسباب مفهومة · أفكار تفتح الحوار', alt: 'معاينة شرح التوافق ونقاط الاتفاق والمواضيع التي تستحق الحوار' },
+  { id: 'journey', label: 'تقدّما معًا', icon: UsersRound, title: 'من أول حديث، الوجهة واضحة.', description: 'تتفقون على مدة للتعارف وخطوة بعدها. وإذا قررتوا تكملون مع بعض بحصرية، ما تبقى تعارفات ثانية مفتوحة.', detail: 'قرارات مشتركة · خصوصية لحديثكما', alt: 'معاينة مسار التعارف والانتقال إلى الخطوة العائلية بموافقة الطرفين' },
 ] as const;
 function WelcomeLogo({ maskId, className }: { maskId: string; className: string }) {
   return <svg className={className} viewBox="0 0 768 768" aria-hidden="true"><defs><mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
@@ -51,25 +51,9 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     launchRef.current?.focus({ preventScroll: true });
-    const animations: Animation[] = [];
-    const dock = window.setTimeout(() => {
-      const overlay = launchRef.current;
-      if (!overlay) return;
-      for (const [from, to] of [['.wd-launch-emblem', '.wd-welcome-emblem'], ['.wd-launch-wordmark', '.wd-welcome-wordmark']]) {
-        const origin = overlay.querySelector<HTMLElement>(from);
-        const target = document.querySelector<HTMLElement>(to);
-        if (!origin || !target) continue;
-        const a = origin.getBoundingClientRect(), b = target.getBoundingClientRect();
-        origin.style.animation = 'none';
-        animations.push(origin.animate([
-          { transform: 'translate(0,0) scale(1,1)' },
-          { transform: `translate(${b.left-a.left}px,${b.top-a.top}px) scale(${b.width/a.width},${b.height/a.height})` },
-        ], { duration: 950, easing: 'cubic-bezier(.22,.75,.2,1)', fill: 'forwards' }));
-      }
-      setDocking(true);
-    }, 1400);
-    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2370);
-    return () => { window.clearTimeout(dock); window.clearTimeout(timer); animations.forEach(animation => animation.cancel()); document.body.style.overflow = previousOverflow; };
+    const dock = window.setTimeout(() => setDocking(true), 950);
+    const timer = window.setTimeout(() => { setIntroducing(false); setDocking(false); }, 2450);
+    return () => { window.clearTimeout(dock); window.clearTimeout(timer); document.body.style.overflow = previousOverflow; };
   }, [introducing]);
   function skipIntro() {
     setIntroducing(false); setDocking(false);
@@ -80,11 +64,12 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
   return <>
     {introducing && !reduced && !hidden && createPortal(<div ref={launchRef} tabIndex={-1} className="wd-launch-screen" data-docking={docking || undefined} dir="rtl" role="dialog" aria-modal="true" aria-label="مرحبًا بك في وُدَين" onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
-      if (event.key === 'Tab') { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('button')?.focus(); }
+      if (event.key === 'Tab') { const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button')); const i = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(i + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus(); }
     }}>
-      <div className="wd-launch-orbit" aria-hidden="true"/>
-      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/><p>بداية لحياة مشتركة</p></div>
+      <div className="wd-launch-door" aria-hidden="true"><img src="/brand/welcome/shared-future.webp" alt=""/></div>
+      <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/><p>يا هلا. لبداية على بيّنة.</p></div>
       <button type="button" className="wd-launch-skip" onClick={skipIntro}>تخطي المقدمة <ArrowLeft size={14} aria-hidden="true"/></button>
+      <button type="button" className="wd-launch-begin" onClick={() => { setIntroducing(false); begin(); }}>ابدأ التعارف <ArrowLeft size={16}/></button>
     </div>, document.body)}
     <main inert={introducing || undefined} aria-hidden={introducing || undefined} className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
     <header className="wd-welcome-nav">
@@ -96,23 +81,23 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     </header>
 
     <section className="wd-welcome-hero">
-      <div className="wd-hero-copy">
+      <MotionReveal key={introducing ? "opening" : "ready"} className="wd-hero-copy" duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
-        <h1 id="arrival-heading">الوجهة زواج.<br/><em>والبداية توافق.</em></h1>
-        <p>افهم من يناسبك، وابدأ تعارفًا واضحًا يمهّد للخطوة الرسمية. من أول اهتمام، إلى إشراك الأهل.</p>
-        <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ رحلتك <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">شاهد التجربة <ArrowDown size={15} aria-hidden="true"/></a></div>
+        <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
+        <p>من البداية، تعرفون وش يهم كل واحد. وإذا حصل القبول، تكون الخطوة الجاية واضحة لكم ولأهلكم.</p>
+        <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ التعارف <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">كيف يبدأ التعارف؟ <ArrowDown size={15} aria-hidden="true"/></a></div>
         <span className="wd-hero-note"><LockKeyhole size={13} aria-hidden="true"/> لا تبدأ المحادثة إلا بقبول الطرفين</span>
-      </div>
+      </MotionReveal>
       <figure className="wd-hero-art">
-        <picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future-mobile.webp"/><img src="/brand/welcome/shared-future.webp" alt="مشهد تعبيري لشريكين يبدآن حياة مشتركة" width="1200" height="800" fetchPriority="high"/></picture>
-        <figcaption><span>الوجهة</span><strong>حياة تتشاركونها.</strong><span className="wd-art-line" aria-hidden="true"/></figcaption>
+        <picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future.webp"/><img src="/brand/welcome/shared-future.webp" alt="مشهد تعبيري لشريكين يبدآن حياة مشتركة" width="1200" height="800" fetchPriority="high"/></picture>
+
       </figure>
     </section>
 
     <div className="wd-welcome-principles" aria-label="ما يميّز التجربة"><span><Check size={15} aria-hidden="true"/> توافق تفهم أسبابه</span><span><Check size={15} aria-hidden="true"/> تعارف بوقت واضح</span><span><Check size={15} aria-hidden="true"/> خطوة رسمية بموافقتكما</span></div>
 
     <section className="wd-product-story" id="welcome-experience" aria-labelledby="welcome-experience-heading">
-      <div className="wd-product-copy"><span className="wd-welcome-kicker">وُدَين من الداخل</span><h2 id="welcome-experience-heading">كل خطوة،<br/>تقرّب الصورة.</h2><p className="wd-section-intro">مساحة تساعدك على الاختيار، وتمنح كل بداية فرصة حقيقية للفهم.</p>
+      <div className="wd-product-copy"><span className="wd-welcome-kicker">وُدَين من الداخل</span><h2 id="welcome-experience-heading">قبل ما تبدأون،<br/>خلّ الصورة واضحة.</h2><p className="wd-section-intro">مو المطلوب تختار من صورة. خذ وقتك تعرف الشخص، وش يبي، وهل يناسب الحياة اللي تتمناها.</p>
         <div className="wd-preview-controls" role="group" aria-label="استكشف شاشات التطبيق">{previews.map((item,index)=><button type="button" key={item.id} aria-pressed={selected===index} aria-controls={previewId} onClick={()=>setSelected(index)}><item.icon size={17} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></button>)}</div>
         <div className="wd-preview-description" aria-live="polite" aria-atomic="true"><h3>{preview.title}</h3><p>{preview.description}</p><span>{preview.detail}</span></div>
         <WhyWudayn label="تعرّف على منهج وُدَين"/>
@@ -125,9 +110,9 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     </section>
 
     <section className="wd-intention" aria-labelledby="welcome-intention-heading"><div className="wd-intention-heading"><span className="wd-welcome-kicker">الجدّية في تفاصيل التجربة</span><h2 id="welcome-intention-heading">فرصة للتعارف.<br/>ومساحة لاتخاذ قرار.</h2></div><ol className="wd-intention-list">
-      <li><span>٠١</span><div><h3>اهتمامك له قيمة</h3><p>تعارفان في الوقت نفسه كحد أقصى، لتمنح كل بداية وقتها واهتمامها.</p></div></li>
-      <li><span>٠٢</span><div><h3>نيّة ومدة واضحتان</h3><p>اتفاق قبل المحادثة يوضّح وجهة التعارف ومدته. وكل خطوة جديدة، بموافقتكما.</p></div></li>
-      <li><span>٠٣</span><div><h3>للأهل مكان، ولكما خصوصيتكما</h3><p>خطّطوا للخطوة الرسمية في مساحة منفصلة، دون مشاركة محادثتكما الخاصة.</p></div></li>
+      <li><span>٠١</span><div><h3>اهتمامك له قيمة</h3><p>تقدر تتعرف على شخصين كحد أقصى في نفس الوقت. عشان تعطي كل تعارف حقّه.</p></div></li>
+      <li><span>٠٢</span><div><h3>نيّة ومدة واضحتان</h3><p>قبل أول رسالة، تتفقون على الجدية والمدة والخطوة الجاية. ما يصير انتقال لمرحلة جديدة إلا بموافقتكم.</p></div></li>
+      <li><span>٠٣</span><div><h3>للأهل مكان، ولكما خصوصيتكما</h3><p>إذا جاء وقت الأهل، لهم محادثة مستقلة لترتيب الخطوة الرسمية. حديثكم الخاص يبقى بينكم.</p></div></li>
     </ol></section>
 
     <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">صُمّم لبداية تتجاوز التطبيق</span><h2 id="welcome-purpose-heading">أجمل نهاية هنا،<br/>بداية حياتكما معًا.</h2><p>حين تتفقان على التعارف الحصري، تتوقف الترشيحات الجديدة وتُغلق التعارفات الأخرى. لتمنحا قراركما مساحة، وتختارا خطوتكما التالية معًا.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ بما يهمّك فعلًا <ArrowLeft size={19} aria-hidden="true"/></MotionPressButton><span className="wd-purpose-note">التوافق يساعد على الفهم؛ والقرار لكما.</span></section>

@@ -30,7 +30,7 @@ function harness(options = {}) {
       if (command === 'save') state = { ...state, document: structuredClone(payload.document), revision: ++counter };
       if (command === 'delete') state = { document: null, revision: 0 };
       if (command === 'reserve') return Response.json({ status: options.limited ? 'limited' : 'allowed', revision: state.revision });
-      return Response.json(state);
+      return Response.json({ ...state, ...(options.memberGender ? { memberGender: options.memberGender } : {}) });
     },
     clientFactory: config => {
       assert.equal(config.apiKey, 'server-secret');
@@ -214,6 +214,23 @@ test('personality extraction uses the existing statements, exact response scale 
   assert.match(request.messages[0].content, /needsClarification=true/);
   assert.match(request.messages[0].content, /لا تدخل التوافق حتى يراجعها ويؤكدها المستخدم/);
   assert.deepEqual(request.response_format.json_schema.schema.properties.proposals.items.properties.kind.enum, ['preference', 'beena', 'personality']);
+});
+
+test('trusted signup gender keeps Arabic questions and reply choices grammatically consistent', async () => {
+  const womanRequest = interviewCompletionRequest(document(), false, false, 'woman');
+  const womanContext = JSON.parse(womanRequest.messages[1].content);
+  assert.equal(womanContext.memberGender, 'woman');
+  assert.equal(womanContext.partnerGender, 'man');
+  assert.match(womanRequest.messages[0].content, /خاطبها دائمًا بصيغة المؤنث/);
+  assert.match(womanRequest.messages[0].content, /خيارات الرد بصوت امرأة/);
+
+  const manRequest = interviewCompletionRequest(document(), false, false, 'man');
+  assert.match(manRequest.messages[0].content, /خاطبه دائمًا بصيغة المذكر/);
+
+  const h = harness({ memberGender: 'woman' });
+  const started = await start(h);
+  await send(h, started.revision);
+  assert.match(h.modelCalls[0].request.messages[0].content, /خاطبها دائمًا بصيغة المؤنث/);
 });
 
 test('personality proposals require one canonical self response and literal non-skipped evidence', () => {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memberSignupOrigin, memberSignupKind, memberSignupUnavailable, parseMemberSignup, performMemberSignup } from '../supabase/functions/_shared/member-signup.ts';
 
-const input = { email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', adult: true, terms: true, privacy: true } };
+const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', adult: true, terms: true, privacy: true } };
 function fixture(options = {}) {
   const calls = [];
   return { calls, service: {
@@ -15,7 +15,7 @@ test('member creation requires explicit current legal choices and bounded creden
   const valid = parseMemberSignup({ ...input, app_metadata: { role: 'owner', emailOwnershipVerified: true }, email_confirm: true });
   assert.equal(valid.email, 'member@example.com');
   assert.equal('app_metadata' in valid, false);
-  for (const override of [{ email: 'bad address@example.com' }, { email: 'a'.repeat(65) + '@example.com' }, { password: 'short' }, { password: 'ع'.repeat(37) }, { consent: { ...input.consent, adult: false } }, { consent: { ...input.consent, terms: false } }, { consent: { ...input.consent, privacy: false } }, { consent: { ...input.consent, version: 'old' } }]) assert.throws(() => parseMemberSignup({ ...input, ...override }));
+  for (const override of [{phoneProof:undefined},{deviceId:undefined},{phoneProof:"forged"},{ email: 'bad address@example.com' }, { email: 'a'.repeat(65) + '@example.com' }, { password: 'short' }, { password: 'ع'.repeat(37) }, { consent: { ...input.consent, adult: false } }, { consent: { ...input.consent, terms: false } }, { consent: { ...input.consent, privacy: false } }, { consent: { ...input.consent, version: 'old' } }]) assert.throws(() => parseMemberSignup({ ...input, ...override }));
 });
 
 test('only exact member origins and explicit HTTPS deployments pass CORS', () => {
@@ -37,6 +37,9 @@ test('creation follows the committed limiter decision, uses server metadata, and
   assert.equal(created.email_confirm, true);
   assert.equal(created.app_metadata.signupKind, memberSignupKind);
   assert.equal(created.app_metadata.emailOwnershipVerified, false);
+  assert.match(created.app_metadata.signupPhoneProof,/^[a-f0-9]{64}$/);
+  assert.notEqual(created.app_metadata.signupPhoneProof,input.phoneProof);
+  assert.match(created.app_metadata.signupDeviceHash,/^[a-f0-9]{64}$/);
   assert.equal(created.app_metadata.role, undefined);
   assert.equal(created.user_metadata, undefined);
   assert.equal(created.app_metadata.signupConsent.adult, true);

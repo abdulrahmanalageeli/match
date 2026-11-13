@@ -1,3 +1,4 @@
+import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
 import {TestingTrial} from './TestingTrial';
@@ -528,13 +529,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
     };
   }, [ios, accepted, demo, view]);
 
-  function signIn(email: string, password: string, consent?: SignupAgreements) {
+  function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
       const endpoint = view === "login" ? "/login" : "/register";
       const result = await request<
         | { token: string; state: AccountState; needsConfirmation?: false }
         | { needsConfirmation: true }
-      >(endpoint, "POST", undefined, { email, password, consent });
+      >(endpoint, "POST", undefined, { email, password, consent, ...verification });
       if (result.needsConfirmation) {
         go("login");
         setNotice("أرسلنا لك رابط تأكيد البريد. افتح الرابط ثم سجّل الدخول.");
@@ -874,6 +875,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         exitPreview={demo && newDemoIntake ? exitDemo : undefined}
         demo={demo} draftRef={intakeDraft}
         draftOwner={demo ? 'demo-'+sampleSession : live?.user.id}
+        interviewAuth={tester ? {testSession:tester.session} : !demo && token ? {token} : null}
         previouslyApproved={!demo && (accepted || Boolean(live?.user.profileReviewPending))}
         nextPublicProfileEditAt={live?.user.nextPublicProfileEditAt}
         profileReviewPending={Boolean(live?.user.profileReviewPending)}

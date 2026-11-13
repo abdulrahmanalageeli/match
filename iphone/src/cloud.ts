@@ -144,7 +144,7 @@ export async function cloudRequest(
       password: String(p.password),
     };
     if (path === "/register") {
-      const created = await cloud.functions.invoke('member-signup', { body: { ...credentials, consent: p.consent } });
+      const created = await cloud.functions.invoke('member-signup', { body: { ...credentials, consent: p.consent, phoneProof:p.phoneProof, deviceId:p.deviceId } });
       if (created.error) {
         const response = (created.error as { context?: Response }).context;
         const detail = response instanceof Response ? await response.clone().json().catch(() => null) : null;
@@ -156,6 +156,7 @@ export async function cloudRequest(
     if (result.error) authFailure(result.error);
     if (!result.data.session) return { needsConfirmation: true };
     const token = result.data.session.user.id;
+    void import('./auth/registrationDevice').then(m=>m.recordRegistrationDevice()).catch(()=>{});
     return {
       token,
       state: await callRpc<AccountState>("marriage_state", {}, token),

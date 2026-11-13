@@ -1,3 +1,5 @@
+import { confirmSignupSms } from './auth/SignupSms';
+import type { SignupVerification } from './auth/registrationDevice';
 import { useLayoutEffect, useState, type FormEvent, type ReactNode } from "react";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
 import {JoinAdvantages} from './JoinAdvantages';
@@ -71,7 +73,7 @@ export function Auth({
   login: boolean;
   back: Click;
   switchMode: Click;
-  submit: (email: string, password: string, consent?: SignupAgreements) => void;
+  submit: (email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) => void;
   busy: boolean;
   ready: boolean;
   onDemo: Click;
@@ -90,7 +92,7 @@ export function Auth({
     setAgreements({ adult: false, terms: false, privacy: false });
     setAgreementError("");
   }, [login]);
-  function send(e: FormEvent<HTMLFormElement>) {
+  async function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!ready || locked) return;
     if (!accepted) {
@@ -100,7 +102,14 @@ export function Auth({
     if (!e.currentTarget.reportValidity()) return;
     setAgreementError("");
     const f = new FormData(e.currentTarget);
-    submit(String(f.get("email")).trim(), String(f.get("password")), login ? undefined : { ...agreements, version: LEGAL_NOTICE_VERSION });
+    const email=String(f.get("email")).trim(), password=String(f.get("password"));
+    if(login){submit(email,password);return;}
+    setPhonePending(true);
+    try{
+      const verification=await confirmSignupSms(email);
+      if(verification)submit(email,password,{...agreements,version:LEGAL_NOTICE_VERSION},verification);
+    }catch(e){setAgreementError(e instanceof Error?e.message:'تعذّر بدء تأكيد الجوال.');}
+    finally{setPhonePending(false);}
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
   const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
@@ -181,7 +190,7 @@ export function Auth({
       {login && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
       {ready && (
         <>
-        {phoneOtpEnabled && <button className="f-secondary" disabled={locked} type="button" onClick={() => setPhoneMode(mode => !mode)}>
+        {phoneOtpEnabled && login && <button className="f-secondary" disabled={locked} type="button" onClick={() => setPhoneMode(mode => !mode)}>
           {phoneMode ? "استخدام البريد الإلكتروني" : "استخدام رقم الجوال"}
         </button>}
         <button className="f-link centered" onClick={switchMode} disabled={locked}>

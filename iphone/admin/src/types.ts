@@ -37,6 +37,7 @@ export type VerificationEvidenceAccess = { url: string; expiresAt: string };
 export type SupportRow = { id: string; ownerId: string; category: string; subject: string; body: string; status: 'open' | 'in_review' | 'resolved'; response: string | null; revision: number; createdAt: string; updatedAt: string };
 export type SupportPage = { items: SupportRow[]; nextCursor: string | null };
 export interface AdminApi {
+  interviewSummary(id: string): Promise<InterviewReviewSummary | null>;
   support(status: string, before?: string): Promise<SupportPage>;
   supportReply(id: string, revision: number, status: 'in_review' | 'resolved', response: string, requestId: string): Promise<SupportRow>;
   overview(): Promise<Overview>;
@@ -54,3 +55,5 @@ export interface AdminApi {
   verificationReview(id: string, action: VerificationAction, revision: number, reason: string, requestId: string, expiresInDays: number | null, reviewConfirmed: boolean): Promise<VerificationRow>;
   verificationEvidence(id: string, evidenceId: string): Promise<Blob>;
 }
+
+export type InterviewReviewSummary = { confirmedAt: string; updatedAt: string; selfReported: true; readiness: Array<{id:string;text:string}>; clarifications: Array<{id:string;text:string}> };

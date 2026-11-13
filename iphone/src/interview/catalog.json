@@ -1,0 +1,50 @@
+[
+  {
+    "id": "intent",
+    "title": "خطوتك القادمة",
+    "question": "إذا لقيت الشخص المناسب، كيف تتصور الخطوة الرسمية ومتى يكون وقتها مناسبًا لك؟",
+    "suggestions": [],
+    "dimensionIds": ["marriage_timeline"],
+    "scenarioIds": []
+  },
+  {
+    "id": "communication",
+    "title": "الحوار وقت الاختلاف",
+    "question": "بعد يوم طويل صار بينكم سوء فهم. كيف تتصرف عادة، وش تتمنى من الطرف الآخر عشان ترجعون للحوار؟",
+    "suggestions": [],
+    "dimensionIds": ["repair_after_conflict", "match_disagreement_style", "conversation_initiative_preference", "conversation_depth"],
+    "scenarioIds": ["conflict"]
+  },
+  {
+    "id": "closeness",
+    "title": "القرب والمساحة",
+    "question": "وش يخليك تحس بالاهتمام مع شريك حياتك؟ وكيف تحب يكون التوازن بين وقتكم سوا ومساحتك الخاصة؟",
+    "suggestions": [],
+    "dimensionIds": ["closeness_pace", "early_openness", "curiosity_style"],
+    "scenarioIds": ["support"]
+  },
+  {
+    "id": "family",
+    "title": "أنتما والأهل",
+    "question": "لو تعارضت خططكم مع رغبة الأهل في زيارة، كيف تتمنى تتفقون؟ وش القرارات اللي تحب تكون بينكم أولًا؟",
+    "suggestions": [],
+    "dimensionIds": ["family_boundaries", "children_plan", "residence_plan"],
+    "scenarioIds": ["family_boundaries"]
+  },
+  {
+    "id": "practical",
+    "title": "العمل والمال",
+    "question": "كيف تتصورون التوازن بين العمل وطموح كل واحد وميزانية البيت؟ وش يهمك أنت، وش تتمنى من شريكك؟",
+    "suggestions": [],
+    "dimensionIds": ["wife_work", "shared_budget"],
+    "scenarioIds": ["career", "finances"]
+  },
+  {
+    "id": "everyday",
+    "title": "يومكما معًا",
+    "question": "تخيّل أسبوعًا عاديًا بعد الزواج: كيف تتوزع مسؤوليات البيت، والزيارات، ووقت الراحة بينكم؟",
+    "suggestions": [],
+    "dimensionIds": ["household_roles", "weekly_planning", "social_rhythm"],
+    "scenarioIds": ["household"]
+  }
+]

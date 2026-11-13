@@ -5,6 +5,7 @@ import { AccountControls } from './AccountControls';
 import { FamilyBridgeAdmin } from './FamilyBridge';
 import { VerificationAdmin } from './Verification';
 import { SupportAdmin } from './Support';
+import { InterviewReview } from './InterviewReview';
 import { AdminError, friendly, mode } from './client';
 import type { Access, AdminApi, AuditRow, MemberDetail, MemberRow, Operations, Overview, ReportAction, ReportRow, ReviewAction, StaffRole } from './types';
 
@@ -80,6 +81,7 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
     {!detail ? error ? <button className="secondary" onClick={() => setAttempt(v => v + 1)}>إعادة المحاولة</button> : <Loading /> : <>
       <div className="member-identity"><span className="avatar large-avatar">{initials(detail.displayName)}</span><div><h3>{detail.displayName}</h3><p>{number.format(detail.age)} عامًا · {detail.city}</p></div><AccountTags member={detail} /></div>
       {detail.accountSource === 'pair_test' && <p className="notice">حساب اختبار خاص. تُطبّق القرارات على الحساب المستخدم في تطبيق الاختبار، ويظل موسومًا بأنه وهمي.</p>}
+      {role !== 'moderator' && <InterviewReview key={id} id={id} api={api} onError={onError} />}
       <dl className="member-facts"><div><dt>الوصول للتعارف</dt><dd>{detail.accessActive ? 'مفعّل' : 'غير مفعّل'}</dd></div><div><dt>تاريخ انتهاء الوصول</dt><dd>{date(detail.accessUntil || null)}</dd></div><div><dt>انتهاء منحة الوصول المجاني</dt><dd>{date(detail.manualAccessUntil || null)}</dd></div></dl>
       <dl className="member-facts"><div><dt>المهنة</dt><dd>{detail.profession}</dd></div><div><dt>تاريخ التقديم</dt><dd>{date(detail.submittedAt)}</dd></div><div><dt>العمر المفضّل للطرف الآخر</dt><dd>{number.format(detail.preferredMinAge)}–{number.format(detail.preferredMaxAge)}</dd></div><div><dt>إشراك الأسرة</dt><dd>{detail.familyPreference || 'لم يُحدد'}</dd></div></dl>
       <section className="profile-bio"><h3>النبذة الشخصية</h3><p>{detail.bio}</p><div className="interest-list">{detail.interests.map(interest => <span key={interest}>{interest}</span>)}</div></section>

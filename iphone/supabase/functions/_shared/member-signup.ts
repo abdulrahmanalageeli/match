@@ -3,7 +3,7 @@ import { accessError, hashGuardianValue } from './guardian-access.ts';
 export const memberSignupKind = 'member_self_claimed_email';
 export const memberSignupUnavailable = 'تعذّر إنشاء الحساب بهذه البيانات. جرّب تسجيل الدخول أو استخدم بريدًا آخر.';
 const consentVersion = '2026-11-07-privacy';
-export type MemberSignupInput = { email: string; password: string; consent: { version: string; adult: true; terms: true; privacy: true } };
+export type MemberSignupInput = { email: string; password: string; phoneProof: string; deviceId: string; consent: { version: string; adult: true; terms: true; privacy: true } };
 type ServiceError = { status?: number; code?: string };
 type MemberSignupServices = {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>;
@@ -28,7 +28,9 @@ export function parseMemberSignup(value: unknown): MemberSignupInput {
   const consent = input.consent as Record<string, unknown> | undefined;
   if (!consent || consent.version !== consentVersion || consent.adult !== true || consent.terms !== true || consent.privacy !== true)
     throw accessError('أكّد العمر، واقبل الشروط، واطّلع على إشعار الخصوصية قبل إنشاء الحساب.');
-  return { email, password: input.password, consent: { version: consentVersion, adult: true, terms: true, privacy: true } };
+  if(typeof input.phoneProof!=='string'||!/^[a-f0-9]{64}$/.test(input.phoneProof)||typeof input.deviceId!=='string'||!/^(web|ios):[a-f0-9-]{36}$/i.test(input.deviceId))
+    throw accessError('أكمل تأكيد رقم الجوال قبل إنشاء الحساب.');
+  return { email, password: input.password, phoneProof:input.phoneProof,deviceId:input.deviceId, consent: { version: consentVersion, adult: true, terms: true, privacy: true } };
 }
 
 export async function performMemberSignup(input: MemberSignupInput, networkHash: string, secret: string, service: MemberSignupServices): Promise<{ ok: true }> {
@@ -43,6 +45,7 @@ export async function performMemberSignup(input: MemberSignupInput, networkHash:
     // This enables password login, NOT a verified contact or identity claim. Only
     // service-owned metadata determines this state; client metadata is ignored.
     app_metadata: { signupKind: memberSignupKind, emailOwnershipVerified: false,
+      signupPhoneProof:await hashGuardianValue(input.phoneProof),signupDeviceHash:await hashGuardianValue('wudayn-device-v1:'+input.deviceId),
       signupConsent: { ...input.consent, recordedAt: new Date().toISOString() } },
   });
   // Never overwrite an existing user, confirm an existing address, or return its ID.

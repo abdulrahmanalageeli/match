@@ -29,6 +29,9 @@ import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { feedback } from '../feedback/haptics';
 import { BeenaFields } from '../beena/BeenaFields';
 import { beenaProgress, beenaScenarios } from '../beena/model';
+import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
+import { applyInterviewAnswers } from '../interview/model';
+import type { InterviewAuth } from '../interview/api';
 import './journey.css';
 
 export type { ApplicationDraft } from "./draft";
@@ -50,6 +53,7 @@ type Props = {
   draftRef?: RefObject<ApplicationDraft | null>;
   draftOwner?: string;
   demo?: boolean;
+  interviewAuth?: InterviewAuth | null;
 };
 
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, review: CheckCheck };
@@ -167,7 +171,9 @@ function Review({ p, edit, withCompatibility, changed, portraitChange, portraitS
 }
 
 export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
-  includeCompatibility = true, draftRef, draftOwner = "", demo = false }: Props) {
+  includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null }: Props) {
+  const [interviewOpen, setInterviewOpen] = useState(false);
+  const [interviewApplied, setInterviewApplied] = useState(false);
   const baseline = profileBaseline(initial);
   const deviceDraft = !demo && intakeVault.available(draftOwner);
   const accountDraft = deviceDraft && accountDraftsAvailable();
@@ -467,8 +473,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {chapter.key === 'beena' && consents.assessment && <BeenaFields value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing}/>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
               {chapter.key === "personality" && consents.assessment && <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} />}
-              {chapter.key === "compatibility" && consents.assessment && <CompatibilityFields registration={!editing} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
-                hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} />}
+              {chapter.key === "compatibility" && consents.assessment && <>
+                <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>
+                {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. أكمل ما ينقصك وراجع الملف قبل حفظه.</p>}
+                {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>{interviewApplied ? 'مراجعة التفضيلات وإكمال ما تبقّى' : 'أفضّل الإجابة على الأسئلة مباشرة'}</span><ChevronLeft size={16}/></summary><CompatibilityFields registration={!editing} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
+                  hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} /></details> : <CompatibilityFields registration={!editing} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}}
+                  hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update} />}
+              </>}
               {chapter.key === "preferences" && <>
                 <fieldset><legend>العمر المناسب للطرف الآخر</legend><div className="field-pair">
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
@@ -512,6 +523,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         </form>
        </>}
       </div>
+      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onClose={() => setInterviewOpen(false)} onApply={confirmed => { update(applyInterviewAnswers(current.current.answers, confirmed)); setInterviewApplied(true); }}/>}
     </main>
   );
 }

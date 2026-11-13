@@ -2,6 +2,7 @@ import { call, AdminError, verificationEvidence } from './client';
 import type { AdminApi, AuditRow, FamilyReviewRow, MemberDetail, ReportRow, SupportRow, VerificationRow, VerificationStatus } from './types';
 
 export const liveApi: AdminApi = {
+  interviewSummary: id => call('marriage_interview_admin_summary', { member: id }),
   support: (status, before) => call('marriage_support', { action: 'admin_list', payload: { status, before } }),
   supportReply: (id, revision, status, response, requestId) => call('marriage_support', { action: 'admin_reply', payload: { id, revision, status, response, requestId } }),
   overview: () => call('marriage_admin_overview'),
@@ -76,6 +77,7 @@ export function createDemoApi(storage?: Pick<Storage, 'getItem' | 'setItem'>): A
     async overview() { return { counts: { pendingApplications: members.filter(m => m.status === 'pending' && !m.suspended).length, openReports: reports.filter(r => !r.resolvedAt).length, suspendedMembers: members.filter(m => m.suspended).length, approvedMembers: members.filter(m => m.status === 'approved' && !m.suspended).length, totalMembers: members.length }, daily: [{ day: day(0).slice(0, 10), event: 'accepted', total: 7 }, { day: day(0).slice(0, 10), event: 'requested', total: 12 }], cohorts: [{ offer_week: day(6).slice(0, 10), version: 'marriage-v1', band: 'strong', returned: 42, opened: 31, requested: 12, accepted: 7, formal: 2 }] }; },
     async applications(status, before) { return structuredClone(members.filter(m => (status === 'all' || (status === 'dummy' ? m.isDummy : status === 'suspended' ? m.suspended : !m.suspended && m.status === status)) && (!before || m.memberId < before)).sort((a, b) => b.memberId.localeCompare(a.memberId)).slice(0, 50).map(currentMember)); },
     async member(id) { const row = member(id); log('member_viewed', 'member', id, 'مراجعة ملف تجريبي'); return structuredClone(currentMember(row)); },
+    async interviewSummary() { return null; },
     async review(id, action, revision, reason, requestId) {
       const op = operation(requestId, [id, action, revision, reason]); if (op.done) return;
       const row = member(id); if (row.revision !== revision) throw new AdminError('تغيّر الملف. أعد فتحه قبل اتخاذ القرار.', '40001');

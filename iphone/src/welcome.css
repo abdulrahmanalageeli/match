@@ -139,6 +139,9 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .phone-app:has(.wd-welcome) { background: #fdfdfc; }
 .wd-welcome-nav { position: absolute; z-index: 3; inset: 0 24px auto; padding: max(22px,env(safe-area-inset-top)) 0 0; border: 0; }
 .wd-welcome-nav .wd-welcome-brand { filter: none; }
+.wd-welcome-nav .wd-welcome-wordmark { filter: brightness(0) invert(1); }
+.wd-welcome-emblem { transform-origin: center; animation: wd-heartbeat 3600ms 2400ms ease-in-out infinite; }
+@keyframes wd-heartbeat { 0%,32%,100% { transform: scale(1); } 10% { transform: scale(1.045); } 18% { transform: scale(1); } 25% { transform: scale(1.025); } }
 .wd-welcome .wd-welcome-login { color: #fff; text-shadow: 0 1px 4px #17171380; }
 .wd-welcome-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: min(900px,100svh); min-height: max(700px,min(900px,100svh)); margin-inline: -24px; padding: 330px 24px max(30px,env(safe-area-inset-bottom)); gap: 0; }
 .wd-hero-art { position: absolute; z-index: -2; inset: 0; height: 100%; border-radius: 0; }

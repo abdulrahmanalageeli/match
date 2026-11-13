@@ -33,6 +33,8 @@ import { BeenaFields } from '../beena/BeenaFields';
 import { beenaProgress, beenaScenarios } from '../beena/model';
 import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
+import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
+import { assessmentContextFromAnswers } from '../interview/assessmentContext';
 import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
@@ -286,6 +288,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
       setFallbackAvailable(snapshot.fallbackAvailable === true);
+      const knownProfileFields = new Set(profileContextFromAnswers(current.current.answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
+      const restoreProfile = (snapshot.document?.profileConfirmed ?? []).filter(field => !knownProfileFields.has(field.fieldId));
+      if (restoreProfile.length) update(applyProfileProposals(current.current.answers, restoreProfile, consentRef.current.sensitiveProfile));
       const confirmed = snapshot.document?.status === 'confirmed' ? snapshot.document.confirmed.filter(item => item.kind !== 'beena') : [];
       const complete = confirmed.length === dimensions.length * 2 + personalityQuestions.length;
       setAiComplete(complete);
@@ -391,6 +396,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function update(values: Partial<Answers>) {
     if (error && error.field in values) setError(null);
     commit({ answers: { ...current.current.answers, ...values }, consent: false });
+  }
+  function applyCapturedProfile(proposals: ProfileProposal[]) {
+    update(applyProfileProposals(current.current.answers, proposals, consentRef.current.sensitiveProfile));
+    void saveProgressNow();
   }
   function selectGender(gender: Profile["gender"]) {
     if (gender === p.gender) return;
@@ -575,11 +584,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
-                <label>متى تفضّل إشراك الأهل؟<select value={p.familyPreference} onChange={e => update({ familyPreference: e.target.value })}>
-                  {!["بعد التعارف الأول","من البداية","نتفق على ذلك لاحقًا"].includes(p.familyPreference) && <option value={p.familyPreference}>{p.familyPreference || "ليس لدي تفضيل محدد"}</option>}
-                  <option>بعد التعارف الأول</option><option>من البداية</option><option>نتفق على ذلك لاحقًا</option>
-                </select></label>
-                <small>يظهر تفضيل إشراك الأهل في ملفك العام للأعضاء المؤهلين.</small>
+                <fieldset className="nf-family-choice"><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
                 <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
@@ -613,7 +618,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         </form>
        </>}
       </div>
-      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onboarding={!editing} consentGranted={consents.assessment&&draft.permissions?.interview===true} onUnavailable={()=>setFallbackAvailable(true)} onClose={() => setInterviewOpen(false)} onDirectQuestions={()=>{setInterviewOpen(false);setAssessmentPath('questions');if(current.current.step==='personality')setPersonalityDirect(true);}} onFallbackApply={confirmed=>{update(applyInterviewAnswers(current.current.answers,confirmed.filter(item=>item.kind!=='beena')));setInterviewRevision(value=>value+1);setAssessmentPath('questions');void saveProgressNow();}} onApply={confirmed => { setAiComplete(true); update(applyInterviewAnswers(current.current.answers, !editing?confirmed.filter(p=>p.kind!=='beena'):confirmed)); setInterviewApplied(true);setInterviewRevision(value=>value+1);setAssessmentPath('questions');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);void saveProgressNow(); }}/>}
+      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onboarding={!editing} profileContext={profileContextFromAnswers(p,consents.sensitiveProfile)} assessmentContext={assessmentContextFromAnswers(p)} onProfileApply={applyCapturedProfile} sensitiveProfileAllowed={consents.sensitiveProfile} consentGranted={consents.assessment&&draft.permissions?.interview===true} onUnavailable={()=>setFallbackAvailable(true)} onClose={() => setInterviewOpen(false)} onDirectQuestions={()=>{setInterviewOpen(false);setAssessmentPath('questions');if(current.current.step==='personality')setPersonalityDirect(true);}} onFallbackApply={confirmed=>{update(applyInterviewAnswers(current.current.answers,confirmed.filter(item=>item.kind!=='beena')));setInterviewRevision(value=>value+1);setAssessmentPath('questions');void saveProgressNow();}} onApply={confirmed => { setAiComplete(true); update(applyInterviewAnswers(current.current.answers, !editing?confirmed.filter(p=>p.kind!=='beena'):confirmed)); setInterviewApplied(true);setInterviewRevision(value=>value+1);setAssessmentPath('questions');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);void saveProgressNow(); }}/>}
     </main>
   );
 }

@@ -1,3 +1,5 @@
+import type { ProfileContext, ProfileProposal } from './profileCapture';
+
 export type InterviewEvidence = { turnId: string; quote: string };
 export type InterviewProposal = {
   id: string;
@@ -30,6 +32,9 @@ export type InterviewDocument = {
   draftAnswer: string;
   reviewSharing: boolean;
   confirmedAt: string | null;
+  profileContext?: ProfileContext;
+  profileProposals?: ProfileProposal[];
+  profileConfirmed?: ProfileProposal[];
 };
 export type InterviewSnapshot = {
   document: InterviewDocument | null;

@@ -5,9 +5,12 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const code = compile(await readFile(new URL('../src/interview/InterviewPanel.tsx', import.meta.url), 'utf8'));
+const profileHelpers = {};
+vm.runInNewContext(compile(await readFile(new URL('../src/interview/profileCapture.ts', import.meta.url), 'utf8')), {exports:profileHelpers,require:name=>name==='./profile-catalog.json'?{default:profileCatalog}: {validMarriageBasicsDraft:()=>true,validPartnerCriteriaDraft:()=>true}});
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const noop = () => {};
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -20,8 +23,8 @@ const proposal = { id: 'p1', kind: 'preference', fieldId: 'children_plan', side:
 const baseDocument = () => ({ version: 'interview-v1', consentVersion: 'wudayn-interview-v1', model: 'gpt-6-luna', promptVersion: 'wudayn-interview-1', status: 'active', turns: [], currentQuestion: { topic: 'intent', text: topics[0].question, suggestions: [] }, proposals: [], readiness: [], clarifications: [], confirmed: [], lastRequestId: null, lastMode: 'luna', pendingAnalysis: false, draftAnswer: '', reviewSharing: false, confirmedAt: null });
 
 function mount(initial, intercept = () => null) {
-  const hooks = [], effects = [], timers = new Map(), calls = [], applied = []; let cursor = 0, changed = false, timerId = 0, snapshot = clone(initial), closed = 0, uuid = 0;
-  let props = { open: true, auth: { token: 'member-1' }, onApply: value => applied.push(clone(value)), onClose: () => { closed++; props = { ...props, open: false }; } };
+  const hooks = [], effects = [], timers = new Map(), calls = [], applied = [], profileApplied = []; let cursor = 0, changed = false, timerId = 0, snapshot = clone(initial), closed = 0, uuid = 0;
+  let props = { open: true, auth: { token: 'member-1' }, onApply: value => applied.push(clone(value)), onProfileApply:value=>profileApplied.push(clone(value)), onClose: () => { closed++; props = { ...props, open: false }; } };
   const memo = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value,i) => value !== old.deps[i])) hooks[at] = { value: fn(), deps }; return hooks[at].value; };
   const react = {
     useCallback: (fn,deps) => memo(() => fn,deps),
@@ -38,6 +41,7 @@ function mount(initial, intercept = () => null) {
     if (payload.action === 'start') snapshot = { document: baseDocument(), revision: 1 };
     if (payload.action === 'draft') snapshot = { document: { ...snapshot.document, draftAnswer: payload.answer }, revision: snapshot.revision + 1 };
     if (payload.action === 'confirm') snapshot = { document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => ({ ...snapshot.document.proposals.find(item=>item.id===choice.id), ...choice })), reviewSharing: payload.shareReview }, revision: snapshot.revision + 1 };
+    if (payload.action === 'profileConfirm') snapshot = { document: {...snapshot.document,profileConfirmed:payload.profileChoices.map(choice=>({...snapshot.document.profileProposals.find(item=>item.id===choice.id),...choice,needsClarification:false}))},revision:snapshot.revision+1};
     if (payload.action === 'delete') snapshot = { document: null, revision: 0 };
     if (payload.action === 'resume') snapshot = { document: { ...snapshot.document, status:'active', currentQuestion: { topic: 'family', text: topics[3].question, suggestions: [] }, confirmed:[], reviewSharing:false }, revision:snapshot.revision+1 };
     return clone(snapshot);
@@ -59,12 +63,13 @@ function mount(initial, intercept = () => null) {
       proposalStatement: item => item.kind==='personality' ? personalityCatalog.find(question=>question.id===item.fieldId)?.prompt??'' : '',
     };
     if (name === './catalog.json') return { default: topics };
+    if (name === './profileCapture') return profileHelpers;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected import ${name}`);
   };
   vm.runInNewContext(code,{exports,require,document:{body:{},hidden:false,addEventListener:noop,removeEventListener:noop},crypto:{randomUUID:()=>`request-${++uuid}`},window:{setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),addEventListener:noop,removeEventListener:noop}});
   return {
-    calls, applied,
+    calls, applied, profileApplied,
     get closed() { return closed; },
     render(next) { if (next) props = {...props,...next}; let tree, passes=0; do { changed=false;cursor=0;tree=exports.InterviewPanel(props);for(const effect of effects.splice(0))effect();if(++passes>25)throw Error('Unstable component'); } while(changed);return tree; },
     timers() { const pending=[...timers.values()];timers.clear();for(const timer of pending)timer(); },
@@ -87,6 +92,28 @@ test('the active experience is an ordered conversation with a composer and no su
   const ui=mount({document,revision:2});ui.render();await tick();const tree=ui.render();
   const log=nodes(tree).find(node=>node.props?.role==='log');assert(log);assert.match(textOf(log),/ما الذي تبحث عنه؟.*زواج جاد.*متى تحب إشراك الأهل؟/);
   assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));const input=nodes(tree).find(node=>node.type==='textarea');assert.equal(input.props.dir,'rtl');assert.equal(input.props.lang,'ar');assert.equal(input.props.wrap,'soft');assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
+});
+
+test('the first turn invites one rich introduction before switching to compact gap questions', async () => {
+  const ui=mount({document:baseDocument(),revision:1});ui.render();await tick();let tree=ui.render();
+  const form=nodes(tree).find(node=>node.type==='form'&&node.props.className==='wi-composer');
+  const input=nodes(tree).find(node=>node.type==='textarea');
+  assert.equal(form.props['data-opening'],true);
+  assert.equal(input.props.rows,4);
+  assert.match(input.props.placeholder,/عرّفنا عن نفسك/);
+  assert.match(textOf(tree),/عنّك.*حياتك اليوم.*الشريك الذي تبحث عنه.*استعدادك للزواج/);
+  assert.match(textOf(tree),/فقرة واحدة.*نسأل فقط عمّا بقي/);
+  find(tree,'كيف أبدأ؟').props.onClick();tree=ui.render();
+  assert.match(textOf(tree),/ما يعنيه لك الزواج الجاد والخطوة الرسمية/);
+  ui.unmount();
+
+  const later=mount({document:{...baseDocument(),turns:[{id:'t1',topic:'intent',question:'عرّفنا عن نفسك',answer:'أنا جاد في الزواج',skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور دور الأهل؟',suggestions:[]}},revision:2});
+  later.render();await tick();tree=later.render();
+  assert.equal(nodes(tree).find(node=>node.type==='form'&&node.props.className==='wi-composer').props['data-opening'],undefined);
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.rows,1);
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.placeholder,'قل لنا بطريقتك…');
+  assert.doesNotMatch(textOf(tree),/الشريك الذي تبحث عنه.*استعدادك للزواج/);
+  later.unmount();
 });
 
 test('draft save is serialized with submitting and newer typing remains visible when an older save completes', async () => {
@@ -283,4 +310,39 @@ test('sending follows the new turn, while reading history during processing pres
   viewport.scrollTop=100;nodes(tree).find(node=>node.props?.role==='log').props.onScroll({currentTarget:viewport});
   const sent=ui.calls.find(call=>call.action==='answer');waiting.resolve({document:{...initial.document,lastRequestId:sent.requestId,turns:[{id:'new',topic:'intent',question:initial.document.currentQuestion.text,answer:sent.answer,skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور وقت العائلة؟',suggestions:[]}},revision:2});await tick();ui.render();
   assert.equal(viewport.scrollTop,100);assert.equal(scrolls.length,2,'arrival does not pull someone away from earlier answers');ui.unmount();
+});
+
+const capturedProfile={id:'profile:partnerCriteria.dressStyle',fieldId:'partnerCriteria.dressStyle',values:['niqab'],mode:'prefer',exclude:false,summary:'تفضّل شريكة ترتدي النقاب',evidence:[{turnId:'t2',quote:'أفضّل منقبة'}],needsClarification:false};
+test('message captures show profile additions and require one review before applying the draft',async()=>{
+ const initial={document:baseDocument(),revision:1,coverage:{answered:0,required:44}};
+ const ui=mount(initial,(payload,snapshot)=>payload.action==='answer'?Promise.resolve({document:{...snapshot.document,turns:[{id:'t2',topic:'intent',question:'ما تفضيلاتك؟',answer:payload.answer,skipped:false}],profileProposals:[capturedProfile],lastRequestId:payload.requestId},revision:2,coverage:{answered:0,required:44}}):payload.action==='profileConfirm'?Promise.resolve({document:{...snapshot.document,profileProposals:[capturedProfile],profileConfirmed:[capturedProfile]},revision:3}):null);
+ ui.render({profileContext:[{fieldId:'city',values:['الرياض'],mode:null,exclude:false}],assessmentContext:[{id:'preference:children_plan:self',values:['A']}]});await tick();let tree=ui.render();
+ nodes(tree).find(n=>n.type==='textarea').props.onChange({target:{value:'أفضّل منقبة'}});tree=ui.render();sendAction(tree).props.onClick();await tick();tree=ui.render();
+ assert.match(textOf(tree),/أُضيف للملخص/);assert.equal(ui.profileApplied.length,0);
+ assert.equal(ui.calls.find(p=>p.action==='answer').profileContext[0].fieldId,'city');assert.equal(ui.calls.find(p=>p.action==='answer').assessmentContext.length,1);
+ find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.match(textOf(tree),/لا تُنشر قبل إرسال الملف/);
+ find(tree,'تفاصيل إلى مسودتي').props.onClick();await tick();ui.render();
+ assert.equal(ui.calls.filter(p=>p.action==='profileConfirm').length,1);assert.deepEqual(ui.calls.at(-1).profileChoices,[{id:capturedProfile.id,values:['niqab'],mode:'prefer',exclude:false}]);
+ assert.equal(ui.profileApplied.length,1);
+ ui.unmount();
+});
+test('a correction is distinguished from a newly captured field and pending analysis never claims success',async()=>{
+ const old={...capturedProfile,evidence:[{turnId:'t1',quote:'أفضّل منقبة'}]};
+ const initial={document:{...baseDocument(),profileProposals:[old],turns:[{id:'t1',topic:'intent',question:'ما تفضيلاتك؟',answer:'أفضّل منقبة',skipped:false}]},revision:1};
+ const ui=mount(initial,(payload,snapshot)=>payload.action==='answer'?Promise.resolve({...snapshot,revision:2,document:{...snapshot.document,turns:[...snapshot.document.turns,{id:'t2',topic:'intent',question:'هل تود التوضيح؟',answer:payload.answer,skipped:false}],profileProposals:[{...capturedProfile,values:['hijab']}],lastRequestId:payload.requestId}}):null);
+ ui.render();await tick();let tree=ui.render();nodes(tree).find(n=>n.type==='textarea').props.onChange({target:{value:'أفضّل الحجاب'}});tree=ui.render();sendAction(tree).props.onClick();await tick();tree=ui.render();assert.match(textOf(tree),/تغيّر/);assert.doesNotMatch(textOf(tree),/أُضيف للملخص/);ui.unmount();
+ const pending=mount(initial,(payload,snapshot)=>payload.action==='answer'?Promise.resolve({...snapshot,revision:2,document:{...snapshot.document,pendingAnalysis:true,lastRequestId:payload.requestId}}):null);
+ pending.render();await tick();tree=pending.render();nodes(tree).find(n=>n.type==='textarea').props.onChange({target:{value:'أفضّل الحجاب'}});tree=pending.render();sendAction(tree).props.onClick();await tick();tree=pending.render();assert.equal(nodes(tree).filter(n=>n.props?.className==='wi-message-captures').length,0);pending.unmount();
+});
+test('loading previous profile confirmations cannot overwrite newer manual draft edits',async()=>{
+ const ui=mount({document:{...baseDocument(),profileProposals:[capturedProfile],profileConfirmed:[capturedProfile]},revision:4});
+ ui.render();await tick();ui.render();ui.render();assert.equal(ui.profileApplied.length,0);assert.equal(ui.applied.length,0);ui.unmount();
+});
+test('unclear unrestricted criteria and sensitive disclosures are not silently approved',async()=>{
+ for(const proposal of [
+  {...capturedProfile,id:'profile:partnerCriteria.sharedLanguage',fieldId:'partnerCriteria.sharedLanguage',values:[],mode:'any',needsClarification:true},
+  {...capturedProfile,id:'profile:marriageBasics.religiousAffiliation',fieldId:'marriageBasics.religiousAffiliation',values:['sunni'],mode:null},
+ ]){
+  const ui=mount({document:{...baseDocument(),profileProposals:[proposal]},revision:1});ui.render();await tick();let tree=ui.render();find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.equal(find(tree,'تفاصيل إلى مسودتي').props.disabled,true);assert.equal(ui.profileApplied.length,0);ui.unmount();
+ }
 });

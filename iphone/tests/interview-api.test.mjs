@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createInterviewService, initialInterviewDocument, parseInterviewInput, interviewCompletionRequest,
-  applyInterviewCompletion, confirmInterviewChoices, validateProposal, interviewCoverage, INTERVIEW_MODEL, CONSENT_VERSION } from '../api/_lib/interview.mjs';
+  applyInterviewCompletion, confirmInterviewChoices, validateProposal, interviewCoverage, INTERVIEW_MODEL, CONSENT_VERSION, MAX_BODY } from '../api/_lib/interview.mjs';
 import handler from '../api/interview.mjs';
 import preferenceCatalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
@@ -402,7 +402,7 @@ test('review can return to questions without changing confirmed profile answers;
 function recorder() { return { headers: {}, statusCode: 200, setHeader(k, v) { this.headers[k] = v; }, status(n) { this.statusCode = n; return this; }, json(value) { this.body = value; return this; }, end() { return this; } }; }
 test('HTTP handler enforces methods, native preflight, no-store and body bounds', async () => {
   const get = recorder(); await handler({ method: 'GET', headers: {} }, get); assert.equal(get.statusCode, 405);
-  const large = recorder(); await handler({ method: 'POST', headers: { 'content-length': '19000' } }, large); assert.equal(large.statusCode, 413);
+  const large = recorder(); await handler({ method: 'POST', headers: { 'content-length': String(MAX_BODY+1) } }, large); assert.equal(large.statusCode, 413);
   const native = recorder(); await handler({ method: 'OPTIONS', headers: { origin: 'capacitor://localhost', 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type' } }, native);
   assert.equal(native.statusCode, 204); assert.equal(native.headers['Cache-Control'], 'private, no-store');
   const foreign = recorder(); await handler({ method: 'OPTIONS', headers: { origin: 'https://other.example', 'access-control-request-method': 'POST' } }, foreign); assert.equal(foreign.statusCode, 403);

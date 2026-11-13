@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { initialInterviewDocument,parseInterviewInput,validateProposal,validateProfileProposal,validProfileValues,validateProfileContext,validateAssessmentContext,applyInterviewCompletion,confirmProfileChoices,interviewCoverage,interviewCompletionRequest,createInterviewService,CONSENT_VERSION } from '../api/_lib/interview.mjs';
 import preferences from '../src/compatibility/catalog.json' with {type:'json'};
 import traits from '../src/compatibility/personality-catalog.json' with {type:'json'};
+import profileFields from '../src/interview/profile-catalog.json' with {type:'json'};
 const turn={id:randomUUID(),topic:'intent',question:'عرّفنا عن نفسك وما تبحث عنه؟',answer:'أنا اجتماعي وأبي منقبة وغير مطلقة وأفضل الزواج عن طريق الأهل.',skipped:false};
 const proposal={id:'profile:partnerCriteria.dressStyle',fieldId:'partnerCriteria.dressStyle',values:['niqab'],mode:'prefer',exclude:false,summary:'أفضل شريكة منقبة',evidence:[{turnId:turn.id,quote:'أبي منقبة'}],needsClarification:false};
 const base=()=>({...initialInterviewDocument(true),turns:[turn]});
@@ -79,6 +80,26 @@ test('stored profile and assessment context suppress known fields without invent
 test('profile confirmation HTTP input uses only selected IDs and canonical edited values',()=>{
  const payload={action:'profileConfirm',revision:2,profileChoices:[{id:proposal.id,values:['niqab'],mode:'prefer',exclude:false}]};assert.deepEqual(parseInterviewInput(payload),payload);
  assert.throws(()=>parseInterviewInput({...payload,profileChoices:[{...payload.profileChoices[0],evidence:proposal.evidence}]}));
+});
+test('an explicit profile timeline also fills matching assessment timing using the same evidence',()=>{
+ const source={...turn,answer:'أفضّل الزواج خلال ثلاثة أشهر'};
+ const timeline={...proposal,id:'profile:marriageBasics.marriageTimeline',fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false,evidence:[{turnId:turn.id,quote:source.answer}]};
+ const first=applyInterviewCompletion({...base(),turns:[source]},completion({profileProposals:[timeline]}));
+ assert.deepEqual(first.proposals.find(p=>p.id==='preference:marriage_timeline:self').values,['A']);
+ const correction={...turn,id:randomUUID(),answer:'بعد ستة أشهر إلى سنة بدل ثلاثة أشهر'};
+ const updated=applyInterviewCompletion({...first,turns:[source,correction]},completion({profileProposals:[{...timeline,values:['six_to_twelve_months'],evidence:[{turnId:correction.id,quote:correction.answer}]}]}));
+ const timing=updated.proposals.find(p=>p.id==='preference:marriage_timeline:self');assert.deepEqual(timing.values,['B']);assert.equal(timing.evidence[0].turnId,correction.id);
+});
+test('prompt captures explicit requirements while prohibiting invented requirements and paraphrased evidence',()=>{
+ const prompt=interviewCompletionRequest(base()).messages[0].content;
+ assert.doesNotMatch(prompt,/لا تضع شروطًا إلزامية أو نسب توافق/);
+ assert.match(prompt,/لا تخترع شروطًا إلزامية/);assert.match(prompt,/mode=require وexclude=true/);assert.match(prompt,/انسخ evidence.quote حرفيًا/);
+});
+test('valid full multilingual profile and assessment contexts fit the bounded request',()=>{
+ const profileContext=profileFields.map(f=>({fieldId:f.fieldId,values:f.kind==='range'?[String(f.min),String(f.max)]:f.criterionShape==='mode'?[]:f.kind==='text'?['中'.repeat(f.maxLength??600)]:f.kind==='number'?[String(f.max)]:f.kind==='set'||f.criterionShape==='values'?[...f.options].sort((a,b)=>Buffer.byteLength(b.value)-Buffer.byteLength(a.value)).slice(0,f.maxItems??30).map(o=>o.value):[[...f.options].sort((a,b)=>Buffer.byteLength(b.value)-Buffer.byteLength(a.value))[0].value],mode:f.criterionShape?'prefer':null,exclude:false}));
+ const assessmentContext=preferences.dimensions.flatMap(d=>['self','partner'].map(side=>({id:`preference:${d.id}:${side}`,values:[d.options[0].code]}))).concat(traits.map(t=>({id:`personality:${t.id}:self`,values:['D']})));
+ const body={action:'answer',revision:400,requestId:randomUUID(),answer:'中'.repeat(1200),profileContext,assessmentContext};
+ assert.ok(Buffer.byteLength(JSON.stringify(body))>18000);assert.ok(parseInterviewInput(body));
 });
 test('context evidence binds extracted values while allowing explicit final review edits',()=>{
  const context=[{id:'preference:marriage_timeline:self',values:['A']}];

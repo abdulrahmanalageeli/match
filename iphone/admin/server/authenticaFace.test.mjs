@@ -44,3 +44,29 @@ test('never exposes provider errors, bodies or credentials', async () => {
     await assert.rejects(compareAuthenticaFaces(input, { key: 'server-secret', fetcher }), error => error.message === 'FACE_SERVICE_UNAVAILABLE' && !error.cause);
   }
 });
+
+test('diagnostics identify contract errors without logging provider values', async t => {
+  const log = t.mock.method(console, 'warn', () => {});
+  await assert.rejects(compareAuthenticaFaces(input, { key: 'server-secret', fetcher: async () => reply({
+    success: true, data: { user_id: 'private-member', result: 'private-result' }, image: 'private-image',
+  }) }), /FACE_SERVICE_UNAVAILABLE/);
+  assert.equal(log.mock.calls.length, 1);
+  const diagnostic = log.mock.calls[0].arguments[1];
+  assert.equal(diagnostic.phase, 'response_contract');
+  assert.equal(diagnostic.httpStatus, 200);
+  assert.equal(diagnostic.responseShape.resultType, 'string');
+  assert.equal(diagnostic.responseShape.memberMatches, false);
+  assert.doesNotMatch(JSON.stringify(diagnostic), /private-|server-secret/);
+});
+
+test('diagnostics distinguish a timeout from a completed response', async t => {
+  const log = t.mock.method(console, 'warn', () => {});
+  await assert.rejects(compareAuthenticaFaces(input, { key: 'key', fetcher: async () => {
+    throw new DOMException('private-timeout-detail', 'TimeoutError');
+  } }), /FACE_SERVICE_UNAVAILABLE/);
+  const diagnostic = log.mock.calls[0].arguments[1];
+  assert.equal(diagnostic.phase, 'request');
+  assert.equal(diagnostic.timedOut, true);
+  assert.equal(diagnostic.httpStatus, undefined);
+  assert.doesNotMatch(JSON.stringify(diagnostic), /private-/);
+});

@@ -23,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (url !== 'https://wupkifqbwhhebwrgvwai.supabase.co' || !key || !env.AUTHENTICA_KEY?.trim()) return res.status(503).json({ error: 'unavailable' });
   const options = { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal: AbortSignal.timeout(10000) }) } };
   const admin = createClient(url, key, options);
+  let phase = 'session';
   try {
     const { data, error } = await admin.auth.getUser(token.slice(7));
     if (error || !data.user) return res.status(401).json({ error: 'sign_in' });
@@ -35,13 +36,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const start = await admin.rpc('marriage_photo_face_begin', { member: data.user.id, photo: photoId, photo_kind: kind, consent });
     if (start.error) return res.status(start.error.message.includes('rate_limited') ? 429 : 403).json({ error: start.error.message.includes('rate_limited') ? 'rate_limited' : 'photo_unavailable' });
     const target = start.data as { attempt: string; bucket: string; path: string };
+    phase = 'download';
     const download = await admin.storage.from(target.bucket).download(target.path);
     if (download.error || !download.data || download.data.size > 3145728) return res.status(409).json({ error: 'photo_unavailable' });
     const reference = Buffer.from(await download.data.arrayBuffer());
+    phase = 'comparison';
     const result = await compareAuthenticaFaces({ memberId: data.user.id, referenceJpeg: reference, cameraJpeg: Buffer.from(selfie, 'base64') });
     if (!result.matched) return res.status(422).json({ error: 'no_match' });
+    phase = 'save_result';
     const finish = await admin.rpc('marriage_photo_face_finish', { attempt: target.attempt, member: data.user.id, image_hash: createHash('sha256').update(reference).digest('hex') });
     if (finish.error || finish.data !== true) return res.status(409).json({ error: 'photo_unavailable' });
     return res.status(200).json({ matched: true });
-  } catch { return res.status(503).json({ error: 'unavailable' }); }
+  } catch {
+    console.warn('photo_verification_failure', { phase });
+    return res.status(503).json({ error: 'unavailable' });
+  }
 }

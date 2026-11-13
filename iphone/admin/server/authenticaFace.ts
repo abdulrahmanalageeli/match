@@ -29,6 +29,10 @@ export async function compareAuthenticaFaces(
   }
   // Reject accidentally submitting the selected photo twice. This is not anti-spoofing.
   if (input.referenceJpeg.equals(input.cameraJpeg)) throw new Error('FACE_CAPTURE_REQUIRED');
+  const startedAt = Date.now();
+  let phase = 'request';
+  let httpStatus: number | undefined;
+  let responseShape: Record<string, string | boolean> | undefined;
   try {
     const response = await (options.fetcher ?? fetch)(endpoint, {
       method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000),
@@ -39,12 +43,28 @@ export async function compareAuthenticaFaces(
         query_face_image: input.cameraJpeg.toString('base64'),
       }),
     });
+    httpStatus = response.status;
+    phase = 'http_status';
     if (!response.ok) throw new Error('provider_error');
+    phase = 'response_json';
     const result = await response.json();
+    phase = 'response_contract';
+    // Log only fixed field types and checks, never provider values or image data.
+    responseShape = {
+      successType: typeof result?.success,
+      successConfirmed: result?.success === true,
+      memberType: typeof result?.data?.user_id,
+      memberMatches: result?.data?.user_id === input.memberId,
+      resultType: typeof result?.data?.result,
+    };
     if (result?.success !== true || result?.data?.user_id !== input.memberId
       || typeof result?.data?.result !== 'boolean') throw new Error('invalid_response');
     return { matched: result.data.result, liveness: 'not_verified' };
-  } catch {
+  } catch (error) {
+    console.warn('authentica_face_failure', {
+      phase, httpStatus, elapsedMs: Date.now() - startedAt, responseShape,
+      timedOut: error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError'),
+    });
     // Never forward provider bodies/errors: they can contain biometric data or credentials.
     throw new Error('FACE_SERVICE_UNAVAILABLE');
   }

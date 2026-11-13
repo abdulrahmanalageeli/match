@@ -41,7 +41,10 @@ try{
  assert(Math.abs(bounds.x)<1&&Math.abs(bounds.y)<1&&Math.abs(bounds.width-bounds.viewportWidth)<1&&Math.abs(bounds.height-bounds.viewportHeight)<1,'intro fills the viewport: '+JSON.stringify(bounds));
  await page.locator('.nf-join').evaluate(button=>button.focus());assert.equal(await page.locator('.nf-join').evaluate(button=>document.activeElement===button),false,'covered welcome controls cannot receive focus');
  const remaining=await page.evaluate(()=>Math.max(0,700-(performance.now()-window.__introSamples[0].at)));await page.waitForTimeout(remaining);await page.screenshot({path:resolve(output,'welcome-390-launch.png')});assert.equal(await page.locator('.wd-launch-screen button').count(),0,'cinematic intro has no visible action buttons');
+ const heroBeforeHandoff=await page.locator('.wd-hero-copy').elementHandle();
  await page.locator('.wd-launch-screen').waitFor({state:'detached',timeout:3000});
+ assert.equal(await heroBeforeHandoff.evaluate(node=>node===document.querySelector('.wd-hero-copy')),true,'hero stays mounted through the intro handoff');
+ assert(await page.locator('.wd-hero-copy').evaluate(node=>Number(getComputedStyle(node).opacity)>.5),'hero entrance is already in progress when intro ends');
  const settled=await page.evaluate(()=>({elapsed:performance.now()-window.__introSamples[0].at,inert:document.querySelector('.wd-welcome').inert,overflow:getComputedStyle(document.body).overflow}));
  assert(settled.elapsed<3200,'intro finishes promptly: '+settled.elapsed);assert.equal(settled.inert,false);assert.notEqual(settled.overflow,'hidden');assert.deepEqual(await page.evaluate(()=>window.__actions),[]);
  checks.push('full-screen logo intro locks background, finishes within three seconds, and restores interaction');

@@ -119,6 +119,25 @@ test('one explicit confirmation applies the whole summary without per-answer app
   find(tree,'عرض الملخص').props.onClick();ui.render();assert.equal(ui.applied.length,1);ui.unmount();
 });
 
+test('quick replies send the exact choice once without opening a confirmation or replacing a draft', async () => {
+  const document={...baseDocument(),currentQuestion:{topic:'family',text:'هل ترغب في الإنجاب؟',suggestions:['نعم، أرغب في الإنجاب','لا أرغب في الإنجاب']}};
+  const ui=mount({document,revision:1});ui.render();await tick();let tree=ui.render();
+  const quick=find(tree,'نعم، أرغب في الإنجاب');assert.ok(quick);quick.props.onClick();await tick();tree=ui.render();
+  assert.equal(ui.calls.filter(call=>call.action==='answer').length,1);
+  assert.equal(ui.calls.find(call=>call.action==='answer').answer,'نعم، أرغب في الإنجاب');assert.equal(ui.applied.length,0);
+  nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أحتاج وقتًا للتفكير'}});tree=ui.render();
+  assert.equal(find(tree,'نعم، أرغب في الإنجاب'),undefined,'chips disappear while a draft is being written');
+  quick.props.onClick();await tick();tree=ui.render();
+  assert.equal(nodes(tree).find(node=>node.type==='textarea').props.value,'أحتاج وقتًا للتفكير');
+  assert.equal(ui.calls.filter(call=>call.action==='answer').length,1);ui.unmount();
+});
+
+test('quick replies remain disabled while analysis is pending', async () => {
+  const document={...baseDocument(),pendingAnalysis:true,currentQuestion:{topic:'family',text:'هل ترغب في الإنجاب؟',suggestions:['نعم، أرغب في الإنجاب']}};
+  const ui=mount({document,revision:1});ui.render();await tick();const tree=ui.render();
+  assert.equal(find(tree,'نعم، أرغب في الإنجاب').props.disabled,true);ui.unmount();
+});
+
 test('uncertain interpretations require correction while clear answers need no repeated approvals', async () => {
   const known={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
   const uncertain={...known,id:'personality:openness:self',fieldId:'openness',values:['C'],needsClarification:true};

@@ -581,3 +581,51 @@ test('a changed reply cannot hide an exact repetition of the previous question',
  assert.equal(out.currentQuestion.text.endsWith(repeated),false,'compare against the previous actual question after its reply separator');
  assert.match(out.currentQuestion.text,/الطرف الآخر/);
 });
+
+test('quick replies belong only to the accepted question and never imply an answer',()=>{
+ const source={...initialInterviewDocument(true),turns:[turn]};
+ const out=applyInterviewCompletion(source,completion({...result,question:'هل ترتاح للحديث عن الخلاف مباشرة؟',quickReplies:['نعم','لا']}));
+ assert.deepEqual(out.currentQuestion.suggestions,['نعم','لا']);
+ assert.equal(interviewCoverage(out).answered,1);assert.deepEqual(out.confirmed,[]);
+ for(const question of ['كيف تتعامل مع الخلاف؟','هل تفضّل الحديث فورًا أو لاحقًا؟','هل تحب الحديث؟ وكيف تبدأه؟','هل تحب الحديث وتفضّل أن يبدأ شريكك؟']) {
+  assert.deepEqual(applyInterviewCompletion(source,completion({...result,question,quickReplies:['نعم','لا']})).currentQuestion.suggestions,[]);
+ }
+ const unsafe=applyInterviewCompletion(source,completion({...result,question:'هل ترتاح للحديث عن الخلاف مباشرة؟',quickReplies:['نعم','https://unsafe.invalid']}));
+ assert.deepEqual(unsafe.currentQuestion.suggestions,[]);
+ const wrong=applyInterviewCompletion(document(),completion({...result,questionTopic:'intent',question:'هل تريد أطفالًا؟',quickReplies:['نعم','لا']}));
+ assert.deepEqual(wrong.currentQuestion.suggestions,[]);
+});
+
+test('missing self and partner sides share a prompt; single-side followups get meaningful choices',()=>{
+ const turns=[turn];
+ const source={...initialInterviewDocument(true),turns};
+ const grouped=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[]}));
+ assert.match(grouped.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
+ assert.deepEqual(grouped.currentQuestion.suggestions,[]);
+ const single=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[{...candidate,evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}]}));
+ assert.equal(single.currentQuestion.topic,'intent');
+ assert.ok(single.currentQuestion.suggestions.length>=2);
+ assert.ok(single.currentQuestion.suggestions.every(value=>value.startsWith('أفضّل شريكًا')));
+});
+
+test('loading a saved session sanitizes current quick replies',async()=>{
+ const initial={...initialInterviewDocument(true),currentQuestion:{topic:'intent',text:'هل تناسبك الخطوة الرسمية قريبًا؟',suggestions:['نعم','https://unsafe.invalid']}};
+ const h=harness({initial:{document:initial,revision:1}});
+ const loaded=await h.service({action:'load'},headers);
+ assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);assert.equal(h.modelCalls.length,0);
+});
+
+test('one answer covers future topics and overlapping personality without an extra model request',async()=>{
+ const quoted='أرغب في الإنجاب وأؤيد عمل الزوجة، وغالبًا أبادر بفتح الحديث مع شخص جديد.';
+ const h=harness({proposals:turns=>[
+  ...['children_plan','wife_work','conversation_initiative_preference'].map(fieldId=>({...candidate,fieldId,values:[preferenceCatalog.dimensions.find(d=>d.id===fieldId).options[0].code],evidence:[{turnId:turns[0].id,quote:quoted}]})),
+  {...candidate,kind:'personality',fieldId:'initiative',values:['D'],evidence:[{turnId:turns[0].id,quote:quoted}]},
+ ]});
+ const first=await start(h),sent=await send(h,first.revision,quoted);
+ assert.equal(h.modelCalls.length,1);assert.equal(sent.coverage.answered,4);assert.deepEqual(sent.document.confirmed,[]);
+ const request=interviewCompletionRequest(sent.document),context=JSON.parse(request.messages[1].content);
+ for(const id of ['preference:children_plan:self','preference:wife_work:self','preference:conversation_initiative_preference:self','personality:initiative:self'])assert.equal(context.missingFields.some(p=>p.id===id),false);
+ assert.match(request.messages[0].content,/٤٤ خانة فهم وليست ٤٤ سؤالًا/);
+ assert.match(request.messages[0].content,/تفضيلًا وسلوك شخصية/);
+ assert.match(request.messages[0].content,/مرة واحدة في النهاية/);
+});

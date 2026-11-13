@@ -87,7 +87,7 @@ function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
 export type Issue = { field: keyof Answers | "consent"; text: string };
-export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false): Issue | null {
+export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {
   switch (step) {
     case 'compatibility':
       if (requireAssessment && dimensions.some(d => [d.id, d.partnerId].some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
@@ -120,6 +120,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact.trim()) && !/^\+?\d{8,15}$/.test(latinDigits(p.contact).replace(/[\s()-]/g, ""))) return { field: "contact", text: "أدخل بريدًا إلكترونيًا صحيحًا أو رقم جوال مع رمز الدولة." };
       return null;
     case "details":
+      if (requireSkinTone && !p.marriageBasics?.skinTone) return { field: "marriageBasics", text: "اختر درجة البشرة الأقرب لك لإكمال تفاصيلك." };
       if (requireAssessment && (['heightCm','weightKg','preferredLanguage','languageOpenness','nationality','maritalStatus','polygynyPreference','childrenCount','smoking','marriageTimeline','meetingPreference'] as const).some(key => p.marriageBasics?.[key] === undefined || p.marriageBasics?.[key] === '') || requireAssessment && !p.marriageBasics?.spokenLanguages?.length) return { field: 'marriageBasics', text: 'أكمل تفاصيلك الأساسية في كل مجموعة، بما فيها اللغات. المعلومات الحساسة تبقى باختيارك.' };
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
       if(p.marriageBasics?.currentWives===4)return{field:'marriageBasics',text:'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.'};

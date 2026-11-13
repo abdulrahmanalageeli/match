@@ -12,11 +12,11 @@ export function ToneChoices({ selected, change, multiple = false }: { selected: 
   </div>;
 }
 
-export function SelfAppearanceFields({ value, gender, onChange, sensitiveAllowed = true }: { value: MarriageBasics; gender?: string; onChange: (patch: Partial<MarriageBasics>) => void; sensitiveAllowed?: boolean }) {
+export function SelfAppearanceFields({ value, gender, onChange, sensitiveAllowed = true, skinRequired = false }: { skinRequired?: boolean; value: MarriageBasics; gender?: string; onChange: (patch: Partial<MarriageBasics>) => void; sensitiveAllowed?: boolean }) {
   return <>
-    {sensitiveAllowed && <fieldset className="nf-appearance-self"><legend>لون البشرة — اختياري</legend><small>اختر الدرجة الأقرب للون بشرتك. قد تختلف الألوان قليلًا بحسب الشاشة.</small>
-      <ToneChoices selected={value.skinTone ? [value.skinTone] : []} change={skinTone => onChange({ skinTone: value.skinTone === skinTone ? undefined : skinTone })} />
-      <button type="button" className="nf-appearance-clear" onClick={() => onChange({ skinTone: undefined })}>أفضل عدم الإفصاح</button>
+    {sensitiveAllowed && <fieldset className="nf-appearance-self"><legend>درجة البشرة{!skinRequired && " — اختياري"}</legend><small>اختر الدرجة الأقرب للون بشرتك. قد تختلف الألوان قليلًا بحسب الشاشة.</small>
+      <ToneChoices selected={value.skinTone ? [value.skinTone] : []} change={skinTone => onChange({ skinTone: !skinRequired && value.skinTone === skinTone ? undefined : skinTone })} />
+      {!skinRequired && <button type="button" className="nf-appearance-clear" onClick={() => onChange({ skinTone: undefined })}>أفضل عدم الإفصاح</button>}
     </fieldset>}
     {gender === "woman" && <>
       <label>لباسي الحالي<select value={value.dressStyle ?? ""} onChange={e => onChange({ dressStyle: e.target.value as DressStyle || undefined })}><option value="">أفضل عدم الإفصاح</option>{dressStyles.map(style => <option key={style.value} value={style.value}>{style.label}</option>)}</select></label>

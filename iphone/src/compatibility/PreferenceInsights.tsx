@@ -63,7 +63,7 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
         <Icon size={17} strokeWidth={1.5} aria-hidden="true" /><strong>{ar.format(topics.length)}</strong><span>{label}</span>
       </button>)}
     </div>
-    <p className="nf-pref-count-note">الأعداد تلخّص المواضيع؛ النسبة تراعي الأوزان وأولوياتكما.</p>
+    <p className="nf-pref-count-note">الأعداد تلخّص مواضيع الحوار؛ والنسبة تراعي تفضيلاتكما وأولوياتكما.</p>
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
       {preview.length ? preview.map(topic => <TopicCard topic={topic} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
@@ -79,14 +79,10 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
       </div>)}
       <p>كل جزء يمثّل موضوعًا واحدًا، وليس نقطة مئوية أو وزنًا في النتيجة.</p>
     </div></details>
-    {criteria && criteria.total > 0 && <details className="nf-pref-criteria"><summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true" /><span>تفضيلاتكما الإضافية<small>التفاصيل التي اخترتما أن يكون لها وزن</small></span></summary><div><p>من {ar.format(criteria.total)} تفضيلًا إضافيًا عبر الاتجاهين: {ar.format(criteria.matched)} متوافق، و{ar.format(criteria.different)} غير متوافق، و{ar.format(criteria.missing)} لا تتوفر إجابته.</p><p>يشمل ذلك التفضيلات المحددة مثل الدراسة والعمل والتفاصيل الشخصية. لا نكشف اختيارات الشريك الخاصة أو ننسب هذه الأعداد إلى طرف بعينه.</p></div></details>}
-    <details className="nf-pref-method"><summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true" /><span>{readout.source === 'legacy' ? 'عن هذه القراءة' : percentage === null ? 'كيف تُحسب نسبة التفضيلات؟' : `كيف وصلنا إلى ${ar.format(percentage)}٪؟`}</span></summary><div>
-      {readout.source === 'evidenced' ? <>
-      <p>نحسب قراءة في كل اتجاه: مدى ملاءمة إجابات طرف لرغبات الطرف الآخر. ثم ندمج القراءتين بالمتوسط الهندسي، حتى لا يُخفي التوافق في اتجاه واحد اختلافًا في الاتجاه الثاني.</p>
-      <div className="nf-pref-weights" aria-label="الأوزان الأساسية لمحاور التفضيلات">{categories.map(category => <span key={category.id}>{category.label}<b>{ar.format(category.weight)}٪</b></span>)}</div>
-      <p>يتضاعف وزن المحور الذي حدّده صاحبه أولوية، ثم تُعاد موازنة الأوزان. إذا توفرت تفضيلات إضافية معلومة في اتجاه المقارنة، تشكّل ٢٠٪ من قراءته، والتقييم ٨٠٪. دونها نعتمد على التقييم وحده.</p>
-      <p>«لا يهمّني» والإجابات المفقودة لا تضيف نقاطًا. العمر والسكن والشروط الأساسية تحدّد أهلية الترشيح، وليست مكافأة رقمية. هذه النسبة تصف توافق الإجابات، وليست احتمال نجاح الزواج.</p>
-      </> : <p>نعرض ملخّص الاتفاق والنقاش المحفوظ مع هذه النتيجة. لا تتوفر لها تفاصيل حساب موثّقة، لذلك لا نستنتج النسبة من عدد المواضيع. توافق الإجابات لا يعبّر عن احتمال نجاح الزواج.</p>}
+    {criteria && criteria.total > 0 && <details className="nf-pref-criteria"><summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true" /><span>تفضيلاتكما الإضافية<small>التفاصيل التي تهمّكما</small></span></summary><div><p>من {ar.format(criteria.total)} تفضيلًا إضافيًا عبر الاتجاهين: {ar.format(criteria.matched)} متوافق، و{ar.format(criteria.different)} غير متوافق، و{ar.format(criteria.missing)} لا تتوفر إجابته.</p><p>يشمل ذلك التفضيلات المحددة مثل الدراسة والعمل والتفاصيل الشخصية. لا نكشف اختيارات الشريك الخاصة أو ننسب هذه الأعداد إلى طرف بعينه.</p></div></details>}
+    <details className="nf-pref-method"><summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true" /><span>كيف نقرأ توافقكما؟</span></summary><div>
+      <p>نقارن تفضيلات كل طرف بإجابات الآخر، مع مراعاة الأولويات التي تهمّكما. تعكس النسبة مدى التقارب من الجهتين، وتساعدكما على معرفة ما يجمعكما وما يستحق الحوار.</p>
+      <p>الشروط الأساسية تحدّد أهلية الترشيح، وتظهر النسبة بعد اكتمال التقييم لدى الطرفين. هي قراءة إرشادية من إجاباتكما، وليست احتمالًا لنجاح الزواج.</p>
     </div></details>
     {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> هذه النتيجة تدعم ملخّص المواضيع؛ التفصيل في اتجاهي المقارنة غير متاح لها حاليًا.</p>}
   </section>;

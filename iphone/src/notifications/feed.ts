@@ -19,8 +19,8 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     return {
       id: n.id, activityId: n.id, person: n.person, kind: interest ? 'interest' : visit ? 'visit' : 'exclusive',
       at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
-      title: interest ? `اهتمام جديد من ${n.person.alias}` : visit ? `زيارة من ${n.person.alias}` : `بدأ التزامك مع ${n.person.alias}`,
-      detail: interest ? 'اطّلع على الملف؛ الاهتمام لا يفتح محادثة تلقائيًا' : visit ? 'زيارة لملفك · عرض الملف' : open ? 'تعارف حصري · خطوة تختارانها معًا' : 'تحديث محفوظ من تعارف سابق',
+      title: interest ? `لديك اهتمام من ${n.person.alias}` : visit ? `زيارة جديدة لملفك من ${n.person.alias}` : `اتفقت مع ${n.person.alias} على التعارف الحصري`,
+      detail: interest ? 'تعرّف على الملف، وأرسل طلب تعارف إذا ناسبك' : visit ? 'يمكنك الاطّلاع على الملف أيضًا' : open ? 'يمكنكما متابعة الحديث في محادثتكما' : 'إشعار من تعارف سابق',
       target: visit || interest ? 'profile' : open ? 'conversation' : null,
     };
   });
@@ -32,7 +32,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       const id = `request:${c.id}:${date || ''}`;
       rows.push({ id, kind: 'request', person: c.person, at: date, target: 'request', requestId: c.id,
         title: incoming ? `طلب تعارف من ${c.person.alias}` : `طلب تعارف إلى ${c.person.alias}`,
-        detail: incoming ? 'دعوة جديدة · الاطّلاع والرد' : 'بانتظار الرد على دعوتك',
+        detail: incoming ? 'اطّلع على الملف واقبل الطلب أو اعتذر' : 'طلبك بانتظار الرد',
         unread: incoming && !seen.has(id), attention: incoming });
     } else {
       if (c.unreadCount) {
@@ -42,14 +42,14 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
           unread: true, target: 'conversation', requestId: c.id });
       } else if (!exclusive.has(c.id)) {
         rows.push({ id: `match:${c.id}`, kind: 'match', person: c.person, at: date,
-          title: `أصبح التعارف مع ${c.person.alias} متبادلًا`, detail: 'مساحة مشتركة لحديث جاد', unread: false,
+          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'يمكنكما الآن بدء المحادثة', unread: false,
           target: 'conversation', requestId: c.id });
       }
       const commitment = p && !p.exclusive && p.consentPeer && !p.consentMine;
       if (p && (p.rewindPeer || commitment || (p.exclusive && p.peer && !p.mine))) {
         rows.push({ id: `journey:${c.id}`, kind: 'journey', person: c.person, at: p.updatedAt,
-          title: `اقتراح من ${c.person.alias}: ${p.rewindPeer ? 'العودة خطوة إلى الوراء' : commitment ? 'الالتزام الحصري' : 'الخطوة العائلية'}`,
-          detail: 'خطوة تنتظر قراركما · مراجعة الاقتراح', unread: true, attention: true,
+          title: `اقتراح من ${c.person.alias}: ${p.rewindPeer ? 'العودة إلى المرحلة السابقة' : commitment ? 'التعارف الحصري' : 'الخطوة العائلية'}`,
+          detail: 'راجع الاقتراح واختر ما يناسبك', unread: true, attention: true,
           target: 'conversation', requestId: c.id });
       }
     }

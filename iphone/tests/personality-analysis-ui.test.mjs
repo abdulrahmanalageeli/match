@@ -6,7 +6,7 @@ import {createServer} from 'vite';
 
 let loader,PersonalityAnalysis,FitDetails,comparePreferences,catalog;
 before(async()=>{
- loader=await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+ loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{name:'static-motion-for-copy-tests',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/motion/Reanimated.tsx'))return "import {createElement} from 'react';export const MotionReveal=({children,duration,distance,...props})=>createElement('div',props,children);";}}],optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
  ({PersonalityAnalysis}=await loader.ssrLoadModule('/src/compatibility/PersonalityAnalysis.tsx'));
  ({FitDetails}=await loader.ssrLoadModule('/src/compatibility/FitDetails.tsx'));
  ({comparePreferences}=await loader.ssrLoadModule('/src/compatibility/model.ts'));
@@ -21,13 +21,13 @@ function pair(){
 }
 const render=fit=>renderToStaticMarkup(createElement(PersonalityAnalysis,{fit,id:'personality-proof',panelRef:createRef()}));
 
-test('complete evidence shows four supported domain readings and auditable arithmetic, not raw choices',()=>{
+test('complete evidence shows supported insights without exposing scoring arithmetic',()=>{
  const {fit}=pair(),html=render(fit);
  assert.equal((html.match(/role="meter"/g)||[]).length,4);
  assert.match(html,/٨ من ١٢ عبارة متقاربة/);
- assert.match(html,/٩٢٥ ÷ ١٢ ≈ ٧٧٪/);
+ assert.doesNotMatch(html,/٩٢٥|÷|نقاط كل عبارة|لكل عبارة الوزن نفسه/);
  assert.match(html,/نقطة تقارب/);assert.match(html,/مساحة لفهم أعمق/);
- assert.match(html,/كيف وصلنا إلى ٧٧٪/);assert.match(html,/المرجع يوضح حدود التنبؤ، ولا يعتمد أسئلة نصفين أو أوزانها/);
+ assert.match(html,/كيف نقرأ انسجام الشخصية/);assert.match(html,/المرجع يوضح حدود التنبؤ/);
  assert.doesNotMatch(html,/personalityAnswers|option_code|social_energy|value="[A-E]"/);
 });
 

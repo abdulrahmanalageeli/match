@@ -115,7 +115,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
   const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|null>(null);
   const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
-  useEffect(()=>{let current=true;setOwnClaims([]);if(source?.verification)void source.verification('state').then(result=>{if(current)setOwnClaims(result.claims);}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
+  const [hasPreviousVerification,setHasPreviousVerification]=useState(false);
+  useEffect(()=>{let current=true;setOwnClaims([]);setHasPreviousVerification(false);if(source?.verification)void source.verification('state').then(result=>{if(current){setOwnClaims(result.claims);setHasPreviousVerification(result.requests.length>0);}}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
   const returnScroll=useRef(0);
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
   function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
@@ -152,10 +153,10 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           {source&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صور ملفي</strong><small>إضافة وإدارة صور المعرض</small></span><ChevronLeft size={16}/></button>}
         </section>
-        {Boolean(source?.verification || onBeena || onInterview || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
+        {Boolean(hasPreviousVerification || onBeena || onInterview || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
           <h2 id="st-marriage-title">ملفك وخطوات الزواج</h2>
           <div className="st-group st-marriage-group">
-            {source?.verification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="توثيق بياناتي" detail="استقبال المستندات متوقف · متابعة الطلبات السابقة وسحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
+            {hasPreviousVerification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="طلبات التوثيق السابقة" detail="متابعة طلباتك السابقة أو سحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
             {onInterview&&<div className="st-interview-entry"><SettingRow icon={<HeartHandshake/>} title="جلسة التوافق" detail="حوار خاص لفهم ما يناسبك" action={onInterview} disabled={busy}/></div>}
             {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · مواقف الحياة" detail={`${new Intl.NumberFormat('ar-SA').format(beenaProgress(member?.beena).answered)} من ٦ مواقف · كيف نعيش الحياة معًا؟`} action={onBeena} disabled={busy}/></div>}
             {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div>}

@@ -517,18 +517,18 @@ function PersonCard({
   );
 }
 
-function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;busy:boolean}) {
+function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
     <div className="dr-row-overview">
       <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
-        <span className="cm-weekly-identity dr-row-avatar">
+        <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
           <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context"><span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span className="dr-fit-caption">توافقكم</span></span>
@@ -539,6 +539,7 @@ function DirectoryRow({person,source,open,explain,request,busy}:{person:PublicPe
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     <div className="dr-row-actions">
+      {source.setInterest&&<button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}><Heart size={16} aria-hidden="true" fill={person.interested?'currentColor':'none'}/><span>{person.interested?'مهتم':'اهتمام'}</span></button>}
       <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<AddPersonMark/>}</button>
     </div>
     </div>
@@ -592,6 +593,7 @@ function Discovery({
   const [reportTarget, setReportTarget] = useState<PublicPerson|null>(null);
   const [reportSent, setReportSent] = useState(false);
   const [rowError,setRowError]=useState("");
+  const [interestNotice,setInterestNotice]=useState("");
   const identity = useRef<HTMLElement>(null);
   const listPosition = useRef<{ id: string; top: number; scroll: number; featured: boolean } | null>(null);
   const move = useWeeklyCardTransition();
@@ -755,12 +757,13 @@ function Discovery({
   }
   async function rowAction(item:PublicPerson,action:'interest'|'dismiss'|'report',reason?:string) {
     if(actionPending.current)return;
-    actionPending.current=true;setRowBusy(item.id);setRowError('');
+    actionPending.current=true;setRowBusy(item.id);setRowError('');setInterestNotice('');
     try {
       if(action==='interest') {
         if(!source.setInterest)throw Error('الاهتمام غير متاح الآن.');
         await source.setInterest(item.id,!item.interested);
         setList(rows=>rows.map(row=>row.id===item.id?{...row,interested:!item.interested}:row));
+        setInterestNotice(item.interested?'أُلغي اهتمامك.':'أُرسل إشعار باهتمامك.');
       } else {
         if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
         else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(true);}
@@ -835,6 +838,7 @@ function Discovery({
         </div>
       )}
       {rowError&&!reportTarget&&<Banner alert text={rowError}/>}
+      {interestNotice&&<p className="df-browse-memory" role="status"><Heart size={13}/>{interestNotice}<button className="btn-text" onClick={()=>setInterestNotice('')} aria-label="إخفاء تأكيد الاهتمام"><X size={13}/></button></p>}
       {hiddenNotice&&<p className="df-browse-memory" role="status"><EyeOff size={13}/>{hiddenNotice}<button className="btn-text" onClick={()=>setHiddenNotice('')} aria-label="إخفاء تأكيد الإخفاء"><X size={13}/></button></p>}
       {error && (
         <>
@@ -868,7 +872,7 @@ function Discovery({
       )}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
-          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} explain={()=>setFitPerson(item)}/>:<PersonCard
+          order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
             key={item.id}
             person={item}
             source={source}

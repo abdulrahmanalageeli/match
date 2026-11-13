@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
-import { ArrowUpRight, Calculator, Fingerprint, MessageCircle, ScanLine } from "../BrandIcons";
+import { ArrowUpRight, CircleHelp, Fingerprint, MessageCircle, ScanLine } from "../BrandIcons";
 import type { MatchFit } from './model';
 import { personalityPercentage } from './model';
-import { analyzePersonality, distributionSteps, personalityDomains, personalityTopics } from './personality-analysis';
+import { analyzePersonality, personalityDomains, personalityTopics } from './personality-analysis';
 
 const arabic = new Intl.NumberFormat('ar-SA', {numberingSystem:'arab'});
 
@@ -13,7 +13,6 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
   const evidence=analysis;
   const close=evidence?evidence.distribution.same+evidence.distribution.near:0;
   const total=fit.personality?.total??12;
-  const earned=evidence?distributionSteps.reduce((sum,step)=>sum+evidence.distribution[step.key]*step.points,0):0;
   const legacyTopics=percentage===null?[]:[...new Set([...(Array.isArray(fit.personality?.similarities)?fit.personality.similarities:[]),...(Array.isArray(fit.personality?.differences)?fit.personality.differences:[])])]
     .filter(key=>Object.hasOwn(personalityTopics,key)).map(key=>personalityTopics[key].title);
   const strength=analysis?.strengths[0],discussion=analysis?.discussion[0];
@@ -38,12 +37,8 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
             {strength&&<article className="nf-personality-insight"><span><ArrowUpRight size={17}/> نقطة تقارب</span><h4>{strength.title}</h4><p>{strength.interpretation}</p><blockquote>{strength.prompt}</blockquote></article>}
             {discussion&&<article className="nf-personality-insight nf-personality-discussion"><span><MessageCircle size={17}/> مساحة لفهم أعمق</span><h4>{discussion.title}</h4><p>{discussion.interpretation}</p><blockquote>{discussion.prompt}</blockquote></article>}
           </div>
-          <details className="nf-personality-method"><summary><Calculator size={18}/><span>كيف وصلنا إلى {arabic.format(percentage)}٪؟</span></summary>
-            <div><p>لكل عبارة خمس درجات، من «لا يشبهني إطلاقًا» إلى «يشبهني كثيرًا». نقيس المسافة بين إجابتَيكما؛ لكل عبارة الوزن نفسه.</p>
-              <table><caption>تفصيل إجاباتكما الاثنتي عشرة</caption><thead><tr><th scope="col">المسافة بين الإجابتين</th><th scope="col">عدد العبارات</th><th scope="col">نقاط كل عبارة</th></tr></thead><tbody>{distributionSteps.map(step=><tr key={step.key}><th scope="row">{step.label}</th><td>{arabic.format(evidence.distribution[step.key])}</td><td>{arabic.format(step.points)}</td></tr>)}</tbody></table>
-              <div className="nf-personality-equation"><span>مجموع النقاط ÷ عدد العبارات</span><strong dir="ltr">{arabic.format(earned)} ÷ {arabic.format(total)} ≈ {arabic.format(percentage)}٪</strong></div>
-              <p>نقرّب الناتج إلى أقرب عدد صحيح. كل محور يلخّص ثلاث عبارات؛ والنسبة العامة تُحسب من العبارات الاثنتي عشرة قبل تقريب المحاور.</p>
-            </div>
+          <details className="nf-personality-method"><summary><CircleHelp size={18}/><span>كيف نقرأ انسجام الشخصية؟</span></summary>
+            <div><p>نستند إلى إجاباتكما عن أسلوب التواصل، والقرب العاطفي، وإيقاع الحياة، والتعامل مع الضغط. نلخّص جوانب التقارب والاختلاف لتبدآ حديثًا أوضح عن احتياجاتكما.</p><p>تظهر النسبة بعد اكتمال التقييم لدى الطرفين. التقارب لا يعني التطابق، والاختلاف لا يمنع وجود علاقة مناسبة.</p></div>
           </details>
         </>:<div className="nf-personality-legacy"><h3>قراءة موجزة متاحة</h3><p>تعكس النسبة تقارب إجاباتكما. تفصيل الحساب والمحاور غير متاح لهذه النتيجة حاليًا، لذلك لا نعرض درجات تقديرية.</p>{legacyTopics.length>0&&<p><strong>مواضيع شملها التقييم: </strong>{legacyTopics.join('، ')}.</p>}</div>}
       <p className="nf-personality-boundary">هذه قراءة وصفية لتشابه الإجابات، وليست اختبارًا نفسيًا معتمدًا أو نسبة لاحتمال نجاح الزواج. لا يكشف التحليل اختيارات الطرف الآخر حرفيًا، وقد تحمل الطباع المختلفة تكاملًا لا تقيسه هذه النسبة.</p>

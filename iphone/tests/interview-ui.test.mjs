@@ -346,3 +346,14 @@ test('unclear unrestricted criteria and sensitive disclosures are not silently a
   const ui=mount({document:{...baseDocument(),profileProposals:[proposal]},revision:1});ui.render();await tick();let tree=ui.render();find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.equal(find(tree,'تفاصيل إلى مسودتي').props.disabled,true);assert.equal(ui.profileApplied.length,0);ui.unmount();
  }
 });
+
+test('a successful retry hides the old failure receipt and restores the composer',async()=>{
+ const initial={document:{...baseDocument(),pendingAnalysis:true},revision:2,fallbackAvailable:true};
+ const ui=mount(initial,(payload,snapshot)=>payload.action==='retry'?Promise.resolve({...snapshot,revision:3,document:{...snapshot.document,pendingAnalysis:false,lastMode:'luna'}}):null);
+ ui.render();await tick();let tree=ui.render();
+ assert.match(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.ok(find(tree,'إكمال الأسئلة مباشرة'));assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,true);
+ find(tree,'إعادة المحاولة').props.onClick();await tick();tree=ui.render();
+ assert.doesNotMatch(textOf(tree),/تعذّر إكمال الحوار الآن/);assert.equal(find(tree,'إكمال الأسئلة مباشرة'),undefined);assert.equal(nodes(tree).find(node=>node.type==='textarea').props.disabled,false);
+ ui.unmount();
+});
+

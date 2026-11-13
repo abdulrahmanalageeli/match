@@ -323,7 +323,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'جارٍ الحفظ…' : draftState === 'error' ? 'تعذّر حفظ آخر كتابة' : 'محفوظ بخصوصية';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
-  const unavailable = snapshot.fallbackAvailable === true;
+  const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
   const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
   const isChat = Boolean(loaded && doc && !applied && !reviewMode && !profileReview);

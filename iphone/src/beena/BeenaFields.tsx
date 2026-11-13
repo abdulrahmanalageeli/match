@@ -10,7 +10,7 @@ const number = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
 export function BeenaFields({ value, onChange, storyReview = true, registration = false, remainingOnly = false }: { value?: BeenaProfile | null; onChange: (value: BeenaProfile | null) => void; storyReview?: boolean; registration?: boolean; remainingOnly?: boolean }) {
   const [mode, setMode] = useState<'situations' | 'story'>(() => value?.story?.text && !Object.keys(value.answers).length ? 'story' : 'situations');
   const [requestedIndex, setIndex] = useState(0);
-  const completedHere = useRef(new Set<number>()), previousMode = useRef(remainingOnly);
+  const completedHere = useRef(new Set<number>()), inferredPartners = useRef(new Set<string>()), previousMode = useRef(remainingOnly);
   if (previousMode.current !== remainingOnly) { completedHere.current.clear(); previousMode.current = remainingOnly; }
   const [requestedPerspective, setPerspective] = useState<'self' | 'partner'>('self');
   const [finished, setFinished] = useState(false);
@@ -46,11 +46,23 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
   function changeAnswer(patch: Partial<BeenaAnswer>) {
     completedHere.current.add(position);
     const next = { ...answer, ...patch };
+    if (Object.hasOwn(patch, 'self')) {
+      const partnerWasInferred = inferredPartners.current.has(scenario.id);
+      if (!patch.self && partnerWasInferred) {
+        delete next.partner;
+        inferredPartners.current.delete(scenario.id);
+      } else if (patch.self && (partnerWasInferred || !hasScenarioAnswer(scenario.options, next, 'partner'))) {
+        next.partner = [patch.self];
+        inferredPartners.current.add(scenario.id);
+      }
+    }
+    if (Object.hasOwn(patch, 'partner')) inferredPartners.current.delete(scenario.id);
     onChange({ ...current(), answers: { ...value?.answers, [scenario.id]: next } });
     setFinished(false);
   }
   function move(next: number, side: 'self' | 'partner' = 'self') {
-    if (remainingOnly && !positions.includes(next*2+Number(side==='partner'))) {
+    const inferredReview = next === index && side === 'partner' && inferredPartners.current.has(scenario.id);
+    if (remainingOnly && !positions.includes(next*2+Number(side==='partner')) && !inferredReview) {
       if (positions.includes(next*2+Number(side==='self'))) side=side==='self'?'partner':'self'; else return;
     }
     moved.current = true;
@@ -64,7 +76,7 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
       if (next===undefined) setFinished(true); else move(Math.floor(next/2),next%2===0?'self':'partner');
       return;
     }
-    if (perspective === 'self') { move(index, 'partner'); return; }
+    if (perspective === 'self' && !inferredPartners.current.has(scenario.id)) { move(index, 'partner'); return; }
     if (index < beenaScenarios.length - 1) move(index + 1);
     else setFinished(true);
   }
@@ -73,6 +85,7 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
     onChange({ ...current(), story: { scenarioId: scenario.id, text: '', share: false, ...value?.story, ...patch } });
   }
   function clearStory() { const next = { ...current() }; delete next.story; onChange(next); }
+  const partnerIsInferred = inferredPartners.current.has(scenario.id);
 
   return <section className="bn-fields" aria-label="بيننا: مواقف الحياة" data-field="beena" tabIndex={-1}>
     {!registration && <header className="bn-intro">
@@ -92,10 +105,10 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
         <p className="bn-story-scene">{scenario.scene}</p>
         <div className="bn-perspectives" role="group" aria-label="زاوية الإجابة في الموقف">
           {(!remainingOnly||positions.includes(index*2))&&<button type="button" aria-pressed={perspective === 'self'} onClick={() => move(index, 'self')}>تصرفي الأقرب {answer.self && <Check size={13} aria-label="أجبت"/>}</button>}
-          {(!remainingOnly||positions.includes(index*2+1))&&<button type="button" aria-pressed={perspective === 'partner'} onClick={() => move(index, 'partner')}>ما أتقبّله من شريكي {!!answer.partner?.length && <Check size={13} aria-label="أجبت"/>}</button>}
+          {(!remainingOnly||positions.includes(index*2+1)||partnerIsInferred)&&<button type="button" aria-pressed={perspective === 'partner'} onClick={() => { if (partnerIsInferred) completedHere.current.add(index*2+1); move(index, 'partner'); }}>ما أتقبّله من شريكي {partnerIsInferred&&<small>مقترح</small>}{!!answer.partner?.length && <Check size={13} aria-label="أجبت"/>}</button>}
         </div>
         <h3 ref={heading} tabIndex={-1}>{perspective === 'self' ? 'ما التصرف الأقرب لك؟' : 'أي التصرفات ترتاح إليها من شريكك؟'}</h3>
-        <p className="bn-answer-hint">{perspective === 'self' ? 'اختر ما تفعله عادةً، لا ما يبدو مثاليًا.' : 'يمكنك اختيار أكثر من تصرف. ليس ضروريًا أن يشبه تصرفك.'}</p>
+        <p className="bn-answer-hint">{perspective === 'self' ? 'اختر ما تفعله عادةً، لا ما يبدو مثاليًا.' : partnerIsInferred ? 'بدأنا بتصرفك كخيار مقبول. أضف أو أزل ما يناسبك.' : 'يمكنك اختيار أكثر من تصرف. ليس ضروريًا أن يشبه تصرفك.'}</p>
         <div className="bn-options" role="group" aria-label={perspective === 'self' ? 'تصرفي في ' + scenario.title : 'تصرفات الشريك المقبولة في ' + scenario.title}>
           {scenario.options.map(option => {
             const selected = perspective === 'self' ? answer.self === option.code : Boolean(answer.partner?.includes(option.code));
@@ -109,7 +122,7 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
         {perspective === 'partner' && <div className="bn-importance"><span id={id + '-importance'}>أهمية هذا الموقف لك</span><div role="group" aria-labelledby={id + '-importance'}><button type="button" aria-pressed={(answer.importance ?? 1) === 1} onClick={() => changeAnswer({ importance: 1 })}>أهمية عادية</button><button type="button" aria-pressed={answer.importance === 2} onClick={() => changeAnswer({ importance: 2 })}>مهم لي <Sparkles size={12}/></button></div><small>يزيد وزن الموقف في القراءة، ولا يستبعد شخصًا تلقائيًا.</small></div>}
         <nav className="bn-scene-navigation" aria-label="التنقل بين مواقف بيننا">
           <button type="button" className="bn-back" disabled={questionIndex<=0} onClick={() => {const previous=positions[questionIndex-1];if(previous!==undefined)move(Math.floor(previous/2),previous%2===0?'self':'partner')}}><ArrowRight size={15}/> السابق</button>
-          <button type="button" className="bn-next" onClick={advance}>{remainingOnly ? questionIndex===positions.length-1?'مراجعة المواقف':'السؤال التالي' : perspective === 'self' ? 'وماذا عن شريكك؟' : index === beenaScenarios.length - 1 ? 'مراجعة المواقف' : 'الموقف التالي'}<ArrowLeft size={15}/></button>
+          <button type="button" className="bn-next" onClick={advance}>{remainingOnly ? questionIndex===positions.length-1?'مراجعة المواقف':'السؤال التالي' : perspective === 'self' && !partnerIsInferred ? 'وماذا عن شريكك؟' : index === beenaScenarios.length - 1 ? 'مراجعة المواقف' : 'الموقف التالي'}<ArrowLeft size={15}/></button>
         </nav>
         <button type="button" className="bn-skip" onClick={() => {const next=positions.find(at=>Math.floor(at/2)>index);if(next===undefined)setFinished(true);else move(Math.floor(next/2),next%2===0?'self':'partner')}}>أكمل هذا الموقف لاحقًا</button>
       </article>}

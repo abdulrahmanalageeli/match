@@ -79,7 +79,8 @@ test('session start does not call model; draft autosaves privately and answer us
   const sent = await send(h, draft.revision);
   assert.equal(sent.document.turns.length, 1);
   assert.equal(sent.document.draftAnswer, '');
-  assert.equal(sent.document.proposals.length, 1);
+  assert.equal(sent.document.proposals.length, 2);
+  assert.equal(sent.document.proposals.find(item => item.side === 'partner').source, 'self_default');
   assert.equal(sent.document.confirmed.length, 0);
   assert.equal(sent.document.pendingAnalysis, false);
   const request = h.modelCalls[0].request;
@@ -93,7 +94,7 @@ test('session start does not call model; draft autosaves privately and answer us
   assert.match(request.messages[0].content,/summary بحد أقصى8 كلمات/);
   assert.match(request.messages[0].content,/readiness=\[\]/);
   assert.equal(h.calls.at(-1).init.headers.Authorization, 'Bearer service-secret');
-  assert.equal(sent.coverage.required,44); assert.equal(sent.coverage.answered,1); assert.equal(sent.fallbackAvailable,false);
+  assert.equal(sent.coverage.required,44); assert.equal(sent.coverage.answered,2); assert.equal(sent.fallbackAvailable,false);
 });
 
 test('submitted answers survive provider outage; retry uses saved transcript without duplicate turn', async () => {
@@ -128,7 +129,7 @@ test('quota exhaustion and absent key preserve answer without provider cost', as
 test('a correction followed by an outage clears old interpretations and cannot be confirmed or shared', async () => {
   const options = {}, h = harness(options), first = await start(h);
   const interpreted = await send(h, first.revision);
-  assert.equal(interpreted.document.proposals.length, 1);
+  assert.equal(interpreted.document.proposals.length, 2);
   options.failure = true;
   const corrected = await send(h, interpreted.revision, 'تصحيح: لا أقدر خلال ستة أشهر؛ أبغى أكثر من سنة.');
   assert.equal(corrected.document.pendingAnalysis, true);
@@ -173,7 +174,8 @@ test('exact answer evidence, valid fields and explicit partner choices only ente
   ]) assert.equal(validateProposal(bad, [turn]), null);
   assert.equal(validateProposal(candidate, [{ ...turn, skipped: true }]), null);
   const parsed = applyInterviewCompletion(document(), completion({ ...result, proposals: [candidate, { ...candidate, fieldId: 'religion' }] }));
-  assert.equal(parsed.proposals.length, 1);
+  assert.equal(parsed.proposals.length, 2);
+  assert.equal(parsed.proposals.find(item => item.side === 'partner').source, 'self_default');
   assert.deepEqual(parsed.confirmed, []);
   assert.equal(parsed.reviewSharing, false);
   const prompt = interviewCompletionRequest(document()).messages[0].content;
@@ -355,9 +357,9 @@ test('required sessions reject skipping and early review cannot end missing answ
   const sent=await send(h,empty.revision),reviewed=await h.service({action:'review',revision:sent.revision},headers);
   assert.equal(reviewed.document.status,'active');assert.ok(reviewed.document.currentQuestion);
   const request=h.modelCalls.at(-1).request,context=JSON.parse(request.messages[1].content);
-  assert.equal(context.beenaCatalog,undefined);assert.equal(context.missingFields.length,43);
+  assert.equal(context.beenaCatalog,undefined);assert.equal(context.missingFields.length,42);
   assert.deepEqual(request.response_format.json_schema.schema.properties.proposals.items.properties.kind.enum,['preference','personality']);
-  assert.match(request.messages[0].content,/٣٢ إجابة تفضيلات/);
+  assert.match(request.messages[0].content,/٣٢ خانة تفضيلات/);
 });
 
 test('the automatic terminal answer runs complete final review within the same provider request', async () => {
@@ -393,7 +395,7 @@ test('review can return to questions without changing confirmed profile answers;
   assert.equal(resumed.document.turns.length, 1);
   assert.equal(resumed.document.reviewSharing, false);
   assert.equal(resumed.document.confirmed.length, 0);
-  assert.equal(resumed.document.proposals.length, 1);
+  assert.equal(resumed.document.proposals.length, 2);
   const deleted = await h.service({ action: 'delete', revision: resumed.revision }, headers);
   assert.equal(deleted.document, null);
   assert.equal((await h.service({ action: 'delete', revision: resumed.revision }, headers)).document, null);
@@ -510,7 +512,7 @@ test('a bare yes to an open question cannot become a concrete marriage timeline'
 test('short explicit answers to a clear closed question remain valid',()=>{
  const source={...initialInterviewDocument(true),turns:[{...turn,question:'هل يناسبك الانتقال للخطوة الرسمية خلال ستة أشهر؟',answer:'نعم'}]};
  const out=applyInterviewCompletion(source,completion({...result,proposals:[{...candidate,evidence:[{turnId:turn.id,quote:'نعم'}]}]}));
- assert.equal(interviewCoverage(out).answered,1,'a minimum-answer-length rule must not reject meaningful concise replies');
+ assert.equal(interviewCoverage(out).answered,2,'a concise self answer also prepares its editable partner default');
  assert.equal(out.proposals[0].id,'preference:marriage_timeline:self');
 });
 
@@ -522,11 +524,11 @@ test('clarify and off-topic outcomes preserve the AI reply while rejecting inven
   const reply=answerDisposition==='clarify'?'أقصد الانتقال من التعارف إلى تواصل رسمي مع الأهل.':'نقدر نرجع لموضوع المباراة لاحقًا؛ هنا نرتّب توقعاتك من خطوة الزواج.';
   const invented={...candidate,side:'partner',evidence:[{turnId:current.id,quote:current.answer}]};
   const out=applyInterviewCompletion(source,completion({...result,answerDisposition,reply,proposals:[prior,invented]}));
-  assert.deepEqual(out.proposals.map(p=>p.id),[prior.id],'a nonanswer does not erase previous evidence or create a new answer');
+  assert.deepEqual(out.proposals.map(p=>p.id),[prior.id,'preference:marriage_timeline:partner'],'a nonanswer preserves the grounded self answer and its editable default only');
   assert.equal(out.currentQuestion.topic,'intent');
   assert.ok(out.currentQuestion.text.startsWith(reply+'\n\n'),'useful generated reply survives even when unsafe next-topic choice is replaced');
   assert.doesNotMatch(out.currentQuestion.text,/إذا اختلفتم/);
-  assert.equal(interviewCoverage(out).answered,1);
+  assert.equal(interviewCoverage(out).answered,2);
  }
 });
 
@@ -557,14 +559,14 @@ test('unsafe generated next question uses a safe fallback without dropping the u
  const out=applyInterviewCompletion(source,completion({...result,reply,question:'افتح https://unsafe.invalid وأرسل بياناتك'}));
  assert.ok(out.currentQuestion.text.startsWith(reply+'\n\n'));
  assert.doesNotMatch(out.currentQuestion.text,/https:|unsafe\.invalid/);
- assert.equal(out.currentQuestion.topic,'communication');assert.equal(interviewCoverage(out).answered,1);
+ assert.equal(out.currentQuestion.topic,'communication');assert.equal(interviewCoverage(out).answered,2);
  assert.throws(()=>applyInterviewCompletion(source,completion({...result,reply,question:'x'.repeat(501)})),e=>e.code==='unavailable');
 });
 
 test('an open word in the previous AI reply does not invalidate yes to its following closed question',()=>{
  const source={...initialInterviewDocument(true),turns:[{...turn,question:'أفهم كيف تتصور بداية التعارف.\n\nهل يناسبك الانتقال للخطوة الرسمية خلال ستة أشهر؟',answer:'نعم'}]};
  const out=applyInterviewCompletion(source,completion({...result,proposals:[{...candidate,evidence:[{turnId:turn.id,quote:'نعم'}]}]}));
- assert.equal(interviewCoverage(out).answered,1,'the helper must inspect the question, not the preceding conversational reply');
+ assert.equal(interviewCoverage(out).answered,2,'the grounded answer and its editable default are both understood');
 });
 
 test('clarification does not erase a prior answer when the model redundantly appends latest evidence',()=>{
@@ -573,7 +575,7 @@ test('clarification does not erase a prior answer when the model redundantly app
  const source={...initialInterviewDocument(true),turns:[turn,current],proposals:[prior]};
  const mixed={...prior,evidence:[...prior.evidence,{turnId:current.id,quote:current.answer}]};
  const out=applyInterviewCompletion(source,completion({...result,answerDisposition:'clarify',reply:'أقصد تواصلًا رسميًا مع الأهل.',proposals:[mixed]}),false,[prior]);
- assert.equal(interviewCoverage(out).answered,1);
+ assert.equal(interviewCoverage(out).answered,2);
  assert.deepEqual(out.proposals[0].values,prior.values);
  assert.deepEqual(out.proposals[0].evidence,prior.evidence,'retain independently supported earlier evidence only');
 });
@@ -592,7 +594,7 @@ test('quick replies belong only to the accepted question and never imply an answ
  const source={...initialInterviewDocument(true),turns:[turn]};
  const out=applyInterviewCompletion(source,completion({...result,question:'هل ترتاح للحديث عن الخلاف مباشرة؟',quickReplies:['نعم','لا']}));
  assert.deepEqual(out.currentQuestion.suggestions,['نعم','لا']);
- assert.equal(interviewCoverage(out).answered,1);assert.deepEqual(out.confirmed,[]);
+ assert.equal(interviewCoverage(out).answered,2);assert.deepEqual(out.confirmed,[]);
  for(const question of ['كيف تتعامل مع الخلاف؟','هل تفضّل الحديث فورًا أو لاحقًا؟','هل تحب الحديث؟ وكيف تبدأه؟','هل تحب الحديث وتفضّل أن يبدأ شريكك؟']) {
   assert.deepEqual(applyInterviewCompletion(source,completion({...result,question,quickReplies:['نعم','لا']})).currentQuestion.suggestions,[]);
  }
@@ -602,27 +604,25 @@ test('quick replies belong only to the accepted question and never imply an answ
  assert.deepEqual(wrong.currentQuestion.suggestions,[]);
 });
 
-test('missing self and partner sides share a prompt; single-side followups get meaningful choices',()=>{
+test('defaultable dimensions ask the self side once and prepare the partner side',()=>{
  const turns=[turn];
  const source={...initialInterviewDocument(true),turns};
  const grouped=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[]}));
- assert.match(grouped.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
+ assert.doesNotMatch(grouped.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
  assert.ok(grouped.currentQuestion.suggestions.length>=2);
- assert.ok(grouped.currentQuestion.suggestions.every(value=>value.startsWith('أنا ')&&value.includes('وأفضّل شريكًا')));
+ assert.ok(grouped.currentQuestion.suggestions.every(value=>!value.includes('وأفضّل شريكًا')));
  const single=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:'',proposals:[{...candidate,evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}]}));
  assert.equal(single.currentQuestion.topic,'intent');
- assert.ok(single.currentQuestion.suggestions.length>=2);
- assert.ok(single.currentQuestion.suggestions.every(value=>value.startsWith('أفضّل شريكًا')));
+ assert.ok(single.currentQuestion.suggestions.every(value=>!value.includes('وأفضّل شريكًا')));
 });
 
-test('a model question cannot split self from partner while both sides of one preference are missing',()=>{
+test('a model may ask only self when that answer has an audited partner default',()=>{
  const source={...initialInterviewDocument(true),turns:[turn]};
  const modelQuestion='متى يناسبك أنت الانتقال إلى الخطوة الرسمية؟';
  const out=applyInterviewCompletion(source,completion({...result,followUp:true,questionTopic:'intent',question:modelQuestion,
   questionFields:['preference:marriage_timeline:self'],quickReplies:['خلال ستة أشهر','بعد سنة'],proposals:[]}));
- assert.doesNotMatch(out.currentQuestion.text,new RegExp(modelQuestion));
- assert.match(out.currentQuestion.text,/وش تفضّل من شريكك في نفس الجانب/);
- assert.ok(out.currentQuestion.suggestions.every(value=>value.includes('وأفضّل شريكًا')));
+ assert.equal(out.currentQuestion.text,modelQuestion);
+ assert.deepEqual(out.currentQuestion.suggestions,['خلال ستة أشهر','بعد سنة']);
 });
 
 test('loading a saved session sanitizes current quick replies',async()=>{
@@ -641,13 +641,13 @@ test('one answer covers future topics and overlapping personality without an ext
   {...candidate,kind:'personality',fieldId:'initiative',values:['D'],evidence:[{turnId:turns[0].id,quote:quoted}]},
  ]});
  const first=await start(h),sent=await send(h,first.revision,quoted);
- assert.equal(h.modelCalls.length,1);assert.equal(sent.coverage.answered,4);assert.deepEqual(sent.document.confirmed,[]);
+ assert.equal(h.modelCalls.length,1);assert.equal(sent.coverage.answered,7);assert.deepEqual(sent.document.confirmed,[]);
  const request=interviewCompletionRequest(sent.document),context=JSON.parse(request.messages[1].content);
  for(const id of ['preference:children_plan:self','preference:wife_work:self','preference:conversation_initiative_preference:self','personality:initiative:self'])assert.equal(context.missingFields.some(p=>p.id===id),false);
- assert.match(request.messages[0].content,/٤٤ خانة فهم وليست ٤٤ سؤالًا/);
+ assert.match(request.messages[0].content,/الخانات ليست أسئلة مستقلة/);
  assert.match(request.messages[0].content,/السؤال الأول دعوة لفقرة تعريف واحدة/);
  assert.match(request.messages[0].content,/بعد أول إجابة لا تعِد سؤال التعريف العام/);
- assert.match(request.messages[0].content,/أدرج المعرّفين معًا في questionFields/);
+ assert.match(request.messages[0].content,/اسأل self وحده/);
  assert.match(request.messages[0].content,/لا ينتج درجة جدية أو أهلية/);
  assert.match(request.messages[0].content,/تفضيلًا وسلوك شخصية/);
  assert.match(request.messages[0].content,/مرة واحدة في النهاية/);
@@ -667,7 +667,7 @@ test('saved signup answers can be corrected without losing unrelated answers or 
  }});
  const corrected=await send(h,5,text);
  assert.equal(corrected.document.turns.length,3);assert.equal(h.modelCalls.length,1);
- assert.equal(corrected.coverage.answered,3,'omitted unrelated timeline remains understood');
+ assert.equal(corrected.coverage.answered,4,'the unrelated timeline and its editable default remain understood');
  for(const previousValue of previous) {
   const saved=corrected.document.proposals.find(p=>p.id===previousValue.id);
   assert.deepEqual(saved.values,['A']);assert.equal(saved.evidence[0].quote,text);
@@ -703,7 +703,7 @@ test('a grounded withdrawal removes the old value without fabricating a replacem
  assert.deepEqual(out.proposals,[],'a replayed old quote cannot restore a withdrawn answer');
  assert.equal(interviewCoverage(out).answered,0);assert.deepEqual(out.confirmed,[]);
  const invented=applyInterviewCompletion(source,completion({...result,invalidatedProposals:[{...revoked,evidence:[{turnId:correction.id,quote:'a fabricated correction'}]}],proposals:[]}));
- assert.deepEqual(invented.proposals,[prior],'withdrawals also require real evidence');
+ assert.deepEqual(invented.proposals.map(item=>item.id),[prior.id,'preference:marriage_timeline:partner'],'invalid withdrawals preserve the answer and its default');
 });
 
 test('already answered reminders retain progress and target a genuinely missing family field',()=>{
@@ -719,4 +719,62 @@ test('already answered reminders retain progress and target a genuinely missing 
 test('same-evidence conflicting duplicate values remain unresolved instead of depending on array order',()=>{
  const out=applyInterviewCompletion({...initialInterviewDocument(true),turns:[turn]},completion({...result,proposals:[candidate,{...candidate,values:['B']}]}));
  assert.equal(out.proposals.length,1);assert.equal(out.proposals[0].needsClarification,true);assert.equal(interviewCoverage(out).answered,0);
+});
+
+test('audited defaults mirror or complement self answers without overwriting an explicit partner choice',()=>{
+ const source={...initialInterviewDocument(true),turns:[turn]};
+ const proposal=(fieldId,side,value)=>({...candidate,fieldId,side,values:[value]});
+ const mirrored=applyInterviewCompletion(source,completion({...result,proposals:[proposal('children_plan','self','A')]}));
+ const childPartner=mirrored.proposals.find(item=>item.id==='preference:children_plan:partner');
+ assert.deepEqual(childPartner.values,['A']);assert.equal(childPartner.source,'self_default');
+ const complemented=applyInterviewCompletion(source,completion({...result,proposals:[proposal('residence_plan','self','A')]}));
+ assert.deepEqual(complemented.proposals.find(item=>item.id==='preference:residence_plan:partner').values,['B']);
+ const explicit=applyInterviewCompletion(source,completion({...result,proposals:[proposal('residence_plan','self','A'),proposal('residence_plan','partner','C')]}));
+ const explicitPartner=explicit.proposals.find(item=>item.id==='preference:residence_plan:partner');
+ assert.deepEqual(explicitPartner.values,['C']);assert.equal(explicitPartner.source,undefined);
+ const independent=applyInterviewCompletion(source,completion({...result,proposals:[proposal('repair_after_conflict','self','A')]}));
+ assert.equal(independent.proposals.some(item=>item.id==='preference:repair_after_conflict:partner'),false);
+});
+
+test('a self correction updates only an untouched default and final confirmation makes it explicit',()=>{
+ const first=applyInterviewCompletion({...initialInterviewDocument(),turns:[turn]},completion({...result,proposals:[candidate]}));
+ const correction={...turn,id:randomUUID(),answer:'تصحيح: أحتاج أكثر من سنة.'};
+ const changed={...candidate,values:['C'],evidence:[{turnId:correction.id,quote:correction.answer}]};
+ const updated=applyInterviewCompletion({...first,turns:[turn,correction]},completion({...result,proposals:[changed]}));
+ const partner=updated.proposals.find(item=>item.id==='preference:marriage_timeline:partner');
+ assert.deepEqual(partner.values,['C']);assert.equal(partner.source,'self_default');
+ const confirmed=confirmInterviewChoices({...updated,status:'review'},[{id:partner.id,values:partner.values}]);
+ assert.equal(confirmed.confirmed[0].source,undefined);
+});
+
+test('context-backed defaults survive reload and preserve complementary mapping',async()=>{
+ const context=[{id:'preference:residence_plan:self',values:['A']}];
+ const initial={...initialInterviewDocument(true),assessmentContext:context};
+ const h=harness({initial:{document:initial,revision:1}});
+ const loaded=await h.service({action:'load'},headers);
+ const partner=loaded.document.proposals.find(item=>item.id==='preference:residence_plan:partner');
+ assert.deepEqual(partner.values,['B']);assert.equal(partner.source,'self_default');
+ const reloaded=await h.service({action:'load'},headers);
+ assert.deepEqual(reloaded.document.proposals,loaded.document.proposals);
+});
+
+test('withdrawing an inferred partner default stays unresolved across reloads until an explicit replacement',()=>{
+ const first=applyInterviewCompletion({...initialInterviewDocument(true),turns:[turn]},completion({...result,proposals:[candidate]}));
+ const correction={...turn,id:randomUUID(),answer:'هذا الافتراض لا يناسبني، أبغى أختار بنفسي.'};
+ const partnerId='preference:marriage_timeline:partner';
+ const withdrawn=applyInterviewCompletion({...first,turns:[turn,correction]},completion({...result,answerDisposition:'clarify',
+  invalidatedProposals:[{id:partnerId,evidence:[{turnId:correction.id,quote:correction.answer}]}],proposals:[]}));
+ const placeholder=withdrawn.proposals.find(item=>item.id===partnerId);
+ assert.equal(placeholder.needsClarification,true);assert.equal(placeholder.source,undefined);
+ const nextTurn={...correction,id:randomUUID(),answer:'خلنا نكمل باقي الأسئلة.'};
+ const reprocessed=applyInterviewCompletion({...withdrawn,turns:[...withdrawn.turns,nextTurn]},completion({...result,answerDisposition:'off_topic',proposals:[]}));
+ assert.equal(reprocessed.proposals.find(item=>item.id===partnerId).needsClarification,true);
+ assert.equal(interviewCoverage(reprocessed).answered,1);
+});
+
+test('Beena self choices prepare one editable acceptable partner choice',()=>{
+ const beena={...candidate,kind:'beena',fieldId:'finances',side:'self',values:['A']};
+ const out=applyInterviewCompletion({...initialInterviewDocument(),turns:[turn]},completion({...result,proposals:[beena]}));
+ const partner=out.proposals.find(item=>item.id==='beena:finances:partner');
+ assert.deepEqual(partner.values,['A']);assert.equal(partner.source,'self_default');
 });

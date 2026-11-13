@@ -10,6 +10,7 @@ export type InterviewProposal = {
   summary: string;
   evidence: InterviewEvidence[];
   needsClarification: boolean;
+  source?: 'self_default';
 };
 export type InterviewNote = { id: string; text: string; evidence: InterviewEvidence[] };
 export type InterviewQuestion = { topic: string; text: string; suggestions: string[] };

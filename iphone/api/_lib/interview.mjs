@@ -182,13 +182,19 @@ function unclearConfirmation(turn) {
 
 export function validateProposal(value, turns, assessmentContext = [], allowContextEdit = false) {
   if (!record(value) || !validValues(value.kind, value.fieldId, value.side, value.values)
-    || !safeText(value.summary, 240) || typeof value.needsClarification !== 'boolean') return null;
+    || !safeText(value.summary, 240) || typeof value.needsClarification !== 'boolean'
+    || (value.source !== undefined && value.source !== 'self_default')
+    || (value.source === 'self_default' && (!['preference', 'beena'].includes(value.kind) || value.side !== 'partner'))) return null;
   const evidence = evidenceFor(value.evidence, turns, assessmentContext);
   if (!evidence || evidence.every(item => { const turn=turns.find(turn => turn.id===item.turnId); return turn ? unclearConfirmation(turn) : false; })) return null;
-  if (evidence.some(item => item.turnId.startsWith('context:') && item.turnId !== `context:${value.kind}:${value.fieldId}:${value.side}`)) return null;
-  if (!allowContextEdit && evidence.some(item=>item.turnId.startsWith('context:') && item.quote!==JSON.stringify(value.values))) return null;
+  const contextIds = value.source === 'self_default'
+    ? new Set([`context:${value.kind}:${value.fieldId}:self`, `context:${value.kind}:${value.fieldId}:partner`])
+    : new Set([`context:${value.kind}:${value.fieldId}:${value.side}`]);
+  if (evidence.some(item => item.turnId.startsWith('context:') && !contextIds.has(item.turnId))) return null;
+  if (!allowContextEdit && value.source !== 'self_default' && evidence.some(item=>item.turnId.startsWith('context:') && item.quote!==JSON.stringify(value.values))) return null;
   return { id: `${value.kind}:${value.fieldId}:${value.side}`, kind: value.kind, fieldId: value.fieldId, side: value.side,
-    values: value.values, summary: value.summary.trim(), evidence, needsClarification: value.needsClarification };
+    values: value.values, summary: value.summary.trim(), evidence, needsClarification: value.needsClarification,
+    ...(value.source === 'self_default' ? { source: 'self_default' } : {}) };
 }
 
 export function validProfileValues(value) {
@@ -289,6 +295,35 @@ function validDocument(document) {
 
 const requiredInterview = document => document.promptVersion === PROMPT_VERSION;
 const requiredFields = preferences.dimensions.flatMap(d => ['self', 'partner'].map(side => ({ id: `preference:${d.id}:${side}`, kind: 'preference', fieldId: d.id, side, topic: topics.find(t => t.dimensionIds.includes(d.id)) })) ).concat(personality.map(p => ({ id: `personality:${p.id}:self`, kind: 'personality', fieldId: p.id, side: 'self', topic: topics.find(t => personalityThemes[t.id].ids.includes(p.id)) })));
+const defaultablePreferenceIds = preferences.dimensions.filter(dimension => dimension.partnerDefault).map(dimension => dimension.id);
+function withPartnerDefaults(proposals, blocked = new Set()) {
+  const known = new Map(proposals.map(item => [item.id, item]));
+  const apply = (kind, fieldId, valueFor) => {
+    const selfId = `${kind}:${fieldId}:self`, partnerId = `${kind}:${fieldId}:partner`;
+    const self = known.get(selfId), partner = known.get(partnerId);
+    if (!self || self.needsClarification) {
+      if (partner?.source === 'self_default') known.delete(partnerId);
+      return;
+    }
+    const value = valueFor(self.values[0]);
+    if (!value) {
+      if (partner?.source === 'self_default') known.delete(partnerId);
+      return;
+    }
+    // A grounded partner preference always wins. A withdrawn default remains
+    // missing until the member supplies a replacement instead of reappearing.
+    if (partner && partner.source !== 'self_default') return;
+    if (blocked.has(partnerId)) { known.delete(partnerId); return; }
+    known.set(partnerId, { id: partnerId, kind, fieldId, side: 'partner', values: [value],
+      summary: 'اقتراح مبدئي من إجابتك — يمكنك تغييره', evidence: self.evidence,
+      needsClarification: false, source: 'self_default' });
+  };
+  for (const dimension of preferences.dimensions) {
+    if (dimension.partnerDefault) apply('preference', dimension.id, value => dimension.partnerDefault[value]);
+  }
+  for (const scenario of scenarios) apply('beena', scenario.id, value => value);
+  return [...known.values()];
+}
 export function validateAssessmentContext(value,strict=false) {
   if (!Array.isArray(value) || value.length>44) { if(strict)throw invalid();return []; }
   const seen=new Set();return value.flatMap(item=>{const field=requiredFields.find(field=>field.id===item?.id);
@@ -301,7 +336,7 @@ function withContextProposals(document,proposals) {
     if(known.has(item.id))continue;const field=requiredFields.find(field=>field.id===item.id);
     known.set(item.id,{id:item.id,kind:field.kind,fieldId:field.fieldId,side:field.side,values:item.values,summary:'من إجابتك المسجلة في الملف',evidence:[{turnId:'context:'+item.id,quote:JSON.stringify(item.values)}],needsClarification:false});
   }
-  return [...known.values()];
+  return withPartnerDefaults([...known.values()]);
 }
 function withMemberContext(document,input) {
   if(input.profileContext===undefined&&input.assessmentContext===undefined)return document;
@@ -357,10 +392,11 @@ function focusedQuestion(topic, document) {
     if (field) {
       const dimension = preferenceById.get(field.fieldId);
       const bothSides = missing.some(item => item.fieldId === field.fieldId && item.kind === 'preference' && item.side !== field.side);
+      const selfCreatesDefault = field.side === 'self' && Boolean(dimension.partnerDefault);
       const text = preferenceFollowUps[field.fieldId]?.[field.side === 'self' ? 0 : 1] ?? (field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt);
       // One coherent topic can cover both perspectives, without assuming that
       // the member wants a partner identical to themselves.
-      if (bothSides) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟`,
+      if (bothSides && !selfCreatesDefault) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟`,
         suggestions: dimension.options.map(option => `أنا ${option.self}، وأفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
       return { ...questionFrom(topic), text, suggestions: dimension.options.map(option => field.side === 'self' ? option.self : `أفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
     }
@@ -442,9 +478,9 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
       .replace(/kind=beena لخيارات المواقف[^\n]+/, '')
       .replace(/التفضيلات ومواقف بيننا قواميس متكاملة[^\n]+/, '')
       .replace('افحص القواميس الثلاثة كاملة', 'افحص قاموسي التفضيلات والشخصية كاملين');
-    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ إجابة تفضيلات (الذات والشريك مستقلان) و١٢ إجابة شخصية، دون تخمين أي قيمة ناقصة. هذه ٤٤ خانة فهم وليست ٤٤ سؤالًا: اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، مثل ما يفضّله هو وما يقبله من الشريك، أو أسلوب حل الخلاف وما يقوله عن سلوكه المعتاد. لا تجمع مواضيع متباعدة ولا تُخفي سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
+    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ خانة تفضيلات و١٢ إجابة شخصية، لكن الخانات ليست أسئلة مستقلة. في الأبعاد ${defaultablePreferenceIds.join(',')} اسأل عن جانب الذات فقط عندما لا يصرّح العضو برغبة مختلفة للشريك؛ النظام يجهّز اقتراح شريك قابلًا للتعديل من الإجابة، فلا تطلب منه تكرار المعنى نفسه. لا تُخرج اقتراح partner بالتخمين؛ أخرجه فقط إذا صرّح به. في بقية الأبعاد يبقى جانبا الذات والشريك مستقلين. اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، ولا تجمع مواضيع متباعدة أو تُخفِ سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
 السؤال الأول دعوة لفقرة تعريف واحدة عن الشخص وحياته وما يبحث عنه في شريك وزواج واستعداده وتوقيته. افحص هذه الفقرة كاملة أمام قاموسي التفضيلات والشخصية، واستخرج فورًا كل قيمة صريحة تسندها حتى لو غطت محاور لاحقة. بعد أول إجابة لا تعِد سؤال التعريف العام؛ اسأل فقط عن missingFields المتبقية. الاستعداد يُسجل فقط كإفادات صريحة عن النية والتوقيت والتحضير والخطوة القادمة، ولا يثبت الصدق ولا ينتج درجة جدية أو أهلية.
-إذا بقي جانبا self وpartner لنفس تفضيل واحد، اسأل عنهما معًا في سؤال قصير واحد، وأدرج المعرّفين معًا في questionFields. فسّر كل جانب مستقلًا ولا تستنتج أحدهما من الآخر. إن قدّمت quickReplies لهذا السؤال المركب، يجب أن يصرّح كل خيار بما يصف العضو وما يفضله في الشريك معًا؛ وإلا أعد [] واترك الكتابة الحرة متاحة.
+إذا بقي جانبا self وpartner لبعد بلا partnerDefault، اسأل عنهما معًا في سؤال قصير واحد وأدرج المعرّفين معًا في questionFields. أما البعد الذي له partnerDefault فاسأل self وحده، وسيعرض النظام افتراض partner للمراجعة النهائية. فسّر أي رغبة شريك صريحة مستقلًا ولا تستنتجها داخل مخرجاتك. إن قدّمت quickReplies لسؤال مركب، يجب أن يصرّح كل خيار بالجانبين؛ وإلا أعد [] واترك الكتابة الحرة متاحة.
 أسلوب الجلسة قريب وعفوي مع جدية موضوع الزواج: عربية سعودية بيضاء مفهومة، دون مبالغة في العامية أو تقمص دور معالج أو مستشار بشري. اجعل كل رسالة سطرًا أو سطرين، لا محاضرة ولا دردشة مفتوحة بلا غرض. رد على المعنى قبل سؤالك، ولا تردد إجابة العضو بصياغة ثانية. لا تبدأ كل رد بـ«فهمتك» أو «جميل» أو «واضح»، ولا تمدح شخصيته أو نضجه بسبب إجابة. نوّع الإيقاع حسب الكلام، لا حسب قالب ثابت.
 اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب» فاسأل بهدوء: على حسب أي جانب؟ إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
@@ -463,7 +499,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
       profileCatalog:profileCatalog.map(({path:_path,options,...field})=>({...field,...(options?{options:options.map(option=>option.value===option.label?option.value:[option.value,option.label])}:{})})),previousProfileProposals:document.profileProposals??[],profileConfirmed:document.profileConfirmed??[],knownProfileContext:document.profileContext??[],knownAssessmentContext:document.assessmentContext??[],
       nextTopic: topicContext(next),
       possibleFollowUpTopic: topicContext(same),
-      preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options }) => ({ id, title, selfPrompt, partnerPrompt, options })),
+      preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options, partnerDefault }) => ({ id, title, selfPrompt, partnerPrompt, options, ...(partnerDefault ? { partnerDefault } : {}) })),
       ...(requiredInterview(document) ? { missingFields: missingFields(document).map(({ topic, ...field }) => ({ ...field, topic: topic.id })) } : { beenaCatalog: scenarios.map(({ id, title, scene, options }) => ({ id, title, scene, options })) }),
       personalityCatalog: personality, personalityOptions,
     }) }],
@@ -490,6 +526,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   const previous = withContextProposals(document,previousProposals.map(value => validateProposal(value, document.turns,document.assessmentContext)).filter(Boolean));
   const evidencePosition = evidence => Math.max(...evidence.map(item => document.turns.findIndex(turn => turn.id === item.turnId)));
   const invalidated = new Map();
+  const invalidatedEvidence = new Map();
   for (const value of result.invalidatedProposals ?? []) {
     const evidence = evidenceFor(value?.evidence, document.turns);
     const prior = previous.find(item => item.id === value?.id);
@@ -497,6 +534,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
       || evidence.every(item => unclearConfirmation(document.turns.find(turn => turn.id === item.turnId)))
       || (prior && evidencePosition(evidence) < evidencePosition(prior.evidence))) continue;
     invalidated.set(value.id, evidencePosition(evidence));
+    invalidatedEvidence.set(value.id, evidence);
   }
   const fresh = new Map();
   for (const value of result.proposals) {
@@ -519,11 +557,19 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   // Signup extraction is cumulative. Omitting an unaffected earlier answer is
   // not a retraction; only a grounded correction can withdraw or replace it.
   const retained = new Map(requiredInterview(document) ? previous.filter(value => !invalidated.has(value.id)).map(value => [value.id, value]) : []);
+  for (const [id, evidence] of invalidatedEvidence) {
+    const prior = previous.find(item => item.id === id);
+    if (prior?.source === 'self_default' && !fresh.has(id)) {
+      const { source: _source, ...explicitlyUnresolved } = prior;
+      retained.set(id, { ...explicitlyUnresolved, evidence,
+        summary: 'غيّرت هذا الافتراض — نحتاج اختيارك البديل', needsClarification: true });
+    }
+  }
   for (const proposal of fresh.values()) {
     const prior = retained.get(proposal.id);
     if (!prior || evidencePosition(proposal.evidence) >= evidencePosition(prior.evidence)) retained.set(proposal.id, proposal);
   }
-  const proposals = [...retained.values()];
+  let proposals = [...retained.values()];
   const profileInvalidated=new Map();
   for(const value of result.invalidatedProfileProposals??[]) {
     const evidence=evidenceFor(value?.evidence,document.turns);
@@ -555,6 +601,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     if(index<0)proposals.push(candidate);
     else if(evidencePosition(candidate.evidence)>=evidencePosition(proposals[index].evidence))proposals[index]=candidate;
   }
+  proposals = withPartnerDefaults(proposals, invalidated);
   // Previously captured fields help avoid re-asking because an extraction
   // accidentally omitted one. These values never enter confirmable results.
   const coverage = new Map(previous.filter(value => !invalidated.has(value.id)).map(value => [value.id, value]));
@@ -580,7 +627,8 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     const field = requiredFields.find(item => item.id === id && item.kind === 'preference');
     if (!field) return false;
     const counterpart = requiredFields.find(item => item.kind === 'preference' && item.fieldId === field.fieldId && item.side !== field.side);
-    return counterpart && pendingIds.has(counterpart.id) && !targetIds.has(counterpart.id);
+    const dimension = preferenceById.get(field.fieldId);
+    return counterpart && pendingIds.has(counterpart.id) && !targetIds.has(counterpart.id) && !dimension?.partnerDefault;
   });
   if (question && targetsMissing && !splitsPreferencePair && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
     question.text = result.question.trim();
@@ -612,7 +660,8 @@ export function confirmInterviewChoices(document, choices, shareReview = false) 
     const proposal = document.proposals.find(proposal => proposal.id === choice.id);
     if (!proposal || !validValues(proposal.kind, proposal.fieldId, proposal.side, choice.values)) throw invalid();
     // Explicit edits are member choices, not new model-extracted evidence.
-    return { ...proposal, values: choice.values, needsClarification: false };
+    const { source: _source, ...explicit } = proposal;
+    return { ...explicit, values: choice.values, needsClarification: false };
   });
   return { ...document, status: 'confirmed', confirmed, reviewSharing: shareReview === true, confirmedAt: new Date().toISOString(), draftAnswer: '' };
 }

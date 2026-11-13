@@ -70,12 +70,15 @@ test('stored profile and assessment context suppress known fields without invent
  const profileContext=[{fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false}];
  const assessmentContext=[{id:'personality:initiative:self',values:['D']}];
  const result=await service({action:'start',consentVersion:CONSENT_VERSION,profileContext,assessmentContext},{authorization:'Bearer fictional.session'});
- assert.equal(result.coverage.answered,2);assert.equal(result.document.turns.length,0);
- assert.ok(result.document.proposals.every(p=>p.evidence[0].turnId==='context:'+p.id));
+  assert.equal(result.coverage.answered,3);assert.equal(result.document.turns.length,0);
+  const timingDefault=result.document.proposals.find(p=>p.id==='preference:marriage_timeline:partner');
+  assert.equal(timingDefault.source,'self_default');assert.deepEqual(timingDefault.values,['A']);
+  assert.equal(timingDefault.evidence[0].turnId,'context:preference:marriage_timeline:self');
+  assert.ok(result.document.proposals.filter(p=>p!==timingDefault).every(p=>p.evidence[0].turnId==='context:'+p.id));
  const request=interviewCompletionRequest(result.document),context=JSON.parse(request.messages[1].content);
- assert.ok(!context.missingFields.some(p=>p.id==='personality:initiative:self'||p.id==='preference:marriage_timeline:self'));
+  assert.ok(!context.missingFields.some(p=>p.id==='personality:initiative:self'||p.id==='preference:marriage_timeline:self'||p.id==='preference:marriage_timeline:partner'));
  assert.deepEqual(context.knownProfileContext,profileContext);assert.match(request.messages[0].content,/لا تسأله عنها من جديد/);
- const loaded=await service({action:'load'},{authorization:'Bearer fictional.session'});assert.equal(loaded.coverage.answered,2);
+  const loaded=await service({action:'load'},{authorization:'Bearer fictional.session'});assert.equal(loaded.coverage.answered,3);
 });
 test('profile confirmation HTTP input uses only selected IDs and canonical edited values',()=>{
  const payload={action:'profileConfirm',revision:2,profileChoices:[{id:proposal.id,values:['niqab'],mode:'prefer',exclude:false}]};assert.deepEqual(parseInterviewInput(payload),payload);

@@ -155,6 +155,16 @@ test('one explicit confirmation applies the whole summary without per-answer app
   find(tree,'عرض الملخص').props.onClick();ui.render();assert.equal(ui.applied.length,1);ui.unmount();
 });
 
+test('partner defaults are clearly labelled and remain editable in the final review', async () => {
+  const inferred={...proposal,id:'preference:children_plan:partner',side:'partner',source:'self_default'};
+  const ui=mount({document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[inferred]},revision:2});ui.render();await tick();let tree=ui.render();
+  const row=nodes(tree).find(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');
+  const rendered=row.type(row.props);assert.match(textOf(rendered),/مقترح من إجابتك · قابل للتعديل/);
+  assert.equal(nodes(rendered).find(node=>node.type==='details').props['data-defaulted'],true);
+  nodes(rendered).find(node=>node.type==='select').props.onChange({target:{value:'B'}});tree=ui.render();
+  assert.equal(nodes(tree).find(node=>typeof node.type==='function'&&node.type.name==='ProposalReview').props.values[0],'B');ui.unmount();
+});
+
 test('quick replies send the exact choice once without opening a confirmation or replacing a draft', async () => {
   const document={...baseDocument(),currentQuestion:{topic:'family',text:'هل ترغب في الإنجاب؟',suggestions:['نعم، أرغب في الإنجاب','لا أرغب في الإنجاب']}};
   const ui=mount({document,revision:1});ui.render();await tick();let tree=ui.render();

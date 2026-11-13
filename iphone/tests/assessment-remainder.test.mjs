@@ -77,6 +77,22 @@ test('partial Beena asks only the missing side and retains optional importance a
   assert.ok(text(tree).includes('أضف موقفًا بكلماتك'));
 });
 
+test('Beena defaults partner acceptance to the self choice but preserves manual edits',()=>{
+  const ui=mount('BeenaFields',{value:{version:'beena-v1',answers:{}},registration:true,remainingOnly:true});let tree=ui.render();
+  nodes(byClass(tree,'bn-options')).find(node=>node.type==='button').props.onClick();tree=ui.render();
+  assert.equal(ui.props.value.answers[scenarios[0].id].self,'A');
+  assert.equal(Array.from(ui.props.value.answers[scenarios[0].id].partner).join(','),'A');
+  assert.ok(text(tree).includes('مقترح'));
+  assert.ok(text(byClass(tree,'bn-next')).includes('السؤال التالي'));
+  nodes(byClass(tree,'bn-perspectives')).filter(node=>node.type==='button')[1].props.onClick();tree=ui.render();
+  assert.ok(text(tree).includes('بدأنا بتصرفك كخيار مقبول'));
+  nodes(byClass(tree,'bn-options')).filter(node=>node.type==='button')[1].props.onClick();tree=ui.render();
+  nodes(byClass(tree,'bn-perspectives')).filter(node=>node.type==='button')[0].props.onClick();tree=ui.render();
+  nodes(byClass(tree,'bn-options')).filter(node=>node.type==='button')[1].props.onClick();ui.render();
+  assert.equal(ui.props.value.answers[scenarios[0].id].self,'B');
+  assert.equal(Array.from(ui.props.value.answers[scenarios[0].id].partner).join(','),'A,B');
+});
+
 test('completed Beena hides the question deck, and skipped remainder can be resumed',()=>{
   const complete=mount('BeenaFields',{value:beena(),remainingOnly:true});assert.equal(byClass(complete.render(),'bn-scene'),undefined);
   const value=beena();delete value.answers[scenarios[5].id].self;const ui=mount('BeenaFields',{value,remainingOnly:true});let tree=ui.render();

@@ -141,12 +141,12 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 0 24px 28px; background: #fdfdfc; }
 .phone-app:has(.wd-welcome) { background: #fdfdfc; }
 .wd-welcome-nav { position: absolute; z-index: 3; inset: 0 24px auto; padding: max(22px,env(safe-area-inset-top)) 0 0; border: 0; }
-.wd-welcome-nav .wd-welcome-brand { filter: brightness(0) invert(1); }
-.wd-welcome .wd-welcome-login { color: #fff; text-shadow: 0 1px 12px #0007; }
+.wd-welcome-nav .wd-welcome-brand { filter: none; }
+.wd-welcome .wd-welcome-login { color: #54152a; text-shadow: none; }
 .wd-welcome-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: min(900px,100svh); min-height: max(700px,min(900px,100svh)); margin-inline: -24px; padding: 330px 24px max(30px,env(safe-area-inset-bottom)); gap: 0; }
 .wd-hero-art { position: absolute; z-index: -2; inset: 0; height: 100%; border-radius: 0; }
 .wd-hero-art picture img { object-position: 86% 36%; }
-.wd-hero-art::after { inset: 0; background: linear-gradient(180deg,#17171370 0%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
+.wd-hero-art::after { inset: 0; background: linear-gradient(180deg,#fffaf0ed 0%,#fffaf0b8 12%,transparent 28%,#17171318 43%,#191613d4 78%,#191613ed 100%); }
 .wd-hero-copy { width: 100%; max-width: 540px; color: white; }
 .wd-hero-copy .wd-welcome-kicker { color: #eee7dc; font-size: 11px; }
 .wd-welcome .wd-hero-copy h1 { color: #fff; font-size: clamp(30px,8.2vw,44px); line-height: 1.45; margin: 12px 0; letter-spacing: -.5px; }
@@ -179,5 +179,5 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 @media(max-width:360px) { .phone-app .nf-welcome.nf-arrival.wd-welcome { padding-inline: 20px; } .wd-welcome-hero { margin-inline: -20px; padding-inline: 20px; min-height: 710px; } .wd-welcome-nav { inset-inline: 20px; } }
 
 .wd-welcome-nav { flex-wrap: wrap; row-gap: 10px; }
-.wd-name-meaning { flex-basis: 100%; display: flex; align-items: baseline; gap: 9px; margin: 0; padding-top: 10px; border-top: 1px solid #ffffff30; color: #fff5e8; font-size: 11px; line-height: 1.8; text-shadow: 0 1px 8px #0008; }
+.wd-name-meaning { flex-basis: 100%; display: flex; align-items: baseline; gap: 9px; margin: 0; padding-top: 10px; border-top: 0; color: #684450; font-size: 11px; line-height: 1.8; text-shadow: none; }
 .wd-name-meaning strong { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }

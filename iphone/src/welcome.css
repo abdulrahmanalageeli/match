@@ -141,6 +141,8 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-welcome-nav .wd-welcome-brand { filter: none; }
 .wd-welcome-nav .wd-welcome-wordmark { filter: brightness(0) invert(1); }
 .wd-welcome-emblem { transform-origin: center; animation: wd-heartbeat 3600ms 2400ms ease-in-out infinite; }
+.wd-welcome-emblem .wd-logo-color { animation: wd-logo-color-breathe 7200ms 2400ms ease-in-out infinite both; }
+@keyframes wd-logo-color-breathe { 0%,100% { opacity: 0; } 40%,60% { opacity: 1; } }
 @keyframes wd-heartbeat { 0%,32%,100% { transform: scale(1); } 10% { transform: scale(1.045); } 18% { transform: scale(1); } 25% { transform: scale(1.025); } }
 .wd-welcome .wd-welcome-login { color: #fff; text-shadow: 0 1px 4px #17171380; }
 .wd-welcome-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: min(900px,100svh); min-height: max(700px,min(900px,100svh)); margin-inline: -24px; padding: 330px 24px max(30px,env(safe-area-inset-bottom)); gap: 0; }
@@ -153,8 +155,8 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-hero-copy h1 em { color: #fff; }
 .wd-welcome .wd-hero-copy > p { color: #f0e9df; font-size: 14px; line-height: 1.85; max-width: 35ch; }
 .wd-hero-actions { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 22px; }
-.wd-welcome .wd-hero-actions .wd-welcome-primary { width: 100%; justify-content: space-between; padding-inline: 22px; background: #54152a; color: #fffaf4; border: 1px solid #ffffff30; border-radius: 14px; min-height: 54px; font-weight: 600; box-shadow: 0 4px 16px #17171320; transition: background 180ms ease; }
-.wd-welcome .wd-hero-actions .wd-welcome-primary:hover { background: #68213a; }
+.wd-welcome .wd-hero-actions .wd-welcome-primary { width: 100%; background: #fcfaf6; color: #54152a; border-radius: 9px; min-height: 52px; }
+.wd-welcome .wd-hero-actions .wd-welcome-primary:hover { background: #eee8df; }
 .wd-welcome-explore { justify-content: center; color: #f4eee6; }
 .wd-hero-note { margin: 6px 0 0; color: #ded4c7; justify-content: center; font-size: 10px; }
 .wd-welcome[data-opening] > .wd-welcome-hero { animation: none; }

@@ -22,7 +22,7 @@ function WelcomeLogo({ maskId, className }: { maskId: string; className: string 
           <path className="wd-logo-stroke wd-logo-first" d="M270 165C285 220 175 280 194 408S280 545 346 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
           <path className="wd-logo-stroke wd-logo-second" d="M500 265C599 300 594 424 515 482S405 535 347 630" pathLength="1" fill="none" stroke="white" strokeWidth="280" strokeLinecap="round"/>
           <rect className="wd-logo-finish" width="768" height="768" fill="white"/>
-        </mask></defs><image href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`}/></svg>;
+        </mask></defs>{className === 'wd-welcome-emblem' && <image href="/brand/wudayn-heart-v2.png" width="768" height="768" style={{ filter: 'brightness(0) invert(1)' }} mask={`url(#${maskId})`}/>}<image className="wd-logo-color" href="/brand/wudayn-heart-v2.png" width="768" height="768" mask={`url(#${maskId})`}/></svg>;
 }
 
 // Returning from login/privacy never restarts the opening in this app session.

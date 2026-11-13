@@ -29,6 +29,7 @@ function mount(initial, intercept = () => null) {
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
     useEffect: (fn,deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value,i) => value !== old.deps[i])) { old?.cleanup?.(); const item = hooks[at] = { deps }; effects.push(() => { item.cleanup = fn(); }); } },
   };
+  react.useLayoutEffect = react.useEffect;
   const options = [{value:'A',label:'أرغب في الإنجاب'},{value:'B',label:'لا أرغب في الإنجاب'}];
   async function requestInterview(auth, payload) {
     calls.push(clone(payload));
@@ -85,7 +86,7 @@ test('the active experience is an ordered conversation with a composer and no su
   const document={...baseDocument(),turns:[{id:'t1',topic:'intent',question:'ما الذي تبحث عنه؟',answer:'زواج جاد',skipped:false}],currentQuestion:{topic:'family',text:'متى تحب إشراك الأهل؟',suggestions:[]}};
   const ui=mount({document,revision:2});ui.render();await tick();const tree=ui.render();
   const log=nodes(tree).find(node=>node.props?.role==='log');assert(log);assert.match(textOf(log),/ما الذي تبحث عنه؟.*زواج جاد.*متى تحب إشراك الأهل؟/);
-  assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
+  assert(nodes(tree).some(node=>node.type==='form'&&node.props.className==='wi-composer'));const input=nodes(tree).find(node=>node.type==='textarea');assert.equal(input.props.dir,'rtl');assert.equal(input.props.lang,'ar');assert.equal(input.props.wrap,'soft');assert.equal(find(tree,'تجاوز السؤال'),undefined);assert.equal(find(tree,'العودة إلى الأسئلة المباشرة'),undefined);ui.unmount();
 });
 
 test('draft save is serialized with submitting and newer typing remains visible when an older save completes', async () => {

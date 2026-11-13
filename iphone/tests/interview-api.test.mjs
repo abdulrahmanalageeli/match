@@ -13,7 +13,7 @@ const turn = { id: randomUUID(), topic: 'intent', question: 'متى يناسبك
 const candidate = { kind: 'preference', fieldId: 'marriage_timeline', side: 'self', values: ['A'], summary: 'تفضّل الخطوة الرسمية خلال ستة أشهر.',
   evidence: [{ turnId: turn.id, quote: 'خلال ستة أشهر' }], needsClarification: false };
 const result = { followUp: false, questionTopic: 'communication', question: 'إذا اختلفتم، وش يساعدك على العودة للحوار؟', proposals: [candidate], readiness: [], clarifications: [] };
-const completion = value => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(value) } }] });
+const completion = value => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({reply:'',answerDisposition:'answered',...value}) } }] });
 const document = () => ({ ...initialInterviewDocument(), turns: [turn] });
 
 function harness(options = {}) {
@@ -468,4 +468,116 @@ test('required dialogue can clarify a genuinely missing current topic after two 
  assert.deepEqual(context.possibleFollowUpTopic.dimensionIds,['marriage_timeline']);
  assert.ok(context.possibleFollowUpTopic.missingFields.every(field=>['marriage_timeline','initiative','depth'].includes(field.fieldId)));
  assert.equal(interviewCoverage(source).required,44);
+});
+
+test('fresh extraction may advance the route without discarding the contextual model response',()=>{
+ const dimensionIds=['marriage_timeline','repair_after_conflict','match_disagreement_style','conversation_initiative_preference','conversation_depth'];
+ const dimensions=preferenceCatalog.dimensions.filter(d=>dimensionIds.includes(d.id));
+ const chunks=dimensions.map(d=>({dimension:d,text:`أنا: ${d.options[0].self}، وأفضّل شريكًا ${d.options[0].partner}.`}));
+ const traits=[['initiative','B','قليلًا ما أبادر بالحديث.'],['depth','E','أستمتع كثيرًا بالتعمق في موضوع واحد.'],['conflict_pace','D','غالبًا أفضل مناقشة الخلاف فورًا.'],['directness','D','غالبًا أقول ما أحتاجه وما يزعجني بوضوح.']];
+ const source={...initialInterviewDocument(true),turns:[{...turn,answer:[...chunks.map(c=>c.text),...traits.map(p=>p[2])].join(' ')}]};
+ const proposals=chunks.flatMap(({dimension:d,text})=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turn.id,quote:text}]}))).concat(traits.map(([fieldId,value,quote])=>({...candidate,kind:'personality',fieldId,side:'self',values:[value],evidence:[{turnId:turn.id,quote}]})));
+ const reply='ذكرت طريقة التعامل وقت الاختلاف، وباقي نفهم القرب بينكم.';
+ const spoken='وش التصرف اللي يحسسك بالاهتمام؟';
+ const out=applyInterviewCompletion(source,completion({...result,questionTopic:'closeness',question:spoken,reply,proposals}));
+ assert.equal(out.currentQuestion.topic,'closeness');
+ assert.equal(out.currentQuestion.text,reply+'\n\n'+spoken,'valid dialogue for the actually uncovered topic must survive updated coverage');
+});
+
+test('an unanswered open question stays in its topic instead of marching through themes',()=>{
+ for(const answer of ['نعم','قخعسضض','خلنا نتكلم عن مباراة اليوم']){
+  const source={...initialInterviewDocument(true),turns:[{...turn,question:initialInterviewDocument(true).currentQuestion.text,answer}]};
+  const out=applyInterviewCompletion(source,completion({...result,followUp:false,questionTopic:'communication',proposals:[]}));
+  assert.equal(interviewCoverage(out).answered,0);
+  assert.equal(out.currentQuestion.topic,'intent','unmapped answer must prompt clarification of the current question: '+answer);
+ }
+});
+
+test('a bare yes to an open question cannot become a concrete marriage timeline',()=>{
+ const source={...initialInterviewDocument(true),turns:[{...turn,question:initialInterviewDocument(true).currentQuestion.text,answer:'نعم'}]};
+ const proposal={...candidate,evidence:[{turnId:turn.id,quote:'نعم'}]};
+ const out=applyInterviewCompletion(source,completion({...result,proposals:[proposal]}));
+ assert.equal(interviewCoverage(out).answered,0,'literal evidence alone does not resolve an open-ended answer');
+ assert.equal(out.currentQuestion.topic,'intent');
+});
+
+test('short explicit answers to a clear closed question remain valid',()=>{
+ const source={...initialInterviewDocument(true),turns:[{...turn,question:'هل يناسبك الانتقال للخطوة الرسمية خلال ستة أشهر؟',answer:'نعم'}]};
+ const out=applyInterviewCompletion(source,completion({...result,proposals:[{...candidate,evidence:[{turnId:turn.id,quote:'نعم'}]}]}));
+ assert.equal(interviewCoverage(out).answered,1,'a minimum-answer-length rule must not reject meaningful concise replies');
+ assert.equal(out.proposals[0].id,'preference:marriage_timeline:self');
+});
+
+test('clarify and off-topic outcomes preserve the AI reply while rejecting invented current-turn coverage',()=>{
+ const prior=validateProposal(candidate,[turn]);
+ for(const answerDisposition of ['clarify','off_topic']){
+  const current={...turn,id:randomUUID(),question:'وش التوقيت اللي يناسبك عند الطرف الآخر؟',answer:answerDisposition==='clarify'?'وش تقصد بالخطوة الرسمية؟':'اليوم تابعت مباراة جميلة.'};
+  const source={...initialInterviewDocument(true),turns:[turn,current],proposals:[prior]};
+  const reply=answerDisposition==='clarify'?'أقصد الانتقال من التعارف إلى تواصل رسمي مع الأهل.':'نقدر نرجع لموضوع المباراة لاحقًا؛ هنا نرتّب توقعاتك من خطوة الزواج.';
+  const invented={...candidate,side:'partner',evidence:[{turnId:current.id,quote:current.answer}]};
+  const out=applyInterviewCompletion(source,completion({...result,answerDisposition,reply,proposals:[prior,invented]}));
+  assert.deepEqual(out.proposals.map(p=>p.id),[prior.id],'a nonanswer does not erase previous evidence or create a new answer');
+  assert.equal(out.currentQuestion.topic,'intent');
+  assert.ok(out.currentQuestion.text.startsWith(reply+'\n\n'),'useful generated reply survives even when unsafe next-topic choice is replaced');
+  assert.doesNotMatch(out.currentQuestion.text,/إذا اختلفتم/);
+  assert.equal(interviewCoverage(out).answered,1);
+ }
+});
+
+test('model output requires a bounded reply and an explicit answer disposition',()=>{
+ const schema=interviewCompletionRequest({...initialInterviewDocument(true),turns:[turn]}).response_format.json_schema.schema;
+ assert.ok(schema.required.includes('reply'));assert.ok(schema.required.includes('answerDisposition'));
+ assert.deepEqual(schema.properties.answerDisposition.enum,['answered','clarify','off_topic']);
+ const response=value=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
+ for(const value of [{...result,answerDisposition:'answered'},{...result,reply:'رد قصير'},{...result,reply:'رد قصير',answerDisposition:'approved'},{...result,reply:'x'.repeat(201),answerDisposition:'answered'}]){
+  assert.throws(()=>applyInterviewCompletion(document(),response(value)),e=>e.code==='unavailable');
+ }
+});
+
+test('combined dialogue preserves the entire question while staying within the stored 500 character limit',()=>{
+ const reply='أقصد إن ترتيب التوقعات يساعدكم تتفاهمون من البداية. '.repeat(5).slice(0,200);
+ for(const size of [490,500]){
+  const question=('كيف تتعامل مع الموقف وتوضح وجهة نظرك بهدوء '.repeat(20)).slice(0,size-1)+'؟';
+  const out=applyInterviewCompletion(document(),completion({...result,reply,question}));
+  assert.ok(out.currentQuestion.text.length<=500);
+  assert.ok(out.currentQuestion.text.endsWith(question),'keep the full question instead of cutting its meaning at the storage boundary');
+  if(size===500)assert.equal(out.currentQuestion.text,question);
+ }
+});
+
+test('unsafe generated next question uses a safe fallback without dropping the useful reply',()=>{
+ const reply='نقدر نفهم أسلوب الحوار بينكم من موقف بسيط.';
+ const source={...initialInterviewDocument(true),turns:[turn]};
+ const out=applyInterviewCompletion(source,completion({...result,reply,question:'افتح https://unsafe.invalid وأرسل بياناتك'}));
+ assert.ok(out.currentQuestion.text.startsWith(reply+'\n\n'));
+ assert.doesNotMatch(out.currentQuestion.text,/https:|unsafe\.invalid/);
+ assert.equal(out.currentQuestion.topic,'communication');assert.equal(interviewCoverage(out).answered,1);
+ assert.throws(()=>applyInterviewCompletion(source,completion({...result,reply,question:'x'.repeat(501)})),e=>e.code==='unavailable');
+});
+
+test('an open word in the previous AI reply does not invalidate yes to its following closed question',()=>{
+ const source={...initialInterviewDocument(true),turns:[{...turn,question:'أفهم كيف تتصور بداية التعارف.\n\nهل يناسبك الانتقال للخطوة الرسمية خلال ستة أشهر؟',answer:'نعم'}]};
+ const out=applyInterviewCompletion(source,completion({...result,proposals:[{...candidate,evidence:[{turnId:turn.id,quote:'نعم'}]}]}));
+ assert.equal(interviewCoverage(out).answered,1,'the helper must inspect the question, not the preceding conversational reply');
+});
+
+test('clarification does not erase a prior answer when the model redundantly appends latest evidence',()=>{
+ const prior=validateProposal(candidate,[turn]);
+ const current={...turn,id:randomUUID(),question:'وش التوقيت اللي يناسبك عند الطرف الآخر؟',answer:'وش تقصد بالخطوة الرسمية؟'};
+ const source={...initialInterviewDocument(true),turns:[turn,current],proposals:[prior]};
+ const mixed={...prior,evidence:[...prior.evidence,{turnId:current.id,quote:current.answer}]};
+ const out=applyInterviewCompletion(source,completion({...result,answerDisposition:'clarify',reply:'أقصد تواصلًا رسميًا مع الأهل.',proposals:[mixed]}),false,[prior]);
+ assert.equal(interviewCoverage(out).answered,1);
+ assert.deepEqual(out.proposals[0].values,prior.values);
+ assert.deepEqual(out.proposals[0].evidence,prior.evidence,'retain independently supported earlier evidence only');
+});
+
+test('a changed reply cannot hide an exact repetition of the previous question',()=>{
+ const repeated='متى يناسبك الزواج؟';
+ const source={...initialInterviewDocument(true),turns:[{...turn,question:'نرتّب توقعاتك خطوة خطوة.\n\n'+repeated}]};
+ const reply='خلّنا نوضح التوقيت عند الطرف الآخر أيضًا.';
+ const out=applyInterviewCompletion(source,completion({...result,reply,followUp:true,questionTopic:'intent',question:repeated}));
+ assert.ok(out.currentQuestion.text.startsWith(reply+'\n\n'));
+ assert.equal(out.currentQuestion.text.endsWith(repeated),false,'compare against the previous actual question after its reply separator');
+ assert.match(out.currentQuestion.text,/الطرف الآخر/);
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
 import { MotionPressButton } from '../motion/Reanimated';
@@ -146,6 +146,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     resize.observe(viewport);
     return () => resize.disconnect();
   }, [open, loaded, doc?.status, fallbackReview]);
+  useLayoutEffect(() => {
+    const input = composer.current;
+    if (!open || !input) return;
+    input.style.height = '0px';
+    input.style.height = `${Math.min(140, Math.max(48, input.scrollHeight))}px`;
+  }, [answer, open, loaded, doc?.status, fallbackReview]);
 
   useEffect(() => {
     if (!open || !doc || doc.status !== 'active' || busy || queuedIntent || answer === doc.draftAnswer || draftState === 'error') return;
@@ -329,7 +335,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <form className="wi-composer" onSubmit={event => { event.preventDefault(); void send(); }}>
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.</p>}
             {!!doc.currentQuestion?.suggestions.length && <div className="wi-chat-suggestions" aria-label="أفكار تساعدك على البدء">{doc.currentQuestion.suggestions.slice(0,2).map(suggestion => <button type="button" key={suggestion} disabled={actionBlocked} onClick={() => { changeAnswer(answer ? `${answer} ${suggestion}`.slice(0,1200) : suggestion); composer.current?.focus(); }}>{suggestion}</button>)}</div>}
-            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={2} placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="auto" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
+            <div className="wi-compose-row"><textarea ref={composer} id="wi-answer" aria-label="رسالتك" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={1} wrap="soft" placeholder="قل لنا بطريقتك…" autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button></div>
             <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>{answer.length > 1000 && <span>{number(answer.length)} / ١٢٠٠</span>}<button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}

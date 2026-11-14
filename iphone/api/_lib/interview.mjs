@@ -168,6 +168,13 @@ export function initialInterviewDocument(required = false) {
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
 const REQUIRED_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
 function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
+function unfinishedOpeningScenario(document) {
+  if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
+  const turns = document.turns ?? [];
+  if (turns.length < 1 || turns.length > openingScenarios.length || turns[0].question !== REQUIRED_OPENING_QUESTION) return null;
+  const visited = new Set(turns.map(turn => turn.question));
+  return openingScenarios.find(item => !visited.has(item.text) && !visited.has(item.legacyText)) ?? null;
+}
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
   if (kind === 'personality') return personalityById.has(fieldId) && side === 'self' && values.length === 1 && personalityOptions.some(option => option.code === values[0]);
@@ -893,6 +900,8 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     async function decorate(value) {
       if (!value.document) return { ...value, fallbackAvailable: false };
       const document = withAccountPolicy(validDocument(value.document));
+      const openingScenario = unfinishedOpeningScenario(document);
+      if (openingScenario) document.currentQuestion = openingScenario;
       const structuredConfirmation = isStructuredConfirmation(document);
       if (structuredConfirmation) document.proposals = document.confirmed;
       return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
@@ -913,18 +922,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     }
     if (input.action === 'load') {
       const loaded = await upgrade(await rpc('load'));
-      if (!loaded.structuredConfirmation) {
-        const document=loaded.document;
-        const openingTurns=document?.turns??[];
-        if (document && requiredInterview(document) && document.status==='active' && !document.pendingAnalysis
-          && openingTurns.length>0 && openingTurns.length<4 && openingTurns[0].question===REQUIRED_OPENING_QUESTION) {
-          const visited=new Set(openingTurns.map(turn=>turn.question));
-          const expected=openingScenarios.find(item=>!visited.has(item.text)&&!visited.has(item.legacyText));
-          if (expected && ![expected.text,expected.legacyText].includes(document.currentQuestion?.text))
-            return decorate(await rpc('save',{expectedRevision:loaded.revision,document:{...document,currentQuestion:expected}}));
-        }
-        return loaded;
-      }
+      if (!loaded.structuredConfirmation) return loaded;
       // A confirmed save can outlive a lost response from attestation. Check
       // its proof before onboarding treats this recovered snapshot as final.
       try { await attest('complete', loaded); }
@@ -1017,7 +1015,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const clarifying = input.action === 'clarify';
       const question = clarifying
         ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
-        : document.currentQuestion;
+        : unfinishedOpeningScenario(document) ?? document.currentQuestion;
       if (openingScenarios.some(item => [item.text,item.legacyText].includes(question?.text)) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
       if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();

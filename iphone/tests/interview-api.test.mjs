@@ -272,7 +272,7 @@ test('retrying analysis preserves the question associated with an unsent draft',
   const drafted = await h.service({ action: 'draft', revision: saved.revision, answer: 'أفضل نفهم أسباب اختلافنا.' }, headers);
   options.failure = false;
   const analyzed = await h.service({ action: 'retry', revision: drafted.revision }, headers);
-  assert.deepEqual(analyzed.document.currentQuestion, drafted.document.currentQuestion);
+  assert.equal(analyzed.document.currentQuestion.text, openingScenarios[0].text);
   assert.equal(analyzed.document.draftAnswer, drafted.document.draftAnswer);
   assert.equal(analyzed.document.pendingAnalysis, false);
 });
@@ -532,7 +532,7 @@ test('review can return to questions without changing confirmed profile answers;
   const reviewed = await h.service({ action: 'review', revision: sent.revision }, headers);
   const resumed = await h.service({ action: 'resume', revision: reviewed.revision }, headers);
   assert.equal(resumed.document.status, 'active');
-  assert.equal(resumed.document.currentQuestion.topic, 'communication');
+  assert.equal(resumed.document.currentQuestion.topic, 'family');
   assert.equal(resumed.document.turns.length, 1);
   assert.equal(resumed.document.reviewSharing, false);
   assert.equal(resumed.document.confirmed.length, 0);
@@ -961,6 +961,10 @@ test('a saved signup introduction resumes at its first scenario after a failed r
   const h=harness({initial:{document:initial,revision:2}});
   const loaded=await h.service({action:'load'},headers);
   assert.equal(loaded.document.currentQuestion.text,openingScenarios[0].text);
+  assert.equal(h.state.revision,2,'loading a saved session does not write to the database');
+  const answered=await h.service({action:'answer',hybrid:true,revision:loaded.revision,requestId:randomUUID(),answer:'أدخل الأهل بعد تفاهم واضح.'},headers);
+  assert.equal(answered.document.turns[1].question,openingScenarios[0].text);
+  assert.equal(answered.document.currentQuestion.text,openingScenarios[1].text);
 });
 
 test('retry of a saved signup answer keeps the scenario route even if an older client omits hybrid', async () => {

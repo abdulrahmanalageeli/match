@@ -918,3 +918,23 @@ test('Beena self choices prepare one editable acceptable partner choice',()=>{
  const partner=out.proposals.find(item=>item.id==='beena:finances:partner');
  assert.deepEqual(partner.values,['A']);assert.equal(partner.source,'self_default');
 });
+
+
+test('hybrid opening asks three bounded situations before quick assessment and never drafts public writing', async () => {
+  const h = harness({response: transcript => ({profileProposals:[{id:'profile:bio',fieldId:'bio',values:['نص خاص لا ينشر'],mode:null,exclude:false,evidence:[{turnId:transcript[0].id,quote:'خلال ستة أشهر'}],needsClarification:false}]})});
+  let current = await start(h);
+  const questions=[];
+  for(let index=0;index<4;index++){
+    if(index) {
+      questions.push(current.document.currentQuestion.text);
+      await assert.rejects(h.service({action:'answer',hybrid:true,revision:current.revision,requestId:randomUUID(),answer:'س'.repeat(701)},headers),e=>e.code==='answer_too_long');
+    }
+    current=await h.service({action:'answer',hybrid:true,revision:current.revision,requestId:randomUUID(),answer},headers);
+    assert.equal(current.document.profileProposals.some(p=>p.fieldId==='bio'),false);
+    assert.equal(current.document.status,index<3?'active':'review');
+  }
+  assert.equal(new Set(questions).size,3);
+  assert.equal(current.document.turns.length,4);
+  assert.equal(current.document.proposals.some(p=>p.fieldId==='marriage_timeline'),true);
+  assert.throws(()=>parseInterviewInput({action:'answer',hybrid:true,revision:1,requestId:randomUUID(),answer:'س'.repeat(901)}));
+});

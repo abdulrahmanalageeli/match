@@ -7,6 +7,9 @@ import scenarios from '../../src/beena/catalog.json' with { type: 'json' };
 import personality from '../../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../../src/interview/profile-catalog.json' with { type: 'json' };
 
+import openingScenarios from '../../src/interview/opening-scenarios.json' with { type: 'json' };
+const publicWriting = new Set(['bio','lookingFor','lifeTogether','valuesStatement','marriageIntent']);
+
 export const INTERVIEW_MODEL = 'gpt-6-luna';
 export const CONSENT_VERSION = 'wudayn-interview-v1';
 export const PROMPT_VERSION = 'wudayn-interview-3';
@@ -122,14 +125,14 @@ export function parseInterviewInput(body) {
       ids.add(choice.id);
     }
   }
-  if (body.action === 'draft' && !bounded(body.answer, 1200, true)) throw invalid();
+  if (body.action === 'draft' && !bounded(body.answer, 900, true)) throw invalid();
   if (body.action === 'choiceHelp' && (!requiredFields.some(field => field.id === body.fieldId)
     || (body.answer !== undefined && !safeText(body.answer, 450))
     || (body.priorAnswer !== undefined && (!body.answer || !safeText(body.priorAnswer, 450)))
     || (body.gender !== undefined && !['woman', 'man'].includes(body.gender)))) throw invalid();
   if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
   if (['answer', 'clarify'].includes(body.action) && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
-    || !bounded(body.answer, 1200, body.skip === true))) throw invalid();
+    || !bounded(body.answer, 900, body.skip === true))) throw invalid();
   if (['confirm', 'structuredConfirm'].includes(body.action)) {
     if (!Array.isArray(body.choices) || body.choices.length > MAX_PROPOSALS || (body.shareReview !== undefined && typeof body.shareReview !== 'boolean')) throw invalid();
     const ids = new Set();
@@ -252,7 +255,7 @@ export function validateProfileProposal(value, turns) {
 function profileProposalsFrom(value, turns) {
   const items = new Map();
   for (const candidate of (Array.isArray(value) ? value : []).slice(0,MAX_PROFILE_PROPOSALS)) {
-    const item = validateProfileProposal(candidate,turns); if (!item) continue;
+    const item = validateProfileProposal(candidate,turns); if (!item || publicWriting.has(item.fieldId)) continue;
     const prior=items.get(item.id),position=proposal=>Math.max(...proposal.evidence.map(e=>turns.findIndex(turn=>turn.id===e.turnId)));
     if(!prior||position(item)>position(prior))items.set(item.id,item);
     else if(position(item)===position(prior)) {
@@ -560,7 +563,7 @@ export const interviewSchema = { type: 'object', additionalProperties: false, pr
 }, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'questionFields', 'quickReplies', 'invalidatedProposals', 'proposals', 'profileProposals', 'invalidatedProfileProposals', 'readiness', 'clarifications'] };
 
 function schemaFor(document, sensitiveProfileAllowed) {
-  const allowedIds = (sensitiveProfileAllowed ? profileCatalog : safeProfileCatalog).map(field => field.fieldId);
+  const allowedIds = (sensitiveProfileAllowed ? profileCatalog : safeProfileCatalog).filter(field => !publicWriting.has(field.fieldId)).map(field => field.fieldId);
   const filteredProfileSchema = { ...profileProposalSchema, items: { ...profileProposalSchema.items,
     properties: { ...profileProposalSchema.items.properties, fieldId: { type: 'string', enum: allowedIds } } } };
   const base = { ...interviewSchema, properties: { ...interviewSchema.properties, profileProposals: filteredProfileSchema } };
@@ -622,6 +625,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   instructions=instructions.replace('لا تضع شروطًا إلزامية أو نسب توافق أو احتمال نجاح أو درجة جدية.','لا تخترع شروطًا إلزامية من عندك. سجّل الشروط التي صرّح بها العضو نفسه في profileProposals فقط، دون فرضها أو نشرها قبل مراجعته. لا تضع نسب توافق أو احتمال نجاح أو درجة جدية.');
   instructions+='\nقبل إرسال الناتج، راجع كل عبارة صريحة فيها أريد/أفضل/لا أقبل/شرط، وتأكد أن لها اقتراحًا في القاموس المناسب أو طلب توضيح عند غموضها. لا تُسقط استبعادًا صريحًا لمجرد أنه شرط مهم. «لا أقبل مطلقة وهذا شرط أساسي» يعني fieldId=partnerCriteria.maritalStatus وvalues=["divorced"] وmode=require وexclude=true. انسخ evidence.quote حرفيًا من answer كما كُتب، ولا تحوّل «لا أقبل مطلقة» في الدليل إلى «غير مطلقة». لا تستخرج شرطًا من مثال المحاور أو هذا المثال؛ استخرجه فقط إن ورد في كلام العضو.';
   if (!sensitiveProfileAllowed) instructions += `\nلم يمنح العضو إذن معالجة التفاصيل الحساسة. profileCatalog المرفق لا يحتوي الحقول الحساسة، ولا يجوز استنتاج أو اقتراح أو سؤال أي معلومة حساسة. ${SENSITIVE_REDACTION} بديل خصوصية أضافه الخادم قبل الإرسال: تجاهله تمامًا، ولا تقتبسه كدليل ولا تسأل عما أخفاه. حلّل فقط النص غير المحجوب.`;
+  instructions += '\nالتعريف والمواقف محادثة خاصة للتحليل فقط. لا تستخرج أو تصغ bio أو lookingFor أو lifeTogether أو valuesStatement أو marriageIntent من المحادثة؛ هذه النصوص تُكتب من النموذج بعد التقييم. استخرج كل إجابة صريحة تدعمها الرسالة ولو غطت عشرة بنود أو أكثر، دون اختلاق اختيارات من السكوت أو فرض أن موقفًا افتراضيًا يثبت سمة ثابتة. مواقف البداية تكشف التوقيت الممكن والخطوات المعلنة والمرونة وطريقة الحوار، لا تكشف الصدق أو درجة الجدية. سجّل عدم الوضوح والتناقض بلطف في clarifications، ولا تضف اختبارًا أو حكمًا على الشخص.';
   if (hybrid) instructions += '\nافصل بين موعد الخطوة الرسمية وموعد إتمام الزواج: marriage_timeline في التوافق يخص الخطوة الرسمية وحدها، وmarriageBasics.marriageTimeline يخص إتمام الزواج. لا تستنتج موعد أحدهما من الآخر. اربط كل اقتراح بعبارة تصرّح بتوقيته.';
   if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   return {
@@ -631,7 +635,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
       memberGender: memberGender === 'woman' || memberGender === 'man' ? memberGender : null,
       partnerGender: memberGender === 'woman' ? 'man' : memberGender === 'man' ? 'woman' : null,
       previousProposals: providerSafe.proposals,
-      profileCatalog:(sensitiveProfileAllowed?profileCatalog:safeProfileCatalog).map(({path:_path,options,...field})=>({...field,...(options?{options:options.map(option=>option.value===option.label?option.value:[option.value,option.label])}:{})})),previousProfileProposals:providerSafe.profileProposals??[],profileConfirmed:providerSafe.profileConfirmed??[],knownProfileContext:providerSafe.profileContext??[],knownAssessmentContext:providerSafe.assessmentContext??[],
+      profileCatalog:(sensitiveProfileAllowed?profileCatalog:safeProfileCatalog).filter(field=>!publicWriting.has(field.fieldId)).map(({path:_path,options,...field})=>({...field,...(options?{options:options.map(option=>option.value===option.label?option.value:[option.value,option.label])}:{})})),previousProfileProposals:providerSafe.profileProposals??[],profileConfirmed:providerSafe.profileConfirmed??[],knownProfileContext:providerSafe.profileContext??[],knownAssessmentContext:providerSafe.assessmentContext??[],
       nextTopic: topicContext(next),
       possibleFollowUpTopic: topicContext(same),
       preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options, partnerDefault }) => ({ id, title, selfPrompt, partnerPrompt, options, ...(partnerDefault ? { partnerDefault } : {}) })),
@@ -775,10 +779,15 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     const reply = result.reply.trim().slice(0, Math.max(0, 498 - question.text.length));
     if (reply) question.text = `${reply}\n\n${question.text}`;
   }
+  // Three fixed, brief situations after the private introduction. All extraction
+  // remains evidence-backed; unanswered assessment fields stay for the quick form.
+  const openingFlow = hybrid && (last?.question === REQUIRED_OPENING_QUESTION || openingScenarios.some(item => item.text === last?.question));
+  const completedScenarios = new Set(document.turns.filter(turn => !turn.skipped).map(turn => turn.question));
+  const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text)) : undefined;
   return { ...document, model: INTERVIEW_MODEL,
     proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
-    currentQuestion: question,
-    status: next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
+    currentQuestion: openingFlow ? nextScenario ?? null : question,
+    status: openingFlow ? (nextScenario ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
 }
 
@@ -998,6 +1007,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const question = clarifying
         ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : document.currentQuestion;
+      if (openingScenarios.some(item => item.text === question?.text) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
       if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
       next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,

@@ -84,6 +84,7 @@ type ProfileCaptureAnswers = Partial<Omit<Profile, 'age' | 'gender' | 'preferred
 export function applyProfileProposals<T extends ProfileCaptureAnswers>(current: T, proposals: ProfileProposal[], sensitiveConsent = false): Partial<T> {
   const patch: Record<string, unknown> = {};
   for (const proposal of proposals) {
+    if (['bio','lookingFor','lifeTogether','valuesStatement','marriageIntent'].includes(proposal.fieldId)) continue;
     if (!validProfileProposal(proposal) || proposal.needsClarification) continue;
     const field = profileField(proposal.fieldId)!;
     if (field.sensitive && !sensitiveConsent) continue;

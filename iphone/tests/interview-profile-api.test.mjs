@@ -144,7 +144,7 @@ test('prompt captures explicit requirements while prohibiting invented requireme
 test('valid full multilingual profile and assessment contexts fit the bounded request',()=>{
  const profileContext=profileFields.map(f=>({fieldId:f.fieldId,values:f.kind==='range'?[String(f.min),String(f.max)]:f.criterionShape==='mode'?[]:f.kind==='text'?['中'.repeat(f.maxLength??600)]:f.kind==='number'?[String(f.max)]:f.kind==='set'||f.criterionShape==='values'?[...f.options].sort((a,b)=>Buffer.byteLength(b.value)-Buffer.byteLength(a.value)).slice(0,f.maxItems??30).map(o=>o.value):[[...f.options].sort((a,b)=>Buffer.byteLength(b.value)-Buffer.byteLength(a.value))[0].value],mode:f.criterionShape?'prefer':null,exclude:false}));
  const assessmentContext=preferences.dimensions.flatMap(d=>['self','partner'].map(side=>({id:`preference:${d.id}:${side}`,values:[d.options[0].code]}))).concat(traits.map(t=>({id:`personality:${t.id}:self`,values:['D']})));
- const body={action:'answer',revision:400,requestId:randomUUID(),answer:'中'.repeat(1200),profileContext,assessmentContext};
+ const body={action:'answer',revision:400,requestId:randomUUID(),answer:'中'.repeat(900),profileContext,assessmentContext};
  assert.ok(Buffer.byteLength(JSON.stringify(body))>18000);assert.ok(parseInterviewInput(body));
 });
 test('context evidence binds extracted values while allowing explicit final review edits',()=>{

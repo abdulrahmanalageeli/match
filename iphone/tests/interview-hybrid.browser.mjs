@@ -139,6 +139,13 @@ try {
           }) },
         };
         break;
+      case 'choiceHelp':
+        assert.equal(payload.fieldId, firstId);
+        return route.fulfill({ json: { document: null, revision: snapshot.revision, choiceHelp: !payload.answer
+          ? { message: 'الخيارات تختلف في قرارك بشأن الأطفال.', explanations: { A: 'الإنجاب جزء من خطتك.', B: 'تفضّل حياة بدون أطفال.', C: 'تحتاج وقتًا لتحديد رغبتك.' } }
+          : payload.answer === 'ما أدري'
+            ? { message: 'تقصد إنك محتار أو إنك ما تبي أطفال؟', code: null }
+            : { message: 'وصفت قرارًا ما حسمته إلى الآن.', code: 'C' } } });
       default: throw Error('Unexpected interview action: ' + payload.action);
     }
     return route.fulfill({ json: snapshot });
@@ -170,16 +177,34 @@ try {
   assert.equal(await self.locator('button').nth(2).getAttribute('aria-pressed'), 'true');
   await mirror.selectOption('B');
   await portrait.locator(':scope > summary').click();
-  const help = card.getByRole('button',{name:'مو عارف وش أختار؟'});
-  await help.click();
-  assert.match(await card.locator('.wi-card-help').innerText(), /اختر اللي يصف حياتك/);
-  await help.click();
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
   assert.equal(await page.locator('.wi-coverage-note').filter({ hasText: 'لونا تقرأ رسالتك' }).count(), 1);
   releaseOpening();
   await page.locator('.wi-coverage-note').filter({ hasText: 'لونا تقرأ رسالتك' }).waitFor({ state: 'hidden' });
   assert.equal(await manual.getAttribute('aria-pressed'), 'true', 'Late AI response preserved the newer selection');
   assert.deepEqual(draft[firstId], ['B']);
+  const help = self.getByRole('button',{name:'مو عارف وش أختار؟'});
+  await help.click();
+  assert.equal(calls.filter(call => call.action === 'choiceHelp').length, 0);
+  await self.getByRole('button', { name: 'اشرحي الخيارات' }).click();
+  await self.getByText('الإنجاب جزء من خطتك.').waitFor();
+  const description = self.getByLabel('أو قلها بطريقتك');
+  const map = self.getByRole('button', { name: 'اقترحي أقرب خيار' });
+  await description.fill('ما أدري');
+  await map.click();
+  await self.getByText('تقصد إنك محتار أو إنك ما تبي أطفال؟').waitFor();
+  const accept = self.getByRole('button', { name: 'استخدم هذا الخيار' });
+  assert.equal(await accept.count(), 0);
+  await description.fill('ممكن، لكن لسه ما حسمت قراري');
+  await map.click();
+  await accept.waitFor();
+  await page.screenshot({ path: resolve(output, 'choice-help-390.png') });
+  assert.deepEqual(draft[firstId], ['B'], 'A proposed option never writes to the draft');
+  assert.equal(await manual.getAttribute('aria-pressed'), 'true');
+  await accept.click();
+  assert.equal(await self.locator('button').nth(2).getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(draft[firstId], ['C']);
+  await manual.click();
 
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });

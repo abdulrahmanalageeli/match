@@ -15,6 +15,9 @@ export type InterviewProposal = {
 export type InterviewNote = { id: string; text: string; evidence: InterviewEvidence[] };
 export type InterviewQuestion = { topic: string; text: string; suggestions: string[] };
 export type InterviewTurn = { id: string; topic: string; question: string; answer: string; skipped: boolean };
+export type InterviewChoiceHelp = { message: string } & (
+  { code: string | null } | { explanations: Record<string, string> }
+);
 export type InterviewDocument = {
   version: 'interview-v1';
   consentVersion: 'wudayn-interview-v1';
@@ -45,4 +48,5 @@ export type InterviewSnapshot = {
   fallbackAvailable?: boolean;
   structuredConfirmation?: boolean;
   coverage?: { answered: number; required: number };
+  choiceHelp?: InterviewChoiceHelp;
 };

@@ -47,6 +47,9 @@ function harness(options = {}) {
       return { chat: { completions: { create: async (request, runtime) => {
         modelCalls.push({ request, runtime, config });
         if (options.failure) throw new Error('PRIVATE PROVIDER ERROR');
+        if (request.response_format.json_schema.name === 'wudayn_choice_help') return {
+          choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(options.choiceResult) } }],
+        };
         const transcript = JSON.parse(request.messages[1].content).transcript;
         const source = transcript.find(turn => !turn.skipped);
         return completion({ ...result, proposals: options.proposals ? options.proposals(transcript) : source ? [{ ...candidate, evidence: [{ turnId: source.id, quote: 'خلال ستة أشهر' }] }] : [], ...(options.response ? options.response(transcript) : {}) });
@@ -62,6 +65,35 @@ const structuredChoices = () => [
   ...preferenceCatalog.dimensions.flatMap(dimension => ['self','partner'].map(side => ({id:`preference:${dimension.id}:${side}`,values:[dimension.options[side === 'self' ? 0 : 1].code]}))),
   ...personalityCatalog.map(question => ({id:`personality:${question.id}:self`,values:['D']})),
 ];
+
+test('Luna choice help is authorized, question-scoped, and never changes the interview or saved choice', async () => {
+  const options = { memberGender: 'woman' };
+  const h = harness(options), first = await start(h);
+  const fieldId = 'preference:wife_work:self';
+  await assert.rejects(h.service({ action: 'choiceHelp', revision: first.revision, fieldId }, headers), { status: 400 });
+  const analyzed = await send(h, first.revision);
+  const state = h.state;
+  const request = payload => h.service({ action: 'choiceHelp', revision: analyzed.revision, fieldId, ...payload }, headers);
+  options.choiceResult = { message: 'تختلف بحسب خطتك بعد الزواج.', explanations: { A: 'خطة واضحة لمواصلة العمل.', B: 'تفضلين التفرغ.', C: 'تتركين القرار للظروف والاتفاق.' } };
+  assert.deepEqual((await request({})).choiceHelp, options.choiceResult);
+  options.choiceResult = { message: 'تبين تكملين عملك بعد الزواج.', code: 'A' };
+  assert.deepEqual((await request({ answer: 'أبي أستمر بشغلي. رقمي ٠٥٥١٢٣٤٥٦٧', gender: 'man' })).choiceHelp, options.choiceResult);
+  const { request: sent } = h.modelCalls.at(-1);
+  const data = JSON.parse(sent.messages[1].content);
+  assert.deepEqual(Object.keys(data), ['question', 'options', 'answer']);
+  assert.equal(sent.model, INTERVIEW_MODEL);
+  assert.equal(sent.store, false);
+  assert.equal(data.question, 'هل ترغبين في العمل بعد الزواج؟');
+  assert.equal(data.answer, 'أبي أستمر بشغلي. رقمي [تفصيل حساس محجوب]');
+  options.choiceResult = { message: 'هل تميلين للعمل أو تفضلين تتركين القرار للظروف؟', code: null };
+  assert.deepEqual((await request({ answer: 'ما أدري.' })).choiceHelp, options.choiceResult);
+  options.choiceResult = { message: 'رمز غير مسموح', code: 'Z' };
+  await assert.rejects(request({ answer: 'أبي أستمر بشغلي.' }), { status: 503 });
+  await assert.rejects(request({ fieldId: 'profile:city', answer: 'الرياض' }), { status: 400 });
+  options.limited = true;
+  await assert.rejects(request({ answer: 'أبي أستمر بشغلي.' }), { status: 429 });
+  assert.deepEqual(h.state, state);
+});
 
 test('structured confirmation retains the attested conversation and persists all choices without inference', async () => {
   const h = harness({checkFingerprint: true}), first = await start(h), choices = structuredChoices();

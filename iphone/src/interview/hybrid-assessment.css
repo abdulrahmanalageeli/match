@@ -208,7 +208,7 @@
   padding: 3px;
 }
 .wi-portrait-body { display: grid; gap: 8px; padding: 0 12px 12px; }
-.wi-portrait-body > p, .wi-reflection p, .wi-card-help p {
+.wi-portrait-body > p, .wi-reflection p, .wi-choice-help p {
   margin: 0;
   color: #6d5b65;
   font-size: 12px;
@@ -261,8 +261,45 @@
   cursor: pointer;
 }
 .wi-reflection { margin-top: 9px; background: #fff; }
-.wi-card-help { border-top: 1px solid var(--hybrid-line); }
-.wi-card-help > div { padding: 8px 10px; background: var(--hybrid-tint); border-radius: 8px; }
+.wi-card-help > button { min-height: 34px; padding-inline: 0; font-size: 12px; }
+.wi-choice-help {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 12px;
+  background: var(--hybrid-tint);
+}
+.wi-choice-help-heading, .wi-choice-proposal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.wi-choice-help-heading > strong { color: var(--hybrid-accent); font-size: 13px; }
+.wi-choice-help-heading > button { margin-inline-start: auto; }
+.wi-choice-help label, .wi-choice-explanations dt, .wi-choice-proposal strong { font-size: 13px; font-weight: 650; color: var(--hybrid-accent); }
+.wi-choice-help label { padding-block-start: 3px; }
+.wi-dialog .wi-choice-help textarea {
+  inline-size: 100%;
+  box-sizing: border-box;
+  min-height: 62px;
+  max-height: 154px;
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #d9c6cf;
+  color: var(--hybrid-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.wi-choice-help textarea:focus-visible { outline: 2px solid var(--hybrid-accent); outline-offset: 1px; }
+.wi-choice-help .wi-link { min-height: 34px; }
+.wi-choice-help .wi-choice-map { justify-self: start; }
+.wi-choice-explanations dl, .wi-choice-explanations dd { margin: 0; }
+.wi-choice-explanations dl > div { padding-block: 6px; border-bottom: 1px solid var(--hybrid-line); }
+.wi-choice-explanations dd { font-size: 12px; line-height: 1.7; color: #6d5b65; }
+.wi-choice-proposal { display: grid; gap: 4px; padding: 10px 12px; background: #fff; border-radius: 9px; }
+.wi-choice-proposal small { font-size: 11px; color: #76636d; }
+.wi-choice-proposal-actions { margin-top: 4px; }
+.wi-choice-proposal-actions .wi-button { min-height: 44px; padding: 6px 10px; font-size: 12px; }
 
 @media (max-width: 380px) {
   .wi-hybrid-card, .wi-hybrid-batch { padding: 14px; }

@@ -5,7 +5,7 @@ import { dimensions } from '../compatibility/model';
 import { personalityQuestions } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import type { InterviewSelection } from './model';
-import type { InterviewProposal } from './types';
+import type { InterviewChoiceHelp, InterviewProposal } from './types';
 import './hybrid-assessment.css';
 
 type Choices = Record<string, string[]>;
@@ -20,7 +20,6 @@ type Card = {
   self: Field;
   partner: Field;
   personality: Field[];
-  discussion: string;
   partnerDefault?: Readonly<Partial<Record<string, string>>>;
 };
 
@@ -83,7 +82,6 @@ function makeThemeCards(gender?: Gender) {
           };
         }),
         partnerDefault: explicitPartnerChoices.has(id) ? undefined : dimension.partnerDefault,
-        discussion: dimension.discussion,
       };
       return fields;
     }),
@@ -109,13 +107,14 @@ function needsCard(card: Card, choices: Choices) {
     || (!selected(card.partner, choices) && !partnerSuggestion(card, choices));
 }
 
-function ChoiceCard({ field, value, onChoose, disabled, captured = false, compact = false }: {
+function ChoiceCard({ field, value, onChoose, disabled, captured = false, compact = false, help }: {
   field: Field;
   value?: string;
   onChoose: (value: string) => void;
   disabled: boolean;
   captured?: boolean;
   compact?: boolean;
+  help?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const currentOption = field.options.find(option => option.code === value);
@@ -123,7 +122,7 @@ function ChoiceCard({ field, value, onChoose, disabled, captured = false, compac
     <legend>{field.prompt}</legend>
     {captured && currentOption && !editing ? <div className="wi-hybrid-suggestion">
       <div><small>من حوارك مع لونا</small><strong>{currentOption.label}</strong></div>
-      <button type="button" className="wi-link" onClick={() => setEditing(true)} disabled={disabled}><Pencil size={14} aria-hidden="true"/> تعديل</button>
+        <button type="button" className="wi-link" onClick={() => setEditing(true)} disabled={disabled}><Pencil size={14} aria-hidden="true"/> تعديل</button>
     </div> : <div className="wi-hybrid-options">
       {field.options.map(option => <MotionPressButton
         key={option.code}
@@ -136,7 +135,80 @@ function ChoiceCard({ field, value, onChoose, disabled, captured = false, compac
         {option.label}
       </MotionPressButton>)}
     </div>}
+    {help}
   </fieldset>;
+}
+
+function ChoiceHelp({ field, request, onChoose, disabled }: {
+  field: Field;
+  request: (fieldId: string, description?: string) => Promise<InterviewChoiceHelp>;
+  onChoose: (value: string) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState('');
+  const [explanation, setExplanation] = useState<Extract<InterviewChoiceHelp, { explanations: unknown }>>();
+  const [proposal, setProposal] = useState<Extract<InterviewChoiceHelp, { code: unknown }>>();
+  const [busy, setBusy] = useState<'explain' | 'map'>();
+  const [error, setError] = useState('');
+  const trigger = useRef<HTMLButtonElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const id = useId();
+  const option = field.options.find(item => item.code === proposal?.code);
+
+  async function ask(mode: 'explain' | 'map') {
+    if (busy || disabled) return;
+    setError('');
+    if (mode === 'map') setProposal(undefined);
+    setBusy(mode);
+    try {
+      const answer = await request(field.id, mode === 'map' ? description.trim() : undefined);
+      if ('explanations' in answer) setExplanation(answer);
+      else setProposal(answer);
+    } catch {
+      setError('تعذّرت مساعدة لونا الآن. تقدر تحاول مرة ثانية أو تختار إجابتك مباشرة.');
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  return <div className="wi-card-help">
+    <button type="button" ref={trigger} className="wi-link" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
+      مو عارف وش أختار؟
+    </button>
+    {open && <MotionReveal id={id} distance={5} duration={170} className="wi-choice-help">
+      <div className="wi-choice-help-heading">
+        <img src="/brand/wudayn-emblem-v2.png" width={20} height={22} alt=""/>
+        <strong>لونا</strong>
+        {!explanation && <button type="button" className="wi-link" onClick={() => void ask('explain')} disabled={disabled || Boolean(busy)}>اشرحي الخيارات</button>}
+      </div>
+      {explanation && <div className="wi-choice-explanations">
+        <p>{explanation.message}</p>
+        <dl>{field.options.map(item => <div key={item.code}><dt>{item.label}</dt><dd>{explanation.explanations[item.code]}</dd></div>)}</dl>
+      </div>}
+      <label htmlFor={`${id}-answer`}>أو قلها بطريقتك</label>
+      <textarea ref={input} id={`${id}-answer`} rows={2} maxLength={450} value={description} disabled={Boolean(busy) || disabled}
+        placeholder="مثلاً، على حسب الظروف…"
+        onChange={event => { setDescription(event.target.value); setProposal(undefined); setError(''); }}/>
+      {!option && <button type="button" className="wi-link wi-choice-map" disabled={disabled || Boolean(busy) || !description.trim()} onClick={() => void ask('map')}>اقترحي أقرب خيار<ArrowLeft size={14} aria-hidden="true"/></button>}
+      {busy && <p role="status">{busy === 'map' ? 'لونا تقرأ وصفك…' : 'لونا توضّح الفرق…'}</p>}
+      {error && <p role="status">{error}</p>}
+      {proposal && <div className="wi-choice-proposal">
+        {option && <><small>اقتراح لونا</small><strong>{option.label}</strong></>}
+        <p role="status">{proposal.message}</p>
+        {option && <div className="wi-choice-proposal-actions">
+          <MotionPressButton className="wi-button wi-button-primary" disabled={disabled || Boolean(busy)} onClick={() => {
+            onChoose(option.code);
+            setDescription('');
+            setProposal(undefined);
+            setOpen(false);
+            trigger.current?.focus({ preventScroll: true });
+          }}>استخدم هذا الخيار<Check size={15} aria-hidden="true"/></MotionPressButton>
+          <button type="button" className="wi-link" onClick={() => { setProposal(undefined); input.current?.focus(); }}>تعديل الوصف</button>
+        </div>}
+      </div>}
+    </MotionReveal>}
+  </div>;
 }
 
 function ReviewChoice({ field, value, suggested, captured = false, side, disabled, onChoose }: {
@@ -181,7 +253,7 @@ function PortraitChoice({ field, answer, side, captured, disabled, onChoose }: {
 }
 
 export function HybridAssessment({
-  choices, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], onClarify, reviewExtras,
+  choices, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], onClarify, onChoiceHelp, reviewExtras,
 }: {
   choices: Choices;
   onChange: (choices: Choices, changedIds?: readonly string[]) => void;
@@ -191,6 +263,7 @@ export function HybridAssessment({
   gender?: Gender;
   aiProposals?: readonly InterviewProposal[];
   onClarify?: () => void;
+  onChoiceHelp?: (fieldId: string, description?: string) => Promise<InterviewChoiceHelp>;
   reviewExtras?: ReactNode;
 }) {
   const themeCards = makeThemeCards(gender);
@@ -200,7 +273,6 @@ export function HybridAssessment({
   const started = useRef(false);
   const [history, setHistory] = useState<number[]>([]);
   const [partnerEditor, setPartnerEditor] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const [portraitOpen, setPortraitOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousIndex = useRef(index);
@@ -243,7 +315,6 @@ export function HybridAssessment({
     const next = cards.findIndex((item, itemIndex) => itemIndex > index && needsCard(item, choices));
     setHistory(previous => [...previous, index]);
     setPartnerEditor(false);
-    setShowHelp(false);
     setIndex(next);
   }
 
@@ -251,7 +322,6 @@ export function HybridAssessment({
     const previous = history.at(-1);
     if (previous === undefined) return;
     setPartnerEditor(false);
-    setShowHelp(false);
     setHistory(current => current.slice(0, -1));
     setIndex(previous);
   }
@@ -271,6 +341,7 @@ export function HybridAssessment({
   const opening = cards.find(item => item.self.id === 'preference:early_openness:self')!;
   const closeness = cards.find(item => item.self.id === 'preference:closeness_pace:self')!;
   const hasTradeOff = Boolean(selected(opening.self, choices) && selected(closeness.self, choices));
+  const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => choose(field.id, code)} disabled={disabled}/>;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     <div className="wi-hybrid-progress">
       <span>{card ? themeCards[card.themeIndex].label : 'مراجعة التوافق'}</span>
@@ -326,21 +397,15 @@ export function HybridAssessment({
         {`فهمنا ${number.format(capturedCount)} إجابة من كلامك. نكمّل الباقي هنا.`}
       </p>}
       {card ? <div className="wi-hybrid-card">
-        <ChoiceCard field={card.self} value={selected(card.self, choices)?.code} captured={wasCaptured(card.self)} onChoose={code => choose(card.self.id, code)} disabled={disabled}/>
-        {proposal && !selected(card.partner, choices) && !partnerEditor ? <div className="wi-hybrid-suggestion">
-          <div><small>اقتراح للشريك · للمراجعة لاحقًا</small><strong>{proposal.label}</strong></div>
-          <button type="button" className="wi-link" onClick={() => { started.current = true; setPartnerEditor(true); }} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
-        </div> : <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled}/>}
-        {card.personality.map(field => <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} captured={wasCaptured(field)} onChoose={code => choose(field.id, code)} disabled={disabled} compact/>)}
-        <div className="wi-card-help">
-          <button type="button" className="wi-link" aria-expanded={showHelp} onClick={() => setShowHelp(value => !value)}>مو عارف وش أختار؟</button>
-          {showHelp && <div>
-            <p>في الأول، اختر اللي يصف حياتك. في الثاني، اختر الأسلوب اللي ترتاح له عند شريكك.</p>
-            <p>{card.self === timing.self ? 'الخطوة الرسمية ممكن تكون إشراك الأهل أو التقدّم. موعد إتمام الزواج له اختيار مستقل.' : card.discussion}</p>
-            {card.personality.length > 0 && <p>في عبارات الشخصية، فكّر في تصرّفك المعتاد واختر الدرجة الأقرب لك.</p>}
-            {onClarify && <button type="button" className="wi-link" disabled={disabled} onClick={onClarify}>أبي أوضح إجابتي للونا</button>}
-          </div>}
-        </div>
+        <ChoiceCard field={card.self} value={selected(card.self, choices)?.code} captured={wasCaptured(card.self)} onChoose={code => choose(card.self.id, code)} disabled={disabled} help={helpFor(card.self)}/>
+        {proposal && !selected(card.partner, choices) && !partnerEditor ? <div>
+          <div className="wi-hybrid-suggestion">
+            <div><small>اقتراح للشريك · للمراجعة لاحقًا</small><strong>{proposal.label}</strong></div>
+            <button type="button" className="wi-link" onClick={() => { started.current = true; setPartnerEditor(true); }} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
+          </div>
+          {helpFor(card.partner)}
+        </div> : <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled} help={helpFor(card.partner)}/>}
+        {card.personality.map(field => <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} captured={wasCaptured(field)} onChoose={code => choose(field.id, code)} disabled={disabled} compact help={helpFor(field)}/>)}
       </div> : <>
         <p className="wi-lead">{capturedCount ? `أضفنا ${number.format(capturedCount)} إجابة من حوارك. راجعها مع اختياراتك قبل الاعتماد.` : 'راجع اختياراتك وعدّل أي إجابة قبل اعتماد التوافق.'}</p>
         {capturedCount > 0 && <details className="wi-hybrid-captured-review">

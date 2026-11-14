@@ -952,3 +952,24 @@ test('an in-progress interview recognizes earlier scenario wording after copy ch
   assert.equal(result.document.currentQuestion.text,openingScenarios[2].text);
   assert.equal(result.document.turns.length,3);
 });
+
+test('a saved signup introduction resumes at its first scenario after a failed retry route', async () => {
+  const initial=initialInterviewDocument(true);
+  initial.turns=[{id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false}];
+  initial.currentQuestion={topic:'communication',text:'سؤال عام بعد الخطأ',suggestions:[]};
+  initial.status='active';initial.pendingAnalysis=false;initial.lastMode='luna';
+  const h=harness({initial:{document:initial,revision:2}});
+  const loaded=await h.service({action:'load'},headers);
+  assert.equal(loaded.document.currentQuestion.text,openingScenarios[0].text);
+});
+
+test('retry of a saved signup answer keeps the scenario route even if an older client omits hybrid', async () => {
+  const initial=initialInterviewDocument(true);
+  initial.turns=[{id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false}];
+  initial.currentQuestion={topic:'communication',text:'سؤال عام أثناء الانتظار',suggestions:[]};
+  initial.status='active';initial.pendingAnalysis=true;initial.lastMode='guided';
+  const h=harness({initial:{document:initial,revision:2}});
+  const retried=await h.service({action:'retry',revision:2},headers);
+  assert.equal(retried.document.currentQuestion.text,openingScenarios[0].text);
+  assert.equal(retried.document.turns.length,1);
+});

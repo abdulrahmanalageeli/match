@@ -913,7 +913,18 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     }
     if (input.action === 'load') {
       const loaded = await upgrade(await rpc('load'));
-      if (!loaded.structuredConfirmation) return loaded;
+      if (!loaded.structuredConfirmation) {
+        const document=loaded.document;
+        const openingTurns=document?.turns??[];
+        if (document && requiredInterview(document) && document.status==='active' && !document.pendingAnalysis
+          && openingTurns.length>0 && openingTurns.length<4 && openingTurns[0].question===REQUIRED_OPENING_QUESTION) {
+          const visited=new Set(openingTurns.map(turn=>turn.question));
+          const expected=openingScenarios.find(item=>!visited.has(item.text)&&!visited.has(item.legacyText));
+          if (expected && ![expected.text,expected.legacyText].includes(document.currentQuestion?.text))
+            return decorate(await rpc('save',{expectedRevision:loaded.revision,document:{...document,currentQuestion:expected}}));
+        }
+        return loaded;
+      }
       // A confirmed save can outlive a lost response from attestation. Check
       // its proof before onboarding treats this recovered snapshot as final.
       try { await attest('complete', loaded); }
@@ -1033,7 +1044,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (reserve.status !== 'allowed' || !env.OPENAI_API_KEY) return fail(next, reserve.status !== 'allowed' ? 'capacity' : 'unavailable');
     let analyzed;
     try {
-      const hybrid = input.hybrid === true || input.action === 'clarify';
+      const hybrid = input.hybrid === true || input.action === 'clarify' || (input.action === 'retry' && requiredInterview(document));
       const reviewPass = finalReview || hybrid || next.turns.length >= turnLimit(next)
         || !nextTopic({ ...next, proposals: document.proposals }, false);
       const providerTimeout = reviewPass ? 36000 : 30000;

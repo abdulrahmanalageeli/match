@@ -78,3 +78,7 @@
 .cm-step-buttons { display: grid; gap: 8px; }
 .cm-step-buttons button { text-align: start; }
 .cm-step-note { color: var(--muted); font-size: 16px; line-height: 1.6; }
+.nf-fit-conversation { margin-block:20px; padding:18px; border:1px solid #e5e2de; border-radius:14px; background:#faf7f3; }
+.nf-fit-conversation h3 { margin:0 0 8px; color:#54152a; font-size:16px; }
+.nf-fit-conversation p { margin:0 0 8px; color:#342c30; font-size:16px; line-height:1.8; }
+.nf-fit-conversation small { display:block; color:#625b5e; line-height:1.8; }

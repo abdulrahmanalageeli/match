@@ -798,6 +798,11 @@ function Discovery({
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
       <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
+      {order === 'recommended' && !loading && !error && people.length > 0 && <details className="df-first-week">
+        <summary>من الترشيح إلى أول محادثة</summary>
+        <ol><li>افتح الملف واقرأ التفاصيل التي تهمك.</li><li>راجع أسباب التوافق وما يحتاج نقاشًا، لا النسبة وحدها.</li><li>أرسل طلبًا إن ناسبك الملف؛ بعد القبول المتبادل وإقرار الجدّية تبدأ المحادثة.</li></ol>
+        <p>الترشيحات أقرب الخيارات المتاحة وفق إجاباتكما، وليست ضمانًا للملاءمة أو الرد.</p>
+      </details>}
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>
@@ -866,6 +871,7 @@ function Discovery({
           }
         />
       )}
+      {!loading && !error && people.some(person => person.isDemo) && <p className="df-pilot-note">{people.every(person => person.isDemo) ? 'كل الملفات المعروضة هنا خيالية لتجربة المزايا، وليست أعضاء حقيقيين.' : 'تضم هذه القائمة ملفات خيالية موسومة بأنها توضيحية لتجربة المزايا.'}</p>}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
           order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
@@ -1947,7 +1953,7 @@ function Requests({
           }
           description={
             search ? "جرّب اسمًا آخر أو امسح البحث." : conversations && onlyUnread ? undefined : conversations || filter === "accepted"
-              ? "تبدأ المحادثة عندما يقبل الطرفان طلب التعارف."
+              ? "اختر ملفًا مناسبًا وأرسل طلب تعارف. بعد القبول المتبادل وإقرار الجدّية تبدأ المحادثة؛ إرسال الطلب لا يضمن الرد."
               : "تظهر هنا طلبات التعارف المتعلقة بملفك."
           }
           action={search ? <button className="btn-secondary" onClick={() => setQuery('')}>مسح البحث</button> :

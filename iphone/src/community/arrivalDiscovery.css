@@ -1,4 +1,10 @@
 /* Member surfaces: people, readable facts, and quiet rules. */
+.df-first-week { margin:0 0 18px; padding:12px 15px; border:1px solid #e5e2de; border-radius:12px; background:#fff; color:#53454b; font-size:14px; line-height:1.8; }
+.df-first-week summary { min-height:24px; cursor:pointer; color:#54152a; font-weight:600; }
+.df-first-week ol { padding-inline-start:20px; margin:12px 0; }
+.df-first-week li + li { margin-top:8px; }
+.df-first-week p { margin:0; }
+.df-pilot-note { margin:0 0 16px; padding:12px 14px; border-inline-start:3px solid #b59b85; background:#f4eeeb; color:#53454b; font-size:13px; line-height:1.8; border-radius:8px; }
 .phone-app .cm-shell .df-discovery,
 .phone-app .mp-profile {
   --arrival-plum: #242326;

@@ -66,6 +66,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
     <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>
     <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>
     <BeenaSummary fit={fit.beena}/>
+    <section className="nf-fit-conversation"><h3>سؤال لبداية أوضح</h3><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></section>
     <p className="nf-fit-boundary">ثلاث قراءات مستقلة من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نسبة عند اكتمال تقييمها لدى الطرفين.</p>
   </section>;
 }

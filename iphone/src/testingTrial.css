@@ -6,6 +6,11 @@
 .nf-testing-trial label { display:flex; align-items:center; gap:12px; min-height:54px; padding:11px 13px; border:1px solid #e9e1e4; border-radius:13px; background:#fff; color:#3e3037; font-size:14px; line-height:1.7; cursor:pointer; }
 .nf-testing-trial input { flex:none; width:20px; height:20px; margin:0; accent-color:#5a0f28; }
 .nf-testing-trial button { min-height:48px; border-radius:14px; }
+.nf-trial-steps { display:grid; gap:16px; margin:0; padding-inline-start:24px; }
+.nf-trial-steps li { padding-inline-start:5px; color:#5a0f28; }
+.nf-trial-steps strong { display:block; font-size:15px; margin-bottom:3px; }
+.nf-trial-steps span { display:block; font-size:14px; line-height:1.8; color:#625b5e; }
+.nf-testing-trial .nf-trial-pilot-note { padding:14px 16px; border-radius:12px; background:#f4eeeb; color:#53454b; font-size:13px; }
 @media(prefers-reduced-motion:no-preference) {
   .nf-testing-offer { animation:nf-trial-enter 420ms cubic-bezier(.2,.72,.3,1) both; }
   .nf-testing-trial .f-primary { animation:nf-trial-enter 420ms 120ms cubic-bezier(.2,.72,.3,1) both; }

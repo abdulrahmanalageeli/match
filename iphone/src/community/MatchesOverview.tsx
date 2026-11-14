@@ -50,7 +50,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
     {!loading && !error && !rows.length && <MotionReveal className="mo-empty" key={filter} distance={6}>
       <Heart size={27} strokeWidth={1.3}/>
       <h2>{search ? 'لم نجد هذا الاسم' : filter === 'incoming' ? 'لا توجد طلبات بانتظارك' : filter === 'outgoing' ? 'لم ترسل طلبًا بعد' : filter === 'accepted' ? 'لا يوجد تعارف حالي' : 'لا توجد طلبات تعارف بعد'}</h2>
-      <p>{search ? 'جرّب اسمًا آخر أو امسح البحث.' : 'تصفّح الملفات وأرسل طلب تعارف. تُفتح المحادثة بعد قبول الطرف الآخر.'}</p>
+      <p>{search ? 'جرّب اسمًا آخر أو امسح البحث.' : 'اقرأ الملف وأسباب التوافق، ثم أرسل طلبًا إن ناسبك. تبدأ المحادثة بعد القبول المتبادل وإقرار الجدّية.'}</p>
       <MotionPressButton className="btn-secondary" onClick={search ? () => setQuery('') : onBrowse}>{search ? 'مسح البحث' : 'استكشف الملفات'}<ArrowLeft size={16}/></MotionPressButton>
     </MotionReveal>}
     <div className="mo-list" aria-label="التعارف الحالي والطلبات" aria-busy={loading}>

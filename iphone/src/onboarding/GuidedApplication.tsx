@@ -34,7 +34,7 @@ import { beenaProgress, beenaScenarios } from '../beena/model';
 import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
 import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
-import { assessmentContextFromAnswers } from '../interview/assessmentContext';
+import { answersFromAssessmentContext, assessmentContextFromAnswers } from '../interview/assessmentContext';
 import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
 import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
@@ -652,7 +652,47 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         </form>
        </>}
       </div>
-      {interviewAuth && consents.assessment && <InterviewPanel key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')} open={interviewOpen} auth={interviewAuth} onboarding={!editing} profileContext={profileContextFromAnswers(p,consents.sensitiveProfile)} assessmentContext={assessmentContextFromAnswers(p)} onProfileApply={applyCapturedProfile} sensitiveProfileAllowed={consents.sensitiveProfile} consentGranted={consents.assessment&&draft.permissions?.interview===true} onUnavailable={()=>setFallbackAvailable(true)} onClose={() => setInterviewOpen(false)} onDirectQuestions={()=>{setInterviewOpen(false);setAssessmentPath('questions');if(current.current.step==='personality')setPersonalityDirect(true);}} onFallbackApply={confirmed=>{update(applyInterviewAnswers(current.current.answers,confirmed.filter(item=>item.kind!=='beena')));setInterviewRevision(value=>value+1);setAssessmentPath('questions');void saveProgressNow();}} onApply={confirmed => { setAiComplete(true); update(applyInterviewAnswers(current.current.answers, !editing?confirmed.filter(p=>p.kind!=='beena'):confirmed)); setInterviewApplied(true);setInterviewRevision(value=>value+1);setAssessmentPath('questions');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);void saveProgressNow(); }}/>}
+      {interviewAuth && consents.assessment && <InterviewPanel
+        key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
+        open={interviewOpen} auth={interviewAuth} onboarding={!editing}
+        gender={p.gender || undefined}
+        profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
+        assessmentContext={assessmentContextFromAnswers(p)}
+        onStructuredDraftChange={choices => update(answersFromAssessmentContext(choices))}
+        onProfileApply={applyCapturedProfile}
+        sensitiveProfileAllowed={consents.sensitiveProfile}
+        consentGranted={consents.assessment && draft.permissions?.interview === true}
+        onUnavailable={() => setFallbackAvailable(true)}
+        onClose={() => { setInterviewOpen(false); void saveProgressNow(); }}
+        onDirectQuestions={() => {
+          setInterviewOpen(false);
+          setAssessmentPath('questions');
+          if (current.current.step === 'personality') setPersonalityDirect(true);
+        }}
+        onFallbackApply={confirmed => {
+          const saved = current.current.answers;
+          const reviewed = applyInterviewAnswers({}, confirmed.filter(item => item.kind !== 'beena'));
+          update({
+            surveyAnswers: { ...reviewed.surveyAnswers, ...saved.surveyAnswers },
+            personalityAnswers: { ...reviewed.personalityAnswers, ...saved.personalityAnswers },
+          });
+          setInterviewRevision(value => value + 1);
+          setAssessmentPath('questions');
+          void saveProgressNow();
+        }}
+        onApply={confirmed => {
+          setAiComplete(true);
+          update(applyInterviewAnswers(current.current.answers, !editing ? confirmed.filter(item => item.kind !== 'beena') : confirmed));
+          setInterviewApplied(true);
+          setInterviewRevision(value => value + 1);
+          setAssessmentPath('questions');
+          setReviewAllCompatibility(false);
+          setReviewAllBeena(false);
+          setReviewAllPersonality(false);
+          setPersonalityDirect(false);
+          void saveProgressNow();
+        }}
+      />}
     </main>
   );
 }

@@ -15,3 +15,23 @@ export function assessmentContextFromAnswers(answers: InterviewAnswers): Array<{
   }
   return context;
 }
+
+export function answersFromAssessmentContext(choices: Record<string, string[]>): Pick<InterviewAnswers, 'surveyAnswers' | 'personalityAnswers'> {
+  const surveyAnswers: Record<string, string> = {};
+  const personalityAnswers: Record<string, string> = {};
+  for (const dimension of dimensions) {
+    for (const side of ['self', 'partner'] as const) {
+      const values = choices[`preference:${dimension.id}:${side}`];
+      if (values?.length === 1 && dimension.options.some(option => option.code === values[0])) {
+        surveyAnswers[side === 'self' ? dimension.id : dimension.partnerId] = values[0];
+      }
+    }
+  }
+  for (const question of personalityQuestions) {
+    const values = choices[`personality:${question.id}:self`];
+    if (values?.length === 1 && question.options.some(option => option.code === values[0])) {
+      personalityAnswers[question.id] = values[0];
+    }
+  }
+  return { surveyAnswers, personalityAnswers };
+}

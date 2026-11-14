@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pe
 import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
+import { HybridAssessment } from './HybridAssessment';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
 import topics from './catalog.json';
@@ -34,7 +35,7 @@ export function InterviewEntry({ available, open }: { available: boolean; open: 
   if (!available) return null;
   return <section className="wi-entry" aria-labelledby="wi-entry-title">
     <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
-    <p>حوار واحد يجمع شخصيتك وتطلعاتك للزواج. وفي النهاية، ملخص تراجعه وتعدّله قبل الاعتماد.</p>
+    <p>عرّفنا عن نفسك، ثم أكمل اختياراتك عن الزواج والشخصية. تراجع كل إجابة قبل اعتمادها.</p>
     <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;
 }
@@ -51,11 +52,13 @@ type Props = {
   onApply: (confirmed: InterviewProposal[]) => void;
   profileContext?: ProfileContext;
   assessmentContext?: InterviewSelection[];
+  onStructuredDraftChange?: (choices: Record<string, string[]>) => void;
+  gender?: 'woman' | 'man';
   sensitiveProfileAllowed?: boolean;
   onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
-export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, assessmentContext, sensitiveProfileAllowed = false, onProfileApply }: Props) {
+export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, assessmentContext, onStructuredDraftChange, gender, sensitiveProfileAllowed = false, onProfileApply }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -75,6 +78,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [coverageGain, setCoverageGain] = useState(0);
   const [captures, setCaptures] = useState<Record<string, MessageChange[]>>({});
   const [profileReview, setProfileReview] = useState(false);
+  const [clarifying, setClarifying] = useState(false);
   const [profileEdits, setProfileEdits] = useState<Record<string, ProfileChoice>>({});
   const [editedProfile, setEditedProfile] = useState<string[]>([]);
   const [ignoredProfile, setIgnoredProfile] = useState<string[]>([]);
@@ -90,6 +94,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const followConversation = useRef(true);
   const firstConversation = useRef(true);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const clarifier = useRef<HTMLTextAreaElement>(null);
   const autoStarted = useRef(false);
   const failureNotified = useRef(false);
   const unavailableCallback = useRef(onUnavailable);
@@ -101,6 +106,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [sharingSaved, setSharingSaved] = useState(false);
   const requestId = useRef<{ answer: string; skip: boolean; id: string } | null>(null);
   const doc = snapshot.document;
+  const hybridEnabled = onboarding && Boolean(onStructuredDraftChange);
+  const hasOpening = doc?.turns.some(turn => !turn.skipped && turn.answer.trim());
   const openingTurn = Boolean(doc?.status === 'active' && doc.turns.length === 0);
   const owner = auth.testSession ?? auth.token ?? '';
   const reviewVersion = doc ? JSON.stringify([doc.status, doc.proposals, doc.confirmed]) : '';
@@ -121,9 +128,19 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     activeRequest.current = { action, settled };
     const before = current.current;
     try {
-      const next = await requestInterview(auth, { action, ...(action === 'load' || action === 'start' ? {} : { revision: current.current.revision }), ...(['start','answer','retry','review'].includes(action) ? { sensitiveProfileAllowed: sensitiveProfileAllowedRef.current, ...(contextRef.current ? { profileContext: contextRef.current } : {}), ...(assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}) } : {}), ...payload });
+      const usesContext = ['start', 'answer', 'clarify', 'retry', 'review'].includes(action);
+      const next = await requestInterview(auth, {
+        action,
+        ...(action === 'load' || action === 'start' ? {} : { revision: current.current.revision }),
+        ...(usesContext ? {
+          sensitiveProfileAllowed: sensitiveProfileAllowedRef.current,
+          ...(contextRef.current ? { profileContext: contextRef.current } : {}),
+          ...(!hybridEnabled && assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}),
+        } : {}),
+        ...payload,
+      });
       if (!mounted.current) return null;
-      if (['answer','retry','review'].includes(action) && next.document && !next.document.pendingAnalysis) {
+      if (['answer','clarify','retry','review'].includes(action) && next.document && !next.document.pendingAnalysis) {
         const changes = messageChanges(before, next), turnId = next.document.turns.at(-1)?.id;
         if (turnId && changes.length) setCaptures(previous => ({ ...previous, [turnId]: changes }));
       }
@@ -136,7 +153,17 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       if (action !== 'load' && action !== 'draft') {
         try {
           const recovered = await requestInterview(auth, { action: 'load' });
-          if (mounted.current) assign(recovered, action === 'answer' && recovered.document?.lastRequestId === payload.requestId);
+          if (mounted.current) {
+            assign(recovered, ['answer', 'clarify'].includes(action) && recovered.document?.lastRequestId === payload.requestId);
+            if (action === 'structuredConfirm' && recovered.structuredConfirmation && recovered.document?.status === 'confirmed') {
+              const committed = new Map(recovered.document.confirmed.map(item => [item.id, item.values[0]]));
+              const submitted = payload.choices as InterviewSelection[];
+              if (committed.size === submitted.length && submitted.every(item => committed.get(item.id) === item.values[0])) {
+                setError(''); setErrorCode('');
+                return recovered;
+              }
+            }
+          }
         } catch { /* Keep the written answer and offer a retry if the connection is still unavailable. */ }
       }
       return null;
@@ -145,7 +172,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       if (mounted.current) setBusy('');
       release();
     }
-  }, [owner, assign]);
+  }, [owner, assign, hybridEnabled]);
 
   useEffect(() => {
     if (open) {
@@ -198,8 +225,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     input.style.height = `${Math.min(140, Math.max(48, input.scrollHeight))}px`;
   }, [answer, open, loaded, doc?.status, fallbackReview]);
 
+  const canSaveText = doc?.status === 'active' || (hybridEnabled && hasOpening && doc?.status === 'review' && doc.lastMode === 'luna' && !doc.pendingAnalysis);
   useEffect(() => {
-    if (!open || !doc || doc.status !== 'active' || busy || queuedIntent || answer === doc.draftAnswer || draftState === 'error') return;
+    if (!open || !doc || !canSaveText || busy || queuedIntent || answer === doc.draftAnswer || draftState === 'error') return;
     setDraftState('pending');
     const timer = window.setTimeout(() => {
       const saving = answerRef.current;
@@ -209,20 +237,20 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [open, answer, doc?.draftAnswer, doc?.status, busy, queuedIntent, draftState, call]);
+  }, [open, answer, doc?.draftAnswer, canSaveText, busy, queuedIntent, draftState, call]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (current.current.document?.status === 'active' && answerRef.current !== current.current.document.draftAnswer) { event.preventDefault(); event.returnValue = ''; }
+      if (canSaveText && answerRef.current !== current.current.document?.draftAnswer) { event.preventDefault(); event.returnValue = ''; }
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, []);
+  }, [canSaveText]);
 
   useEffect(() => {
     const flush = () => {
-      if (!document.hidden || busyRef.current || queuedIntentRef.current || current.current.document?.status !== 'active'
-        || answerRef.current === current.current.document.draftAnswer) return;
+      if (!document.hidden || busyRef.current || queuedIntentRef.current || !canSaveText
+        || answerRef.current === current.current.document?.draftAnswer) return;
       const saving = answerRef.current;
       void call('draft', { answer: saving }).then(result => {
         if (mounted.current) setDraftState(!result ? 'error' : answerRef.current === saving ? 'saved' : 'pending');
@@ -230,7 +258,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     };
     document.addEventListener('visibilitychange', flush);
     return () => document.removeEventListener('visibilitychange', flush);
-  }, [call]);
+  }, [call, canSaveText]);
 
   async function afterDraft(intent: string) {
     if (queuedIntentRef.current) return false;
@@ -247,11 +275,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   async function close() {
     if (queuedIntentRef.current) return;
     if (busyRef.current && activeRequest.current?.action !== 'draft') {
-      if (['answer', 'review', 'retry'].includes(activeRequest.current?.action ?? '')) onClose();
+      if (['answer', 'clarify', 'review', 'retry'].includes(activeRequest.current?.action ?? '')) onClose();
       return;
     }
     if (activeRequest.current?.action === 'draft' && !await afterDraft('close')) return;
-    if (current.current.document?.status === 'active' && answerRef.current !== current.current.document.draftAnswer) {
+    if (canSaveText && answerRef.current !== current.current.document?.draftAnswer) {
       const saved = await call('draft', { answer: answerRef.current });
       if (!saved) { setDraftState('error'); return; }
     }
@@ -272,19 +300,25 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     const previousCoverage = current.current.coverage?.answered ?? 0;
     setPendingReply({ id: sentId, text }); setAnswerHelp(false); setCoverageGain(0);
     answerRef.current = ''; setAnswer(''); feedback('selection');
-    const result = await call('answer', { answer: text, skip, requestId: sentId }, true);
+    const result = await call(clarifying ? 'clarify' : 'answer', {
+      answer: text, ...(clarifying ? {} : { skip, ...(hybridEnabled ? { hybrid: true } : {}) }), requestId: sentId,
+    }, true);
     if (result) { requestId.current = null; setCoverageGain(Math.max(0, (result.coverage?.answered ?? previousCoverage) - previousCoverage)); }
     else if (mounted.current && current.current.document?.lastRequestId !== sentId) {
       answerRef.current = text; setAnswer(text); setDraftState('error');
     }
-    if (mounted.current) setPendingReply(null);
+    if (mounted.current) {
+      setPendingReply(null);
+      if (clarifying && (result || current.current.document?.lastRequestId === sentId)) setClarifying(false);
+    }
     return result;
   }
 
-  async function confirm() {
-    const choices: InterviewSelection[] = validProposals.map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values) }));
+  async function confirm(structuredChoices?: InterviewSelection[]) {
+    if (activeRequest.current?.action === 'draft' && !await afterDraft('confirm')) return;
+    const choices = structuredChoices ?? validProposals.map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values) }));
     if (!choices.length || choices.some(choice => !choice.values.length)) return;
-    const result = await call('confirm', { choices, shareReview, ...(profileChoices.length ? { profileChoices: profileChoices.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
+    const result = await call(structuredChoices ? 'structuredConfirm' : 'confirm', { choices, shareReview, ...(profileChoices.length ? { profileChoices: profileChoices.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
     if (result?.document) {
       const selectedProfile = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
       if (selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
@@ -313,7 +347,24 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
 
   function changeAnswer(value: string) { answerRef.current = value; setAnswer(value); setDraftState('pending'); }
   function changeProfileChoice(choice:ProfileChoice) { setProfileEdits(previous=>({...previous,[choice.id]:choice}));setEditedProfile(previous=>previous.includes(choice.id)?previous:[...previous,choice.id]); }
-  const validProposals = (doc?.proposals ?? []).filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
+  const validProposals = (snapshot.structuredConfirmation && doc?.status === 'confirmed' ? doc.confirmed : doc?.proposals ?? [])
+    .filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
+  const savedStructuredChoices = Object.fromEntries((assessmentContext ?? []).map(({ id, values }) => [id, values]));
+  const aiProposals = validProposals.filter(item => !item.needsClarification && item.source !== 'self_default' && !savedStructuredChoices[item.id]);
+  const structuredChoices = {
+    ...Object.fromEntries(aiProposals.map(({ id, values }) => [id, values])),
+    ...savedStructuredChoices,
+  };
+  function changeStructuredChoices(next: Record<string, string[]>, changedIds?: readonly string[]) {
+    const explicit = { ...savedStructuredChoices };
+    for (const id of changedIds ?? Object.keys(next)) {
+      if (next[id]?.length && (changedIds || next[id][0] !== structuredChoices[id]?.[0])) explicit[id] = next[id];
+    }
+    for (const id of Object.keys(explicit)) {
+      if (!next[id]?.length) delete explicit[id];
+    }
+    onStructuredDraftChange?.(explicit);
+  }
   const profileProposals = (doc?.profileProposals ?? []).filter(p => Boolean(profileField(p.fieldId)));
   const profileChoices = profileProposals.flatMap(p => {
     const choice = profileEdits[p.id];
@@ -327,7 +378,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     .map(topic => interviewChapters.findIndex(chapter => chapter.topics.some(chapterTopic => chapterTopic === topic)))
     .filter(index => index >= 0));
   const activeChapter = interviewChapters[chapterIndex] ?? interviewChapters[0];
-  const responding = busy === 'answer' || busy === 'retry' || queuedIntent === 'answer';
+  const responding = ['answer', 'retry', 'clarify'].includes(busy) || queuedIntent === 'answer';
   const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : 'حفظنا آخر تعديل';
@@ -335,10 +386,16 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
   const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
-  const isChat = Boolean(loaded && doc && !applied && !reviewMode && !profileReview);
+  const hybrid = Boolean(hybridEnabled && doc?.promptVersion === 'wudayn-interview-3' &&
+    doc.status !== 'confirmed' && !fallbackReview && (hasOpening || (openingTurn && pendingReply)));
+  const hybridReady = Boolean(hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis);
+  const isChat = Boolean(loaded && doc && !applied && !profileReview && !hybrid && !reviewMode);
   useEffect(() => {
     if (unavailable && !failureNotified.current) { failureNotified.current = true; unavailableCallback.current?.(); }
   }, [unavailable]);
+  useEffect(() => {
+    if (clarifying && open && hybrid) clarifier.current?.focus({ preventScroll: true });
+  }, [clarifying, open, hybrid]);
   function useFallback() {
     if (!unavailable) return;
     if (validProposals.length && onFallbackApply) {
@@ -359,7 +416,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
 
   return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-chat={isChat || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
-      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>مرافقك الذكي في وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
+      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>لونا من وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','clarify','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
       <div className="wi-content" data-chat={isChat || undefined}>
         {!loaded ? <div className="wi-loading" role="status"><TypingDots/><p>نفتح جلستك…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
         : !doc ? <section className="wi-welcome">
@@ -379,6 +436,47 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
         : applied ? <section className="wi-complete"><span className="wi-complete-mark" aria-hidden="true"><Check size={30}/></span><h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1><p>أضفنا إجاباتك إلى مسودة ملفك. يمكنك مراجعتها قبل إرساله.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button></section>
+        : hybrid ? <section aria-label="أسئلة جلسة التوافق" className="wi-card-session">
+          {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
+          {!responding && !doc.pendingAnalysis && aiProposals.some(item => !savedStructuredChoices[item.id]) &&
+            <p className="wi-coverage-note" role="status"><Check size={15}/> استخدمنا كلامك لتجهيز بعض الإجابات. تقدر تعدّلها في المراجعة.</p>}
+          {profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
+            <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
+          </button>}
+          {clarifying && <form className="wi-clarification" onSubmit={event => { event.preventDefault(); void send(); }}>
+            <label htmlFor="wi-clarification">وش تحب توضّح عن إجاباتك؟</label>
+            <p>اذكر الموضوع والإجابة التي تعبّر عنك. اختياراتك اليدوية تبقى كما هي وتقدر تعدّلها في المراجعة.</p>
+            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || !answer.trim()} aria-label="إرسال التوضيح"><ArrowUp size={20}/></button>
+              <textarea ref={clarifier} id="wi-clarification" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={1200} rows={2} dir="rtl" disabled={actionBlocked}/>
+            </div>
+            <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
+          </form>}
+          <HybridAssessment choices={structuredChoices} aiProposals={aiProposals} onChange={changeStructuredChoices}
+            onComplete={choices => void confirm(choices)} gender={gender} disabled={busy === 'structuredConfirm'}
+            completingUnavailable={!hybridReady || actionBlocked || clarifying || Boolean(answer.trim())}
+            onClarify={hybridReady && !actionBlocked && !clarifying ? () => setClarifying(true) : undefined}
+            reviewExtras={<>
+              {profileProposals.length > 0 && <details className="wi-review-group wi-profile-group">
+                <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
+                <div className="wi-profile-capture-list">{profileProposals.map(proposal => <ProfileProposalReview
+                  key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]}
+                  restricted={Boolean(profileField(proposal.fieldId)?.sensitive && !sensitiveProfileAllowed)}
+                  ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice}
+                  onIgnore={() => setIgnoredProfile(previous => previous.includes(proposal.id) ? previous.filter(id => id !== proposal.id) : [...previous, proposal.id])}
+                />)}</div>
+              </details>}
+              {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+              {doc.clarifications.length > 0 && <details className="wi-private-notes"><summary>نقاط للنقاش لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+              {(doc.readiness.length > 0 || doc.clarifications.length > 0) && <label className="wi-sharing">
+                <input type="checkbox" checked={shareReview} disabled={actionBlocked || doc.pendingAnalysis} onChange={event => setShareReview(event.target.checked)}/>
+                <span>أشارك ملخص الاستعداد ونقاط التوضيح مع فريق العضوية.<small>اختياري. يبقى الحوار وإجابات التوافق خاصة.</small></span>
+              </label>}
+            </>}/>
+          {doc.pendingAnalysis && !unavailable && !responding && <div className="wi-recovery" role="status">
+            <p>إجابتك محفوظة. أعد محاولة التحليل قبل اعتماد الملخص.</p>
+            <button type="button" className="wi-link" onClick={() => void call('retry', { hybrid: true }, true)} disabled={actionBlocked}>إعادة المحاولة</button>
+          </div>}
+        </section>
         : reviewMode ? <section className="wi-review">
           <h1 id="wi-title" ref={heading} tabIndex={-1}>{fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'هذه إجاباتك كما فهمناها من الحوار. افتح أي قسم للتفاصيل أو التعديل، ثم اعتمد الملخص كاملًا بخطوة واحدة.'}</p>
           {doc.pendingAnalysis && !fallbackReview && <div className="wi-notice"><p>إجاباتك محفوظة، لكن تحليلها لم يكتمل.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة المحاولة</button></div>}
@@ -429,7 +527,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}
         {isChat && doc?.pendingAnalysis && !unavailable && <div className="wi-recovery" role="status"><p>إجابتك محفوظة. نحتاج إكمال تحليلها قبل السؤال التالي.</p><button type="button" className="wi-link" onClick={() => void call('retry', {}, true)} disabled={actionBlocked}>إعادة المحاولة</button></div>}
-        {unavailable && !applied && !fallbackReview && <div className="wi-recovery" role="status"><p>تعذّر إكمال الحوار الآن. إجاباتك محفوظة؛ يمكنك المحاولة مجددًا أو إكمال النقاط المتبقية مباشرة.</p>{doc && <button type="button" className="wi-link" onClick={() => void call('retry', {}, true)} disabled={actionBlocked}>إعادة المحاولة</button>}<button type="button" className="wi-link" onClick={useFallback} disabled={actionBlocked}>إكمال الأسئلة مباشرة</button></div>}
+        {unavailable && !applied && !fallbackReview && <div className="wi-recovery" role="status"><p>تعذّر إكمال الحوار الآن. إجاباتك محفوظة؛ يمكنك المحاولة مجددًا أو إكمال النقاط المتبقية مباشرة.</p>{doc && <button type="button" className="wi-link" onClick={() => void call('retry', hybridEnabled ? { hybrid: true } : {}, true)} disabled={actionBlocked}>إعادة المحاولة</button>}<button type="button" className="wi-link" onClick={useFallback} disabled={actionBlocked}>إكمال الأسئلة مباشرة</button></div>}
         {doc && !applied && !isChat && <footer className="wi-private-footer"><span><LockKeyhole size={12}/> حوارك لا يظهر للأعضاء</span><button type="button" className="wi-link" onClick={() => setDeleteWarning(value => !value)} disabled={!!busy}><Trash2 size={13}/> حذف الجلسة</button></footer>}
         {deleteWarning && <div className="wi-delete-warning" role="alert"><p>حذف الحوار والملخص الخاص؟ إجاباتك التي سبق حفظها في الملف لا تتغير.</p><div><button className="wi-button" type="button" onClick={() => setDeleteWarning(false)}>تراجع</button><button className="wi-button wi-button-danger" type="button" disabled={!!busy} onClick={() => void call('delete', {}, true).then(result => { if (result) { setDeleteWarning(false); setApplied(false); setSharingSaved(false); autoStarted.current = true; } })}>حذف الجلسة</button></div></div>}
       </div>

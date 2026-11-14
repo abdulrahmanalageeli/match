@@ -1,0 +1,172 @@
+.wi-hybrid {
+  --hybrid-ink: #432f3a;
+  --hybrid-accent: #68213c;
+  --hybrid-line: #e9dfe4;
+  --hybrid-tint: #f8f2f5;
+  display: grid;
+  gap: 19px;
+  color: var(--hybrid-ink);
+}
+
+.wi-hybrid-progress {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: baseline;
+  color: var(--hybrid-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.wi-hybrid-progress small { color: #76636d; font-size: 12px; font-weight: 400; }
+.wi-hybrid-progress progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 5px;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--hybrid-line);
+  accent-color: var(--hybrid-accent);
+}
+.wi-hybrid-progress progress::-webkit-progress-bar { background: var(--hybrid-line); }
+.wi-hybrid-progress progress::-webkit-progress-value { background: var(--hybrid-accent); transition: width .2s ease-out; }
+.wi-hybrid-progress progress::-moz-progress-bar { background: var(--hybrid-accent); }
+
+.wi-hybrid .wi-hybrid-stage > h1 { margin: 0 0 14px; }
+.wi-hybrid-capture {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #6b4659;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0 0 12px;
+}
+.wi-hybrid-capture svg { flex: none; }
+.wi-hybrid-card, .wi-hybrid-batch {
+  display: grid;
+  gap: 17px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 20px;
+  padding: 19px;
+  background: #fff;
+  box-shadow: 0 7px 24px #4d263b06;
+}
+
+.wi-hybrid-field { border: 0; min-inline-size: 0; margin: 0; padding: 0; }
+.wi-hybrid-field + .wi-hybrid-field { border-top: 1px solid var(--hybrid-line); padding-top: 12px; }
+.wi-hybrid-field legend { font-size: 15px; font-weight: 650; line-height: 1.7; padding: 0; margin-bottom: 8px; }
+.wi-hybrid-options { display: grid; gap: 7px; }
+.wi-hybrid-field[data-compact] .wi-hybrid-options { display: flex; flex-wrap: wrap; }
+.wi-hybrid-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #fff;
+  color: var(--hybrid-ink);
+  border: 1px solid var(--hybrid-line);
+  border-radius: 12px;
+  padding: 9px 11px;
+  min-height: 44px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: start;
+  cursor: pointer;
+  transition: background .16s, border-color .16s;
+}
+.wi-hybrid-option:not(:disabled):hover { border-color: #b595a5; }
+.wi-hybrid-option:disabled { opacity: .6; cursor: default; }
+.wi-hybrid-option[aria-pressed=true] { background: var(--hybrid-tint); border-color: #a26d84; color: var(--hybrid-accent); }
+.wi-hybrid-option-mark { display: grid; place-items: center; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1px solid #bba4af; }
+.wi-hybrid-option[aria-pressed=true] .wi-hybrid-option-mark { color: #fff; background: var(--hybrid-accent); border-color: var(--hybrid-accent); }
+.wi-hybrid-field[data-compact] .wi-hybrid-option { font-size: 12px; flex: 1 1 110px; }
+
+.wi-hybrid-suggestion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 13px;
+  justify-content: space-between;
+  padding: 10px 13px;
+  border-radius: 13px;
+  background: var(--hybrid-tint);
+}
+.wi-hybrid-suggestion > div { display: grid; gap: 3px; }
+.wi-hybrid-suggestion small, .wi-hybrid-review-row small { color: #76636d; font-size: 11px; }
+.wi-hybrid-suggestion strong { font-size: 13px; font-weight: 650; line-height: 1.7; }
+
+.wi-hybrid-batch { gap: 10px; margin-bottom: 14px; }
+.wi-hybrid .wi-hybrid-batch h2 { margin: 0; }
+.wi-hybrid-batch p { color: #6d5b65; font-size: 13px; line-height: 1.8; margin: 0 0 4px; }
+.wi-hybrid-review { display: grid; gap: 8px; }
+.wi-hybrid-review details, .wi-hybrid-captured-review { border: 1px solid var(--hybrid-line); border-radius: 14px; background: #fff; }
+.wi-hybrid-captured-review { margin-bottom: 14px; }
+.wi-hybrid-review summary, .wi-hybrid-captured-review summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  padding: 11px 14px;
+  min-height: 44px;
+  box-sizing: border-box;
+  color: var(--hybrid-accent);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.wi-hybrid-review summary::-webkit-details-marker, .wi-hybrid-captured-review summary::-webkit-details-marker { display: none; }
+.wi-hybrid-review details[open] summary svg, .wi-hybrid-captured-review[open] summary svg { transform: rotate(180deg); }
+.wi-hybrid-review-fields { padding: 0 13px 10px; }
+.wi-hybrid-review-row {
+  display: grid;
+  grid-template-columns: minmax(94px, .7fr) minmax(0, 1.3fr);
+  gap: 8px;
+  align-items: center;
+  padding-block: 8px;
+  border-top: 1px solid var(--hybrid-line);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.wi-hybrid-review-row small { display: block; }
+.wi-hybrid-proposed-value { display: block; margin-top: 3px; font-size: 13px; font-weight: 650; }
+.wi-hybrid-review-row select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--hybrid-ink);
+  font: inherit;
+  font-size: 16px;
+  padding: 5px 7px;
+  text-overflow: ellipsis;
+}
+.wi-hybrid-secondary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 32px; }
+.wi-hybrid-actions > p { margin: 8px 0 0; }
+.wi-card-session > .wi-profile-summary-link { margin-block-end: 15px; }
+.wi-card-session > .wi-coverage-note { margin: 0 0 14px; }
+.wi-clarification {
+  display: grid;
+  gap: 8px;
+  padding: 15px;
+  margin-block-end: 16px;
+  border: 1px solid #e9dfe4;
+  border-radius: 15px;
+  background: #fff;
+}
+.wi-clarification > label { color: #68213c; font-weight: 650; }
+.wi-clarification > p { margin: 0; color: #76636d; font-size: 12px; line-height: 1.7; }
+.wi-clarification > .wi-link { justify-self: start; }
+
+@media (max-width: 380px) {
+  .wi-hybrid-card, .wi-hybrid-batch { padding: 14px; }
+  .wi-hybrid-review-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wi-hybrid-progress progress::-webkit-progress-value, .wi-hybrid-option { transition: none; }
+}

@@ -97,10 +97,12 @@ export function parseInterviewInput(body) {
   if (!record(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw invalid();
   const allowed = {
     load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
-    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
+    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
+    clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
-    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'], resume: ['action', 'revision'], delete: ['action', 'revision'],
+    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
+    structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
     profileConfirm: ['action', 'revision', 'profileChoices'],
   };
   if (!Object.hasOwn(allowed, body.action) || !keysOnly(body, allowed[body.action])) throw invalid();
@@ -120,9 +122,10 @@ export function parseInterviewInput(body) {
     }
   }
   if (body.action === 'draft' && !bounded(body.answer, 1200, true)) throw invalid();
-  if (body.action === 'answer' && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
+  if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
+  if (['answer', 'clarify'].includes(body.action) && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
     || !bounded(body.answer, 1200, body.skip === true))) throw invalid();
-  if (body.action === 'confirm') {
+  if (['confirm', 'structuredConfirm'].includes(body.action)) {
     if (!Array.isArray(body.choices) || body.choices.length > MAX_PROPOSALS || (body.shareReview !== undefined && typeof body.shareReview !== 'boolean')) throw invalid();
     const ids = new Set();
     for (const choice of body.choices) {
@@ -130,6 +133,7 @@ export function parseInterviewInput(body) {
         || choice.values.length < 1 || choice.values.length > 4 || !choice.values.every(value => bounded(value, 2))) throw invalid();
       ids.add(choice.id);
     }
+    if (body.action === 'structuredConfirm' && validateAssessmentContext(body.choices).length !== requiredFields.length) throw invalid();
   }
   return body;
 }
@@ -742,6 +746,38 @@ export function confirmInterviewChoices(document, choices, shareReview = false) 
   return { ...document, status: 'confirmed', confirmed, reviewSharing: shareReview === true, confirmedAt: new Date().toISOString(), draftAnswer: '' };
 }
 
+const structuredSelectionSummary = 'اختيارك من بطاقات التوافق';
+const hasAnalyzedIntroduction = document => requiredInterview(document) && document.lastMode === 'luna'
+  && !document.pendingAnalysis && document.turns.some(turn => !turn.skipped);
+
+function isStructuredConfirmation(document) {
+  return document.status === 'confirmed' && document.confirmed.length === requiredFields.length
+    && document.confirmed.every(item => item.summary === structuredSelectionSummary);
+}
+
+function confirmStructuredChoices(document, savedProposals, choices, shareReview) {
+  if (!hasAnalyzedIntroduction(document)) {
+    throw new InterviewError(409, 'introduction_pending', 'أكمل تعريفك أولًا وانتظر تحليل لونا قبل اعتماد الإجابات.');
+  }
+  const context = new Map(document.assessmentContext.map(item => [item.id, item]));
+  const selections = new Map(validateAssessmentContext(choices, true).map(item => [item.id, item]));
+  if (selections.size !== requiredFields.length) throw invalid();
+  const confirmed = requiredFields.map(({ id, kind, fieldId, side }) => {
+    const selection = selections.get(id);
+    // Keep any earlier context cited by the attested model proposals. If the
+    // member edited that value, confirmed.values records the new selection.
+    const evidence = context.get(id) ?? selection;
+    context.set(id, evidence);
+    return { id, kind, fieldId, side, values: selection.values, summary: structuredSelectionSummary,
+      evidence: [{ turnId: `context:${id}`, quote: JSON.stringify(evidence.values) }], needsClarification: false };
+  });
+  // The existing database receipt verifies the original turns and proposals.
+  // Use their exact stored representation, since read normalization can add
+  // proposed partner defaults or remove unusable model output.
+  return { ...document, proposals: savedProposals, assessmentContext: [...context.values()], currentQuestion: null,
+    status: 'confirmed', confirmed, reviewSharing: shareReview === true, confirmedAt: new Date().toISOString(), draftAnswer: '' };
+}
+
 export function createInterviewService({ env = process.env, fetcher = fetch, clientFactory = options => new OpenAI(options) } = {}) {
   return async (body, headers = {}) => {
     const input = parseInterviewInput(body);
@@ -793,7 +829,10 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     async function decorate(value) {
       if (!value.document) return { ...value, fallbackAvailable: false };
       const document = withAccountPolicy(validDocument(value.document));
-      return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true };
+      const structuredConfirmation = isStructuredConfirmation(document);
+      if (structuredConfirmation) document.proposals = document.confirmed;
+      return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
+        ...(structuredConfirmation ? { structuredConfirmation } : {}) };
     }
     async function fail(document, reason) {
       const saved = await save({ ...document, lastMode: 'guided', pendingAnalysis: true });
@@ -808,7 +847,15 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       upgraded.currentQuestion = focusedQuestion(next, upgraded); upgraded.status = next ? 'active' : 'review';
       return decorate(await rpc('save', { expectedRevision: value.revision, document: upgraded }));
     }
-    if (input.action === 'load') return upgrade(await rpc('load'));
+    if (input.action === 'load') {
+      const loaded = await upgrade(await rpc('load'));
+      if (!loaded.structuredConfirmation) return loaded;
+      // A confirmed save can outlive a lost response from attestation. Check
+      // its proof before onboarding treats this recovered snapshot as final.
+      try { await attest('complete', loaded); }
+      catch { return { ...loaded, document: { ...loaded.document, status: 'review' } }; }
+      return loaded;
+    }
     if (input.action === 'start') return upgrade(await rpc('start', { consentVersion: CONSENT_VERSION, document: withMemberContext(initialInterviewDocument(true),input) }));
     let snapshot = await rpc('load');
     if (!snapshot.document && input.action === 'delete') return snapshot;
@@ -822,7 +869,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     const document = withMemberContext(withAccountPolicy(validDocument(snapshot.document)),input);
     // A retry of an accepted answer returns the saved result even with the old
     // revision; it never appends a duplicate turn or spends another AI request.
-    if (input.action === 'answer' && document.lastRequestId === input.requestId) return decorate(snapshot);
+    if (['answer', 'clarify'].includes(input.action) && document.lastRequestId === input.requestId) return decorate(snapshot);
     if (snapshot.revision !== input.revision) throw conflict();
     const save = async next => {
       snapshot = await rpc('save', { expectedRevision: snapshot.revision, document: next });
@@ -840,8 +887,22 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       }
     };
     if (input.action === 'draft') {
-      if (document.status !== 'active' || !document.currentQuestion) throw invalid();
-      return save({ ...document, draftAnswer: input.answer });
+      const activeDraft = document.status === 'active' && document.currentQuestion;
+      const clarificationDraft = document.status === 'review' && hasAnalyzedIntroduction(document);
+      if (!activeDraft && !clarificationDraft) throw invalid();
+      return save({ ...snapshot.document, draftAnswer: input.answer });
+    }
+    if (input.action === 'structuredConfirm' || (input.action === 'confirm' && isStructuredConfirmation(document))) {
+      const original = snapshot.document;
+      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.shareReview);
+      if (input.profileChoices) confirmed = confirmProfileChoices(confirmed, input.profileChoices);
+      const saved = await save(confirmed);
+      try { await attest('complete', saved); }
+      catch (error) {
+        if (error.code !== 'conflict') await save(original);
+        throw error;
+      }
+      return saved;
     }
     if (input.action === 'confirm') {
       let confirmed = confirmInterviewChoices(document, input.choices, input.shareReview);
@@ -850,7 +911,10 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       if (requiredInterview(document)) await certify('complete', saved);
       return decorate(saved);
     }
-    if(input.action==='profileConfirm')return save(confirmProfileChoices(document,input.profileChoices));
+    if (input.action === 'profileConfirm') {
+      const { profileConfirmed } = confirmProfileChoices(document, input.profileChoices);
+      return save({ ...snapshot.document, profileConfirmed });
+    }
     if (input.action === 'resume') {
       const topic = nextTopic(document, false) ?? (document.turns.length < turnLimit(document)
         ? topics.find(topic => document.turns.filter(turn => turn.topic === topic.id).length < 2) : null);
@@ -860,11 +924,16 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (input.action === 'retry' && (!document.pendingAnalysis || document.status === 'confirmed')) return snapshot;
     let next = document;
     const finalReview = input.action === 'review' || (input.action === 'retry' && document.status === 'review');
-    if (input.action === 'answer') {
+    if (['answer', 'clarify'].includes(input.action)) {
       if (requiredInterview(document) && input.skip) throw new InterviewError(409, 'answer_required', 'هذه النقطة مطلوبة لإكمال التوافق. أجب بكلماتك أو اطلب توضيح السؤال.');
-      if (document.status !== 'active' || !document.currentQuestion || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
-      next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: document.currentQuestion.topic,
-        question: document.currentQuestion.text, answer: input.skip ? '' : input.answer.trim(), skipped: input.skip === true }],
+      const clarifying = input.action === 'clarify';
+      const question = clarifying
+        ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
+        : document.currentQuestion;
+      const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
+      if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
+      next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,
+        question: question.text, answer: input.skip ? '' : input.answer.trim(), skipped: input.skip === true }],
         // A new answer can correct any earlier interpretation. Never offer or
         // share stale conclusions while that correction awaits analysis.
         ...(input.skip ? {} : { proposals: [], readiness: [], clarifications: [] }),
@@ -886,7 +955,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (reserve.status !== 'allowed' || !env.OPENAI_API_KEY) return fail(next, reserve.status !== 'allowed' ? 'capacity' : 'unavailable');
     let analyzed;
     try {
-      const reviewPass = finalReview || next.turns.length >= turnLimit(next)
+      const reviewPass = finalReview || input.hybrid === true || input.action === 'clarify' || next.turns.length >= turnLimit(next)
         || !nextTopic({ ...next, proposals: document.proposals }, false);
       const providerTimeout = reviewPass ? 36000 : 30000;
       const openai = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout: providerTimeout });

@@ -19,11 +19,20 @@ const document = () => ({ ...initialInterviewDocument(), turns: [turn] });
 function harness(options = {}) {
   let state = structuredClone(options.initial ?? { document: null, revision: 0 }), counter = state.revision, revoked = false;
   const calls = [], modelCalls = [];
+  const fingerprint = () => JSON.stringify([state.document?.turns, state.document?.proposals]);
+  let analyzedFingerprint;
   const service = createInterviewService({ env: { SUPABASE_SERVICE_ROLE_KEY: 'service-secret', ...(options.noKey ? {} : { OPENAI_API_KEY: 'server-secret', NISFAYN_AI_MODEL: 'do-not-use' }) },
     fetcher: async (url, init) => {
       const input = JSON.parse(init.body); calls.push({ url, init, ...input });
       if (revoked) return Response.json({ code: '42501' }, { status: 403 });
-      if (url.endsWith('marriage_interview_attest')) { if (options.attestationFailure) return Response.json({code:'unavailable'},{status:503}); if (options.attestationConflict) return Response.json({code:'40001'},{status:409}); if (input.event === 'fallback') state.fallbackAvailable = true; return Response.json({ok:true}); }
+      if (url.endsWith('marriage_interview_attest')) {
+        if (options.attestationFailure || (input.event === 'complete' && options.completionAttestationFailure)) return Response.json({code:'unavailable'},{status:503});
+        if (options.attestationConflict || input.expected_revision !== state.revision) return Response.json({code:'40001'},{status:409});
+        if (input.event === 'analyzed') analyzedFingerprint = fingerprint();
+        if (input.event === 'complete' && options.checkFingerprint && analyzedFingerprint !== fingerprint()) return Response.json({code:'unverified'},{status:400});
+        if (input.event === 'fallback') state.fallbackAvailable = true;
+        return Response.json({ok:true});
+      }
       const { command, payload } = input;
       if (['save', 'delete', 'reserve'].includes(command) && payload.expectedRevision !== state.revision) return Response.json({ code: '40001' }, { status: 409 });
       if (command === 'start' && !state.document) state = { ...state, document: structuredClone(payload.document), revision: ++counter };
@@ -48,6 +57,80 @@ function harness(options = {}) {
 }
 async function start(h) { return h.service({ action: 'start', consentVersion: CONSENT_VERSION }, headers); }
 async function send(h, revision, text = answer, requestId = randomUUID()) { return h.service({ action: 'answer', revision, requestId, answer: text }, headers); }
+
+const structuredChoices = () => [
+  ...preferenceCatalog.dimensions.flatMap(dimension => ['self','partner'].map(side => ({id:`preference:${dimension.id}:${side}`,values:[dimension.options[side === 'self' ? 0 : 1].code]}))),
+  ...personalityCatalog.map(question => ({id:`personality:${question.id}:self`,values:['D']})),
+];
+
+test('structured confirmation retains the attested conversation and persists all choices without inference', async () => {
+  const h = harness({checkFingerprint: true}), first = await start(h), choices = structuredChoices();
+  const confirm = revision => h.service({action:'structuredConfirm',revision,choices},headers);
+  await assert.rejects(confirm(first.revision), error => error.code === 'introduction_pending');
+  const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
+  assert.match(h.modelCalls[0].request.messages[0].content, /مراجعة نهائية/);
+  const attested = h.state.document;
+  for (const invalidChoices of [choices.slice(1), [...choices.slice(1), choices[1]], [{...choices[0],values:['Z']},...choices.slice(1)]]) {
+    await assert.rejects(h.service({action:'structuredConfirm',revision:analyzed.revision,choices:invalidChoices},headers),error => error.status === 400);
+  }
+  const confirmed = await confirm(analyzed.revision);
+  assert.deepEqual(confirmed.coverage, {answered:44,required:44});
+  assert.equal(confirmed.structuredConfirmation, true);
+  assert.equal(confirmed.document.status, 'confirmed');
+  assert.deepEqual(h.state.document.turns, attested.turns);
+  assert.deepEqual(h.state.document.proposals, attested.proposals);
+  assert.equal(h.modelCalls.length, 1);
+  assert.deepEqual(confirmed.document.confirmed.map(({id,values})=>({id,values})), choices);
+  const loaded = await h.service({action:'load'},headers);
+  assert.equal(loaded.document.status, 'confirmed');
+  const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
+  assert.equal(shared.document.reviewSharing, true);
+  assert.equal(h.modelCalls.length, 1);
+});
+
+test('a failed structured receipt is retryable without repeating Luna analysis', async () => {
+  const options = {checkFingerprint:true}, h = harness(options), first = await start(h);
+  const analyzed = await send(h, first.revision);
+  const confirm = revision => h.service({action:'structuredConfirm',revision,choices:structuredChoices()},headers);
+  options.completionAttestationFailure = true;
+  await assert.rejects(confirm(analyzed.revision), error => error.status === 503);
+  const recovered = await h.service({action:'load'}, headers);
+  assert.equal(recovered.document.status, analyzed.document.status);
+  assert.equal(recovered.document.pendingAnalysis, false);
+  options.completionAttestationFailure = false;
+  const confirmed = await confirm(recovered.revision);
+  assert.equal(confirmed.document.status,'confirmed');
+  assert.equal(h.modelCalls.length, 1);
+});
+
+test('clarification uses the member’s wording in a separate turn and is idempotent', async () => {
+  const h = harness(), first = await start(h), requestId = randomUUID();
+  let payload = {action:'clarify',revision:first.revision,requestId,answer:'أقصد أن الخطوة الرسمية خلال ستة أشهر.'};
+  await assert.rejects(h.service(payload,headers), error => error.status === 400);
+  const analyzed = await send(h, first.revision);
+  payload = {...payload,revision:analyzed.revision};
+  const clarified = await h.service(payload,headers);
+  assert.equal(clarified.document.turns.at(-1).question,'وش تحب توضّح عن إجاباتك؟');
+  assert.equal(clarified.document.turns.at(-1).answer,payload.answer);
+  const replayed = await h.service(payload,headers);
+  assert.equal(replayed.document.turns.length,2);
+  assert.equal(h.modelCalls.length,2);
+});
+
+test('the hybrid review can save an unsent clarification without changing attested proposals', async () => {
+  const h = harness({checkFingerprint:true,proposals:transcript=>structuredChoices().map(choice=>{
+    const [kind,fieldId,side] = choice.id.split(':');
+    return {...candidate,kind,fieldId,side,values:choice.values,evidence:[{turnId:transcript[0].id,quote:transcript[0].answer}]};
+  })});
+  const first = await start(h);
+  const review = await send(h, first.revision);
+  assert.equal(review.document.status,'review');
+  const draft = await h.service({action:'draft',revision:review.revision,answer:'أبغى أوضح قصدي.'},headers);
+  assert.equal(draft.document.draftAnswer,'أبغى أوضح قصدي.');
+  const confirmed = await h.service({action:'structuredConfirm',revision:draft.revision,choices:structuredChoices()},headers);
+  assert.equal(confirmed.document.draftAnswer,'');
+  assert.equal(h.modelCalls.length,1);
+});
 
 test('explicit consent, auth, allowed payload and bounded answers are required', async () => {
   const h = harness();

@@ -56,6 +56,7 @@ function mount(initial, intercept = () => null) {
     if (name === '../motion/Reanimated') return { MotionReveal: 'motion-section', MotionPressButton: 'motion-button' };
     if (name === '../feedback/haptics') return { feedback: noop };
     if (name === './api') return { requestInterview, InterviewError: class extends Error {} };
+    if (name === './HybridAssessment') return { HybridAssessment: 'hybrid-assessment' };
     if (name === './model') return {
       proposalOptions: item => item.kind==='personality' ? ['A','B','C','D','E'].map((value,index)=>({value,label:['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'][index]})) : options,
       proposalSide: () => 'ما يصفني',

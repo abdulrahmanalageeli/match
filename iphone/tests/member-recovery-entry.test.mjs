@@ -20,7 +20,6 @@ async function entry(href, mode = 'production') {
     'react-dom/client': { createRoot: () => ({ render(value) { events.push(['render']); rendered = value; } }) },
     react: { lazy: () => 'GuardianPortal', Suspense: 'Suspense' },
     './App': { default: 'App' },
-    './testing/TesterGate': { TesterGate: 'TesterGate' },
     './auth/passwordRecovery': { readRecoveryLink, cleanRecoveryUrl },
     './auth/signupReturn': { readSignupReturn },
     './community/ConnectionNotice': { ConnectionNotice: 'ConnectionNotice' },
@@ -60,7 +59,7 @@ test('invalid recovery callbacks still bypass the demo gate and remove URL error
   assert.equal(result.href, 'https://app.example/');
 });
 
-test('the public homepage always uses real member auth and tester access requires its explicit route', async () => {
+test('the public homepage uses real member auth and legacy test links open member login', async () => {
   for (const mode of ['production', 'demo']) {
     for (const suffix of ['', '?test=0', '?test=true']) {
       const member = await entry('https://app.example/' + suffix, mode);
@@ -68,22 +67,25 @@ test('the public homepage always uses real member auth and tester access require
       assert.equal(member.screen.props.tester, undefined);
     }
     const tester = await entry('https://app.example/?test=1', mode);
-    assert.equal(tester.screen.type, 'TesterGate');
+    assert.equal(tester.screen.type, 'App');
+    assert.equal(tester.screen.props.openLogin, true);
+    assert.equal(tester.href, 'https://app.example/');
   }
 });
 
-test('named test shortcuts whitelist actor selection without changing ordinary registration', async () => {
+test('legacy host links cannot select an account without member authentication', async () => {
   for(const actor of ['reham','abdulrahman']) {
     const shortcut=await entry(`https://app.example/?test=1&actor=${actor}`);
-    assert.equal(shortcut.screen.type,'TesterGate');
-    assert.equal(shortcut.screen.props.initialActor,actor);
+    assert.equal(shortcut.screen.type,'App');
+    assert.equal(shortcut.screen.props.openLogin,true);
+    assert.equal(shortcut.href,'https://app.example/');
     const ordinary=await entry(`https://app.example/?actor=${actor}`);
     assert.equal(ordinary.screen.type,'App');
     assert.equal(ordinary.screen.props.tester,undefined);
   }
   const invalid=await entry('https://app.example/?test=1&actor=owner');
-  assert.equal(invalid.screen.type,'TesterGate');
-  assert.equal(invalid.screen.props.initialActor,undefined);
+  assert.equal(invalid.screen.type,'App');
+  assert.equal(invalid.screen.props.openLogin,true);
 });
 
 test('family invites retain their route and take precedence over a test marker', async () => {

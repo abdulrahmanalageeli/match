@@ -9,7 +9,6 @@ import {
   Check,
   Eye,
   EyeOff,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
 } from "./BrandIcons";
@@ -228,13 +227,6 @@ export function Auth({
         </button>
         </>
       )}
-      {login && <section className="nf-login-accounts" aria-label="اختَر حسابك">
-        <p>اختَر حسابك</p>
-        <div>
-          <a href="?test=1&actor=abdulrahman" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ع</span><span><strong>عبدالرحمن</strong><small><LockKeyhole size={13} aria-hidden="true"/> بكلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
-          <a href="?test=1&actor=reham" aria-disabled={locked} onClick={event=>{if(locked)event.preventDefault();}}><span className="nf-login-initial" aria-hidden="true">ر</span><span><strong>رهام</strong><small>بدون كلمة مرور</small></span><ArrowLeft size={16} aria-hidden="true"/></a>
-        </div>
-      </section>}
       </section>
     </Frame>
   );

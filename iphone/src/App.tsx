@@ -149,18 +149,18 @@ function Modal({
   );
 }
 
-export default function App({ recoveryLink, signupReturn, ...props }: {tester?:TestSession;onTesterExit?:()=>void;recoveryLink?:RecoveryLink|null;signupReturn?:SignupReturn|null} = {}) {
+export default function App({ recoveryLink, signupReturn, openLogin, ...props }: {tester?:TestSession;onTesterExit?:()=>void;recoveryLink?:RecoveryLink|null;signupReturn?:SignupReturn|null;openLogin?:boolean} = {}) {
   const [recovery, setRecovery] = useState(() => recoveryLink ?? readRecoveryLink(window.location.href));
   const [returnToLogin, setReturnToLogin] = useState(false);
   // Do not mount member session restoration, chat, or discovery for recovery links.
   return recovery ? <div className="phone-app"><MemberPasswordRecovery callback={recovery} onBack={() => {
     setReturnToLogin(true); setRecovery(null);
-  }}/></div> : <MemberApp {...props} startAtLogin={returnToLogin || Boolean(signupReturn)} signupReturn={signupReturn}/>;
+  }}/></div> : <MemberApp {...props} startAtLogin={returnToLogin || Boolean(signupReturn)} openLogin={openLogin} signupReturn={signupReturn}/>;
 }
 
-function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean;signupReturn?:SignupReturn|null}={}) {
+function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signupReturn}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean;openLogin?:boolean;signupReturn?:SignupReturn|null}={}) {
   useEffect(initializeMatchSound, []);
-  const [view, setView] = useState<View>(startAtLogin ? 'login' : 'main');
+  const [view, setView] = useState<View>(startAtLogin || openLogin ? 'login' : 'main');
   const viewRef = useRef(view);
   viewRef.current = view;
   const mounted = useRef(false);
@@ -449,6 +449,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,signupReturn}:{tester
         if (disposed || !t) return;
         remember(t);
         await refresh(t);
+        if (!disposed && openLogin && tokenRef.current === t) setView('main');
       } catch (e) {
         if (!disposed) setError(problem(e));
       } finally {

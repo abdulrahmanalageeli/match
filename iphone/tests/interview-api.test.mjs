@@ -90,6 +90,10 @@ test('Luna choice help is authorized, question-scoped, and never changes the int
   options.choiceResult = { message: 'تفضلين ترك القرار للظروف.', code: 'C' };
   assert.deepEqual((await request({ answer: 'على حسب الاتفاق.', priorAnswer: 'ما أدري. رقمي ٠٥٥١٢٣٤٥٦٧' })).choiceHelp, options.choiceResult);
   assert.match(JSON.parse(h.modelCalls.at(-1).request.messages[1].content).priorAnswer, /تفصيل حساس محجوب/);
+  options.choiceResult = { message: 'code = C.', code: 'C' };
+  assert.deepEqual((await request({ answer: 'على حسب الاتفاق.' })).choiceHelp, {
+    code: 'C', message: 'هذا أقرب خيار لوصفك. راجعه واعتمده إذا يناسبك.',
+  });
   await assert.rejects(request({ priorAnswer: 'ما أدري.' }), { status: 400 });
   options.choiceResult = { message: 'رمز غير مسموح', code: 'Z' };
   await assert.rejects(request({ answer: 'أبي أستمر بشغلي.' }), { status: 503 });

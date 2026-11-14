@@ -501,7 +501,9 @@ function parseChoiceHelp(completion, { codes, answer }) {
   if (!safeText(result?.message, 240)) throw unavailable();
   if (answer) {
     if (!keysOnly(result, ['message', 'code']) || (result.code !== null && !codes.includes(result.code))) throw unavailable();
-    return result;
+    if (/\p{Script=Arabic}/u.test(result.message) && !/\bcode\s*[:=]/i.test(result.message)) return result;
+    if (result.code === null) throw unavailable();
+    return { code: result.code, message: 'هذا أقرب خيار لوصفك. راجعه واعتمده إذا يناسبك.' };
   }
   if (!keysOnly(result, ['message', 'explanations']) || !keysOnly(result.explanations, codes)
     || !codes.every(code => safeText(result.explanations[code], 180))) throw unavailable();

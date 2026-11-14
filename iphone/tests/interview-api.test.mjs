@@ -961,10 +961,12 @@ test('a saved signup introduction resumes at its first scenario after a failed r
   const h=harness({initial:{document:initial,revision:2}});
   const loaded=await h.service({action:'load'},headers);
   assert.equal(loaded.document.currentQuestion.text,openingScenarios[0].text);
+  assert.deepEqual(Object.keys(loaded.document.currentQuestion).sort(),['suggestions','text','topic']);
   assert.equal(h.state.revision,2,'loading a saved session does not write to the database');
   const answered=await h.service({action:'answer',hybrid:true,revision:loaded.revision,requestId:randomUUID(),answer:'أدخل الأهل بعد تفاهم واضح.'},headers);
   assert.equal(answered.document.turns[1].question,openingScenarios[0].text);
   assert.equal(answered.document.currentQuestion.text,openingScenarios[1].text);
+  assert.deepEqual(Object.keys(h.state.document.currentQuestion).sort(),['suggestions','text','topic']);
 });
 
 test('retry of a saved signup answer keeps the scenario route even if an older client omits hybrid', async () => {

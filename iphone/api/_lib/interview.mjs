@@ -168,12 +168,15 @@ export function initialInterviewDocument(required = false) {
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
 const REQUIRED_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
 function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
+function scenarioQuestion(scenario) {
+  return scenario ? { topic: scenario.topic, text: scenario.text, suggestions: scenario.suggestions } : null;
+}
 function unfinishedOpeningScenario(document) {
   if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
   const turns = document.turns ?? [];
   if (turns.length < 1 || turns.length > openingScenarios.length || turns[0].question !== REQUIRED_OPENING_QUESTION) return null;
   const visited = new Set(turns.map(turn => turn.question));
-  return openingScenarios.find(item => !visited.has(item.text) && !visited.has(item.legacyText)) ?? null;
+  return scenarioQuestion(openingScenarios.find(item => !visited.has(item.text) && !visited.has(item.legacyText)));
 }
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
@@ -793,7 +796,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text) && !completedScenarios.has(item.legacyText)) : undefined;
   return { ...document, model: INTERVIEW_MODEL,
     proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
-    currentQuestion: openingFlow ? nextScenario ?? null : question,
+    currentQuestion: openingFlow ? scenarioQuestion(nextScenario) : question,
     status: openingFlow ? (nextScenario ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
 }

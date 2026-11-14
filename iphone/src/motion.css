@@ -104,7 +104,7 @@ html[data-nf-motion="reduced"] *, html[data-nf-motion="reduced"] *::before, html
     transition: scale var(--nf-motion-press) var(--nf-ease-release), background-color var(--nf-motion-press) ease-out, border-color var(--nf-motion-press) ease-out, color var(--nf-motion-press) ease-out;
   }
   /* Independent scale preserves positioning transforms and keeps hit boxes stable. */
-  html:not([data-nf-motion="reduced"]) :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: 80ms; }
+  html:not([data-nf-motion="reduced"]) :where(button,summary):not([data-motion-press]):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: 80ms; }
 }
 /* Reduced motion retains a visible press response without shrinking controls. */
 :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { filter: brightness(.96); }

@@ -45,9 +45,11 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
   const openingRef = useRef(false);
   const acceptedIds = connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(',');
   useEffect(() => {
-    let active = true, busy = false, rerun = false;
     setLoading(true); setItems([]); setProgress(new Map());
     setSeen(viewedRequests.get(source) || new Set());
+  }, [source]);
+  useEffect(() => {
+    let active = true, busy = false, rerun = false;
     async function refresh() {
       if (document.hidden) return;
       if (busy) { rerun = true; return; }
@@ -80,12 +82,14 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     if (openingRef.current || !item.target) return;
     openingRef.current = true; setOpening(item.id); setError('');
     try {
-      if (item.activityId) await source.readNotifications?.([item.activityId]);
-      const next = new Set(seen).add(item.id); viewedRequests.set(source, next); setSeen(next);
       if (item.target === 'profile') onProfile(item.person);
       else if (item.requestId && connections.some(c => c.id === item.requestId)) {
         if (item.target === 'request') onRequest(item.requestId); else onConversation(item.requestId);
-      } else setError('تغيّرت حالة هذا التعارف. حدّث الإشعارات للاطّلاع على آخر المستجدات.');
+      } else { setError('تغيّرت حالة هذا التعارف. حدّث الإشعارات للاطّلاع على آخر المستجدات.'); return; }
+      // Navigation must not wait for a read receipt. A failed receipt remains
+      // unread on the next refresh, so it can be retried without blocking entry.
+      if (item.activityId) void Promise.resolve().then(() => source.readNotifications?.([item.activityId!])).catch(() => {});
+      else { const next = new Set(seen).add(item.id); viewedRequests.set(source, next); setSeen(next); }
     } catch { setError('تعذّر فتح الإشعار. حاول مجددًا.'); }
     finally { openingRef.current = false; setOpening(null); }
   }

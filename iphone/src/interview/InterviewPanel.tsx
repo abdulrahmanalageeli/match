@@ -214,7 +214,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     const viewport = thread.current;
     if (!open || !viewport || typeof ResizeObserver === 'undefined') return;
     const resize = new ResizeObserver(() => {
-      if (document.activeElement === composer.current) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+      if (document.activeElement === composer.current && followConversation.current) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
     });
     resize.observe(viewport);
     return () => resize.disconnect();

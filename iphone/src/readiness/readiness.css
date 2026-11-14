@@ -2,3 +2,12 @@
 @media(min-width:520px){.rp-cover{padding:31px 34px 24px}.rp-preparation-row{grid-template-columns:25px 1fr 135px;align-items:center}.rp-preparation select{grid-column:auto}.rp-section{padding:24px}.rp-cover h1{font-size:2.4rem}}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .rp-cover{animation:rp-open .55s cubic-bezier(.2,.7,.2,1) both}html:not([data-nf-motion=reduced]) .rp-section{animation:rp-rise .4s ease both}html:not([data-nf-motion=reduced]) .rp-save,html:not([data-nf-motion=reduced]) .rp-share-button{transition:transform .16s,box-shadow .16s}html:not([data-nf-motion=reduced]) .rp-save:active,html:not([data-nf-motion=reduced]) .rp-share-button:active{transform:scale(.985)}}
 @keyframes rp-open{from{opacity:0;transform:translateY(10px) rotate(.7deg)}to{opacity:1;transform:none}}@keyframes rp-rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* Let long Arabic labels and larger text reflow on narrow phones. */
+.rp-section-heading > :last-child,.rp-step-copy { min-width:0; }
+.rp-preparation select { min-height:48px; font-size:1rem; max-width:100%; }
+.rp-explainer summary { min-height:48px; gap:12px; line-height:1.8; }
+.rp-explainer summary svg { flex:none; }
+.rp-section-heading :is(h2,strong) { font-size:1.125rem; font-weight:600; }
+.rp-cover h1 { font-weight:600; }
+@media(max-width:370px) { .rp-section { padding:18px 14px; } .rp-duration { grid-template-columns:1fr; } .rp-grants article { flex-wrap:wrap; } .rp-grants article>div { flex-basis:100%; } }

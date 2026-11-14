@@ -2,3 +2,16 @@
 .pg-format-note{display:block;font-size:.875rem;color:#8f7379;line-height:1.85;margin:5px 0 2px}
 html[data-nf-motion=reduced] .pg-section,html[data-nf-motion=reduced] .pg-lightbox>img,html[data-nf-motion=reduced] .pg-spin{animation:none}
 html[data-nf-motion=reduced] .pg-open img{transition:none}
+
+/* Full touch targets, including in the top-layer image viewer. */
+.pg-remove,.pg-close,.pg-lightbox-controls button { min-width:44px; min-height:44px; }
+.pg-close { display:grid; place-items:center; top:4px; }
+.pg-lightbox { padding-top:52px; max-height:calc(100dvh - 24px); overflow:auto; }
+.pg-lightbox>img { max-height:calc(100dvh - 150px); }
+.pg-delete-confirm button { min-height:44px; }
+.pg-heading h2 { font-size:1.25rem; font-weight:600; letter-spacing:normal; }
+.pg-caption,.pg-error,.pg-delete-confirm { font-size:1rem; line-height:1.8; }
+.pg-add small,.pg-heading>span,.pg-lightbox-controls { font-size:.875rem; }
+.pg-strip:has(.pg-delete-confirm) .pg-tile { min-width:160px; }
+@media (prefers-reduced-motion:reduce) { .pg-open:active img { transform:none; } }
+html[data-nf-motion=reduced] .pg-open:active img { transform:none; }

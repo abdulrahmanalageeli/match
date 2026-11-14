@@ -151,3 +151,15 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .st-dialog :is(.btn-primary, .btn-secondary) { min-height: 48px; border-radius: 10px; font-size: 16px; font-weight: 500; line-height: 1.5; letter-spacing: 0; }
 .st-data-visibility dt { font-size: 16px; font-weight: 500; }
 .st-data-visibility dd { font-size: 14px; line-height: 1.8; color: #716b70; }
+
+/* Keep secondary controls readable at the device's chosen text size. */
+.phone-app :is(.st-member-actions button,.st-member-photos strong,.st-notice) { font-size: 1rem; }
+.phone-app :is(.st-back,.st-member-photos small,.st-profile-kicker,.st-intro) { font-size: .875rem; }
+.st-dialog p,.st-data-visibility dt,.st-dialog :is(.btn-primary,.btn-secondary) { font-size: 1rem; }
+.st-data-visibility dd { font-size: .875rem; }
+.st-dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+.st-data-head > h2 { min-width: 0; }
+.st-data-close { flex-shrink: 0; }
+.st-row:has(select) { flex-wrap: wrap; }
+.st-row select { width: 100%; min-width: 0; min-height: 48px; font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
+@media (max-width: 370px) { .phone-app .st-member-actions { grid-template-columns: 1fr; } }

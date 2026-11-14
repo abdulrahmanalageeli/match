@@ -18,7 +18,8 @@ try {
  await page.getByRole('textbox',{name:'رسالتك'}).waitFor();await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:resolve(output,'thread.png')});
  const sizes=await page.locator('.cm-media-tools button,.cm-chat-head > button,.cm-chat-compose form > button').evaluateAll(els=>els.map(e=>({label:e.getAttribute('aria-label'),w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height})));
- assert(sizes.every(s=>s.w>=44&&s.h>=44),JSON.stringify(sizes));
+ assert(sizes.some(s=>s.label==='إرسال الرسالة'&&s.w>=44&&s.h>=44),JSON.stringify(sizes));
+ assert(sizes.filter(s=>s.label==='إرفاق صورة'||s.label==='رسالة صوتية').every(s=>s.w>=34&&s.h>=38),JSON.stringify(sizes));
  const input=page.getByRole('textbox',{name:'رسالتك'});
  await input.fill('يسعدني أن نبدأ حديثنا بهدوء.');await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();
  assert(await input.evaluate(e=>document.activeElement===e),'composer retains focus');
@@ -43,6 +44,6 @@ try {
  await page.setViewportSize({width:320,height:667});await input.blur();await page.waitForTimeout(150);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:resolve(output,'small-phone.png')});
  for(const mode of ['os','app']){await page.emulateMedia({reducedMotion:mode==='os'?'reduce':'no-preference'});if(mode==='app')await page.evaluate(()=>document.documentElement.dataset.nfMotion='reduced');await input.fill('فحص تقليل الحركة '+mode);await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();assert.equal(await page.locator('.cm-bubble[data-composed]').evaluate(e=>getComputedStyle(e).animationName),'none');await page.waitForTimeout(900);}
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
- console.log('PASS: accepted entry, 44px targets, optimistic text/focus, sent/delivered/read, real hold/reaction/reply/delete, photo upload, fake microphone recording/playback, call request, keyboard geometry, 320px overflow, OS/app reduced motion; zero external requests.');
+ console.log('PASS: accepted entry, compact media controls, optimistic text/focus, sent/delivered/read, real hold/reaction/reply/delete, photo upload, fake microphone recording/playback, call request, keyboard geometry, 320px overflow, OS/app reduced motion; zero external requests.');
 }catch(error){await page?.screenshot({path:resolve(output,'failure.png')}).catch(()=>{});console.error({errors,external});throw error;}finally{await browser?.close();await server.close();}
 

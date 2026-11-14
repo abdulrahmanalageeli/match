@@ -159,6 +159,27 @@ function ReviewChoice({ field, value, suggested, captured = false, side, disable
   </label>;
 }
 
+function PortraitChoice({ field, answer, side, captured, disabled, onChoose }: {
+  field: Field;
+  answer?: Field['options'][number];
+  side: string;
+  captured: boolean;
+  disabled: boolean;
+  onChoose: (value: string) => void;
+}) {
+  return <label className="wi-portrait-choice">
+    <span aria-hidden="true">
+      <small>{side}{captured ? ' · من لونا' : ''}</small>
+      <strong>{answer?.label ?? 'لم تحدد بعد'}</strong>
+    </span>
+    <Pencil size={13} aria-hidden="true"/>
+    <select aria-label={`${field.label}، ${side}`} value={answer?.code ?? ''} disabled={disabled} onChange={event => onChoose(event.target.value)}>
+      <option value="" disabled>لم تحدد بعد</option>
+      {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
+    </select>
+  </label>;
+}
+
 export function HybridAssessment({
   choices, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], onClarify, reviewExtras,
 }: {
@@ -180,6 +201,7 @@ export function HybridAssessment({
   const [history, setHistory] = useState<number[]>([]);
   const [partnerEditor, setPartnerEditor] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [portraitOpen, setPortraitOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousIndex = useRef(index);
   const headingId = useId();
@@ -255,40 +277,47 @@ export function HybridAssessment({
       <small>{available === 0 ? 'اكتملت الإجابات' : `متبقّي ${number.format(available)} إجابة`}</small>
       <progress aria-label="اكتمال الإجابات" value={answered} max={fields.length}/>
     </div>
-    <details className="wi-living-portrait" data-filled={answered > 0}>
+    <details className="wi-living-portrait" onToggle={event => setPortraitOpen(event.currentTarget.open)}>
       <summary>
         <span className="wi-portrait-mark" aria-hidden="true">
           {themeCards.map(theme => {
             const items = theme.cards.flatMap(assessmentFields);
             const filled = items.filter(field => selected(field, choices)).length;
-            return <i key={theme.label} style={{ opacity: 0.2 + 0.8 * filled / items.length }} data-filled={filled > 0}/>;
+            return <i key={theme.label}><span style={{ transform: `scaleX(${filled / items.length})` }}/></i>;
           })}
           <HeartHandshake size={17}/>
         </span>
-        <span><strong>صورة توافقك</strong><small>{answered === 0 ? 'تتشكّل مع كل إجابة' : `اتضحت ${number.format(answered)} من ملامحك`}</small></span>
+        <span className="wi-portrait-title"><strong>ملامح توافقك</strong><small>{answered === 0 ? 'تتشكّل مع كل إجابة' : 'راجع إجاباتك وما فهمته لونا'}</small></span>
         <ChevronDown size={17} aria-hidden="true"/>
       </summary>
-      <div className="wi-portrait-body">
-        <p><LockKeyhole size={13} aria-hidden="true"/> هذه مسودتك الخاصة. تقدّمك هنا يقيس اكتمال الإجابات.</p>
+      {portraitOpen && <div className="wi-portrait-body">
+        <p><LockKeyhole size={13} aria-hidden="true"/>{answered ? 'مسودتك الخاصة. اضغط على أي إجابة لتعديلها.' : 'هنا تظهر إجاباتك وما تفهمه لونا من حديثك.'}</p>
         {themeCards.map(theme => {
           const items = theme.cards.filter(item => selected(item.self, choices) || selected(item.partner, choices) || item.personality.some(field => selected(field, choices)));
           if (!items.length) return null;
           return <details key={theme.label} className="wi-portrait-theme">
-            <summary>{theme.label}</summary>
-            <div className="wi-portrait-mirror">
-              <span>في حياتي</span><span>ما أتمناه من شريكي</span>
+            <summary><span>{theme.label}</span><ChevronDown size={14} aria-hidden="true"/></summary>
+            <div>
               {items.map(item => <div key={item.self.id} className="wi-portrait-mirror-row">
                 <strong>{item.self.label}</strong>
-                {[item.self,item.partner].map(field => <select key={field.id} aria-label={`${field.label}، ${field === item.self ? 'في حياتي' : 'ما أتمناه من شريكي'}`} disabled={disabled} value={selected(field, choices)?.code ?? ''} onChange={event => choose(field.id, event.target.value)}>
-                  <option value="" disabled>لم تحدد بعد</option>
-                  {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
-                </select>)}
-                {item.personality.filter(field => selected(field, choices)).map(field => <small key={field.id}>{field.label} · {selected(field, choices)?.label}</small>)}
+                {assessmentFields(item).map(field => {
+                  const answer = selected(field, choices);
+                  if (field !== item.self && field !== item.partner && !answer) return null;
+                  return <PortraitChoice
+                    key={field.id}
+                    field={field}
+                    answer={answer}
+                    side={field === item.self ? 'في حياتي' : field === item.partner ? 'ما أتمناه من شريكي' : 'عن شخصيتي'}
+                    captured={wasCaptured(field)}
+                    disabled={disabled}
+                    onChoose={code => choose(field.id, code)}
+                  />;
+                })}
               </div>)}
             </div>
           </details>;
         })}
-      </div>
+      </div>}
     </details>
     <MotionReveal key={card?.self.id ?? 'review'} axis="x" distance={8} duration={210} className="wi-hybrid-stage">
       <h1 id={headingId} ref={heading} tabIndex={-1}>{card ? card.self.label : 'راجع إجاباتك'}</h1>

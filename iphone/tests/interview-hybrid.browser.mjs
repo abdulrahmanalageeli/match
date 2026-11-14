@@ -122,7 +122,10 @@ try {
         snapshot = { revision: snapshot.revision + 1, coverage: { answered: 1, required: 44 }, document: {
           ...snapshot.document, status: 'review', currentQuestion: null, pendingAnalysis: false, draftAnswer: '',
           turns: [{ id: 'intro', topic: 'intent', question: snapshot.document.currentQuestion.text, answer: opening, skipped: false }],
-          lastMode: 'luna', lastRequestId: payload.requestId, proposals: [proposal],
+          lastMode: 'luna', lastRequestId: payload.requestId, proposals: [
+            proposal,
+            { ...proposal, id: 'personality:depth:self', kind: 'personality', fieldId: 'depth', values: ['E'] },
+          ],
         } };
         break;
       case 'structuredConfirm':
@@ -153,9 +156,12 @@ try {
   await card.waitFor();
   const self = card.locator('fieldset').first();
   const manual = self.locator('button').nth(1);
+  const portrait = page.locator('.wi-living-portrait');
+  const fill = portrait.locator('.wi-portrait-mark i > span').first();
+  const emptyFill = await fill.getAttribute('style');
   await manual.click();
   assert.equal(await manual.getAttribute('aria-pressed'), 'true');
-  const portrait = page.locator('.wi-living-portrait');
+  assert.notEqual(await fill.getAttribute('style'), emptyFill, 'A tap immediately fills part of the portrait');
   await portrait.locator(':scope > summary').click();
   await portrait.locator('.wi-portrait-theme > summary').first().click();
   const mirror = portrait.getByRole('combobox', { name:'الأطفال، في حياتي' });
@@ -218,6 +224,21 @@ try {
   // A sufficient opening answer plus its catalog partner suggestion allows
   // this untouched card to be skipped once analysis has completed.
   await page.locator('.wi-hybrid-stage h1').filter({hasText:'مدينة السكن'}).waitFor();
+  const callsBeforeEdit = calls.length;
+  await portrait.locator(':scope > summary').click();
+  await portrait.getByText('التواصل والتعارف', { exact: true }).click();
+  const personalityAnswer = portrait.getByRole('combobox', { name: 'عمق الحوار، عن شخصيتي' });
+  assert.equal(await personalityAnswer.inputValue(), 'E');
+  assert.match(await personalityAnswer.locator('..').innerText(), /من لونا/);
+  await page.screenshot({ path: resolve(output, 'portrait-390.png') });
+  await personalityAnswer.selectOption('C');
+  assert.doesNotMatch(await personalityAnswer.locator('..').innerText(), /من لونا/);
+  assert.deepEqual(draft['personality:depth:self'], ['C']);
+  assert.equal(calls.length, callsBeforeEdit, 'Editing from the portrait only updates the existing draft');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await portrait.locator(':scope > summary').click();
+  await portrait.getByText('التواصل والتعارف', { exact: true }).click();
+  assert.equal(await personalityAnswer.inputValue(), 'C');
   assert.deepEqual(errors, []);
   console.log('PASS: mobile 320–390px, late Luna response, saved draft, opt-in defaults, and one 44-field confirmation');
 } finally {

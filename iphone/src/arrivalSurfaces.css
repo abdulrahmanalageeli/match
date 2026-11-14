@@ -9,6 +9,9 @@
 .phone-app .mp-sections button { padding-inline: 8px; white-space: nowrap; }
 .phone-app .mp-hero .mp-arrival-paths { opacity: .16; }
 .phone-app .cm-shell .cm-chat-head { position: relative; isolation: isolate; }
+/* Match the compact discovery masthead across the other member screens. */
+.phone-app .app-screen :is(.mi-header, .mi-detail-header, .st-top),
+.phone-app .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-block-start: 4px; }
 .phone-app .cm-chat-arrival-paths { opacity: .08; inset: -40px 0 0; }
 .phone-app main.nf-intake.nf-intake--new::before { content: none; }
 .phone-app .nf-intake-arrival-paths { inset: 15px -24px auto; height: 280px; opacity: .14; }

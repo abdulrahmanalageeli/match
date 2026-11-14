@@ -73,9 +73,9 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
 
   if (assessment && Number.isFinite(assessment.completed) && assessment.total > 0 && assessment.completed >= 0 && assessment.completed < assessment.total) {
     const remaining = new Intl.NumberFormat('ar-SA').format(assessment.total - assessment.completed);
-    return { key: `assessment:${assessment.label}`, kind: 'assessment', title: 'دع إجاباتك تقرّب الصورة',
-      detail: `بقي ${remaining} من مواقف «${assessment.label}». إكمالها يضيف قراءة مستقلة لتوافقكما.`,
-      action: 'أكمل من حيث توقفت', target: 'assessment' };
+    return { key: `assessment:${assessment.label}`, kind: 'assessment', title: 'مواقف بيننا · قراءة إضافية للتوافق',
+      detail: `تمرين اختياري من ${remaining} مواقف يكشف كيف تتعاملان مع الحياة اليومية.`,
+      action: assessment.completed ? 'تابع مواقف بيننا' : 'جرّب مواقف بيننا', target: 'assessment' };
   }
 
   const exclusive = accepted.find(c => snapshot.progress.get(c.id)?.exclusive || c.person.exclusive);

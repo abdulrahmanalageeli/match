@@ -30,7 +30,7 @@ export function generatedPublicProfileDraft(answers: Answers, variant = 0): Publ
       valuesStatement: priorityText ? `أهم ما أقدّره ${priorityText}، مع مساحة صادقة للحوار.` : 'أهم ما أقدّره الثقة والوضوح، مع مساحة صادقة للحوار.',
     },
     {
-      bio: compact([city && `مقيم في ${city}.`, work && `أعمل في مجال ${work}.`, interestText && `اهتماماتي تشمل ${interestText}.`]),
+      bio: compact([city && `أسكن في ${city}.`, work && `أعمل في مجال ${work}.`, interestText && `اهتماماتي تشمل ${interestText}.`]),
       lookingFor: compact(['هدفي زواج جاد بخطوات واضحة،', priorityText ? `مع شريك يشارك معي قيمة ${priorityText}.` : 'مع شريك مستعد للتفاهم وبناء حياة مستقرة.']),
       lifeTogether: compact(['أرى الحياة المشتركة تعاونًا في المسؤوليات والقرارات،', interestText && `ووقتًا نشاركه في ${interestText}.`]),
       valuesStatement: priorityText ? `أحرص على ${priorityText}، وأرى أن الوضوح أساس التفاهم.` : 'أرى أن الوضوح والاحترام أساس التفاهم واستمرار العلاقة.',

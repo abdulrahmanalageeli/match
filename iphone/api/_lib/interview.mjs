@@ -781,9 +781,9 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   }
   // Three fixed, brief situations after the private introduction. All extraction
   // remains evidence-backed; unanswered assessment fields stay for the quick form.
-  const openingFlow = hybrid && (last?.question === REQUIRED_OPENING_QUESTION || openingScenarios.some(item => item.text === last?.question));
-  const completedScenarios = new Set(document.turns.filter(turn => !turn.skipped).map(turn => turn.question));
-  const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text)) : undefined;
+  const openingFlow = hybrid && (last?.question === REQUIRED_OPENING_QUESTION || openingScenarios.some(item => [item.text,item.legacyText].includes(last?.question)));
+  const completedScenarios = new Set(document.turns.map(turn => turn.question));
+  const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text) && !completedScenarios.has(item.legacyText)) : undefined;
   return { ...document, model: INTERVIEW_MODEL,
     proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
     currentQuestion: openingFlow ? nextScenario ?? null : question,
@@ -1007,7 +1007,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const question = clarifying
         ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : document.currentQuestion;
-      if (openingScenarios.some(item => item.text === question?.text) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
+      if (openingScenarios.some(item => [item.text,item.legacyText].includes(question?.text)) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
       if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
       next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,

@@ -388,7 +388,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
   const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
-  const scenarioIndex = openingScenarios.findIndex(item => item.text === doc?.currentQuestion?.text);
+  const scenarioIndex = openingScenarios.findIndex(item => [item.text,item.legacyText].includes(doc?.currentQuestion?.text ?? ''));
   const answerLimit = scenarioIndex >= 0 ? 700 : 900;
   const hybrid = Boolean(hybridEnabled && doc?.promptVersion === 'wudayn-interview-3' &&
     doc.status !== 'confirmed' && !fallbackReview && (hasOpening && doc.status === 'review'));

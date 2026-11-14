@@ -6,6 +6,7 @@ import { createInterviewService, initialInterviewDocument, parseInterviewInput, 
 import handler from '../api/interview.mjs';
 import preferenceCatalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 
 const headers = { authorization: 'Bearer header.' + Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111'})).toString('base64url') + '.signature' };
 const answer = 'إذا اتفقنا، أبغى الخطوة الرسمية خلال ستة أشهر.';
@@ -937,4 +938,17 @@ test('hybrid opening asks three bounded situations before quick assessment and n
   assert.equal(current.document.turns.length,4);
   assert.equal(current.document.proposals.some(p=>p.fieldId==='marriage_timeline'),true);
   assert.throws(()=>parseInterviewInput({action:'answer',hybrid:true,revision:1,requestId:randomUUID(),answer:'س'.repeat(901)}));
+});
+
+test('an in-progress interview recognizes earlier scenario wording after copy changes', async () => {
+  const initial=initialInterviewDocument();
+  initial.turns=[
+    {id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false},
+    {id:randomUUID(),topic:'family',question:openingScenarios[0].legacyText,answer:'أدخل الأهل بعد شهرين.',skipped:false},
+  ];
+  initial.currentQuestion={topic:'practical',text:openingScenarios[1].legacyText,suggestions:[]};
+  const h=harness({initial:{document:initial,revision:2}});
+  const result=await h.service({action:'answer',hybrid:true,revision:2,requestId:randomUUID(),answer:'أفضّل أن نخطط للمصاريف معًا.'},headers);
+  assert.equal(result.document.currentQuestion.text,openingScenarios[2].text);
+  assert.equal(result.document.turns.length,3);
 });

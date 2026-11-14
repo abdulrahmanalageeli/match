@@ -141,6 +141,7 @@ try {
         break;
       case 'choiceHelp':
         assert.equal(payload.fieldId, firstId);
+        if (payload.answer === 'ممكن، لكن لسه ما حسمت قراري') assert.equal(payload.priorAnswer, 'ما أدري');
         return route.fulfill({ json: { document: null, revision: snapshot.revision, choiceHelp: !payload.answer
           ? { message: 'الخيارات تختلف في قرارك بشأن الأطفال.', explanations: { A: 'الإنجاب جزء من خطتك.', B: 'تفضّل حياة بدون أطفال.', C: 'تحتاج وقتًا لتحديد رغبتك.' } }
           : payload.answer === 'ما أدري'
@@ -195,8 +196,8 @@ try {
   await self.getByText('تقصد إنك محتار أو إنك ما تبي أطفال؟').waitFor();
   const accept = self.getByRole('button', { name: 'استخدم هذا الخيار' });
   assert.equal(await accept.count(), 0);
-  await description.fill('ممكن، لكن لسه ما حسمت قراري');
-  await map.click();
+  await self.getByLabel('ردّ على لونا').fill('ممكن، لكن لسه ما حسمت قراري');
+  await self.getByRole('button', { name: 'إرسال التوضيح' }).click();
   await accept.waitFor();
   await page.screenshot({ path: resolve(output, 'choice-help-390.png') });
   assert.deepEqual(draft[firstId], ['B'], 'A proposed option never writes to the draft');

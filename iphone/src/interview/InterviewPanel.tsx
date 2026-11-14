@@ -454,10 +454,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
           <HybridAssessment choices={structuredChoices} aiProposals={aiProposals} onChange={changeStructuredChoices}
-            onChoiceHelp={hybridReady ? async (fieldId, description) => {
+            onChoiceHelp={hybridReady ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,
                 ...(gender ? { gender } : {}), ...(description ? { answer: description } : {}),
+                ...(priorAnswer ? { priorAnswer } : {}),
               });
               if (!result.choiceHelp) throw new InterviewError('تعذّر الحصول على المساعدة الآن.', 'unavailable', 503);
               return result.choiceHelp;

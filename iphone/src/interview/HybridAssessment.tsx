@@ -141,12 +141,13 @@ function ChoiceCard({ field, value, onChoose, disabled, captured = false, compac
 
 function ChoiceHelp({ field, request, onChoose, disabled }: {
   field: Field;
-  request: (fieldId: string, description?: string) => Promise<InterviewChoiceHelp>;
+  request: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
   onChoose: (value: string) => void;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
+  const [clarification, setClarification] = useState('');
   const [explanation, setExplanation] = useState<Extract<InterviewChoiceHelp, { explanations: unknown }>>();
   const [proposal, setProposal] = useState<Extract<InterviewChoiceHelp, { code: unknown }>>();
   const [busy, setBusy] = useState<'explain' | 'map'>();
@@ -155,16 +156,22 @@ function ChoiceHelp({ field, request, onChoose, disabled }: {
   const input = useRef<HTMLTextAreaElement>(null);
   const id = useId();
   const option = field.options.find(item => item.code === proposal?.code);
+  const needsClarification = proposal?.code === null;
+  const answerText = needsClarification ? clarification : description;
 
   async function ask(mode: 'explain' | 'map') {
     if (busy || disabled) return;
     setError('');
-    if (mode === 'map') setProposal(undefined);
     setBusy(mode);
     try {
-      const answer = await request(field.id, mode === 'map' ? description.trim() : undefined);
+      const answer = mode === 'explain' ? await request(field.id)
+        : await request(field.id, answerText.trim(), needsClarification ? description.trim() : undefined);
       if ('explanations' in answer) setExplanation(answer);
-      else setProposal(answer);
+      else {
+        if (needsClarification) setDescription(previous => [previous, clarification].join(' ').slice(-450));
+        setClarification('');
+        setProposal(answer);
+      }
     } catch {
       setError('تعذّرت مساعدة لونا الآن. تقدر تحاول مرة ثانية أو تختار إجابتك مباشرة.');
     } finally {
@@ -183,20 +190,24 @@ function ChoiceHelp({ field, request, onChoose, disabled }: {
         {!explanation && <button type="button" className="wi-link" onClick={() => void ask('explain')} disabled={disabled || Boolean(busy)}>اشرحي الخيارات</button>}
       </div>
       {explanation && <div className="wi-choice-explanations">
-        <p>{explanation.message}</p>
         <dl>{field.options.map(item => <div key={item.code}><dt>{item.label}</dt><dd>{explanation.explanations[item.code]}</dd></div>)}</dl>
       </div>}
-      <label htmlFor={`${id}-answer`}>أو قلها بطريقتك</label>
-      <textarea ref={input} id={`${id}-answer`} rows={2} maxLength={450} value={description} disabled={Boolean(busy) || disabled}
-        placeholder="مثلاً، على حسب الظروف…"
-        onChange={event => { setDescription(event.target.value); setProposal(undefined); setError(''); }}/>
-      {!option && <button type="button" className="wi-link wi-choice-map" disabled={disabled || Boolean(busy) || !description.trim()} onClick={() => void ask('map')}>اقترحي أقرب خيار<ArrowLeft size={14} aria-hidden="true"/></button>}
+      {needsClarification && <p className="wi-choice-proposal" role="status">{proposal.message}</p>}
+      <label htmlFor={`${id}-answer`}>{needsClarification ? 'ردّ على لونا' : 'أو قلها بطريقتك'}</label>
+      <textarea ref={input} id={`${id}-answer`} rows={2} maxLength={450} value={answerText} disabled={Boolean(busy) || disabled}
+        placeholder={needsClarification ? 'اكتب توضيحك هنا…' : 'اكتب اللي يناسبك…'}
+        onChange={event => {
+          if (needsClarification) setClarification(event.target.value);
+          else { setDescription(event.target.value); setProposal(undefined); }
+          setError('');
+        }}/>
+      {!option && <button type="button" className="wi-link wi-choice-map" disabled={disabled || Boolean(busy) || !answerText.trim()} onClick={() => void ask('map')}>{needsClarification ? 'إرسال التوضيح' : 'اقترحي أقرب خيار'}<ArrowLeft size={14} aria-hidden="true"/></button>}
       {busy && <p role="status">{busy === 'map' ? 'لونا تقرأ وصفك…' : 'لونا توضّح الفرق…'}</p>}
       {error && <p role="status">{error}</p>}
-      {proposal && <div className="wi-choice-proposal">
-        {option && <><small>اقتراح لونا</small><strong>{option.label}</strong></>}
+      {proposal && option && <div className="wi-choice-proposal">
+        <small>اقتراح لونا</small><strong>{option.label}</strong>
         <p role="status">{proposal.message}</p>
-        {option && <div className="wi-choice-proposal-actions">
+        <div className="wi-choice-proposal-actions">
           <MotionPressButton className="wi-button wi-button-primary" disabled={disabled || Boolean(busy)} onClick={() => {
             onChoose(option.code);
             setDescription('');
@@ -205,7 +216,7 @@ function ChoiceHelp({ field, request, onChoose, disabled }: {
             trigger.current?.focus({ preventScroll: true });
           }}>استخدم هذا الخيار<Check size={15} aria-hidden="true"/></MotionPressButton>
           <button type="button" className="wi-link" onClick={() => { setProposal(undefined); input.current?.focus(); }}>تعديل الوصف</button>
-        </div>}
+        </div>
       </div>}
     </MotionReveal>}
   </div>;
@@ -263,7 +274,7 @@ export function HybridAssessment({
   gender?: Gender;
   aiProposals?: readonly InterviewProposal[];
   onClarify?: () => void;
-  onChoiceHelp?: (fieldId: string, description?: string) => Promise<InterviewChoiceHelp>;
+  onChoiceHelp?: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
   reviewExtras?: ReactNode;
 }) {
   const themeCards = makeThemeCards(gender);

@@ -372,3 +372,25 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .cm-shell .dr-row-actions .dr-row-request { width: 36px; min-width: 36px; height: 36px; min-height: 36px; border-radius: 9px; }
 .phone-app .cm-shell .dr-row-request > svg { width: 18px; height: 18px; }
 .phone-app .cm-shell .dr-row-request > .dr-invitation-mark { width: 21px; height: 21px; }
+
+/* Keep discovery controls comfortable on narrow touch screens. */
+.phone-app .cm-shell .df-discovery .dr-tools .dr-search,
+.phone-app .cm-shell .df-discovery .dr-tools .dr-sort select,
+.phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut { min-height: 44px; height: 44px; }
+.phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut { width: 44px; }
+.phone-app .cm-shell .dr-directory .dr-tools { grid-template-columns: minmax(0,1fr) 100px 44px; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request,
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest { min-height: 44px; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request { width: 44px; min-width: 44px; height: 44px; }
+.phone-app .cm-shell .dr-sample-preview { display: flex; align-items: center; gap: 3px; flex: none; min-height: 44px; padding: 4px 7px; border: 0; border-radius: 9px; background: #f7f2f4; color: #71384e; font: inherit; font-size: 11px; cursor: pointer; }
+.dr-sample-preview:focus-visible { outline: 2px solid #71384e; outline-offset: 3px; }
+.df-pilot-note p { margin: 0; }
+.df-pilot-note .btn-text { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.phone-app .cm-shell .dr-row-image.nf-person-avatar { display: inline-grid; }
+.dr-row-image.nf-person-avatar > b { font-size: 23px; color: #71384e; }
+@media (prefers-reduced-motion: reduce) {
+  .phone-app .cm-shell .dr-person-row,
+  .phone-app .cm-shell .df-discovery .dr-row-actions button { transition: none; transform: none; }
+}
+html[data-nf-motion=reduced] .phone-app .cm-shell .dr-person-row,
+html[data-nf-motion=reduced] .phone-app .cm-shell .df-discovery .dr-row-actions button { transition: none; transform: none; }

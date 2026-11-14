@@ -515,29 +515,30 @@ function PersonCard({
 
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const preference=compatibilityPercentage(person);
+  const sampleOnly=person.isDemo&&!source.simulation;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
     <div className="dr-row-overview">
       <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
-          <span className="dr-row-image">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.demoPhoto?<img src={person.demoPhoto} loading="lazy" alt={`صورة توضيحية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:<Avatar name={person.alias}/>}</span>
+          <PersonAvatar person={person} source={source} className="dr-row-image"/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span className="dr-fit-caption">توافقكم</span></span>
+        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span className="dr-fit-caption">{preference===null?'غير مكتمل':'التفضيلات'}</span></span>
       </button>
     </div>
 
     <div className="dr-row-detail">
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
-    <div className="dr-row-actions">
+    {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
       {source.setInterest&&<button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}><Heart size={16} aria-hidden="true" fill={person.interested?'currentColor':'none'}/><span>{person.interested?'مهتم':'اهتمام'}</span></button>}
       <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<AddPersonMark/>}</button>
-    </div>
+    </div>}
     </div>
   </article>;
 }
@@ -772,7 +773,7 @@ function Discovery({
     return (
       <Profile source={source} person={person} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         featured={listPosition.current?.featured}
-        primary={<>
+        primary={person.isDemo&&!source.simulation?<p className="cm-help">هذا ملف خيالي للاستعراض فقط؛ طلبات التعارف والاهتمام متاحة مع الأعضاء الحقيقيين.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
             <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
@@ -809,11 +810,11 @@ function Discovery({
           <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
       </div>
-      {<div className={`dr-tools${order==='recommended'?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
+      {<div className={`dr-tools${order==='recommended'&&!query.trim()?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
         <label className="dr-sort"><span>الترتيب</span><select aria-label="ترتيب الاستكشاف" value={filters.sort??'compatibility'} onChange={e=>setFilters(f=>({...f,sort:e.target.value as Filters['sort']}))}><option value="compatibility">الأقرب توافقًا</option><option value="youngest">الأصغر عمرًا</option><option value="oldest">الأكبر عمرًا</option></select></label>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
       {count > 0 && (
-        <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
+        <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query,sort:filters.sort})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (
             <button onClick={() => setFilters((current) => ({ ...current, minAge: undefined, maxAge: undefined }))} aria-label="إزالة تصفية العمر">
               {ar.format(filters.minAge ?? 18)} – {ar.format(filters.maxAge ?? 110)} عامًا <X size={13} />
@@ -871,7 +872,7 @@ function Discovery({
           }
         />
       )}
-      {!loading && !error && people.some(person => person.isDemo) && <p className="df-pilot-note">{people.every(person => person.isDemo) ? 'كل الملفات المعروضة هنا خيالية لتجربة المزايا، وليست أعضاء حقيقيين.' : 'تضم هذه القائمة ملفات خيالية موسومة بأنها توضيحية لتجربة المزايا.'}</p>}
+      {!loading && !error && people.some(person => person.isDemo) && <div className="df-pilot-note"><p>{people.every(person => person.isDemo) ? 'الملفات المعروضة خيالية لتجربة المزايا، وليست أعضاء حقيقيين.' : 'الأعضاء الحقيقيون أولًا، وتليهم ملفات خيالية موسومة «توضيحي» للاستعراض فقط.'}</p>{order==='recommended'&&people.every(person=>person.isDemo)&&<button className="btn-text" onClick={()=>setOrder('all')}>استكشف جميع الملفات المؤهلة <ArrowLeft size={14}/></button>}</div>}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
           order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
@@ -884,7 +885,7 @@ function Discovery({
         ))}
       </div>
       {more && <button className="btn-secondary dr-more" disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?"جارٍ التحميل…":"اكتشف المزيد"}<ArrowDown size={16}/></button>}
-      {!!list.length && !loading && <footer className="df-feed-end"><h2>{order === 'all' ? 'هذه الملفات المتاحة حاليًا' : 'هذه ترشيحاتك لهذا الأسبوع'}</h2>
+      {!!list.length && !loading && !more && <footer className="df-feed-end"><h2>{order === 'all' ? 'وصلت إلى نهاية الملفات المتاحة' : 'هذه ترشيحاتك لهذا الأسبوع'}</h2>
         <p>{order === "all" ? "يمكنك تعديل التصفية لرؤية ملفات أخرى تناسب تفضيلاتك." : "اختر «جميع الملفات» لرؤية المزيد، أو عدّل التصفية لتوسيع بحثك."}</p>
         </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
@@ -898,7 +899,7 @@ function Discovery({
             setFilterOpen(false);
             setNotice("");
             setOrder("all");
-            setFilters(value);
+            setFilters({...value,search:query});
           }}
         />
       )}

@@ -6,5 +6,5 @@ export function recommendationReason(fit?: MatchFit): string {
   const evidence = readPreferenceEvidence(fit);
   const shared = evidence.topics.filter(topic => topic.status === 'aligned').slice(0, 2)
     .map(topic => dimensions.find(dimension => dimension.id === topic.id)?.title).filter(Boolean);
-  return shared.length ? `من نقاط اتفاقكما: ${shared.join(' و')}.` : 'ضمن أعلى نسب توافق التفضيلات المتاحة لك؛ التفاصيل توضّح ما يحتاج حوارًا.';
+  return shared.length ? `من نقاط اتفاقكما: ${shared.join(' و')}.` : 'هذه النسبة تلخّص توافق التفضيلات؛ راجع التفاصيل لمعرفة ما يحتاج حوارًا.';
 }

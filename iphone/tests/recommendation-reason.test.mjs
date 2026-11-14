@@ -12,6 +12,7 @@ test('recommendation reason names only validated shared topics without exposing 
   assert.equal(reason,`من نقاط اتفاقكما: ${dimensions[0].title} و${dimensions[1].title}.`);
   const corrupted = {...fit,preferenceEvidence:{...fit.preferenceEvidence,topics:[]}};
   assert(!recommendationReason(corrupted).includes('من نقاط اتفاقكما'));
+  assert(!recommendationReason(corrupted).includes('أعلى'), 'a score alone cannot establish a rank among candidates');
 });
 
 test('incomplete assessments do not invent an agreement or a compatibility claim',()=>{

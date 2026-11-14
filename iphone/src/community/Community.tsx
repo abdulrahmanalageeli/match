@@ -704,9 +704,10 @@ function Discovery({
   }
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
-    const origin = button.querySelector<HTMLElement>(".cm-weekly-identity");
+    const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
+    const origin = anchor.querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
-    listPosition.current = { id: item.id, top: button.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && button.matches(":first-child") };
+    listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.matches(":first-child") };
     move(origin, () => {
       flushSync(() => { setNotice(""); setError(""); setSelected(item.id); setSelectedPerson(item); });
       const hero = identity.current;

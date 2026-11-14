@@ -197,6 +197,14 @@ try {
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), 44);
+  draft = {};
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.locator('#wi-answer').fill(opening);
+  await page.getByRole('button', { name:'إرسال الرسالة', exact:true }).click();
+  // A sufficient opening answer plus its catalog partner suggestion allows
+  // this untouched card to be skipped once analysis has completed.
+  await page.locator('.wi-hybrid-stage h1').filter({hasText:'مدينة السكن'}).waitFor();
   assert.deepEqual(errors, []);
   console.log('PASS: mobile 320–390px, late Luna response, saved draft, opt-in defaults, and one 44-field confirmation');
 } finally {

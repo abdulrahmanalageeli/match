@@ -174,6 +174,7 @@ export function HybridAssessment({
   const cards = themeCards.flatMap((theme, themeIndex) => theme.cards.map(card => ({ ...card, themeIndex })));
   const fields = cards.flatMap(assessmentFields);
   const [index, setIndex] = useState(() => cards.findIndex(card => needsCard(card, choices)));
+  const started = useRef(false);
   const [history, setHistory] = useState<number[]>([]);
   const [partnerEditor, setPartnerEditor] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -194,6 +195,11 @@ export function HybridAssessment({
     .map(item => [item.id, item.values[0]]));
   const wasCaptured = (field: Field) => Boolean(aiValues.has(field.id) && aiValues.get(field.id) === selected(field, choices)?.code);
   const capturedCount = fields.filter(wasCaptured).length;
+  const firstNeeded = cards.findIndex(item => needsCard(item, choices));
+
+  useEffect(() => {
+    if (!started.current && capturedCount > 0) setIndex(firstNeeded);
+  }, [capturedCount, firstNeeded]);
 
   useEffect(() => {
     if (previousIndex.current === index) return;
@@ -203,10 +209,12 @@ export function HybridAssessment({
   }, [index]);
 
   function choose(id: string, code: string) {
+    started.current = true;
     onChange({ ...choices, [id]: [code] }, [id]);
   }
 
   function advance() {
+    started.current = true;
     const next = cards.findIndex((item, itemIndex) => itemIndex > index && needsCard(item, choices));
     setHistory(previous => [...previous, index]);
     setPartnerEditor(false);
@@ -222,6 +230,7 @@ export function HybridAssessment({
   }
 
   function adoptSuggestions() {
+    started.current = true;
     const next = { ...choices };
     for (const { field, option } of suggestions) next[field.id] = [option.code];
     onChange(next, suggestions.map(({ field }) => field.id));
@@ -245,7 +254,7 @@ export function HybridAssessment({
         <ChoiceCard field={card.self} value={selected(card.self, choices)?.code} captured={wasCaptured(card.self)} onChoose={code => choose(card.self.id, code)} disabled={disabled}/>
         {proposal && !selected(card.partner, choices) && !partnerEditor ? <div className="wi-hybrid-suggestion">
           <div><small>اقتراح للشريك · للمراجعة لاحقًا</small><strong>{proposal.label}</strong></div>
-          <button type="button" className="wi-link" onClick={() => setPartnerEditor(true)} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
+          <button type="button" className="wi-link" onClick={() => { started.current = true; setPartnerEditor(true); }} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
         </div> : <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled}/>}
         {card.personality.map(field => <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} captured={wasCaptured(field)} onChoose={code => choose(field.id, code)} disabled={disabled} compact/>)}
       </div> : <>

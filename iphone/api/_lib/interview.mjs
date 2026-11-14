@@ -96,7 +96,7 @@ export function parseInterviewInput(body) {
   }
   if (!record(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw invalid();
   const allowed = {
-    load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
+    load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
     answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
     clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
@@ -353,7 +353,7 @@ function withMemberContext(document,input) {
   const context=new Map((input.assessmentContext??document.assessmentContext??[]).map(item=>[item.id,item]));
   const timeline=profileContext.find(item=>item.fieldId==='marriageBasics.marriageTimeline')?.values[0];
   const timelineCode={within_3_months:'A',three_to_six_months:'A',six_to_twelve_months:'B',over_a_year:'C',when_ready:'D'}[timeline];
-  if(timelineCode&&(input.assessmentContext===undefined||!context.has('preference:marriage_timeline:self')))context.set('preference:marriage_timeline:self',{id:'preference:marriage_timeline:self',values:[timelineCode]});
+  if(!input.hybrid&&input.action!=='clarify'&&timelineCode&&(input.assessmentContext===undefined||!context.has('preference:marriage_timeline:self')))context.set('preference:marriage_timeline:self',{id:'preference:marriage_timeline:self',values:[timelineCode]});
   if(JSON.stringify(profileContext)===JSON.stringify(document.profileContext??[])&&JSON.stringify([...context.values()])===JSON.stringify(document.assessmentContext??[]))return document;
   const next={...document,profileContext,assessmentContext:[...context.values()]};
   return {...next,proposals:withContextProposals(next,(document.proposals??[]).filter(item=>!item.evidence?.some(e=>e.turnId.startsWith('context:'))))};
@@ -515,7 +515,7 @@ function schemaFor(document, sensitiveProfileAllowed) {
       kind: { type: 'string', enum: ['preference', 'personality'] } } } } } } : base;
 }
 
-export function interviewCompletionRequest(document, finalReview = false, sensitiveProfileAllowed = false, memberGender = null) {
+export function interviewCompletionRequest(document, finalReview = false, sensitiveProfileAllowed = false, memberGender = null, { hybrid = false } = {}) {
   const providerSafe = providerDocument(document, sensitiveProfileAllowed);
   const last = document.turns.at(-1);
   const next = nextTopic(document, false);
@@ -568,6 +568,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   instructions=instructions.replace('لا تضع شروطًا إلزامية أو نسب توافق أو احتمال نجاح أو درجة جدية.','لا تخترع شروطًا إلزامية من عندك. سجّل الشروط التي صرّح بها العضو نفسه في profileProposals فقط، دون فرضها أو نشرها قبل مراجعته. لا تضع نسب توافق أو احتمال نجاح أو درجة جدية.');
   instructions+='\nقبل إرسال الناتج، راجع كل عبارة صريحة فيها أريد/أفضل/لا أقبل/شرط، وتأكد أن لها اقتراحًا في القاموس المناسب أو طلب توضيح عند غموضها. لا تُسقط استبعادًا صريحًا لمجرد أنه شرط مهم. «لا أقبل مطلقة وهذا شرط أساسي» يعني fieldId=partnerCriteria.maritalStatus وvalues=["divorced"] وmode=require وexclude=true. انسخ evidence.quote حرفيًا من answer كما كُتب، ولا تحوّل «لا أقبل مطلقة» في الدليل إلى «غير مطلقة». لا تستخرج شرطًا من مثال المحاور أو هذا المثال؛ استخرجه فقط إن ورد في كلام العضو.';
   if (!sensitiveProfileAllowed) instructions += `\nلم يمنح العضو إذن معالجة التفاصيل الحساسة. profileCatalog المرفق لا يحتوي الحقول الحساسة، ولا يجوز استنتاج أو اقتراح أو سؤال أي معلومة حساسة. ${SENSITIVE_REDACTION} بديل خصوصية أضافه الخادم قبل الإرسال: تجاهله تمامًا، ولا تقتبسه كدليل ولا تسأل عما أخفاه. حلّل فقط النص غير المحجوب.`;
+  if (hybrid) instructions += '\nافصل بين موعد الخطوة الرسمية وموعد إتمام الزواج: marriage_timeline في التوافق يخص الخطوة الرسمية وحدها، وmarriageBasics.marriageTimeline يخص إتمام الزواج. لا تستنتج موعد أحدهما من الآخر. اربط كل اقتراح بعبارة تصرّح بتوقيته.';
   if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
@@ -587,7 +588,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   };
 }
 
-export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals) {
+export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false } = {}) {
   const choice = completion?.choices?.[0];
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
@@ -675,7 +676,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   // Reuse its grounded evidence instead of asking the same timing question again.
   const statedTimeline=profileProposals.find(item=>item.fieldId==='marriageBasics.marriageTimeline'&&!item.needsClarification);
   const timingCode={within_3_months:'A',three_to_six_months:'A',six_to_twelve_months:'B',over_a_year:'C',when_ready:'D'}[statedTimeline?.values[0]];
-  if(timingCode){
+  if(!hybrid&&timingCode){
     const candidate={id:'preference:marriage_timeline:self',kind:'preference',fieldId:'marriage_timeline',side:'self',values:[timingCode],summary:statedTimeline.summary,evidence:statedTimeline.evidence,needsClarification:false};
     const index=proposals.findIndex(item=>item.id===candidate.id);
     if(index<0)proposals.push(candidate);
@@ -955,14 +956,15 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (reserve.status !== 'allowed' || !env.OPENAI_API_KEY) return fail(next, reserve.status !== 'allowed' ? 'capacity' : 'unavailable');
     let analyzed;
     try {
-      const reviewPass = finalReview || input.hybrid === true || input.action === 'clarify' || next.turns.length >= turnLimit(next)
+      const hybrid = input.hybrid === true || input.action === 'clarify';
+      const reviewPass = finalReview || hybrid || next.turns.length >= turnLimit(next)
         || !nextTopic({ ...next, proposals: document.proposals }, false);
       const providerTimeout = reviewPass ? 36000 : 30000;
       const openai = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout: providerTimeout });
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
-      const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender), { timeout: providerTimeout, maxRetries: 0 });
-      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals);
+      const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
+      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid });
       // Retrying analysis must not change the question beneath an unsent draft.
       if (input.action === 'retry' && document.status === 'active' && document.draftAnswer.trim()) {
         analyzed = { ...analyzed, status: 'active', currentQuestion: document.currentQuestion, draftAnswer: document.draftAnswer };

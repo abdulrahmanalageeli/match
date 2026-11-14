@@ -128,6 +128,10 @@ test('an explicit profile timeline also fills matching assessment timing using t
  const timeline={...proposal,id:'profile:marriageBasics.marriageTimeline',fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false,evidence:[{turnId:turn.id,quote:source.answer}]};
  const first=applyInterviewCompletion({...base(),turns:[source]},completion({profileProposals:[timeline]}));
  assert.deepEqual(first.proposals.find(p=>p.id==='preference:marriage_timeline:self').values,['A']);
+ const hybridDoc={...base(),turns:[source]};
+ const hybrid=applyInterviewCompletion(hybridDoc,completion({profileProposals:[timeline]}),true,[],{hybrid:true});
+ assert.ok(hybrid.profileProposals.some(p=>p.id===timeline.id));
+ assert.ok(!hybrid.proposals.some(p=>p.fieldId==='marriage_timeline'));
  const correction={...turn,id:randomUUID(),answer:'بعد ستة أشهر إلى سنة بدل ثلاثة أشهر'};
  const updated=applyInterviewCompletion({...first,turns:[source,correction]},completion({profileProposals:[{...timeline,values:['six_to_twelve_months'],evidence:[{turnId:correction.id,quote:correction.answer}]}]}));
  const timing=updated.proposals.find(p=>p.id==='preference:marriage_timeline:self');assert.deepEqual(timing.values,['B']);assert.equal(timing.evidence[0].turnId,correction.id);

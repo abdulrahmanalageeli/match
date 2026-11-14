@@ -200,8 +200,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   useEffect(() => {
     if (!open || !loaded || doc || !consentGranted || autoStarted.current) return;
     autoStarted.current = true;
-    void call('start', { consentVersion: 'wudayn-interview-v1' }, true);
-  }, [open, loaded, doc, consentGranted, call]);
+    void call('start', { consentVersion: 'wudayn-interview-v1', ...(hybridEnabled ? { hybrid: true } : {}) }, true);
+  }, [open, loaded, doc, consentGranted, call, hybridEnabled]);
   useEffect(() => {
     const viewport = thread.current;
     if (open && viewport && (firstConversation.current || followConversation.current)) {
@@ -425,7 +425,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <p className="wi-lead">حوار خفيف عن حياتك وما تريده من الزواج. إجابة واحدة قد توضّح أكثر من جانب، ثم تراجع ملخصك مرة واحدة.</p>
           <p className="wi-screening-note"><HeartHandshake size={16} aria-hidden="true"/>جزء من طلب العضوية، لتوضيح نية الزواج وتوقعاتك.</p>
           {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على تحليل إجاباتي بالذكاء الاصطناعي لتكوين تقييمي، وحفظ الجلسة بشكل خاص في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>تُرسل إجابات الجلسة إلى مزوّد معالجة خارجي، وتُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث ويمكنك حذفها. لا ترسل أرقام هوية أو معلومات تخص أشخاصًا آخرين. الحوار لا يظهر للأعضاء.</p><p>هذا مرافق آلي لفهم التوافق، وليس مستشارًا بشريًا أو تشخيصًا نفسيًا. تُراجع الإجابات قبل اعتمادها.</p></details></div>}
-          <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1' }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
+          <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1', ...(hybridEnabled ? { hybrid: true } : {}) }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
         </section>
         : profileReview ? <section className="wi-profile-review">
           <button className="wi-link" type="button" onClick={()=>setProfileReview(false)} disabled={actionBlocked}>العودة إلى الحوار <ArrowLeft size={15}/></button>

@@ -394,7 +394,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (unavailable && !failureNotified.current) { failureNotified.current = true; unavailableCallback.current?.(); }
   }, [unavailable]);
   useEffect(() => {
-    if (clarifying && open && hybrid) clarifier.current?.focus({ preventScroll: true });
+    if (!clarifying || !open || !hybrid) return;
+    clarifier.current?.closest('form')?.scrollIntoView({ block: 'nearest' });
+    clarifier.current?.focus({ preventScroll: true });
   }, [clarifying, open, hybrid]);
   function useFallback() {
     if (!unavailable) return;
@@ -465,7 +467,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
                   onIgnore={() => setIgnoredProfile(previous => previous.includes(proposal.id) ? previous.filter(id => id !== proposal.id) : [...previous, proposal.id])}
                 />)}</div>
               </details>}
-              {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+              <details className="wi-private-notes">
+                <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
+                <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، ومتى تكون الخطوة الرسمية، وكيف تشركان الأهل.</p>
+                <p>تراجع ملخصك بنفسك، وتأكيده يكمل جلسة التوافق. طلب العضوية له مراجعته الخاصة.</p>
+              </details>
+              {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>ملخصك الخاص عن الخطوة القادمة <ChevronDown size={14}/></summary><p>يعكس ما ذكرتَه في الحوار، وقد تبقى بعض التفاصيل مفتوحة للنقاش.</p><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
               {doc.clarifications.length > 0 && <details className="wi-private-notes"><summary>نقاط للنقاش لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
               {(doc.readiness.length > 0 || doc.clarifications.length > 0) && <label className="wi-sharing">
                 <input type="checkbox" checked={shareReview} disabled={actionBlocked || doc.pendingAnalysis} onChange={event => setShareReview(event.target.checked)}/>

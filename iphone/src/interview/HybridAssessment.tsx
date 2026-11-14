@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Pencil } from '../BrandIcons';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil } from '../BrandIcons';
 import { dimensions } from '../compatibility/model';
 import { personalityQuestions } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -20,6 +20,7 @@ type Card = {
   self: Field;
   partner: Field;
   personality: Field[];
+  discussion: string;
   partnerDefault?: Readonly<Partial<Record<string, string>>>;
 };
 
@@ -82,6 +83,7 @@ function makeThemeCards(gender?: Gender) {
           };
         }),
         partnerDefault: explicitPartnerChoices.has(id) ? undefined : dimension.partnerDefault,
+        discussion: dimension.discussion,
       };
       return fields;
     }),
@@ -177,6 +179,7 @@ export function HybridAssessment({
   const started = useRef(false);
   const [history, setHistory] = useState<number[]>([]);
   const [partnerEditor, setPartnerEditor] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousIndex = useRef(index);
   const headingId = useId();
@@ -218,6 +221,7 @@ export function HybridAssessment({
     const next = cards.findIndex((item, itemIndex) => itemIndex > index && needsCard(item, choices));
     setHistory(previous => [...previous, index]);
     setPartnerEditor(false);
+    setShowHelp(false);
     setIndex(next);
   }
 
@@ -225,6 +229,7 @@ export function HybridAssessment({
     const previous = history.at(-1);
     if (previous === undefined) return;
     setPartnerEditor(false);
+    setShowHelp(false);
     setHistory(current => current.slice(0, -1));
     setIndex(previous);
   }
@@ -238,12 +243,53 @@ export function HybridAssessment({
 
   const proposal = card ? partnerSuggestion(card, choices) : undefined;
   const canAdvance = card && !needsCard(card, choices);
+  const timing = cards.find(item => item.self.id === 'preference:marriage_timeline:self')!;
+  const formalStep = selected(timing.self, choices);
+  const partnerStep = selected(timing.partner, choices);
+  const opening = cards.find(item => item.self.id === 'preference:early_openness:self')!;
+  const closeness = cards.find(item => item.self.id === 'preference:closeness_pace:self')!;
+  const hasTradeOff = Boolean(selected(opening.self, choices) && selected(closeness.self, choices));
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     <div className="wi-hybrid-progress">
       <span>{card ? themeCards[card.themeIndex].label : 'مراجعة التوافق'}</span>
       <small>{available === 0 ? 'اكتملت الإجابات' : `متبقّي ${number.format(available)} إجابة`}</small>
       <progress aria-label="اكتمال الإجابات" value={answered} max={fields.length}/>
     </div>
+    <details className="wi-living-portrait" data-filled={answered > 0}>
+      <summary>
+        <span className="wi-portrait-mark" aria-hidden="true">
+          {themeCards.map(theme => {
+            const items = theme.cards.flatMap(assessmentFields);
+            const filled = items.filter(field => selected(field, choices)).length;
+            return <i key={theme.label} style={{ opacity: 0.2 + 0.8 * filled / items.length }} data-filled={filled > 0}/>;
+          })}
+          <HeartHandshake size={17}/>
+        </span>
+        <span><strong>صورة توافقك</strong><small>{answered === 0 ? 'تتشكّل مع كل إجابة' : `اتضحت ${number.format(answered)} من ملامحك`}</small></span>
+        <ChevronDown size={17} aria-hidden="true"/>
+      </summary>
+      <div className="wi-portrait-body">
+        <p><LockKeyhole size={13} aria-hidden="true"/> هذه مسودتك الخاصة. تقدّمك هنا يقيس اكتمال الإجابات.</p>
+        {themeCards.map(theme => {
+          const items = theme.cards.filter(item => selected(item.self, choices) || selected(item.partner, choices) || item.personality.some(field => selected(field, choices)));
+          if (!items.length) return null;
+          return <details key={theme.label} className="wi-portrait-theme">
+            <summary>{theme.label}</summary>
+            <div className="wi-portrait-mirror">
+              <span>في حياتي</span><span>ما أتمناه من شريكي</span>
+              {items.map(item => <div key={item.self.id} className="wi-portrait-mirror-row">
+                <strong>{item.self.label}</strong>
+                {[item.self,item.partner].map(field => <select key={field.id} aria-label={`${field.label}، ${field === item.self ? 'في حياتي' : 'ما أتمناه من شريكي'}`} disabled={disabled} value={selected(field, choices)?.code ?? ''} onChange={event => choose(field.id, event.target.value)}>
+                  <option value="" disabled>لم تحدد بعد</option>
+                  {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
+                </select>)}
+                {item.personality.filter(field => selected(field, choices)).map(field => <small key={field.id}>{field.label} · {selected(field, choices)?.label}</small>)}
+              </div>)}
+            </div>
+          </details>;
+        })}
+      </div>
+    </details>
     <MotionReveal key={card?.self.id ?? 'review'} axis="x" distance={8} duration={210} className="wi-hybrid-stage">
       <h1 id={headingId} ref={heading} tabIndex={-1}>{card ? card.self.label : 'راجع إجاباتك'}</h1>
       {card && history.length === 0 && capturedCount > 0 && <p className="wi-hybrid-capture" role="status">
@@ -257,6 +303,15 @@ export function HybridAssessment({
           <button type="button" className="wi-link" onClick={() => { started.current = true; setPartnerEditor(true); }} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
         </div> : <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled}/>}
         {card.personality.map(field => <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} captured={wasCaptured(field)} onChoose={code => choose(field.id, code)} disabled={disabled} compact/>)}
+        <div className="wi-card-help">
+          <button type="button" className="wi-link" aria-expanded={showHelp} onClick={() => setShowHelp(value => !value)}>مو عارف وش أختار؟</button>
+          {showHelp && <div>
+            <p>في الأول، اختر اللي يصف حياتك. في الثاني، اختر الأسلوب اللي ترتاح له عند شريكك.</p>
+            <p>{card.self === timing.self ? 'الخطوة الرسمية ممكن تكون إشراك الأهل أو التقدّم. موعد إتمام الزواج له اختيار مستقل.' : card.discussion}</p>
+            {card.personality.length > 0 && <p>في عبارات الشخصية، فكّر في تصرّفك المعتاد واختر الدرجة الأقرب لك.</p>}
+            {onClarify && <button type="button" className="wi-link" disabled={disabled} onClick={onClarify}>أبي أوضح إجابتي للونا</button>}
+          </div>}
+        </div>
       </div> : <>
         <p className="wi-lead">{capturedCount ? `أضفنا ${number.format(capturedCount)} إجابة من حوارك. راجعها مع اختياراتك قبل الاعتماد.` : 'راجع اختياراتك وعدّل أي إجابة قبل اعتماد التوافق.'}</p>
         {capturedCount > 0 && <details className="wi-hybrid-captured-review">
@@ -295,6 +350,19 @@ export function HybridAssessment({
             </div>
           </details>)}
         </div>
+        {hasTradeOff && <details className="wi-portrait-theme wi-reflection">
+          <summary>القرب والخصوصية في البداية</summary>
+          <p>قد يختلف ما تفضّل مشاركته في أول حديث عن احتياجك للقرب بعد ما ترتاح. راجع الاختيارين إذا ودّك توضّح الفرق.</p>
+          <ReviewChoice field={opening.self} value={selected(opening.self, choices)?.code} side="بداية التعارف" disabled={disabled} onChoose={code => choose(opening.self.id, code)}/>
+          <ReviewChoice field={closeness.self} value={selected(closeness.self, choices)?.code} side="مع ازدياد القرب" disabled={disabled} onChoose={code => choose(closeness.self.id, code)}/>
+        </details>}
+        <details className="wi-portrait-theme wi-reflection">
+          <summary>جاهزيتك للخطوة الرسمية</summary>
+          <p>راجع توقيتك وتوقّعاتك من الشريك قبل اعتماد الملف.</p>
+          <ReviewChoice field={timing.self} value={formalStep?.code} side="التوقيت اللي يناسبني" disabled={disabled} onChoose={code => choose(timing.self.id, code)}/>
+          <ReviewChoice field={timing.partner} value={partnerStep?.code} suggested={partnerSuggestion(timing, choices)?.label} side="التوقيت اللي يناسبني عند الشريك" disabled={disabled} onChoose={code => choose(timing.partner.id, code)}/>
+          {formalStep?.code === 'D' && <p>موعدك غير محدد. تقدر تتركه مفتوحًا إلى أن تتضح خطتك.</p>}
+        </details>
         {reviewExtras}
       </>}
     </MotionReveal>

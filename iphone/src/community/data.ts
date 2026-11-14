@@ -195,6 +195,7 @@ export interface CommunitySource extends ManualVerificationSource {
 }
 
 export function cloudCommunity(userId: string): CommunitySource {
+  const media = () => import('./memberChatMedia').then(module => module.memberChatMediaSource(userId));
   async function timedRpc<T>(name: string, params: Record<string, unknown>): Promise<T> {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 15_000);
@@ -206,6 +207,9 @@ export function cloudCommunity(userId: string): CommunitySource {
   }
   return {
     watch: privateUpdates(userId),
+    sendMedia: async (...args) => (await media()).sendMedia!(...args),
+    mediaUrl: async (...args) => (await media()).mediaUrl!(...args),
+    openMedia: async (...args) => (await media()).openMedia!(...args),
     agreement: request_id => timedRpc('marriage_agreement',{request_id}),
     agree: (request_id,action,payload={}) => timedRpc('marriage_agreement',{request_id,action,payload}),
     ...manualVerificationSource(),

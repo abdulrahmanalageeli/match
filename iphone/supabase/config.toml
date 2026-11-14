@@ -53,3 +53,7 @@ verify_jwt = false
 # Checked RPC authenticates live member sessions or scoped, expiring tester tokens.
 [functions.manual-verification]
 verify_jwt = false
+
+# Auth.getUser plus checked member RPCs validate the current session for every media request.
+[functions.member-chat-media]
+verify_jwt = false

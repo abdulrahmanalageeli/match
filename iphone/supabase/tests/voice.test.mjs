@@ -1,25 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
-const {dimensions}=JSON.parse(await readFile(new URL('../../src/compatibility/catalog.json',import.meta.url),'utf8'));
-const answers=Object.fromEntries(dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
 function setup(db){
  const rpc=async(expression,args=[])=>(await db.query('select '+expression+' as value',args)).rows[0].value;
  const call=(u,expression,args)=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
  const staff=(expression,args)=>asService(db,()=>rpc(expression,args));
  async function add(gender){
   const id=randomUUID(),u={id,email:id+'@example.test',sessionId:randomUUID()};await addUser(db,u);
-  const state=await call(u,'public.marriage_apply($1)',[{displayName:'عضو تجريبي',gender,age:29,city:'الرياض',profession:'مهندس',bio:'نبذة عامة',contact:u.email,
-   preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف الأول',assessmentVersion:'marriage-v1',surveyAnswers:answers,consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,assessment:true,photo:false}}]);
-  await staff("public.marriage_review($1,'approve')",[id]);
-  await staff('public.marriage_record_receipt($1,$2,false)',[id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,
+  const appAccountToken=await seedCommunicationMember(db,u,gender);u.gender=gender;
+  await staff('public.marriage_record_receipt($1,$2,false)',[id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken,
    originalTransactionId:id,transactionId:id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
   return u;
  }
- async function pair(a,b){const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);return request;}
+ async function pair(a,b){const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);await signCommunicationAgreement(call,a.gender==='woman'?a:b,a.gender==='man'?a:b,request);return request;}
  const start=(u,request,nonce=randomUUID())=>call(u,'public.marriage_call_start($1,$2)',[request,nonce]);
  const state=(u,id=null)=>call(u,'public.marriage_call_state($1)',[id]);
  const act=(u,id,action)=>call(u,'public.marriage_call_act($1,$2)',[id,action]);
@@ -33,6 +29,8 @@ test('voice requires accepted participants and mutual call consent; stable narro
   const request=await call(a,'public.marriage_request($1)',[b.id]);
   await assert.rejects(start(a,request),/غير متاحة/);
   await call(b,"public.marriage_act($1,'accept')",[request]);
+  await assert.rejects(start(a,request),/غير متاحة/);
+  await signCommunicationAgreement(call,b,a,request);
   await db.exec('delete from realtime.messages');
   const nonce=randomUUID(),ring=await start(a,request,nonce);
   assert.equal(ring.status,'ringing');assert.equal(ring.direction,'outgoing');assert.equal(ring.person.id,b.id);

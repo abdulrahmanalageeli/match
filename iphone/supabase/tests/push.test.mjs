@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
 async function fixture(db) {
  const rpc=async(sql,args=[]) => (await db.query('select '+sql+' as v',args)).rows[0].v;
@@ -10,9 +11,8 @@ async function fixture(db) {
  const add=async(gender)=>{
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test',installation:randomUUID()};
   await addUser(db,u);
-  const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'مثال اختباري',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false}}]);
-  await service("public.marriage_review($1,'approve')",[u.id]);
-  await service('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
+  const appAccountToken=await seedCommunicationMember(db,u,gender);
+  await service('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
   await call(u,'public.marriage_push_register($1,$2,$3)',[u.id.replaceAll('-','').repeat(2),'sandbox',u.installation]);
   return u;
  };
@@ -37,6 +37,7 @@ test('private push queue enforces opt-in, recipient, environment, consent, dedup
   assert.equal(await service("public.marriage_push_finish($1,$2,'sent')",[pending[0].id,randomUUID()]),false);
   await service("public.marriage_push_finish($1,$2,'sent')",[pending[0].id,pending[0].leaseId]);
   await call(b,"public.marriage_act($1,'accept')",[request]);
+  await signCommunicationAgreement(call,a,b,request);
   const mutual=await service("public.marriage_push_claim('sandbox',20)");assert.equal(mutual.length,2);assert(mutual.every(j=>j.kind==='mutual'));
   for(const job of mutual) await service("public.marriage_push_finish($1,$2,'sent')",[job.id,job.leaseId]);
   const client=randomUUID();await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة خاصة يجب ألا تدخل الإشعار',client]);
@@ -59,6 +60,7 @@ test('push stops on opt-out and signout and invalid device is deleted',async()=>
   await call(b,'public.marriage_push_enable(false)');
   assert.equal(await service('public.marriage_push_validate($1,$2)',[queue[0].id,queue[0].leaseId]),false);
   await call(b,'public.marriage_push_enable(true)');await call(b,"public.marriage_act($1,'accept')",[request]);
+  await signCommunicationAgreement(call,a,b,request);
   const mutual=await service("public.marriage_push_claim('sandbox',20)");assert.equal(mutual.length,1);
   const rotatedToken=randomUUID().replaceAll('-','').repeat(2);
   await call(b,'public.marriage_push_register($1,$2,$3)',[rotatedToken,'sandbox',b.installation]);

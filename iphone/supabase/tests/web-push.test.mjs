@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
 test('Web Push shares opt-in queue, isolates devices, rejects unsafe endpoints and revokes on signout', async () => {
  const db = await createDatabase();
@@ -12,9 +13,8 @@ test('Web Push shares opt-in queue, isolates devices, rejects unsafe endpoints a
   const add = async gender => {
    const u = { id: randomUUID(), sessionId: randomUUID(), email: randomUUID() + '@example.test', installation: randomUUID() };
    await addUser(db, u);
-   const state = await call(u, 'public.marriage_apply($1)', [{ displayName: 'اختبار', age: 29, gender, city: 'الرياض', profession: 'مهندس', bio: 'مثال اختباري', contact: u.email, preferredMinAge: 25, preferredMaxAge: 40, familyPreference: '', consentVersion: '2026-11-07-privacy', signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false} }]);
-   await service("public.marriage_review($1,'approve')", [u.id]);
-   await service('public.marriage_record_receipt($1,$2,false)', [u.id, { bundleId: 'com.blindmatch.marriage', productId: 'com.blindmatch.marriage.monthly', appAccountToken: state.user.appAccountToken, originalTransactionId: u.id, transactionId: u.id, signedDate: Date.now(), expiresDate: Date.now() + 86400000, environment: 'Sandbox' }]);
+   const appAccountToken=await seedCommunicationMember(db,u,gender);
+   await service('public.marriage_record_receipt($1,$2,false)', [u.id, { bundleId: 'com.blindmatch.marriage', productId: 'com.blindmatch.marriage.monthly', appAccountToken, originalTransactionId: u.id, transactionId: u.id, signedDate: Date.now(), expiresDate: Date.now() + 86400000, environment: 'Sandbox' }]);
    return u;
   };
   const a = await add('woman'), b = await add('man');
@@ -39,6 +39,7 @@ test('Web Push shares opt-in queue, isolates devices, rejects unsafe endpoints a
   assert.equal((await db.query("select count(*)::int n from marriage.push_devices where environment='web'")).rows[0].n, 1);
   await call(b, 'public.marriage_web_push_register($1,$2)', [sub, b.installation]);
   await call(b, "public.marriage_act($1,'accept')", [request]);
+  await signCommunicationAgreement(call,a,b,request);
   const mutual = await service("public.marriage_push_claim('web',20)"); assert.equal(mutual.length, 1);
   const rotated = { ...sub, keys: { ...sub.keys, auth: 'C'.repeat(22) } };
   await call(b, 'public.marriage_web_push_register($1,$2)', [rotated, b.installation]);

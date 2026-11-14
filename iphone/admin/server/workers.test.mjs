@@ -4,10 +4,10 @@ import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 import {randomUUID} from 'node:crypto';
 
-// Import the actual handlers with only APNs transport replaced. All HTTP is mocked.
+// Import the actual handlers with delivery transports replaced. All HTTP is mocked.
 async function handler(name){
  let source=await readFile(new URL('../api/'+name+'.ts',import.meta.url),'utf8');
- if(name==='push')source=source.replace(/import \{ openApns[^\n]+\n/,'const openApns = (...args) => globalThis.__nisfaynTestApns(...args);\n');
+ if(name==='push')source=source.replace(/import \{ openApns[^\n]+\n/,'const openApns = (...args) => globalThis.__nisfaynTestApns(...args);\n').replace(/import \{ openWebPush[^\n]+\n/,'const openWebPush = () => { throw Error("Unmocked Web Push forbidden"); };\n');
  return (await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'))).default;
 }
 const maintenance=await handler('maintenance'),push=await handler('push'),health=await handler('health');
@@ -62,13 +62,14 @@ test('maintenance deletes only queued exact paths then acknowledges void RPC and
   if(url.endsWith('marriage_gallery_cleanup_batch'))return reply([]);
   if(url.endsWith('marriage_portrait_cleanup_batch'))return reply([]);
   if(url.endsWith('nisfayn_chat_cleanup_batch'))return reply([]);
+  if(url.endsWith('marriage_chat_media_cleanup'))return reply([]);
   if(url.endsWith('marriage_verification_cleanup_batch'))return reply([]);
   if(url.endsWith('marriage_operations_cleanup'))return reply({faultGroups:2,notificationJobs:3,privateDetail:'PRIVATE-DO-NOT-LOG'});
   throw new Error('Unexpected HTTP');
  };
  const response=await invoke(maintenance);assert.equal(response.code,200);assert.equal(response.headers['Cache-Control'],'no-store');
- assert.deepEqual(response.body,{photos:1,portraits:0,chatMedia:0,verificationEvidence:0,faultGroups:2,notificationJobs:3});
- assert.deepEqual(calls.map(c=>c.method),['POST','DELETE','POST','POST','POST','POST','POST','POST']);
+ assert.deepEqual(response.body,{photos:1,portraits:0,chatMedia:0,memberChatMedia:0,verificationEvidence:0,faultGroups:2,notificationJobs:3});
+ assert.deepEqual(calls.map(c=>c.method),['POST','DELETE','POST','POST','POST','POST','POST','POST','POST']);
  assert.deepEqual(calls[1].body,{prefixes:[path]});assert.deepEqual(calls[2].body,{paths:[path]});
  assert(!logs.join().includes(path));assert(!logs.join().includes('PRIVATE'));assert(!logs.join().includes(configured.CRON_SECRET));
 });
@@ -80,7 +81,7 @@ test('maintenance never acknowledges failed Storage removal or unsafe cleanup pa
   assert(!calls.some(url=>url.endsWith('marriage_photo_cleanup_done')));
   assert.equal(calls.length,Array.isArray(paths)&&paths[0].endsWith('.jpg')?2:1);
  }
- globalThis.fetch=async(url)=>url.endsWith('_cleanup_batch')?reply([]):reply({faultGroups:-1,notificationJobs:0});
+ globalThis.fetch=async(url)=>url.endsWith('_cleanup_batch')||url.endsWith('marriage_chat_media_cleanup')?reply([]):reply({faultGroups:-1,notificationJobs:0});
  assert.equal((await invoke(maintenance)).code,503);
 });
 
@@ -94,6 +95,7 @@ test('portrait maintenance removes only exact scoped paths and retains failures 
    if(url.endsWith('/nisfayn-profile-portraits'))return fail?new Response(null,{status:503}):reply([]);
    if(url.endsWith('marriage_portrait_cleanup_done'))return new Response(null,{status:204});
    if(url.endsWith('nisfayn_chat_cleanup_batch'))return reply([]);
+   if(url.endsWith('marriage_chat_media_cleanup'))return reply([]);
    if(url.endsWith('marriage_verification_cleanup_batch'))return reply([]);
    if(url.endsWith('marriage_operations_cleanup'))return reply({faultGroups:0,notificationJobs:0});
    throw Error('Unexpected HTTP');
@@ -115,6 +117,7 @@ test('chat cleanup removes only exact queued objects and acknowledges only succe
    calls.push({url,body:JSON.parse(options.body)});
    if(url.endsWith('nisfayn_chat_cleanup_batch'))return reply([path]);
    if(url.endsWith('_cleanup_batch'))return reply([]);
+   if(url.endsWith('marriage_chat_media_cleanup'))return reply([]);
    if(url.endsWith('/nisfayn-test-chat'))return fail?new Response(null,{status:503}):reply([]);
    if(url.endsWith('nisfayn_chat_cleanup_done'))return new Response(null,{status:204});
    if(url.endsWith('marriage_operations_cleanup'))return reply({faultGroups:0,notificationJobs:0});
@@ -129,6 +132,32 @@ test('chat cleanup removes only exact queued objects and acknowledges only succe
  for(const invalid of ['reham/../private','reham/','other/'+randomUUID()]){
   const calls=[];globalThis.fetch=async url=>{calls.push(url);return reply(url.endsWith('nisfayn_chat_cleanup_batch')?[invalid]:[]);};
   assert.equal((await invoke(maintenance)).code,503);assert(!calls.some(url=>url.includes('/storage/')));
+ }
+});
+
+test('member chat cleanup validates exact paths and acknowledges only successful removal',async()=>{
+ const path=randomUUID()+'/'+randomUUID()+'/'+randomUUID();
+ for(const fail of [false,true]){
+  const calls=[];globalThis.fetch=async(url,options)=>{
+   const body=JSON.parse(options.body);calls.push({url,method:options.method,body});
+   if(url.endsWith('_cleanup_batch'))return reply([]);
+   if(url.endsWith('marriage_chat_media_cleanup'))return reply(body.paths?[]:[path]);
+   if(url.endsWith('/nisfayn-member-chat'))return fail?new Response(null,{status:503}):reply([]);
+   if(url.endsWith('marriage_operations_cleanup'))return reply({faultGroups:0,notificationJobs:0});
+   throw Error('Unexpected HTTP');
+  };
+  const result=await invoke(maintenance);assert.equal(result.code,fail?503:200);
+  assert.deepEqual(calls.find(c=>c.url.endsWith('/nisfayn-member-chat')).body,{prefixes:[path]});
+  const acknowledgements=calls.filter(c=>c.url.endsWith('marriage_chat_media_cleanup')&&c.body.paths);
+  assert.equal(acknowledgements.length,fail?0:1);
+  if(!fail){assert.deepEqual(acknowledgements[0].body,{paths:[path]});assert.equal(result.body.memberChatMedia,1);}
+  assert(!logs.join().includes(path));
+ }
+ for(const paths of [['../'+path],[path+'/'],[randomUUID()+'/'+randomUUID()],[path+'.jpg'],[null],Array(31).fill(path),{path}]){
+  const calls=[];globalThis.fetch=async(url,options)=>{calls.push({url,body:JSON.parse(options.body)});return reply(url.endsWith('marriage_chat_media_cleanup')?paths:[]);};
+  assert.equal((await invoke(maintenance)).code,503);
+  assert(!calls.some(c=>c.url.includes('/storage/')));
+  assert(!calls.some(c=>c.url.endsWith('marriage_chat_media_cleanup')&&c.body.paths));
  }
 });
 

@@ -151,6 +151,7 @@ async function fixture(browser) {
     await run('delayed accept after provider unmount never joins',async f=>{
       await f.incoming();const pending=await f.hold('accept');await f.button('قبول المكالمة').click();await f.requested(pending);
       await f.page.evaluate(()=>window.__voiceRace.changeOwner('owner-b'));
+      await f.page.waitForFunction(()=>window.__voiceRace.apiLog.some(x=>x.method==='state'&&x.owner==='owner-b'));
       await f.page.evaluate(id=>{const p=window.__voiceRace;p.complete(id,p.call('incoming-fixture','active'));},pending);
       await f.assertNoJoin();assert.equal(await f.page.locator('.nf-call[open]').count(),0);
       assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length>=2),true);

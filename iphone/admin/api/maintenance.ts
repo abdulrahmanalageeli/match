@@ -49,6 +49,14 @@ export default async function maintenance(req: VercelRequest,res: VercelResponse
       if(!removed.ok)throw new Error("chat_cleanup_unavailable");
       await call("/rest/v1/rpc/nisfayn_chat_cleanup_done",{paths:chatPaths});
     }
+    const memberChatPaths:unknown=await call("/rest/v1/rpc/marriage_chat_media_cleanup",{});
+    const memberChatPath=new RegExp("^"+uuid+"/"+uuid+"/"+uuid+"$");
+    if(!Array.isArray(memberChatPaths)||memberChatPaths.length>30||memberChatPaths.some(path=>typeof path!=="string"||!memberChatPath.test(path)))throw new Error("invalid_member_chat_cleanup_batch");
+    if(memberChatPaths.length){
+      const removed=await fetch(NISFAYN_SUPABASE_URL+"/storage/v1/object/nisfayn-member-chat",{method:"DELETE",headers,body:JSON.stringify({prefixes:memberChatPaths}),signal:AbortSignal.timeout(12000)});
+      if(!removed.ok)throw new Error("member_chat_cleanup_unavailable");
+      await call("/rest/v1/rpc/marriage_chat_media_cleanup",{paths:memberChatPaths});
+    }
     const verificationPaths:unknown=await call("/rest/v1/rpc/marriage_verification_cleanup_batch",{});
     const verificationPath=new RegExp("^"+uuid+"/"+uuid+"\\.(jpg|png|pdf)$");
     if(!Array.isArray(verificationPaths)||verificationPaths.length>100||verificationPaths.some(path=>typeof path!=="string"||!verificationPath.test(path)))throw new Error("invalid_verification_cleanup_batch");
@@ -59,7 +67,7 @@ export default async function maintenance(req: VercelRequest,res: VercelResponse
     }
     const cleaned=await call("/rest/v1/rpc/marriage_operations_cleanup",{});
     if(!cleaned||![cleaned.faultGroups,cleaned.notificationJobs].every(value=>Number.isSafeInteger(value)&&value>=0))throw new Error("invalid_cleanup_counts");
-    const counts={photos:paths.length,portraits:portraitPaths.length,chatMedia:chatPaths.length,verificationEvidence:verificationPaths.length,faultGroups:cleaned.faultGroups,notificationJobs:cleaned.notificationJobs};
+    const counts={photos:paths.length,portraits:portraitPaths.length,chatMedia:chatPaths.length,memberChatMedia:memberChatPaths.length,verificationEvidence:verificationPaths.length,faultGroups:cleaned.faultGroups,notificationJobs:cleaned.notificationJobs};
     console.info(JSON.stringify({event:"nisfayn_maintenance",...counts}));
     return res.status(200).json(counts);
   }catch{

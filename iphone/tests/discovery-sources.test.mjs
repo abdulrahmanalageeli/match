@@ -168,6 +168,9 @@ test('paired discovery honors actual interests, work filters and combined orderi
   assert.equal(all.at(-1).id, 'abdulrahman');
   assert.deepEqual(all.at(-1).interests, ['الطبخ']);
   assert(!(await source.discover({ mode: 'all', interest: 'reading' })).some(row => row.id === 'abdulrahman'));
+  assert((await source.discover({ mode: 'all', interest: 'cooking' })).some(row => row.id === 'abdulrahman'));
+  assert(!(await source.discover({ mode: 'all', maxAge: 40 })).some(row => row.id === 'abdulrahman'));
+  assert(!(await source.discover({ mode: 'all', search: 'اسم غير موجود' })).some(row => row.id === 'abdulrahman'));
   assert(!(await source.discover({ mode: 'all', interest: 'cooking', work: 'B' })).some(row => row.id === 'abdulrahman'), 'Private peer survey answers are unavailable for this filter');
   assert(!(await source.discover({ mode: 'all', work: 'A' })).some(row => row.id === 'abdulrahman'));
   assert.deepEqual((await source.discover({ mode: 'all', sort: 'youngest', offset: 1 })).map(row => row.id), all.slice(1).map(row => row.id));

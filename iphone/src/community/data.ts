@@ -505,7 +505,7 @@ function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
 
 export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => group.map((seed,index) => {
   const woman = genderIndex === 1;
-  const menPhotos = ['fahad','saud','yasser','','nawaf','abdullah'];
+  const menPhotos = ['fahad','saud','yasser','','nawaf','abdullah','omar','','','','','salman'];
   const womenPhotos = ['sarah','lulwa','noura','amal','hind','manal'];
   const photo = woman ? womenPhotos[index] : menPhotos[index];
   const tone = (['tone_3','tone_5','tone_2','tone_7','tone_4','tone_6'] as const)[index%6];

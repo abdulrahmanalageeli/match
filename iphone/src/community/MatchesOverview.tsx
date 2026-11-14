@@ -24,7 +24,8 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
   const [query, setQuery] = useState('');
   const accepted = connections.filter(row => row.status === 'accepted').length;
   const incoming = connections.filter(row => row.status === 'pending' && row.direction === 'incoming').length;
-  const counts = { all: connections.length, accepted, incoming, outgoing: connections.filter(row => row.status === 'pending' && row.direction === 'outgoing').length };
+  const outgoing = connections.filter(row => row.status === 'pending' && row.direction === 'outgoing').length;
+  const counts = { all: connections.length, accepted, incoming, outgoing };
   const search = query.trim().normalize('NFKC');
   const rows = connections.filter(row => (filter === 'all' || (filter === 'accepted' ? row.status === 'accepted' : row.status === 'pending' && row.direction === filter))
     && (!search || row.person.alias.normalize('NFKC').includes(search)))
@@ -37,7 +38,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
     </MotionReveal>
     <MotionReveal className="mo-summary" delay={60} distance={8}>
       <span className="mo-summary-symbol"><Heart size={23} strokeWidth={1.4}/></span>
-      <div><strong>{accepted ? `${number.format(accepted)} تعارف حالي` : 'لا يوجد تعارف حالي'}</strong><span>{accepted >= 2 ? 'وصلت إلى الحد الأقصى: تعارفان متزامنان' : accepted ? 'يمكنك بدء تعارف آخر' : 'يمكنك بدء تعارفين في الوقت نفسه'}</span></div>
+      <div><strong>{accepted ? `${number.format(accepted)} تعارف حالي` : incoming ? `${number.format(incoming)} طلب بانتظارك` : outgoing ? `${number.format(outgoing)} طلب بانتظار الرد` : 'لا يوجد تعارف حالي'}</strong><span>{accepted >= 2 ? 'وصلت إلى الحد الأقصى: تعارفان متزامنان' : incoming ? 'راجع الطلب وخذ وقتك في القرار' : outgoing ? 'سنخبرك عندما يصل الرد' : accepted ? 'يمكنك بدء تعارف آخر' : 'يمكنك بدء تعارفين في الوقت نفسه'}</span></div>
       <span className="mo-capacity" aria-label={`${accepted} من أصل تعارفين`}><i data-filled={accepted > 0 || undefined}/><i data-filled={accepted > 1 || undefined}/></span>
     </MotionReveal>
     <div className="mo-filters" role="group" aria-label="تصفية التعارف">

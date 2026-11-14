@@ -37,6 +37,10 @@
   aspect-ratio: 1 / 1.02; color: white; background: #624151; width: 100%;
 }
 .df-portrait-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
+.df-demo-image { opacity: 0; transition: opacity 320ms ease; }
+.df-demo-image[data-loaded] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .df-demo-image { transition: none; } }
+html[data-nf-motion="reduced"] .df-demo-image { transition: none; }
 .df-portrait-placeholder { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 30% 30%, #f4e7dd 0, #e7d1cb 48%, #a96f80 100%); }
 .df-portrait-placeholder::before { content: ""; width: 65%; aspect-ratio: 1; position: absolute; border: 1px solid #fff5e68c; border-radius: 50%; box-shadow: 0 0 0 20px #fff6ed22, 0 0 0 21px #fff5e640; }
 .df-portrait-placeholder .cm-avatar.large { width: 92px; height: 105px; margin-bottom: 53px; background: #5a0f28; color: #fff5e9; box-shadow: 0 20px 45px #5a0f2821; }

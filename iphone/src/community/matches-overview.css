@@ -19,15 +19,15 @@
 .mo-search { display: flex; align-items: center; gap: 8px; margin: 18px 0 5px; border: 1px solid #d8d4d1; border-radius: 10px; padding: 12px; color: var(--muted); background: var(--surface); }
 .mo-search input { min-width: 0; flex: 1; border: 0; background: transparent; font: inherit; font-size: 15px; color: var(--ink); outline: none; }
 .mo-search:focus-within { border-color: var(--accent-fill); }
-.mo-list { display: grid; gap: 0; }
-.mo-card { border-bottom: 1px solid #ddd8d5; background: transparent; padding: 24px 0; }
+.mo-list { display: grid; gap: 12px; }
+.mo-card { border: 1px solid #e7e2df; border-radius: 14px; background: var(--surface); padding: 15px; box-shadow: 0 3px 13px #2f1b2008; }
 .mo-card-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .mo-card-status > span { display: flex; align-items: center; gap: 6px; }
 .mo-card[data-current] .mo-card-status > span { color: #536b50; }
 .mo-card-status > span[data-waiting] { color: var(--accent-fill); font-weight: 600; }
 .mo-card-status time { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.mo-profile { display: flex; align-items: center; gap: 16px; border: 0; background: transparent; width: 100%; padding: 18px 0; text-align: start; color: var(--ink); font: inherit; cursor: pointer; }
-.mo-avatar.cm-avatar { width: 70px; height: 84px; border-radius: 12px; background: #e9e4e2; color: var(--accent-fill); box-shadow: none; border: 0; }
+.mo-profile { display: flex; align-items: center; gap: 14px; border: 0; background: transparent; width: 100%; padding: 13px 0; text-align: start; color: var(--ink); font: inherit; cursor: pointer; }
+.mo-avatar.cm-avatar { width: 62px; height: 72px; border-radius: 10px; background: #e9e4e2; color: var(--accent-fill); box-shadow: none; border: 0; }
 .mo-avatar.cm-avatar::before { display: none; }
 .mo-avatar > b { font-size: 26px; font-weight: 500; }
 .mo-identity { display: grid; gap: 5px; min-width: 0; flex: 1; }

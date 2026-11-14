@@ -44,7 +44,6 @@ import {
   ChevronLeft,
   Compass,
   Flag,
-  Eye,
   EyeOff,
   Heart,
   Inbox as InboxIcon,
@@ -171,11 +170,6 @@ const practicalQuestions = [
   ['الأطفال والمسؤوليات السابقة', 'ما تصورك للأطفال وتوقيتهم؟ وإن كانت لأحدنا مسؤوليات أسرية سابقة، كيف نحترمها معًا؟'],
   ['الوتيرة والحدود', 'ما وتيرة التواصل التي تريحك؟ وما الذي تحتاج أن تعرفه قبل الخطوة العائلية أو الالتزام الحصري؟'],
 ];
-
-function ProfileVisitNotice({ interest = false, compact = false }: { interest?: boolean; compact?: boolean }) {
-  if (compact) return <p className="cm-awareness"><Eye size={16} aria-hidden="true"/><span>قد تظهر زيارتك لصاحب الملف.{interest && ' زر «مهتم» يرسل إشعارًا، ولا يفتح محادثة.'}</span></p>;
-  return <p className="cm-awareness"><Eye size={18} aria-hidden="true"/><span>فتح الملف قد يُظهر لصاحبه زيارة باسمك.{interest && ' زر «مهتم» يرسل إشعارًا باهتمامك؛ لا يحفظ الملف بشكل خاص.'} الزيارة والاهتمام لا يفتحان محادثة.</span></p>;
-}
 
 function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
   return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذا بلاغ تجريبي عن شخصية توضيحية.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
@@ -460,13 +454,15 @@ function CompatibilityPill({ person }: { person: PublicPerson }) {
 }
 
 function DiscoveryPortrait({ person, source, priority = false, heading = false }: { person: PublicPerson; source: CommunitySource; priority?: boolean; heading?: boolean }) {
-  const [failed, setFailed] = useState(false);
+  const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
+  const [photoReadySrc, setPhotoReadySrc] = useState<string | null>(null);
   const avatar = person.publicAvatar;
-  const photo = !avatar && person.demoPhoto?.startsWith("/demo/portraits/") && !failed ? person.demoPhoto : undefined;
+  const candidatePhoto = !avatar && person.demoPhoto?.startsWith("/demo/portraits/") ? person.demoPhoto : undefined;
+  const photo = candidatePhoto && candidatePhoto !== failedPhotoSrc ? candidatePhoto : undefined;
   return <>
-    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
+    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
-      alt={`صورة مولّدة لشخصية ${person.alias} التوضيحية`} onError={() => setFailed(true)} /> :
+      alt={`صورة مولّدة لشخصية ${person.alias} التوضيحية`} onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
     <div className="df-portrait-badges"><CompatibilityPill person={person} />
@@ -780,7 +776,7 @@ function Discovery({
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
             <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
-          <p className="cm-help"><LockKeyhole size={14} />{person.connectionId ? "تواصل خاص بينكما." : person.atCapacity || person.viewerAtCapacity ? "الحد الأقصى تعارفان متزامنان. يمكنك العودة لاحقًا." : "لن تُفتح المحادثة إلا بعد قبول الطرف الآخر."}</p>
+          {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />الحد الأقصى تعارفان متزامنان. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
         </>}
       />
@@ -884,7 +880,7 @@ function Discovery({
       {more && <button className="btn-secondary dr-more" disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?"جارٍ التحميل…":"اكتشف المزيد"}<ArrowDown size={16}/></button>}
       {!!list.length && !loading && <footer className="df-feed-end"><h2>{order === 'all' ? 'هذه الملفات المتاحة حاليًا' : 'هذه ترشيحاتك لهذا الأسبوع'}</h2>
         <p>{order === "all" ? "يمكنك تعديل التصفية لرؤية ملفات أخرى تناسب تفضيلاتك." : "اختر «جميع الملفات» لرؤية المزيد، أو عدّل التصفية لتوسيع بحثك."}</p>
-        <small><LockKeyhole size={12} /> تبدأ المحادثة بعد قبول الطرفين.</small></footer>}
+        </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
       {fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
@@ -1507,6 +1503,7 @@ function Requests({
   onCompletion,
   discoveryUnavailable = false,
   onBrowse,
+  onMatches,
 }: {
   source: CommunitySource;
   onChatChange: (chat: boolean) => void;
@@ -1522,6 +1519,7 @@ function Requests({
   onCompletion?: () => void;
   discoveryUnavailable?: boolean;
   onBrowse: () => void;
+  onMatches?: () => void;
 }) {
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
   const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean}|null>(null);
@@ -1884,7 +1882,6 @@ function Requests({
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
     <header className="cm-header"><Brand /></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
-    <ProfileVisitNotice/>
     {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
     {notice && <Banner text={notice}/>}
     <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
@@ -1955,6 +1952,7 @@ function Requests({
           }
           action={search ? <button className="btn-secondary" onClick={() => setQuery('')}>مسح البحث</button> :
             conversations && onlyUnread ? <button className="btn-secondary" onClick={() => setOnlyUnread(false)}>عرض كل المحادثات</button> :
+            conversations && list.some(row => row.status === 'pending') && onMatches ? <button className="btn-secondary" onClick={onMatches}>متابعة طلبات التعارف</button> :
             <button className="btn-secondary" onClick={onBrowse}>{discoveryUnavailable ? 'مراجعة حالة الترشيحات' : 'الذهاب إلى الاستكشاف'}</button>}
         />
       )}
@@ -2047,6 +2045,7 @@ export function Community(props: CommunityProps) {
       ) : (
         <Requests key={tab} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
+          onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
           openRoom={props.openRoom} openAgreement={props.openAgreement}

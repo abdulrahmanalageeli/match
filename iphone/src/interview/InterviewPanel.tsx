@@ -424,7 +424,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     <div className="wi-shell">
       <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>لونا من وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','clarify','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
       <div className="wi-content" data-chat={isChat || undefined}>
-        {!loaded ? <div className="wi-loading" role="status"><TypingDots/><p>نفتح جلستك…</p>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
+        {!loaded ? <div className="wi-loading" role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>نفتح جلستك…</p><TypingDots/>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
         : !doc ? <section className="wi-welcome">
           <span className="wi-welcome-emblem" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="42" height="49" alt=""/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>نتعرّف إليك، بكلماتك.</h1>

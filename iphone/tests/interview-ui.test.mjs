@@ -6,6 +6,7 @@ import ts from 'typescript';
 import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
+import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const code = compile(await readFile(new URL('../src/interview/InterviewPanel.tsx', import.meta.url), 'utf8'));
@@ -64,6 +65,7 @@ function mount(initial, intercept = () => null) {
       proposalStatement: item => item.kind==='personality' ? personalityCatalog.find(question=>question.id===item.fieldId)?.prompt??'' : '',
     };
     if (name === './catalog.json') return { default: topics };
+    if (name === './opening-scenarios.json') return { default: openingScenarios };
     if (name === './profileCapture') return profileHelpers;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected import ${name}`);
@@ -112,7 +114,7 @@ test('the first turn invites one rich introduction before switching to compact g
   assert.equal(input.props.rows,4);
   assert.match(input.props.placeholder,/عرّفنا عن نفسك/);
   assert.match(textOf(tree),/عنّك.*حياتك اليوم.*الشريك الذي تبحث عنه.*استعدادك للزواج/);
-  assert.match(textOf(tree),/فقرة واحدة.*نسأل فقط عمّا بقي/);
+  assert.match(textOf(tree),/فقرة قصيرة.*تكتب نبذة ملفك لاحقًا/);
   find(tree,'كيف أبدأ؟').props.onClick();tree=ui.render();
   assert.match(textOf(tree),/ما يعنيه لك الزواج الجاد والخطوة الرسمية/);
   ui.unmount();

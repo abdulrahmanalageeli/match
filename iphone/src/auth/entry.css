@@ -21,20 +21,18 @@
 .phone-app .nf-auth-frame .nf-auth-hero h1 { margin: 0; color: var(--auth-ink); font-size: 30px; font-weight: 700; line-height: 1.4; letter-spacing: normal; }
 .phone-app .nf-auth-frame .nf-auth-hero h1:focus { outline: none; }
 .phone-app .nf-auth-frame .nf-auth-hero .flow-intro { max-width: 34ch; color: var(--auth-muted); font-size: 15px; line-height: 1.8; margin: 10px 0 0; }
-.nf-auth-brief { margin-top: 22px; padding: 16px; border: 1px solid #e4dde0; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px #4d1b2b09; }
-.nf-auth-brief > p:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 13px; }
+.nf-auth-brief { margin-top: 18px; padding: 13px 16px; border: 1px solid #e4dde0; border-radius: 16px; background: #fff; }
+.nf-auth-brief > p:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 7px; }
 .nf-auth-brief > p:first-child strong { color: var(--auth-ink); font-size: 14px; font-weight: 650; }
-.nf-auth-brief > p:first-child span { color: var(--auth-muted); font-size: 11px; white-space: nowrap; }
-.nf-auth-brief ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
-.nf-auth-brief li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 7px; min-width: 0; padding-inline: 9px; border-inline-start: 1px solid var(--auth-line); }
-.nf-auth-brief li:first-child { padding-inline-start: 0; border-inline-start: 0; }
-.nf-auth-brief li:last-child { padding-inline-end: 0; }
-.nf-auth-brief li > svg { margin-top: 2px; color: #6b2039; }
-.nf-auth-brief li span { min-width: 0; }
-.nf-auth-brief li strong, .nf-auth-brief li small { display: block; }
-.nf-auth-brief li strong { color: #3b2c34; font-size: 12px; font-weight: 650; line-height: 1.55; }
-.nf-auth-brief li small { margin-top: 2px; color: var(--auth-muted); font-size: 10px; line-height: 1.55; }
-.nf-auth-brief .nf-auth-price { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--auth-line); color: #665b62; font-size: 11px; line-height: 1.75; }
+.nf-auth-brief > p:first-child span { color: var(--auth-muted); font-size: 11px; text-align: end; }
+.nf-auth-brief ul { display: grid; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
+.nf-auth-brief li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 9px; min-width: 0; padding: 6px 0; border-block-start: 1px solid #f0ebed; }
+.nf-auth-brief li:first-child { border-block-start: 0; }
+.nf-auth-brief li > svg { width: 16px; height: 16px; color: #6b2039; }
+.nf-auth-brief li span { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.nf-auth-brief li strong { color: #3b2c34; font-size: 13px; font-weight: 650; line-height: 1.55; }
+.nf-auth-brief li small { color: var(--auth-muted); font-size: 11px; line-height: 1.55; }
+.nf-auth-brief .nf-auth-price { margin: 7px 0 0; padding-top: 8px; border-top: 1px solid var(--auth-line); color: #5f545a; font-size: 11px; line-height: 1.65; }
 .phone-app .nf-auth-frame .nf-auth-panel { min-width: 0; padding: 0; gap: 14px; background: none; border: 0; box-shadow: none; }
 .phone-app .nf-auth-frame .flow-form { gap: 22px; }
 .nf-auth-input-group { min-width: 0; overflow: hidden; border-radius: 16px; background: #fff; }
@@ -79,11 +77,7 @@
 .nf-auth-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 360px) {
   .phone-app .nf-auth-frame .nf-auth-hero h1 { font-size: 28px; }
-  .nf-auth-brief { padding: 14px; }
+  .nf-auth-brief { padding: 12px; }
   .nf-auth-brief > p:first-child { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .nf-auth-brief > p:first-child span { white-space: normal; }
-  .nf-auth-brief li { grid-template-columns: 20px minmax(0, 1fr); gap: 5px; padding-inline: 6px; }
-  .nf-auth-brief li > svg { width: 16px; height: 16px; }
-  .nf-auth-brief li strong { font-size: 11px; }
-  .nf-auth-brief li small { font-size: 9px; }
+  .nf-auth-brief > p:first-child span { text-align: start; }
 }

@@ -349,5 +349,14 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
 .wi-send:not(:disabled) { transition:background .18s,transform .15s; box-shadow:0 2px 8px #68213c17; }
 .wi-send:not(:disabled):active { transform:scale(.94); }
 .wi-typing .wi-loading-dots { padding-inline:3px; }
+.wi-loading { gap: 8px; }
+.wi-loading-brand { display:grid; place-items:center; width:68px; height:68px; border:1px solid #eee5e8; border-radius:22px; background:#faf6f7; animation:wi-loading-breathe 2.2s ease-in-out infinite; }
+.wi-loading-brand img { display:block; width:48px; height:48px; object-fit:contain; }
+.wi-loading p { margin:7px 0 0; color:#58243a; font-size:14px; font-weight:600; }
+.wi-loading .wi-loading-dots { color:#a47b8d; }
+@keyframes wi-loading-breathe { 0%,100% { transform:scale(1); opacity:.88; } 50% { transform:scale(1.035); opacity:1; } }
+@media(max-width:600px) { .wi-loading { min-height:calc(100dvh - 76px); } }
+@media(prefers-reduced-motion:reduce) { .wi-loading-brand { animation:none; } }
+html[data-nf-motion=reduced] .wi-loading-brand { animation:none; }
 @keyframes wi-focus-light { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:scale(1); } }
 @media(prefers-reduced-motion:reduce){.wi-compose-row,.wi-compose-row::before,.wi-send:not(:disabled){animation:none;transition:none}}

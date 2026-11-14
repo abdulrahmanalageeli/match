@@ -8,6 +8,7 @@ import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { cloud, callRpc } from '../cloud';
 import { createAccountDraftStorage } from './accountDraftStorage';
+import { validReadiness } from './membershipReadiness';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -26,7 +27,8 @@ function validAnswers(value: unknown): value is Answers {
     const text = value[key];
     if (typeof text !== "string" || text.length > limit) return false;
   }
-  const extraFields = ["gender", "interestIds", "surveyAnswers", "assessmentVersion", "hardRequirements", "priorityCategories", "marriageBasics", "partnerCriteria", "personalityAnswers", "personalityVersion", "publicAvatar", "appearanceVersion", "beena"];
+  const extraFields = ["gender", "interestIds", "surveyAnswers", "assessmentVersion", "hardRequirements", "priorityCategories", "marriageBasics", "partnerCriteria", "personalityAnswers", "personalityVersion", "publicAvatar", "appearanceVersion", "beena", "membershipReadiness"];
+  if (value.membershipReadiness !== undefined && !validReadiness(value.membershipReadiness)) return false;
   if (value.beena != null && !validBeenaProfile(value.beena)) return false;
   for (const [key, limit] of Object.entries(optionalTextLimits)) {
     if (value[key] !== undefined && (typeof value[key] !== "string" || value[key].length > limit)) return false;

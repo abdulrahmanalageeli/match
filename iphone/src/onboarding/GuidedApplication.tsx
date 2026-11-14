@@ -40,6 +40,8 @@ import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
 import type { SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
+import { ReadinessStep } from './ReadinessStep';
+import { readinessComplete, readinessConflicts, type MembershipReadiness as Readiness } from './membershipReadiness';
 
 export type { ApplicationDraft } from "./draft";
 
@@ -51,7 +53,7 @@ type Props = {
   busy: boolean;
   back: () => void;
   onPrivacy: () => void;
-  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[]) => void;
+  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:Readiness) => void;
   portraitSource?:CommunitySource|null;
   preview?:boolean;
   exitPreview?: () => void;
@@ -65,7 +67,7 @@ type Props = {
   defaultContact?: string;
 };
 
-const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, review: CheckCheck };
+const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, readiness: ShieldCheck, review: CheckCheck };
 const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
 const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
   identity:['displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
@@ -81,7 +83,7 @@ const registrationMilestones = [
   { key: 'details', label: 'تفاصيلك', chapters: ['details'] },
   { key: 'criteria', label: 'معايير الشريك', chapters: ['criteria', 'preferences'] },
   { key: 'profile', label: 'ملفك وصورتك', chapters: ['story', 'avatar'] },
-  { key: 'review', label: 'المراجعة', chapters: ['review'] },
+  { key: 'review', label: 'المراجعة', chapters: ['readiness','review'] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; chapters: readonly Chapter[] }>;
 
 function withDefaultContact(draft: ApplicationDraft, value?: string): ApplicationDraft {
@@ -269,8 +271,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const previousStep = useRef(draft.step);
   const direction = useRef<"next" | "back">("next");
   const editing = Boolean(initial);
-  const registrationOrder: Chapter[] = ['identity','compatibility','details','criteria','preferences','story','avatar','review'];
-  const steps = (editing ? chapters : registrationOrder.map(key => chapters.find(entry => entry.key === key)!)).filter(entry => includeCompatibility || !['compatibility','criteria','personality','beena'].includes(entry.key));
+  const registrationOrder: Chapter[] = ['identity','compatibility','details','criteria','preferences','story','avatar','readiness','review'];
+  const steps = (editing ? chapters.filter(entry => entry.key !== 'readiness') : registrationOrder.map(key => chapters.find(entry => entry.key === key)!))
+    .filter(entry => includeCompatibility || !['compatibility','criteria','personality','beena','readiness'].includes(entry.key));
   const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
   const chapter = steps[idx];
   const milestones = registrationMilestones.filter(milestone => milestone.chapters.some(key => steps.some(step => step.key === key)));
@@ -426,7 +429,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }
   function update(values: Partial<Answers>) {
     if (error && error.field in values) setError(null);
-    commit({ answers: { ...current.current.answers, ...values }, consent: false });
+    const previous = current.current.answers;
+    const next = { ...previous, ...values };
+    if (next.membershipReadiness && (previous.familyPreference !== next.familyPreference ||
+      previous.surveyAnswers?.marriage_timeline !== next.surveyAnswers?.marriage_timeline)) {
+      next.membershipReadiness = { ...next.membershipReadiness, clarifications: {} };
+    }
+    commit({ answers: next, consent: false });
   }
   function applyCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
     confirmedProfileProposals.current=document.profileConfirmed ?? proposals;
@@ -480,6 +489,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (busy||photoBusy) return;
     if (usesBasicSlides && basicSlides.current?.advance()) return;
     const agreed=consents.adult&&consents.terms&&consents.privacy;
+    const readiness = p.membershipReadiness ?? {};
+    const conflicts = readinessConflicts(readiness, p.familyPreference, p.surveyAnswers?.marriage_timeline);
+    if (!editing && includeCompatibility && ['readiness','review'].includes(chapter.key) && !readinessComplete(readiness, conflicts)) {
+      if (chapter.key !== 'readiness') move('readiness', true);
+      setError({ field:'membershipReadiness', text:'أجب عن الموقفين وراجع أي توضيح، ثم وافق على اتفاق العضوية.' });
+      return;
+    }
     if(!editing && includeCompatibility && ['compatibility','criteria','review'].includes(chapter.key)) {
       if(!consents.assessment){setError({field:'consent',text:'جلسة التوافق جزء أساسي من إعداد الملف. راجع موافقة التحليل لنبدأ.'});if(chapter.key!=='compatibility')move('compatibility');return;}
       if(!demo&&!preview&&!aiComplete&&!fallbackAvailable){if(chapter.key!=='compatibility')move('compatibility');setError({field:'surveyAnswers',text:'أكمل جلسة التوافق واعتمد ملخصك أولًا.'});setInterviewOpen(true);return;}
@@ -507,7 +523,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if(portraitChange&&portraitPolicy!==undefined&&portraitChange.revealPolicy!==portraitPolicy){move('avatar',true);setError({field:'portrait',text:'لم يكتمل تجهيز إعداد الصورة الجديد. أعيدي اختيار الصورة قبل الحفظ.'});return;}
       if(portraitPolicy&&portraitPolicy!=='never'&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة استخدام الصورة قبل تفعيل كشفها.'});return;}
       const profile=applyConsentChoices(toProfile(reviewAnswers),consents);
-      save(profile,portraitChange,portraitPolicy,buildProfileAnswerProvenance(profile,confirmedProfileProposals.current,interviewVersion.current));
+      save(profile, portraitChange, portraitPolicy, buildProfileAnswerProvenance(profile, confirmedProfileProposals.current, interviewVersion.current),
+        !editing && includeCompatibility ? readiness : undefined);
     } else if (editing && !draft.returnToReview) {
       setEditorHome(true); window.scrollTo(0, 0);
     } else {
@@ -622,7 +639,12 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
+              {chapter.key === 'readiness' && <div data-field="membershipReadiness" tabIndex={-1}>
+                <ReadinessStep value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline}
+                  onChange={membershipReadiness => update({ membershipReadiness })}/>
+              </div>}
               {chapter.key === "review" && <>
+                {!editing && includeCompatibility && <button type="button" className="nf-intake-policy" onClick={() => move('readiness', true)}>مراجعة جاهزيتي واتفاق العضوية</button>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
                 {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>{preview || demo ? 'راجع تفاصيلك وخيارات الخصوصية، ثم أكمل إعداد ملفك.' : 'أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.'}</p></div></div>}
                 <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>

@@ -1,0 +1,23 @@
+.nf-readiness-intake { display: grid; gap: 13px; }
+.nf-readiness-private { display:flex; align-items:center; gap:7px; margin:0; color:#705461; font-size:.82rem; }
+.nf-readiness-card { min-inline-size:0; padding:16px; background:#fff; border:1px solid #eadfe3; border-radius:16px; color:#382a32; }
+.nf-readiness-card fieldset { display:grid; gap:7px; border:0; padding:0; margin:0; min-inline-size:0; }
+.nf-readiness-card legend { margin-block-end:10px; font-weight:700; line-height:1.65; }
+.nf-readiness-card fieldset button { display:flex; align-items:center; justify-content:space-between; gap:8px; border:1px solid #eadfe3; border-radius:10px; min-block-size:44px; padding:8px 11px; text-align:start; color:inherit; background:#fff; font:inherit; font-size:.9rem; cursor:pointer; }
+.nf-readiness-card fieldset button[aria-pressed=true] { background:#faf2f5; border-color:#a46781; color:#651e3a; }
+.nf-readiness-card :is(button, input, summary):focus-visible { outline:2px solid #963e64; outline-offset:2px; }
+.nf-readiness-card svg { flex-shrink:0; }
+.nf-readiness-clarify { background:#fbf5f7; padding:12px; margin-block-start:12px; border-radius:12px; }
+.nf-readiness-clarify > small { display:flex; align-items:center; gap:5px; color:#793451; margin-block-end:6px; }
+.nf-readiness-clarify legend { font-size:.9rem; }
+.nf-readiness-summary summary, .nf-readiness-agreement h3 { display:flex; gap:8px; align-items:center; font-size:.95rem; font-weight:700; margin:0; color:#651e3a; }
+.nf-readiness-summary summary { cursor:pointer; list-style:none; }
+.nf-readiness-summary summary svg:last-child { margin-inline-start:auto; }
+.nf-readiness-summary dl { margin:10px 0 0; }
+.nf-readiness-summary dl div { border-top:1px solid #eee4e8; padding:8px 0; }
+.nf-readiness-summary dt { font-size:.8rem; color:#705461; }
+.nf-readiness-summary dd { margin:2px 0 0; font-size:.92rem; }
+.nf-readiness-summary p,.nf-readiness-agreement li { font-size:.85rem; line-height:1.7; }
+.nf-readiness-agreement ul { padding-inline-start:18px; margin:9px 0; }
+.nf-readiness-agreement label { display:flex; align-items:center; flex-direction:row; gap:9px; min-block-size:44px; border-top:1px solid #eee4e8; margin:0; font-weight:650; }
+.nf-readiness-agreement input { width:20px; height:20px; accent-color:#651e3a; }

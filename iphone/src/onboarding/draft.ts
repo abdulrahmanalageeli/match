@@ -6,6 +6,7 @@ import { personalityVersion, personalityQuestions } from "../compatibility/perso
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
+import type { MembershipReadiness } from './membershipReadiness';
 
 export const chapters = [
   { key: "identity", label: "الأساسيات", title: "يا هلا، خلّنا نتعرّف عليك", note: "وش الاسم اللي تحب تظهر فيه؟ نبدأ بمعلوماتك الأساسية، وبعدها نأخذ راحتنا في التفاصيل." },
@@ -17,6 +18,7 @@ export const chapters = [
   { key: "personality", label: "شخصيتك", title: "أقرب إلى طبيعتك", note: "نبني على الكلام اللي أكدته، ما نطلب منك تعيده. وإذا بقي شيء، تكمله بالحوار أو من الأسئلة." },
   { key: "beena", label: "بيننا", title: "لو صار بينكم هذا الموقف؟", note: "مواقف من الحياة: الأهل، المصاريف، والاختلافات الصغيرة. جاوب باللي يشبهك، مو بالإجابة اللي تحس إنها الأفضل." },
   { key: "preferences", label: "تفضيلاتك", title: "كيف تود أن يبدأ التعارف؟", note: "وش يناسبك في بداية التعارف؟ ومتى تحب تكون الخطوة مع الأهل؟" },
+  { key: "readiness", label: "الجاهزية", title: "قبل الخطوة الرسمية", note: "موقفان قصيران عن إشراك الأهل وخطوتك القادمة، ثم اتفاق العضوية." },
   { key: "review", label: "المراجعة", title: "راجع ملفك", note: "خذ نظرة أخيرة. هذا اللي بيشوفه الطرف الآخر، وتقدر تعدّل أي شيء قبل الإرسال." },
 ] as const;
 
@@ -26,6 +28,7 @@ export type Answers = Omit<Profile, "age" | "gender" | "preferredMinAge" | "pref
   gender: Profile["gender"] | "";
   preferredMinAge: string;
   preferredMaxAge: string;
+  membershipReadiness?: MembershipReadiness;
 };
 export type ApplicationDraft = {
   owner: string;
@@ -164,7 +167,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
 export function toProfile(p: Answers): Profile {
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
-    ...p, assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
+    ...publicApplicationAnswers(p), assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
     priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: p.birthDate ? ageFromBirthday(p.birthDate ?? '')! : Number(p.age), preferredMinAge: Number(p.preferredMinAge),
     preferredMaxAge: Number(p.preferredMaxAge), displayName: p.displayName.trim(),
     city: canonicalCity(p.city), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),
@@ -174,4 +177,8 @@ export function toProfile(p: Answers): Profile {
     valuesStatement: p.valuesStatement?.trim() ?? "",
     education: p.education?.trim() ?? "", marriageIntent: p.marriageIntent?.trim() ?? "",
   };
+}
+
+function publicApplicationAnswers({ membershipReadiness: _private, ...answers }: Answers) {
+  return answers;
 }

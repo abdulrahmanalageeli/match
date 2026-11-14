@@ -23,7 +23,7 @@
 .cm-message-focus .cm-message-action-list > button { min-height: 49px; padding: 10px 12px; font-size: .82rem; }
 .cm-message-focus .cm-message-action-list > button > svg:last-child { display: none; }
 .cm-message-focus .cm-message-action-list > .cm-message-action-delete { border-radius: 0 0 14px 14px; border-top-color: #e7d9d0; }
-.cm-message-focus-dismiss { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #fffaf473; border-radius: 50%; background: #fffaf4dc; color: #6d3449; cursor: pointer; }
+.cm-message-focus-dismiss { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #fffaf473; border-radius: 50%; background: #fffaf4dc; color: #6d3449; cursor: pointer; }
 .cm-message-focus-dismiss:focus-visible { outline: 2px solid #a57763; outline-offset: 3px; }
 .cm-bubble[data-message-focus-source] { visibility: hidden !important; }
 .cm-message-focus[data-closing]::backdrop { animation: cm-focus-backdrop-out 160ms ease-in both; }

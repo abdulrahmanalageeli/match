@@ -184,17 +184,17 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 10px; line-height: 1.4; margin-top: 5px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { min-height: 64px; padding: 9px 12px; gap: 8px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person-copy small { font-size: 11px; margin-top: 1px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 38px; background: #fff; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { display: inline-flex; flex: 1; min-width: 0; width: auto; min-height: 38px; padding: 0; border: 0; gap: 5px; margin: 0; font-size: 11px; white-space: nowrap; color: #65565e; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 44px; background: #fff; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { display: inline-flex; flex: 1; min-width: 0; width: auto; min-height: 44px; padding: 0; border: 0; gap: 5px; margin: 0; font-size: 11px; white-space: nowrap; color: #65565e; }
 .phone-app .cm-shell .cm-journey-summary .cm-journey-attention { font-size: 9px; color: #54152a; background: #f3e9ed; border-radius: 4px; padding: 2px 4px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary { width: auto; flex: none; margin: 0; padding: 0; border: 0; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 38px; padding: 0 4px; gap: 4px; font-size: 10px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 44px; padding: 0 4px; gap: 4px; font-size: 10px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button svg { width: 12px; height: 12px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-end-visible { min-height: 38px; padding: 0 3px; margin: 0; flex: none; font-size: 10px; color: #8e606b; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-end-visible { min-height: 44px; padding: 0 3px; margin: 0; flex: none; font-size: 10px; color: #8e606b; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose { padding-top: 7px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-composer-surface { border-color: #e7e1e4; border-radius: 16px; background: #fff; padding: 3px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools { gap: 0; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; border: 0; background: transparent; color: #82737b; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #82737b; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-receipt-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message { padding-block: 22px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { font-size: 13px; max-width: 280px; margin-inline: auto; }
@@ -219,3 +219,21 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button strong { font-size: 14px; line-height: 1.4; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button small { font-size: 11px; line-height: 1.5; margin-top: 2px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-tools-intro { margin-block: 5px 10px; font-size: 12px; }
+
+/* Keep the reading lane stable while composing; secondary context stays above it. */
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head > button { min-width: 44px; min-height: 44px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person { min-width: 0; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose form > button { min-width: 44px; min-height: 44px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-row:last-child .cm-receipt-label { position: static; width: auto; height: auto; clip-path: none; }
+html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: none; }
+html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose { padding-bottom: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble[data-composed] { animation: cm-send-arrive 160ms ease-out; }
+}
+@keyframes cm-send-arrive { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 360px) {
+  .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { gap: 4px; padding-inline: 8px; }
+  .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person { gap: 6px; }
+  .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy small { white-space: nowrap; }
+}

@@ -21,7 +21,7 @@ function fixture({ disabled = false, interactive = false, link = false, photo = 
     require(name) {
       if (name === 'react') return { useRef: value => ({ current: value }), useState: value => [value, () => {}], useEffect: fn => { const cleanup = fn(); if (cleanup) cleanups.push(cleanup); } };
       if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
-      if (name === 'lucide-react') return { Reply: () => null };
+      if (name === '../BrandIcons') return { Reply: () => null };
       if (name.endsWith('.css')) return {};
       throw Error('Unexpected import: ' + name);
     },

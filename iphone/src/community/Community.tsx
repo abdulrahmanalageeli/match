@@ -1249,6 +1249,7 @@ export function Chat({
     typing.stop();
     atBottom.current = true;
     composedId.current = thread.outbox.enqueue(body);
+    composer.current?.focus({ preventScroll: true });
   }
   function chooseConversationPrompt(text: string) {
     const current = thread.outbox.read();
@@ -1429,7 +1430,7 @@ export function Chat({
               }
             }}
           />
-          <MotionPressButton type="submit" aria-label="إرسال الرسالة" disabled={!thread.draft.trim() || !chatReady}><Send size={19} /></MotionPressButton>
+          <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!thread.draft.trim() || !chatReady}><Send size={19} /></MotionPressButton>
         </form>
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}

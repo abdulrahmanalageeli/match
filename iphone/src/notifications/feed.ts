@@ -42,7 +42,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
           unread: true, target: 'conversation', requestId: c.id });
       } else if (!exclusive.has(c.id)) {
         rows.push({ id: `match:${c.id}`, kind: 'match', person: c.person, at: date,
-          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'يمكنكما الآن بدء المحادثة', unread: false,
+          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'راجعا ميثاق التعارف والمدة قبل أول رسالة', unread: false,
           target: 'conversation', requestId: c.id });
       }
       const commitment = p && !p.exclusive && p.consentPeer && !p.consentMine;

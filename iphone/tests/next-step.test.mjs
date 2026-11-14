@@ -63,3 +63,15 @@ test('notification empty copy explains each category rather than treating read m
   assert.match(emptyFeed('journey').detail, /داخل المحادثة/);
   assert.match(emptyFeed('unread').detail, /التحديثات السابقة/);
 });
+
+
+test('incoming extension remains actionable even after agreeing to the family step', () => {
+  const agreement = { status: 'expired', actor: 'reham', familyAgreed: { reham: true }, extension: { id: 'extension', actor: 'abdulrahman', days: 7 } };
+  const result = chooseNextStep(snapshot([match], [['a', agreement]]), assessment);
+  assert.equal(result.kind, 'agreement');
+  assert.equal(result.attention, true);
+  assert.match(result.title, /تمديد/);
+  assert.equal(result.connectionId, match.id);
+  const own = chooseNextStep(snapshot([match], [['a', { ...agreement, extension: { ...agreement.extension, actor: 'reham' } }]]));
+  assert.equal(own.attention, false);
+});

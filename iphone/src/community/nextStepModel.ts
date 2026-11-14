@@ -40,8 +40,11 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
   for (const c of accepted) {
     const a = snapshot.agreements.get(c.id);
     const p = snapshot.progress.get(c.id);
+    if (a?.extension && (a.status === 'accepted' || a.status === 'expired') && a.extension.actor !== a.actor) {
+      return conversation(c, 'agreement', 'اقتراح تمديد بانتظارك', `${c.person.alias} يقترح ${a.extension.days} أيام إضافية. لا تتغير المدة حتى توافق.`, 'مراجعة التمديد', true);
+    }
     if (a?.status === 'expired' && !a.familyAgreed?.[a.actor]) {
-      return conversation(c, 'agreement', 'راجعا اتجاه التعارف', `انتهت المدة مع ${c.person.alias}. اختارا التواصل العائلي أو الانسحاب بوضوح.`, 'مراجعة اتفاقنا', true);
+      return conversation(c, 'agreement', 'راجعا اتجاه التعارف', `انتهت المدة مع ${c.person.alias}. اختارا التمديد أو التواصل العائلي أو الانسحاب بوضوح.`, 'مراجعة اتفاقنا', true);
     }
     if (a?.status === 'none' && a.actor === 'reham') {
       return conversation(c, 'agreement', 'بداية واضحة قبل أول رسالة', `اختاري مدة التعارف مع ${c.person.alias} ووقّعي الميثاق، ثم يراجع الطرف الآخر اقتراحك.`, 'اقتراح مدة التعارف', true);

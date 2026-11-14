@@ -132,6 +132,8 @@
 }
 .wi-hybrid-review-row small { display: block; }
 .wi-hybrid-proposed-value { display: block; margin-top: 3px; font-size: 13px; font-weight: 650; }
+.wi-hybrid-proposed-row { grid-template-columns:minmax(0,1fr) auto; }
+.wi-hybrid-proposed-row .wi-link { min-height:44px; padding-inline:8px; }
 .wi-hybrid-review-row select {
   width: 100%;
   min-width: 0;
@@ -272,6 +274,7 @@
 }
 .wi-choice-help-heading, .wi-choice-proposal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .wi-choice-help-heading > strong { color: var(--hybrid-accent); font-size: 13px; }
+.wi-choice-help:focus-within { border-color:#c4a1b2; box-shadow:0 0 18px #9c60770c; }
 .wi-choice-help-heading > button { margin-inline-start: auto; }
 .wi-choice-help label, .wi-choice-explanations dt, .wi-choice-proposal strong { font-size: 13px; font-weight: 650; color: var(--hybrid-accent); }
 .wi-choice-help label { padding-block-start: 3px; }

@@ -8,7 +8,7 @@ import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
-import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, withFamilyDefaults, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
 import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
 import { SheetChoiceSelect as ChoiceSelect } from '../ui/SheetChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
@@ -40,7 +40,7 @@ import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
 import type { SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
-import { ReadinessStep } from './ReadinessStep';
+import { ReadinessStep, ReadinessResult } from './ReadinessStep';
 import { readinessComplete, readinessConflicts, type MembershipReadiness as Readiness } from './membershipReadiness';
 
 export type { ApplicationDraft } from "./draft";
@@ -223,7 +223,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [reviewAllPersonality, setReviewAllPersonality] = useState(false);
   const [personalityDirect, setPersonalityDirect] = useState(false);
   const current = useRef(draft);
-  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true,assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
+  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:draft.permissions?.sensitivePublication??(initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true),assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
   const consentRef = useRef(consents);
   consentRef.current = consents;
   const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'error'>('idle');
@@ -299,7 +299,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     consentRef.current = next;
     touched.current = true;
     setConsents(next);
-    commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
+    commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,sensitivePublication:next.sensitivePublication,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
     if(kind==='assessment'&&!value){confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
@@ -354,13 +354,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
       if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
       restored=withDefaultContact(restored,defaultContact);
+      if(!latestInitial.current)restored.answers=withFamilyDefaults(restored.answers);
       if(!latestInitial.current && ['personality','beena'].includes(restored.step)) restored.step='compatibility';
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
       if (!latestInitial.current && restored.step !== 'identity' && validateStep('identity', restored.answers, true, true, includeCompatibility)) restored.step='identity';
 
       current.current = restored;
       if (restored.permissions) {
-        const choices = {...consentRef.current, sensitiveProfile:restored.permissions.sensitiveProfile, assessment:restored.permissions.assessment};
+        const choices = {...consentRef.current, sensitiveProfile:restored.permissions.sensitiveProfile, sensitivePublication:restored.permissions.sensitivePublication===true, assessment:restored.permissions.assessment};
         consentRef.current = choices;
         setConsents(choices);
       }
@@ -377,7 +378,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     const choices=consentRef.current;
     let answers=choices.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
     if(!choices.assessment)answers=withoutAssessment(answers);
-    return {...current.current,answers,consent:false,permissions:{...current.current.permissions,version:choices.version,sensitiveProfile:choices.sensitiveProfile,assessment:choices.assessment}};
+    return {...current.current,answers,consent:false,permissions:{...current.current.permissions,version:choices.version,sensitiveProfile:choices.sensitiveProfile,sensitivePublication:choices.sensitivePublication,assessment:choices.assessment}};
   }
   async function saveProgressNow() {
     if (!deviceDraft || !touched.current || checkingDevice || loadFailed.current || busy || savingLater.current) return;
@@ -430,7 +431,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function update(values: Partial<Answers>) {
     if (error && error.field in values) setError(null);
     const previous = current.current.answers;
-    const next = { ...previous, ...values };
+    const next = editing ? { ...previous, ...values } : withFamilyDefaults({ ...previous, ...values });
     if (next.membershipReadiness && (previous.familyPreference !== next.familyPreference ||
       previous.surveyAnswers?.marriage_timeline !== next.surveyAnswers?.marriage_timeline)) {
       next.membershipReadiness = { ...next.membershipReadiness, clarifications: {} };
@@ -489,6 +490,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (busy||photoBusy) return;
     if (usesBasicSlides && basicSlides.current?.advance()) return;
     const agreed=consents.adult&&consents.terms&&consents.privacy;
+    if(!editing&&includeCompatibility&&['details','review'].includes(chapter.key)&&(!consents.sensitiveProfile||!consents.sensitivePublication)){
+      if(chapter.key!=='details')move('details',true);
+      setError({field:'consent',text:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها لإكمال التسجيل.'});return;
+    }
     const readiness = p.membershipReadiness ?? {};
     const conflicts = readinessConflicts(readiness, p.familyPreference, p.surveyAnswers?.marriage_timeline);
     if (!editing && includeCompatibility && ['readiness','review'].includes(chapter.key) && !readinessComplete(readiness, conflicts)) {
@@ -597,7 +602,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </select></label>
                 </div></details>
               </>}
-              {!usesBasicSlides && chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
+              {!usesBasicSlides && chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" required={!editing&&includeCompatibility} checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={!editing&&includeCompatibility} checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
               {chapter.key === "avatar" && p.gender === "man" && <MensPhotoChoice change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} onBusy={setPhotoBusy}/>}
               {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {((editing&&['criteria','personality','compatibility','beena'].includes(chapter.key)&&!consents.assessment)||(!editing&&chapter.key==='compatibility'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing} required={!editing}/>}
@@ -640,11 +645,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
               {chapter.key === 'readiness' && <div data-field="membershipReadiness" tabIndex={-1}>
-                <ReadinessStep value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline}
+                <ReadinessStep answers={p} value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline}
                   onChange={membershipReadiness => update({ membershipReadiness })}/>
               </div>}
               {chapter.key === "review" && <>
-                {!editing && includeCompatibility && <button type="button" className="nf-intake-policy" onClick={() => move('readiness', true)}>مراجعة جاهزيتي واتفاق العضوية</button>}
+                {!editing && includeCompatibility && p.membershipReadiness?.family && p.membershipReadiness?.nextStep && <ReadinessResult value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline} answers={p} edit={() => move('readiness', true)}/>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
                 {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>{preview || demo ? 'راجع تفاصيلك وخيارات الخصوصية، ثم أكمل إعداد ملفك.' : 'أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.'}</p></div></div>}
                 <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
@@ -657,7 +662,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </details>}
                 {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. إجابات «بيننا» الخاصة لا تستهلك هذا التعديل، أما نشر قصة جديدة فيخضع له.</p>}
                 {profileReviewPending ? <p className="nf-intake-note">ملفك الآن قيد مراجعة التعديل. يمكنك إرسال التصحيحات اللازمة دون انتظار موعد التعديل التالي.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. يمكنك حفظ مسودتك لهذا الموعد، وتحديث إجاباتك الخاصة دون انتظار.</p>}
-                <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
+                <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} requiredSensitive={!editing&&includeCompatibility} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
               </>}
             </div>
           </MotionReveal>

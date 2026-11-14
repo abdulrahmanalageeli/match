@@ -219,19 +219,33 @@ try {
   // Reload can skip a finished card awaiting only a proposed partner answer.
   assert.deepEqual(draft[firstId], ['B']);
   const actionsBeforeCards = calls.length;
+  let scaleChecked = false;
   for (let index = 0; index <= 16 && await card.count(); index++) {
     const groups = card.locator('fieldset');
     for (let at = 0; at < await groups.count(); at++) {
       const group = groups.nth(at);
-      if (!await group.locator('button[aria-pressed=true]').count()) await group.locator('button').first().click();
+      const scale = group.getByRole('slider');
+      if (await scale.count()) {
+        if (!scaleChecked) assert.equal(await scale.getAttribute('aria-valuetext'), 'لم تحدد إجابتك بعد');
+        await scale.focus();
+        await page.keyboard.press('Home');
+        await page.keyboard.press('Enter');
+        assert.equal(await scale.getAttribute('aria-valuetext'), 'لا يشبهني إطلاقًا');
+        if (!scaleChecked) {
+          await page.screenshot({ path: resolve(output, 'personality-scale-390.png') });
+          scaleChecked = true;
+        }
+      } else if (!await group.locator('button[aria-pressed=true]').count()) await group.locator('button').first().click();
     }
     await page.getByRole('button', { name: 'متابعة', exact: true }).click();
   }
   assert.equal(await card.count(), 0);
+  assert.equal(scaleChecked, true);
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
   const batch = page.locator('.wi-hybrid-batch');
-  assert(await batch.locator('select').count() > 0);
-  assert(await batch.locator('select').evaluateAll(choices => choices.every(select => select.value === '')));
+  assert.equal(await batch.locator('select').count(), 0);
+  assert(await batch.getByRole('button', { name: 'تعديل', exact: true }).count() > 0);
+  assert.equal(await page.locator('.wi-hybrid-progress small').innerText(), 'بقيت المراجعة');
   assert.equal(await page.getByRole('button', { name: 'اعتماد إجاباتي', exact: true }).isDisabled(), true);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   await batch.getByRole('button', { name: /من المقترحات/u }).click();

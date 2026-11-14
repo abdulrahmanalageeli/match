@@ -185,12 +185,25 @@ function ageAccepted(age: number, member: PairProfile) {
     age >= member.preferredMinAge && age <= member.preferredMaxAge;
 }
 
+function shareCity(first: PairProfile, second: PairProfile) {
+  const city = canonicalCity(first.city);
+  return !!city && city === canonicalCity(second.city)
+    && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(city);
+}
+
+// Staying and joining a partner describe the same practical outcome when both
+// already live in the same city. Unknown answers still earn no compatibility.
+function answerFits(member: PairProfile, peer: PairProfile, dim: Dimension, wanted: string | undefined, observed: string | undefined) {
+  return wanted !== undefined && observed !== undefined
+    && (wanted === observed || (dim.id === 'residence_plan' && shareCity(member, peer)));
+}
+
 function acceptsRequirements(member: PairProfile, peer: PairProfile) {
   return (member.hardRequirements ?? []).every(id => {
     const dim = dimensions.find(item => item.id === id && item.hardAllowed);
     if (!dim) return false;
     const required = answer(member, dim, "partner");
-    return required !== undefined && required === answer(peer, dim, "self");
+    return answerFits(member, peer, dim, required, answer(peer, dim, "self"));
   });
 }
 
@@ -213,7 +226,7 @@ function directedFit(member: PairProfile, peer: PairProfile) {
       const observed = answer(peer, dim, "self");
       if (!want || !observed) continue;
       known++;
-      if (want === observed) matches++;
+      if (answerFits(member, peer, dim, want, observed)) matches++;
     }
     if (!known) continue;
     const weight = category.weight * (member.priorityCategories?.includes(category.id) ? 2 : 1);
@@ -226,8 +239,7 @@ function directedFit(member: PairProfile, peer: PairProfile) {
 }
 
 export function comparePreferences(first: PairProfile, second: PairProfile) {
-  const firstCity = canonicalCity(first.city), secondCity = canonicalCity(second.city);
-  const sameCity = firstCity === secondCity && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(firstCity);
+  const sameCity = shareCity(first, second);
   if (
     first.id === second.id || first.gender === second.gender ||
     !first.city.trim() || !second.city.trim() ||
@@ -258,7 +270,7 @@ export function describeFit(first: PairProfile, second: PairProfile) {
     const wantB = answer(second, dim, "partner");
     if (!selfA || !selfB || !wantA || !wantB) { missing.push(dim.id); topics.push({ id: dim.id, status: 'missing' }); continue; }
     coveredCategories.add(dim.category);
-    const forwardMatch = wantA === selfB, reverseMatch = wantB === selfA;
+    const forwardMatch = answerFits(first, second, dim, wantA, selfB), reverseMatch = answerFits(second, first, dim, wantB, selfA);
     topics.push({ id: dim.id, status: forwardMatch && reverseMatch ? 'aligned' : forwardMatch || reverseMatch ? 'one_sided' : 'different' });
     if (forwardMatch && reverseMatch) {
       strengths.push(dim.id);

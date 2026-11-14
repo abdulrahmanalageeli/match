@@ -32,7 +32,7 @@ test('private preference evidence explains actual answers without changing score
   const b=await add('woman',{education:'بكالوريوس هندسة',profession:'طبيبة',partnerCriteria:{
    education:{mode:'prefer',values:['ماجستير']},profession:{mode:'prefer',values:['الطب والرعاية الصحية']},
   }});
-  const [oneSided,different,missing]=catalog.dimensions;
+  const [oneSided,different,missing]=catalog.dimensions.filter(d=>d.id!=='residence_plan');
   async function answer(index,question,value){
    profiles[index].surveyAnswers[question]=value;
    await db.query('update marriage.member_answers set option_code=$3 where member_id=$1 and question_code=$2',[profiles[index].id,question,value]);

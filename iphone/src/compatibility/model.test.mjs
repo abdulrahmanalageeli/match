@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparePreferences, dimensions, rankPreferences } from "./model.ts";
+import { comparePreferences, describeFit, dimensions, rankPreferences } from "./model.ts";
 import { validPartnerCriteria, validPartnerCriteriaDraft } from './marriage.ts';
 
 const a = {
@@ -47,6 +47,29 @@ test('other-city buckets require explicit relocation plans instead of implying a
     assert.equal(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'A' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }), null);
     assert(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'B' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }));
   }
+});
+
+test('residence compatibility compares the shared city outcome instead of only answer letters', () => {
+  const all = Object.fromEntries(dimensions.flatMap(dim => [[dim.id, 'A'], [dim.partnerId, 'A']]));
+  const mine = { ...a, assessmentVersion: 'marriage-v2', hardRequirements: ['residence_plan'],
+    surveyAnswers: { ...all, residence_plan: 'A', partner_residence_plan: 'B' } };
+  const peer = { ...b, city: 'Riyadh', assessmentVersion: 'marriage-v2', hardRequirements: ['residence_plan'],
+    surveyAnswers: { ...all, residence_plan: 'A', partner_residence_plan: 'B' } };
+  const shared = comparePreferences(mine, peer);
+  assert(shared, 'Two people staying in Riyadh meet the same residence goal');
+  assert.equal(shared.fit.percentage, 100);
+  assert(shared.fit.strengths.includes('residence_plan'));
+  assert.equal(shared.fit.preferenceEvidence.topics.find(topic => topic.id === 'residence_plan').status, 'aligned');
+  assert.deepEqual(comparePreferences(peer, mine).fit, shared.fit);
+  assert.equal(comparePreferences(mine, { ...peer, city: 'جدة' }), null);
+  for (const city of ['', 'مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية']) {
+    assert.equal(comparePreferences({ ...mine, city }, { ...peer, city }), null);
+    assert.equal(describeFit({ ...mine, city }, { ...peer, city }).fit.preferenceEvidence.topics.find(topic => topic.id === 'residence_plan').status, 'different');
+  }
+  const missing = { ...peer, surveyAnswers: { ...peer.surveyAnswers, residence_plan: undefined } };
+  assert.equal(comparePreferences(mine, missing), null);
+  assert.equal(describeFit(mine, missing).fit.preferenceEvidence.topics.find(topic => topic.id === 'residence_plan').status, 'missing');
+  assert.equal(describeFit(mine, missing).fit.percentage, null);
 });
 
 test('education and profession only affect ranking when explicitly preferred', () => {

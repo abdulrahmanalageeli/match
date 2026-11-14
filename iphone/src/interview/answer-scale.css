@@ -1,0 +1,18 @@
+.wi-answer-scale { display:grid; gap:4px; padding:10px 1px 5px; }
+.wi-answer-scale output { color:#68213c; font-size:14px; font-weight:600; line-height:1.8; min-height:26px; text-align:center; }
+.wi-answer-scale[data-answered=false] output { font-size:12px; font-weight:400; color:#776872; }
+.wi-answer-scale-track { position:relative; min-width:0; height:44px; margin-inline:10px; }
+.wi-answer-scale-track input[type=range] { position:absolute; inset:0; width:100%; height:44px; margin:0; padding:0; background:transparent; appearance:none; -webkit-appearance:none; cursor:pointer; direction:rtl; accent-color:#68213c; }
+.wi-answer-scale-track input::-webkit-slider-runnable-track { background:#e9dfe4; border-radius:6px; height:4px; }
+.wi-answer-scale-track input::-moz-range-track { background:#e9dfe4; border-radius:6px; height:4px; }
+.wi-answer-scale-track input::-webkit-slider-thumb { appearance:none; -webkit-appearance:none; width:24px; height:24px; border:5px solid #fff; border-radius:50%; background:#68213c; box-shadow:0 1px 7px #53223828; margin-top:-10px; transition:box-shadow .18s; }
+.wi-answer-scale-track input::-moz-range-thumb { width:14px; height:14px; border:5px solid #fff; border-radius:50%; background:#68213c; box-shadow:0 1px 7px #53223828; }
+.wi-answer-scale[data-answered=false] input::-webkit-slider-thumb { background:#bba8b1; }
+.wi-answer-scale[data-answered=false] input::-moz-range-thumb { background:#bba8b1; }
+.wi-answer-scale-track input:focus-visible { outline:2px solid #916376; outline-offset:3px; border-radius:8px; }
+.wi-answer-scale-stops { position:absolute; inset:18px 0; display:flex; justify-content:space-between; pointer-events:none; }
+.wi-answer-scale-stops i { z-index:1; width:8px; height:8px; background:#d0bbc5; border:2px solid #fff; border-radius:50%; }
+.wi-answer-scale-ends { display:flex; justify-content:space-between; gap:12px; color:#776872; font-size:11px; }
+.wi-answer-scale-ends span { max-width:45%; }
+.wi-answer-scale-ends span:last-child { text-align:end; }
+@media(prefers-reduced-motion:reduce){.wi-answer-scale-track input::-webkit-slider-thumb{transition:none}}

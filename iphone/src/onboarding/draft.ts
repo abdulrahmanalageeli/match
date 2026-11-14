@@ -37,7 +37,7 @@ export type ApplicationDraft = {
   step: Chapter;
   returnToReview: boolean;
   consent: boolean;
-  permissions?: { version: string; sensitiveProfile: boolean; assessment: boolean; interview?: boolean };
+  permissions?: { version: string; sensitiveProfile: boolean; sensitivePublication?: boolean; assessment: boolean; interview?: boolean };
 };
 const numbers = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab", useGrouping: false });
 export const arabicNumber = (n: number) => numbers.format(n);
@@ -86,6 +86,11 @@ export function latinDigits(value: string) {
   return value.replace(/[٠-٩]/g, char => String(char.charCodeAt(0) - 0x660))
     .replace(/[۰-۹]/g, char => String(char.charCodeAt(0) - 0x6f0));
 }
+/** An editable convenience default, never an override of a declared answer. */
+export function withFamilyDefaults(p: Answers): Answers {
+  return p.marriageBasics?.maritalStatus==='never_married'&&p.marriageBasics.childrenCount===undefined
+    ? {...p,marriageBasics:{...p.marriageBasics,childrenCount:0}} : p;
+}
 function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
@@ -95,7 +100,7 @@ export type Issue = { field: keyof Answers | "consent"; text: string };
 export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[] {
   const b=p.marriageBasics??{};
   const complete: Record<number,boolean> = {
-    1: b.heightCm!==undefined&&b.weightKg!==undefined&&(!sensitive||Boolean(b.skinTone))&&
+    1: Number.isInteger(b.heightCm)&&b.heightCm!>=120&&b.heightCm!<=230&&Number.isInteger(b.weightKg)&&b.weightKg!>=35&&b.weightKg!<=250&&(!sensitive||Boolean(b.skinTone))&&
       (p.gender!=='woman'||Boolean(b.dressStyle&&b.dressFlexibility)),
     2: Boolean(b.spokenLanguages?.length&&b.preferredLanguage&&b.languageOpenness),
     3: Boolean(b.nationality)&&(!sensitive||Boolean(b.tribalBackground)),
@@ -144,7 +149,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       return null;
     case "details":
       if (requireSkinTone && !p.marriageBasics?.skinTone) return { field: "marriageBasics", text: "اختر درجة البشرة الأقرب لك لإكمال تفاصيلك." };
-      if (requireAssessment && (['heightCm','weightKg','preferredLanguage','languageOpenness','nationality','maritalStatus','polygynyPreference','childrenCount','smoking','marriageTimeline','meetingPreference'] as const).some(key => p.marriageBasics?.[key] === undefined || p.marriageBasics?.[key] === '') || requireAssessment && !p.marriageBasics?.spokenLanguages?.length) return { field: 'marriageBasics', text: 'أكمل تفاصيلك الأساسية في كل مجموعة، بما فيها اللغات. المعلومات الحساسة تبقى باختيارك.' };
+      if (requireAssessment && (['heightCm','weightKg','preferredLanguage','languageOpenness','nationality','maritalStatus','polygynyPreference','childrenCount','smoking','marriageTimeline','meetingPreference'] as const).some(key => p.marriageBasics?.[key] === undefined || p.marriageBasics?.[key] === '') || requireAssessment && !p.marriageBasics?.spokenLanguages?.length) return { field: 'marriageBasics', text: 'أكمل تفاصيلك الأساسية في كل مجموعة، بما فيها اللغات.' };
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
       if(p.marriageBasics?.currentWives===4)return{field:'marriageBasics',text:'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.'};
       if (p.marriageBasics && !validMarriageBasics(p.marriageBasics)) return { field: "marriageBasics", text: "راجع التفاصيل: الطول من ١٢٠ إلى ٢٣٠ سم، والوزن من ٣٥ إلى ٢٥٠ كجم بأعداد صحيحة، والأبناء من صفر إلى ٢٠. اسم القبيلة اختياري للخلفية القبلية فقط." };

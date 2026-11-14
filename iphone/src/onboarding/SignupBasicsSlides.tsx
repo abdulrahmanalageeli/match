@@ -27,7 +27,7 @@ const slideLabels = { identity: 'الأساسيات', story: 'حياتك', detai
 export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:8; }
 
 /** Validates only the visible cluster. Missing later answers never move this slide. */
-export function signupSlideError(chapter: Chapter, index: number, p: Answers, required: boolean, sensitive: boolean): string | null {
+export function signupSlideError(chapter: Chapter, index: number, p: Answers, required: boolean, sensitive: boolean, publication = false): string | null {
   if(chapter==='identity') {
     if(index===0)return !p.displayName.trim()?'وش الاسم اللي تحب يظهر في ملفك؟':!p.gender?'اختر لإكمال ملفك.':null;
     if(index===1){const age=ageFromBirthday(p.birthDate??'');return age===null||age<18||age>110?'أدخل تاريخ ميلاد صحيحًا. التسجيل من عمر ١٨ عامًا.':null;}
@@ -43,10 +43,12 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
     if(index===2)return required&&profilePrompts.some(prompt=>!p[prompt.key]?.trim())?'أكمل اللمحات الثلاث؛ جملة قصيرة لكل منها تكفي.':null;
     return required&&!p.marriageIntent?.trim()?'اختر ما يعبّر عن استعدادك.':null;
   }
-  if(index===0)return null;
+  if(index===0)return required&&(!sensitive||!publication)?'راجع ووافق على معالجة التفاصيل الحساسة وعرضها لإكمال التسجيل.':null;
   const b=p.marriageBasics??{};
   if(index===1){
-    if(required&&(b.heightCm===undefined||b.weightKg===undefined))return 'اختر طولك ووزنك.';
+    if(required&&(b.heightCm===undefined||b.weightKg===undefined))return 'أدخل طولك ووزنك.';
+    if(b.heightCm!==undefined&&(!Number.isInteger(b.heightCm)||b.heightCm<120||b.heightCm>230))return 'أدخل طولًا من ١٢٠ إلى ٢٣٠ سم.';
+    if(b.weightKg!==undefined&&(!Number.isInteger(b.weightKg)||b.weightKg<35||b.weightKg>250))return 'أدخل وزنًا من ٣٥ إلى ٢٥٠ كجم.';
     if(sensitive&&!b.skinTone)return 'اختر درجة البشرة الأقرب لك.';
   }
   if(index===5&&b.maritalStatus==='married'&&p.gender!=='man')return 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.';
@@ -68,7 +70,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const [index,setIndex]=useState(()=>{
     // Saved answers reopen at the first unfinished slide, without losing anything.
     if(chapter==='details')return 0;
-    const first=Array.from({length:total},(_,i)=>i).find(i=>signupSlideError(chapter,i,p,required,consents.sensitiveProfile));
+    const first=Array.from({length:total},(_,i)=>i).find(i=>signupSlideError(chapter,i,p,required,consents.sensitiveProfile,consents.sensitivePublication));
     return first===undefined?0:first;
   });
   const [error,setError]=useState<string|null>(null);
@@ -83,14 +85,14 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const fallback=missingPublicProfileDraft(p);if(Object.keys(fallback).length){update(fallback);setGeneratedDraft(true);}}if(last)return false;move(index+1);return true;},
+    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const fallback=missingPublicProfileDraft(p);if(Object.keys(fallback).length){update(fallback);setGeneratedDraft(true);}}if(last)return false;move(index+1);return true;},
     back(){if(index===0)return false;move(index-1);return true;},
   }));
-  useEffect(()=>{if(error&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile))setError(null);},[p,consents.sensitiveProfile,error,chapter,visibleIndex,required]);
+  useEffect(()=>{if(error&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication))setError(null);},[p,consents.sensitiveProfile,consents.sensitivePublication,error,chapter,visibleIndex,required]);
   useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;const fallback=missingPublicProfileDraft(p);if(!Object.keys(fallback).length)return;update(fallback);setGeneratedDraft(true);},[chapter]);
   useLayoutEffect(()=>{if(previous.current===index)return;previous.current=index;heading.current?.focus({preventScroll:true});container.current?.scrollIntoView({block:'start',behavior:'instant'});},[index]);
   const draftReady=aiDraftsReady||generatedDraft;
-  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?reviewedStoryTitles[visibleIndex]:storyTitles[visibleIndex]):visibleIndex===0?'تفاصيلك، باختيارك.':details[visibleIndex-1];
+  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?reviewedStoryTitles[visibleIndex]:storyTitles[visibleIndex]):visibleIndex===0?'تفاصيل واضحة من البداية.':details[visibleIndex-1];
   const count=slides.length;
   const basics=p.marriageBasics??{};
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
@@ -98,7 +100,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,visibleIndex-1) : visibleIndex];
-  const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile);
+  const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
   return <section ref={container} className="wd-signup-slides" aria-label="خطوات إعداد الملف" data-chapter={chapter} data-slide-index={visibleIndex}>
     <div className="wd-slide-progress"><span>{slideLabels[slideChapter]}</span><span className="wd-slide-position" data-complete={complete||undefined}>خطوة {arabicNumber(index+1)} <i>من {arabicNumber(count)}</i>{complete&&<Check size={13} aria-label="اكتملت الخطوة"/>}</span></div>
     <div className="wd-slide-track" role="progressbar" aria-label="الخطوة الحالية في هذا القسم" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index+1}>{Array.from({length:count},(_,i)=><span key={i} data-state={i<index?'done':i===index?'current':undefined}/>)}</div>
@@ -114,7 +116,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p><button type="button" className="wd-slide-rephrase" onClick={()=>rephrase('bio')}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required} rephrase={rephrase}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
-      {chapter==='details'&&visibleIndex===0&&<><ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">الاختيار محفوظ لك. الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.</p></>}
+      {chapter==='details'&&visibleIndex===0&&<><ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">{required?'هاتان الموافقتان مطلوبتان لإنشاء ملفك. تبقى إدارة خصوصيتك متاحة من الإعدادات.':'الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.'}</p></>}
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>

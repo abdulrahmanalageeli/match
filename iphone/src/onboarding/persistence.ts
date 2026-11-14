@@ -71,7 +71,7 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
   if (!chapter) return null;
   const permissions = isRecord(data.permissions) && data.permissions.version === '2026-11-07-privacy' &&
     typeof data.permissions.sensitiveProfile === 'boolean' && typeof data.permissions.assessment === 'boolean'
-    ? { version: data.permissions.version, sensitiveProfile: data.permissions.sensitiveProfile, assessment: data.permissions.assessment, ...(data.permissions.interview === true ? { interview: true } : {}) } : undefined;
+    ? { version: data.permissions.version, sensitiveProfile: data.permissions.sensitiveProfile, ...(typeof data.permissions.sensitivePublication==='boolean'?{sensitivePublication:data.permissions.sensitivePublication&&data.permissions.sensitiveProfile}:{}), assessment: data.permissions.assessment, ...(data.permissions.interview === true ? { interview: true } : {}) } : undefined;
   return { owner, baseline, answers: data.answers, step: chapter.key, returnToReview: data.returnToReview, consent: false,
     ...(permissions ? { permissions } : {}) };
 }

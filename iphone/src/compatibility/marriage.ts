@@ -19,7 +19,7 @@ export type MarriageBasics = {
   marriageTimeline?: "within_3_months" | "three_to_six_months" | "six_to_twelve_months" | "over_a_year" | "when_ready";
   meetingPreference?: "public_before_formal" | "family_before_formal" | "after_formal" | "discuss_together";
   childrenCount?: number;
-  smoking?: "never" | "sometimes" | "yes";
+  smoking?: "never" | "cigarettes" | "vape" | "shisha" | "sometimes" | "yes";
   skinTone?: SkinTone;
   dressStyle?: DressStyle;
   dressFlexibility?: DressFlexibility;
@@ -81,7 +81,7 @@ export function validMarriageBasics(value: unknown, allowIncomplete = false): va
   if (value.prayerPractice !== undefined && !oneOf(value.prayerPractice, Object.keys(prayerPracticeLabels))) return false;
   if (value.marriageTimeline !== undefined && !oneOf(value.marriageTimeline, Object.keys(marriageTimelineLabels))) return false;
   if (value.meetingPreference !== undefined && !oneOf(value.meetingPreference, Object.keys(meetingPreferenceLabels))) return false;
-  if (value.smoking !== undefined && !oneOf(value.smoking, ["never", "sometimes", "yes"])) return false;
+  if (value.smoking !== undefined && !oneOf(value.smoking, ["never", "cigarettes", "vape", "shisha", "sometimes", "yes"])) return false;
   if (value.skinTone !== undefined && !skinTones.some(tone => tone.value === value.skinTone)) return false;
   if (value.dressStyle !== undefined && !dressStyles.some(style => style.value === value.dressStyle)) return false;
   if (value.dressFlexibility !== undefined && !dressFlexibilities.some(option => option.value === value.dressFlexibility)) return false;

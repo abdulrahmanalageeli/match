@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, LockKeyhole,
 import { dimensions } from '../compatibility/model';
 import { personalityQuestions } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { AnswerScale } from './AnswerScale';
 import type { InterviewSelection } from './model';
 import type { InterviewChoiceHelp, InterviewProposal } from './types';
 import './hybrid-assessment.css';
@@ -123,7 +124,7 @@ function ChoiceCard({ field, value, onChoose, disabled, captured = false, compac
     {captured && currentOption && !editing ? <div className="wi-hybrid-suggestion">
       <div><small>من حوارك مع لونا</small><strong>{currentOption.label}</strong></div>
         <button type="button" className="wi-link" onClick={() => setEditing(true)} disabled={disabled}><Pencil size={14} aria-hidden="true"/> تعديل</button>
-    </div> : <div className="wi-hybrid-options">
+    </div> : compact ? <AnswerScale label={field.prompt} value={value} options={field.options} onChange={onChoose} disabled={disabled}/> : <div className="wi-hybrid-options">
       {field.options.map(option => <MotionPressButton
         key={option.code}
         className="wi-hybrid-option"
@@ -231,9 +232,13 @@ function ReviewChoice({ field, value, suggested, captured = false, side, disable
   disabled: boolean;
   onChoose: (value: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  if (!value && suggested && !editing) return <div className="wi-hybrid-review-row wi-hybrid-proposed-row">
+    <span>{field.label}<small>{side} · مقترح</small><strong className="wi-hybrid-proposed-value">{suggested}</strong></span>
+    <button type="button" className="wi-link" disabled={disabled} onClick={() => setEditing(true)}><Pencil size={14} aria-hidden="true"/> تعديل</button>
+  </div>;
   return <label className="wi-hybrid-review-row">
     <span>{field.label}<small>{captured ? `${side} · من حوارك مع لونا` : side}</small>
-      {!value && suggested && <strong className="wi-hybrid-proposed-value">{suggested}</strong>}
     </span>
     <select aria-label={`${field.label}، ${side}`} value={value ?? ''} disabled={disabled} onChange={event => onChoose(event.target.value)}>
       <option value="" disabled>{suggested ? 'اختيار إجابة' : 'اختر إجابتك'}</option>
@@ -299,6 +304,7 @@ export function HybridAssessment({
   });
   const answered = allSelected.length;
   const available = fields.length - answered;
+  const remainingCards = cards.filter(item => needsCard(item, choices)).length;
   const aiValues = new Map(aiProposals.filter(item => !item.needsClarification && item.source !== 'self_default' && item.values.length === 1)
     .map(item => [item.id, item.values[0]]));
   const wasCaptured = (field: Field) => Boolean(aiValues.has(field.id) && aiValues.get(field.id) === selected(field, choices)?.code);
@@ -356,8 +362,8 @@ export function HybridAssessment({
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     <div className="wi-hybrid-progress">
       <span>{card ? themeCards[card.themeIndex].label : 'مراجعة التوافق'}</span>
-      <small>{available === 0 ? 'اكتملت الإجابات' : `متبقّي ${number.format(available)} إجابة`}</small>
-      <progress aria-label="اكتمال الإجابات" value={answered} max={fields.length}/>
+      <small>{remainingCards ? `متبقّي ${number.format(remainingCards)} موضوعًا` : 'بقيت المراجعة'}</small>
+      <progress aria-label="اكتمال مواضيع التوافق" value={cards.length - remainingCards} max={cards.length}/>
     </div>
     <details className="wi-living-portrait" onToggle={event => setPortraitOpen(event.currentTarget.open)}>
       <summary>
@@ -434,7 +440,7 @@ export function HybridAssessment({
         </details>}
         {suggestions.length > 0 && <div className="wi-hybrid-batch">
           <h2>تفضيلات مقترحة للشريك</h2>
-          <p>بناءً على إجاباتك عن نفسك. اختر ما يناسبك في كل بند، أو اعتمد المقترحات المتبقية دفعة واحدة.</p>
+          <p>راجع المقترحات وعدّل ما يناسبك، ثم اعتمدها معًا.</p>
           {suggestions.map(({field, option}) => <ReviewChoice key={field.id} field={field} suggested={option.label} side="تفضيلي في الشريك" onChoose={code => choose(field.id, code)} disabled={disabled}/>)}
           <MotionPressButton className="wi-button wi-wide" onClick={adoptSuggestions} disabled={disabled}>اعتماد {number.format(suggestions.length)} من المقترحات<Check size={16} aria-hidden="true"/></MotionPressButton>
         </div>}

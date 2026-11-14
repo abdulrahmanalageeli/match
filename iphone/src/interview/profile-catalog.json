@@ -2040,13 +2040,16 @@
       "marriageBasics",
       "smoking"
     ],
-    "label": "التدخين",
+    "label": "التدخين · ما الذي تستخدمه غالبًا؟",
     "kind": "enum",
     "options": [
       {
         "value": "never",
-        "label": "لا أدخّن"
+        "label": "لا أستخدم أيًا منها"
       },
+      { "value": "cigarettes", "label": "سجائر" },
+      { "value": "vape", "label": "فيب" },
+      { "value": "shisha", "label": "شيشة" },
       {
         "value": "sometimes",
         "label": "أدخّن أحيانًا"

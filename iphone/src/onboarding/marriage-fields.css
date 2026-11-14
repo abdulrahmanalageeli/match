@@ -102,3 +102,11 @@
 .phone-app .nf-intake .nf-language-options > legend { width: 100%; margin-bottom: 12px; }
 .phone-app .nf-intake .nf-language-options > label { flex: 1 1 calc(50% - 8px); display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin: 0; padding: 9px 10px; font-size: 14px; }
 .phone-app .nf-intake .nf-language-options input { flex: none; width: 18px; height: 18px; margin: 0; }
+
+/* Direct measurements keep numeric entry focused and avoid long choice sheets. */
+.phone-app .nf-intake .nf-marriage-content .field-pair > .wd-number-field { padding:10px 12px 3px; border:1px solid #e1d5dc; border-radius:12px; background:#fcfafb; transition:border-color .18s,box-shadow .18s; }
+.phone-app .nf-intake .nf-marriage-content .wd-number-field:focus-within { border-color:#98657b; box-shadow:0 0 0 3px #68213c0a; }
+.phone-app .nf-intake .wd-number-field > span { display: flex; align-items: baseline; gap: 6px; }
+.phone-app .nf-intake .wd-number-field > span small { color: var(--nf-muted, #746e71); font-size: 12px; font-weight: 400; }
+.phone-app .nf-intake .wd-number-field input { font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 500; text-align: center; direction: ltr; min-height: 60px; }
+.phone-app .nf-intake .wd-number-field input::placeholder { font-size: 13px; font-weight: 400; }

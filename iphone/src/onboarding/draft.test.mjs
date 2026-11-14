@@ -2,11 +2,11 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 
-let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, unresolvedDetailSlides;
+let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, unresolvedDetailSlides, withFamilyDefaults;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
-  ({ initialDraft, validateStep, toProfile, profileBaseline, unresolvedDetailSlides } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
+  ({ initialDraft, validateStep, toProfile, profileBaseline, unresolvedDetailSlides, withFamilyDefaults } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
   ({ dimensions } = await loader.ssrLoadModule("/src/compatibility/model.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
 });
@@ -218,4 +218,21 @@ test('new onboarding requires public details and explicit preference modes witho
   p.partnerCriteria=Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(key=>[key,{mode:'any'}]));
   assert.equal(validateStep('criteria',p,true,false,true),null);
   for(const key of Object.keys(p.partnerCriteria)){const partnerCriteria={...p.partnerCriteria};delete partnerCriteria[key];assert.ok(validateStep('criteria',{...p,partnerCriteria},true,false,true),key);}
+});
+
+
+test('never-married default is editable and does not overwrite a declared children count', () => {
+  const p=answers();
+  assert.equal(withFamilyDefaults({...p,marriageBasics:{maritalStatus:'never_married'}}).marriageBasics.childrenCount,0);
+  assert.equal(withFamilyDefaults({...p,marriageBasics:{maritalStatus:'never_married',childrenCount:2}}).marriageBasics.childrenCount,2);
+  assert.equal(withFamilyDefaults({...p,marriageBasics:{maritalStatus:'divorced'}}).marriageBasics.childrenCount,undefined);
+});
+
+test('new smoking types survive profile validation and out-of-range measurements stay unresolved', () => {
+  for(const smoking of ['never','cigarettes','vape','shisha','sometimes','yes']) {
+    const p={...answers(),marriageBasics:{smoking,heightCm:165,weightKg:60}};
+    assert.equal(validateStep('details',p,true),null,smoking);
+    assert.equal(toProfile(p).marriageBasics.smoking,smoking);
+  }
+  assert.ok(unresolvedDetailSlides({...answers(),marriageBasics:{heightCm:0,weightKg:500}},false).includes(1));
 });

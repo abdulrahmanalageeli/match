@@ -342,3 +342,12 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
 .wi-profile-options label,.wi-profile-editor .wi-profile-exclude{display:flex;align-items:flex-start;gap:7px;line-height:1.8;padding:7px;background:#faf6f8;border-radius:8px}
 .wi-profile-uncertain{margin:0;color:#97724b;line-height:1.8}
 @media(prefers-reduced-motion:reduce){.wi-message-captures{animation:none}}
+.wi-compose-row { position:relative; isolation:isolate; transition:border-color .2s,box-shadow .25s; }
+.wi-compose-row::before { content:''; position:absolute; inset:-7px; z-index:-1; border-radius:25px; pointer-events:none; opacity:0; background:radial-gradient(ellipse at 80% 100%,#c5838f30,transparent 65%); transition:opacity .3s; }
+.wi-compose-row:focus-within { box-shadow:0 4px 22px #7d385c12; }
+.wi-compose-row:focus-within::before { opacity:1; animation:wi-focus-light .6s ease-out; }
+.wi-send:not(:disabled) { transition:background .18s,transform .15s; box-shadow:0 2px 8px #68213c17; }
+.wi-send:not(:disabled):active { transform:scale(.94); }
+.wi-typing .wi-loading-dots { padding-inline:3px; }
+@keyframes wi-focus-light { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:scale(1); } }
+@media(prefers-reduced-motion:reduce){.wi-compose-row,.wi-compose-row::before,.wi-send:not(:disabled){animation:none;transition:none}}

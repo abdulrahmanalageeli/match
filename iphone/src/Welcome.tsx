@@ -85,7 +85,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       <MotionReveal className="wd-hero-copy" delay={revealDelay} duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
-        <p>توافق مبني على شخصيتك وتفضيلاتك، بمساعدة الذكاء الاصطناعي.</p>
+        <p>توافق مبني على شخصيتك وتفضيلاتك.</p>
         <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ رحلتك للزواج <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">اكتشف وُدَين <ArrowDown size={15} aria-hidden="true"/></a></div>
       </MotionReveal>
       <figure className="wd-hero-art">
@@ -105,7 +105,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       <figure className="wd-product-figure" id={previewId} aria-label={preview.alt}>
         <div className="wd-product-halo" aria-hidden="true"/>
         <div className="wd-device"><div className="wd-device-top" aria-hidden="true"><span>وُدَين</span><i/></div><div className="wd-device-screen"><img key={preview.id} src={`/brand/welcome/${preview.id}.webp`} alt={preview.alt} width="780" height="1120" loading="lazy" decoding="async"/></div></div>
-        <figcaption>من واجهات التطبيق · ملفات وبيانات توضيحية</figcaption>
+        <figcaption>من واجهات التطبيق</figcaption>
       </figure>
     </section>
 

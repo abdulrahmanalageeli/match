@@ -173,7 +173,7 @@ const practicalQuestions = [
 ];
 
 function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
-  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذا بلاغ تجريبي عن شخصية توضيحية.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
+  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذه معاينة للبلاغ؛ لم يُرسل إلى الفريق.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
 }
 
 function RequestWaiting({ connection }: { connection: Connection }) {
@@ -462,11 +462,11 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   return <>
     {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
-      alt={`صورة توضيحية لشخصية ${person.alias}`} onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
+      alt="" onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
     <div className="df-portrait-badges"><CompatibilityPill person={person} />
-      {!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية' : 'حساب توضيحي' : person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
+      {!person.isDemo&&<span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
@@ -525,7 +525,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <PersonAvatar person={person} source={source} className="dr-row-image"/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} compact ariaLabel={`توافق التفضيلات ${ar.format(preference)} بالمئة`}/>}
@@ -774,7 +774,7 @@ function Discovery({
     return (
       <Profile source={source} person={person} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         featured={listPosition.current?.featured}
-        primary={person.isDemo&&!source.simulation?<p className="cm-help">هذا ملف خيالي للاستعراض فقط؛ طلبات التعارف والاهتمام متاحة مع الأعضاء الحقيقيين.</p>:<>
+        primary={person.isDemo&&!source.simulation?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
             <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
@@ -873,7 +873,6 @@ function Discovery({
           }
         />
       )}
-      {!loading && !error && people.some(person => person.isDemo) && <div className="df-pilot-note"><p>{people.every(person => person.isDemo) ? 'الملفات المعروضة خيالية لتجربة المزايا، وليست أعضاء حقيقيين.' : 'الأعضاء الحقيقيون أولًا، وتليهم ملفات خيالية موسومة «توضيحي» للاستعراض فقط.'}</p>{order==='recommended'&&people.every(person=>person.isDemo)&&<button className="btn-text" onClick={()=>setOrder('all')}>استكشف جميع الملفات المؤهلة <ArrowLeft size={14}/></button>}</div>}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
           order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
@@ -1339,7 +1338,7 @@ export function Chat({
         <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">حساب توضيحي</span>} {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -1989,7 +1988,7 @@ function Requests({
           >
             <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
-              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>} {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
+              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

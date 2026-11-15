@@ -18,7 +18,7 @@ export function TestingTrial({busy,expiresAt,accept,back,gender}:{busy:boolean;e
    <li><strong>اختر بداية مناسبة</strong><span>أرسل طلبًا لمن يناسبك. بعد القبول المتبادل وإقرار الجدّية تبدأ المحادثة.</span></li>
    <li><strong>قيّم تجربتك بنفسك</strong><span>هل وجدت ملفات مناسبة وحوارًا يستحق المتابعة؟ عدد الترشيحات والردود غير مضمون.</span></li>
   </ol>
-  <p className="nf-trial-pilot-note">تتضمن التجربة ملفات خيالية موسومة بأنها توضيحية؛ وجودها لا يعني وجود أعضاء حقيقيين متاحين للتعارف.</p>
+  <p className="nf-trial-pilot-note">بعض الملفات نماذج للعرض فقط، وليست حسابات أعضاء.</p>
   <WhyWudayn label="ما الذي تحصل عليه في وُدَين؟"/>
   <p>لا نطلب بطاقة، ولن يُخصم أي مبلغ أو يبدأ اشتراك مدفوع تلقائيًا. تنتهي التجربة المجانية بعد أسبوع، وأي اشتراك لاحق يتطلب موافقتك قبل الشراء.</p>
   {activated&&<p>تنتهي التجربة في {new Date(expiresAt!).toLocaleDateString('ar-SA',{calendar:'gregory'})}، دون أي خصم.</p>}

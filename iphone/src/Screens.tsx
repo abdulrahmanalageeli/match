@@ -432,7 +432,7 @@ export function DemoNotice({ onExit, gender, onGenderChange }: { onExit: Click; 
   return (
     <div className="demo-notice" dir="rtl">
       <span>
-        <Sparkles size={13} /> تجربة بملفات خيالية
+        <Sparkles size={13} /> وضع التجربة
       </span>
       {onGenderChange && <select className="demo-pool" aria-label="نوع الملفات في التجربة" value={gender} onChange={event => onGenderChange(event.target.value as "woman" | "man")}>
         <option value="woman">ملفات الرجال</option>

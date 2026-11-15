@@ -1149,7 +1149,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </Modal>
       )}
       {reportReceipt && reportReceipt.owner === (demo ? 'demo-' + sampleSession : token) && <Modal title={reportReceipt.demo ? 'تجربة الإبلاغ' : 'تم إرسال البلاغ'} close={() => setReportReceipt(null)}>
-        <p>{reportReceipt.demo ? 'هذه محاكاة بملف خيالي؛ لم يُرسل بلاغ حقيقي.' : 'وصل البلاغ للمراجعة وأُغلق هذا الترشيح. تأكيد الإرسال لا يعني صدور قرار، ولا يوجد وقت استجابة محدد معلن.'}</p>
+        <p>{reportReceipt.demo ? 'هذه معاينة للبلاغ؛ لم يُرسل إلى الفريق.' : 'وصل البلاغ للمراجعة وأُغلق هذا الترشيح. تأكيد الإرسال لا يعني صدور قرار، ولا يوجد وقت استجابة محدد معلن.'}</p>
         {!reportReceipt.demo && <p>معرّف الترشيح للمتابعة: <bdi>{reportReceipt.reference}</bdi></p>}
         <SupportContact subject="متابعة بلاغ في وُدَين" context={reportReceipt.demo ? undefined : `معرّف الترشيح: ${reportReceipt.reference}`} />
         <button className="f-primary" onClick={() => setReportReceipt(null)}>فهمت</button>

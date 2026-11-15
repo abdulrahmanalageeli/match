@@ -144,7 +144,7 @@ struct NativeMembership: View {
         } else { ProgressView("نحمّل سعر العضوية…") }
         NativeAction(title: "استعادة المشتريات") {
             try await AppStore.sync()
-            for await result in Transaction.currentEntitlements { if case .verified(let transaction) = result, transaction.productID == productID { try await deliver(result) } }
+            for await result in StoreKit.Transaction.currentEntitlements { if case .verified(let transaction) = result, transaction.productID == productID { try await deliver(result) } }
         }
         NativeAction(title: "إدارة الاشتراك") {
             guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
@@ -152,7 +152,7 @@ struct NativeMembership: View {
         }
         NavigationLink("الخصوصية والشروط", destination: NativeLegal())
     }.navigationTitle("عضويتي").nativeError($error).task { do { product = try await Product.products(for: [productID]).first } catch { self.error = error.localizedDescription } } }
-    private func deliver(_ result: VerificationResult<Transaction>) async throws {
+    private func deliver(_ result: VerificationResult<StoreKit.Transaction>) async throws {
         guard case .verified(let transaction) = result, transaction.productID == productID else { throw NativeProblem.message("تعذّر التحقق من عملية الشراء.") }
         _ = try await store.client.edge("verify-membership", .object(["signedTransaction": .string(result.jwsRepresentation)]))
         await transaction.finish(); try await store.refresh()

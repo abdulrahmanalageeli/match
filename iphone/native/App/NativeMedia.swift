@@ -12,6 +12,15 @@ import WudaynCore
     private var player: AVAudioPlayer?
     private var file: URL?
     private var timer: Task<Void, Never>?
+    private var interruption: NSObjectProtocol?
+    override init() {
+        super.init()
+        interruption = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] event in
+            guard let raw = event.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt, AVAudioSession.InterruptionType(rawValue: raw) == .began else { return }
+            Task { @MainActor [weak self] in self?.discard() }
+        }
+    }
+    deinit { if let interruption { NotificationCenter.default.removeObserver(interruption) }; timer?.cancel() }
     func start() async throws {
         guard !recording, !NisfaynCallCenter.shared.active else { throw NativeProblem.message("أنه المكالمة قبل تسجيل رسالة صوتية.") }
         let audio = AVAudioSession.sharedInstance()
@@ -23,7 +32,9 @@ import WudaynCore
         try audio.setActive(true)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".m4a")
         file = url
-        let recorder = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 64000])
+        let recorder: AVAudioRecorder
+        do { recorder = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 64000]) }
+        catch { discard(); throw error }
         self.recorder = recorder
         guard recorder.record(forDuration: 60) else { discard(); throw NativeProblem.message("تعذّر بدء التسجيل.") }
         try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
@@ -82,12 +93,15 @@ enum NativeImages {
 struct NativeCamera: UIViewControllerRepresentable {
     let complete: (Data?) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(complete) }
-    func makeUIViewController(context: Context) -> UIImagePickerController {
+    func makeUIViewController(context: Context) -> UIViewController {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera), UIImagePickerController.isCameraDeviceAvailable(.front) else {
+            DispatchQueue.main.async { complete(nil) }; return UIViewController()
+        }
         let picker = UIImagePickerController(); picker.delegate = context.coordinator
-        if UIImagePickerController.isSourceTypeAvailable(.camera) { picker.sourceType = .camera; picker.cameraDevice = .front }
+        picker.sourceType = .camera; picker.cameraDevice = .front
         return picker
     }
-    func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ controller: UIViewController, context: Context) {}
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let complete: (Data?) -> Void
         init(_ complete: @escaping (Data?) -> Void) { self.complete = complete }

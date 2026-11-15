@@ -17,7 +17,7 @@ final class NativeAppDelegate: NSObject, UIApplicationDelegate {
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            NativeRoot().environmentObject(store).environment(\.layoutDirection, .rightToLeft)
+            NativeRoot().modifier(NativeLifecycle()).environmentObject(store).environment(\.layoutDirection, .rightToLeft)
                 .environment(\.locale, Locale(identifier: "ar_SA")).tint(NativeTheme.accent)
                 .background(NativeTheme.paper).nativeError($store.error)
                 .task { await store.restore() }

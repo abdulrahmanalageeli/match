@@ -113,6 +113,7 @@ struct NativeMessage: View {
     @State private var loading = false
     @State private var error: String?
     @StateObject private var audio = NativeVoiceNote()
+    @State private var visible = false
     private var message: JSONValue { row.value }
     private var attachment: JSONValue { message["attachment"] }
     var body: some View {
@@ -127,6 +128,11 @@ struct NativeMessage: View {
                     }.disabled(loading || attachment["viewOnce"].bool && (spent || !attachment["openedAt"].isNull || message["senderIsMe"].bool))
                 } else { Text(message["body"].string).textSelection(.enabled) }
                 HStack { Text(message["createdAt"].string.prefix(16).replacingOccurrences(of: "T", with: " ")).font(.caption2).foregroundStyle(.secondary); if !message["readAt"].isNull { Image(systemName: "checkmark.circle.fill").font(.caption2) } }
+                if !message["reactions"].array.isEmpty {
+                    HStack { ForEach(Array(message["reactions"].array.enumerated()), id: \.offset) { _, reaction in
+                        NativeAction(title: "\(reaction["emoji"].string) \(Int(reaction["count"].number))") { _ = try await store.client.rpc("marriage_react_to_message", ["request_id": .string(requestID), "message_id": .string(row.id), "reaction": reaction["mine"].bool ? .null : reaction["emoji"]]) }
+                    } }.font(.caption)
+                }
             }.padding(12).background(message["senderIsMe"].bool ? NativeTheme.accent.opacity(0.10) : Color.gray.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 16))
                 .contextMenu {
                     if message["deletedAt"].isNull {
@@ -138,7 +144,8 @@ struct NativeMessage: View {
             if message["senderIsMe"].bool { Spacer(minLength: 36) }
         }.fullScreenCover(item: $photo) { NativePhotoScreen(photo: $0) }.nativeError($error)
             .onChange(of: phase) { if $0 != .active { photo = nil; audio.discard() } }
-            .onDisappear { photo = nil; audio.discard() }
+            .onAppear { visible = true }
+            .onDisappear { visible = false; photo = nil; audio.discard() }
     }
     private func open() async {
         if audio.playing { audio.pause(); return }
@@ -148,7 +155,7 @@ struct NativeMessage: View {
             if once && !PrivatePhotoController.canDisplay() { throw NativeProblem.message("أوقف تسجيل الشاشة أو مشاركتها لفتح الصورة المحمية.") }
             let data = try await store.client.media(requestID: requestID, mediaID: attachment["id"].string, once: once)
             if once { spent = true }
-            guard phase == .active else { return }
+            guard phase == .active, visible, NisfaynPrivacy.shared.mayOpen else { return }
             if attachment["kind"].string == "audio" { try audio.play(data) }
             else if let image = UIImage(data: data) { photo = NativeImagePresentation(image: image, once: once) }
             else { throw NativeProblem.invalidResponse }

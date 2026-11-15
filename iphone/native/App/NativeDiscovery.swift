@@ -23,6 +23,7 @@ struct NativeDiscovery: View {
             .toolbar { Button { showFilters = true } label: { Label("تفضيلات البحث", systemImage: "slider.horizontal.3") } }
             .sheet(isPresented: $showFilters) {
                 NavigationStack { NativeDiscoveryFilters(value: $filters).toolbar { Button("تطبيق") { showFilters = false; Task { await load(reset: true) } } } }
+            }
             .task { await load(reset: true) }.refreshable { await load(reset: true) }
     }
     private func load(reset: Bool) async {

@@ -127,7 +127,7 @@ final class ClientTests: XCTestCase {
         let transport = MockTransport(), vault = MemoryVault(), subject: WudaynClient
         subject = WudaynClient(vault: vault, transport: transport)
         try await transport.enqueue(session(a, expired: true)); _ = try await subject.signIn(email: "a@example.invalid", password: "fixture")
-        try await transport.enqueue(.object([:]), status: 401)
+        try await transport.enqueue(.object([:]), status: 400)
         do { _ = try await subject.rpc("marriage_request"); XCTFail("Revoked session used") } catch { XCTAssertTrue(NativeProblem.isAccessDenied(error)) }
         XCTAssertNil(try vault.read())
         do { _ = try await subject.rpc("marriage_request"); XCTFail("Retried revoked credentials") } catch { XCTAssertEqual(error as? NativeProblem, .signedOut) }
@@ -166,5 +166,16 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(requests[1].value(forHTTPHeaderField: "x-client-id"), b)
         XCTAssertEqual(requests[2].value(forHTTPHeaderField: "x-client-id"), b)
         XCTAssertEqual(requests[2].value(forHTTPHeaderField: "x-view-once"), "true")
+    }
+    func testRecoveryAcceptsHTTPSRedirectWithoutChangingBackendOrigin() async throws {
+        let transport = MockTransport()
+        let client = WudaynClient(vault: MemoryVault(), transport: transport)
+        try await transport.enqueue(.object([:]))
+        let redirect = URL(string: "https://example.invalid/reset?auth=recovery&next=profile")!
+        try await client.passwordReset(email: "member@example.invalid", redirect: redirect)
+        let requests = await transport.requests, url = try XCTUnwrap(requests.first?.url)
+        XCTAssertEqual(url.host, WudaynClient.projectURL.host)
+        XCTAssertEqual(url.path, "/auth/v1/recover")
+        XCTAssertEqual(URLComponents(url: url, resolvingAgainstBaseURL: true)?.queryItems?.first(where: { $0.name == "redirect_to" })?.value, redirect.absoluteString)
     }
 }

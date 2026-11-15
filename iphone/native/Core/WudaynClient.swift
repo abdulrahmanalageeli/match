@@ -166,6 +166,7 @@ public actor WudaynClient {
                 refreshing = nil
                 if let problem = error as? NativeProblem, case .http(let status, _) = problem, [400, 401, 403].contains(status) {
                     session = nil; generation = UUID(); try vault.clear()
+                    throw NativeProblem.signedOut
                 }
             }
             throw error
@@ -179,7 +180,7 @@ public actor WudaynClient {
         return result
     }
     private func raw(path: String, body: JSONValue? = nil, bytes: Data? = nil, token: String? = nil, headers: [String: String] = [:], method: String = "POST") async throws -> Data {
-        guard !path.hasPrefix("/"), !path.contains("://"), !path.contains(".."), let url = URL(string: path, relativeTo: Self.projectURL.appendingPathComponent("/")) else { throw NativeProblem.invalidResponse }
+        guard !path.hasPrefix("/"), let components = URLComponents(string: path), components.scheme == nil, components.host == nil, components.fragment == nil, !components.path.contains(".."), let url = URL(string: path, relativeTo: Self.projectURL.appendingPathComponent("/")), url.host == Self.projectURL.host, url.scheme == "https" else { throw NativeProblem.invalidResponse }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = method; request.httpBody = try bytes ?? body?.encoded()
         request.setValue(key, forHTTPHeaderField: "apikey")

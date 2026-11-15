@@ -12,8 +12,8 @@ final class NativeFailureTests: XCTestCase {
         XCTAssertTrue(email.waitForExistence(timeout: 10)); email.tap(); email.typeText("new@example.invalid")
         app.secureTextFields["signup.password"].tap(); app.secureTextFields["signup.password"].typeText("fixture-password")
         app.textFields["signup.phone"].tap(); app.textFields["signup.phone"].typeText("0501234567")
-        app.swipeUp()
-        let send = app.buttons["signup.sendSMS"]; reveal(send, in: app); XCTAssertFalse(send.isEnabled)
+        let send = app.buttons["signup.sendSMS"]; XCTAssertFalse(send.isEnabled)
+        app.swipeDown()
         for id in ["signup.adult", "signup.terms", "signup.privacy", "signup.smsConsent"] {
             let toggle = app.switches[id]; reveal(toggle, in: app); toggle.tap()
         }
@@ -26,7 +26,8 @@ final class NativeFailureTests: XCTestCase {
         code.tap(); code.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6) + "123456")
         reveal(verify, in: app); verify.tap()
         let create = app.buttons["signup.create"]; reveal(create, in: app)
-        XCTAssertTrue(create.isEnabled); create.tap()
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: create)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); create.tap()
         XCTAssertTrue(app.staticTexts["signup.created"].waitForExistence(timeout: 10))
         XCTAssertFalse(create.isEnabled)
     }

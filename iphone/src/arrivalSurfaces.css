@@ -171,10 +171,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .dr-avatar-online::after { content: ''; position: absolute; inset-inline-end: -3px; bottom: -3px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #32805b; }
 .phone-app .cm-shell .dr-online-label { color: #276947; font-size: 10px; font-weight: 600; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-context { flex-wrap: wrap; }
-.phone-app .cm-shell .dr-fit-visual { min-width: 65px; min-height: 48px; padding: 5px 10px; border: 1px solid #d8b7c3; border-radius: 8px; background: #fffdfc; align-items: center; justify-content: center; }
-.phone-app .cm-shell .dr-fit-visual .dr-preference-inline { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.phone-app .cm-shell .dr-fit-visual .dr-preference-inline strong { font-size: 20px; line-height: 1.1; }
-.phone-app .cm-shell .dr-fit-visual .dr-fit-caption { font-size: 10px; }
+.phone-app .cm-shell .dr-fit-visual { width: 67px; min-width: 67px; min-height: 70px; padding: 0; border: 0; background: transparent; align-items: center; justify-content: center; }
 .phone-app .cm-shell .dr-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest { width: auto; min-width: 72px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; padding: 5px 8px; border: 0; border-radius: 8px; background: #f7f0f3; color: #694052; font: inherit; font-size: 12px; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest[aria-pressed='true'] { color: #54152a; background: #eee1e7; }

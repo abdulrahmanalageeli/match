@@ -49,7 +49,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
       <div className="nf-fit-score" data-fit-score="preferences">
         <SlidersHorizontal className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>توافق التفضيلات</h3>
-        <strong aria-label={preference === null ? 'بانتظار التقييمين' : undefined}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{arabic.format(preference)}<small>٪</small></>}</strong>
+        <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} بالمئة`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{preference}%</bdi>}</strong>
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${preference ?? 0}%`}}/></div>
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'ما تبحثان عنه في شريك الحياة'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'لماذا هذه النسبة؟'}<CircleHelp size={15}/></button>
@@ -57,7 +57,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
       <div className="nf-fit-score personality" data-fit-score="personality">
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>انسجام الشخصية</h3>
-        <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : undefined}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{arabic.format(personality)}<small>٪</small></>}</strong>
+        <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : `${arabic.format(personality)} بالمئة`}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{personality}%</bdi>}</strong>
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${personality ?? 0}%`}}/></div>
         <p>{personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار اكتمال التقييمين' : 'تشابه أسلوبكما وطباعكما'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={personalityId} onClick={explainPersonality}>{personality===null?'عن هذا التقييم':'لماذا هذه النسبة؟'}<CircleHelp size={15}/></button>

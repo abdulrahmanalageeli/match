@@ -77,7 +77,8 @@ test('view-once authorization checks current match, account and agreement withou
 });
 
 test('pair deletion is sender-only, permanent, 48-hour bounded and removes copied replies and media access',async(t)=>{
- const db=await createDatabase();
+ // Emit lifecycle diagnostics so CI also verifies the WASM shutdown path.
+ const db=await createDatabase({debug:1});
  // Keep assertion failures visible if the WASM database also fails during shutdown.
  t.after(()=>db.close());
   const{a,b,rpc,photo}=await pair(db);const id=randomUUID(),reply=randomUUID();

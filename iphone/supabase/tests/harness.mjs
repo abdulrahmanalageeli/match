@@ -3,8 +3,8 @@ import { readdir, readFile } from 'node:fs/promises';
 
 // Disposable PostgreSQL/WASM instance; the Auth tables below model only the
 // GoTrue columns used by this project, not an Auth service or a real account.
-export async function createDatabase({coreOnly=false, throughMigration}={}) {
-  const db = new PGlite();
+export async function createDatabase({coreOnly=false, throughMigration, debug=0}={}) {
+  const db = new PGlite({debug});
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth;

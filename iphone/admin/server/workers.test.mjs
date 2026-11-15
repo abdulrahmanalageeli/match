@@ -162,12 +162,14 @@ test('member chat cleanup validates exact paths and acknowledges only successful
 });
 
 test('push validates each lease immediately before delivery and persists invalid/retry outcomes with claimed token',async()=>{
- const jobs=[job(),job(),job()],sent=[],finished=[];let closed=false;
- globalThis.__nisfaynTestApns=config=>{assert.equal(config.environment,'sandbox');return{send:async j=>{sent.push(j.id);return j.id===jobs[1].id?'invalid':'retry';},close:()=>{closed=true;}};};
+ const jobs=[job(),job(),job()],sent=[],finished=[],validated=new Set();let closed=false;
+ globalThis.__nisfaynTestApns=config=>{assert.equal(config.environment,'sandbox');return{send:async j=>{assert(validated.has(j.id));assert.equal(j.details.preview,'private');sent.push(j.id);return j.id===jobs[1].id?'invalid':'retry';},close:()=>{closed=true;}};};
  globalThis.fetch=async(input,options)=>{
   const url=String(input);assert(url.startsWith(origin+'/rest/v1/rpc/'));const body=JSON.parse(options.body);
+  if(url.endsWith('nisfayn_enqueue_deadline_reminders'))return reply(true);
+  if(url.endsWith('nisfayn_test_push_claim'))return reply([]);
   if(url.endsWith('marriage_push_claim')){assert.deepEqual(body,{delivery_environment:'sandbox',batch_size:20});return reply(jobs);}
-  if(url.endsWith('marriage_push_validate'))return reply(body.job_id!==jobs[0].id);
+  if(url.endsWith('nisfayn_push_content')){const claimed=jobs.find(j=>j.id===body.job_id);assert.deepEqual(body,{job_id:claimed.id,lease:claimed.leaseId,tester:false});validated.add(claimed.id);return reply(claimed.id===jobs[0].id?null:{preview:'private',badge:1});}
   if(url.endsWith('marriage_push_finish')){finished.push(body);return reply(true);}
   throw new Error('Unexpected HTTP');
  };
@@ -183,8 +185,10 @@ test('push waits for all started deliveries before closing transport when one co
  globalThis.__nisfaynTestApns=()=>({send:async()=> 'sent',close:()=>{assert(completed);closed=true;}});
  globalThis.fetch=async(input,options)=>{
   const url=String(input),body=JSON.parse(options.body);
+  if(url.endsWith('nisfayn_enqueue_deadline_reminders'))return reply(true);
+  if(url.endsWith('nisfayn_test_push_claim'))return reply([]);
   if(url.endsWith('marriage_push_claim'))return reply(jobs);
-  if(url.endsWith('marriage_push_validate'))return reply(true);
+  if(url.endsWith('nisfayn_push_content'))return reply({preview:'private',badge:1});
   if(body.job_id===jobs[0].id)return new Response(null,{status:503});
   await new Promise(resolve=>setTimeout(resolve,10));completed=true;return reply(true);
  };

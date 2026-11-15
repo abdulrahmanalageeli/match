@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
@@ -8,14 +9,14 @@ test('private reactions synchronize aggregates, change/remove atomically and enf
   const rpc=async(expression,args=[])=>{try{return(await db.query('select '+expression+' value',args)).rows[0].value;}catch(error){error.message=expression+': '+error.message+' '+(error.where||'');throw error;}};
   const call=(u,expression,args)=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
   async function member(gender){
-   const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
+   const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u); await seedCommunicationMember(db,u,gender);
    const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
    await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
    await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));
    return u;
   }
   const a=await member('woman'),b=await member('man'),outsider=await member('man');
-  const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);
+  const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);await signCommunicationAgreement(call,a,b,request);
   const id=await call(a,'public.marriage_message($1,$2,$3)',[request,'hello',randomUUID()]);
   const react=async(u,emoji,message=id,connection=request)=>{try{return await call(u,'public.marriage_react_to_message($1,$2,$3)',[connection,message,emoji]);}catch(error){error.message='reaction '+emoji+': '+error.message;throw error;}};
   const changes=u=>call(u,'public.marriage_message_changes($1,$2)',[request,[id]]);

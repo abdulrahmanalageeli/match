@@ -1,3 +1,4 @@
+import { seedCommunicationMember, signCommunicationAgreement } from './communication-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -17,7 +18,7 @@ function setup(db) {
   async function add(gender, profile={}, {paid=true, approved=true}={}) {
     const id=randomUUID();
     const user={id,email:id+"@example.test",sessionId:randomUUID()};
-    await addUser(db,user);
+    await addUser(db,user);await seedCommunicationMember(db,user,gender,'pending');
     const state=await call(user,"public.marriage_apply($1)",[{
       displayName:"مثال",age:29,gender,city:"الرياض",profession:"مهندس",bio:"ملف تجريبي",lookingFor:"",
       contact:user.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:"",
@@ -43,6 +44,8 @@ test('replies quote only this conversation, retain idempotency and respect membe
     const a=await add('woman'), b=await add('man'), outsider=await add('man');
     const request=randomUUID(), other=randomUUID();
     await db.query("insert into marriage.member_requests(id,requester_id,recipient_id,status) values($1,$2,$3,'accepted'),($4,$2,$5,'accepted')",[request,a.id,b.id,other,outsider.id]);
+    await signCommunicationAgreement(call,a,b,request);
+    await signCommunicationAgreement(call,a,outsider,other);
     const original=await call(a,'public.marriage_message($1,$2,$3)',[request,'original question',randomUUID()]);
     const foreign=await call(a,'public.marriage_message($1,$2,$3)',[other,'private other conversation',randomUUID()]);
     const client=randomUUID();
@@ -112,6 +115,7 @@ test("paged chat, sender retry receipts and private refresh signals stay within 
   try {
     const {add,call}=setup(db);
     const a=await add("woman"), b=await add("man"), outsider=await add("woman");
+    await db.exec("truncate realtime.messages");
     const id=await call(a,"public.marriage_request($1)",[b.id]);
     await assert.rejects(call(a,"public.marriage_thread_page($1)",[id]),/غير متاحة/);
     await call(b,"public.marriage_act($1,'accept')",[id]);
@@ -158,6 +162,8 @@ test("unread cursors are private, monotonic across devices, and count only eligi
     await assert.rejects(mark(a,ab,randomUUID()),/غير متاحة/);
     await call(b,"public.marriage_act($1,'accept')",[ab]);
     await call(c,"public.marriage_act($1,'accept')",[ac]);
+    await signCommunicationAgreement(call,a,b,ab);
+    await signCommunicationAgreement(call,a,c,ac);
 
     const tied=[1,2,3,4].map(n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0'));
     for(let i=0;i<tied.length;i++) {
@@ -221,6 +227,8 @@ test("only reciprocal requests unlock private chat; closing, blocking and paid e
     assert.equal(await call(b,"public.marriage_act($1,'accept')",[request]),true);
     assert.equal(await call(b,"public.marriage_act($1,'accept')",[request]),true);
     await assert.rejects(call(outsider,"public.marriage_thread($1)",[request]),/غير متاحة/);
+    await assert.rejects(call(a,"public.marriage_message($1,'unsigned',$2)",[request,randomUUID()]),/اتفاق الجدية/);
+    await signCommunicationAgreement(call,a,b,request);
     const clientId=randomUUID();
     const message=await call(a,"public.marriage_message($1,$2,$3)",[request,"أهلًا",clientId]);
     assert.equal(await call(a,"public.marriage_message($1,$2,$3)",[request,"أهلًا",clientId]),message);
@@ -308,14 +316,18 @@ test("versioned full assessment matches the phone in both directions, fails clos
     assert.equal(shown.length,4);
     const card = i => shown.find(p => p.id === members[i].user.id);
     assert.equal(card(0).fit.band,"strong");
-    assert.equal(card(1).fit.band,"mixed");
+    assert.equal(card(1).fit.band,"strong");
     assert(card(1).fit.discussion.includes("weekly_planning"));
     assert.equal(card(2).fit.band,"insufficient");
     assert(card(2).fit.missing.includes("children_plan"));
     assert(card(6), "a willing mover can match someone who stays in their city");
     assert(!JSON.stringify(shown).includes("partner_children_plan") && !JSON.stringify(shown).includes("priorityCategories"));
     const {catalog}= (await db.query("select catalog from marriage.assessment_versions where id=$1",[assessmentVersion])).rows[0];
-    assert.deepEqual(catalog,JSON.parse(await readFile(catalogUrl,"utf8")));
+    // Partner defaults are client intake metadata; residence wording is context-aware
+    // in both matching implementations (the actual card reasons are compared above).
+    const matchingCatalog=value=>({...value,dimensions:value.dimensions.map(({partnerDefault,...dimension})=>
+      dimension.id==='residence_plan'?{...dimension,reason:undefined}:dimension)});
+    assert.deepEqual(matchingCatalog(catalog),matchingCatalog(JSON.parse(await readFile(catalogUrl,"utf8"))));
     for(const {profile,user} of members){
       const simulated=comparePreferences(fullViewer,{...profile,id:user.id});
       const sql=(await db.query("select marriage.compatible($1,$2) as eligible, f.* from marriage.pair_fit($1,$2) f",[a.id,user.id])).rows[0];

@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -5,8 +6,8 @@ import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 
 const rpc=async(db,sql,args=[])=>(await db.query('select '+sql+' as v',args)).rows[0].v;
 async function member(db,gender='woman'){
- const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.invalid'};await addUser(db,u);
- await asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[{displayName:'PRIVATE-NAME',age:29,gender,city:'الرياض',profession:'باحثة',bio:'PRIVATE-BIO',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05'}]));
+ const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.invalid'};await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');
+ await asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[{displayName:'PRIVATE-NAME',age:29,gender,city:'الرياض',profession:'باحثة',bio:'PRIVATE-BIO',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:true,photo:false}}]));
  return u;
 }
 async function staff(db,role){
@@ -74,10 +75,10 @@ test('fault counts are rate limited per member and cleanup retains exactly 30 ca
    await db.query("insert into marriage.push_outbox(installation_id,member_id,request_id,kind,event_key,expires_at,finished_at,outcome) values($1,$2,$3,'message',$4,now()-make_interval(days=>$5),case when $6 then now()-make_interval(days=>$5) else null end,case when $6 then 'sent' else null end)",[installation,a.id,request,key,age,finished]);
   }
   await assert.rejects(rpc(db,'marriage.operations_cleanup()'),/Trusted service/);
-  const counts=await asService(db,()=>rpc(db,'public.marriage_operations_cleanup()'));assert.deepEqual(counts,{faultGroups:1,notificationJobs:2});
+  const counts=await asService(db,()=>rpc(db,'public.marriage_operations_cleanup()'));assert.deepEqual(counts,{faultGroups:1,notificationJobs:2,expiredOnboardingDrafts:0,expiredInterviews:0,birthdayAgesUpdated:0});
   assert.deepEqual((await db.query('select event_key from marriage.push_outbox order by event_key')).rows.map(r=>r.event_key),['live','recent-sent']);
   assert.equal((await db.query('select count(*)::int n from marriage.client_fault_limits where member_id=$1',[b.id])).rows[0].n,0);
   const health=await asStaff(db,owner,()=>rpc(db,'public.marriage_admin_health()'));assert.equal(health.clientEvents.length,2);assert.equal(health.push.queued,1);
-  assert.deepEqual(await asService(db,()=>rpc(db,'public.marriage_operations_cleanup()')),{faultGroups:0,notificationJobs:0});
+  assert.deepEqual(await asService(db,()=>rpc(db,'public.marriage_operations_cleanup()')),{faultGroups:0,notificationJobs:0,expiredOnboardingDrafts:0,expiredInterviews:0,birthdayAgesUpdated:0});
  }finally{await db.close();}
 });

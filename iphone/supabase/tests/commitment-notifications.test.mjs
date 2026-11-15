@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
@@ -7,7 +8,7 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
  const db=await createDatabase();
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>db.query('select '+sql+' as value',args).then(r=>r.rows[0].value));
  async function add(gender){
-  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
+  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u); await seedCommunicationMember(db,u,gender);
   const state=await call(u,'public.marriage_apply($1)',[{displayName:gender==='man'?'عضو':'عضوة',age:30,city:'الرياض',gender,profession:'معلّم',bio:'ملف اختباري',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false}}]);
   await asService(db,()=>db.query("select public.marriage_review($1,'approve')",[u.id]));
   await asService(db,()=>db.query('select public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
@@ -16,7 +17,7 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
   const a=await add('man'),b=await add('woman'),c=await add('woman'),d=await add('man');
   await call(a,'public.marriage_discover()');await call(b,'public.marriage_discover()');
   const ab=await call(a,'public.marriage_request($1)',[b.id]),ac=await call(a,'public.marriage_request($1)',[c.id]),bd=await call(b,'public.marriage_request($1)',[d.id]);
-  await call(b,"public.marriage_act($1,'accept')",[ab]);await call(c,"public.marriage_act($1,'accept')",[ac]);
+  await call(b,"public.marriage_act($1,'accept')",[ab]);await call(c,"public.marriage_act($1,'accept')",[ac]);await signCommunicationAgreement(call,b,a,ab);await signCommunicationAgreement(call,c,a,ac);
   const message=randomUUID();await call(a,'public.marriage_message($1,$2,$3)',[ac,'يبقى هذا السجل محفوظًا',message]);
   await call(a,'public.marriage_note_profile_open($1)',[b.id]);await call(a,'public.marriage_note_profile_open($1)',[b.id]);
   let notices=await call(b,'public.marriage_notifications()');assert.equal(notices.length,1);assert.equal(notices[0].person.id,a.id);

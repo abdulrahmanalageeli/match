@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
 const version='2026-11-07-privacy';
 const essential={version,adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:false,photo:false};
@@ -12,6 +13,9 @@ function setup(db){
  async function member(gender='man'){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
   await addUser(db,u);
+  // These cases cover consent changes on existing profiles; new intake gates
+  // are exercised separately by required-assessment and portrait-stage suites.
+  await seedCommunicationMember(db,u,gender);await db.query("update marriage.members set review_status='draft' where id=$1",[u.id]);
   u.profile={displayName:'عضو تجريبي',age:29,gender,city:'الرياض',profession:'مهندس',bio:'نبذة اختيارية',contact:u.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',consentVersion:version,
    marriageBasics:{},partnerCriteria:{},surveyAnswers:{},personalityAnswers:{},personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],signupConsents:essential};
@@ -125,6 +129,7 @@ test('sensitive publication requires a new explicit receipt and never changes pr
    partnerCriteria:{skinTone:{mode:'prefer',values:['tone_3']},tribalBackground:{mode:'prefer',target:'same_tribe'}},
    publicAvatar:null};
   await save(a,{...details,signupConsents:all});await save(b,{...details,signupConsents:all});
+  await asService(db,()=>rpc("public.marriage_review($1,'approve')",[a.id]));await asService(db,()=>rpc("public.marriage_review($1,'approve')",[b.id]));
   const before=await rpc('(select fit from marriage.pair_fit($1,$2))',[a.id,b.id]);
   assert.equal((await rpc('marriage.member_card($1,$2)',[a.id,b.id])).marriageBasics.tribeName,'مثال');
   const own=await save(b,{...details,signupConsents:{...all,sensitivePublication:false}});

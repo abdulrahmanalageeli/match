@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
 function fixture(db){
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
@@ -10,7 +11,8 @@ function fixture(db){
  async function user(){const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);await db.query('update auth.users set raw_app_meta_data=$2 where id=$1',[u.id,{guardian_account:true}]);return u;}
  async function member(gender='man'){
   const u=await user();
-  await call(u,'public.marriage_apply($1)',[{displayName:gender==='man'?'عضو تجريبي':'عضوة تجريبية',age:29,birthDate:'1997-01-01',gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
+  await seedCommunicationMember(db,u,gender);
+  await call(u,'public.marriage_apply($1)',[{displayName:gender==='man'?'عضو تجريبي':'عضوة تجريبية',age:29,birthDate:'1997-01-01',gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
   await db.query("update marriage.members set review_status='approved',manual_access_until=now()+interval '1 day' where id=$1",[u.id]);return u;
  }
  async function guardian(){const u=await user();await family(u,'register',{displayName:'أحد الأهل',adult:true,consentVersion:'family-v1'});return u;}

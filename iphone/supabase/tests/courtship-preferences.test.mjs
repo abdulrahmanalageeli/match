@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -14,7 +15,7 @@ const profile={displayName:'عضو تجريبي',age:29,gender:'man',city:'ال�
 
 test('optional courtship choices save, survive profile edits and appear on member cards without exposing assessment answers',async()=>{
  const db=await createDatabase();try{
-  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);await seedCommunicationMember(db,u,profile.gender,'pending');
   const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
   let current=profile;
   const save=async patch=>{

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
 async function user(db,label){const value={id:randomUUID(),sessionId:randomUUID(),email:label+'@example.invalid'};await addUser(db,value);return value;}
 async function staff(db,label,role){const value=await user(db,label);await db.query('insert into marriage.staff_accounts(user_id,role,display_name) values($1,$2,$3)',[value.id,role,label]);return value;}
@@ -11,8 +12,8 @@ async function asStaff(db,u,fn,{aal='aal2',extra={}}={}){
   try{return await fn();}finally{await db.exec('reset role');await db.query("select set_config('request.jwt.claims','',false)");}
 }
 async function rpc(db,sql,args=[]){return (await db.query('select '+sql+' as result',args)).rows[0].result;}
-const profile=(name='عضو')=>({displayName:name,age:29,gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف للمراجعة',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-05'});
-async function apply(db,u,value=profile()){return asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[value]));}
+const profile=(name='عضو')=>({displayName:name,age:29,gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف للمراجعة',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:true,photo:false}});
+async function apply(db,u,value=profile()){if(!(await db.query('select 1 from marriage.profiles where member_id=$1',[u.id])).rows.length){await seedCommunicationMember(db,u,value.gender);await db.query("update marriage.members set review_status='draft' where id=$1",[u.id]);}return asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[value]));}
 
 test('staff authority requires a live confirmed session, private role and MFA for every privileged RPC',async()=>{
  const db=await createDatabase();

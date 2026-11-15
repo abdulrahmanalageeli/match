@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -10,7 +11,7 @@ test('recommended filters, authoritative expiry and neutral history retain parti
   const call = (user, sql, args = []) => asMember(db, user.id, user.sessionId, () => db.query('select ' + sql + ' value', args).then(result => result.rows[0].value));
   async function add(gender, name, city = 'الرياض') {
     const user = { id: randomUUID(), sessionId: randomUUID(), email: randomUUID() + '@example.test' };
-    await addUser(db, user);
+    await addUser(db, user);await seedCommunicationMember(db,user,gender,'pending');
     const profile = { displayName: name, age: 30, city, gender, profession: 'مهندس', bio: 'نبذة تجريبية', contact: user.email,
       preferredMinAge: 25, preferredMaxAge: 40, familyPreference: '', consentVersion: '2026-11-07-privacy', assessmentVersion: 'marriage-v2',
       surveyAnswers: Object.fromEntries(catalog.dimensions.flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']])), hardRequirements: [],

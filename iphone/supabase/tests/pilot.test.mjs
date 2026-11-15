@@ -1,4 +1,5 @@
 import test from "node:test";
+import {seedCommunicationMember,signCommunicationAgreement} from "./communication-fixture.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createDatabase, addUser, asMember, asService } from "./harness.mjs";
@@ -9,11 +10,11 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     (await db.query("select " + expression + " as value", params)).rows[0].value);
   async function add(gender) {
     const id = randomUUID(), user = { id, email: id + "@example.test", sessionId: randomUUID() };
-    await addUser(db, user);
+    await addUser(db, user);await seedCommunicationMember(db,user,gender);
     const state = await call(user, "public.marriage_apply($1)", [{
       displayName: "عضو تجريبي", age: 30, city: "الرياض", gender, profession: "معلّم", bio: "ملف اختباري",
       contact: user.email, preferredMinAge: 25, preferredMaxAge: 40, familyPreference: "",
-      consentVersion: "2026-11-05",
+      consentVersion: "2026-11-07-privacy", signupConsents:{version:"2026-11-07-privacy",adult:true,terms:true,privacy:true,assessment:true,photo:false},
     }]);
     await asService(db, () => db.query("select public.marriage_review($1,'approve')", [id]));
     await asService(db, () => db.query("select public.marriage_record_receipt($1,$2,false)", [id, {
@@ -67,6 +68,7 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     assert.equal(cohort.band, "insufficient");
     await asMember(db, member.id, member.sessionId, () =>
       assert.rejects(db.query("select * from public.marriage_fit_cohorts()"), /permission denied/));
+    await signCommunicationAgreement(call,member,peers[0],ids[0]);
     await call(member, "public.marriage_message($1,$2,$3)", [ids[0], "my own message", randomUUID()]);
     await call(peers[0], "public.marriage_message($1,$2,$3)", [ids[0], "peer-private-message", randomUUID()]);
     const mine = await call(member, "public.marriage_personal_data()");

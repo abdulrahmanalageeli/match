@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
@@ -11,7 +12,7 @@ test('male portraits/gallery require owned unexpired server proof; female upload
   const service = (sql,args=[]) => asService(db,()=>rpc(sql,args));
   async function member(gender) {
    const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
-   await addUser(db,u);
+   await addUser(db,u); await seedCommunicationMember(db,u,gender);
    await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,birthDate:'1997-01-01',gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
    return u;
   }

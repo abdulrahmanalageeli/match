@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
 const answers={consentVersion:'readiness-v1',timeline:'6_to_12_months',family:'ready_to_discuss',preparation:{communication:'ready',budget:'in_progress',housing:'not_started',responsibilities:'in_progress',course:'not_started'}};
 function fixture(db){
@@ -10,7 +11,8 @@ function fixture(db){
  const passport=(u,action,payload={})=>call(u,'public.marriage_passport($1,$2)',[action,payload]);
  async function member(gender='man'){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
-  await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
+  await seedCommunicationMember(db,u,gender);
+  await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,birthDate:'1997-01-01',gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
   await db.query("update marriage.members set review_status='approved',manual_access_until=now()+interval '1 day' where id=$1",[u.id]);return u;
  }
  async function connect(a,b){const id=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[id]);return id;}
@@ -131,7 +133,7 @@ test('paired preview uses private persistent declarations, granular grants and c
  }finally{await db.close();}
 });
 
-test('existing maintenance prunes readiness retention without altering its public response contract',async()=>{
+test('existing maintenance prunes readiness retention and returns the current cleanup counters',async()=>{
  const db=await createDatabase();try{
   const{passport,member,connect,rpc}=fixture(db),a=await member(),b=await member('woman');await passport(a,'save',answers);const id=await connect(a,b);
   await passport(a,'share',{connectionId:id,sections:['timeline'],days:7});
@@ -139,7 +141,7 @@ test('existing maintenance prunes readiness retention without altering its publi
   await db.query("update marriage.readiness_events set created_at=now()-interval '91 days' where owner_key=$1",[a.id]);
   await db.query("insert into marriage.client_fault_totals(day,event,platform,release,total) values((now() at time zone 'Asia/Riyadh')::date-30,'render_error','web','0.1.0',1)");
   await assert.rejects(rpc('public.marriage_operations_cleanup()'),/Trusted service/);
-  assert.deepEqual(await asService(db,()=>rpc('public.marriage_operations_cleanup()')),{faultGroups:1,notificationJobs:0});
+  assert.deepEqual(await asService(db,()=>rpc('public.marriage_operations_cleanup()')),{faultGroups:1,notificationJobs:0,expiredOnboardingDrafts:0,expiredInterviews:0,birthdayAgesUpdated:0});
   assert.equal((await db.query('select count(*)::int n from marriage.readiness_grants')).rows[0].n,0);
   assert.equal((await db.query('select count(*)::int n from marriage.readiness_events')).rows[0].n,0);
   assert.equal((await passport(a,'get')).timeline,answers.timeline,'maintenance preserves current private declarations');

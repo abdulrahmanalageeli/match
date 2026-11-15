@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
@@ -28,10 +29,17 @@ test('isolated marriage database enforces role, consent, billing, matching and c
       await assert.rejects(rpc('marriage.member_state($1)',[man.id]),/permission/i);
       await assert.rejects(rpc("public.marriage_review($1,'approve')",[woman.id]),/permission/i);
       await assert.rejects(rpc('public.marriage_record_receipt($1,$2,false)',[woman.id,{}]),/permission/i);
+      await assert.rejects(rpc('public.marriage_apply($1)',[profile(woman,'woman')]),/التوافق|صورة/);
+    });
+    // Remaining checks exercise existing pending-member edits, not new intake.
+    await seedCommunicationMember(db,woman,'woman');
+    await db.query("update marriage.members set review_status='pending' where id=$1",[woman.id]);
+    await run(woman,async()=>{
       await assert.rejects(rpc('public.marriage_apply($1)',[{...profile(woman,'woman'),signupConsents:{...profile(woman,'woman').signupConsents,version:'old'}}]),/إقرارات/);
       await assert.rejects(rpc('public.marriage_apply($1)',[{...profile(woman,'woman'),interestIds:['invalid']}]),/الاهتمامات/);
     });
     for(const [u,g] of [[woman,'woman'],[man,'man']]){
+      if(u===man){await seedCommunicationMember(db,u,g);await db.query("update marriage.members set review_status='pending' where id=$1",[u.id]);}
       const state=await run(u,()=>rpc('public.marriage_apply($1)',[profile(u,g)]));
       assert.equal(state.user.applicationStatus,'pending');assert.deepEqual(state.profile.interestIds,['reading']);
       assert.deepEqual(state.profile.surveyAnswers,{conversation_initiative_preference:'B'});

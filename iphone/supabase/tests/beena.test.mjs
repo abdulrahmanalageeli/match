@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -13,7 +14,7 @@ function setup(db){
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
  async function member(gender='man'){
-  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');
   u.profile={displayName:'عضو تجريبي',age:29,gender,city:'الرياض',profession:'مهندس',bio:'نبذة اختيارية',contact:u.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',consentVersion:version,
    marriageBasics:{},partnerCriteria:{},surveyAnswers:{},personalityAnswers:{},personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],signupConsents:all};

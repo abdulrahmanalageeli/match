@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +19,7 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
  const records=[];
  async function add(gender,patch={}){
   const user={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
-  await addUser(db,user);
+  await addUser(db,user);await seedCommunicationMember(db,user,gender,'pending');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));
   user.profile={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندسة مدنية',education:'بكالوريوس هندسة',bio:'نبذة',contact:user.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:choices.version,signupConsents:choices,

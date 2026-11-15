@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
 function fixture(db) {
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
@@ -9,6 +10,7 @@ function fixture(db) {
  const approve=u=>asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
  async function member(gender='woman',approved=true) {
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender);await db.query("update marriage.members set review_status='draft' where id=$1",[u.id]);
   u.profile={displayName:'الاسم المعتمد',age:29,gender,city:'الرياض',profession:'مهندس',bio:'النص المعتمد',lookingFor:'',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,assessment:true,photo:true}};
   await call(u,'public.marriage_apply($1)',[u.profile]);
   if(approved)await approve(u);
@@ -16,7 +18,7 @@ function fixture(db) {
  }
  const apply=(u,patch={})=>call(u,'public.marriage_apply($1)',[{...u.profile,...patch}]);
  const state=u=>call(u,'public.marriage_state()');
- async function connect(a,b){const id=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[id]);return id;}
+ async function connect(a,b){const id=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[id]);await signCommunicationAgreement(call,a.profile.gender==='woman'?a:b,a.profile.gender==='man'?a:b,id);return id;}
  const send=(u,id,body='رسالة مستمرة')=>call(u,'public.marriage_message($1,$2,$3)',[id,body,randomUUID()]);
  const family=async(u,action,payload={})=>{const r=await call(u,'public.marriage_family($1,$2)',[action,payload]);if(r?.error)throw Error(r.error);return r;};
  return {rpc,call,approve,member,apply,state,connect,send,family};

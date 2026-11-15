@@ -1,3 +1,4 @@
+import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -8,7 +9,7 @@ test('discovery signals, presence and exclusions enforce participant scope',asyn
  const db=await createDatabase();
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>db.query('select '+sql+' value',args).then(r=>r.rows[0].value));
  async function add(gender,work='A',hard=false){
-  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
+  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));answers.wife_work=work;
   const payload={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندس',bio:'وصف للاختبار',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},assessmentVersion:'marriage-v2',surveyAnswers:answers,hardRequirements:hard?['wife_work']:[],marriageBasics:{smoking:'never',maritalStatus:'never_married'}};
   const state=await call(u,'public.marriage_apply($1)',[payload]);

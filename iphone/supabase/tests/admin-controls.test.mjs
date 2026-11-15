@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
+import { seedCommunicationMember } from './communication-fixture.mjs';
 async function staff(db,role='owner') {const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.invalid'};await addUser(db,u);await db.query('insert into marriage.staff_accounts(user_id,role,display_name) values($1,$2,$3)',[u.id,role,role]);return u;}
 async function rpc(db,user,fn,args=[],aal='aal2') {
  await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user.id,session_id:user.sessionId,role:'authenticated',aal})]);await db.exec('set role authenticated');
@@ -27,7 +28,7 @@ test('persistent tagged testers share reviewed, audited controls and every pair 
   await manage(db,owner,target,'edit_profile',edit,row.revision,op);await manage(db,owner,target,'edit_profile',edit,row.revision,op);
   assert.equal((await pair('state',a)).profiles.abdulrahman.bio,edit.bio);
   row=await detail(db,owner,target);assert.equal(row.displayName,edit.displayName);assert.notEqual(row.revision,initial);
-  const editRevision=row.revision;const savedProfile=await pair('profile',a,{profile:{bio:'تعديل العضو',profession:'مصمم'},expectedRevision:(await pair('state',a)).profileRevision});
+  const editRevision=row.revision,current=await pair('state',a);const savedProfile=await pair('profile',a,{profile:{age:29,...current.profiles.abdulrahman,bio:'تعديل العضو',profession:'مصمم'},expectedRevision:current.profileRevision});
   assert.equal(savedProfile.profileRevision,(await pair('state',a)).profileRevision);
   await assert.rejects(pair('profile',a,{profile:{bio:'نسخة قديمة'},expectedRevision:editRevision}),/تغيّر الملف/);
   assert.equal((await pair('state',a)).profiles.abdulrahman.displayName,edit.displayName);
@@ -36,7 +37,7 @@ test('persistent tagged testers share reviewed, audited controls and every pair 
   await assert.rejects(manage(db,owner,target,'edit_profile',{...edit,bio:'آخر'},initial,op),/معرّف/);
   await review(db,owner,target,'suspend',row.revision);row=await detail(db,owner,target);assert(row.suspended);
   for(const action of ['state','profile','reset','rewind','send','media_prepare','media_commit','media_url','gallery_prepare','gallery_url','token','call_start','notifications'])
-   await assert.rejects(pair(action,a,{}),/الحساب غير متاح/);
+   await assert.rejects(pair(action,a,action==='profile'?{profile:{age:29,...savedProfile.profiles.abdulrahman},expectedRevision:savedProfile.profileRevision}:{}),/الحساب غير متاح/);
   for(const action of ['send','call_start','reset','token','media_url','gallery_url']) await assert.rejects(pair(action,b,{}),/الطرف الآخر/);
   await assert.rejects(pair('login','c'.repeat(64),{actor:'abdulrahman'}),/الحساب غير متاح/);
   assert.equal((await pair('state',b)).matched,false);
@@ -57,7 +58,8 @@ test('persistent tagged testers share reviewed, audited controls and every pair 
 test('real member edits and complimentary access preserve purchased entitlements, protect revisions, and require owner authority',async()=>{
  const db=await createDatabase();try{
   const owner=await staff(db),reviewer=await staff(db,'reviewer'),u={id:randomUUID(),sessionId:randomUUID(),email:'member@example.invalid'};await addUser(db,u);
-  const state=await asMember(db,u.id,u.sessionId,()=>db.query('select public.marriage_apply($1) r',[{displayName:'عضوة',age:29,gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف المراجعة',contact:'private-contact',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-05'}]).then(r=>r.rows[0].r));
+  await seedCommunicationMember(db,u,'woman','pending');
+  const state=await asMember(db,u.id,u.sessionId,()=>db.query('select public.marriage_apply($1) r',[{displayName:'عضوة',age:29,birthDate:'1997-01-01',gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف المراجعة',contact:'private-contact',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:false,sensitivePublication:false,photo:false}}]).then(r=>r.rows[0].r));
   let row=await detail(db,owner,u.id);assert.equal(row.accountSource,'member');assert.equal(row.isDummy,false);
   const before=row.revision;await manage(db,owner,u.id,'edit_profile',{profession:'مهندسة'},row.revision);row=await detail(db,owner,u.id);assert.equal(row.profession,'مهندسة');assert.notEqual(row.revision,before);
   await assert.rejects(manage(db,owner,u.id,'grant_access',{days:366},row.revision),/مدة/);

@@ -1,3 +1,4 @@
+import { seedCommunicationMember, signCommunicationAgreement } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -8,7 +9,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
  const db=await createDatabase();
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>db.query('select '+sql+' value',args).then(r=>r.rows[0].value));
  async function add(gender,work='A',hard=false){
-  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
+  const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));answers.wife_work=work;
   const payload={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندس',bio:'وصف للاختبار',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-06-assessment',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false},assessmentVersion:'marriage-v2',surveyAnswers:answers,hardRequirements:hard?['wife_work']:[],marriageBasics:{smoking:'never',maritalStatus:'never_married'}};
   const state=await call(u,'public.marriage_apply($1)',[payload]);
@@ -36,6 +37,9 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   const photos=[];for(let i=0;i<3;i++){
    const p=await call(man,"public.marriage_gallery('prepare')");photos.push(p);
    await storage(man,'object.upload','insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['nisfayn-profile-gallery',p.path,{mimetype:'image/jpeg',size:200}]);
+   await assert.rejects(call(man,"public.marriage_gallery('commit',$1)",[p.id]),/الكاميرا/);
+   const proof=(await asService(db,()=>db.query("select public.marriage_photo_face_begin($1,$2,'gallery','face-photo-v1') value",[man.id,p.id]))).rows[0].value;
+   await asService(db,()=>db.query('select public.marriage_photo_face_finish($1,$2,$3)',[proof.attempt,man.id,'a'.repeat(64)]));
    await call(man,"public.marriage_gallery('commit',$1)",[p.id]);
   }
   await assert.rejects(call(man,"public.marriage_gallery('prepare')"),/ثلاث/);
@@ -45,6 +49,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,1);
   assert.equal((await storage(third,'object.sign','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
   await call(third,"public.marriage_gallery('remove',$1)",[photos[0].id]);assert.equal((await call(man,"public.marriage_gallery('list')")).length,3);
+  await signCommunicationAgreement(call,outsider,man,ab);
   await call(man,'public.marriage_next_step($1,1,true,true)',[ab]);await call(outsider,'public.marriage_next_step($1,1,true,true)',[ab]);
   assert(!(await call(third,'public.marriage_browse()')).some(p=>p.id===man.id));
   assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);

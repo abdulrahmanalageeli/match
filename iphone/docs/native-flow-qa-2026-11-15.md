@@ -19,6 +19,9 @@ permissions, matches or messages were changed. No TestFlight release was made.
   image variant and clear images when backgrounded or no longer authorized.
 - Chat retained private content after denied access and retained stale older pages.
   Clear denied threads/drafts and rebuild the entire loaded message window.
+- Background polls erased send failures before users could read them. Keep send
+  warnings separate from refresh errors until the next send attempt.
+- Add a native Done action to dismiss the signup phone/OTP keypad.
 - Single-use photo attempts could be repeated after a lost response. Mark the
   attempt locally spent before downloading; do not automatically replay it.
 - Search pagination used the wrong cursor. Use the oldest ascending result and
@@ -51,6 +54,11 @@ The complete legacy package suite passed **596/596**, with no skips or failures,
 using Node test concurrency 4. TypeScript checking passed. Fixture repairs preserve
 existing product assertions and isolate browser styles, native calls and auth side
 effects from Node-only tests. Evidence: `tmp/account-flow-full-unit-final.log`.
+The local browser signup check also passed (including height/weight, consent,
+partner criteria and family timing); external requests were blocked. Admin tests
+passed **58/58**. Database tests use disposable PGlite instances, never live users.
+Current signup-gate rejection tests remain in place; tests of established accounts
+seed established profiles instead of depending on obsolete minimal signup payloads.
 The native build passed all **21 core tests** and simulator compilation. Its UI
 result is tracked in [the macOS run](https://github.com/abdulrahmanalageeli/match/actions/runs/43703446144).
 

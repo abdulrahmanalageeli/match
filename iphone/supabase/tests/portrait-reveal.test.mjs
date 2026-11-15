@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
@@ -7,9 +8,10 @@ const bucket='nisfayn-profile-portraits';
 const consents={version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true};
 function fixture(db){
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
- const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
+ // These cases isolate photo authorization/replacement after the public-edit cooldown.
+ const call=async(u,sql,args=[])=>{if(/public\.marriage_portrait_(prepare|commit|policy|remove)/.test(sql))await db.query("update marriage.members set last_public_profile_edit_at=now()-interval '31 days' where id=$1",[u.id]);return asMember(db,u.id,u.sessionId,()=>rpc(sql,args));};
  async function member(gender){
-  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u); await seedCommunicationMember(db,u,gender);
   const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:consents}]);
   await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));

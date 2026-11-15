@@ -12,12 +12,13 @@ final class NativeFailureTests: XCTestCase {
         XCTAssertTrue(email.waitForExistence(timeout: 10)); email.tap(); email.typeText("new@example.invalid")
         app.secureTextFields["signup.password"].tap(); app.secureTextFields["signup.password"].typeText("fixture-password")
         app.textFields["signup.phone"].tap(); app.textFields["signup.phone"].typeText("0501234567")
+        app.buttons["signup.dismissKeyboard"].tap()
         let send = app.buttons["signup.sendSMS"]; XCTAssertFalse(send.isEnabled)
         app.swipeDown()
         for id in ["signup.adult", "signup.terms", "signup.privacy", "signup.smsConsent"] {
             let toggle = app.switches[id]; reveal(toggle, in: app)
             // SwiftUI exposes the full RTL row as the switch element. Tap its
-            // visible control at the leading edge, not the noninteractive label.
+            // visible control on the left, not the noninteractive label.
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
             let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
             XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed, id)
@@ -25,10 +26,12 @@ final class NativeFailureTests: XCTestCase {
         reveal(send, in: app); XCTAssertTrue(send.isEnabled); send.tap()
         let code = app.textFields["signup.code"]; XCTAssertTrue(code.waitForExistence(timeout: 10)); reveal(code, in: app)
         code.tap(); code.typeText("000000")
+        app.buttons["signup.dismissKeyboard"].tap()
         let verify = app.buttons["signup.verifySMS"]; reveal(verify, in: app); verify.tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 10)); app.alerts.buttons["حسنًا"].tap()
         XCTAssertFalse(app.buttons["signup.create"].isEnabled)
         code.tap(); code.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6) + "123456")
+        app.buttons["signup.dismissKeyboard"].tap()
         reveal(verify, in: app); verify.tap()
         let create = app.buttons["signup.create"]; reveal(create, in: app)
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: create)

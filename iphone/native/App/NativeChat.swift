@@ -13,6 +13,7 @@ struct NativeChat: View {
     @State private var reply: MemberRow?
     @State private var sending = false
     @State private var error: String?
+    @State private var sendError: String?
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var photoDraft: Data?
     @State private var once = false
@@ -45,6 +46,7 @@ struct NativeChat: View {
                 }.onChange(of: sending) { value in if !value, let last = messages.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } } }
             }
             if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
+            if let sendError { Text(sendError).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
             if messages.isEmpty && allowed && text.isEmpty {
                 NativeAction(title: "اقتراح لبداية الحديث") {
                     let result = try await store.client.service(.ai, body: .object(["mode": .string("opener")]))
@@ -108,11 +110,12 @@ struct NativeChat: View {
     }
     private func clearPrivateContent() {
         messages = []; agreement = .null; reply = nil; text = ""; photoDraft = nil; selectedPhoto = nil
+        sendError = nil
         mediaEpoch = UUID(); audio.discard()
     }
     private func send() async {
         guard allowed, !sending, !audio.recording else { return }
-        sending = true; defer { sending = false }
+        sending = true; sendError = nil; defer { sending = false }
         do {
             if let data = photoDraft { try await store.client.uploadMedia(requestID: requestID, clientID: pendingID, data: data, mime: "image/jpeg", once: once) }
             else if let data = audio.draft { try await store.client.uploadMedia(requestID: requestID, clientID: pendingID, data: data, mime: "audio/mp4", once: false, duration: audio.seconds) }
@@ -125,7 +128,7 @@ struct NativeChat: View {
             }
             text = ""; photoDraft = nil; selectedPhoto = nil; reply = nil; audio.discard(); once = false
             pendingID = UUID().uuidString.lowercased(); await load()
-        } catch { if NativeProblem.isAccessDenied(error) { clearPrivateContent() }; self.error = error.localizedDescription }
+        } catch { if NativeProblem.isAccessDenied(error) { clearPrivateContent() }; sendError = error.localizedDescription }
     }
 }
 

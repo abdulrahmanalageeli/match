@@ -38,6 +38,8 @@ extension Binding where Value == JSONValue {
 
 struct NativeSignup: View {
     @EnvironmentObject private var store: NativeStore
+    private enum Field: Hashable { case email, password, phone, code }
+    @FocusState private var focusedField: Field?
     @State private var email = ""
     @State private var password = ""
     @State private var phone = ""
@@ -54,9 +56,9 @@ struct NativeSignup: View {
     var body: some View {
         Form {
             Section("حسابك") {
-                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("signup.email")
-                SecureField("كلمة المرور", text: $password).textContentType(.newPassword).accessibilityIdentifier("signup.password")
-                TextField("رقم الجوال السعودي", text: $phone).textContentType(.telephoneNumber).keyboardType(.phonePad).accessibilityIdentifier("signup.phone")
+                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().focused($focusedField, equals: .email).accessibilityIdentifier("signup.email")
+                SecureField("كلمة المرور", text: $password).textContentType(.newPassword).focused($focusedField, equals: .password).accessibilityIdentifier("signup.password")
+                TextField("رقم الجوال السعودي", text: $phone).textContentType(.telephoneNumber).keyboardType(.phonePad).focused($focusedField, equals: .phone).accessibilityIdentifier("signup.phone")
             }.disabled(verified || store.busy || created)
             Section("بوضوح وبإذنك") {
                 NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal())
@@ -76,7 +78,7 @@ struct NativeSignup: View {
                     proof = value["proof"].string; code = ""; verified = value["verified"].bool; sentAt = Date()
                 }.disabled(!smsConsent || !SignupValidation.validEmail(email) || !SignupValidation.validPassword(password) || created || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false)).accessibilityIdentifier("signup.sendSMS")
                 if !proof.isEmpty {
-                    TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad).disabled(store.busy).accessibilityIdentifier("signup.code")
+                    TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad).focused($focusedField, equals: .code).disabled(store.busy).accessibilityIdentifier("signup.code")
                     NativeAction(title: "تأكيد الرمز") {
                         guard let otp = SignupValidation.otp(code), smsConsent, SignupValidation.validProof(proof) else { throw NativeProblem.message("أدخل رمز التحقق من ٤ إلى ٨ أرقام.") }
                         let revision = challengeRevision
@@ -94,6 +96,8 @@ struct NativeSignup: View {
             }.disabled(!verified || !smsConsent || !consent["adult"].bool || !consent["privacy"].bool || !consent["terms"].bool || created).accessibilityIdentifier("signup.create")
             if created { Text("أُنشئ الحساب. يمكنك الآن تسجيل الدخول.").accessibilityIdentifier("signup.created") }
         }.navigationTitle("إنشاء حساب")
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("تم") { focusedField = nil }.accessibilityIdentifier("signup.dismissKeyboard") } }
             .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
             .onChange(of: email) { _ in resetChallenge() }
             .onChange(of: phone) { _ in resetChallenge() }

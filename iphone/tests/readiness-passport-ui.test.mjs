@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 let loader, SharedPassportDetails;
 before(async () => {
-  loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+  loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', plugins: [{ name: 'ignore-styles-in-markup-tests', enforce: 'pre', resolveId(id) { if (id.endsWith('.css')) return '\0test-style'; }, load(id) { if (id === '\0test-style') return 'export default {};'; } }], optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   ({ SharedPassportDetails } = await loader.ssrLoadModule('/src/readiness/ReadinessPassport.tsx'));
 });
 after(() => loader?.close());

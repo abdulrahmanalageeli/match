@@ -14,6 +14,7 @@ const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof
 const textOf = node => typeof node === 'string' || typeof node === 'number' ? String(node) : Array.isArray(node) ? node.map(textOf).join('') : textOf(node?.props?.children ?? '');
 const button = (tree, name) => nodes(tree).find(node => node.type === 'button' && textOf(node) === name);
 const byClass = (tree, name) => nodes(tree).filter(node => node.props?.className === name);
+const answerPersonality = tree => { const scale = nodes(tree).find(node => node.type === 'AnswerScale'); assert.ok(scale); scale.props.onChange(scale.props.options[0].code); };
 
 function mount(code, component, initial) {
   const hooks = [], effects = []; let cursor = 0, changed = false, props;
@@ -106,14 +107,14 @@ test('optional profile editing retains the ability to clear compatibility answer
 test('required personality waits for a valid answer and offers no later or clear shortcut', () => {
   const ui = mount(personalityCode, 'PersonalityFields', { answers: {}, registration: true, remainingOnly: true, required: true });
   let tree = ui.render(); assert.equal(byClass(tree, 'nf-personality-later').length, 0); assert.equal(byClass(tree, 'nf-personality-next')[0].props.disabled, true);
-  const choices = byClass(tree, 'nf-personality-options')[0]; nodes(choices).find(node => node.type === 'button').props.onClick(); tree = ui.render();
+  answerPersonality(tree); tree = ui.render();
   assert.equal(byClass(tree, 'nf-personality-next')[0].props.disabled, false); assert.equal(byClass(tree, 'nf-personality-later').length, 0);
   byClass(tree, 'nf-personality-next')[0].props.onClick(); tree = ui.render(); assert.equal(byClass(tree, 'nf-personality-next')[0].props.disabled, true);
 });
 
 test('optional personality editing still allows clearing an answer', () => {
   const ui = mount(personalityCode, 'PersonalityFields', { answers: {} });
-  let tree = ui.render(); nodes(byClass(tree, 'nf-personality-options')[0]).find(node => node.type === 'button').props.onClick(); tree = ui.render();
+  let tree = ui.render(); answerPersonality(tree); tree = ui.render();
   button(tree, 'إزالة الاختيار').props.onClick(); ui.render(); assert.equal(Object.keys(ui.props.answers).length, 0);
 });
 
@@ -122,6 +123,6 @@ test('invalid saved values do not count as required answers or produce completio
   answers[personality.personalityQuestions[0].id] = 'invalid';
   const ui = mount(personalityCode, 'PersonalityFields', { answers, registration: true, remainingOnly: true, required: true });
   let tree = ui.render(); assert.equal(byClass(tree, 'nf-personality-complete').length, 0); assert.match(textOf(tree), /اختر إجابتك الأخيرة/);
-  nodes(byClass(tree, 'nf-personality-options')[0]).find(node => node.type === 'button').props.onClick(); tree = ui.render();
+  answerPersonality(tree); tree = ui.render();
   assert.equal(byClass(tree, 'nf-personality-complete').length, 1);
 });

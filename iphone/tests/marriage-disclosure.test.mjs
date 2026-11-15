@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 
 let loader, validMarriageBasics, validMarriageBasicsDraft, validPartnerCriteria, comparePreferences, skinTones;
 before(async () => {
-  loader = await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+  loader = await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr: false, ws: false}});
   ({validMarriageBasics,validMarriageBasicsDraft,validPartnerCriteria}=await loader.ssrLoadModule('/src/compatibility/marriage.ts'));
   ({comparePreferences}=await loader.ssrLoadModule('/src/compatibility/model.ts'));
   ({skinTones}=await loader.ssrLoadModule('/src/compatibility/appearance.ts'));

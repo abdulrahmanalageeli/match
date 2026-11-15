@@ -6,7 +6,7 @@ import {createServer} from 'vite';
 
 let loader,PersonalityAnalysis,FitDetails,comparePreferences,catalog;
 before(async()=>{
- loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{name:'static-motion-for-copy-tests',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/motion/Reanimated.tsx'))return "import {createElement} from 'react';export const MotionReveal=({children,duration,distance,...props})=>createElement('div',props,children);";}}],optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+ loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{name:'static-motion-for-copy-tests',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/motion/Reanimated.tsx'))return "import {createElement} from 'react';export const MotionReveal=({children,duration,distance,...props})=>createElement('div',props,children);";}}],optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr: false, ws: false}});
  ({PersonalityAnalysis}=await loader.ssrLoadModule('/src/compatibility/PersonalityAnalysis.tsx'));
  ({FitDetails}=await loader.ssrLoadModule('/src/compatibility/FitDetails.tsx'));
  ({comparePreferences}=await loader.ssrLoadModule('/src/compatibility/model.ts'));

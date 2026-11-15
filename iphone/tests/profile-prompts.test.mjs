@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 
 let loader, answeredProfilePrompts, initialDraft, toProfile, profileBaseline, validateStep, publicProfile;
 before(async () => {
-  loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+  loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   ({ answeredProfilePrompts } = await loader.ssrLoadModule('/src/profile/profilePrompts.ts'));
   ({ initialDraft, toProfile, profileBaseline, validateStep } = await loader.ssrLoadModule('/src/onboarding/draft.ts'));
   ({ publicProfile } = await loader.ssrLoadModule('/src/profile/publicProfile.ts'));

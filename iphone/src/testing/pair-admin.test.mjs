@@ -7,6 +7,7 @@ const fixture = { city: 'الرياض', interestIds: ['reading'], surveyAnswers:
 const text = await readFile(new URL('./pair.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 const isolated = compiled
+  .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/voice\/nativeCalls['"];?/, "const ringNativePhones=async()=>{throw Error('offline')};")
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/, "const requestAi = async () => { throw Error('offline'); };")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
   .replace("'../beena/model'", JSON.stringify(new URL('../beena/model.ts', import.meta.url).href))
@@ -31,7 +32,7 @@ test('partial administrator profiles retain defaults and fixed account gender', 
 test('partner cards show public edits without reconstructing missing private or demographic values', () => {
   const card = testPerson('abdulrahman', { displayName: 'اسم جديد', bio: 'نبذة الإدارة' });
   assert.equal(card.alias, 'اسم جديد'); assert.equal(card.bio, 'نبذة الإدارة'); assert.equal(card.city, ''); assert.equal(card.age, 0);
-  assert.equal(card.marriageBasics, undefined); assert.equal(card.publicAvatar, undefined);
+  assert.equal(card.marriageBasics, undefined); assert.equal(card.publicAvatar, null, 'Absent avatar stays explicitly unavailable');
   assert.equal(testPerson('reham', { displayName: '' }).alias, 'رهام');
 });
 

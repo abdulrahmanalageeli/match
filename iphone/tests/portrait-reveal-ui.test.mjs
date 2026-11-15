@@ -6,7 +6,7 @@ import {createServer} from 'vite';
 
 let loader,ProfilePhotoChoice;
 before(async()=>{
- loader=await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+ loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{name:'isolated-portrait-markup',enforce:'pre',resolveId(id){if(id.endsWith('.css'))return '\0test-style';},load(id){if(id==='\0test-style')return 'export default {};';if(id.replaceAll('\\','/').endsWith('/src/cloud.ts'))return 'export const cloud=null; export function callRpc(){throw Error("Live RPC prohibited")}; export function cloudSessionId(){return null}';}}],optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr: false, ws: false}});
  ({ProfilePhotoChoice}=await loader.ssrLoadModule('/src/onboarding/ProfilePhotoChoice.tsx'));
 });
 after(()=>loader?.close());

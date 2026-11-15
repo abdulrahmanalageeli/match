@@ -25,7 +25,7 @@ test('reviewed profile and partner facts merge without changing unrelated fields
  assert.equal(JSON.stringify(original),before);assert.equal(patch.bio,undefined);assert.equal(patch.city,undefined);
  assert.deepEqual(plain(patch.marriageBasics),{heightCm:180,smoking:'never',meetingPreference:'family_before_formal'});
  assert.deepEqual(plain(patch.partnerCriteria),{education:{mode:'any'},dressStyle:{mode:'prefer',values:['niqab']}});
- assert.equal(patch.lookingFor,'أبحث عن شريكة تقدّر أهلها وجادة في الزواج.');assert.equal(patch.familyPreference,'من البداية');
+ assert.equal(patch.lookingFor,undefined,'AI proposals must not replace member-authored public prose');assert.equal(patch.familyPreference,'من البداية');
 });
 test('uncertain proposals, unknown fields and forged consent or verification writes never apply',()=>{
  for(const fieldId of ['signupConsents.assessment','portrait.verified','__proto__.admin','gender','birthDate','contact','compatibilityScore'])assert.equal(validProfileProposal(proposal(fieldId,['true'])),false);

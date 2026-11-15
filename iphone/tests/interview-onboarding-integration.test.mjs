@@ -16,7 +16,7 @@ before(async () => {
       const path = id.replaceAll('\\', '/');
       if (path.endsWith('/src/cloud.ts')) return 'export const cloud=null; export function callRpc(){throw Error("Live RPC prohibited")}';
       if (path.endsWith('/src/legal/LegalNotice.tsx')) return 'export const LEGAL_NOTICE_VERSION="2026-11-07-privacy"';
-    } }], optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+    } }], optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   interview = await loader.ssrLoadModule('/src/interview/model.ts');
   draft = await loader.ssrLoadModule('/src/onboarding/draft.ts');
   consent = await loader.ssrLoadModule('/src/legal/consent.ts');
@@ -114,9 +114,10 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   const updated = compatibility.rankPreferences(changed, [a, b]);
   assert.equal(updated[0].person.id, b.id);
   assert.equal(updated[0].fit.percentage, 100);
-  assert.equal(updated[1].fit.percentage, 0);
+  assert.equal(updated[1].fit.percentage, 8, 'same-city residence remains aligned despite different residence answer codes');
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
-  assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length);
+  assert.deepEqual(plain(updated[1].fit.strengths), ['residence_plan']);
+  assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);
   assert.equal(first.surveyAnswers.children_plan, 'A', 'the original draft is not mutated');
 });
 

@@ -7,7 +7,9 @@ const moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(source).toStr
 async function compile(path){
   const file=new URL(path,import.meta.url);
   let source=ts.transpileModule(await readFile(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-  source=source.replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/g,'const requestAi=(...args)=>globalThis.__pairSimulationAi(...args);')
+  source=source.replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/g,'const requestAi=(...args)=>globalThis.__pairSimulationAi(...args); const requestSimulationReply=(personId,messages)=>globalThis.__pairSimulationAi({personId,messages});')
+    .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/voice\/nativeCalls['"];?/, "const ringNativePhones=async()=>{throw Error('offline')};")
+    .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/photos\/verifyPhoto['"];?/, "const captureForPhoto=async()=>{throw Error('offline')}; const verifyUploadedPhoto=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
     .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/cloud['"];?/g,'')
     .replace(/import\s*\{[^}]+\}\s*from ['"]\.\/updates['"];?/g,'')
@@ -33,21 +35,22 @@ test('restricted browser storage does not prevent either saved tester account fr
   }
 });
 
-function harness(t,overrides={}){
+function harness(t,overrides={},admin=false){
+  const actor=admin?'abdulrahman':'reham',peer=admin?'reham':'abdulrahman';
   const calls=[],aiCalls=[];
-  const remote={actor:'reham',matched:true,profileRevision:'revision',profiles:{},messages:[],read:{},stage:0,agree:{},call:null,...overrides};
-  const notifications=[{id:'remote-visit',kind:'profile_visit',actor:'abdulrahman',createdAt:'2026-01-01T12:00:00Z'}];
+  const remote={actor,matched:true,profileRevision:'revision',profiles:{},messages:[],read:{},stage:0,agree:{},call:null,...overrides};
+  const notifications=[{id:'remote-visit',kind:'profile_visit',actor:peer,createdAt:'2026-01-01T12:00:00Z'}];
   t.mock.method(globalThis,'fetch',async(_url,options)=>{
     const request=JSON.parse(options.body);calls.push(request);
     if(request.action==='notifications')return {ok:true,json:async()=>structuredClone(notifications)};
     if(request.action==='typing_state')return {ok:true,json:async()=>true};
     if(request.action==='typing_set')return {ok:true,json:async()=>true};
     if(request.action==='notifications_read')notifications.forEach(row=>{if(request.payload.ids.includes(row.id))row.readAt=new Date().toISOString();});
-    if(request.action==='read')remote.read.reham=remote.messages.find(m=>m.id===request.payload.id)?.createdAt;
-    if(request.action==='rematch_request')remote.rematchRequestedBy='reham';
+    if(request.action==='read')remote.read[actor]=remote.messages.find(m=>m.id===request.payload.id)?.createdAt;
+    if(request.action==='rematch_request')remote.rematchRequestedBy=actor;
     if(request.action==='rematch_accept'){remote.matched=true;delete remote.rematchRequestedBy;}
-    if(request.action==='match_seen')remote.celebrationSeen={reham:request.payload.key};
-    if(request.action==='send')remote.messages.push({id:request.payload.clientId,sender:'reham',body:request.payload.body,createdAt:new Date().toISOString()});
+    if(request.action==='match_seen')remote.celebrationSeen={[actor]:request.payload.key};
+    if(request.action==='send')remote.messages.push({id:request.payload.clientId,sender:actor,body:request.payload.body,createdAt:new Date().toISOString()});
     if(request.action==='message_react'){
       const message=remote.messages.find(m=>m.id===request.payload.id);
       message.reactions=withOwnReaction(message.reactions,request.payload.reaction);
@@ -57,12 +60,27 @@ function harness(t,overrides={}){
   const previous=globalThis.__pairSimulationAi;
   globalThis.__pairSimulationAi=async input=>{aiCalls.push(input);return 'أهلًا، يسعدني أن نبدأ الحديث بهدوء.';};
   t.after(()=>{globalThis.__pairSimulationAi=previous;});
-  const profile=testProfile('reham',{age:33,preferredMinAge:18,preferredMaxAge:60,surveyAnswers:{...testProfile('reham').surveyAnswers,residence_plan:'C'}});
-  const account={actor:'reham',session:'synthetic-session',profile,profileRevision:'revision'};
+  const profile={...testProfile(actor,{age:33,preferredMinAge:18,preferredMaxAge:60,surveyAnswers:{...testProfile(actor).surveyAnswers,residence_plan:'C'}}),gender:'woman'};
+  const account={actor,session:'synthetic-session',profile,profileRevision:'revision'};
   const source=pairSource(account,()=>profile).source;
-  return {source,account,profile,calls,remote,notifications,aiCalls,reopen:()=>pairSource(account,()=>profile).source};
+  return {source,account,profile,calls,remote,notifications,aiCalls,peer,reopen:()=>pairSource(account,()=>profile).source};
 }
-async function acceptFictional(source,id){const request=await source.request(id);await source.demoAcceptOutgoing(request);return request;}
+async function acceptFictional(source,id){
+  const request=await source.request(id);await source.demoAcceptOutgoing(request);
+  if(source.simulation&&(await source.agreement(request)).status==='none'){
+    await assert.rejects(source.send(request,'لا ترسل قبل الميثاق','blocked-before-consent'),/ميثاق الجدية/);
+    await source.agree(request,'propose',{days:7,signed:true});
+    await source.simulation.step();
+    assert.equal((await source.agreement(request)).status,'accepted');
+  }
+  return request;
+}
+
+test('regular tester has no administrator simulation controls and never requests simulated AI replies',async t=>{
+  const h=harness(t);await h.source.inbox();
+  assert.equal(h.source.simulation,undefined);
+  assert.equal(h.aiCalls.length,0);
+});
 
 test('library paging excludes deleted and view-once rows, and paired unread/typing stay in their own conversation',async t=>{
  const list=Array.from({length:62},(_,i)=>({id:`m${i}`,sender:'abdulrahman',body:`Family ${i}`,createdAt:new Date(Date.now()-100000+i*100).toISOString()}));
@@ -106,11 +124,11 @@ test('pair and local reactions use their own source, refresh historical messages
 });
 
 test('simulation notifications merge with real tester notifications and mark only their own storage read',async t=>{
-  const h=harness(t);await h.source.inbox();
+  const h=harness(t,{},true);await h.source.inbox();
   for(let i=0;i<3;i++)await h.source.simulation.step();
   const rows=await h.source.notifications();
   const local=rows.find(n=>n.id!=='remote-visit');assert(local);
-  assert.equal(local.person.isDemo,true);assert.equal(rows.find(n=>n.id==='remote-visit').person.id,'abdulrahman');
+  assert.equal(local.person.isDemo,true);assert.equal(rows.find(n=>n.id==='remote-visit').person.id,h.peer);
   assert.equal(rows.at(-1).id,'remote-visit');
   await h.source.readNotifications([local.id,'remote-visit']);
   assert.deepEqual(h.calls.find(c=>c.action==='notifications_read').payload.ids,['remote-visit']);
@@ -118,8 +136,8 @@ test('simulation notifications merge with real tester notifications and mark onl
 });
 
 test('real and fictional chats keep independent messages, combined unread and local celebration acknowledgment',async t=>{
-  const realMessage={id:'real-message',sender:'abdulrahman',body:'PRIVATE REAL TESTER MESSAGE',createdAt:'2026-01-01T12:00:00Z'};
-  const h=harness(t,{messages:[realMessage]});await h.source.inbox();
+  const realMessage={id:'real-message',sender:'reham',body:'PRIVATE REAL TESTER MESSAGE',createdAt:'2026-01-01T12:00:00Z'};
+  const h=harness(t,{messages:[realMessage]},true);await h.source.inbox();
   const participant=h.source.simulation.snapshot().participants[0];
   const id=await acceptFictional(h.source,participant);
   const local=(await h.source.inbox()).find(row=>row.id===id);assert(local?.celebrationKey);
@@ -127,11 +145,14 @@ test('real and fictional chats keep independent messages, combined unread and lo
   assert.equal((await h.source.inbox()).find(row=>row.id===id).celebrationKey,undefined);
   assert(!h.calls.some(call=>call.action==='match_seen'),'Fictional celebrations never mutate the real pair');
   await h.source.send(id,'أهلًا، كيف كان يومك؟','local-message');
-  await h.source.simulation.step();await h.source.simulation.step();
+  for(const kind of ['delivered','read','typing','ai_reply']){
+    await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().log.at(-1).kind,kind);
+  }
   assert.equal((await h.source.thread(id)).length,2);
   assert.equal((await h.source.thread('tester-pair')).length,1);
-  assert.equal(h.aiCalls.length,0,'Neither fictional-thread text nor real-pair messages leave for AI processing');
-  assert.equal(h.source.simulation.snapshot().log.at(-1).kind,'reply','Local replies must not claim to be AI-generated');
+  assert.equal(h.aiCalls.length,1,'Only the administrator simulation requests a fictional reply');
+  assert(!JSON.stringify(h.aiCalls).includes(realMessage.body),'Real-pair messages never enter the simulation request');
+  assert.equal(h.source.simulation.snapshot().log.at(-1).kind,'ai_reply');
   assert.equal(await h.source.unreadCount(),2,'The bottom navigation badge counts both local and real unread replies');
   const last=(await h.source.thread(id)).at(-1);await h.source.markRead(id,last.id);
   assert.equal(await h.source.unreadCount(),1);
@@ -157,7 +178,7 @@ test('an unmatched real tester cannot request a third connection after two ficti
 });
 
 test('exclusivity and blocked profiles stop simulated activity without sending real chat messages',async t=>{
-  const h=harness(t);await h.source.inbox();
+  const h=harness(t,{},true);await h.source.inbox();
   for(const id of h.source.simulation.snapshot().participants)await h.source.reportPerson(id,'ملف توضيحي للاختبار');
   await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().eventCount,0);
   h.source.simulation.reset();h.remote.exclusive=true;await h.source.heartbeat();
@@ -171,9 +192,8 @@ test('all fifteen eligible opposite-gender profiles retain selective photos thro
   const h=harness(t);const people=await h.source.discover({mode:'all'});
   assert.equal(people.length,15);assert(people.every(p=>p.isDemo));
   assert.equal(people.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
-  assert.equal(people.find(p=>p.id==='p07').demoPhoto,undefined);
-  assert.equal(people.find(p=>p.id==='p15').demoPhoto,undefined);
-  assert(people.filter(p=>!p.demoPhoto).length>=9);
+  assert.equal(people.find(p=>p.id==='p07').demoPhoto,'/demo/portraits/omar.webp');
+  assert(people.filter(p=>!p.demoPhoto).length>0,'Profiles without a bundled portrait keep their fallback');
 });
 
 test('old tester commitment does not erase new fictional matches when reloading after exclusivity ends',async t=>{
@@ -181,7 +201,7 @@ test('old tester commitment does not erase new fictional matches when reloading 
   const stored=new Map();
   Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value)}});
   t.after(()=>{if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete globalThis.localStorage;});
-  const h=harness(t,{matched:false,retiredFictional:true,exclusive:false});
+  const h=harness(t,{matched:false,retiredFictional:true,exclusive:false},true);
   await h.source.inbox();
   const people=await h.source.discover({mode:'all'});
   const id=await acceptFictional(h.source,people[0].id);

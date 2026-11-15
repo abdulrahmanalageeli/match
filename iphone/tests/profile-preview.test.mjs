@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 let loader, publicProfile;
 before(async()=>{
- loader=await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+ loader=await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr: false, ws: false}});
  ({publicProfile}=await loader.ssrLoadModule('/src/profile/publicProfile.ts'));
 });
 after(()=>loader?.close());

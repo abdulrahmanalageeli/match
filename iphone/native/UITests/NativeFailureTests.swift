@@ -15,7 +15,12 @@ final class NativeFailureTests: XCTestCase {
         let send = app.buttons["signup.sendSMS"]; XCTAssertFalse(send.isEnabled)
         app.swipeDown()
         for id in ["signup.adult", "signup.terms", "signup.privacy", "signup.smsConsent"] {
-            let toggle = app.switches[id]; reveal(toggle, in: app); toggle.tap()
+            let toggle = app.switches[id]; reveal(toggle, in: app)
+            // SwiftUI exposes the full RTL row as the switch element. Tap its
+            // visible control at the leading edge, not the noninteractive label.
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+            let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed, id)
         }
         reveal(send, in: app); XCTAssertTrue(send.isEnabled); send.tap()
         let code = app.textFields["signup.code"]; XCTAssertTrue(code.waitForExistence(timeout: 10)); reveal(code, in: app)

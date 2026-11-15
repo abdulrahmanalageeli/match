@@ -58,8 +58,8 @@ from the repository root with `node iphone/scripts/export-native-resources.mjs`.
   accounts. The current fixture test does not verify these backend flows.
 - Complete feature-parity review before replacing the shipping target. Native
   chat does not yet persist drafts/outbox across navigation or display typing
-  presence; older loaded messages are not fully reconciled by the latest-page
-  poll. Family login supports existing accounts; dedicated guardian signup needs
+  presence. Loaded message pages now reconcile on refresh and clear on access denial.
+  Family login supports existing accounts; dedicated guardian signup needs
   a separate parity check. Profile drafts currently remain in view state.
 - Configure `WUDAYN_PASSWORD_RECOVERY_URL` to the deployed HTTPS recovery page
   and allow it in the dedicated project's Auth redirect configuration. The

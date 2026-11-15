@@ -36,3 +36,21 @@ jobs:
         with:
           name: native-build-log
           path: iphone/native/native-build.log
+      - name: Run native navigation smoke test
+        run: |
+          set -o pipefail
+          DEVICE_ID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if "iPhone" in x["name"]))')
+          xcodebuild test -project WudaynNative.xcodeproj -scheme WudaynNative -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath DerivedData -resultBundlePath NativeUITests.xcresult CODE_SIGNING_ALLOWED=NO 2>&1 | tee native-ui.log
+        working-directory: iphone/native
+      - name: Export simulator screenshots
+        if: always()
+        run: xcrun xcresulttool export attachments --path NativeUITests.xcresult --output-path UIArtifacts
+        working-directory: iphone/native
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: native-ui-results
+          path: |
+            iphone/native/native-ui.log
+            iphone/native/UIArtifacts
+            iphone/native/NativeUITests.xcresult

@@ -23,7 +23,7 @@ struct NativeLifecycle: ViewModifier {
                 if NisfaynPrivacy.shared.mayOpen, NisfaynCallCenter.shared.active, NisfaynCallCenter.shared.snapshot["account"] as? String == store.owner { calls = true }
             }
             .task(id: "\(store.owner ?? "")-\(phase == .active)") {
-                guard phase == .active, let owner = store.owner else { return }
+                guard !store.testing, phase == .active, let owner = store.owner else { return }
                 do {
                     repeat {
                         if boundOwner != owner || Date().timeIntervalSince(boundAt) > 6 * 3600 {
@@ -42,7 +42,7 @@ struct NativeLifecycle: ViewModifier {
                 } catch is CancellationError { } catch { /* Explicit call/push controls provide retry and errors; do not interrupt launch. */ }
             }
             .task(id: store.account["user"]["appAccountToken"].string) {
-                guard let owner = store.owner, let token = UUID(uuidString: store.account["user"]["appAccountToken"].string) else { return }
+                guard !store.testing, let owner = store.owner, let token = UUID(uuidString: store.account["user"]["appAccountToken"].string) else { return }
                 for await result in StoreKit.Transaction.currentEntitlements { await deliver(result, owner: owner, token: token) }
                 for await result in StoreKit.Transaction.updates {
                     if Task.isCancelled { return }

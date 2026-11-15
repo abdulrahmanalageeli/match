@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import AVFoundation
+import ImageIO
 import WudaynCore
 
 @MainActor final class NativeVoiceNote: NSObject, ObservableObject, AVAudioPlayerDelegate {
@@ -78,14 +79,19 @@ import WudaynCore
 
 enum NativeImages {
     static func prepare(_ data: Data) throws -> Data {
-        guard data.count <= 12 * 1024 * 1024, let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else { throw NativeProblem.message("اختر صورة صالحة لا تتجاوز ١٢ ميغابايت.") }
+        guard data.count <= 12 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Double, let height = properties[kCGImagePropertyPixelHeight] as? Double,
+              width > 0, height > 0, width * height <= 40_000_000, max(width, height) <= 12000,
+              let image = UIImage(data: data) else { throw NativeProblem.message("اختر صورة صالحة لا تتجاوز ١٢ ميغابايت و٤٠ ميغابكسل.") }
         let scale = min(1, 1600 / max(image.size.width, image.size.height))
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
         let rendered = UIGraphicsImageRenderer(size: size, format: format).image { context in
             UIColor.white.setFill(); context.fill(CGRect(origin: .zero, size: size)); image.draw(in: CGRect(origin: .zero, size: size))
         }
-        guard let jpeg = rendered.jpegData(compressionQuality: 0.86), jpeg.count <= 8 * 1024 * 1024 else { throw NativeProblem.message("تعذّر تجهيز الصورة.") }
+        guard let jpeg = rendered.jpegData(compressionQuality: 0.86), jpeg.count <= 3 * 1024 * 1024 else { throw NativeProblem.message("تعذّر تجهيز الصورة. اختر صورة أصغر حجمًا.") }
         return jpeg
     }
 }

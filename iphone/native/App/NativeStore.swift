@@ -40,7 +40,16 @@ struct NativeSessionVault: SessionVault {
     @Published var restoring = true
     @Published var busy = false
     @Published var error: String?
-    init(client: WudaynClient = WudaynClient(vault: NativeSessionVault())) { self.client = client }
+    let testing: Bool
+    init(client: WudaynClient? = nil) {
+        #if DEBUG
+        testing = ProcessInfo.processInfo.arguments.contains("--native-ui-tests")
+        if testing { self.client = WudaynClient(vault: NativeUITestVault(), transport: NativeUITestTransport()); return }
+        #else
+        testing = false
+        #endif
+        self.client = client ?? WudaynClient(vault: NativeSessionVault())
+    }
     var profile: JSONValue { account["profile"] }
     var approved: Bool { account["user"]["applicationStatus"].string == "approved" }
     func restore() async {

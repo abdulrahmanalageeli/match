@@ -35,7 +35,12 @@ struct NativePartnerCriteria: View {
             }
             multiselect("أسلوب اللباس", key: "dressStyle", values: NativeOption.values(NativeCatalog.value["appearance"]["dressStyles"]))
             Section("مرونة اللباس") { mode("dressFlexibility"); NativeChoice(title: "التفضيل", value: $profile.field("partnerCriteria").field("dressFlexibility").text("target"), options: NativeOption.values(NativeCatalog.value["appearance"]["dressFlexibilities"]).filter { ["open_to_discussion", "open_to_change"].contains($0.id) }) }
-        }.navigationTitle("تفضيلات الشريك")
+        }.navigationTitle("تفضيلات الشريك").onAppear {
+            for key in ["height", "weight", "nationality", "education", "profession", "maritalStatus", "sharedLanguage", "children", "smoking", "dressStyle", "dressFlexibility"] {
+                if profile["partnerCriteria"][key]["mode"].string.isEmpty { profile["partnerCriteria"][key]["mode"] = .string("any") }
+            }
+            if profile["signupConsents"]["sensitiveProfile"].bool { for key in ["tribalBackground", "skinTone"] { if profile["partnerCriteria"][key]["mode"].string.isEmpty { profile["partnerCriteria"][key]["mode"] = .string("any") } } }
+        }
     }
     private func mode(_ key: String) -> some View { NativeChoice(title: "الأهمية", value: $profile.field("partnerCriteria").field(key).text("mode"), options: NativeOption.values(NativeCatalog.value["marriage"]["criteriaModes"])) }
     private func multiselect(_ title: String, key: String, values: [NativeOption]) -> some View { Section(title) { mode(key); NativeMultiChoice(title: "الاختيارات", value: $profile.field("partnerCriteria").field(key), key: "values", options: values) } }

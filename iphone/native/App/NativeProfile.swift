@@ -117,6 +117,7 @@ struct NativeProfileEditor: View {
                 NavigationLink("تفاصيل الزواج والحياة", destination: NativeMarriageFields(value: $draft.field("marriageBasics")))
                 if draft["signupConsents"]["sensitiveProfile"].bool { NavigationLink("التفاصيل الاختيارية", destination: NativeSensitiveDetails(value: $draft.field("marriageBasics"))) }
                 NavigationLink("تفضيلات الشريك", destination: NativePartnerCriteria(profile: $draft))
+                NativeMultiChoice(title: "اهتماماتي · حتى ٣", value: $draft, key: "interestIds", options: NativeOption.values(NativeCatalog.value["interests"]))
                 Stepper("عمر الشريك من \(Int(draft["preferredMinAge"].number))", value: $draft.number("preferredMinAge"), in: 18...110)
                 Stepper("عمر الشريك حتى \(Int(draft["preferredMaxAge"].number))", value: $draft.number("preferredMaxAge"), in: 18...110)
                 NavigationLink("التوافق والتفضيلات", destination: NativeAssessment(profile: $draft))
@@ -133,6 +134,7 @@ struct NativeProfileEditor: View {
             }
             NativeAction(title: "حفظ الملف والتفضيلات") {
                 var value = draft
+                guard value["interestIds"].array.count <= 3, value["priorityCategories"].array.count <= 2 else { throw NativeProblem.message("اختر حتى ٣ اهتمامات وأولويتين للتوافق.") }
                 let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
                 value["birthDate"] = .string(formatter.string(from: birthday))
                 value["age"] = .number(Double(Calendar(identifier: .gregorian).dateComponents([.year], from: birthday, to: Date()).year ?? 0))
@@ -192,7 +194,7 @@ struct NativeMarriageFields: View {
 struct NativeAssessment: View {
     @Binding var profile: JSONValue
     var body: some View { List {
-        Section("أولوياتي") { ForEach(NativeCatalog.value["catalog"]["categories"].rows) { row in Toggle(row.value["label"].string, isOn: $profile.contains("priorityCategories", row.id)) } }
+        Section("أولوياتي · حتى أولويتين") { ForEach(NativeCatalog.value["catalog"]["categories"].rows) { row in Toggle(row.value["label"].string, isOn: $profile.contains("priorityCategories", row.id)).disabled(profile["priorityCategories"].array.count >= 2 && !profile["priorityCategories"].array.contains(.string(row.id))) } }
         ForEach(NativeCatalog.value["catalog"]["dimensions"].array, id: \.["id"].string) { dimension in
             Section(dimension["title"].string) {
                 NativeChoice(title: dimension["selfPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["id"].string), options: NativeOption.values(dimension["options"], label: "self"))
@@ -216,7 +218,7 @@ struct NativeBeena: View {
                 Text(scenario["scene"].string).foregroundStyle(.secondary)
                 NativeChoice(title: "ما يشبهني", value: $profile.field("beena").field("answers").field(scenario["id"].string).text("self"), options: NativeOption.values(scenario["options"]))
                 ForEach(NativeOption.values(scenario["options"])) { choice in Toggle(choice.label, isOn: $profile.field("beena").field("answers").field(scenario["id"].string).contains("partner", choice.id)) }
-                Stepper("الأهمية", value: $profile.field("beena").field("answers").field(scenario["id"].string).number("importance"), in: 0...2)
+                Stepper("الأهمية", value: $profile.field("beena").field("answers").field(scenario["id"].string).number("importance"), in: 1...2)
             }
         }
     }.navigationTitle("بيننا · مواقف الحياة").onAppear { profile["beena"]["version"] = .string("beena-v1") } }

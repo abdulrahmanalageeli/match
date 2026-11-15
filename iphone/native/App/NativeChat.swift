@@ -51,8 +51,8 @@ struct NativeChat: View {
             HStack(alignment: .bottom, spacing: 12) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images, photoLibrary: .shared()) { Image(systemName: "photo.badge.plus").font(.title3) }.accessibilityLabel("إرفاق صورة")
                 Button { Task { do { try await audio.start() } catch { self.error = error.localizedDescription } } } label: { Image(systemName: "mic").font(.title3) }.accessibilityLabel("تسجيل رسالة صوتية").disabled(audio.recording || photoDraft != nil)
-                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).onChange(of: text) { _ in pendingID = UUID().uuidString.lowercased() }
-                Button { Task { await send() } } label: { if sending { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) } }.accessibilityLabel("إرسال").disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && photoDraft == nil && audio.draft == nil)
+                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).accessibilityIdentifier("chat.composer").onChange(of: text) { _ in pendingID = UUID().uuidString.lowercased() }
+                Button { Task { await send() } } label: { if sending { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) } }.accessibilityLabel("إرسال").accessibilityIdentifier("chat.send").disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && photoDraft == nil && audio.draft == nil)
             }.padding().disabled(!allowed || sending || store.busy)
         }.navigationTitle(connection["person"].title).navigationBarTitleDisplayMode(.inline)
             .toolbar { Button { controls = true } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("خيارات التعارف") }

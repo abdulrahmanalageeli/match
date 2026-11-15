@@ -61,8 +61,21 @@ targets:
       configs:
         Release:
           APS_ENVIRONMENT: production
+  WudaynNativeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: WudaynNative
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.blindmatch.marriage.uitests
 schemes:
   WudaynNative:
     build:
       targets:
         WudaynNative: all
+    test:
+      targets:
+        - WudaynNativeUITests

@@ -17,6 +17,7 @@ function load(file){
 }
 const result={catalog:load(root+'/compatibility/catalog.json'),personality:load(root+'/compatibility/personality-catalog.json'),marriage:load(root+'/compatibility/marriage.ts'),appearance:load(root+'/compatibility/appearance.ts'),profile:load(root+'/profile/profileOptions.ts'),beena:load(root+'/beena/model.ts'),readiness:load(root+'/readiness/model.ts'),help:load(root+'/help/guide.ts')};
 const output=path.join(app,'native/Resources');fs.mkdirSync(output,{recursive:true});
+result.interests=load(root+'/compatibility/model.ts').interests;
 fs.writeFileSync(path.join(output,'native-catalog.json'),JSON.stringify(result,null,2));
 const {renderToStaticMarkup}=require('react-dom/server'), React=require('react');
 const {LegalNotice}=load(root+'/legal/LegalNotice.tsx');

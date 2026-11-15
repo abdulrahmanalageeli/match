@@ -51,12 +51,12 @@
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 36px; color: #716b70; font-size: 12px; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-end-visible { min-height: 44px; padding-inline: 8px; color: #963549; font-size: 13px; font-weight: 500; }
 .phone-app .cm-shell .cm-chat-stage { background: #fdfdfd; }
-.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 18px 16px 22px; gap: 8px; scrollbar-color: #c4bfbd transparent; }
+.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 14px 16px 18px; gap: 6px; scrollbar-color: #c4bfbd transparent; }
 .phone-app .cm-shell .cm-chat .cm-chat-day { color: #716b70; font-size: 12px; padding: 10px 32px 18px; }
 .phone-app .cm-shell .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat-day::after { background: #ddd8d5; }
-.phone-app .cm-shell .cm-chat .cm-bubble { padding: 11px 14px 8px; border: 1px solid #e5e2de; border-radius: 12px 12px 12px 4px; background: #fff; color: #242326; box-shadow: none; }
-.phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #54152a; border-radius: 12px 12px 4px 12px; background: #54152a; color: #fff; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-bubble { padding: 10px 13px 7px; border: 1px solid #e9e2e5; border-radius: 18px 18px 18px 5px; background: #fff; color: #242326; box-shadow: 0 2px 10px #30242b0a; }
+.phone-app .cm-shell .cm-chat .cm-bubble.self { border-color: #63203920; border-radius: 18px 18px 5px 18px; background: linear-gradient(145deg,#67213b,#501428); color: #fff; box-shadow: 0 3px 12px #54152a1c; }
 .phone-app .cm-shell .cm-chat .cm-bubble p { font-size: 16px; line-height: 1.8; }
 .phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #716b70; font-size: 12px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #dfcbd3; }

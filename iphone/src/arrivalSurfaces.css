@@ -15,6 +15,8 @@
 /* The tester strip and demo notice already occupy the safe area above ordinary headers. */
 .phone-app > :is(.nf-tester-tools, .demo-notice) ~ .app-screen :is(.mi-header, .mi-detail-header, .st-top),
 .phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-block-start: 4px; }
+.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .app-screen .mp-navigation,
+.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell .mp-navigation { padding-block-start: 0; }
 /* The chat is fixed to the visual viewport when the keyboard is open. */
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-start: max(4px, var(--nf-safe-top)); }
 .phone-app .cm-chat-arrival-paths { opacity: .08; inset: -40px 0 0; }
@@ -47,7 +49,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-s
 .phone-app .cm-shell :is(.cm-segments,.df-feed-tabs) button { transition: background-color 180ms ease, color 180ms ease, scale 120ms ease; }
 .phone-app .cm-shell button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @keyframes nf-surface-arrive {
-  from { opacity: .25; translate: -10px 0; }
+  from { opacity: .65; translate: 0 6px; }
   to { opacity: 1; translate: 0 0; }
 }
 @keyframes nf-copy-arrive {
@@ -55,7 +57,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-s
   to { opacity: 1; translate: 0 0; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion=reduced]) .phone-app .cm-shell > .cm-view { animation: nf-surface-arrive 380ms cubic-bezier(.22,.78,.28,1) both; }
+  html:not([data-nf-motion=reduced]) .phone-app .cm-shell > .cm-view { animation: nf-surface-arrive 320ms cubic-bezier(.22,.78,.28,1) both; }
   html:not([data-nf-motion=reduced]) .phone-app .df-title :is(.df-eyebrow,h1,p) { animation: nf-copy-arrive 480ms cubic-bezier(.22,.78,.28,1) both; }
   html:not([data-nf-motion=reduced]) .phone-app .df-title h1 { animation-delay: 70ms; }
   html:not([data-nf-motion=reduced]) .phone-app .df-title p { animation-delay: 150ms; }
@@ -84,7 +86,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .nf-icon { flex-shrink: 0; }
 .phone-app .cm-shell .cm-title { margin-block: 14px 12px; }
 .phone-app .cm-shell .cm-title h1 { font-size: 24px; line-height: 1.4; }
-.phone-app .cm-shell .df-header { min-height: 42px; padding-block: 4px 8px; border: 0; }
+.phone-app .cm-shell .df-header { min-height: 42px; padding-block: max(4px, var(--nf-safe-top)) 8px; border: 0; }
 .phone-app .cm-shell .cm-title.df-title { margin: 4px 0 8px; }
 .phone-app .cm-shell .cm-title.df-title h1 { font-size: 23px; margin: 0; line-height: 1.35; }
 .phone-app .cm-shell .df-feed-tabs { gap: 16px; }
@@ -184,7 +186,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] { font-family: var(--font-ui); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble,
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-family: var(--font-chat); letter-spacing: normal; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble > p { font-size: 17px; font-weight: 400; line-height: 1.6; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble > p { font-size: 16px; font-weight: 400; line-height: 1.55; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-size: 17px; font-weight: 400; line-height: 1.5; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 10px; line-height: 1.4; margin-top: 5px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { min-height: 64px; padding: max(9px, var(--nf-safe-top)) 12px 9px; gap: 8px; }
@@ -202,6 +204,10 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-composer-surface { border-color: #e7e1e4; border-radius: 16px; background: #fff; padding: 3px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools { gap: 0; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; border: 0; background: transparent; color: #82737b; }
+.phone-app .cm-shell .cm-chat .cm-bubble:has(.cm-message-photo),
+.phone-app .cm-shell .cm-chat .cm-bubble:has(.cm-once-photo) { min-width: 0; max-width: min(74%, 260px); }
+.phone-app .cm-shell .cm-chat .cm-message-photo img { max-height: 220px; object-fit: contain; }
+.phone-app .cm-shell .cm-chat .cm-once-photo { min-width: 0; min-height: 70px; padding: 10px; gap: 9px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-receipt-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message { padding-block: 22px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { font-size: 13px; max-width: 280px; margin-inline: auto; }

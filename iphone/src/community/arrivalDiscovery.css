@@ -53,10 +53,7 @@
 .phone-app .cm-shell .df-portrait-shade { background: linear-gradient(180deg, #201c2010, transparent 35%, #201c2020 60%, #201c20db 100%); }
 .phone-app .cm-shell .df-portrait-badges { inset-inline: 8px; top: 8px; gap: 8px; }
 .phone-app .cm-shell .df-compatibility { min-height: 30px; padding: 5px 9px; gap: 8px; border: 1px solid #ffffff70; border-radius: 8px; background: #fffaf4ed; color: #54152a; box-shadow: 0 2px 8px #28121a08; }
-.phone-app .cm-shell .df-compatibility strong { display: inline-flex; align-items: baseline; gap: 2px; font-weight: 700; font-size: 18px; line-height: 1; font-variant-numeric: tabular-nums; }
-.phone-app .cm-shell .df-compatibility strong small { font-size: 10px; font-weight: 400; margin: 0; }
-.phone-app .cm-shell .df-compatibility > span { font-size: 11px; font-weight: 400; line-height: 1.3; color: #79656d; border-inline-start: 1px solid #dacdd2; padding-inline-start: 8px; }
-.phone-app .cm-shell .df-compatibility.pending > span { border: 0; padding: 0; }
+.phone-app .cm-shell .df-compatibility.pending { font-size: 11px; font-weight: 400; line-height: 1.3; color: #79656d; }
 .phone-app .cm-shell .df-photo-label { padding: 5px 8px; border-radius: 4px; font-size: 11px; background: #242326b0; border: 0; color: #fff; }
 .phone-app .cm-shell .df-portrait-identity { inset-inline: 20px; bottom: 20px; }
 .phone-app .cm-shell .df-intention { color: #f3eeed; font-size: 13px; margin-bottom: 8px; }
@@ -365,7 +362,7 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 /* Quiet, typographic compatibility in the upper-left corner. */
 .phone-app .cm-shell .dr-fit-visual { width: auto; min-height: 44px; align-self: flex-start; display: flex; align-items: center; padding: 0 1px; }
 .phone-app .cm-shell .dr-preference-inline { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
-.phone-app .cm-shell .dr-preference-inline strong { font-size: 18px; line-height: 1.2; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .dr-preference-inline strong { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 18px; line-height: 1.2; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .dr-preference-inline small { font-size: 10px; margin-inline-start: 1px; font-weight: 400; color: #8b737d; }
 .phone-app .cm-shell .dr-preference-inline > span { font-size: 10px; font-weight: 400; color: #756c72; }
 

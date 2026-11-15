@@ -4,6 +4,7 @@ import { Brand } from '../Brand';
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { preferencePercentage } from '../compatibility/model';
+import { ScoreTile } from '../compatibility/ScoreTile';
 import { CommunitySkeleton } from './CommunitySkeleton';
 import { RequestHistory } from './RequestHistory';
 import type { CommunitySource, Connection } from './data';
@@ -44,7 +45,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             <div className="mo-current-copy">
               <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
-              {score !== null && <span className="mo-score" aria-label={`${number.format(score)} بالمئة توافق التفضيلات`}>{number.format(score)}<small>٪</small><span>توافقكم</span></span>}
+              {score !== null && <ScoreTile percentage={score} ariaLabel={`${number.format(score)} بالمئة توافق التفضيلات`}/>}
               <MotionPressButton className="mo-action" onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}><MessageCircle size={15}/>المحادثة{Boolean(row.unreadCount) && <span className="mo-unread">{number.format(row.unreadCount!)}</span>}</MotionPressButton>
             </div>
           </MotionReveal>;

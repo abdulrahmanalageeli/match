@@ -31,6 +31,20 @@ App Store or automatically inviting external testers.
 
 ## Run and install
 
+### Single-use photo release check
+
+Single-use photos now use `PrivatePhotoPlugin` rather than a WebView image on
+iOS. Build and install a new native binary; a website deployment cannot update
+an installed TestFlight binary. The secure UITextField canvas is an undocumented
+UIKit implementation detail, not a public screenshot-prevention API. The viewer
+refuses to open when that canvas is unavailable or screen recording is active.
+Before releasing on each supported iOS version, verify on two physical accounts:
+open a single-use image, take a hardware-button screenshot (the image must be
+absent), start recording/mirroring before and during opening, background the app,
+and close/reopen the message. Confirm the image is cleared and cannot reopen.
+Also verify normal photos and keyboard entry still work. Screenshot notifications
+arrive after capture; they close the viewer but are not the prevention mechanism.
+
 1. In Codemagic's app, scan `main` for `codemagic.yaml`.
 2. Start workflow **Nisfayn · iPhone TestFlight**. Check the displayed build-minute
    allowance/pricing before starting. No automatic build triggers are configured.

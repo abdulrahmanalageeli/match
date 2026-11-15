@@ -5,6 +5,7 @@ import { useDevicePreferences, useSystemReducedMotion } from '../settings/prefer
 import { feedback } from '../feedback/haptics';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './chatMedia.css';
+import { nativePrivatePhoto, preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
 
 const seconds = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 const safeError = (e: unknown) => e instanceof Error && /[\u0600-\u06ff]/.test(e.message) ? e.message : 'تعذّر إرسال المرفق. حاول مجددًا.';
@@ -118,6 +119,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   const once = attachment.viewOnce === true;
   function closeViewer() {
     generation.current++;
+    if (once && displayed.current) closePrivatePhoto();
     if (once && displayed.current.startsWith('blob:')) URL.revokeObjectURL(displayed.current);
     displayed.current = ''; setViewer(''); setOpening(false);
   }
@@ -128,6 +130,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
     window.addEventListener('pagehide', closeViewer);
     return () => {
       alive.current = false; generation.current++;
+      if (once && displayed.current) closePrivatePhoto();
       if (once && displayed.current.startsWith('blob:')) URL.revokeObjectURL(displayed.current);
       displayed.current = '';
       document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', closeViewer);
@@ -170,9 +173,15 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
     if (!source.openMedia) { setError('حدّث التطبيق لفتح هذه الصورة.'); return; }
     const ticket = ++generation.current; setOpening(true);
     try {
+      await preparePrivatePhoto();
+      if (!alive.current || ticket !== generation.current || document.hidden) return;
       const value = await source.openMedia(requestId, attachment.id);
       if (!alive.current || ticket !== generation.current || document.hidden) { if (value.startsWith('blob:')) URL.revokeObjectURL(value); return; }
-      displayed.current = value; setSpent(true); setViewer(value);
+      displayed.current = value; setSpent(true);
+      if (nativePrivatePhoto()) {
+        try { await showPrivatePhoto(value, () => alive.current && ticket === generation.current); }
+        finally { if (displayed.current === value) closeViewer(); }
+      } else setViewer(value);
     } catch (cause) { if (alive.current && ticket === generation.current) setError(safeError(cause)); }
     finally { if (alive.current && ticket === generation.current) setOpening(false); }
   }

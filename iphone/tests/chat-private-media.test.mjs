@@ -6,9 +6,9 @@ import ts from 'typescript';
 
 const compiled = ts.transpileModule(await readFile(new URL('../src/community/ChatMedia.tsx', import.meta.url), 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const settle = () => new Promise(resolve => setImmediate(resolve));
-function mount({once = true, sender = false, openedAt = null, deferred = false, kind = 'photo'} = {}) {
+function mount({once = true, sender = false, openedAt = null, deferred = false, kind = 'photo', native = false, protectedAvailable = true} = {}) {
   const hooks = [], pending = [], docEvents = new Map(), winEvents = new Map(), revoked = [];
-  let index = 0, downloads = 0, opens = 0, complete;
+  let index = 0, downloads = 0, opens = 0, complete, nativeShows = 0;
   const document = {hidden:false, addEventListener:(name,fn)=>{if(!docEvents.has(name))docEvents.set(name,new Set());docEvents.get(name).add(fn);},removeEventListener:(name,fn)=>docEvents.get(name)?.delete(fn)};
   const window = {addEventListener:(name,fn)=>winEvents.set(name,fn),removeEventListener:name=>winEvents.delete(name)};
   const source = {mediaUrl:async()=>{downloads++;return 'blob:normal';},openMedia:async()=>{opens++;if(deferred)await new Promise(resolve=>{complete=resolve;});return 'blob:once';}};
@@ -17,7 +17,8 @@ function mount({once = true, sender = false, openedAt = null, deferred = false, 
     useState:initial=>{const at=index++;if(!(at in hooks))hooks[at]=typeof initial==='function'?initial():initial;return [hooks[at],value=>{hooks[at]=typeof value==='function'?value(hooks[at]):value;}];},
     useEffect:(fn,deps)=>{const at=index++,old=hooks[at];if(!old||deps.some((value,i)=>value!==old.deps[i])){old?.cleanup?.();const item={deps};hooks[at]=item;pending.push(()=>{item.cleanup=fn();});}},
   };
-  const exports = {}, context = {exports, document, window, URL:{revokeObjectURL:url=>revoked.push(url)}, require:name=>name==='react'?react:name==='react/jsx-runtime'?{jsx:(tag,props)=>({tag,props}),jsxs:(tag,props)=>({tag,props}),Fragment:'fragment'}:{}};
+  const privacy = {nativePrivatePhoto:()=>native,preparePrivatePhoto:async()=>{if(native&&!protectedAvailable)throw Error('حدّث التطبيق');},showPrivatePhoto:async()=>{nativeShows++;},closePrivatePhoto:()=>{}};
+  const exports = {}, context = {exports, document, window, URL:{revokeObjectURL:url=>revoked.push(url)}, require:name=>name==='react'?react:name==='./privatePhoto'?privacy:name==='react/jsx-runtime'?{jsx:(tag,props)=>({tag,props}),jsxs:(tag,props)=>({tag,props}),Fragment:'fragment'}:{}};
   vm.runInNewContext(compiled,context);
   const props = {source,requestId:'room',senderIsMe:sender,attachment:{id:'image',kind,mime:'image/jpeg',size:10,viewOnce:once,openedAt}};
   function render(){index=0;const tree=exports.MessageMedia(props);for(const effect of pending.splice(0))effect();return tree;}
@@ -25,7 +26,7 @@ function mount({once = true, sender = false, openedAt = null, deferred = false, 
   const button=()=>walk(render(),node=>node.tag==='button');
   const viewer=()=>walk(render(),node=>typeof node.tag==='function'&&node.tag.name==='PhotoViewer');
   render();
-  return {render,button,viewer,revoked,get downloads(){return downloads;},get opens(){return opens;},
+  return {render,button,viewer,revoked,get downloads(){return downloads;},get opens(){return opens;},get nativeShows(){return nativeShows;},
     hide:async()=>{document.hidden=true;for(const fn of docEvents.get('visibilitychange')||[])fn();await settle();},
     show:async()=>{document.hidden=false;for(const fn of docEvents.get('visibilitychange')||[])fn();await settle();},
     pagehide:()=>winEvents.get('pagehide')(),
@@ -38,6 +39,18 @@ test('view-once images never prefetch or expose a preview; the sender and opened
     const instance=mount(options);await settle();assert.equal(instance.downloads,0);assert.equal(instance.opens,0);assert.equal(instance.viewer(),null);
     assert.equal(instance.button().props.disabled,Boolean(options.sender||options.openedAt));instance.unmount();
   }
+});
+
+test('native view-once uses only the protected viewer and releases its blob',async()=>{
+  const instance=mount({native:true});instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,1);assert.equal(instance.nativeShows,1);assert.equal(instance.viewer(),null);
+  assert.equal(instance.button().props.disabled,true);assert.deepEqual(instance.revoked,['blob:once']);instance.unmount();
+});
+
+test('native builds without protection do not redeem or display a one-time image',async()=>{
+  const instance=mount({native:true,protectedAvailable:false});instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,0);assert.equal(instance.nativeShows,0);assert.equal(instance.viewer(),null);
+  assert.equal(instance.button().props.disabled,false);instance.unmount();
 });
 
 test('explicit recipient opening consumes once, and closing revokes the blob and prevents reopening',async()=>{

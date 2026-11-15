@@ -59,7 +59,7 @@ struct NativeSignup: View {
                 TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().focused($focusedField, equals: .email).accessibilityIdentifier("signup.email")
                 // The DEBUG-only fixture flag prevents the system-generated-password
                 // overlay from intercepting XCTest typing; real signup keeps AutoFill.
-                SecureField("كلمة المرور", text: $password).textContentType(store.testing ? nil : .newPassword).focused($focusedField, equals: .password).accessibilityIdentifier("signup.password")
+                SecureField("كلمة المرور", text: $password).textContentType(store.testing ? .oneTimeCode : .newPassword).focused($focusedField, equals: .password).accessibilityIdentifier("signup.password")
                 TextField("رقم الجوال السعودي", text: $phone).textContentType(.telephoneNumber).keyboardType(.phonePad).focused($focusedField, equals: .phone).accessibilityIdentifier("signup.phone")
             }.disabled(verified || store.busy || created)
             Section("بوضوح وبإذنك") {

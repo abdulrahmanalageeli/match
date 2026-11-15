@@ -59,7 +59,8 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   function selectSection(next:typeof section){
     if(next===section)return;
     const top=sections.current?.getBoundingClientRect().top??100;
-    const pinned=top>=0&&top<=10;
+    const stickyTop=sections.current?parseFloat(getComputedStyle(sections.current).top)||0:0;
+    const pinned=top>=stickyTop-1&&top<=stickyTop+10;
     setSection(next);
     if(pinned)requestAnimationFrame(()=>document.getElementById(contentId)?.scrollIntoView({block:'start',behavior:'instant'}));
   }

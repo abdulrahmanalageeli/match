@@ -56,6 +56,7 @@ export type Connection = {
   lastMessage?: Pick<Message, "body" | "senderIsMe" | "createdAt"> | null;
   unreadCount?: number;
 };
+export type MatchingExclusion = { id: string; alias: string; reason: 'blocked' | 'no_rematch'; since?: string };
 export type RequestHistoryEntry = {
   id: string; alias: string; direction: "incoming" | "outgoing";
   createdAt: string; closedAt?: string | null; outcome: "closed" | "expired";
@@ -167,6 +168,7 @@ export interface CommunitySource extends ManualVerificationSource {
   readNotifications?(ids: string[]): Promise<void>;
   inbox(): Promise<Connection[]>;
   requestHistory?(): Promise<RequestHistoryEntry[]>;
+  matchingExclusions?(): Promise<MatchingExclusion[]>;
   request(memberId: string): Promise<string>;
   demoAcceptOutgoing?(requestId: string): Promise<void>;
   act(requestId: string, action: RequestAction, reason?: string, allowRematch?: boolean): Promise<void>;
@@ -293,6 +295,7 @@ export function cloudCommunity(userId: string): CommunitySource {
     discover: (f) => timedRpc("marriage_browse", { options: { ...f, mode: f.mode ?? "recommended" } }),
     inbox: () => timedRpc("marriage_inbox", {}),
     requestHistory: () => timedRpc("marriage_request_history", {}),
+    matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),
     notifications: () => timedRpc('marriage_notifications', {}),
     readNotifications: ids => timedRpc('marriage_notifications_read', { notification_ids: ids }),
     unreadCount: () => timedRpc("marriage_unread_count", {}),
@@ -922,6 +925,15 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         id: r.id, alias: examples.find(p => p.id === r.peer)?.alias ?? 'عضو',
         direction: r.direction, createdAt: r.createdAt, closedAt: r.updatedAt, outcome: 'closed' as const,
       }));
+    },
+    async matchingExclusions() {
+      const excluded = new Map<string, MatchingExclusion>();
+      for (const r of records.filter(row => row.status === 'closed' && !row.allowRematch)) {
+        const previous = excluded.get(r.peer);
+        if (!previous?.since || previous.since < r.updatedAt) excluded.set(r.peer, { id: r.peer, alias: examples.find(p => p.id === r.peer)?.alias ?? 'عضو', reason: 'no_rematch', since: r.updatedAt });
+      }
+      for (const id of blockedPeople) excluded.set(id, { ...excluded.get(id), id, alias: examples.find(p => p.id === id)?.alias ?? 'عضو', reason: 'blocked' });
+      return [...excluded.values()].sort((a, b) => (b.since ?? '').localeCompare(a.since ?? ''));
     },
     async request(memberId) {
       if (exclusiveId) throw new Error('أنت في تعارف حصري.');

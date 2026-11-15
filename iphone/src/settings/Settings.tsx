@@ -7,6 +7,7 @@ import { Brand } from "../Brand";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import type { AccountState, Profile } from "../types";
 import { useDevicePreferences, useSystemReducedMotion } from "./preferences";
+import { MatchingExclusions } from "./MatchingExclusions";
 import { MemberData } from "./MemberData";
 import { PhotoSettings } from "../photos/Photos";
 import { PushSettings } from "../notifications/PushSettings";
@@ -113,14 +114,14 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [showHelp,setShowHelp]=useState(false);
   const [showCompletion,setShowCompletion]=useState(false);
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
-  const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|null>(null);
+  const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|null>(null);
   const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
   const [hasPreviousVerification,setHasPreviousVerification]=useState(false);
   useEffect(()=>{let current=true;setOwnClaims([]);setHasPreviousVerification(false);if(source?.verification)void source.verification('state').then(result=>{if(current){setOwnClaims(result.claims);setHasPreviousVerification(result.requests.length>0);}}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
   const returnScroll=useRef(0);
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
-  function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
-  function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{window.scrollTo(0,returnScroll.current);document.querySelector<HTMLButtonElement>(panel==='preview'?'button[aria-label="عرض ملفي كما يراه الآخرون"]':panel==='readiness'?'.st-readiness-entry button':panel==='family'?'.st-family-entry button':panel==='verification'?'.st-verification-entry button':'.st-member-photos')?.focus({preventScroll:true});});}
+  function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
+  function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{window.scrollTo(0,returnScroll.current);document.querySelector<HTMLButtonElement>(panel==='preview'?'button[aria-label="عرض ملفي كما يراه الآخرون"]':panel==='readiness'?'.st-readiness-entry button':panel==='family'?'.st-family-entry button':panel==='exclusions'?'.st-exclusions-entry button':panel==='verification'?'.st-verification-entry button':'.st-member-photos')?.focus({preventScroll:true});});}
   const owner = demo ? "demo" : state?.user.id;
   const member = demo ? demoMember : state?.profile;
   const firstLetter = Array.from(member?.displayName.trim() || "")[0];
@@ -134,6 +135,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     onPause={()=>{if(!paused&&!busy)onToggle();}} onMembership={canSeeMembership?onMembership:undefined}
     onFamily={source?.family?()=>{setShowCompletion(false);openPanel('family');}:undefined}
     onReadiness={source?.readiness?()=>{setShowCompletion(false);openPanel('readiness');}:undefined}/>;
+  if(profilePanel==='exclusions'&&source)return <MatchingExclusions source={source} onBack={closePanel}/>;
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
   if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel}/>;
@@ -174,6 +176,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
               title={paused ? "استئناف الترشيحات" : "إيقاف الترشيحات مؤقتًا"}
               detail={paused ? "استقبال الترشيحات متوقف" : "ملفك متاح للترشيحات"}
               action={() => paused ? onToggle() : setConfirm("pause")} disabled={busy} />}
+            {source?.matchingExclusions && <div className="st-exclusions-entry"><SettingRow icon={<ShieldCheck/>} title="الحظر وعدم إعادة الترشيح" detail="الأشخاص المحظورون والتعارفات المستبعدة" action={()=>openPanel('exclusions')} /></div>}
             <SettingRow icon={<ShieldCheck />} title="الخصوصية وشروط العضوية" action={onPrivacy} />
             {owner && <SettingRow icon={<Eye />} title="خصوصية بيانات الملف" action={() => setDataSheet({ mode: "visibility", owner })} />}
             {owner && <SettingRow icon={<Image />} title="صورتي الخاصة" detail="مشاركة اختيارية داخل المحادثات" action={() => setShowPhotos(true)} />}

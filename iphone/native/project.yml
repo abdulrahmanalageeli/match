@@ -51,7 +51,7 @@ targets:
         NisfaynAPNsEnvironment: $(APS_ENVIRONMENT)
         WudaynPasswordRecoveryURL: $(WUDAYN_PASSWORD_RECOVERY_URL)
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     entitlements:
       path: Generated/WudaynNative.entitlements
       properties:

@@ -32,9 +32,13 @@ function fixture({ visualViewport = true, chromeHeight = 28 } = {}) {
   const viewport = { ...events(), height: 844, offsetTop: 0 };
   const chrome = { height: chromeHeight, open: false, getBoundingClientRect() { return { height: this.height }; } };
   const document = { documentElement: root, activeElement: null, querySelector: () => chrome };
+  let timerId = 0;
+  const timers = new Map();
   const window = {
     ...events(), visualViewport: visualViewport ? viewport : null, innerHeight: 844, scrollY: 170,
     scrollTo({ top }) { this.scrollY = top; },
+    setTimeout(fn) { const id = ++timerId; timers.set(id, fn); return id; },
+    clearTimeout(id) { timers.delete(id); },
   };
   let queued, observed, disconnected = false, callbacks = 0;
   const exports = {};
@@ -52,6 +56,7 @@ function fixture({ visualViewport = true, chromeHeight = 28 } = {}) {
   return {
     window, document, input, viewport, root, element, chrome, attributes, stop,
     flush() { const fn = queued; queued = null; fn?.(); },
+    flushTimers() { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); },
     resizeChrome(height) { chrome.height = height; observed(); this.flush(); },
     get disconnected() { return disconnected; },
     get callbacks() { return callbacks; },
@@ -69,11 +74,15 @@ test('Safari keyboard open, panning, and close keep the whole document inside th
   assert.equal(f.root.style.values['--chat-viewport-height'], '480px');
   assert.equal(f.element.style.values['--chat-available-height'], '480px');
   assert.equal(f.element.style.values['--chat-viewport-top'], '48px');
+  assert.equal(f.element.style.values['--chat-keyboard-overlap'], '364px');
   assert.equal(f.window.scrollY, 0);
   assert.ok(f.attributes.has('data-nf-chat-keyboard'));
   // Repeated focus/pan events must never accumulate extra height.
   for (let i = 0; i < 4; i++) { f.element.emit('focusin'); f.viewport.emit('scroll'); f.flush(); }
   assert.equal(f.element.style.values['--chat-available-height'], '480px');
+  assert.equal(f.callbacks, 1);
+  f.flushTimers();
+  assert.equal(f.callbacks, 2);
   f.document.activeElement = null;
   f.viewport.height = 844; f.viewport.offsetTop = 0;
   f.element.emit('focusout'); f.viewport.emit('resize'); f.flush();

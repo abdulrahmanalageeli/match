@@ -6,6 +6,11 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
   const chrome = document.querySelector<HTMLElement>('.nf-tester-tools, .demo-notice');
   let restingHeight = Math.max(viewport?.height ?? 0, window.innerHeight);
   let frame = 0;
+  let settleTimer = 0;
+  let lastHeight = -1;
+  let lastTop = -1;
+  let lastInset = -1;
+  let lastOverlap = -1;
   root.setAttribute('data-nf-chat-viewport', '');
 
   const resize = () => {
@@ -16,19 +21,28 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     if (!focused) restingHeight = Math.max(restingHeight, height, window.innerHeight);
     const keyboard = Boolean(focused && height < restingHeight - 80);
     const inset = keyboard ? 0 : Math.min(height, chrome?.getBoundingClientRect().height ?? 0);
+    const top = Math.round((viewport?.offsetTop ?? 0) + inset);
+    const overlap = focused ? Math.max(0, Math.round(restingHeight - height)) : 0;
     root.toggleAttribute('data-nf-chat-keyboard', keyboard);
-    root.style.setProperty('--chat-viewport-height', height + 'px');
-    element.style.setProperty('--chat-viewport-top', Math.round((viewport?.offsetTop ?? 0) + inset) + 'px');
-    element.style.setProperty('--chat-available-height', Math.max(0, Math.round(height - inset)) + 'px');
+    if (height !== lastHeight) root.style.setProperty('--chat-viewport-height', height + 'px');
+    if (top !== lastTop) element.style.setProperty('--chat-viewport-top', top + 'px');
+    if (inset !== lastInset || height !== lastHeight) element.style.setProperty('--chat-available-height', Math.max(0, height - inset) + 'px');
+    if (overlap !== lastOverlap) element.style.setProperty('--chat-keyboard-overlap', overlap + 'px');
+    const sizeChanged = height !== lastHeight || top !== lastTop || inset !== lastInset;
+    lastHeight = height; lastTop = top; lastInset = inset; lastOverlap = overlap;
     // Safari can scroll the layout viewport to reveal a focused field, even with body fixed.
     if (window.scrollY !== 0) window.scrollTo({ top: 0, behavior: 'instant' });
-    onResize();
+    if (sizeChanged) {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(onResize, 90);
+    }
   };
   const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(resize); };
   const rotate = () => { restingHeight = window.innerHeight; schedule(); };
   const observer = new ResizeObserver(schedule);
   if (chrome) observer.observe(chrome);
   resize();
+  onResize();
   viewport?.addEventListener('resize', schedule);
   viewport?.addEventListener('scroll', schedule);
   window.addEventListener('resize', schedule);
@@ -38,6 +52,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
   element.addEventListener('focusout', schedule);
   return () => {
     cancelAnimationFrame(frame);
+    window.clearTimeout(settleTimer);
     observer.disconnect();
     viewport?.removeEventListener('resize', schedule);
     viewport?.removeEventListener('scroll', schedule);
@@ -51,6 +66,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     root.style.removeProperty('--chat-viewport-height');
     element.style.removeProperty('--chat-viewport-top');
     element.style.removeProperty('--chat-available-height');
+    element.style.removeProperty('--chat-keyboard-overlap');
     window.scrollTo({ top: savedScrollY, behavior: 'instant' });
   };
 }

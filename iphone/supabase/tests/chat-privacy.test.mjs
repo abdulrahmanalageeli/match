@@ -76,8 +76,10 @@ test('view-once authorization checks current match, account and agreement withou
  }finally{await db.close();}
 });
 
-test('pair deletion is sender-only, permanent, 48-hour bounded and removes copied replies and media access',async()=>{
- const db=await createDatabase();try{
+test('pair deletion is sender-only, permanent, 48-hour bounded and removes copied replies and media access',async(t)=>{
+ const db=await createDatabase();
+ // Keep assertion failures visible if the WASM database also fails during shutdown.
+ t.after(()=>db.close());
   const{a,b,rpc,photo}=await pair(db);const id=randomUUID(),reply=randomUUID();
   await rpc('send',a,{clientId:id,body:'private original body'});
   await rpc('send',b,{clientId:reply,body:'answer',replyToId:id});
@@ -108,7 +110,6 @@ test('pair deletion is sender-only, permanent, 48-hour bounded and removes copie
   assert.deepEqual(await rpc('message_delete',a,{id:fresh}),{ok:true});
   await db.exec("update marriage.admin_test_members set suspended=true where actor='abdulrahman'");await assert.rejects(rpc('message_delete',a,{id:fresh}),/الحساب/);
   assert.deepEqual(new Set((await asService(db,()=>db.query('select public.nisfayn_chat_cleanup_batch() paths'))).rows[0].paths),new Set([normal.path,once.path]));
- }finally{await db.close();}
 });
 
 test('real messages redact body, exports, inbox and historical reply changes; sender can delete after ending',async()=>{

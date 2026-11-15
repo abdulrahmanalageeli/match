@@ -1,0 +1,38 @@
+name: Wudayn SwiftUI
+on:
+  workflow_dispatch:
+  push:
+    paths: ['iphone/native/**', 'iphone/ios/App/App/*.swift', '.github/workflows/wudayn-native.yml']
+  pull_request:
+    paths: ['iphone/native/**', 'iphone/ios/App/App/*.swift', '.github/workflows/wudayn-native.yml']
+permissions:
+  contents: read
+concurrency:
+  group: wudayn-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test account isolation and transport
+        run: swift test
+        working-directory: iphone/native
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+        working-directory: iphone/native
+      - name: Compile native iPhone app
+        run: |
+          set -o pipefail
+          xcodebuild -project WudaynNative.xcodeproj -scheme WudaynNative -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build 2>&1 | tee native-build.log
+        working-directory: iphone/native
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: native-build-log
+          path: iphone/native/native-build.log

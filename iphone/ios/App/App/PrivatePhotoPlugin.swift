@@ -58,7 +58,12 @@ final class PrivatePhotoPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
-private final class PrivatePhotoController: UIViewController {
+final class PrivatePhotoController: UIViewController {
+    static func canDisplay() -> Bool {
+        let probe = PhotoSecureField(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        probe.isSecureTextEntry = true; probe.text = " "
+        return NisfaynPrivacy.shared.mayOpen && !UIScreen.main.isCaptured && probe.canvas() != nil
+    }
     private var image: UIImage?
     private let picture = UIImageView()
     private var observers: [NSObjectProtocol] = []

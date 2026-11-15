@@ -1,0 +1,73 @@
+name: WudaynNative
+options:
+  bundleIdPrefix: com.blindmatch
+  deploymentTarget:
+    iOS: '16.0'
+packages:
+  WudaynCore:
+    path: .
+  Capacitor:
+    url: https://github.com/ionic-team/capacitor-swift-pm.git
+    exactVersion: 8.6.0
+  Agora:
+    url: https://github.com/AgoraIO/AgoraAudio_iOS.git
+    exactVersion: 4.7.0
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    DEVELOPMENT_TEAM: ''
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  WudaynNative:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - path: Resources
+        buildPhase: resources
+      - ../ios/App/App/Assets.xcassets
+      - ../ios/App/App/PrivateSessionPlugin.swift
+      - ../ios/App/App/PrivatePhotoPlugin.swift
+      - ../ios/App/App/NisfaynPushPlugin.swift
+      - ../ios/App/App/NisfaynCallCenter.swift
+    dependencies:
+      - package: WudaynCore
+      - package: Capacitor
+        product: Capacitor
+      - package: Agora
+        product: RtcBasic
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Wudayn AI
+        CFBundleDevelopmentRegion: ar
+        CFBundleLocalizations: [ar]
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes: [audio, voip, remote-notification]
+        NSMicrophoneUsageDescription: نستخدم الميكروفون للرسائل الصوتية والمكالمات التي تختار بدءها.
+        NSCameraUsageDescription: نستخدم الكاميرا لالتقاط صورة التحقق بعد موافقتك.
+        NSFaceIDUsageDescription: استخدم Face ID لحماية خصوصية حسابك.
+        NSPhotoLibraryUsageDescription: اختر الصور التي تريد مشاركتها.
+        NisfaynAPNsEnvironment: $(APS_ENVIRONMENT)
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+    entitlements:
+      path: Generated/WudaynNative.entitlements
+      properties:
+        aps-environment: $(APS_ENVIRONMENT)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.blindmatch.marriage
+        MARKETING_VERSION: '2.0.0'
+        CURRENT_PROJECT_VERSION: '1'
+        APS_ENVIRONMENT: sandbox
+      configs:
+        Release:
+          APS_ENVIRONMENT: production
+schemes:
+  WudaynNative:
+    build:
+      targets:
+        WudaynNative: all

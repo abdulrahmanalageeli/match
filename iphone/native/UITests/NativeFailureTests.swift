@@ -5,12 +5,10 @@ final class NativeFailureTests: XCTestCase {
     @MainActor private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<7 { if element.isHittable { return }; app.swipeUp() }
     }
-    @MainActor func testSignupRequiresConsentAndValidOTP() throws {
-        let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests"]; app.launch()
-        let signup = app.buttons["إنشاء حساب والتحقق بالجوال"]; reveal(signup, in: app); signup.tap()
-        let email = app.textFields["signup.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 10)); email.tap(); email.typeText("new@example.invalid")
-        app.secureTextFields["signup.password"].tap(); app.secureTextFields["signup.password"].typeText("fixture-password")
+    @MainActor func testSocialSignupRequiresConsentAndValidOTP() throws {
+        let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests", "--social-onboarding-tests"]; app.launch()
+        XCTAssertTrue(app.textFields["signup.phone"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.buttons["مساحتي"].exists)
         app.textFields["signup.phone"].tap(); app.textFields["signup.phone"].typeText("0501234567")
         app.buttons["signup.dismissKeyboard"].tap()
         let send = app.buttons["signup.sendSMS"]; XCTAssertFalse(send.isEnabled)
@@ -36,8 +34,8 @@ final class NativeFailureTests: XCTestCase {
         let create = app.buttons["signup.create"]; reveal(create, in: app)
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: create)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); create.tap()
-        XCTAssertTrue(app.staticTexts["signup.created"].waitForExistence(timeout: 10))
-        XCTAssertFalse(create.isEnabled)
+        XCTAssertTrue(app.tabBars.buttons["مساحتي"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.textFields["signup.phone"].exists)
     }
     @MainActor func testFailedLoginMatchAndSendRetryThenRevokedChat() throws {
         let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests", "--native-failure-tests"]; app.launch()

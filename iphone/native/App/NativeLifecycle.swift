@@ -20,10 +20,10 @@ struct NativeLifecycle: ViewModifier {
             .onChange(of: store.owner) { _ in destination = nil; family = false; calls = false; boundOwner = nil }
             .onReceive(NotificationCenter.default.publisher(for: NisfaynPushCenter.openEvent)) { _ in Task { await openNotification() } }
             .onReceive(NotificationCenter.default.publisher(for: NisfaynCallCenter.event)) { _ in
-                if NisfaynPrivacy.shared.mayOpen, NisfaynCallCenter.shared.active, NisfaynCallCenter.shared.snapshot["account"] as? String == store.owner { calls = true }
+                if !store.onboarding["required"].bool, NisfaynPrivacy.shared.mayOpen, NisfaynCallCenter.shared.active, NisfaynCallCenter.shared.snapshot["account"] as? String == store.owner { calls = true }
             }
-            .task(id: "\(store.owner ?? "")-\(phase == .active)") {
-                guard !store.testing, !store.familyMode, phase == .active, let owner = store.owner else { return }
+            .task(id: "\(store.owner ?? "")-\(phase == .active)-\(store.onboarding["required"].bool)") {
+                guard !store.testing, !store.familyMode, !store.onboarding["required"].bool, phase == .active, let owner = store.owner else { return }
                 while !Task.isCancelled && store.owner == owner {
                     do {
                         if boundOwner != owner || Date().timeIntervalSince(boundAt) > 6 * 3600 {
@@ -59,7 +59,7 @@ struct NativeLifecycle: ViewModifier {
         } catch is CancellationError { } catch { store.error = "لم يكتمل تحديث العضوية. استخدم استعادة المشتريات من صفحة العضوية." }
     }
     private func openNotification() async {
-        guard !opening, NisfaynPrivacy.shared.mayOpen, let owner = store.owner, let event = NisfaynPushCenter.shared.pendingOpen else { return }
+        guard !opening, !store.onboarding["required"].bool, NisfaynPrivacy.shared.mayOpen, let owner = store.owner, let event = NisfaynPushCenter.shared.pendingOpen else { return }
         opening = true; defer { opening = false }
         do {
             if event["kind"] == "family" {

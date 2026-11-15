@@ -5,7 +5,10 @@ import WudaynCore
 // Compiled out of Release. The UI test process never uses a production session,
 // network connection, push registration or purchase listener.
 struct NativeUITestVault: SessionVault {
-    func read() throws -> Data? { nil }
+    func read() throws -> Data? {
+        guard ProcessInfo.processInfo.arguments.contains("--social-onboarding-tests") else { return nil }
+        return try JSONValue.object(["access_token": .string("ui-fixture"), "refresh_token": .string("ui-fixture-refresh"), "expires_at": .number(Date().timeIntervalSince1970 + 3600), "user": .object(["id": .string(NativeUITestTransport.owner), "email": .string("ui@example.invalid")])]).encoded()
+    }
     func write(_ data: Data) throws {}
     func clear() throws {}
 }
@@ -16,6 +19,8 @@ actor NativeUITestTransport: HTTPTransport {
     private var acceptFailed = false
     private var sendFailed = false
     private var denied = false
+    private var onboardingRequired = ProcessInfo.processInfo.arguments.contains("--social-onboarding-tests")
+    private var phoneVerified = false
     static let owner = "11111111-1111-4111-8111-111111111111"
     static let peer = "22222222-2222-4222-8222-222222222222"
     private let connection = "33333333-3333-4333-8333-333333333333"
@@ -32,10 +37,15 @@ actor NativeUITestTransport: HTTPTransport {
         if path == "/auth/v1/token" { value = .object(["access_token": .string("ui-fixture"), "refresh_token": .string("ui-fixture-refresh"), "expires_at": .number(Date().timeIntervalSince1970 + 3600), "user": .object(["id": .string(Self.owner), "email": .string("ui@example.invalid")])]) }
         else {
             switch path.components(separatedBy: "/").last ?? "" {
+            case "marriage_social_onboarding_status": value = .object(["required": .bool(onboardingRequired), "email": .string("ui@example.invalid")])
+            case "marriage_complete_social_onboarding":
+                guard phoneVerified, body["consent"]["adult"].bool, body["consent"]["terms"].bool, body["consent"]["privacy"].bool, body["consent"]["sms"].bool, body["proof_hash"].string.count == 64, body["device_hash"].string.count == 64 else { return try response(.null, status: 400) }
+                onboardingRequired = false; value = .object(["required": .bool(false)])
             case "marriage_state": value = .object(["user": .object(["id": .string(Self.owner), "applicationStatus": .string("approved")]), "profile": .object(["displayName": .string("اختبار الواجهة"), "birthDate": .string("1995-01-01"), "city": .string("الرياض"), "gender": .string("man")]), "membership": .object(["active": .bool(true)])])
             case "marriage_browse": value = .array([person])
             case "signup-sms":
                 if body["action"].string == "verify" && body["otp"].string != "123456" { return try response(.object(["error": .string("رمز التحقق غير صحيح")]), status: 400) }
+                phoneVerified = body["action"].string == "verify"
                 value = .object(["proof": .string(String(repeating: "a", count: 64)), "verified": .bool(body["action"].string == "verify")])
             case "member-signup":
                 guard body["consent"]["adult"].bool, body["consent"]["terms"].bool, body["consent"]["privacy"].bool, body["phoneProof"].string == String(repeating: "a", count: 64) else { return try response(.null, status: 400) }

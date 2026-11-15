@@ -41,6 +41,7 @@ struct NativeSessionVault: SessionVault {
     @Published var busy = false
     @Published var error: String?
     @Published var offerDeviceLock = false
+    @Published var onboarding: JSONValue = .null
     @Published var familyMode = UserDefaults.standard.bool(forKey: "wudayn.native.familyMode")
     let testing: Bool
     init(client: WudaynClient? = nil) {
@@ -60,6 +61,12 @@ struct NativeSessionVault: SessionVault {
         catch { self.error = error.localizedDescription }
     }
     func refresh() async throws {
+        let expectedOwner = owner
+        let status = try await client.rpc("marriage_social_onboarding_status")
+        guard owner == expectedOwner else { throw NativeProblem.sessionChanged }
+        guard status["required"] == .bool(true) || status["required"] == .bool(false) else { throw NativeProblem.invalidResponse }
+        onboarding = status
+        if status["required"].bool { account = .null; return }
         if familyMode { _ = try await client.family("state"); return }
         let expected = owner, value = try await client.rpc("marriage_state")
         guard owner == expected, value["user"]["id"].string == expected else { throw NativeProblem.sessionChanged }
@@ -67,7 +74,7 @@ struct NativeSessionVault: SessionVault {
     }
     func signIn(email: String, password: String, family: Bool = false) async {
         await perform {
-            self.owner = nil; self.account = .null; NisfaynCallCenter.shared.clear()
+            self.owner = nil; self.account = .null; self.onboarding = .null; NisfaynCallCenter.shared.clear()
             self.familyMode = family; UserDefaults.standard.set(family, forKey: "wudayn.native.familyMode")
             self.owner = try await self.client.signIn(email: email, password: password); try await self.refresh()
         }
@@ -75,7 +82,7 @@ struct NativeSessionVault: SessionVault {
     func signOut() async {
         await perform {
             NisfaynCallCenter.shared.clear()
-            self.owner = nil; self.account = .null; self.offerDeviceLock = false
+            self.owner = nil; self.account = .null; self.offerDeviceLock = false; self.onboarding = .null
             self.familyMode = false; UserDefaults.standard.set(false, forKey: "wudayn.native.familyMode")
             NisfaynPushCenter.shared.pending.removeAll()
             try await self.client.signOut()
@@ -84,12 +91,12 @@ struct NativeSessionVault: SessionVault {
     func socialSignIn(family: Bool, authenticate: () async throws -> String) async {
         await perform {
             let id = try await authenticate()
-            self.account = .null; NisfaynCallCenter.shared.clear(); NisfaynPushCenter.shared.pending.removeAll()
+            self.account = .null; self.onboarding = .null; NisfaynCallCenter.shared.clear(); NisfaynPushCenter.shared.pending.removeAll()
             self.familyMode = family; UserDefaults.standard.set(family, forKey: "wudayn.native.familyMode")
             self.owner = id
             try await self.refresh()
             let privacy = NisfaynPrivacy.shared.status
-            self.offerDeviceLock = privacy["available"] as? Bool == true && privacy["enabled"] as? Bool != true
+            self.offerDeviceLock = !self.onboarding["required"].bool && privacy["available"] as? Bool == true && privacy["enabled"] as? Bool != true
         }
     }
     func perform(_ action: () async throws -> Void) async {

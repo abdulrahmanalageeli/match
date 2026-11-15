@@ -9,15 +9,19 @@ accounts, change passwords, or grant roles.
 The shipped Capacitor target remains in `iphone/ios` until the native candidate
 has passed release validation. Compiling this target does not update TestFlight.
 
-## Social login candidate — activation required
+## Social login candidate
 
 Native login now offers Apple and Google, with provider availability read from
-the dedicated project's public Auth settings. Both providers were disabled when
-checked on 2026-11-15; disabled options never launch a broken authorization flow.
+the dedicated project's public Auth settings. Both providers were enabled when
+checked on 2026-11-15; disabled options never launch an authorization flow.
 Existing email accounts retain a collapsed recovery/login path during migration.
-The website and existing SMS registration are unchanged.
+New native registrations use social login followed by SMS verification and
+explicit adult/terms/privacy/device consent. The server binds the single-use
+phone proof to the authenticated email and device, and denies member access
+until completion. Pending registrations resume this step after session restore.
+Existing member accounts keep their access. The website signup is unchanged.
 
-Before enabling production social authentication:
+Before distributing the signed candidate:
 
 - Configure Google OAuth in Supabase. Its authorized redirect is
   `https://wupkifqbwhhebwrgvwai.supabase.co/auth/v1/callback`. Allow exactly
@@ -26,10 +30,9 @@ Before enabling production social authentication:
   regenerate the signing profile, and configure that bundle ID as an accepted
   Apple client ID in Supabase. The native flow sends a SHA-256 nonce to Apple
   and the original nonce to Supabase; do not disable nonce verification.
-- Complete an authenticated phone/device verification path for newly created
-  social accounts before removing the existing SMS signup. The current signup
-  trigger binds phone proof only for the legacy signup kind; enabling social
-  registration without this work would bypass that prerequisite.
+- Deploy `20261115113032_social_member_onboarding.sql` before this app version.
+  Database regression tests cover missing consent, invalid/expired/reused proofs,
+  email/device binding, revoked sessions and existing email/phone accounts.
 - Test existing-user identity linking, especially Apple's Hide My Email. Do not
   merge accounts based on a client-supplied email or delete existing accounts.
 - Test Google/Apple success, cancellation, expired/replayed credentials, offline
@@ -39,7 +42,7 @@ Before enabling production social authentication:
   after successful device authentication; the app never receives biometric data.
 
 OAuth client secrets belong in provider/Supabase settings, never in the app or
-repository. This candidate does not change live providers or deploy TestFlight.
+repository. Building this candidate does not deploy TestFlight.
 
 ## Build and test on macOS
 

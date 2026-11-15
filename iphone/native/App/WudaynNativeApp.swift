@@ -49,7 +49,8 @@ struct NativeRoot: View {
         Group {
             if store.restoring { ProgressView("نفتح مساحتك…") }
             else if store.owner == nil { NavigationStack { NativeLogin() } }
-            else if store.familyMode { NavigationStack { NativeFamily().toolbar { Button("تسجيل الخروج") { Task { await store.signOut() } } } } }
+            else if store.onboarding["required"].bool { NavigationStack { NativeSocialOnboarding().toolbar { Button("تسجيل الخروج") { Task { await store.signOut() } } } } }
+            else if store.familyMode && store.onboarding["required"] == .bool(false) { NavigationStack { NativeFamily().toolbar { Button("تسجيل الخروج") { Task { await store.signOut() } } } } }
             else if store.account.isNull {
                 VStack(spacing: 20) {
                     Text("لم يكتمل تحميل حسابك.")
@@ -88,7 +89,7 @@ struct NativeLogin: View {
                 NavigationLink("نسيت كلمة المرور", destination: NativePasswordRecovery(email: email))
               }
             }
-            Section { NavigationLink("إنشاء حساب والتحقق بالجوال", destination: NativeSignup()); NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal()) }
+            Section { Text("لإنشاء حساب جديد، تابع باستخدام Apple أو Google ثم أكمل تأكيد الجوال.").font(.footnote); NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal()) }
         }.navigationTitle("أهلًا بك")
     }
 }

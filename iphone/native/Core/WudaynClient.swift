@@ -103,12 +103,12 @@ public actor WudaynClient {
         if let auth { request.setValue("Bearer " + auth.access_token, forHTTPHeaderField: "Authorization") }
         let (data, response) = try await transport.send(request)
         guard generation == epoch else { throw NativeProblem.sessionChanged }
-        let value = try JSONValue.decode(data)
         guard (200...299).contains(response.statusCode) else {
+            let value = (try? JSONValue.decode(data)) ?? .null
             let message = value["error"].string
-            throw NativeProblem.message(message.range(of: "[\\u0600-\\u06ff]", options: .regularExpression) != nil ? message : "تعذّر إتمام الخطوة. تحقق من البيانات وحاول مجددًا.")
+            throw NativeProblem.http(status: response.statusCode, message: message.range(of: "[\\u0600-\\u06ff]", options: .regularExpression) != nil ? message : "تعذّر إتمام الخطوة. تحقق من البيانات وحاول مجددًا.")
         }
-        return value
+        return try JSONValue.decode(data)
     }
     public func json(path: String, body: JSONValue) async throws -> JSONValue {
         let auth = try await authorized(), epoch = generation
@@ -123,6 +123,8 @@ public actor WudaynClient {
     }
     public func uploadMedia(requestID: String, clientID: String, data: Data, mime: String, once: Bool, duration: Double? = nil) async throws {
         guard data.count > 0, data.count <= 8 * 1024 * 1024 else { throw NativeProblem.message("الملف يتجاوز الحجم المسموح.") }
+        guard ["image/jpeg", "audio/mp4"].contains(mime), mime != "audio/mp4" || !once else { throw NativeProblem.invalidResponse }
+        if let duration { guard duration.isFinite, duration > 0, duration <= 60 else { throw NativeProblem.invalidResponse } }
         let auth = try await authorized(), epoch = generation
         var headers = ["Content-Type": mime, "x-request-id": requestID, "x-client-id": clientID, "x-view-once": String(once)]
         if let duration { headers["x-duration-ms"] = String(Int(duration * 1000)) }
@@ -159,7 +161,15 @@ public actor WudaynClient {
             let next = try await task.value
             guard generation == epoch, next.user.id == current.user.id else { throw NativeProblem.sessionChanged }
             try vault.write(JSONEncoder().encode(next)); session = next; refreshing = nil; return next
-        } catch { if generation == epoch { refreshing = nil }; throw error }
+        } catch {
+            if generation == epoch {
+                refreshing = nil
+                if let problem = error as? NativeProblem, case .http(let status, _) = problem, [400, 401, 403].contains(status) {
+                    session = nil; generation = UUID(); try vault.clear()
+                }
+            }
+            throw error
+        }
     }
     private func decodeSession(_ data: Data) throws -> NativeSession {
         var value = try JSONValue.decode(data)
@@ -181,7 +191,7 @@ public actor WudaynClient {
         guard (200...299).contains(response.statusCode) else {
             let detail = (try? JSONValue.decode(data)) ?? .null
             let message = [detail["error"].string, detail["message"].string, detail["msg"].string].first { $0.range(of: "[\\u0600-\\u06ff]", options: .regularExpression) != nil }
-            throw NativeProblem.message(message ?? (response.statusCode == 401 ? "تحقق من بيانات الدخول أو سجّل الدخول مجددًا." : "تعذّر إتمام الطلب. حاول مجددًا."))
+            throw NativeProblem.http(status: response.statusCode, message: message ?? (response.statusCode == 401 ? "تحقق من بيانات الدخول أو سجّل الدخول مجددًا." : "تعذّر إتمام الطلب. حاول مجددًا."))
         }
         return data
     }

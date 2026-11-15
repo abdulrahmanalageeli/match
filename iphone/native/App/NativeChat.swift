@@ -18,6 +18,8 @@ struct NativeChat: View {
     @State private var once = false
     @State private var controls = false
     @State private var older = true
+    @State private var reading = false
+    @State private var mediaEpoch = UUID()
     @StateObject private var audio = NativeVoiceNote()
     @FocusState private var composerFocused: Bool
     private var requestID: String { connection["id"].string }
@@ -32,7 +34,7 @@ struct NativeChat: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
-                        if older && !messages.isEmpty { Button("رسائل أقدم") { Task { await load(olderPage: true) } } }
+                        if older && !messages.isEmpty { Button("رسائل أقدم") { Task { await load(olderPage: true) } }.disabled(reading) }
                         ForEach(messages) { row in
                             NativeMessage(row: row, requestID: requestID, reply: { reply = row })
                                 .id(row.id).onAppear {
@@ -52,10 +54,10 @@ struct NativeChat: View {
             }
             if let reply { HStack { Text("ردًا على: " + reply.value["body"].string).lineLimit(1); Spacer(); Button("إلغاء الرد") { self.reply = nil } }.font(.caption).padding() }
             if let photoDraft, let image = UIImage(data: photoDraft) {
-                HStack { Image(uiImage: image).resizable().scaledToFit().frame(height: 80); Toggle("مرة واحدة", isOn: $once); Button("إزالة", role: .destructive) { self.photoDraft = nil } }.padding()
+                HStack { Image(uiImage: image).resizable().scaledToFit().frame(height: 80); Toggle("مرة واحدة", isOn: $once); Button("إزالة", role: .destructive) { self.photoDraft = nil } }.padding().disabled(sending)
             }
             if audio.recording { HStack { Text("تسجيل · \(Int(audio.seconds)) ثانية"); Button("إيقاف") { do { try audio.stop() } catch { self.error = error.localizedDescription } }; Button("إلغاء") { audio.discard() } }.padding() }
-            if let draft = audio.draft { HStack { Button("معاينة التسجيل") { do { try audio.play(draft) } catch { self.error = error.localizedDescription } }; Text("\(Int(audio.seconds)) ثانية"); Button("حذف") { audio.discard() } }.padding() }
+            if let draft = audio.draft { HStack { Button("معاينة التسجيل") { do { try audio.play(draft) } catch { self.error = error.localizedDescription } }; Text("\(Int(audio.seconds)) ثانية"); Button("حذف") { audio.discard() } }.padding().disabled(sending) }
             HStack(alignment: .bottom, spacing: 12) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images, photoLibrary: .shared()) { Image(systemName: "photo.badge.plus").font(.title3) }.accessibilityLabel("إرفاق صورة")
                 Button { Task { do { try await audio.start() } catch { self.error = error.localizedDescription } } } label: { Image(systemName: "mic").font(.title3) }.accessibilityLabel("تسجيل رسالة صوتية").disabled(audio.recording || photoDraft != nil)
@@ -70,31 +72,43 @@ struct NativeChat: View {
             .onChange(of: once) { _ in pendingID = UUID().uuidString.lowercased() }
             .onChange(of: audio.draft) { _ in pendingID = UUID().uuidString.lowercased() }
             .onChange(of: photoDraft) { _ in pendingID = UUID().uuidString.lowercased() }
-            .onChange(of: selectedPhoto) { item in Task {
-                do { if let data = try await item?.loadTransferable(type: Data.self) { guard selectedPhoto == item else { return }; photoDraft = try NativeImages.prepare(data); audio.discard() } }
+            .onChange(of: selectedPhoto) { item in let epoch = mediaEpoch; Task {
+                do { if let data = try await item?.loadTransferable(type: Data.self) { guard selectedPhoto == item, mediaEpoch == epoch, phase == .active else { return }; photoDraft = try NativeImages.prepare(data); audio.discard() } }
                 catch { self.error = error.localizedDescription }
             } }
             .task(id: phase) {
-                guard phase == .active else { audio.discard(); return }
+                guard phase == .active else { mediaEpoch = UUID(); audio.discard(); photoDraft = nil; selectedPhoto = nil; return }
                 while !Task.isCancelled { await load(); do { try await Task.sleep(nanoseconds: 3_000_000_000) } catch { return } }
-            }.onDisappear { audio.discard(); photoDraft = nil }
+            }.onDisappear { mediaEpoch = UUID(); audio.discard(); photoDraft = nil; selectedPhoto = nil }
     }
     private func load(olderPage: Bool = false) async {
+        guard !reading, phase == .active else { return }
+        reading = true; defer { reading = false }
         do {
             async let consent = store.client.rpc("marriage_agreement", ["request_id": .string(requestID)])
-            let result = try await store.client.rpc("marriage_thread_page", ["request_id": .string(requestID), "before_id": olderPage ? .string(messages.first?.id ?? "") : .null])
+            let target = ChatSnapshot.pageTarget(loadedCount: messages.count, older: olderPage)
+            var snapshot: [MemberRow] = [], hasMore = true
+            repeat {
+                let page = try await store.client.rpc("marriage_thread_page", ["request_id": .string(requestID), "before_id": ChatSnapshot.cursor(snapshot)]).rows
+                try Task.checkCancellation()
+                let next = ChatSnapshot.prepend(page, to: snapshot)
+                hasMore = page.count == 50 && next.count > snapshot.count
+                snapshot = next
+            } while hasMore && snapshot.count < target
             let currentAgreement = try await consent
             try Task.checkCancellation()
             agreement = currentAgreement
-            let page = result.rows
-            if olderPage { messages = page.filter { item in !messages.contains { $0.id == item.id } } + messages; older = page.count == 50 }
-            else {
-                let latest = Dictionary(uniqueKeysWithValues: page.map { ($0.id, $0) })
-                messages = messages.map { latest[$0.id] ?? $0 } + page.filter { item in !messages.contains { $0.id == item.id } }
-                if messages.count <= 50 { older = page.count == 50 }
-            }
+            messages = snapshot; older = hasMore
+            if let reply, !messages.contains(where: { $0.id == reply.id && $0.value["deletedAt"].isNull }) { self.reply = nil }
             error = nil
-        } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        } catch is CancellationError {} catch {
+            if NativeProblem.isAccessDenied(error) { clearPrivateContent() }
+            self.error = error.localizedDescription
+        }
+    }
+    private func clearPrivateContent() {
+        messages = []; agreement = .null; reply = nil; text = ""; photoDraft = nil; selectedPhoto = nil
+        mediaEpoch = UUID(); audio.discard()
     }
     private func send() async {
         guard allowed, !sending, !audio.recording else { return }
@@ -111,7 +125,7 @@ struct NativeChat: View {
             }
             text = ""; photoDraft = nil; selectedPhoto = nil; reply = nil; audio.discard(); once = false
             pendingID = UUID().uuidString.lowercased(); await load()
-        } catch { self.error = error.localizedDescription }
+        } catch { if NativeProblem.isAccessDenied(error) { clearPrivateContent() }; self.error = error.localizedDescription }
     }
 }
 
@@ -120,7 +134,7 @@ struct NativeMessage: View {
     @Environment(\.scenePhase) private var phase
     let row: MemberRow
     let requestID: String
-    let reply: () -> Void
+    let reply: (() -> Void)?
     @State private var photo: NativeImagePresentation?
     @State private var spent = false
     @State private var loading = false
@@ -149,26 +163,32 @@ struct NativeMessage: View {
             }.padding(12).background(message["senderIsMe"].bool ? NativeTheme.accent.opacity(0.10) : Color.gray.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 16))
                 .contextMenu {
                     if message["deletedAt"].isNull {
-                        Button("رد", action: reply)
+                        if let reply { Button("رد", action: reply) }
                         ForEach(["❤️", "😂", "😮", "😢", "🙏", "👍"], id: \.self) { emoji in NativeAction(title: emoji) { _ = try await store.client.rpc("marriage_react_to_message", ["request_id": .string(requestID), "message_id": .string(row.id), "reaction": .string(emoji)]) } }
                         if message["senderIsMe"].bool { NativeAction(title: "حذف الرسالة") { _ = try await store.client.rpc("marriage_delete_message", ["request_id": .string(requestID), "message_id": .string(row.id)]) } }
                     }
                 }
             if message["senderIsMe"].bool { Spacer(minLength: 36) }
         }.fullScreenCover(item: $photo) { NativePhotoScreen(photo: $0) }.nativeError($error)
+            .onChange(of: message["deletedAt"]) { value in if !value.isNull { photo = nil; audio.discard() } }
+            .onChange(of: attachment) { value in if value.isNull { photo = nil; audio.discard() } }
             .onChange(of: phase) { if $0 != .active { photo = nil; audio.discard() } }
             .onAppear { visible = true }
             .onDisappear { visible = false; audio.discard() }
     }
     private func open() async {
         if audio.playing { audio.pause(); return }
-        guard !loading else { return }; loading = true; defer { loading = false }
+        guard !loading, phase == .active, visible, NisfaynPrivacy.shared.mayOpen, message["deletedAt"].isNull else { return }
+        let owner = store.owner, mediaID = attachment["id"].string
+        loading = true; defer { loading = false }
         do {
             let once = attachment["viewOnce"].bool
             if once && !PrivatePhotoController.canDisplay() { throw NativeProblem.message("أوقف تسجيل الشاشة أو مشاركتها لفتح الصورة المحمية.") }
-            let data = try await store.client.media(requestID: requestID, mediaID: attachment["id"].string, once: once)
+            if once && (spent || !attachment["openedAt"].isNull || message["senderIsMe"].bool) { return }
+            // A lost response may follow successful consumption; never replay it.
             if once { spent = true }
-            guard phase == .active, visible, NisfaynPrivacy.shared.mayOpen else { return }
+            let data = try await store.client.media(requestID: requestID, mediaID: mediaID, once: once)
+            guard store.owner == owner, phase == .active, visible, NisfaynPrivacy.shared.mayOpen, message["deletedAt"].isNull, attachment["id"].string == mediaID else { return }
             if attachment["kind"].string == "audio" { try audio.play(data) }
             else if let image = UIImage(data: data) { photo = NativeImagePresentation(image: image, once: once) }
             else { throw NativeProblem.invalidResponse }

@@ -42,8 +42,8 @@ struct NativeGallery: View {
             NativeAction(title: "حفظ الصورة") { try await upload(draft) }.disabled(faceRequired && mode != "private" && (!faceConsent || selfie == nil))
             Button("تراجع") { self.draft = nil; selfie = nil; selected = nil }
         }
-    }.navigationTitle("صوري").nativeError($error)
-        .task(id: mode) { draft = nil; selfie = nil; selected = nil; faceConsent = false; await load() }
+    }.disabled(store.busy).navigationTitle("صوري").nativeError($error)
+        .task(id: mode) { rows = []; draft = nil; selfie = nil; selected = nil; faceConsent = false; await load() }
         .onChange(of: selected) { item in let requestedMode = mode; Task {
             do { if let data = try await item?.loadTransferable(type: Data.self) {
                 let required = try await store.client.rpc("marriage_photo_face_required").bool
@@ -64,17 +64,21 @@ struct NativeGallery: View {
     }
     private var bucket: String { mode == "gallery" ? "nisfayn-profile-gallery" : mode == "portrait" ? "nisfayn-profile-portraits" : "nisfayn-private-photos" }
     private func load() async {
+        let requestedMode = mode
         do {
-            if mode == "gallery" { rows = try await store.client.rpc("marriage_gallery", ["action": .string("list"), "subject": .null]).rows }
-            else if mode == "portrait" { let value = try await store.client.rpc("marriage_portrait_info", ["subject": .null]); rows = value.isNull ? [] : [MemberRow(value)] }
-            else { let value = try await store.client.rpc("marriage_photo_state", ["request_id": .null])["mine"]; rows = value.isNull ? [] : [MemberRow(value)] }
-        } catch { self.error = error.localizedDescription }
+            let result: [MemberRow]
+            if requestedMode == "gallery" { result = try await store.client.rpc("marriage_gallery", ["action": .string("list"), "subject": .null]).rows }
+            else if requestedMode == "portrait" { let value = try await store.client.rpc("marriage_portrait_info", ["subject": .null]); result = value.isNull ? [] : [MemberRow(value)] }
+            else { let value = try await store.client.rpc("marriage_photo_state", ["request_id": .null])["mine"]; result = value.isNull ? [] : [MemberRow(value)] }
+            try Task.checkCancellation(); guard requestedMode == mode else { return }; rows = result
+        } catch is CancellationError {} catch { guard requestedMode == mode else { return }; rows = []; self.error = error.localizedDescription }
     }
     private func upload(_ data: Data) async throws {
         var prepared: JSONValue
         if mode == "gallery" { prepared = try await store.client.rpc("marriage_gallery", ["action": .string("prepare")]) }
         else if mode == "portrait" { prepared = try await store.client.rpc("marriage_portrait_prepare_v2", ["blur_level": .number(blur), "reveal_policy": .string(blur == 0 ? "never" : policy)]) }
         else { prepared = try await store.client.rpc("marriage_photo_prepare") }
+        do {
         var publicData = data
         if mode == "portrait", blur > 0 {
             guard let input = CIImage(data: data) else { throw NativeProblem.invalidResponse }
@@ -91,14 +95,24 @@ struct NativeGallery: View {
         }
         if mode == "gallery" { _ = try await store.client.rpc("marriage_gallery", ["action": .string("commit"), "photo_id": prepared["id"]]) }
         else { _ = try await store.client.rpc(mode == "portrait" ? "marriage_portrait_commit" : "marriage_photo_commit", ["photo_id": prepared["id"]]) }
+        } catch {
+            // A commit can succeed even when its response is lost. Confirm it
+            // before offering a new upload; discard only unpublished assets.
+            await load()
+            if !rows.contains(where: { $0.id == prepared["id"].string }) {
+                if mode != "private" { _ = try? await store.client.rpc("marriage_photo_discard", ["photo": prepared["id"], "photo_kind": .string(mode)]) }
+                throw error
+            }
+        }
         draft = nil; selfie = nil; selected = nil; await load(); try await store.refresh()
     }
 }
 
 struct NativeStoredImage: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.scenePhase) private var phase
     let bucket: String
     let path: String
     @State private var image: UIImage?
-    var body: some View { Group { if let image { Image(uiImage: image).resizable().scaledToFit() } else { Image(systemName: "photo").foregroundStyle(.secondary) } }.task(id: path) { image = nil; guard !path.isEmpty else { return }; do { let data = try await store.client.download(bucket: bucket, path: path); try Task.checkCancellation(); image = UIImage(data: data) } catch {} }.onDisappear { image = nil } }
+    var body: some View { Group { if let image { Image(uiImage: image).resizable().scaledToFit() } else { Image(systemName: "photo").foregroundStyle(.secondary) } }.task(id: "\(store.owner ?? "")|\(bucket)|\(path)|\(phase == .active)") { image = nil; guard phase == .active, !path.isEmpty else { return }; do { let data = try await store.client.download(bucket: bucket, path: path); try Task.checkCancellation(); image = UIImage(data: data) } catch {} }.onDisappear { image = nil } }
 }

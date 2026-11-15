@@ -31,31 +31,42 @@ struct NativeOnboardingPortrait: View {
                     else if stage["status"].string == "moderation" { Text("أُرسلت للمراجعة. يمكنك متابعة إعداد ملفك.") }
                     else {
                         Toggle("أوافق على إرسال صورة الملف ولقطة وجهي إلى Authentica لمطابقة الوجه، وليس للتحقق من الهوية الوطنية", isOn: $consent)
-                        Button("التقاط لقطة التحقق") { camera = true }.disabled(!consent)
+                        Button("التقاط لقطة التحقق") {
+                            guard UIImagePickerController.isSourceTypeAvailable(.camera), UIImagePickerController.isCameraDeviceAvailable(.front) else { store.error = "الكاميرا الأمامية غير متاحة. يمكنك طلب مراجعة الصورة."; return }
+                            camera = true
+                        }.disabled(!consent || !profile["signupConsents"]["photo"].bool)
                         NativeAction(title: "مطابقة الصورتين") {
-                            guard let selfie, consent else { return }
+                            guard let selfie, consent, profile["signupConsents"]["photo"].bool else { throw NativeProblem.message("وافق على استخدام الصورة والمطابقة أولًا.") }
                             let result = try await store.client.service(.verifyPhoto, body: .object(["photoId": stage["id"], "kind": .string("portrait"), "selfie": .string(selfie.base64EncodedString()), "consent": .string("face-photo-v1"), "staged": .bool(true)]))
                             guard result["matched"].bool else { throw NativeProblem.message("لم تتطابق الصورتان. يمكنك إعادة الالتقاط أو طلب المراجعة.") }
                             self.selfie = nil; stage = try await action("status")
-                        }.disabled(selfie == nil || !consent)
+                        }.disabled(selfie == nil || !consent || !profile["signupConsents"]["photo"].bool)
                         Button("طلب مراجعة الصورة") { moderation = true }
                     }
                     NativeAction(title: "إزالة الصورة واختيار غيرها") {
-                        _ = try await store.client.rpc("marriage_photo_discard", ["photo": stage["id"], "photo_kind": .string("portrait")]); stage = .null; image = nil; selfie = nil
+                        _ = try await store.client.rpc("marriage_photo_discard", ["photo": stage["id"], "photo_kind": .string("portrait")]); stage = .null; image = nil; selfie = nil; selection = nil; consent = false
                         var draft = profile.object; draft.removeValue(forKey: "_nativeStagedPortrait"); profile = .object(draft)
                     }
                 }
+                NativeAction(title: "تحديث حالة الصورة") { try await resume() }
             }
-        }.navigationTitle("صورة التسجيل")
+        }.disabled(store.busy).navigationTitle("صورة التسجيل")
             .sheet(isPresented: $camera) { NativeCamera { selfie = $0; camera = false }.ignoresSafeArea() }
-            .confirmationDialog("إرسال الصورة إلى فريق المراجعة؟", isPresented: $moderation, titleVisibility: .visible) { NativeAction(title: "أوافق على المراجعة") { stage = try await action("moderation") } }
-            .task { await store.perform { stage = try await store.client.rpc("marriage_portrait_stage_resume"); if !stage.isNull { profile["_nativeStagedPortrait"] = stage["id"] } } }
-            .onChange(of: selection) { value in Task { await store.perform { if let data = try await value?.loadTransferable(type: Data.self) { image = try NativeImages.prepare(data) } } } }
+            .confirmationDialog("إرسال الصورة إلى فريق المراجعة؟", isPresented: $moderation, titleVisibility: .visible) { NativeAction(title: "أوافق على المراجعة") { guard profile["signupConsents"]["photo"].bool else { throw NativeProblem.message("وافق على استخدام الصورة أولًا.") }; stage = try await action("moderation") } }
+            .task { await store.perform { try await resume() } }
+            .onChange(of: selection) { value in Task { await store.perform { if let data = try await value?.loadTransferable(type: Data.self) { guard selection == value, profile["signupConsents"]["photo"].bool else { return }; image = try NativeImages.prepare(data) } } } }
+            .onChange(of: consent) { allowed in if !allowed { selfie = nil } }
+            .onChange(of: profile["signupConsents"]["photo"].bool) { allowed in if !allowed { selfie = nil; consent = false } }
             .onDisappear { selfie = nil }
     }
     private func action(_ name: String) async throws -> JSONValue { try await store.client.rpc("marriage_portrait_stage_action", ["photo": stage["id"], "action": .string(name)]) }
+    private func resume() async throws {
+        stage = try await store.client.rpc("marriage_portrait_stage_resume")
+        if !stage.isNull { profile["_nativeStagedPortrait"] = stage["id"] }
+        else { var draft = profile.object; draft.removeValue(forKey: "_nativeStagedPortrait"); profile = .object(draft) }
+    }
     private func upload() async throws {
-        guard let image else { return }
+        guard let image, profile["signupConsents"]["photo"].bool, ["man", "woman"].contains(profile["gender"].string) else { throw NativeProblem.message("اختر الجنس والصورة ووافق على استخدامها أولًا.") }
         let level = profile["gender"].string == "man" ? 0 : blur
         let prepared = try await store.client.rpc("marriage_portrait_stage_prepare", ["blur_level": .number(level), "policy": .string(level == 0 ? "never" : policy), "gender": profile["gender"], "photo_consent": .bool(true)])
         do {

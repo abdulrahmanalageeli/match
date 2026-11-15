@@ -16,12 +16,12 @@ struct NativePasswordRecovery: View {
     var body: some View {
         Form {
             if let redirect {
-                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().disabled(store.busy)
                 Text("يفتح رابط البريد صفحة الاستعادة الآمنة، ثم تعود إلى التطبيق لتسجيل الدخول.").foregroundStyle(.secondary)
-                NativeAction(title: "إرسال رابط الاستعادة") { try await store.client.passwordReset(email: email.trimmingCharacters(in: .whitespacesAndNewlines), redirect: redirect); sent = true; sentAt = Date() }.disabled(email.isEmpty || now.timeIntervalSince(sentAt) < 60)
+                NativeAction(title: "إرسال رابط الاستعادة") { guard SignupValidation.validEmail(email) else { throw NativeProblem.message("أدخل بريدًا إلكترونيًا صالحًا.") }; try await store.client.passwordReset(email: SignupValidation.normalizedEmail(email), redirect: redirect); sent = true; sentAt = Date() }.disabled(!SignupValidation.validEmail(email) || now.timeIntervalSince(sentAt) < 60)
                 if sent { Text("إذا كان البريد مسجلًا، ستصلك تعليمات الاستعادة.") }
             } else { Text("استعادة كلمة المرور بالبريد غير متاحة في هذه النسخة بعد. تواصل مع الدعم لاستعادة الوصول إلى حسابك.") }
             Link("التواصل مع الدعم", destination: URL(string: "mailto:privacy@blindmatch.app")!)
-        }.navigationTitle("استعادة الحساب").onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
+        }.navigationTitle("استعادة الحساب").onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }.onChange(of: email) { _ in sent = false }
     }
 }

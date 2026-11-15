@@ -10,6 +10,7 @@ struct NativeInterview: View {
     @State private var share = false
     @State private var choices: JSONValue = .object([:])
     @State private var requestID = UUID().uuidString.lowercased()
+    @State private var skipID = UUID().uuidString.lowercased()
     @State private var deleting = false
     @State private var ready = false
     @State private var profileChoices: JSONValue = .object([:])
@@ -17,7 +18,7 @@ struct NativeInterview: View {
     private var document: JSONValue { snapshot["document"] }
     var body: some View {
         Form {
-            if !ready { ProgressView() }
+            if !ready { ProgressView(); NativeAction(title: "إعادة تحميل الجلسة") { try await load() } }
             else if document.isNull {
                 Section {
                     Text("حوار يساعدك على صياغة تفضيلاتك. راجع كل اقتراح قبل اعتماده؛ لا يُنشر كلامك تلقائيًا.")
@@ -42,9 +43,10 @@ struct NativeInterview: View {
                     Section(document["currentQuestion"]["text"].string) {
                         TextField("إجابتك", text: $answer, axis: .vertical).lineLimit(3...10).onChange(of: answer) { _ in requestID = UUID().uuidString.lowercased() }
                         ForEach(document["currentQuestion"]["suggestions"].array.map(\.string), id: \.self) { suggestion in Button(suggestion) { answer = suggestion }.disabled(!answer.isEmpty) }
-                        NativeAction(title: "إرسال") { try await call("answer", ["answer": .string(answer), "skip": .bool(false), "hybrid": .bool(true), "requestId": .string(requestID)]); answer = document["draftAnswer"].string }.disabled(answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || document["pendingAnalysis"].bool)
-                        NativeAction(title: "حفظ المسودة") { try await call("draft", ["answer": .string(answer)]) }
-                        NativeAction(title: "تخطي السؤال") { try await call("answer", ["answer": .string(""), "skip": .bool(true), "hybrid": .bool(true), "requestId": .string(requestID)]); requestID = UUID().uuidString.lowercased() }
+                        NativeAction(title: "إرسال") { try await call("answer", ["answer": .string(answer), "skip": .bool(false), "hybrid": .bool(true), "requestId": .string(requestID)]); answer = document["draftAnswer"].string }.disabled(answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || answer.utf16.count > 900 || document["pendingAnalysis"].bool)
+                        if answer.utf16.count > 900 { Text("اكتب حتى ٩٠٠ حرف في الإجابة الواحدة.").foregroundStyle(.red) }
+                        NativeAction(title: "حفظ المسودة") { try await call("draft", ["answer": .string(answer)]) }.disabled(answer.utf16.count > 900)
+                        NativeAction(title: "تخطي السؤال") { try await call("answer", ["answer": .string(""), "skip": .bool(true), "hybrid": .bool(true), "requestId": .string(skipID)]); answer = document["draftAnswer"].string; requestID = UUID().uuidString.lowercased(); skipID = UUID().uuidString.lowercased() }.disabled(document["pendingAnalysis"].bool)
                     }
                     if document["pendingAnalysis"].bool { NativeAction(title: "إكمال تحليل الإجابة") { try await call("retry") } }
                     NativeAction(title: "مراجعة الاقتراحات") { try await call("review") }
@@ -92,8 +94,13 @@ struct NativeInterview: View {
                 }
                 Button("حذف الجلسة", role: .destructive) { deleting = true }
             }
-        }.navigationTitle("جلسة التوافق").task { await store.perform { assessment = profileDraft?.wrappedValue ?? store.profile; try await call("load"); answer = document["draftAnswer"].string; share = document["reviewSharing"].bool; ready = true } }
+            NativeAction(title: "تحديث حالة الجلسة") { try await call("load") }
+        }.disabled(store.busy).navigationTitle("جلسة التوافق").task { guard !ready else { return }; await store.perform { try await load() } }
             .confirmationDialog("حذف الحوار وبيانات الجلسة؟", isPresented: $deleting, titleVisibility: .visible) { NativeAction(title: "حذف الجلسة") { try await call("delete"); answer = ""; choices = .object([:]) } }
+    }
+    private func load() async throws {
+        if assessment.isNull { assessment = profileDraft?.wrappedValue ?? store.profile }
+        try await call("load"); answer = document["draftAnswer"].string; share = document["reviewSharing"].bool; ready = true
     }
     private func call(_ action: String, _ payload: [String: JSONValue] = [:]) async throws {
         var body = payload; body["action"] = .string(action)

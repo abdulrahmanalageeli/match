@@ -24,6 +24,8 @@ struct NativeCalls: View {
     @State private var speaker = false
     @State private var connected = false
     @State private var clientID = UUID().uuidString.lowercased()
+    @State private var locallyEndedID: String?
+    @State private var visible = false
     var body: some View {
         Form {
             Section {
@@ -51,25 +53,40 @@ struct NativeCalls: View {
             }
         }.navigationTitle("المكالمات").task(id: phase) {
             guard phase == .active else { return }
-            do { repeat {
+            while !Task.isCancelled { do {
                 let value = try await store.client.rpc("marriage_call_state", ["call_id": call["id"].isNull ? .null : call["id"]]); try Task.checkCancellation(); call = value
                 connected = NisfaynCallCenter.shared.snapshot["joined"] as? Bool ?? false
                 muted = NisfaynCallCenter.shared.snapshot["muted"] as? Bool ?? false
+                if call.isNull || call["status"].string == "ended" { connected = false }
                 if call["status"].string == "active" && !connected { try await store.bindCalls(); try await connect() }
-                try await Task.sleep(nanoseconds: 3_000_000_000)
-            } while !Task.isCancelled } catch is CancellationError { } catch { store.error = error.localizedDescription }
+            } catch is CancellationError { return } catch {
+                if NativeProblem.isAccessDenied(error) { NisfaynCallCenter.shared.end(server: false); call = .null; connected = false }
+                store.error = error.localizedDescription
+            }
+                do { try await Task.sleep(nanoseconds: 3_000_000_000) } catch { return }
+            }
         }
+        .onChange(of: call["status"].string) { status in if status == "ended" { clientID = UUID().uuidString.lowercased() } }
+        .onAppear { visible = true }.onDisappear { visible = false }
     }
-    private func microphone() async throws { let allowed = await withCheckedContinuation { continuation in AVAudioSession.sharedInstance().requestRecordPermission { continuation.resume(returning: $0) } }; guard allowed else { throw NativeProblem.message("اسمح بالميكروفون من إعدادات iPhone.") } }
+    private func microphone() async throws {
+        let owner = store.owner
+        let allowed = await withCheckedContinuation { continuation in AVAudioSession.sharedInstance().requestRecordPermission { continuation.resume(returning: $0) } }
+        guard visible, phase == .active, store.owner == owner, NisfaynPrivacy.shared.mayOpen else { throw CancellationError() }
+        guard allowed else { throw NativeProblem.message("اسمح بالميكروفون من إعدادات iPhone.") }
+    }
     private func connect() async throws {
-        guard !call["id"].string.isEmpty, call["status"].string != "ended" else { return }
+        guard !call["id"].string.isEmpty, call["status"].string != "ended", locallyEndedID != call["id"].string else { return }
+        let owner = store.owner, callID = call["id"]
         let value = try await store.client.edge("voice-token", .object(["callId": call["id"]]))
-        guard value["callId"] == call["id"], let credentials = try JSONSerialization.jsonObject(with: value.encoded()) as? [String: Any] else { throw NativeProblem.invalidResponse }
+        guard store.owner == owner, locallyEndedID != callID.string, call["id"] == callID else { return }
+        guard value["callId"] == callID, let credentials = try JSONSerialization.jsonObject(with: value.encoded()) as? [String: Any] else { throw NativeProblem.invalidResponse }
         connected = await withCheckedContinuation { continuation in NisfaynCallCenter.shared.join(credentials) { continuation.resume(returning: $0) } }
         guard connected else { throw NativeProblem.message("تعذّر توصيل صوت المكالمة. حاول مجددًا.") }
     }
     private func end(_ action: String) async throws {
         // Stop local microphone immediately, even when the network is unavailable.
+        locallyEndedID = call["id"].string
         NisfaynCallCenter.shared.end(server: action == "end"); connected = false
         call = try await store.client.rpc("marriage_call_act", ["call_id": call["id"], "action": .string(action)])
         clientID = UUID().uuidString.lowercased()

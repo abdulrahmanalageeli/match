@@ -14,6 +14,8 @@ import WudaynCore
     private var file: URL?
     private var timer: Task<Void, Never>?
     private var interruption: NSObjectProtocol?
+    private var generation = UUID()
+    private var starting = false
     override init() {
         super.init()
         interruption = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] event in
@@ -23,11 +25,13 @@ import WudaynCore
     }
     deinit { if let interruption { NotificationCenter.default.removeObserver(interruption) }; timer?.cancel() }
     func start() async throws {
-        guard !recording, !NisfaynCallCenter.shared.active else { throw NativeProblem.message("أنه المكالمة قبل تسجيل رسالة صوتية.") }
+        guard !starting, !recording, !NisfaynCallCenter.shared.active else { throw NativeProblem.message("أنه المكالمة أو التسجيل الحالي أولًا.") }
+        let epoch = UUID(); generation = epoch; starting = true
+        defer { if generation == epoch { starting = false } }
         let audio = AVAudioSession.sharedInstance()
         let granted = await withCheckedContinuation { continuation in audio.requestRecordPermission { continuation.resume(returning: $0) } }
+        guard generation == epoch, UIApplication.shared.applicationState == .active, NisfaynPrivacy.shared.mayOpen, !NisfaynCallCenter.shared.active else { return }
         guard granted else { throw NativeProblem.message("اسمح باستخدام الميكروفون من إعدادات iPhone.") }
-        guard UIApplication.shared.applicationState == .active else { return }
         discard()
         try audio.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
         try audio.setActive(true)
@@ -64,11 +68,15 @@ import WudaynCore
         player?.stop()
         let audio = AVAudioSession.sharedInstance()
         try audio.setCategory(.playback, mode: .spokenAudio); try audio.setActive(true)
-        let next = try AVAudioPlayer(data: data); next.delegate = self; next.enableRate = true
-        player = next; playing = next.play()
+        do {
+            let next = try AVAudioPlayer(data: data); next.delegate = self; next.enableRate = true
+            player = next; playing = next.play()
+            guard playing else { throw NativeProblem.message("تعذّر تشغيل التسجيل.") }
+        } catch { player = nil; playing = false; try? audio.setActive(false, options: .notifyOthersOnDeactivation); throw error }
     }
     func pause() { player?.pause(); playing = false }
     func discard() {
+        generation = UUID(); starting = false
         timer?.cancel(); timer = nil; recorder?.stop(); recorder = nil; recording = false
         player?.stop(); player = nil; playing = false; draft = nil; seconds = 0
         if let file { try? FileManager.default.removeItem(at: file) }; file = nil

@@ -49,60 +49,71 @@ struct NativeSignup: View {
     @State private var sentAt: Date?
     @State private var now = Date()
     @State private var created = false
+    @State private var challengeRevision = UUID()
     private var deviceID: String { "ios:" + NativeDevice.installationID }
     var body: some View {
         Form {
             Section("حسابك") {
-                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
-                SecureField("كلمة المرور", text: $password).textContentType(.newPassword)
-                TextField("رقم الجوال السعودي", text: $phone).textContentType(.telephoneNumber).keyboardType(.phonePad)
-            }.disabled(verified)
+                TextField("البريد الإلكتروني", text: $email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("signup.email")
+                SecureField("كلمة المرور", text: $password).textContentType(.newPassword).accessibilityIdentifier("signup.password")
+                TextField("رقم الجوال السعودي", text: $phone).textContentType(.telephoneNumber).keyboardType(.phonePad).accessibilityIdentifier("signup.phone")
+            }.disabled(verified || store.busy || created)
             Section("بوضوح وبإذنك") {
                 NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal())
-                Toggle("أؤكد أن عمري ١٨ عامًا أو أكثر", isOn: $consent.flag("adult"))
-                Toggle("أوافق على شروط الاستخدام", isOn: $consent.flag("terms"))
-                Toggle("اطلعت على سياسة الخصوصية وأوافق عليها", isOn: $consent.flag("privacy"))
-                Toggle("أوافق على التحقق بالجوال ومعرّف الجهاز", isOn: $smsConsent)
-            }
+                Toggle("أؤكد أن عمري ١٨ عامًا أو أكثر", isOn: $consent.flag("adult")).accessibilityIdentifier("signup.adult")
+                Toggle("أوافق على شروط الاستخدام", isOn: $consent.flag("terms")).accessibilityIdentifier("signup.terms")
+                Toggle("اطلعت على سياسة الخصوصية وأوافق عليها", isOn: $consent.flag("privacy")).accessibilityIdentifier("signup.privacy")
+                Toggle("أوافق على التحقق بالجوال ومعرّف الجهاز", isOn: $smsConsent).accessibilityIdentifier("signup.smsConsent")
+            }.disabled(store.busy || created)
             if !verified {
                 NativeAction(title: "إرسال رمز التحقق") {
+                    guard smsConsent, SignupValidation.validEmail(email), SignupValidation.validPassword(password) else { throw NativeProblem.message("راجع البريد وكلمة المرور وموافقة التحقق بالجوال.") }
                     let normalized = try NativeDevice.normalizePhone(phone)
-                    let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": .string(email), "phone": .string(normalized), "deviceId": .string(deviceID), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
-                    proof = value["proof"].string; verified = value["verified"].bool; sentAt = Date()
-                }.disabled(!smsConsent || email.isEmpty || password.count < 10 || password.utf8.count > 72 || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false))
+                    let revision = challengeRevision
+                    let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": .string(SignupValidation.normalizedEmail(email)), "phone": .string(normalized), "deviceId": .string(deviceID), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
+                    guard revision == challengeRevision, smsConsent else { return }
+                    guard SignupValidation.validProof(value["proof"].string) else { throw NativeProblem.invalidResponse }
+                    proof = value["proof"].string; code = ""; verified = value["verified"].bool; sentAt = Date()
+                }.disabled(!smsConsent || !SignupValidation.validEmail(email) || !SignupValidation.validPassword(password) || created || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false)).accessibilityIdentifier("signup.sendSMS")
                 if !proof.isEmpty {
-                    TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad)
+                    TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad).disabled(store.busy).accessibilityIdentifier("signup.code")
                     NativeAction(title: "تأكيد الرمز") {
-                        let value = try await store.client.service(.signupSMS, body: .object(["action": .string("verify"), "proof": .string(proof), "deviceId": .string(deviceID), "otp": .string(code.compactMap { $0.wholeNumberValue.map(String.init) }.joined())]))
+                        guard let otp = SignupValidation.otp(code), smsConsent, SignupValidation.validProof(proof) else { throw NativeProblem.message("أدخل رمز التحقق من ٤ إلى ٨ أرقام.") }
+                        let revision = challengeRevision
+                        let value = try await store.client.service(.signupSMS, body: .object(["action": .string("verify"), "proof": .string(proof), "deviceId": .string(deviceID), "otp": .string(otp)]))
+                        guard revision == challengeRevision, smsConsent else { return }
                         guard value["verified"].bool else { throw NativeProblem.message("لم يكتمل التحقق.") }; verified = true
-                    }
+                    }.disabled(SignupValidation.otp(code) == nil).accessibilityIdentifier("signup.verifySMS")
                 }
-            } else { Label("تم التحقق من الجوال", systemImage: "checkmark.shield") }
+            } else { Label("تم التحقق من الجوال", systemImage: "checkmark.shield"); if !created { Button("تعديل بيانات التسجيل") { resetChallenge() }.disabled(store.busy).accessibilityIdentifier("signup.edit") } }
             NativeAction(title: "إنشاء الحساب") {
-                let result = try await store.client.edge("member-signup", .object(["email": .string(email), "password": .string(password), "consent": consent, "phoneProof": .string(proof), "deviceId": .string(deviceID)]), authenticated: false)
+                guard verified, smsConsent, SignupValidation.validProof(proof), SignupValidation.validEmail(email), SignupValidation.validPassword(password), consent["adult"].bool, consent["privacy"].bool, consent["terms"].bool, !created else { throw NativeProblem.message("أكمل بيانات التسجيل والموافقات والتحقق بالجوال.") }
+                let result = try await store.client.edge("member-signup", .object(["email": .string(SignupValidation.normalizedEmail(email)), "password": .string(password), "consent": consent, "phoneProof": .string(proof), "deviceId": .string(deviceID)]), authenticated: false)
                 guard result["ok"].bool else { throw NativeProblem.invalidResponse }
                 password = ""; code = ""; proof = ""; created = true
-            }.disabled(!verified || !consent["adult"].bool || !consent["privacy"].bool || !consent["terms"].bool || created)
-            if created { Text("أُنشئ الحساب. يمكنك الآن تسجيل الدخول.") }
+            }.disabled(!verified || !smsConsent || !consent["adult"].bool || !consent["privacy"].bool || !consent["terms"].bool || created).accessibilityIdentifier("signup.create")
+            if created { Text("أُنشئ الحساب. يمكنك الآن تسجيل الدخول.").accessibilityIdentifier("signup.created") }
         }.navigationTitle("إنشاء حساب")
             .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
-            .onChange(of: email) { _ in proof = ""; verified = false }
-            .onChange(of: phone) { _ in if !verified { proof = "" } }
+            .onChange(of: email) { _ in resetChallenge() }
+            .onChange(of: phone) { _ in resetChallenge() }
+            .onChange(of: smsConsent) { value in if !value { resetChallenge() } }
     }
+    private func resetChallenge() { challengeRevision = UUID(); proof = ""; code = ""; verified = false }
 }
 
 struct NativeProfileEditor: View {
     @EnvironmentObject private var store: NativeStore
     @State private var draft: JSONValue = .null
-    @State private var birthday = Calendar.current.date(byAdding: .year, value: -25, to: Date())!
+    @State private var birthday = Calendar(identifier: .gregorian).date(byAdding: .year, value: -25, to: Date())!
     @State private var saved = false
     private let profileOptions = NativeCatalog.value["profile"]
     var body: some View {
         Form {
             Section("الأساسيات") {
                 TextField("الاسم", text: $draft.text("displayName")).textContentType(.name)
-                NativeChoice(title: "الجنس", value: $draft.text("gender"), options: [.init(id: "man", label: "رجل"), .init(id: "woman", label: "امرأة")])
-                DatePicker("تاريخ الميلاد", selection: $birthday, in: ...Calendar.current.date(byAdding: .year, value: -18, to: Date())!, displayedComponents: .date)
+                NativeChoice(title: "الجنس", value: $draft.text("gender"), options: [.init(id: "man", label: "رجل"), .init(id: "woman", label: "امرأة")]).disabled(!draft["_nativeStagedPortrait"].string.isEmpty)
+                DatePicker("تاريخ الميلاد", selection: $birthday, in: ...Calendar(identifier: .gregorian).date(byAdding: .year, value: -18, to: Date())!, displayedComponents: .date).environment(\.calendar, Calendar(identifier: .gregorian))
                 NativeChoice(title: "المدينة", value: $draft.text("city"), options: NativeOption.values(profileOptions["cityOptions"]))
                 NativeChoice(title: "المهنة", value: $draft.text("profession"), options: NativeOption.values(profileOptions["professionOptions"]))
                 NativeChoice(title: "التعليم", value: $draft.text("education"), options: NativeOption.values(profileOptions["educationOptions"]))
@@ -150,6 +161,7 @@ struct NativeProfileEditor: View {
                 let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
                 value["birthDate"] = .string(formatter.string(from: birthday))
                 value["age"] = .number(Double(Calendar(identifier: .gregorian).dateComponents([.year], from: birthday, to: Date()).year ?? 0))
+                guard (18...110).contains(Int(value["age"].number)), value["signupConsents"]["adult"].bool, value["signupConsents"]["terms"].bool, value["signupConsents"]["privacy"].bool else { throw NativeProblem.message("راجع تاريخ الميلاد وأكّد بلوغك ١٨ عامًا وموافقات الشروط والخصوصية.") }
                 value["signupConsents"]["version"] = .string("2026-11-07-privacy")
                 if !value["signupConsents"]["sensitiveProfile"].bool {
                     var basics = value["marriageBasics"].object
@@ -174,14 +186,19 @@ struct NativeProfileEditor: View {
                         }
                     }
                 }
-                if !value["_nativeStagedPortrait"].string.isEmpty {
-                    value["portrait"] = try await store.client.rpc("marriage_portrait_stage_action", ["photo": value["_nativeStagedPortrait"], "action": .string("finalize")])
-                    var clean = value.object; clean.removeValue(forKey: "_nativeStagedPortrait"); value = .object(clean)
+                let stagedPortrait = value["_nativeStagedPortrait"]
+                var clean = value.object; clean.removeValue(forKey: "_nativeStagedPortrait"); value = .object(clean)
+                _ = try await store.client.rpc("marriage_apply", ["payload": value])
+                // The backend requires a saved profile before a staged photo can be published.
+                // Keep the receipt in the draft if finalization fails so Save retries that step.
+                if !stagedPortrait.string.isEmpty {
+                    do { _ = try await store.client.rpc("marriage_portrait_stage_action", ["photo": stagedPortrait, "action": .string("finalize")]) }
+                    catch { throw NativeProblem.message("حُفظت بيانات الملف، لكن لم يكتمل حفظ الصورة. اضغط حفظ مجددًا لإكمالها. " + error.localizedDescription) }
                 }
-                _ = try await store.client.rpc("marriage_apply", ["payload": value]); try await store.refresh(); saved = true; draft = store.profile
+                try await store.refresh(); saved = true; draft = store.profile
             }.disabled(draft.isNull)
             if saved { Label("حُفظ ملفك وتفضيلاتك", systemImage: "checkmark.circle") }
-        }.navigationTitle("ملفي وتفضيلاتي").task {
+        }.disabled(store.busy).navigationTitle("ملفي وتفضيلاتي").task {
             guard draft.isNull else { return }
             draft = store.profile.isNull ? .object(["preferredMinAge": .number(18), "preferredMaxAge": .number(40), "interestIds": .array([]), "surveyAnswers": .object([:]), "assessmentVersion": .string("marriage-v2"), "personalityVersion": .string("personality-v1"), "appearanceVersion": .string("appearance-v1")]) : store.profile
             let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
@@ -195,8 +212,8 @@ struct NativeMarriageFields: View {
     private let options = NativeCatalog.value["marriage"]
     var body: some View { Form {
         Section("تفاصيل الحياة") {
-            TextField("الطول بالسنتيمتر", value: $value.number("heightCm"), format: .number).keyboardType(.numberPad)
-            TextField("الوزن بالكيلوغرام", value: $value.number("weightKg"), format: .number).keyboardType(.numberPad)
+            TextField("الطول بالسنتيمتر", value: $value.optionalNumber("heightCm"), format: .number).keyboardType(.numberPad)
+            TextField("الوزن بالكيلوغرام", value: $value.optionalNumber("weightKg"), format: .number).keyboardType(.numberPad)
             TextField("الجنسية", text: $value.text("nationality"))
             Stepper("عدد الأبناء: \(Int(value["childrenCount"].number))", value: $value.number("childrenCount"), in: 0...20)
             NativeChoice(title: "الحالة الاجتماعية", value: $value.text("maritalStatus"), options: [.init(id: "never_married", label: "لم يسبق لي الزواج"), .init(id: "divorced", label: "مطلق/ة"), .init(id: "widowed", label: "أرمل/ة"), .init(id: "married", label: "متزوج")])

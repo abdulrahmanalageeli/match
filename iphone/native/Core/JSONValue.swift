@@ -45,10 +45,19 @@ public struct MemberRow: Identifiable, Equatable, Sendable {
 }
 
 public enum NativeProblem: LocalizedError, Equatable {
-    case message(String), sessionChanged, signedOut, invalidResponse
+    case message(String), http(status: Int, message: String), sessionChanged, signedOut, invalidResponse
+    public static func isAccessDenied(_ error: Error) -> Bool {
+        guard let problem = error as? NativeProblem else { return false }
+        switch problem {
+        case .signedOut, .sessionChanged: return true
+        case .http(let status, _): return [401, 403, 404, 410].contains(status)
+        default: return false
+        }
+    }
     public var errorDescription: String? {
         switch self {
         case .message(let text): return text
+        case .http(_, let message): return message
         case .sessionChanged: return "تغيّرت جلسة الحساب. افتح الصفحة مجددًا."
         case .signedOut: return "سجّل الدخول مجددًا."
         case .invalidResponse: return "تعذّر قراءة رد الخدمة. حاول مجددًا."

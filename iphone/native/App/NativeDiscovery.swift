@@ -14,8 +14,8 @@ struct NativeDiscovery: View {
     var body: some View {
         List {
             if loading && rows.isEmpty { ProgressView("نبحث عن ترشيحاتك…") }
-            if !loading && rows.isEmpty { NativeEmpty(title: "لا توجد ترشيحات بهذه الاختيارات حاليًا.") }
-            ForEach(rows) { row in NavigationLink { NativePerson(person: row.value) } label: { NativePersonCard(person: row.value) } }
+            if !loading && rows.isEmpty && error == nil { NativeEmpty(title: "لا توجد ترشيحات بهذه الاختيارات حاليًا.") }
+            ForEach(rows) { row in NavigationLink { NativePerson(person: row.value, changed: { rows.removeAll { $0.id == row.id }; Task { await load(reset: true) } }) } label: { NativePersonCard(person: row.value) } }
             if hasMore && !rows.isEmpty { Button("المزيد") { Task { await load(reset: false) } }.disabled(loading) }
             if let error { Text(error).foregroundStyle(.red); Button("إعادة المحاولة") { Task { await load(reset: true) } } }
         }.navigationTitle("اكتشاف").searchable(text: $query, prompt: "ابحث في الملفات")
@@ -37,8 +37,8 @@ struct NativeDiscovery: View {
             guard generation == loadGeneration else { return }
             let next = result.rows
             rows = reset ? next : rows + next.filter { incoming in !rows.contains { $0.id == incoming.id } }
-            hasMore = !next.isEmpty
-        } catch is CancellationError { } catch { if generation == loadGeneration { self.error = error.localizedDescription } }
+            hasMore = next.count == 24
+        } catch is CancellationError { } catch { if generation == loadGeneration { self.error = error.localizedDescription; if NativeProblem.isAccessDenied(error) { rows = []; hasMore = false } } }
     }
 }
 
@@ -58,22 +58,33 @@ struct NativePersonCard: View {
 
 struct NativePortrait: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.scenePhase) private var phase
     let portrait: JSONValue
     @State private var image: UIImage?
     var body: some View {
         Group {
             if let image { Image(uiImage: image).resizable().scaledToFill() }
             else { ZStack { NativeTheme.accent.opacity(0.07); Image(systemName: "person.crop.rectangle").foregroundStyle(NativeTheme.accent) } }
-        }.clipped().task(id: portrait["id"].string) {
+        }.clipped().task(id: "\(portrait["id"].string)-\(phase == .active)-\(store.owner ?? "")") {
             image = nil
-            guard !portrait["id"].string.isEmpty else { return }
-            do {
-                let current = try await store.client.rpc("marriage_portrait_view", ["photo_id": portrait["id"]])
-                guard !current["path"].string.isEmpty else { return }
-                let data = try await store.client.download(bucket: "nisfayn-profile-portraits", path: current["path"].string)
-                try Task.checkCancellation(); image = UIImage(data: data)
-            } catch { image = nil }
-        }
+            guard phase == .active, !portrait["id"].string.isEmpty else { return }
+            var loadedPath = ""
+            while !Task.isCancelled {
+                do {
+                    let current = try await store.client.rpc("marriage_portrait_view", ["photo_id": portrait["id"]])
+                    try Task.checkCancellation()
+                    let path = current["path"].string
+                    guard !path.isEmpty else { image = nil; return }
+                    if path != loadedPath {
+                        image = nil
+                        let data = try await store.client.download(bucket: "nisfayn-profile-portraits", path: path)
+                        try Task.checkCancellation(); guard phase == .active else { return }
+                        image = UIImage(data: data); loadedPath = path
+                    }
+                } catch is CancellationError { return } catch { image = nil; loadedPath = "" }
+                do { try await Task.sleep(nanoseconds: 5_000_000_000) } catch { return }
+            }
+        }.onDisappear { image = nil }
     }
 }
 
@@ -81,6 +92,8 @@ struct NativePerson: View {
     @EnvironmentObject private var store: NativeStore
     let person: JSONValue
     var preview = false
+    var changed: () -> Void = {}
+    @Environment(\.dismiss) private var dismiss
     @State private var requested = false
     @State private var report = false
     @State private var reason = ""
@@ -101,14 +114,14 @@ struct NativePerson: View {
                     NativeAction(title: requested || person["connectionStatus"].string == "pending" ? "أُرسل الطلب" : "طلب تعارف") { _ = try await store.client.rpc("marriage_request", ["member_id": person["id"]]); requested = true }.disabled(requested || person["connectionStatus"].string == "pending")
                 }
                 NativeAction(title: "إبداء الاهتمام") { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("interest")]) }
-                NativeAction(title: "إخفاء من الترشيحات") { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("dismiss")]) }
+                NativeAction(title: "إخفاء من الترشيحات") { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("dismiss")]); changed(); dismiss() }
                 Button("إبلاغ وحظر", role: .destructive) { report = true }
             } }
         }.navigationTitle(person.title).navigationBarTitleDisplayMode(.inline)
             .alert("إبلاغ وحظر", isPresented: $report) {
                 TextField("سبب البلاغ", text: $reason)
                 Button("إلغاء", role: .cancel) {}
-                Button("إرسال البلاغ والحظر", role: .destructive) { Task { await store.perform { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("report"), "reason": .string(reason)]) } } }
+                Button("إرسال البلاغ والحظر", role: .destructive) { Task { await store.perform { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("report"), "reason": .string(reason)]); changed(); dismiss() } } }
             } message: { Text("لن يظهر لك هذا الشخص بعد الحظر.") }
             .task { if !preview { _ = try? await store.client.rpc("marriage_note_profile_open", ["candidate_id": person["id"]]) } }
     }
@@ -120,6 +133,7 @@ struct NativeInbox: View {
     @State private var rows: [MemberRow] = []
     @State private var loading = true
     @State private var error: String?
+    @State private var loadGeneration = UUID()
     var body: some View {
         List {
             if loading { ProgressView() }
@@ -132,7 +146,7 @@ struct NativeInbox: View {
                         NavigationLink { NativePerson(person: row.value["person"]) } label: { NativePersonCard(person: row.value["person"]) }
                         HStack {
                             if row.value["direction"].string == "incoming" {
-                                NativeAction(title: "قبول") { try await act(row.id, "accept") }
+                                NativeAction(title: "قبول") { try await act(row.id, "accept") }.accessibilityIdentifier("match.accept")
                                 NativeAction(title: "اعتذار") { try await act(row.id, "decline") }
                             } else { NativeAction(title: "إلغاء الطلب") { _ = try await store.client.rpc("marriage_cancel", ["request_id": .string(row.id), "allow_rematch": .bool(true)]); await load() } }
                         }.buttonStyle(.bordered)
@@ -148,9 +162,10 @@ struct NativeInbox: View {
     }
     private func act(_ id: String, _ action: String) async throws { _ = try await store.client.rpc("marriage_act", ["request_id": .string(id), "action": .string(action)]); await load() }
     private func load() async {
-        defer { loading = false }
-        do { let result = try await store.client.rpc("marriage_inbox"); try Task.checkCancellation(); rows = result.rows; error = nil }
-        catch is CancellationError {} catch { self.error = error.localizedDescription }
+        let generation = UUID(); loadGeneration = generation
+        defer { if loadGeneration == generation { loading = false } }
+        do { let result = try await store.client.rpc("marriage_inbox"); try Task.checkCancellation(); guard loadGeneration == generation else { return }; rows = result.rows.filter { ["accepted", "pending"].contains($0.value["status"].string) }; error = nil }
+        catch is CancellationError {} catch { if loadGeneration == generation { self.error = error.localizedDescription; if NativeProblem.isAccessDenied(error) { rows = [] } } }
     }
 }
 

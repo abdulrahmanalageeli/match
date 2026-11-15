@@ -40,6 +40,9 @@ jobs:
         run: |
           set -o pipefail
           DEVICE_ID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if "iPhone" in x["name"]))')
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl spawn "$DEVICE_ID" defaults write com.apple.keyboard DidShowContinuousPathIntroduction -bool true
           xcodebuild test -project WudaynNative.xcodeproj -scheme WudaynNative -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath DerivedData -resultBundlePath NativeUITests.xcresult CODE_SIGNING_ALLOWED=NO 2>&1 | tee native-ui.log
         working-directory: iphone/native
       - name: Export simulator screenshots

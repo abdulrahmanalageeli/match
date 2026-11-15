@@ -3,6 +3,7 @@ import WudaynCore
 
 struct NativeInterview: View {
     @EnvironmentObject private var store: NativeStore
+    var profileDraft: Binding<JSONValue>? = nil
     @State private var snapshot: JSONValue = .null
     @State private var answer = ""
     @State private var consent = false
@@ -12,6 +13,7 @@ struct NativeInterview: View {
     @State private var deleting = false
     @State private var ready = false
     @State private var profileChoices: JSONValue = .object([:])
+    @State private var assessment: JSONValue = .null
     private var document: JSONValue { snapshot["document"] }
     var body: some View {
         Form {
@@ -23,6 +25,18 @@ struct NativeInterview: View {
                     NativeAction(title: "بدء الجلسة") { try await call("start", ["consentVersion": .string("wudayn-interview-v1"), "hybrid": .bool(true)]) }.disabled(!consent)
                 }
             } else {
+                Section("اختيارات التوافق") {
+                    NavigationLink("مراجعة جميع اختياراتي", destination: NativeAssessment(profile: $assessment))
+                    Toggle("أوافق على معالجة اختياراتي للتوافق", isOn: $assessment.field("signupConsents").flag("assessment"))
+                    NativeAction(title: "اعتماد جميع اختياراتي بعد الحوار") {
+                        guard assessment["signupConsents"]["assessment"].bool else { throw NativeProblem.message("يلزم قبول معالجة إجابات التوافق.") }
+                        let selected = NativeInterviewProfile.assessmentChoices(assessment)
+                        let required = NativeCatalog.value["catalog"]["dimensions"].array.count * 2 + NativeCatalog.value["personality"].array.count
+                        guard selected.count == required else { throw NativeProblem.message("أكمل جميع اختيارات التوافق والشخصية أولًا.") }
+                        try await call("structuredConfirm", ["choices": .array(selected), "shareReview": .bool(share)])
+                        try await applyConfirmed()
+                    }
+                }
                 ForEach(document["turns"].rows) { row in Section { Text(row.value["question"].string).font(.headline); Text(row.value["answer"].string).textSelection(.enabled) } }
                 if document["status"].string == "active" {
                     Section(document["currentQuestion"]["text"].string) {
@@ -70,21 +84,25 @@ struct NativeInterview: View {
                             try await call("profileConfirm", ["profileChoices": .array(selected)])
                         }
                         if !document["profileConfirmed"].array.isEmpty { NativeAction(title: "تطبيق اقتراحات الملف المؤكدة") {
-                            let profile = NativeInterviewProfile.apply(document["profileConfirmed"].array, to: store.profile)
-                            _ = try await store.client.rpc("marriage_apply", ["payload": profile]); try await store.refresh()
+                            let profile = NativeInterviewProfile.apply(document["profileConfirmed"].array, to: profileDraft?.wrappedValue ?? store.profile)
+                            if let profileDraft { profileDraft.wrappedValue = profile }
+                            else { _ = try await store.client.rpc("marriage_apply", ["payload": profile]); try await store.refresh() }
                         } }
                     }
                 }
                 Button("حذف الجلسة", role: .destructive) { deleting = true }
             }
-        }.navigationTitle("جلسة التوافق").task { await store.perform { try await call("load"); answer = document["draftAnswer"].string; share = document["reviewSharing"].bool; ready = true } }
+        }.navigationTitle("جلسة التوافق").task { await store.perform { assessment = profileDraft?.wrappedValue ?? store.profile; try await call("load"); answer = document["draftAnswer"].string; share = document["reviewSharing"].bool; ready = true } }
             .confirmationDialog("حذف الحوار وبيانات الجلسة؟", isPresented: $deleting, titleVisibility: .visible) { NativeAction(title: "حذف الجلسة") { try await call("delete"); answer = ""; choices = .object([:]) } }
     }
     private func call(_ action: String, _ payload: [String: JSONValue] = [:]) async throws {
         var body = payload; body["action"] = .string(action)
         if action != "load" && action != "start" { body["revision"] = snapshot["revision"] }
-        body["sensitiveProfileAllowed"] = .bool(store.profile["signupConsents"]["sensitiveProfile"].bool)
-        if ["start", "answer", "clarify", "retry", "review"].contains(action) { body["profileContext"] = .array(NativeInterviewProfile.context(store.profile)) }
+        if ["start", "answer", "clarify", "retry", "review"].contains(action) {
+            let profile = profileDraft?.wrappedValue ?? store.profile
+            body["sensitiveProfileAllowed"] = .bool(profile["signupConsents"]["sensitiveProfile"].bool)
+            body["profileContext"] = .array(NativeInterviewProfile.context(profile))
+        }
         snapshot = try await store.client.service(.interview, body: .object(body))
     }
     private func options(_ item: JSONValue) -> [NativeOption] {
@@ -97,8 +115,10 @@ struct NativeInterview: View {
         }
     }
     private func applyConfirmed() async throws {
-        guard store.profile["signupConsents"]["assessment"].bool else { throw NativeProblem.message("فعّل موافقة التقييم من ملفك قبل تطبيق الاختيارات.") }
-        var profile = store.profile
+        var profile = profileDraft?.wrappedValue ?? store.profile
+        guard profile["signupConsents"]["assessment"].bool || assessment["signupConsents"]["assessment"].bool else { throw NativeProblem.message("فعّل موافقة التقييم من ملفك قبل تطبيق الاختيارات.") }
+        profile["signupConsents"]["assessment"] = .bool(true)
+        for key in ["priorityCategories", "hardRequirements"] { if !assessment[key].isNull { profile[key] = assessment[key] } }
         for item in document["confirmed"].array {
             let values = item["values"].array, field = item["fieldId"].string, side = item["side"].string
             let allowed = Set(options(item).map(\.id))
@@ -107,12 +127,25 @@ struct NativeInterview: View {
             else if item["kind"].string == "personality", values.count == 1 { profile["personalityAnswers"][field] = values[0] }
             else if item["kind"].string == "beena" { profile["beena"]["version"] = .string("beena-v1"); profile["beena"]["answers"][field][side] = side == "partner" ? .array(values) : side == "importance" ? .number(Double(values[0].string) ?? 1) : values[0] }
         }
-        _ = try await store.client.rpc("marriage_apply", ["payload": profile]); try await store.refresh()
+        if let profileDraft { profileDraft.wrappedValue = profile }
+        else { _ = try await store.client.rpc("marriage_apply", ["payload": profile]); try await store.refresh() }
     }
 }
 
 enum NativeInterviewProfile {
     private static var fields: [JSONValue] { NativeCatalog.value["profileCapture"].array }
+    static func assessmentChoices(_ profile: JSONValue) -> [JSONValue] {
+        var choices: [JSONValue] = []
+        for dimension in NativeCatalog.value["catalog"]["dimensions"].array { for side in ["self", "partner"] {
+            let answer = profile["surveyAnswers"][dimension[side == "self" ? "id" : "partnerId"].string]
+            if NativeOption.values(dimension["options"], label: side).contains(where: { $0.id == answer.string }) { choices.append(.object(["id": .string("preference:\(dimension["id"].string):\(side)"), "values": .array([answer])])) }
+        } }
+        for field in NativeCatalog.value["personality"].array {
+            let answer = profile["personalityAnswers"][field["id"].string]
+            if ["A", "B", "C", "D", "E"].contains(answer.string) { choices.append(.object(["id": .string("personality:\(field["id"].string):self"), "values": .array([answer])])) }
+        }
+        return choices
+    }
     static func description(_ proposal: JSONValue) -> String {
         guard let field = fields.first(where: { $0["fieldId"] == proposal["fieldId"] }) else { return "" }
         let options = NativeOption.values(field["options"])

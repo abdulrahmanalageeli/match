@@ -46,6 +46,7 @@ struct NativeSignup: View {
     @State private var consent: JSONValue = .object(["version": .string("2026-11-07-privacy")])
     @State private var smsConsent = false
     @State private var sentAt: Date?
+    @State private var now = Date()
     @State private var created = false
     private var deviceID: String { "ios:" + NativeDevice.installationID }
     var body: some View {
@@ -67,7 +68,7 @@ struct NativeSignup: View {
                     let normalized = try NativeDevice.normalizePhone(phone)
                     let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": .string(email), "phone": .string(normalized), "deviceId": .string(deviceID), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
                     proof = value["proof"].string; verified = value["verified"].bool; sentAt = Date()
-                }.disabled(!smsConsent || email.isEmpty || password.count < 10 || password.utf8.count > 72 || (sentAt.map { Date().timeIntervalSince($0) < 60 } ?? false))
+                }.disabled(!smsConsent || email.isEmpty || password.count < 10 || password.utf8.count > 72 || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false))
                 if !proof.isEmpty {
                     TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad)
                     NativeAction(title: "تأكيد الرمز") {
@@ -83,6 +84,7 @@ struct NativeSignup: View {
             }.disabled(!verified || !consent["adult"].bool || !consent["privacy"].bool || !consent["terms"].bool || created)
             if created { Text("أُنشئ الحساب. يمكنك الآن تسجيل الدخول.") }
         }.navigationTitle("إنشاء حساب")
+            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
             .onChange(of: email) { _ in proof = ""; verified = false }
             .onChange(of: phone) { _ in if !verified { proof = "" } }
     }
@@ -114,6 +116,7 @@ struct NativeProfileEditor: View {
                 TextField("متى أشرك الأهل", text: $draft.text("familyPreference"))
             }
             Section("تفاصيلي وتفضيلاتي") {
+                if store.profile.isNull { NavigationLink("صورة التسجيل والتحقق", destination: NativeOnboardingPortrait(profile: $draft)) }
                 NavigationLink("تفاصيل الزواج والحياة", destination: NativeMarriageFields(value: $draft.field("marriageBasics")))
                 if draft["signupConsents"]["sensitiveProfile"].bool { NavigationLink("التفاصيل الاختيارية", destination: NativeSensitiveDetails(value: $draft.field("marriageBasics"))) }
                 NavigationLink("تفضيلات الشريك", destination: NativePartnerCriteria(profile: $draft))
@@ -121,6 +124,7 @@ struct NativeProfileEditor: View {
                 Stepper("عمر الشريك من \(Int(draft["preferredMinAge"].number))", value: $draft.number("preferredMinAge"), in: 18...110)
                 Stepper("عمر الشريك حتى \(Int(draft["preferredMaxAge"].number))", value: $draft.number("preferredMaxAge"), in: 18...110)
                 NavigationLink("التوافق والتفضيلات", destination: NativeAssessment(profile: $draft))
+                NavigationLink("جلسة التوافق ومراجعة اختياراتي", destination: NativeInterview(profileDraft: $draft))
                 NavigationLink("بيننا · مواقف الحياة", destination: NativeBeena(profile: $draft))
             }
             Section("اختيارات الخصوصية") {
@@ -169,7 +173,11 @@ struct NativeProfileEditor: View {
                         }
                     }
                 }
-                _ = try await store.client.rpc("marriage_apply", ["payload": value]); try await store.refresh(); saved = true
+                if !value["_nativeStagedPortrait"].string.isEmpty {
+                    value["portrait"] = try await store.client.rpc("marriage_portrait_stage_action", ["photo": value["_nativeStagedPortrait"], "action": .string("finalize")])
+                    var clean = value.object; clean.removeValue(forKey: "_nativeStagedPortrait"); value = .object(clean)
+                }
+                _ = try await store.client.rpc("marriage_apply", ["payload": value]); try await store.refresh(); saved = true; draft = store.profile
             }.disabled(draft.isNull)
             if saved { Label("حُفظ ملفك وتفضيلاتك", systemImage: "checkmark.circle") }
         }.navigationTitle("ملفي وتفضيلاتي").task {

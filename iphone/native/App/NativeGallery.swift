@@ -44,8 +44,12 @@ struct NativeGallery: View {
         }
     }.navigationTitle("صوري").nativeError($error)
         .task(id: mode) { draft = nil; selfie = nil; selected = nil; faceConsent = false; await load() }
-        .onChange(of: selected) { item in Task {
-            do { if let data = try await item?.loadTransferable(type: Data.self) { draft = try NativeImages.prepare(data); selfie = nil; faceRequired = try await store.client.rpc("marriage_photo_face_required").bool } }
+        .onChange(of: selected) { item in let requestedMode = mode; Task {
+            do { if let data = try await item?.loadTransferable(type: Data.self) {
+                let required = try await store.client.rpc("marriage_photo_face_required").bool
+                guard requestedMode == mode, selected == item else { return }
+                draft = try NativeImages.prepare(data); selfie = nil; faceRequired = required
+            } }
             catch { self.error = error.localizedDescription }
         } }
         .sheet(isPresented: $camera) { NativeCamera { data in selfie = data; camera = false }.ignoresSafeArea() }

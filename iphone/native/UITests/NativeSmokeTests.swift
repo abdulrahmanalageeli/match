@@ -21,8 +21,9 @@ final class NativeSmokeTests: XCTestCase {
         composer.typeText("Native message")
         app.buttons["chat.send"].tap()
         XCTAssertTrue(app.staticTexts["Native message"].waitForExistence(timeout: 10))
-        if app.buttons["keyboard.dismiss"].exists { app.buttons["keyboard.dismiss"].tap() }
+        if app.buttons["keyboard.dismiss"].isHittable { app.buttons["keyboard.dismiss"].tap() }
         capture(app, "chat")
+        app.navigationBars.buttons["التعارفات"].tap()
         app.tabBars.buttons["الإعدادات"].tap()
         capture(app, "settings")
         let exclusions = app.descendants(matching: .any)["settings.exclusions"].firstMatch

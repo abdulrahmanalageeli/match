@@ -73,7 +73,6 @@ struct NativeLogin: View {
     @EnvironmentObject private var store: NativeStore
     @State private var email = ""
     @State private var password = ""
-    @State private var resetSent = false
     @State private var family = false
     var body: some View {
         Form {
@@ -83,9 +82,8 @@ struct NativeLogin: View {
                 SecureField("كلمة المرور", text: $password).textContentType(.password).accessibilityIdentifier("login.password")
                 Toggle("دخول أفراد الأسرة", isOn: $family)
                 Button("تسجيل الدخول") { let secret = password; password = ""; Task { await store.signIn(email: email, password: secret, family: family) } }.disabled(store.busy || email.isEmpty || password.isEmpty).accessibilityIdentifier("login.submit")
-                NativeAction(title: "نسيت كلمة المرور") { try await store.client.passwordReset(email: email); resetSent = true }.disabled(email.isEmpty)
+                NavigationLink("نسيت كلمة المرور", destination: NativePasswordRecovery(email: email))
             }
-            if resetSent { Text("إذا كان البريد مسجلًا، ستصلك تعليمات استعادة الحساب.").foregroundStyle(.secondary) }
             Section { NavigationLink("إنشاء حساب", destination: NativeSignup()); NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal()) }
         }.navigationTitle("أهلًا بك")
     }

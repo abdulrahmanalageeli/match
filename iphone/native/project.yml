@@ -46,6 +46,7 @@ targets:
         NSFaceIDUsageDescription: استخدم Face ID لحماية خصوصية حسابك.
         NSPhotoLibraryUsageDescription: اختر الصور التي تريد مشاركتها.
         NisfaynAPNsEnvironment: $(APS_ENVIRONMENT)
+        WudaynPasswordRecoveryURL: $(WUDAYN_PASSWORD_RECOVERY_URL)
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     entitlements:
@@ -60,7 +61,9 @@ targets:
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         MARKETING_VERSION: '2.0.0'
         CURRENT_PROJECT_VERSION: '1'
+        VERSIONING_SYSTEM: apple-generic
         APS_ENVIRONMENT: sandbox
+        WUDAYN_PASSWORD_RECOVERY_URL: ''
       configs:
         Release:
           APS_ENVIRONMENT: production

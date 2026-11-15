@@ -77,8 +77,10 @@ public actor WudaynClient {
         if authenticated { return try await json(path: "functions/v1/" + name, body: body) }
         return try JSONValue.decode(await raw(path: "functions/v1/" + name, body: body))
     }
-    public func passwordReset(email: String) async throws {
-        _ = try await raw(path: "auth/v1/recover", body: .object(["email": .string(email)]))
+    public func passwordReset(email: String, redirect: URL) async throws {
+        guard redirect.scheme == "https", redirect.host != nil, redirect.user == nil, redirect.password == nil else { throw NativeProblem.invalidResponse }
+        var query = URLComponents(); query.queryItems = [URLQueryItem(name: "redirect_to", value: redirect.absoluteString)]
+        _ = try await raw(path: "auth/v1/recover?" + (query.percentEncodedQuery ?? ""), body: .object(["email": .string(email)]))
     }
     public enum ServiceRoute: Sendable { case signupSMS, interview, ai, verifyPhoto, callPush }
     public func service(_ route: ServiceRoute, body: JSONValue) async throws -> JSONValue {

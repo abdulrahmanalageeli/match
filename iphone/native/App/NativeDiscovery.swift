@@ -95,7 +95,11 @@ struct NativePerson: View {
             if !person["interests"].array.isEmpty { Section("الاهتمامات") { Text(person["interests"].array.map(\.string).joined(separator: " · ")) } }
             if !person["reasons"].array.isEmpty { Section("نقاط التقارب") { ForEach(person["reasons"].array.map(\.string), id: \.self) { Text($0) } } }
             if !preview { Section {
-                NativeAction(title: requested ? "أُرسل الطلب" : "طلب تعارف") { _ = try await store.client.rpc("marriage_request", ["member_id": person["id"]]); requested = true }.disabled(requested)
+                if person["connectionStatus"].string == "accepted", !person["connectionId"].string.isEmpty {
+                    NavigationLink("فتح المحادثة", destination: NativeChat(connection: .object(["id": person["connectionId"], "person": person, "status": .string("accepted")])))
+                } else {
+                    NativeAction(title: requested || person["connectionStatus"].string == "pending" ? "أُرسل الطلب" : "طلب تعارف") { _ = try await store.client.rpc("marriage_request", ["member_id": person["id"]]); requested = true }.disabled(requested || person["connectionStatus"].string == "pending")
+                }
                 NativeAction(title: "إبداء الاهتمام") { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("interest")]) }
                 NativeAction(title: "إخفاء من الترشيحات") { _ = try await store.client.rpc("marriage_discovery_action", ["member_id": person["id"], "action": .string("dismiss")]) }
                 Button("إبلاغ وحظر", role: .destructive) { report = true }

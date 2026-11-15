@@ -68,6 +68,27 @@ public actor WudaynClient {
         try vault.clear()
         if let old { _ = try? await raw(path: "auth/v1/logout?scope=local", body: .object([:]), token: old.access_token) }
     }
+    public func socialProviders() async throws -> JSONValue {
+        try JSONValue.decode(await raw(path: "auth/v1/settings", method: "GET"))["external"]
+    }
+    public func signInWithApple(idToken: String, nonce: String) async throws -> String {
+        guard !idToken.isEmpty, !nonce.isEmpty else { throw NativeProblem.invalidResponse }
+        return try await socialSession(grant: "id_token", body: .object(["provider": .string("apple"), "id_token": .string(idToken), "nonce": .string(nonce)]))
+    }
+    public func exchangeGoogleCode(_ code: String, verifier: String) async throws -> String {
+        guard !code.isEmpty, (43...128).contains(verifier.count), verifier.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-._~".contains($0)) }) else { throw NativeProblem.invalidResponse }
+        return try await socialSession(grant: "pkce", body: .object(["auth_code": .string(code), "code_verifier": .string(verifier)]))
+    }
+    private func socialSession(grant: String, body: JSONValue) async throws -> String {
+        let epoch = UUID(); generation = epoch; refreshing?.cancel(); refreshing = nil
+        session = nil; try vault.clear()
+        let data = try await raw(path: "auth/v1/token?grant_type=" + grant, body: body)
+        try Task.checkCancellation()
+        guard generation == epoch else { throw NativeProblem.sessionChanged }
+        let next = try decodeSession(data)
+        try vault.write(JSONEncoder().encode(next)); session = next
+        return next.user.id
+    }
     public func rpc(_ name: String, _ params: [String: JSONValue] = [:]) async throws -> JSONValue {
         guard name.hasPrefix("marriage_"), name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) else { throw NativeProblem.invalidResponse }
         return try await json(path: "rest/v1/rpc/" + name, body: .object(params))

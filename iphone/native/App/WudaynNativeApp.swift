@@ -21,6 +21,7 @@ final class NativeAppDelegate: NSObject, UIApplicationDelegate {
                 .environment(\.locale, Locale(identifier: "ar_SA")).tint(NativeTheme.accent)
                 .background(NativeTheme.paper).nativeError($store.error)
                 .task { await store.restore() }
+                .sheet(isPresented: $store.offerDeviceLock) { NativeDeviceLockOffer() }
                 .onChange(of: phase) { value in
                     if value == .active { NisfaynPrivacy.shared.active() }
                     else if value == .background { NisfaynPrivacy.shared.background() }
@@ -77,14 +78,17 @@ struct NativeLogin: View {
     var body: some View {
         Form {
             Section { VStack(alignment: .leading, spacing: 12) { Text("وُدَين").font(.largeTitle.bold()); Text("بداية واعية لحياة مشتركة").foregroundStyle(.secondary) }.padding(.vertical, 20) }
-            Section("حسابك") {
+            NativeSocialLogin(family: family)
+            Section { Toggle("دخول أفراد الأسرة", isOn: $family).disabled(store.busy) }
+            Section {
+              DisclosureGroup("لديّ حساب بالبريد الإلكتروني") {
                 TextField("البريد الإلكتروني", text: $email).keyboardType(.emailAddress).textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("login.email")
                 SecureField("كلمة المرور", text: $password).textContentType(.password).accessibilityIdentifier("login.password")
-                Toggle("دخول أفراد الأسرة", isOn: $family)
                 Button("تسجيل الدخول") { let secret = password; password = ""; Task { await store.signIn(email: email, password: secret, family: family) } }.disabled(store.busy || email.isEmpty || password.isEmpty).accessibilityIdentifier("login.submit")
                 NavigationLink("نسيت كلمة المرور", destination: NativePasswordRecovery(email: email))
+              }
             }
-            Section { NavigationLink("إنشاء حساب", destination: NativeSignup()); NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal()) }
+            Section { NavigationLink("إنشاء حساب والتحقق بالجوال", destination: NativeSignup()); NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal()) }
         }.navigationTitle("أهلًا بك")
     }
 }

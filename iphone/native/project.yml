@@ -44,6 +44,9 @@ targets:
         NSMicrophoneUsageDescription: نستخدم الميكروفون للرسائل الصوتية والمكالمات التي تختار بدءها.
         NSCameraUsageDescription: نستخدم الكاميرا لالتقاط صورة التحقق بعد موافقتك.
         NSFaceIDUsageDescription: استخدم Face ID لحماية خصوصية حسابك.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.blindmatch.marriage.auth
+            CFBundleURLSchemes: [com.blindmatch.marriage]
         NSPhotoLibraryUsageDescription: اختر الصور التي تريد مشاركتها.
         NisfaynAPNsEnvironment: $(APS_ENVIRONMENT)
         WudaynPasswordRecoveryURL: $(WUDAYN_PASSWORD_RECOVERY_URL)
@@ -53,6 +56,7 @@ targets:
       path: Generated/WudaynNative.entitlements
       properties:
         aps-environment: $(APS_ENVIRONMENT)
+        com.apple.developer.applesignin: [Default]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.blindmatch.marriage

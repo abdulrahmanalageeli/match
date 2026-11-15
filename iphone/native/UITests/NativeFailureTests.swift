@@ -7,7 +7,7 @@ final class NativeFailureTests: XCTestCase {
     }
     @MainActor func testSignupRequiresConsentAndValidOTP() throws {
         let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests"]; app.launch()
-        app.buttons["إنشاء حساب"].tap()
+        let signup = app.buttons["إنشاء حساب والتحقق بالجوال"]; reveal(signup, in: app); signup.tap()
         let email = app.textFields["signup.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 10)); email.tap(); email.typeText("new@example.invalid")
         app.secureTextFields["signup.password"].tap(); app.secureTextFields["signup.password"].typeText("fixture-password")
@@ -41,7 +41,8 @@ final class NativeFailureTests: XCTestCase {
     }
     @MainActor func testFailedLoginMatchAndSendRetryThenRevokedChat() throws {
         let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests", "--native-failure-tests"]; app.launch()
-        let email = app.textFields["login.email"]; XCTAssertTrue(email.waitForExistence(timeout: 10)); email.tap(); email.typeText("ui@example.invalid")
+        let existing = app.buttons["لديّ حساب بالبريد الإلكتروني"]; reveal(existing, in: app); existing.tap()
+        let email = app.textFields["login.email"]; XCTAssertTrue(email.waitForExistence(timeout: 10)); reveal(email, in: app); email.tap(); email.typeText("ui@example.invalid")
         let password = app.secureTextFields["login.password"]; password.tap(); password.typeText("wrong"); app.buttons["login.submit"].tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 10)); app.alerts.buttons["حسنًا"].tap()
         XCTAssertFalse(app.tabBars.buttons["التعارفات"].exists)

@@ -9,6 +9,38 @@ accounts, change passwords, or grant roles.
 The shipped Capacitor target remains in `iphone/ios` until the native candidate
 has passed release validation. Compiling this target does not update TestFlight.
 
+## Social login candidate — activation required
+
+Native login now offers Apple and Google, with provider availability read from
+the dedicated project's public Auth settings. Both providers were disabled when
+checked on 2026-11-15; disabled options never launch a broken authorization flow.
+Existing email accounts retain a collapsed recovery/login path during migration.
+The website and existing SMS registration are unchanged.
+
+Before enabling production social authentication:
+
+- Configure Google OAuth in Supabase. Its authorized redirect is
+  `https://wupkifqbwhhebwrgvwai.supabase.co/auth/v1/callback`. Allow exactly
+  `com.blindmatch.marriage://auth/callback` in Supabase Auth redirect URLs.
+- Enable Sign in with Apple for `com.blindmatch.marriage` in Apple Developer,
+  regenerate the signing profile, and configure that bundle ID as an accepted
+  Apple client ID in Supabase. The native flow sends a SHA-256 nonce to Apple
+  and the original nonce to Supabase; do not disable nonce verification.
+- Complete an authenticated phone/device verification path for newly created
+  social accounts before removing the existing SMS signup. The current signup
+  trigger binds phone proof only for the legacy signup kind; enabling social
+  registration without this work would bypass that prerequisite.
+- Test existing-user identity linking, especially Apple's Hide My Email. Do not
+  merge accounts based on a client-supplied email or delete existing accounts.
+- Test Google/Apple success, cancellation, expired/replayed credentials, offline
+  return, existing account access, and first-time onboarding on a signed iPhone.
+- Test the opt-in lock on a Face ID device, including cancellation, background
+  relock, device-passcode fallback and cold launch. The lock is enabled only
+  after successful device authentication; the app never receives biometric data.
+
+OAuth client secrets belong in provider/Supabase settings, never in the app or
+repository. This candidate does not change live providers or deploy TestFlight.
+
 ## Build and test on macOS
 
 From this directory:

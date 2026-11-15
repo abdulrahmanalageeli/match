@@ -4,6 +4,8 @@ final class NativeSmokeTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     @MainActor func testLoginDiscoveryChatAndExclusions() throws {
         let app = XCUIApplication(); app.launchArguments = ["--native-ui-tests"]; app.launch()
+        let existing = app.buttons["لديّ حساب بالبريد الإلكتروني"]
+        XCTAssertTrue(existing.waitForExistence(timeout: 15)); existing.tap()
         let email = app.textFields["login.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 15)); email.tap(); email.typeText("ui@example.invalid")
         let password = app.secureTextFields["login.password"]; password.tap(); password.typeText("fixture-password")

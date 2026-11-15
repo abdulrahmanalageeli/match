@@ -40,6 +40,7 @@ struct NativeSessionVault: SessionVault {
     @Published var restoring = true
     @Published var busy = false
     @Published var error: String?
+    @Published var offerDeviceLock = false
     @Published var familyMode = UserDefaults.standard.bool(forKey: "wudayn.native.familyMode")
     let testing: Bool
     init(client: WudaynClient? = nil) {
@@ -74,10 +75,21 @@ struct NativeSessionVault: SessionVault {
     func signOut() async {
         await perform {
             NisfaynCallCenter.shared.clear()
-            self.owner = nil; self.account = .null
+            self.owner = nil; self.account = .null; self.offerDeviceLock = false
             self.familyMode = false; UserDefaults.standard.set(false, forKey: "wudayn.native.familyMode")
             NisfaynPushCenter.shared.pending.removeAll()
             try await self.client.signOut()
+        }
+    }
+    func socialSignIn(family: Bool, authenticate: () async throws -> String) async {
+        await perform {
+            let id = try await authenticate()
+            self.account = .null; NisfaynCallCenter.shared.clear(); NisfaynPushCenter.shared.pending.removeAll()
+            self.familyMode = family; UserDefaults.standard.set(family, forKey: "wudayn.native.familyMode")
+            self.owner = id
+            try await self.refresh()
+            let privacy = NisfaynPrivacy.shared.status
+            self.offerDeviceLock = privacy["available"] as? Bool == true && privacy["enabled"] as? Bool != true
         }
     }
     func perform(_ action: () async throws -> Void) async {

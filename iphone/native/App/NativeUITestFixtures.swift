@@ -25,6 +25,7 @@ actor NativeUITestTransport: HTTPTransport {
         func response(_ value: JSONValue, status: Int = 200) throws -> (Data, HTTPURLResponse) {
             (try value.encoded(), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
         }
+        if path == "/auth/v1/settings" { return try response(.object(["external": .object(["apple": .bool(false), "google": .bool(false)])])) }
         if path == "/auth/v1/token", body["password"].string == "wrong" { return try response(.object(["error": .string("بيانات الدخول غير صحيحة")]), status: 400) }
         if denied && ["marriage_thread_page", "marriage_agreement"].contains(path.components(separatedBy: "/").last ?? "") { return try response(.object(["error": .string("انتهى الوصول للمحادثة")]), status: 403) }
         let value: JSONValue

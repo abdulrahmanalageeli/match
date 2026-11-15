@@ -83,7 +83,7 @@ struct NativeJourney: View {
                 Text("كل خطوة تحتاج موافقة الطرفين. يمكنك التراجع عن موافقتك قبل اكتمال الخطوة.").foregroundStyle(.secondary)
                 Toggle("أوافق على حصرية التعارف عند الحاجة", isOn: $exclusive)
                 NativeAction(title: progress["mine"].bool ? "سحب موافقتي على الخطوة التالية" : "أوافق على الخطوة التالية") {
-                    _ = try await store.client.rpc("marriage_next_step", ["request_id": .string(connectionID), "stage_number": .number(progress["stage"].number + 1), "agree": .bool(!progress["mine"].bool), "exclusive_consent": .bool(exclusive)])
+                    _ = try await store.client.rpc("marriage_next_step", ["request_id": .string(connectionID), "stage_number": .number(progress["exclusive"].bool ? progress["stage"].number + 1 : 1), "agree": .bool(!(progress["exclusive"].bool ? progress["mine"].bool : progress["consentMine"].bool)), "exclusive_consent": .bool(exclusive)])
                     try await load()
                 }
                 Button("طلب العودة للخطوة السابقة") { rewind = true }.disabled(progress["stage"].number <= 0)

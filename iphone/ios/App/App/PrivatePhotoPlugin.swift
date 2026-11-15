@@ -1,4 +1,6 @@
+#if canImport(Capacitor)
 import Capacitor
+#endif
 import UIKit
 
 // iOS has no public screenshot-prevention flag for arbitrary images. The secure
@@ -15,6 +17,7 @@ private final class PhotoSecureField: UITextField {
     }
 }
 
+#if canImport(Capacitor)
 @objc(PrivatePhotoPlugin)
 final class PrivatePhotoPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "PrivatePhotoPlugin"
@@ -58,6 +61,7 @@ final class PrivatePhotoPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
+#endif
 final class PrivatePhotoController: UIViewController {
     static func canDisplay() -> Bool {
         let probe = PhotoSecureField(frame: CGRect(x: 0, y: 0, width: 100, height: 100))

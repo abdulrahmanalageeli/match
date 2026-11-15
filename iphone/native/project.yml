@@ -6,9 +6,6 @@ options:
 packages:
   WudaynCore:
     path: .
-  Capacitor:
-    url: https://github.com/ionic-team/capacitor-swift-pm.git
-    exactVersion: 8.6.0
   Agora:
     url: https://github.com/AgoraIO/AgoraAudio_iOS.git
     exactVersion: 4.7.0
@@ -32,8 +29,6 @@ targets:
       - ../ios/App/App/NisfaynCallCenter.swift
     dependencies:
       - package: WudaynCore
-      - package: Capacitor
-        product: Capacitor
       - package: Agora
         product: RtcBasic
     info:

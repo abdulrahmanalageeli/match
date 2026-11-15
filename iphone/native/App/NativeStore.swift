@@ -48,15 +48,23 @@ struct NativeSessionVault: SessionVault {
         do { owner = try await client.restore(); if owner != nil { try await refresh() } }
         catch { self.error = error.localizedDescription }
     }
-    func refresh() async throws { account = try await client.rpc("marriage_state") }
+    func refresh() async throws {
+        let expected = owner, value = try await client.rpc("marriage_state")
+        guard owner == expected, value["user"]["id"].string == expected else { throw NativeProblem.sessionChanged }
+        account = value
+    }
     func signIn(email: String, password: String) async {
-        await perform { self.owner = try await self.client.signIn(email: email, password: password); try await self.refresh() }
+        await perform {
+            self.owner = nil; self.account = .null; NisfaynCallCenter.shared.clear()
+            self.owner = try await self.client.signIn(email: email, password: password); try await self.refresh()
+        }
     }
     func signOut() async {
         await perform {
             NisfaynCallCenter.shared.clear()
-            try await self.client.signOut()
             self.owner = nil; self.account = .null
+            NisfaynPushCenter.shared.pending.removeAll()
+            try await self.client.signOut()
         }
     }
     func perform(_ action: () async throws -> Void) async {

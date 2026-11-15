@@ -1,9 +1,12 @@
+#if canImport(Capacitor)
 import Capacitor
+#endif
 import Foundation
 import Security
 import UIKit
 import LocalAuthentication
 
+#if canImport(Capacitor)
 @objc(PrivateSessionPlugin)
 final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "PrivateSessionPlugin"
@@ -107,6 +110,7 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
 
 /// Native cover protects snapshots and blocks web content until device authentication.
 /// Device passcode is an intentional fallback when biometrics are unavailable.
+#endif
 final class NisfaynPrivacy: NSObject {
     static let shared = NisfaynPrivacy()
     private weak var window: UIWindow?

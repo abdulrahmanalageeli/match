@@ -20,7 +20,11 @@ struct NativeChat: View {
     @State private var older = true
     @StateObject private var audio = NativeVoiceNote()
     private var requestID: String { connection["id"].string }
-    private var allowed: Bool { ["accepted", "family"].contains(agreement["status"].string) }
+    private var allowed: Bool {
+        if agreement["status"].string == "family" { return true }
+        guard agreement["status"].string == "accepted", let deadline = NativeDates.parse(agreement["deadline"].string) else { return false }
+        return deadline > Date()
+    }
     var body: some View {
         VStack(spacing: 0) {
             if !allowed { NativeAgreement(requestID: requestID, agreement: $agreement) }
@@ -47,7 +51,7 @@ struct NativeChat: View {
             HStack(alignment: .bottom, spacing: 12) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images, photoLibrary: .shared()) { Image(systemName: "photo.badge.plus").font(.title3) }.accessibilityLabel("إرفاق صورة")
                 Button { Task { do { try await audio.start() } catch { self.error = error.localizedDescription } } } label: { Image(systemName: "mic").font(.title3) }.accessibilityLabel("تسجيل رسالة صوتية").disabled(audio.recording || photoDraft != nil)
-                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder)
+                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).onChange(of: text) { _ in pendingID = UUID().uuidString.lowercased() }
                 Button { Task { await send() } } label: { if sending { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) } }.accessibilityLabel("إرسال").disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && photoDraft == nil && audio.draft == nil)
             }.padding().disabled(!allowed || sending || store.busy)
         }.navigationTitle(connection["person"].title).navigationBarTitleDisplayMode(.inline)

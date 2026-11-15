@@ -12,7 +12,7 @@ struct NativeOption: Identifiable {
     static func values(_ value: JSONValue, label: String = "label") -> [NativeOption] {
         if !value.array.isEmpty { return value.array.map { item in
             if !item.string.isEmpty { return NativeOption(id: item.string, label: item.string) }
-            return NativeOption(id: item["id"].string.isEmpty ? item["code"].string : item["id"].string, label: item[label].string)
+            return NativeOption(id: [item["id"].string, item["code"].string, item["value"].string].first { !$0.isEmpty } ?? "", label: item[label].string)
         } }
         return value.object.keys.sorted().map { NativeOption(id: $0, label: value[$0].string) }
     }
@@ -115,6 +115,8 @@ struct NativeProfileEditor: View {
             }
             Section("تفاصيلي وتفضيلاتي") {
                 NavigationLink("تفاصيل الزواج والحياة", destination: NativeMarriageFields(value: $draft.field("marriageBasics")))
+                if draft["signupConsents"]["sensitiveProfile"].bool { NavigationLink("التفاصيل الاختيارية", destination: NativeSensitiveDetails(value: $draft.field("marriageBasics"))) }
+                NavigationLink("تفضيلات الشريك", destination: NativePartnerCriteria(profile: $draft))
                 Stepper("عمر الشريك من \(Int(draft["preferredMinAge"].number))", value: $draft.number("preferredMinAge"), in: 18...110)
                 Stepper("عمر الشريك حتى \(Int(draft["preferredMaxAge"].number))", value: $draft.number("preferredMaxAge"), in: 18...110)
                 NavigationLink("التوافق والتفضيلات", destination: NativeAssessment(profile: $draft))
@@ -136,7 +138,12 @@ struct NativeProfileEditor: View {
                 value["age"] = .number(Double(Calendar(identifier: .gregorian).dateComponents([.year], from: birthday, to: Date()).year ?? 0))
                 value["signupConsents"]["version"] = .string("2026-11-07-privacy")
                 if !value["signupConsents"]["sensitiveProfile"].bool {
-                    for key in ["skinTone", "tribalBackground", "tribeName", "religiousAffiliation", "prayerPractice"] { value["marriageBasics"][key] = .null }
+                    var basics = value["marriageBasics"].object
+                    for key in ["skinTone", "tribalBackground", "tribeName", "religiousAffiliation", "prayerPractice"] { basics.removeValue(forKey: key) }
+                    value["marriageBasics"] = .object(basics)
+                    var criteria = value["partnerCriteria"].object
+                    for key in ["skinTone", "tribalBackground"] { criteria.removeValue(forKey: key) }
+                    value["partnerCriteria"] = .object(criteria)
                     value["publicAvatar"] = .null; value["signupConsents"]["sensitivePublication"] = .bool(false)
                 }
                 if !value["signupConsents"]["assessment"].bool {
@@ -165,9 +172,11 @@ struct NativeMarriageFields: View {
             TextField("الجنسية", text: $value.text("nationality"))
             Stepper("عدد الأبناء: \(Int(value["childrenCount"].number))", value: $value.number("childrenCount"), in: 0...20)
             NativeChoice(title: "الحالة الاجتماعية", value: $value.text("maritalStatus"), options: [.init(id: "never_married", label: "لم يسبق لي الزواج"), .init(id: "divorced", label: "مطلق/ة"), .init(id: "widowed", label: "أرمل/ة"), .init(id: "married", label: "متزوج")])
-            NativeChoice(title: "التدخين", value: $value.text("smoking"), options: [.init(id: "never", label: "لا أدخن"), .init(id: "sometimes", label: "أحيانًا"), .init(id: "regularly", label: "بانتظام"), .init(id: "quitting", label: "في طريق التوقف")])
+            NativeChoice(title: "التدخين", value: $value.text("smoking"), options: [.init(id: "never", label: "لا أدخن"), .init(id: "sometimes", label: "أحيانًا"), .init(id: "cigarettes", label: "سجائر"), .init(id: "vape", label: "إلكتروني"), .init(id: "shisha", label: "شيشة"), .init(id: "yes", label: "نعم")])
         }
         Section("الخطوة القادمة") {
+            NativeChoice(title: "أسلوب اللباس", value: $value.text("dressStyle"), options: NativeOption.values(NativeCatalog.value["appearance"]["dressStyles"]))
+            NativeChoice(title: "مرونة اللباس", value: $value.text("dressFlexibility"), options: NativeOption.values(NativeCatalog.value["appearance"]["dressFlexibilities"]))
             NativeChoice(title: "موعد الزواج", value: $value.text("marriageTimeline"), options: NativeOption.values(options["marriageTimelineLabels"]))
             NativeChoice(title: "التعارف واللقاء", value: $value.text("meetingPreference"), options: NativeOption.values(options["meetingPreferenceLabels"]))
             NativeChoice(title: "التعدد", value: $value.text("polygynyPreference"), options: NativeOption.values(options["polygynyLabels"]))
@@ -183,6 +192,7 @@ struct NativeMarriageFields: View {
 struct NativeAssessment: View {
     @Binding var profile: JSONValue
     var body: some View { List {
+        Section("أولوياتي") { ForEach(NativeCatalog.value["catalog"]["categories"].rows) { row in Toggle(row.value["label"].string, isOn: $profile.contains("priorityCategories", row.id)) } }
         ForEach(NativeCatalog.value["catalog"]["dimensions"].array, id: \.["id"].string) { dimension in
             Section(dimension["title"].string) {
                 NativeChoice(title: dimension["selfPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["id"].string), options: NativeOption.values(dimension["options"], label: "self"))

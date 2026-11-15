@@ -6,10 +6,8 @@ struct NativeDiscovery: View {
     @State private var rows: [MemberRow] = []
     @State private var loading = true
     @State private var query = ""
-    @State private var city = ""
-    @State private var minimumAge = 18
-    @State private var maximumAge = 65
-    @State private var available = false
+    @State private var filters: JSONValue = .object(["mode": .string("all")])
+    @State private var loadGeneration = UUID()
     @State private var showFilters = false
     @State private var hasMore = true
     @State private var error: String?
@@ -24,24 +22,22 @@ struct NativeDiscovery: View {
             .onSubmit(of: .search) { Task { await load(reset: true) } }
             .toolbar { Button { showFilters = true } label: { Label("تفضيلات البحث", systemImage: "slider.horizontal.3") } }
             .sheet(isPresented: $showFilters) {
-                NavigationStack { Form {
-                    TextField("المدينة", text: $city)
-                    Stepper("من \(minimumAge) عامًا", value: $minimumAge, in: 18...maximumAge)
-                    Stepper("حتى \(maximumAge) عامًا", value: $maximumAge, in: minimumAge...110)
-                    Toggle("المتاحون للتعارف فقط", isOn: $available)
-                    Button("مسح الاختيارات") { city = ""; minimumAge = 18; maximumAge = 65; available = false }
-                }.navigationTitle("تفضيلات البحث").toolbar { Button("تطبيق") { showFilters = false; Task { await load(reset: true) } } } }
+                NavigationStack { NativeDiscoveryFilters(value: $filters).toolbar { Button("تطبيق") { showFilters = false; Task { await load(reset: true) } } } }
             .task { await load(reset: true) }.refreshable { await load(reset: true) }
     }
     private func load(reset: Bool) async {
-        loading = true; error = nil; defer { loading = false }
+        let generation = UUID(); loadGeneration = generation
+        loading = true; error = nil; defer { if generation == loadGeneration { loading = false } }
         do {
-            let result = try await store.client.rpc("marriage_browse", ["options": .object(["mode": .string("all"), "offset": .number(Double(reset ? 0 : rows.count)), "search": .string(query), "city": .string(city), "minAge": .number(Double(minimumAge)), "maxAge": .number(Double(maximumAge)), "availableOnly": .bool(available)])])
+            var options = filters.object.filter { _, value in value != .string("") && value != .number(0) }
+            options["search"] = .string(query); options["offset"] = .number(Double(reset ? 0 : rows.count))
+            let result = try await store.client.rpc("marriage_browse", ["options": .object(options)])
             try Task.checkCancellation()
+            guard generation == loadGeneration else { return }
             let next = result.rows
             rows = reset ? next : rows + next.filter { incoming in !rows.contains { $0.id == incoming.id } }
             hasMore = !next.isEmpty
-        } catch is CancellationError { } catch { self.error = error.localizedDescription }
+        } catch is CancellationError { } catch { if generation == loadGeneration { self.error = error.localizedDescription } }
     }
 }
 

@@ -1,4 +1,6 @@
+#if canImport(Capacitor)
 import Capacitor
+#endif
 import UIKit
 import UserNotifications
 
@@ -58,6 +60,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
+#if canImport(Capacitor)
 @objc(NisfaynPushPlugin)
 final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "NisfaynPushPlugin"
@@ -155,3 +158,4 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 }
+#endif

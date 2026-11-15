@@ -134,7 +134,7 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
       <label htmlFor={id + '-story'}>بكلماتك أنت<textarea id={id + '-story'} value={value?.story?.text ?? ''} rows={5} maxLength={1000} onChange={event => changeStory({ text: Array.from(event.target.value).slice(0, 500).join('') })} placeholder={beenaScenarios.find(entry => entry.id === (value?.story?.scenarioId ?? scenario.id))?.storyPrompt} aria-describedby={id + '-story-help'}/></label>
       <div className="bn-story-count"><span>اختياري</span><span>{number.format(Array.from(value?.story?.text ?? '').length)} / ٥٠٠</span></div>
       <label className="bn-share"><input type="checkbox" checked={value?.story?.share === true} onChange={event => changeStory({ share: event.target.checked })}/><span><strong>أعرض القصة في ملفي للأعضاء المؤهلين</strong><small>مشاركة اختيارية. دون هذا الاختيار تبقى القصة خاصة بك. يمكنك إخفاؤها أو حذفها لاحقًا.</small></span></label>
-      <p className="bn-story-help" id={id + '-story-help'}>القصة بداية حوار، ولا تدخل كلماتها في النسبة أو تُحلَّل بالذكاء الاصطناعي. تجنّب أسماء الآخرين وأرقام التواصل والتفاصيل الحساسة.</p>
+      <p className="bn-story-help" id={id + '-story-help'}>القصة بداية حوار، ولا تدخل كلماتها في النسبة. تجنّب أسماء الآخرين وأرقام التواصل والتفاصيل الحساسة.</p>
       {storyReview && <p className="bn-story-help">نشر قصة جديدة يتطلب مراجعة الملف. إن كان ملفك معتمدًا، يتوقف ظهوره والتواصل مؤقتًا حتى اعتماد التحديث؛ تبقى التعارفات محفوظة. حفظ القصة بشكل خاص لا يغيّر حالة ملفك.</p>}
       {value?.story && <button type="button" className="bn-clear" onClick={clearStory}><Trash2 size={14}/> حذف القصة من المسودة</button>}
     </article>}

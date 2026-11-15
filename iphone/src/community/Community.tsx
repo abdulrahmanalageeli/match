@@ -462,11 +462,11 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   return <>
     {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
-      alt={`صورة مولّدة لشخصية ${person.alias} التوضيحية`} onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
+      alt={`صورة توضيحية لشخصية ${person.alias}`} onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
     <div className="df-portrait-badges"><CompatibilityPill person={person} />
-      {!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
+      {!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية' : 'حساب توضيحي' : person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>

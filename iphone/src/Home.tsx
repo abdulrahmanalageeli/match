@@ -133,7 +133,7 @@ function ProfileHero({ proposal }: { proposal: Proposal }) {
   const photo = proposal.demoPhoto?.startsWith('/demo/portraits/') && failedPhoto !== proposal.demoPhoto ? proposal.demoPhoto : undefined;
   return (
     <div className="mi-profile-hero" data-has-photo={Boolean(photo)||undefined}>
-      {photo && <img className="mi-demo-portrait" src={photo} width="900" height="1125" alt={`صورة مولّدة لشخصية ${proposal.alias} التوضيحية`} decoding="async" onError={()=>setFailedPhoto(photo)}/>}
+      {photo && <img className="mi-demo-portrait" src={photo} width="900" height="1125" alt={`صورة توضيحية لشخصية ${proposal.alias}`} decoding="async" onError={()=>setFailedPhoto(photo)}/>}
       <svg className="mi-architecture" aria-hidden="true" viewBox="0 0 170 252" fill="none" preserveAspectRatio="xMidYMax meet">
         <path fill="currentColor" opacity=".21" d="M-31 252v-79c0-57 59-68 67-123 9 55 69 66 69 123v79z" />
         <path fill="currentColor" opacity=".13" d="M40 252v-65c0-51 49-66 58-112 9 46 58 61 58 112v65z" />
@@ -153,7 +153,7 @@ function ProfileHero({ proposal }: { proposal: Proposal }) {
         <span>{arabicNumber.format(proposal.age)} عامًا</span>
       </div>
       <Metadata proposal={proposal} />
-      {photo && <small className="mi-demo-photo-label">شخصية توضيحية · صورة مولّدة</small>}
+      {photo && <small className="mi-demo-photo-label">شخصية توضيحية</small>}
     </div>
   );
 }

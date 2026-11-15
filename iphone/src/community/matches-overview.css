@@ -8,7 +8,7 @@
 .mo-current-card { min-width:0; overflow:hidden; border:1px solid #eae5e5; border-radius:15px; background:var(--surface); box-shadow:0 3px 10px #30242b08; }
 .mo-portrait-link { position:relative; display:block; width:100%; border:0; padding:0; background:#ede8e5; cursor:pointer; }
 .mo-portrait.nf-person-avatar { display:block; width:100%; height:auto; aspect-ratio:4/3; border:0; border-radius:0; box-shadow:none; overflow:hidden; }
-.mo-portrait.nf-person-avatar img,.mo-portrait.nf-person-avatar .nf-person-avatar-image { width:100%; height:100%; object-fit:cover; object-position:center 25%; }
+.mo-portrait.nf-person-avatar img,.mo-portrait.nf-person-avatar .nf-person-avatar-image { width:100%; height:100%; object-fit:contain; object-position:center; }
 .mo-portrait.nf-person-avatar>b { display:grid; place-items:center; height:100%; font-size:46px; font-weight:400; color:var(--accent-fill); }
 .mo-exclusive { position:absolute; bottom:8px; inset-inline:8px; padding:4px 7px; border-radius:6px; background:#fffffff0; color:var(--accent-fill); font:inherit; font-size:10px; }
 .mo-current-copy { display:flex; flex-direction:column; align-items:center; padding:10px 8px 12px; text-align:center; }

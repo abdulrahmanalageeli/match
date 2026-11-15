@@ -50,6 +50,15 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }
+body:has(.phone-app > .app-screen)::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--nf-safe-top);
+  z-index: 10;
+  background: var(--page-background);
+  pointer-events: none;
+}
 h1, h2, h3 { font-weight: var(--font-weight-heading); letter-spacing: normal; }
 strong, b { font-weight: var(--font-weight-heading); }
 button, input, textarea, select { font: inherit; }

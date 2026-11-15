@@ -5,6 +5,7 @@ import ts from 'typescript';
 const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const dataUrl=url((await compile('../src/community/data.ts'))
+ .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/photos\/verifyPhoto["'];?/, 'const captureForPhoto=async()=>null; const verifyUploadedPhoto=async()=>{};')
  .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
@@ -19,6 +20,7 @@ const dataUrl=url((await compile('../src/community/data.ts'))
  + '\nconst cloud={storage:{from:()=>globalThis.__portraitHarness.storage}}; const callRpc=(...args)=>globalThis.__portraitHarness.rpc(...args); class CloudError extends Error{} const privateUpdates=()=>()=>()=>{};');
 const {cloudCommunity,demoCommunity,demoProfile}=await import(dataUrl);
 const {pairSource,testProfile}=await import(url((await compile('../src/testing/pair.ts'))
+ .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/voice\/nativeCalls["'];?/, 'const ringNativePhones=async()=>{};')
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
  .replace("'../family/model'",JSON.stringify(new URL('../src/family/model.ts',import.meta.url).href))

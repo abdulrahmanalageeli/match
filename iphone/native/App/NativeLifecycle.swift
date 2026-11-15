@@ -24,22 +24,22 @@ struct NativeLifecycle: ViewModifier {
             }
             .task(id: "\(store.owner ?? "")-\(phase == .active)") {
                 guard !store.testing, !store.familyMode, phase == .active, let owner = store.owner else { return }
-                do {
-                    repeat {
+                while !Task.isCancelled && store.owner == owner {
+                    do {
                         if boundOwner != owner || Date().timeIntervalSince(boundAt) > 6 * 3600 {
                             try await store.bindCalls(); try Task.checkCancellation()
-                            boundOwner = owner; boundAt = Date()
                             let settings = await UNUserNotificationCenter.current().notificationSettings()
                             if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
                                 let preference = try await store.client.rpc("marriage_push_settings")
                                 if preference["enabled"].bool { try await NativeDevice.enablePush(client: store.client) }
                             }
+                            boundOwner = owner; boundAt = Date()
                         }
                         await openNotification()
                         _ = try await store.client.rpc("marriage_heartbeat")
-                        try await Task.sleep(nanoseconds: 30_000_000_000)
-                    } while !Task.isCancelled
-                } catch is CancellationError { } catch { /* Explicit call/push controls provide retry and errors; do not interrupt launch. */ }
+                    } catch is CancellationError { return } catch { /* Retry transient connection failures on the next heartbeat. */ }
+                    do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { return }
+                }
             }
             .task(id: store.account["user"]["appAccountToken"].string) {
                 guard !store.testing, let owner = store.owner, let token = UUID(uuidString: store.account["user"]["appAccountToken"].string) else { return }

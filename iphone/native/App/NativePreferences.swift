@@ -44,7 +44,7 @@ struct NativePartnerCriteria: View {
     }
     private func mode(_ key: String) -> some View { NativeChoice(title: "الأهمية", value: $profile.field("partnerCriteria").field(key).text("mode"), options: NativeOption.values(NativeCatalog.value["marriage"]["criteriaModes"])) }
     private func multiselect(_ title: String, key: String, values: [NativeOption]) -> some View { Section(title) { mode(key); NativeMultiChoice(title: "الاختيارات", value: $profile.field("partnerCriteria").field(key), key: "values", options: values) } }
-    private func range(_ title: String, key: String, lower: Int, upper: Int) -> some View { Section(title) { mode(key); TextField("من", value: $profile.field("partnerCriteria").field(key).number("min"), format: .number).keyboardType(.numberPad); TextField("حتى", value: $profile.field("partnerCriteria").field(key).number("max"), format: .number).keyboardType(.numberPad) } }
+    private func range(_ title: String, key: String, lower: Int, upper: Int) -> some View { Section(title) { mode(key); TextField("من", value: $profile.field("partnerCriteria").field(key).optionalNumber("min"), format: .number).keyboardType(.numberPad); TextField("حتى", value: $profile.field("partnerCriteria").field(key).optionalNumber("max"), format: .number).keyboardType(.numberPad) } }
 }
 struct NativeSensitiveDetails: View {
     @Binding var value: JSONValue
@@ -66,8 +66,8 @@ struct NativeDiscoveryFilters: View {
             Section("البحث") {
                 NativeChoice(title: "الترتيب", value: $value.text("sort"), options: [.init(id: "compatibility", label: "التوافق"), .init(id: "youngest", label: "الأصغر"), .init(id: "oldest", label: "الأكبر")])
                 NativeChoice(title: "العرض", value: $value.text("mode"), options: [.init(id: "recommended", label: "الموصى بهم"), .init(id: "all", label: "الكل")])
-                TextField("من عمر", value: $value.number("minAge"), format: .number).keyboardType(.numberPad)
-                TextField("حتى عمر", value: $value.number("maxAge"), format: .number).keyboardType(.numberPad)
+                TextField("من عمر", value: $value.optionalNumber("minAge"), format: .number).keyboardType(.numberPad)
+                TextField("حتى عمر", value: $value.optionalNumber("maxAge"), format: .number).keyboardType(.numberPad)
                 NativeChoice(title: "المدينة", value: $value.text("city"), options: NativeOption.values(profile["cityOptions"]))
                 NativeChoice(title: "الجنسية", value: $value.text("nationality"), options: NativeOption.values(profile["nationalityChoices"]))
                 NativeChoice(title: "اللغة", value: $value.text("language"), options: NativeOption.values(NativeCatalog.value["marriage"]["languageOptions"]))
@@ -81,10 +81,10 @@ struct NativeDiscoveryFilters: View {
                 NativeChoice(title: "التدخين", value: $value.text("smoking"), options: NativeProfileOptions.smoking)
                 NativeChoice(title: "الأبناء", value: $value.text("children"), options: [.init(id: "none", label: "بدون أبناء"), .init(id: "has", label: "لديه أبناء")])
                 NativeChoice(title: "الخلفية القبلية", value: $value.text("tribalBackground"), options: NativeProfileOptions.tribal)
-                TextField("أقل طول", value: $value.number("minHeight"), format: .number).keyboardType(.numberPad)
-                TextField("أعلى طول", value: $value.number("maxHeight"), format: .number).keyboardType(.numberPad)
-                TextField("أقل وزن", value: $value.number("minWeight"), format: .number).keyboardType(.numberPad)
-                TextField("أعلى وزن", value: $value.number("maxWeight"), format: .number).keyboardType(.numberPad)
+                TextField("أقل طول", value: $value.optionalNumber("minHeight"), format: .number).keyboardType(.numberPad)
+                TextField("أعلى طول", value: $value.optionalNumber("maxHeight"), format: .number).keyboardType(.numberPad)
+                TextField("أقل وزن", value: $value.optionalNumber("minWeight"), format: .number).keyboardType(.numberPad)
+                TextField("أعلى وزن", value: $value.optionalNumber("maxWeight"), format: .number).keyboardType(.numberPad)
             }
             Section("الاستبعادات") {
                 NativeMultiChoice(title: "مدن", value: $value, key: "excludeCities", options: NativeOption.values(profile["cityOptions"]))

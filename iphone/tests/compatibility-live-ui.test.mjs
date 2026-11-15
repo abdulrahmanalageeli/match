@@ -89,7 +89,7 @@ test('an unchanged message does not freeze the active chat fit; queued updates f
 test('an open recommended profile refreshes after moving out of the top five, then closes if no longer eligible', async () => {
   const source = sourceWith([person(90)]), m = mount(communityCode, 'Discovery', baseProps(source));
   m.render(); await settle(); let tree = m.render();
-  named(tree, 'PersonCard').props.open({ querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
+  named(tree, 'PersonCard').props.open({ closest: () => null, querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
   tree = m.render(); assert.equal(tree.props.person.fit.preference, 90);
   source.discover = async filters => filters.mode === 'all' ? [person(61)] : [person(95, 'new-top-match')];
   source.notify(); await settle(); tree = m.render();
@@ -102,7 +102,7 @@ test('an open recommended profile refreshes after moving out of the top five, th
 test('an open compatibility sheet refreshes in place and changes arriving during a read are not lost', async () => {
   const source = sourceWith([person(90)]), m = mount(communityCode, 'Discovery', baseProps(source));
   m.render(); await settle(); let tree = m.render();
-  nodes(tree).find(node => node.type === 'button' && textOf(node).includes('استكشف الجميع')).props.onClick();
+  nodes(tree).find(node => node.type === 'button' && textOf(node).includes('جميع الملفات')).props.onClick();
   m.render(); await settle(); tree = m.render(); named(tree, 'DirectoryRow').props.explain();
   tree = m.render(); assert.equal(named(tree, 'FitDetails').props.fit.preference, 90);
   const read = deferred(); let calls = 0;

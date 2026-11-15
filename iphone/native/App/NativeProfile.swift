@@ -28,6 +28,7 @@ extension Binding where Value == JSONValue {
     func text(_ key: String) -> Binding<String> { Binding<String>(get: { wrappedValue[key].string }, set: { wrappedValue[key] = .string($0) }) }
     func flag(_ key: String) -> Binding<Bool> { Binding<Bool>(get: { wrappedValue[key].bool }, set: { wrappedValue[key] = .bool($0) }) }
     func number(_ key: String) -> Binding<Int> { Binding<Int>(get: { Int(wrappedValue[key].number) }, set: { wrappedValue[key] = .number(Double($0)) }) }
+    func optionalNumber(_ key: String) -> Binding<Int?> { Binding<Int?>(get: { wrappedValue[key].isNull ? nil : Int(wrappedValue[key].number) }, set: { wrappedValue[key] = $0.map { .number(Double($0)) } ?? .null }) }
     func contains(_ key: String, _ id: String) -> Binding<Bool> {
         Binding<Bool>(get: { wrappedValue[key].array.contains(.string(id)) }, set: { enabled in
             var values = wrappedValue[key].array.filter { $0 != .string(id) }; if enabled { values.append(.string(id)) }; wrappedValue[key] = .array(values)

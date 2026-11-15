@@ -66,8 +66,12 @@ struct NativeChat: View {
             .toolbar { Button { controls = true } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("خيارات التعارف") }
             .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("تم") { composerFocused = false }.accessibilityIdentifier("keyboard.dismiss") } }
             .sheet(isPresented: $controls) { NavigationStack { NativeConnectionOptions(connection: connection) } }
+            .onChange(of: reply?.id) { _ in pendingID = UUID().uuidString.lowercased() }
+            .onChange(of: once) { _ in pendingID = UUID().uuidString.lowercased() }
+            .onChange(of: audio.draft) { _ in pendingID = UUID().uuidString.lowercased() }
+            .onChange(of: photoDraft) { _ in pendingID = UUID().uuidString.lowercased() }
             .onChange(of: selectedPhoto) { item in Task {
-                do { if let data = try await item?.loadTransferable(type: Data.self) { photoDraft = try NativeImages.prepare(data); pendingID = UUID().uuidString.lowercased(); audio.discard() } }
+                do { if let data = try await item?.loadTransferable(type: Data.self) { guard selectedPhoto == item else { return }; photoDraft = try NativeImages.prepare(data); audio.discard() } }
                 catch { self.error = error.localizedDescription }
             } }
             .task(id: phase) {

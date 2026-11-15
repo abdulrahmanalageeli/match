@@ -19,6 +19,7 @@ struct NativeChat: View {
     @State private var controls = false
     @State private var older = true
     @StateObject private var audio = NativeVoiceNote()
+    @FocusState private var composerFocused: Bool
     private var requestID: String { connection["id"].string }
     private var allowed: Bool {
         if agreement["status"].string == "family" { return true }
@@ -27,7 +28,7 @@ struct NativeChat: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            if !allowed { NativeAgreement(requestID: requestID, agreement: $agreement) }
+            NativeAgreement(requestID: requestID, agreement: $agreement)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
@@ -42,6 +43,13 @@ struct NativeChat: View {
                 }.onChange(of: sending) { value in if !value, let last = messages.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } } }
             }
             if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
+            if messages.isEmpty && allowed && text.isEmpty {
+                NativeAction(title: "اقتراح لبداية الحديث") {
+                    let result = try await store.client.service(.ai, body: .object(["mode": .string("opener")]))
+                    let suggestion = String(result["text"].string.prefix(1000))
+                    guard !suggestion.isEmpty else { throw NativeProblem.invalidResponse }; text = suggestion
+                }.font(.footnote)
+            }
             if let reply { HStack { Text("ردًا على: " + reply.value["body"].string).lineLimit(1); Spacer(); Button("إلغاء الرد") { self.reply = nil } }.font(.caption).padding() }
             if let photoDraft, let image = UIImage(data: photoDraft) {
                 HStack { Image(uiImage: image).resizable().scaledToFit().frame(height: 80); Toggle("مرة واحدة", isOn: $once); Button("إزالة", role: .destructive) { self.photoDraft = nil } }.padding()
@@ -51,11 +59,12 @@ struct NativeChat: View {
             HStack(alignment: .bottom, spacing: 12) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images, photoLibrary: .shared()) { Image(systemName: "photo.badge.plus").font(.title3) }.accessibilityLabel("إرفاق صورة")
                 Button { Task { do { try await audio.start() } catch { self.error = error.localizedDescription } } } label: { Image(systemName: "mic").font(.title3) }.accessibilityLabel("تسجيل رسالة صوتية").disabled(audio.recording || photoDraft != nil)
-                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).accessibilityIdentifier("chat.composer").onChange(of: text) { _ in pendingID = UUID().uuidString.lowercased() }
+                TextField("رسالتك", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).focused($composerFocused).accessibilityIdentifier("chat.composer").onChange(of: text) { _ in pendingID = UUID().uuidString.lowercased() }
                 Button { Task { await send() } } label: { if sending { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) } }.accessibilityLabel("إرسال").accessibilityIdentifier("chat.send").disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && photoDraft == nil && audio.draft == nil)
             }.padding().disabled(!allowed || sending || store.busy)
         }.navigationTitle(connection["person"].title).navigationBarTitleDisplayMode(.inline)
             .toolbar { Button { controls = true } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("خيارات التعارف") }
+            .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("تم") { composerFocused = false }.accessibilityIdentifier("keyboard.dismiss") } }
             .sheet(isPresented: $controls) { NavigationStack { NativeConnectionOptions(connection: connection) } }
             .onChange(of: selectedPhoto) { item in Task {
                 do { if let data = try await item?.loadTransferable(type: Data.self) { photoDraft = try NativeImages.prepare(data); pendingID = UUID().uuidString.lowercased(); audio.discard() } }
@@ -145,7 +154,7 @@ struct NativeMessage: View {
         }.fullScreenCover(item: $photo) { NativePhotoScreen(photo: $0) }.nativeError($error)
             .onChange(of: phase) { if $0 != .active { photo = nil; audio.discard() } }
             .onAppear { visible = true }
-            .onDisappear { visible = false; photo = nil; audio.discard() }
+            .onDisappear { visible = false; audio.discard() }
     }
     private func open() async {
         if audio.playing { audio.pause(); return }
@@ -170,16 +179,30 @@ struct NativeAgreement: View {
     @State private var signed = false
     @State private var days = 14
     var body: some View {
-        DisclosureGroup("اتفاق الجدية قبل التواصل") {
+        DisclosureGroup(agreement["status"].string == "family" ? "اتفقتما على التواصل العائلي" : "اتفاق الجدية") {
             Text("نتفق على مدة للتعارف الجاد، مع احترام الخصوصية وحق كل طرف في التوقف.").font(.footnote)
-            Stepper("\(days) يومًا", value: $days, in: 7...30)
-            Toggle("أوافق على اتفاق الجدية", isOn: $signed)
-            NativeAction(title: agreement["status"].string == "proposed" ? "توقيع الاتفاق" : "اقتراح الاتفاق") {
-                let proposed = agreement["status"].string == "proposed"
-                agreement = try await store.client.rpc("marriage_agreement", ["request_id": .string(requestID), "action": .string(proposed ? "accept" : "propose"), "payload": .object(["days": .number(Double(days)), "signed": .bool(signed), "proposalId": agreement["proposalId"]])])
-            }.disabled(!signed)
-        }.padding().background(NativeTheme.accent.opacity(0.04))
+            if ["accepted", "expired"].contains(agreement["status"].string) {
+                Text("موعد المراجعة: \(agreement["deadline"].string.prefix(10))").font(.caption)
+                if agreement["extension"].isNull { NativeAction(title: "اقتراح أسبوع إضافي") { try await act("extend", ["days": .number(7)]) } }
+                else if agreement["extension"]["actor"] != agreement["actor"] { NativeAction(title: "الموافقة على التمديد") { try await act("extension_accept", ["proposalId": agreement["extension"]["id"]]) } }
+                else { Text("التمديد بانتظار موافقة الطرف الآخر.") }
+                Toggle("أؤكد رغبتي في الانتقال للتواصل العائلي", isOn: $signed)
+                NativeAction(title: "أوافق على التواصل العائلي") { try await act("family", ["confirmed": .bool(true)]) }.disabled(!signed || agreement["familyAgreed"][agreement["actor"].string].bool)
+            } else if agreement["status"].string != "family" && !agreement.isNull {
+                if agreement["actor"].string == "reham" {
+                    Picker("المدة", selection: $days) { Text("٧ أيام").tag(7); Text("١٤ يومًا").tag(14); Text("٣٠ يومًا").tag(30) }
+                } else { Text(agreement["status"].string == "proposed" ? "المدة المقترحة: \(Int(agreement["days"].number)) يومًا" : "بانتظار اقتراح الطرف الآخر.") }
+                if agreement["actor"].string == "reham" || agreement["status"].string == "proposed" {
+                    Toggle("قرأت اتفاق الجدية وأوافق عليه وعلى مدته", isOn: $signed)
+                    NativeAction(title: "التوقيع على الاتفاق") {
+                        let propose = agreement["actor"].string == "reham"
+                        try await act(propose ? "propose" : "accept", propose ? ["days": .number(Double(days)), "signed": .bool(true)] : ["proposalId": agreement["proposalId"], "signed": .bool(true)])
+                    }.disabled(!signed)
+                }
+            }
+        }.padding().background(NativeTheme.accent.opacity(0.04)).onChange(of: agreement["proposalId"].string) { _ in signed = false; if agreement["days"].number > 0 { days = Int(agreement["days"].number) } }
     }
+    private func act(_ action: String, _ payload: [String: JSONValue]) async throws { agreement = try await store.client.rpc("marriage_agreement", ["request_id": .string(requestID), "action": .string(action), "payload": .object(payload)]); signed = false }
 }
 
 struct NativeConnectionOptions: View {
@@ -196,6 +219,8 @@ struct NativeConnectionOptions: View {
             NavigationLink("خطوات التعارف", destination: NativeJourney(connectionID: connection["id"].string))
             NavigationLink("جسر الأهل", destination: NativeFamily(connectionID: connection["id"].string))
             NavigationLink("المكالمات", destination: NativeCalls(connectionID: connection["id"].string))
+            NavigationLink("مشاركة الصور الخاصة", destination: NativeSharedPhotos(connectionID: connection["id"].string))
+            NavigationLink("البحث والمرفقات", destination: NativeChatLibrary(requestID: connection["id"].string))
             Section("إنهاء التعارف") {
                 Toggle("السماح بالترشيح مجددًا", isOn: $allowRematch)
                 Button("إنهاء التعارف", role: .destructive) { confirm = true }

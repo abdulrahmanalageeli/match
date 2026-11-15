@@ -54,7 +54,7 @@ struct NativeSettings: View {
             Section("العضوية والخصوصية") {
                 NavigationLink("عضويتي", destination: NativeMembership())
                 Button(store.account["user"]["paused"].bool ? "استئناف الترشيحات" : "إيقاف الترشيحات مؤقتًا") { pause = true }
-                NavigationLink("الحظر وعدم إعادة الترشيح", destination: NativeExclusions())
+                NavigationLink("الحظر وعدم إعادة الترشيح", destination: NativeExclusions()).accessibilityIdentifier("settings.exclusions")
                 NavigationLink("قفل التطبيق والإشعارات", destination: NativeDeviceSettings())
                 NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal())
                 NativeAction(title: "نسخة من بياناتي") { exported = NativeDataDocument(data: try await store.client.rpc("marriage_personal_data").encoded()); exporting = true }
@@ -105,6 +105,9 @@ struct NativeDeviceSettings: View {
     @State private var lock = UserDefaults.standard.bool(forKey: "nisfayn.privacy.lock")
     @State private var delay = UserDefaults.standard.integer(forKey: "nisfayn.privacy.delay")
     @State private var push = false
+    @State private var preview = "private"
+    @State private var callerName = UserDefaults.standard.bool(forKey: "nisfayn.calls.showName")
+    @State private var icon = UIApplication.shared.alternateIconName ?? "default"
     var body: some View { Form {
         Section("قفل التطبيق") {
             Toggle("Face ID أو رمز الجهاز", isOn: $lock)
@@ -115,13 +118,24 @@ struct NativeDeviceSettings: View {
             }
         }
         Section("الإشعارات") {
+            Picker("خصوصية المعاينة", selection: $preview) { Text("إشعار خاص").tag("private"); Text("الاسم فقط").tag("name"); Text("الاسم والمحتوى").tag("content") }
+            NativeAction(title: "حفظ خصوصية الإشعارات") { _ = try await store.client.rpc("marriage_push_privacy", ["preview_mode": .string(preview)]) }
             NativeAction(title: push ? "إيقاف الإشعارات" : "تفعيل إشعارات iPhone") {
                 if push { _ = try await store.client.rpc("marriage_push_enable", ["enabled": .bool(false)]); _ = try await store.client.rpc("marriage_push_unregister", ["installation": .string(NativeDevice.installationID)]); UIApplication.shared.unregisterForRemoteNotifications(); push = false }
                 else { try await NativeDevice.enablePush(client: store.client); push = true }
             }
             Link("إعدادات iPhone", destination: URL(string: UIApplication.openSettingsURLString)!)
         }
-    }.navigationTitle("خصوصية الجهاز").task { push = (try? await store.client.rpc("marriage_push_settings")["enabled"].bool) ?? false } }
+        Section("الظهور على الجهاز") {
+            Toggle("إظهار اسم المتصل على شاشة المكالمة", isOn: $callerName).onChange(of: callerName) { UserDefaults.standard.set($0, forKey: "nisfayn.calls.showName") }
+            if UIApplication.shared.supportsAlternateIcons {
+                Picker("أيقونة التطبيق", selection: $icon) { Text("وُدَين").tag("default"); Text("هادئة").tag("Quiet"); Text("الأفق").tag("Horizon") }
+                NativeAction(title: "تغيير الأيقونة") { try await UIApplication.shared.setAlternateIconName(icon == "default" ? nil : icon) }
+            }
+        }
+    }.navigationTitle("خصوصية الجهاز").task {
+        do { push = try await store.client.rpc("marriage_push_settings")["enabled"].bool; preview = try await store.client.rpc("marriage_push_privacy", ["preview_mode": .null])["preview"].string } catch { store.error = error.localizedDescription }
+    } }
 }
 
 struct NativeMembership: View {

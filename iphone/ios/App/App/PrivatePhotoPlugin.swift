@@ -114,7 +114,8 @@ final class PrivatePhotoController: UIViewController {
         guard !ended else { return }; ended = true
         // Clear synchronously before dismissal, background snapshots or recording.
         picture.image = nil; image = nil; picture.isHidden = true
-        dismiss(animated: false) { [weak self] in self?.finished?(); self?.finished = nil }
+        let completion = finished; finished = nil
+        dismiss(animated: false, completion: completion)
     }
     deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
 }

@@ -14,12 +14,18 @@ final class NativeSmokeTests: XCTestCase {
         capture(app, "discovery")
         app.tabBars.buttons["التعارفات"].tap(); app.staticTexts["ملف تجريبي"].firstMatch.tap()
         let composer = app.descendants(matching: .any)["chat.composer"].firstMatch
-        XCTAssertTrue(composer.waitForExistence(timeout: 10)); composer.tap(); composer.typeText("Native message")
+        XCTAssertTrue(composer.waitForExistence(timeout: 10)); composer.tap()
+        if app.buttons["Continue"].waitForExistence(timeout: 3) { app.buttons["Continue"].tap() }
+        let systemContinue = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Continue"]
+        if systemContinue.exists { systemContinue.tap() }
+        composer.typeText("Native message")
         app.buttons["chat.send"].tap()
         XCTAssertTrue(app.staticTexts["Native message"].waitForExistence(timeout: 10))
+        if app.buttons["keyboard.dismiss"].exists { app.buttons["keyboard.dismiss"].tap() }
         capture(app, "chat")
         app.tabBars.buttons["الإعدادات"].tap()
-        let exclusions = app.buttons["الحظر وعدم إعادة الترشيح"]
+        capture(app, "settings")
+        let exclusions = app.descendants(matching: .any)["settings.exclusions"].firstMatch
         for _ in 0..<5 { if exclusions.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(exclusions.exists); exclusions.tap()
         XCTAssertTrue(app.staticTexts["ملف مستبعد"].waitForExistence(timeout: 10))

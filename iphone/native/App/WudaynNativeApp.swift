@@ -48,6 +48,14 @@ struct NativeRoot: View {
         Group {
             if store.restoring { ProgressView("نفتح مساحتك…") }
             else if store.owner == nil { NavigationStack { NativeLogin() } }
+            else if store.familyMode { NavigationStack { NativeFamily().toolbar { Button("تسجيل الخروج") { Task { await store.signOut() } } } } }
+            else if store.account.isNull {
+                VStack(spacing: 20) {
+                    Text("لم يكتمل تحميل حسابك.")
+                    NativeAction(title: "إعادة المحاولة") { try await store.refresh() }
+                    Button("تسجيل الخروج") { Task { await store.signOut() } }
+                }
+            }
             else {
                 TabView {
                     NavigationStack { NativeHome() }.tabItem { Label("مساحتي", systemImage: "house") }
@@ -66,13 +74,15 @@ struct NativeLogin: View {
     @State private var email = ""
     @State private var password = ""
     @State private var resetSent = false
+    @State private var family = false
     var body: some View {
         Form {
             Section { VStack(alignment: .leading, spacing: 12) { Text("وُدَين").font(.largeTitle.bold()); Text("بداية واعية لحياة مشتركة").foregroundStyle(.secondary) }.padding(.vertical, 20) }
             Section("حسابك") {
                 TextField("البريد الإلكتروني", text: $email).keyboardType(.emailAddress).textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("login.email")
                 SecureField("كلمة المرور", text: $password).textContentType(.password).accessibilityIdentifier("login.password")
-                Button("تسجيل الدخول") { let secret = password; password = ""; Task { await store.signIn(email: email, password: secret) } }.disabled(store.busy || email.isEmpty || password.isEmpty).accessibilityIdentifier("login.submit")
+                Toggle("دخول أفراد الأسرة", isOn: $family)
+                Button("تسجيل الدخول") { let secret = password; password = ""; Task { await store.signIn(email: email, password: secret, family: family) } }.disabled(store.busy || email.isEmpty || password.isEmpty).accessibilityIdentifier("login.submit")
                 NativeAction(title: "نسيت كلمة المرور") { try await store.client.passwordReset(email: email); resetSent = true }.disabled(email.isEmpty)
             }
             if resetSent { Text("إذا كان البريد مسجلًا، ستصلك تعليمات استعادة الحساب.").foregroundStyle(.secondary) }

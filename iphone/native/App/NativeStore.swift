@@ -19,7 +19,7 @@ struct NativeSessionVault: SessionVault {
         return nil
     }
     func write(_ data: Data) throws {
-        let attributes: [String: Any] = [kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        let attributes: [String: Any] = [kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
         let update = SecItemUpdate(query(key) as CFDictionary, attributes as CFDictionary)
         if update == errSecItemNotFound {
             guard SecItemAdd(query(key).merging(attributes) { _, new in new } as CFDictionary, nil) == errSecSuccess else { throw NativeProblem.message("تعذّر حفظ جلسة الدخول بأمان.") }
@@ -40,6 +40,7 @@ struct NativeSessionVault: SessionVault {
     @Published var restoring = true
     @Published var busy = false
     @Published var error: String?
+    @Published var familyMode = UserDefaults.standard.bool(forKey: "wudayn.native.familyMode")
     let testing: Bool
     init(client: WudaynClient? = nil) {
         #if DEBUG
@@ -58,13 +59,15 @@ struct NativeSessionVault: SessionVault {
         catch { self.error = error.localizedDescription }
     }
     func refresh() async throws {
+        if familyMode { _ = try await client.family("state"); return }
         let expected = owner, value = try await client.rpc("marriage_state")
         guard owner == expected, value["user"]["id"].string == expected else { throw NativeProblem.sessionChanged }
         account = value
     }
-    func signIn(email: String, password: String) async {
+    func signIn(email: String, password: String, family: Bool = false) async {
         await perform {
             self.owner = nil; self.account = .null; NisfaynCallCenter.shared.clear()
+            self.familyMode = family; UserDefaults.standard.set(family, forKey: "wudayn.native.familyMode")
             self.owner = try await self.client.signIn(email: email, password: password); try await self.refresh()
         }
     }
@@ -72,6 +75,7 @@ struct NativeSessionVault: SessionVault {
         await perform {
             NisfaynCallCenter.shared.clear()
             self.owner = nil; self.account = .null
+            self.familyMode = false; UserDefaults.standard.set(false, forKey: "wudayn.native.familyMode")
             NisfaynPushCenter.shared.pending.removeAll()
             try await self.client.signOut()
         }

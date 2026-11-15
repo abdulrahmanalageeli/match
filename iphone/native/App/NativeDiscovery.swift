@@ -87,6 +87,8 @@ struct NativePerson: View {
     var body: some View {
         List {
             NativePersonCard(person: person)
+            NavigationLink("صور الملف", destination: NativePublicGallery(subject: person["id"].string))
+            if !person["fit"].isNull { NavigationLink("قراءة التوافق", destination: NativeCompatibility(fit: person["fit"])) }
             ForEach([("نبذة عني", "bio"), ("شريك الحياة", "lookingFor"), ("ما يهمني", "valuesStatement"), ("حياتنا معًا", "lifeTogether")], id: \.1) { title, key in
                 if !person[key].string.isEmpty { Section(title) { Text(person[key].string) } }
             }

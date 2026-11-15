@@ -70,7 +70,7 @@ struct NativeCalls: View {
     }
     private func end(_ action: String) async throws {
         // Stop local microphone immediately, even when the network is unavailable.
-        NisfaynCallCenter.shared.end(server: true); connected = false
+        NisfaynCallCenter.shared.end(server: action == "end"); connected = false
         call = try await store.client.rpc("marriage_call_act", ["call_id": call["id"], "action": .string(action)])
         clientID = UUID().uuidString.lowercased()
     }

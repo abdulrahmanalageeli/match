@@ -95,6 +95,9 @@ public actor WudaynClient {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = "POST"; request.httpBody = try body.encoded()
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Existing backend allowlists identify the first-party iPhone client by
+        // this origin. It is a compatibility header, not a web rendering runtime.
+        request.setValue("capacitor://localhost", forHTTPHeaderField: "Origin")
         if let auth { request.setValue("Bearer " + auth.access_token, forHTTPHeaderField: "Authorization") }
         let (data, response) = try await transport.send(request)
         guard generation == epoch else { throw NativeProblem.sessionChanged }
@@ -168,6 +171,7 @@ public actor WudaynClient {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = method; request.httpBody = try bytes ?? body?.encoded()
         request.setValue(key, forHTTPHeaderField: "apikey")
+        request.setValue("capacitor://localhost", forHTTPHeaderField: "Origin")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }

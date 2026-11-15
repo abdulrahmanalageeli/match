@@ -67,7 +67,7 @@ struct NativeSignup: View {
                     let normalized = try NativeDevice.normalizePhone(phone)
                     let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": .string(email), "phone": .string(normalized), "deviceId": .string(deviceID), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
                     proof = value["proof"].string; verified = value["verified"].bool; sentAt = Date()
-                }.disabled(!smsConsent || email.isEmpty || password.count < 8 || (sentAt.map { Date().timeIntervalSince($0) < 60 } ?? false))
+                }.disabled(!smsConsent || email.isEmpty || password.count < 10 || password.utf8.count > 72 || (sentAt.map { Date().timeIntervalSince($0) < 60 } ?? false))
                 if !proof.isEmpty {
                     TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad)
                     NativeAction(title: "تأكيد الرمز") {
@@ -81,7 +81,7 @@ struct NativeSignup: View {
                 guard result["ok"].bool else { throw NativeProblem.invalidResponse }
                 password = ""; code = ""; proof = ""; created = true
             }.disabled(!verified || !consent["adult"].bool || !consent["privacy"].bool || !consent["terms"].bool || created)
-            if created { Text("أُنشئ الحساب. تحقق من بريدك ثم سجّل الدخول.") }
+            if created { Text("أُنشئ الحساب. يمكنك الآن تسجيل الدخول.") }
         }.navigationTitle("إنشاء حساب")
             .onChange(of: email) { _ in proof = ""; verified = false }
             .onChange(of: phone) { _ in if !verified { proof = "" } }
@@ -135,6 +135,13 @@ struct NativeProfileEditor: View {
             NativeAction(title: "حفظ الملف والتفضيلات") {
                 var value = draft
                 guard value["interestIds"].array.count <= 3, value["priorityCategories"].array.count <= 2 else { throw NativeProblem.message("اختر حتى ٣ اهتمامات وأولويتين للتوافق.") }
+                guard value["preferredMinAge"].number <= value["preferredMaxAge"].number else { throw NativeProblem.message("يجب أن يكون الحد الأدنى للعمر أصغر من الحد الأعلى أو مساويًا له.") }
+                value["marriageBasics"] = .object(value["marriageBasics"].object.filter { $0.value != .string("") && !$0.value.isNull })
+                if value["marriageBasics"]["maritalStatus"].string != "married" { var basics = value["marriageBasics"].object; basics.removeValue(forKey: "currentWives"); value["marriageBasics"] = .object(basics) }
+                if value["marriageBasics"]["tribalBackground"].string != "tribal" { var basics = value["marriageBasics"].object; basics.removeValue(forKey: "tribeName"); value["marriageBasics"] = .object(basics) }
+                for (key, rule) in value["partnerCriteria"].object {
+                    if rule["mode"].string == "any" || rule["mode"].string.isEmpty { value["partnerCriteria"][key] = .object(["mode": .string("any")]) }
+                }
                 let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
                 value["birthDate"] = .string(formatter.string(from: birthday))
                 value["age"] = .number(Double(Calendar(identifier: .gregorian).dateComponents([.year], from: birthday, to: Date()).year ?? 0))
@@ -151,6 +158,16 @@ struct NativeProfileEditor: View {
                 if !value["signupConsents"]["assessment"].bool {
                     for key in ["surveyAnswers", "personalityAnswers", "partnerCriteria"] { value[key] = .object([:]) }
                     value["hardRequirements"] = .array([]); value["priorityCategories"] = .array([]); value["beena"] = .null
+                }
+                if !value["beena"].isNull {
+                    value["beena"]["answers"] = .object(value["beena"]["answers"].object.mapValues { .object($0.object.filter { $0.value != .string("") }) })
+                    if !value["beena"]["story"].isNull {
+                        if value["beena"]["story"]["scenarioId"].string.isEmpty && value["beena"]["story"]["text"].string.isEmpty { var beena = value["beena"].object; beena.removeValue(forKey: "story"); value["beena"] = .object(beena) }
+                        else {
+                            guard !value["beena"]["story"]["scenarioId"].string.isEmpty, value["beena"]["story"]["text"].string.count <= 500 else { throw NativeProblem.message("اختر موقفًا للقصة واكتب حتى ٥٠٠ حرف.") }
+                            value["beena"]["story"]["share"] = .bool(value["beena"]["story"]["share"].bool); value["beena"]["story"]["text"] = .string(value["beena"]["story"]["text"].string)
+                        }
+                    }
                 }
                 _ = try await store.client.rpc("marriage_apply", ["payload": value]); try await store.refresh(); saved = true
             }.disabled(draft.isNull)
@@ -174,6 +191,7 @@ struct NativeMarriageFields: View {
             TextField("الجنسية", text: $value.text("nationality"))
             Stepper("عدد الأبناء: \(Int(value["childrenCount"].number))", value: $value.number("childrenCount"), in: 0...20)
             NativeChoice(title: "الحالة الاجتماعية", value: $value.text("maritalStatus"), options: [.init(id: "never_married", label: "لم يسبق لي الزواج"), .init(id: "divorced", label: "مطلق/ة"), .init(id: "widowed", label: "أرمل/ة"), .init(id: "married", label: "متزوج")])
+            if value["maritalStatus"].string == "married" { Stepper("عدد الزوجات: \(Int(value["currentWives"].number))", value: $value.number("currentWives"), in: 1...4) }
             NativeChoice(title: "التدخين", value: $value.text("smoking"), options: [.init(id: "never", label: "لا أدخن"), .init(id: "sometimes", label: "أحيانًا"), .init(id: "cigarettes", label: "سجائر"), .init(id: "vape", label: "إلكتروني"), .init(id: "shisha", label: "شيشة"), .init(id: "yes", label: "نعم")])
         }
         Section("الخطوة القادمة") {
@@ -213,6 +231,11 @@ struct NativeAssessment: View {
 struct NativeBeena: View {
     @Binding var profile: JSONValue
     var body: some View { List {
+        Section("موقف أود مشاركته") {
+            NativeChoice(title: "الموقف", value: $profile.field("beena").field("story").text("scenarioId"), options: NativeOption.values(NativeCatalog.value["beena"]["beenaScenarios"], label: "title"))
+            TextField("قصتي · حتى ٥٠٠ حرف", text: $profile.field("beena").field("story").text("text"), axis: .vertical).lineLimit(3...8)
+            Toggle("أوافق على عرض هذه القصة في ملفي", isOn: $profile.field("beena").field("story").flag("share"))
+        }
         ForEach(NativeCatalog.value["beena"]["beenaScenarios"].array, id: \.["id"].string) { scenario in
             Section(scenario["title"].string) {
                 Text(scenario["scene"].string).foregroundStyle(.secondary)

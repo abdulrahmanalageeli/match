@@ -23,7 +23,7 @@ struct NativeLifecycle: ViewModifier {
                 if NisfaynPrivacy.shared.mayOpen, NisfaynCallCenter.shared.active, NisfaynCallCenter.shared.snapshot["account"] as? String == store.owner { calls = true }
             }
             .task(id: "\(store.owner ?? "")-\(phase == .active)") {
-                guard !store.testing, phase == .active, let owner = store.owner else { return }
+                guard !store.testing, !store.familyMode, phase == .active, let owner = store.owner else { return }
                 do {
                     repeat {
                         if boundOwner != owner || Date().timeIntervalSince(boundAt) > 6 * 3600 {

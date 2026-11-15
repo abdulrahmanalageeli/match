@@ -39,8 +39,7 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(try JSONValue.decode(value.encoded()), value)
     }
     func testUsesDedicatedProjectAndBearerOnlyAfterLogin() async throws {
-        let transport = MockTransport(), vault = MemoryVault(), client = WudaynClient(vault: MemoryVault(), transport: MockTransport())
-        _ = client // Keep test transport explicitly isolated from the production default.
+        let transport = MockTransport(), vault = MemoryVault()
         let authenticated = WudaynClient(vault: vault, transport: transport)
         try await transport.enqueue(session(a)); _ = try await authenticated.signIn(email: "test@example.invalid", password: "fixture")
         try await transport.enqueue(.object([:])); _ = try await authenticated.rpc("marriage_state")
@@ -52,8 +51,7 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(requests[1].cachePolicy, .reloadIgnoringLocalCacheData)
     }
     func testDoesNotReplayFailedMutation() async throws {
-        let transport = MockTransport(), client = WudaynClient(vault: MemoryVault(), transport: MockTransport())
-        _ = client
+        let transport = MockTransport()
         let subject = WudaynClient(vault: MemoryVault(), transport: transport)
         try await transport.enqueue(session(a)); _ = try await subject.signIn(email: "test@example.invalid", password: "fixture")
         try await transport.enqueue(.object([:]), status: 503)
@@ -83,10 +81,29 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(try JSONValue.decode(XCTUnwrap(vault.read()))["user"]["id"].string, a)
     }
     func testRejectsNonMemberRPCBeforeNetwork() async throws {
-        let transport = MockTransport(), client = WudaynClient(vault: MemoryVault(), transport: MockTransport())
-        _ = client
+        let transport = MockTransport()
         let subject = WudaynClient(vault: MemoryVault(), transport: transport)
         do { _ = try await subject.rpc("admin_delete"); XCTFail("Not allowlisted") } catch { XCTAssertEqual(error as? NativeProblem, .invalidResponse) }
         let requests = await transport.requests; XCTAssertTrue(requests.isEmpty)
+    }
+    func testSingleUseMediaOpenIsNotRetried() async throws {
+        let transport = MockTransport()
+        let client = WudaynClient(vault: MemoryVault(), transport: transport)
+        try await transport.enqueue(session(a)); _ = try await client.signIn(email: "ui@example.invalid", password: "fixture")
+        try await transport.enqueue(.object([:]), status: 409)
+        do { _ = try await client.media(requestID: a, mediaID: b, once: true); XCTFail("Open must fail") } catch { }
+        let requests = await transport.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests.last?.value(forHTTPHeaderField: "Origin"), "capacitor://localhost")
+        XCTAssertTrue(try JSONValue.decode(XCTUnwrap(requests.last?.httpBody))["viewOnce"].bool)
+    }
+    func testFailedAccountSwitchClearsStoredSession() async throws {
+        let transport = MockTransport(), vault = MemoryVault()
+        let client = WudaynClient(vault: vault, transport: transport)
+        try await transport.enqueue(session(a)); _ = try await client.signIn(email: "a@example.invalid", password: "fixture")
+        try await transport.enqueue(.object([:]), status: 400)
+        do { _ = try await client.signIn(email: "b@example.invalid", password: "fixture"); XCTFail("Login must fail") } catch { }
+        XCTAssertNil(try vault.read())
+        do { _ = try await client.rpc("marriage_state"); XCTFail("Previous account must not survive") } catch { XCTAssertEqual(error as? NativeProblem, .signedOut) }
     }
 }

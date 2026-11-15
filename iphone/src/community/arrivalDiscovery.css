@@ -359,8 +359,8 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 }
 
 /* Quiet, typographic compatibility in the upper-left corner. */
-.phone-app .cm-shell .dr-fit-visual { width: 67px; min-height: 70px; align-self: flex-start; display: grid; place-items: center; padding: 0; border: 0; background: transparent; }
-.phone-app .cm-shell .dr-fit-pending { display: grid; place-items: center; gap: 2px; width: 67px; min-height: 70px; border: 1px solid #e5e2de; border-radius: 11px; background: #faf9f8; color: #716b70; font: 600 18px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.phone-app .cm-shell .dr-fit-visual { width: 74px; min-height: 40px; align-self: flex-start; display: grid; place-items: center; padding: 0; border: 0; background: transparent; }
+.phone-app .cm-shell .dr-fit-pending { display: grid; place-items: center; gap: 2px; width: 74px; min-height: 40px; border: 1px solid #e5e2de; border-radius: 10px; background: #fffdfa; color: #716b70; font: 600 16px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .phone-app .cm-shell .dr-fit-pending small { font: 400 9px/1.2 var(--font-ui); }
 .phone-app .cm-shell .dr-preference-inline { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
 .phone-app .cm-shell .dr-preference-inline strong { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 18px; line-height: 1.2; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }

@@ -26,7 +26,7 @@
 .cm-chat .cm-bubble p { line-height: 1.65; font-size: .93rem; }
 .cm-chat .cm-message-meta { margin-top: 3px; font-size: .6rem; }
 .cm-chat .cm-chat-day { padding: 8px 35px 13px; font-size: .62rem; }
-.cm-chat .cm-chat-compose { padding: 10px 12px max(12px,env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.cm-chat .cm-chat-compose { padding: 10px 12px max(12px,var(--nf-safe-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
 .cm-chat .cm-composer-surface { align-items: flex-end; box-shadow: none; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); padding: 3px; }
 .cm-chat-compose textarea { flex: 1; min-width: 0; width: 100%; overflow-y: auto; scrollbar-width: none; line-height: 22px; }
 .cm-chat-compose textarea::-webkit-scrollbar { display: none; }

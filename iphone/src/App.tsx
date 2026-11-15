@@ -14,6 +14,8 @@ import type { SignupReturn, SignupAgreements } from './auth/signupReturn';
 import "./ambient.css";
 import type { PortraitDraft } from './photos/portraitPreparation';
 import { LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
+import { socialSignIn } from './auth/social';
+import { SocialOnboarding } from './auth/SocialOnboarding';
 import { SupportContact, SupportProvider } from './help/SupportContact';
 import { createSupportSource } from './help/support';
 import { feedback } from './feedback/haptics';
@@ -178,6 +180,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }, [token]);
   const tokenRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [socialPending, setSocialPending] = useState<{ userId: string; email: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const inflight = useRef(false);
   const version = useRef(0);
@@ -447,6 +450,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       try {
         const t = await (cloudSelected ? cloudSessionId() : readSession());
         if (disposed || !t) return;
+        if (cloudSelected) {
+          const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, t);
+          if (disposed) return;
+          if (status.required) { setSocialPending({ userId: t, email: status.email }); return; }
+        }
         remember(t);
         await refresh(t);
         if (!disposed && openLogin && tokenRef.current === t) setView('main');
@@ -562,6 +570,24 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       setDemo(false);
       go("main");
     });
+  }
+  function signInSocial(provider: 'apple' | 'google') {
+    void run(async () => {
+      const userId = await socialSignIn(provider);
+      const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, userId);
+      if (status.required) { setSocialPending({ userId, email: status.email }); return; }
+      remember(userId);
+      await refresh(userId);
+      setDemo(false);
+      go('main');
+    });
+  }
+  function finishSocialOnboarding(userId: string) {
+    setSocialPending(null);
+    remember(userId);
+    setDemo(false);
+    go('main');
+    void run(async () => { await refresh(userId); });
   }
   function phoneSignedIn(memberId: string) {
     remember(memberId);
@@ -804,6 +830,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         <img className="nf-opening-horizon" src="/brand/nisfayn-horizon.svg" alt="" />
       </div>
     );
+  else if (socialPending)
+    screen = <SocialOnboarding email={socialPending.email} userId={socialPending.userId} busy={busy} onComplete={finishSocialOnboarding} onLogout={() => void run(async () => { await cloudLogout(); setSocialPending(null); go('login'); })} onPrivacy={() => setPolicy(true)} />;
   else if (token && !live && !demo)
     screen = (
       <Frame title="حسابي" back={signOut}>
@@ -833,6 +861,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         back={() => welcomeNavigation(() => go("main"), "back", welcomeFocus.current)}
         switchMode={() => go(view === "login" ? "register" : "login")}
         submit={signIn}
+        onSocial={signInSocial}
         onPhoneVerified={phoneSignedIn}
         busy={busy}
         ready={serviceReady}

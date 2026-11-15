@@ -16,7 +16,7 @@
 }
 .phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss { flex: none; padding-inline: 8px; }
 .phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss span { display: none; }
-.phone-app .nf-auth-frame .flow-body { display: flex; flex-direction: column; gap: 0; padding: 26px 0 max(24px, env(safe-area-inset-bottom)); }
+.phone-app .nf-auth-frame .flow-body { display: flex; flex-direction: column; gap: 0; padding: 26px 0 max(24px, var(--nf-safe-bottom)); }
 .phone-app .nf-auth-frame .nf-auth-hero { padding: 0 0 28px; }
 .phone-app .nf-auth-frame .nf-auth-hero h1 { margin: 0; color: var(--auth-ink); font-size: 30px; font-weight: 700; line-height: 1.4; letter-spacing: normal; }
 .phone-app .nf-auth-frame .nf-auth-hero h1:focus { outline: none; }

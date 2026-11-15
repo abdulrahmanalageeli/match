@@ -40,7 +40,7 @@
 .nf-compatibility-notice :focus-visible, .nf-compatibility-change-sheet :focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
 .nf-compatibility-change-sheet {
   box-sizing: border-box; width: min(calc(100vw - 24px), 500px); max-height: min(84dvh, 800px);
-  margin: auto auto max(14px, env(safe-area-inset-bottom)); padding: 0; overflow-x: hidden;
+  margin: auto auto max(14px, var(--nf-safe-bottom)); padding: 0; overflow-x: hidden;
   border: 1px solid #e5e2de; border-radius: 18px; background: #fff; color: #242326;
   box-shadow: 0 24px 100px #32121e35; font: inherit; text-align: start;
   overscroll-behavior: contain; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c9c4c1 transparent;

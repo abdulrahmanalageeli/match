@@ -23,7 +23,7 @@
   top: 0;
   z-index: 9;
   min-height: 66px;
-  padding: max(12px, env(safe-area-inset-top)) 20px 12px;
+  padding: max(12px, var(--nf-safe-top)) 20px 12px;
   border-bottom: 0;
   background: #f5f3f4f5;
   backdrop-filter: blur(16px);
@@ -150,7 +150,7 @@
 .nf-signup-status .flow-card { border: 0; border-radius: 50%; background: #fff; box-shadow: none; }
 .nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 52px; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f5f3f4f5; border-bottom: 0; }
-.phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: none; }
+.phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, var(--nf-safe-bottom)); background: none; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: start; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-check { width: 66px; height: 66px; margin: 20px 0 28px; border: 1px solid #d3dcd5; border-radius: 50%; background: #edf3ee; box-shadow: none; color: #3a6348; }
 .nf-sandbox-check svg { width: 29px; height: 29px; }
@@ -183,7 +183,7 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
 /* Keep assessment navigation compact so the question leads the viewport. */
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-header {
   min-height: 64px;
-  padding-block: max(10px, env(safe-area-inset-top)) 10px;
+  padding-block: max(10px, var(--nf-safe-top)) 10px;
 }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-main { padding-top: 12px; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-progress { padding-bottom: 12px; }

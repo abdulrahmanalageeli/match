@@ -73,7 +73,7 @@
 .phone-app .cm-shell .cm-unread-divider span { border: 0; background: transparent; padding: 3px 8px; }
 
 /* The send action retains its established right-side ordering. */
-.phone-app .cm-shell .cm-chat .cm-chat-compose { padding: 12px 12px max(12px,env(safe-area-inset-bottom)); background: #fff; border-top-color: #e5e2de; box-shadow: none; }
+.phone-app .cm-shell .cm-chat .cm-chat-compose { padding: 12px 12px max(12px,var(--nf-safe-bottom)); background: #fff; border-top-color: #e5e2de; box-shadow: none; }
 .phone-app .cm-shell .cm-chat .cm-composer-surface { padding: 4px; border-radius: 12px; background: #fdfdfd; border-color: #d8d4d1; box-shadow: none; transition: border-color 180ms ease; }
 .phone-app .cm-shell .cm-chat .cm-composer-surface:focus-within { border-color: #9d7d89; box-shadow: none; }
 .phone-app .cm-shell .cm-chat-compose textarea { color: #242326; caret-color: #54152a; font-size: 16px; }

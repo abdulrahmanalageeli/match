@@ -2,7 +2,7 @@
 .mi-home-content { flex: 1; padding-bottom: 24px; }
 .mi-header, .mi-detail-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding-block: max(15px, env(safe-area-inset-top)) 14px; border-bottom: 1px solid var(--line);
+  padding-block: max(15px, var(--nf-safe-top)) 14px; border-bottom: 1px solid var(--line);
 }
 .mi-membership-button {
   min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 13px;
@@ -78,7 +78,7 @@
 .mi-privacy p { font-size: .85rem; }
 .mi-tabbar {
   position: sticky; bottom: 0; z-index: 3; display: flex; justify-content: space-around;
-  padding: 5px 10px max(7px, env(safe-area-inset-bottom)); background: var(--chrome); border-top: 1px solid var(--line);
+  padding: 5px 10px max(7px, var(--nf-safe-bottom)); background: var(--chrome); border-top: 1px solid var(--line);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 .mi-tab {
@@ -102,7 +102,7 @@
 .mi-empty-body p { margin: 0 0 15px; color: var(--muted); line-height: 1.6; }
 .mi-paused-note { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding: 0 12px; background: var(--blush); border-radius: 12px; font-size: .92rem; }
 .mi-paused-note button { min-height: 44px; background: transparent; border: 0; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; }
-.mi-detail-content { padding-bottom: max(28px, env(safe-area-inset-bottom)); }
+.mi-detail-content { padding-bottom: max(28px, var(--nf-safe-bottom)); }
 .mi-detail-header { margin-bottom: 18px; padding-bottom: 9px; }
 .mi-back, .mi-detail-private { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font: inherit; font-size: .94rem; line-height: 1.4; }
 .mi-back { min-height: 44px; padding: 0; border: 0; background: transparent; font-weight: 700; color: var(--accent); }

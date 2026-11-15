@@ -8,7 +8,7 @@
   background: var(--page-background);
 }
 .nf-intake-header {
-  display: flex; align-items: center; gap: 13px; padding: max(12px, env(safe-area-inset-top)) var(--intake-pad) 12px;
+  display: flex; align-items: center; gap: 13px; padding: max(12px, var(--nf-safe-top)) var(--intake-pad) 12px;
   min-height: 70px; border-bottom: 1px solid var(--line);
 }
 .demo-notice ~ .nf-intake .nf-intake-header { padding-top: 12px; }
@@ -17,7 +17,7 @@
   border: 0; color: var(--accent); font: inherit; font-size: .9rem; font-weight: 700;
 }
 .nf-intake-later { margin-inline-start: auto; }
-.nf-intake-main { padding: 20px var(--intake-pad) max(13px, env(safe-area-inset-bottom)); display: flex; flex: 1; flex-direction: column; }
+.nf-intake-main { padding: 20px var(--intake-pad) max(13px, var(--nf-safe-bottom)); display: flex; flex: 1; flex-direction: column; }
 .nf-intake-meter { display: flex; gap: 5px; }
 .nf-intake-meter i { height: 3px; flex: 1; border-radius: 99px; overflow: hidden; background: var(--gold); }
 .nf-intake-meter i::after { content: ""; display: block; height: 100%; background: var(--accent-fill); transform: scaleX(0); transform-origin: right; }
@@ -136,7 +136,7 @@
 .nf-intake-fields .choice-row { gap: 10px; }
 .nf-intake-fields .choice-row button { min-height: 51px; border-radius: 14px; }
 .nf-intake-fields .choice-row button[aria-pressed=true] { background: var(--accent-fill); color: var(--accent-ink); border-color: var(--accent-fill); }
-.nf-intake-actions, .nf-studio-actions { position: sticky; bottom: 0; z-index: 3; padding: 15px 0 max(14px, env(safe-area-inset-bottom)); margin-top: 24px; background: linear-gradient(#fcfaf7ed, #fcfaf7 35%); text-align: center; }
+.nf-intake-actions, .nf-studio-actions { position: sticky; bottom: 0; z-index: 3; padding: 15px 0 max(14px, var(--nf-safe-bottom)); margin-top: 24px; background: linear-gradient(#fcfaf7ed, #fcfaf7 35%); text-align: center; }
 .nf-intake-actions .f-primary, .nf-studio-actions .f-primary { min-height: 54px; border-radius: 16px; padding-inline: 20px; box-shadow: 0 7px 18px #5a0f2816; }
 .nf-studio-actions .f-primary { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .nf-intake-actions small, .nf-studio-actions small { display: block; margin: 9px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.65; }
@@ -215,7 +215,7 @@
 
 /* A quieter mobile frame for the first profile, with the same chapters and fields. */
 .nf-intake:not([data-editing]) { --intake-pad: clamp(18px, 5.1vw, 26px); background: #fcfaf7; }
-.nf-intake:not([data-editing]) .nf-intake-header { min-height: 68px; padding-block: max(10px, env(safe-area-inset-top)) 10px; gap: 10px; border-bottom: 0; background: transparent; }
+.nf-intake:not([data-editing]) .nf-intake-header { min-height: 68px; padding-block: max(10px, var(--nf-safe-top)) 10px; gap: 10px; border-bottom: 0; background: transparent; }
 .nf-intake:not([data-editing]) .nf-intake-header .f-icon { width: 42px; height: 42px; min-height: 42px; background: #fffdfb; border-color: #e5dcda; }
 .nf-intake:not([data-editing]) .nf-intake-later { font-size: .8rem; font-weight: 500; padding-inline: 3px; }
 .nf-intake:not([data-editing]) .nf-intake-main { padding-top: 8px; }
@@ -253,7 +253,7 @@
 .nf-intake-draft-help[open] > summary > svg:last-child { transform: rotate(-90deg); }
 .nf-intake-draft-help p { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #f6f0ea; line-height: 1.85; }
 .nf-intake-draft-help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
-.nf-intake .nf-intake-actions { margin-top: 18px; padding-top: 14px; padding-bottom: max(4px, env(safe-area-inset-bottom)); background: linear-gradient(#fcfaf700, #fcfaf7 15px); }
+.nf-intake .nf-intake-actions { margin-top: 18px; padding-top: 14px; padding-bottom: max(4px, var(--nf-safe-bottom)); background: linear-gradient(#fcfaf700, #fcfaf7 15px); }
 .nf-intake .nf-intake-actions .f-primary { min-height: 54px; border-radius: 15px; box-shadow: 0 5px 14px #5a0f2814; }
 .nf-intake .nf-intake-actions > small { margin-top: 8px; font-size: .73rem; }
 .nf-intake .nf-intake-actions .nf-intake-error { text-align: start; margin: 0 0 10px; font-size: .85rem; }

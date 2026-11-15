@@ -20,6 +20,7 @@ export const cloud =
           detectSessionInUrl: false,
           persistSession: true,
           autoRefreshToken: true,
+          flowType: 'pkce',
         },
       })
     : null;

@@ -169,8 +169,8 @@ body {
 .flow-frame {
   min-height: 100svh;
   background: var(--page-background);
-  padding: env(safe-area-inset-top) 24px
-    calc(26px + env(safe-area-inset-bottom));
+  padding: var(--nf-safe-top) 24px
+    calc(26px + var(--nf-safe-bottom));
 }
 .flow-brand {
   margin-inline-start: auto;
@@ -491,7 +491,7 @@ body {
   font-weight: 700;
 }
 .demo-notice {
-  padding-top: calc(5px + env(safe-area-inset-top));
+  padding-top: calc(5px + var(--nf-safe-top));
 }
 .demo-notice ~ .app-screen .mi-header,
 .demo-notice ~ .app-screen .mi-detail-header {
@@ -512,7 +512,7 @@ body {
 }
 .feedback {
   position: sticky;
-  top: env(safe-area-inset-top);
+  top: var(--nf-safe-top);
   z-index: 6;
   box-shadow: 0 2px 8px #5a0f2812;
 }
@@ -526,7 +526,7 @@ body {
   min-width: 34px;
 }
 .demo-simulate {
-  padding: 0 22px calc(20px + env(safe-area-inset-bottom));
+  padding: 0 22px calc(20px + var(--nf-safe-bottom));
   background: var(--paper);
 }
 .action-dialog {

@@ -10,7 +10,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(9px + env(safe-area-inset-top, 0px)) clamp(21px, 6vw, 33px) 0;
+  padding: calc(9px + var(--nf-safe-top)) clamp(21px, 6vw, 33px) 0;
 }
 .nf-mast button {
   display: inline-flex;
@@ -64,7 +64,7 @@
 .nf-welcome-journey .nf-welcome-journey-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px; margin: 0 0 10px; background: #f2e8e54f; border-radius: 12px; }
 .nf-welcome-journey-note svg { flex: none; margin-top: 4px; }
 .nf-welcome-horizon { flex: none; display: block; width: 100%; height: clamp(86px,14svh,125px); object-fit: cover; object-position: center bottom; margin-top: auto; margin-bottom: -1px; pointer-events: none; }
-.nf-welcome-actions { position: sticky; bottom: 0; z-index: 5; display: grid; justify-items: center; gap: 4px; padding: 10px clamp(20px,6vw,34px) max(10px,env(safe-area-inset-bottom)); background: #5a0f28; }
+.nf-welcome-actions { position: sticky; bottom: 0; z-index: 5; display: grid; justify-items: center; gap: 4px; padding: 10px clamp(20px,6vw,34px) max(10px,var(--nf-safe-bottom)); background: #5a0f28; }
 .nf-welcome-actions .nf-join { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 50px; padding-inline: 20px; border: 1px solid #faf6ee; border-radius: 15px; background: #faf6ee; color: #5a0f28; box-shadow: 0 5px 14px #29071226; }
 .nf-welcome-actions .nf-join:active { background: #eee0cc; }
 .nf-welcome-join-note { color: #f2e1d2bf; font-size: .62rem; line-height: 1.7; margin-top: 3px; }
@@ -177,7 +177,7 @@
   border-radius: 58% 42% 48% 52%;
   transform: rotate(-28deg);
 }
-.nf-welcome .nf-mast { position: relative; z-index: 2; padding-top: max(13px, env(safe-area-inset-top)); }
+.nf-welcome .nf-mast { position: relative; z-index: 2; padding-top: max(13px, var(--nf-safe-top)); }
 .nf-welcome .nf-mast button {
   padding-inline: 3px;
   color: #765d65;
@@ -344,7 +344,7 @@
 .nf-welcome-horizon { height: clamp(88px, 13svh, 122px); margin-top: 8px; }
 .nf-welcome-actions {
   gap: 5px;
-  padding: 11px clamp(19px, 5vw, 30px) max(11px, env(safe-area-inset-bottom));
+  padding: 11px clamp(19px, 5vw, 30px) max(11px, var(--nf-safe-bottom));
   background:
     radial-gradient(circle at 12% 0%, #9e526b 0, transparent 42%),
     linear-gradient(145deg, #67162f, #4a0c21);
@@ -404,6 +404,10 @@
 .nf-auth-promise li[aria-current] > span { border-color: #54152a; background: #54152a; color: #fff; }
 .nf-auth-aside { display: none; }
 .nf-auth-panel { display: grid; gap: 18px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.nf-social-login { display: grid; gap: 10px; }
+.nf-social-login button { min-height: 52px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; }
+.nf-social-login button:disabled { opacity: .55; }
+.nf-social-login p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
 .nf-auth-panel .flow-form { gap: 18px; }
 .nf-auth-panel .flow-form label { gap: 8px; color: #242326; font-size: 16px; }
 .nf-auth-panel .flow-form input:not([type="checkbox"]) {

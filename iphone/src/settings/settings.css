@@ -2,10 +2,10 @@
 .st-completion .screen-content{padding-bottom:32px}.st-completion h1{font-size:1.8rem;color:var(--accent);margin:16px 0 8px}.st-completion p{line-height:1.85;font-size:.94rem}.st-completion>.screen-content>.st-dialog-icon{margin-top:20px}
 .st-completion-stage{display:grid;gap:8px;font-weight:600;margin-block:20px 8px}.st-completion-stage select{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
 .st-completion .st-completion-note{font-size:.82rem;color:var(--muted)}.st-completion-card{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--paper)}.st-completion-card h2{font-size:1.1rem;margin:0;color:var(--accent)}.st-completion-actions{display:flex;flex-wrap:wrap;gap:10px}.st-completion-card button{max-width:100%;white-space:normal;min-height:44px}.st-completion-status{display:flex;align-items:center;gap:8px}
-.demo-notice ~ .st-screen { min-height: calc(100svh - 42px - env(safe-area-inset-top)); }
-.st-content { flex: 1; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.demo-notice ~ .st-screen { min-height: calc(100svh - 42px - var(--nf-safe-top)); }
+.st-content { flex: 1; padding-bottom: max(20px, var(--nf-safe-bottom)); }
 .st-top {
-  min-height: 65px; padding-block: max(13px, env(safe-area-inset-top)) 13px;
+  min-height: 65px; padding-block: max(13px, var(--nf-safe-top)) 13px;
   display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gold);
 }
 .demo-notice ~ .st-screen .st-top { padding-top: 13px; }

@@ -5,10 +5,10 @@
   color: var(--sandbox-ink);
   background: #fbfaf8;
 }
-.nf-sandbox-bar { display: flex; align-items: center; justify-content: space-between; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) 24px 12px; }
+.nf-sandbox-bar { display: flex; align-items: center; justify-content: space-between; min-height: 72px; padding: max(12px, var(--nf-safe-top)) 24px 12px; }
 .nf-sandbox-bar > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #5a0f28; font: inherit; font-size: .82rem; }
 .nf-sandbox-bar .nisfayn-brand-name { width: 67px; height: auto; }
-.nf-sandbox-intro, .nf-sandbox-finish { display: flex; flex-direction: column; padding: 18px 26px max(12px, env(safe-area-inset-bottom)); min-height: calc(100svh - 72px); }
+.nf-sandbox-intro, .nf-sandbox-finish { display: flex; flex-direction: column; padding: 18px 26px max(12px, var(--nf-safe-bottom)); min-height: calc(100svh - 72px); }
 .nf-sandbox-intro-copy { position: relative; }
 .nf-sandbox-eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #8f5a6c; font-size: .76rem; font-weight: 500; }
 .nf-sandbox-eyebrow i { width: 5px; height: 5px; border-radius: 50%; background: #aa6a7c; }
@@ -142,8 +142,8 @@
 .nf-sandbox-horizon .nf-welcome-horizon { height: 84px; margin: 0; }
 .nf-sandbox-intro-actions {
   position: relative;
-  margin: 0 -26px calc(-1 * max(12px, env(safe-area-inset-bottom)));
-  padding: 12px 26px max(12px, env(safe-area-inset-bottom));
+  margin: 0 -26px calc(-1 * max(12px, var(--nf-safe-bottom)));
+  padding: 12px 26px max(12px, var(--nf-safe-bottom));
   background:
     radial-gradient(circle at 12% 0%, #9e526b 0, transparent 42%),
     linear-gradient(145deg, #67162f, #4a0c21);

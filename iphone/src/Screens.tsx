@@ -21,6 +21,7 @@ import { SupportContact } from "./help/SupportContact";
 import './auth/entry.css';
 import { KeyboardDismiss } from './mobile/KeyboardDismiss';
 import { membershipPriceLabel } from './membershipPricing';
+import { Capacitor } from '@capacitor/core';
 
 type Click = () => void;
 export function Frame({
@@ -68,6 +69,7 @@ export function Auth({
   back,
   switchMode,
   submit,
+  onSocial,
   busy,
   ready,
   onDemo,
@@ -78,6 +80,7 @@ export function Auth({
   back: Click;
   switchMode: Click;
   submit: (email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) => void;
+  onSocial: (provider: 'apple' | 'google') => void;
   busy: boolean;
   ready: boolean;
   onDemo: Click;
@@ -87,6 +90,7 @@ export function Auth({
   const [recovering, setRecovering] = useState(false);
   const [visible, setVisible] = useState(false);
   const [phoneMode, setPhoneMode] = useState(false);
+  const [emailMode, setEmailMode] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
   const [agreements, setAgreements] = useState({ adult: false, terms: false, privacy: false });
   const [agreementError, setAgreementError] = useState("");
@@ -96,6 +100,7 @@ export function Auth({
   const reviewing = !login && entryStep === 'consent';
   const locked = busy || phonePending;
   const accepted = login || (agreements.adult && agreements.terms && agreements.privacy);
+  const nativeSocial = ready && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   useLayoutEffect(() => {
     setAgreements({ adult: false, terms: false, privacy: false });
     setAgreementError("");
@@ -153,8 +158,14 @@ export function Auth({
         </section>}
       </section>
       <section className="nf-auth-panel">
+      {nativeSocial && !reviewing && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
+        <button type="button" disabled={locked} onClick={() => onSocial('apple')}>المتابعة باستخدام Apple</button>
+        <button type="button" disabled={locked} onClick={() => onSocial('google')}>المتابعة باستخدام Google</button>
+        <p>سنؤكد رقم جوالك عند إنشاء حساب جديد.</p>
+      </div>}
+      {nativeSocial && !reviewing && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setEmailMode(value => !value)}>{emailMode ? 'إخفاء البريد الإلكتروني' : 'المتابعة بالبريد الإلكتروني للحسابات الحالية'}</button>}
       {phoneMode && consentReview}
-      {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready ? (
+      {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready && (!nativeSocial || emailMode || reviewing) ? (
         <form className="flow-form" onSubmit={send} aria-busy={locked} data-entry-step={reviewing ? 'consent' : 'credentials'}>
           {!reviewing && <div className="nf-auth-input-group"><label>
             البريد الإلكتروني
@@ -208,14 +219,14 @@ export function Auth({
             <ArrowLeft size={18} />
           </button>
         </form>
-      ) : (
+      ) : !ready ? (
         <div className="flow-card">
           <p>
             تعذّر الاتصال بخدمة الحسابات حاليًا. حاول مجددًا لاحقًا أو تواصل معنا للمساعدة.
           </p>
           <SupportContact subject="المساعدة في إنشاء الحساب أو تسجيل الدخول" />
         </div>
-      )}
+      ) : null}
       {login && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
       {ready && (
         <>

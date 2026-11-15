@@ -16,7 +16,7 @@
 .nf-intake-brand > span:last-child:not(.nisfayn-brand) { font-size: .65rem; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; }
 .nf-intake-header-actions { margin-inline-start: auto; }
 .nf-intake.nf-intake--new .nf-intake-header {
-  padding: max(12px, env(safe-area-inset-top)) 18px 12px;
+  padding: max(12px, var(--nf-safe-top)) 18px 12px;
   min-height: 66px; gap: 12px; border: 0; background: transparent;
 }
 .nf-intake.nf-intake--new .nf-intake-header .f-icon {
@@ -65,7 +65,7 @@
 .nf-intake.nf-intake--new .nf-story-more > div { padding: 8px 0 24px; gap: 24px; }
 .nf-intake.nf-intake--new .nf-intake-actions {
   position: static; z-index: 5; margin: 28px calc(-1 * var(--intake-pad)) 0;
-  padding: 14px var(--intake-pad) max(10px, env(safe-area-inset-bottom));
+  padding: 14px var(--intake-pad) max(10px, var(--nf-safe-bottom));
   border-top: 1px solid var(--journey-line); background: #fcfaf8f5; backdrop-filter: blur(16px);
 }
 .nf-intake.nf-intake--new .nf-intake-actions .f-primary { min-height: 56px; padding-inline: 20px; border: 1px solid #5a0f28; border-radius: 12px; background: #5a0f28; color: #fff; font-size: 1rem; box-shadow: none; }

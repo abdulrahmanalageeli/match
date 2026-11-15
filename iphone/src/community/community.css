@@ -12,7 +12,7 @@
   align-items: center;
   gap: 12px;
   min-height: 70px;
-  padding-block: max(12px, env(safe-area-inset-top)) 12px;
+  padding-block: max(12px, var(--nf-safe-top)) 12px;
   border-bottom: 1px solid var(--line);
 }
 .cm-title {
@@ -359,7 +359,7 @@
   min-height: 300px;
   background: var(--page-background);
 }
-.demo-notice ~ .cm-shell .cm-chat { height: calc(100dvh - 42px - env(safe-area-inset-top)); }
+.demo-notice ~ .cm-shell .cm-chat { height: calc(100dvh - 42px - var(--nf-safe-top)); }
 .cm-chat-head {
   flex: none;
   justify-content: flex-start;
@@ -465,7 +465,7 @@ html[data-nf-chat-viewport] .cm-chat {
 .cm-request-copy .cm-inbox-preview { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cm-chat-compose {
   flex: none;
-  padding: 8px 12px max(6px, env(safe-area-inset-bottom));
+  padding: 8px 12px max(6px, var(--nf-safe-bottom));
   background: var(--paper);
 }
 html[data-nf-chat-keyboard] .cm-chat-compose { padding-bottom: 6px; }
@@ -495,7 +495,7 @@ html[data-nf-chat-keyboard] .cm-chat-compose { padding-bottom: 6px; }
     margin: auto auto 0;
     width: 100%;
     border-radius: 23px 23px 0 0;
-    padding: 22px 22px max(22px, env(safe-area-inset-bottom));
+    padding: 22px 22px max(22px, var(--nf-safe-bottom));
   }
 }
 @media (max-width: 355px) {

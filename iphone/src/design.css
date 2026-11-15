@@ -25,7 +25,9 @@
   --chrome: #ffffffed;
   --page-background: var(--paper);
   --app-width: 520px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nf-safe-top: max(env(safe-area-inset-top, 0px), var(--nf-native-safe-top, 0px));
+  --nf-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--nf-native-safe-bottom, 0px));
+  --safe-bottom: var(--nf-safe-bottom);
   --font-ui: Tajawal, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-chat: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   --font-weight-medium: 400;

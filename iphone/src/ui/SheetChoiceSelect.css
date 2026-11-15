@@ -5,7 +5,7 @@
 .nf-sheet-choice-row > svg { flex: none; color: #a39a9e; }
 .phone-app .nf-sheet-choice-row[aria-invalid=true] { outline: 1px solid #a12b45; outline-offset: -1px; }
 .phone-app .nf-sheet-choice-row:focus-visible { outline: 2px solid #956176; outline-offset: 3px; }
-.nf-choice-sheet { position: fixed; inset: auto 0 0; margin: 0 auto; padding: 0 0 max(12px, env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: min(82svh, 700px); border: 0; border-radius: 24px 24px 0 0; background: #fbfaf8; color: #30232c; box-shadow: 0 -12px 60px #2716201c; overflow: hidden; font-family: var(--font-ui); }
+.nf-choice-sheet { position: fixed; inset: auto 0 0; margin: 0 auto; padding: 0 0 max(12px, var(--nf-safe-bottom)); width: 100%; max-width: 520px; max-height: min(82svh, 700px); border: 0; border-radius: 24px 24px 0 0; background: #fbfaf8; color: #30232c; box-shadow: 0 -12px 60px #2716201c; overflow: hidden; font-family: var(--font-ui); }
 .nf-choice-sheet[open] { display: flex; flex-direction: column; }
 @keyframes nf-choice-sheet-in { from { opacity: .6; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .nf-choice-sheet[open] { animation: nf-choice-sheet-in 180ms ease-out; } }

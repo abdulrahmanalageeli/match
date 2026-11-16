@@ -228,6 +228,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   box-shadow: none;
 }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input { min-height: 0; height: calc(var(--nf-search-height) - 2px); font-size: 16px; }
+.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input:focus-visible { outline: none; box-shadow: none; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search):focus-within { border-color: #a27888; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) > svg { flex: none; }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-search { height: var(--nf-search-height); }

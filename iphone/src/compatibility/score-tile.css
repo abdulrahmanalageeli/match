@@ -1,23 +1,15 @@
 .nf-score-tile {
   display: inline-flex;
-  position: relative;
   flex: none;
-  align-items: baseline;
-  gap: 5px;
-  padding-block-end: 6px;
+  align-items: center;
+  gap: 4px;
   color: #655f64;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.25;
   white-space: nowrap;
 }
-.nf-score-tile strong { color: #702440; font-size: 13px; font-weight: 700; }
-.nf-score-tile-track {
-  position: absolute;
-  inset: auto 0 0;
-  display: flex;
-  height: 2px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: #ede8ed;
-}
-.nf-score-tile-track > span { border-radius: inherit; background: linear-gradient(to left, #d9849e, #a987c6); }
+.nf-score-tile-copy { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 1px; }
+.nf-score-tile strong { color: #702440; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nf-score-ring { display: block; flex: none; stroke-width: 2.25; }
+.nf-score-ring-track { stroke: #eae1e8; }
+.nf-score-ring-stone { fill: #fbf3f8; stroke: #a56890; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }

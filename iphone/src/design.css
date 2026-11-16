@@ -50,7 +50,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }
-body:has(.phone-app > .app-screen)::before {
+body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   content: "";
   position: fixed;
   inset: 0 0 auto;
@@ -58,6 +58,10 @@ body:has(.phone-app > .app-screen)::before {
   z-index: 10;
   background: var(--page-background);
   pointer-events: none;
+}
+body:has(.phone-app > .nf-auth-frame)::before { background: #f8f6f5; }
+body:has(.phone-app > .wd-welcome)::before {
+  background: #fdfdfc url('/brand/welcome/shared-future.webp') 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
 }
 h1, h2, h3 { font-weight: var(--font-weight-heading); letter-spacing: normal; }
 strong, b { font-weight: var(--font-weight-heading); }

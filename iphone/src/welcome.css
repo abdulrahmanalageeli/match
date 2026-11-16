@@ -135,7 +135,7 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 .wd-launch-screen[data-docking] .wd-launch-orbit,
 .wd-launch-screen[data-docking] .wd-launch-brand p { opacity: 0; animation: none; transition: opacity 280ms ease; }
 /* Courtyard arrival: a small architectural opening becomes the welcome scene. */
-.phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 0 24px 28px; background: #fdfdfc; }
+.phone-app .nf-welcome.nf-arrival.wd-welcome { padding: 0 24px max(28px,var(--nf-safe-bottom)); background: #fdfdfc; }
 .phone-app:has(.wd-welcome) { background: #fdfdfc; }
 .wd-welcome-nav { position: absolute; z-index: 3; inset: 0 24px auto; padding: max(22px,var(--nf-safe-top)) 0 0; border: 0; }
 .wd-welcome-nav .wd-welcome-brand { filter: none; }

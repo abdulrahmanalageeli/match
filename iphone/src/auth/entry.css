@@ -4,9 +4,10 @@
   --auth-muted: #746870;
   --auth-line: #e7e1e2;
   max-width: 520px; margin-inline: auto; min-height: 100svh;
-  padding: 0 clamp(20px, 5vw, 28px);
+  padding: var(--nf-safe-top) clamp(20px, 5vw, 28px) 0;
   background: #f8f6f5; color: var(--auth-ink);
 }
+.phone-app :is(.demo-notice, .nf-tester-tools) ~ main.nf-auth-frame { padding-block-start: 0; }
 .phone-app .nf-auth-frame .flow-header {
   gap: 10px; min-height: 64px; padding-inline: 0;
   border: 0; background: transparent; font-size: 14px; color: var(--auth-muted);

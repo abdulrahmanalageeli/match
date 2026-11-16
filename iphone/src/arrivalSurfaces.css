@@ -223,6 +223,13 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-avatar { width: 48px; height: 48px; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-image, .dr-avatar-online) { border-radius: 50%; }
+.phone-app .cm-shell .df-discovery .dr-row-image {
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #e4d9dd, 0 2px 5px #391b2914;
+}
+.phone-app .cm-shell .df-discovery .dr-row-image:not([data-image]) {
+  background: linear-gradient(145deg, #fbf5f7, #e9dce3);
+}
 .phone-app .cm-shell .df-discovery .dr-avatar-online::after { inset-inline-end: 0; bottom: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-actions { gap: 8px; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-actions button, .dr-sample-preview) {
@@ -244,8 +251,26 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   padding: 0;
 }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:is([data-connected], [data-pending], :hover:not(:disabled)) { background: transparent; box-shadow: none; }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request > .nf-add-person-mark { width: 20px; height: 20px; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request > .nf-add-person-mark { width: 20px; height: 20px; color: #641a35; }
 .phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
+html:has(.dr-directory) { overscroll-behavior-y: contain; }
+.phone-app .cm-shell .dr-refresh-directory {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #641a35;
+}
+.phone-app .cm-shell .dr-refresh-directory:focus-visible { outline: 2px solid #641a35; }
+.phone-app .cm-shell .dr-refresh-directory:disabled { opacity: .5; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .dr-refresh-directory[aria-busy="true"] svg { animation: dr-refresh-spin 850ms linear infinite; }
+}
+@keyframes dr-refresh-spin { to { transform: rotate(-360deg); } }
 
 .phone-app .cm-shell .dr-filter-sheet {
   position: fixed;

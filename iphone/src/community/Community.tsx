@@ -12,6 +12,7 @@ import {
   type FormEvent,
   type ReactNode,
   type RefObject,
+  type TouchEvent,
 } from "react";
 import { flushSync } from "react-dom";
 import { lockChatViewport } from "./chatViewport";
@@ -117,7 +118,7 @@ import './chat-continuity.css';
 function AddPersonMark() {
   return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
     <path d="M2 11C3 2 13 1 16 11C11 5 6 6 2 11ZM2 13C5 8 12 8 15 12C7 8 4 17 13 24L15 27C7 23 0 20 2 13Z"/>
-    <path opacity=".6" d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
+    <path d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
     <circle cx="16" cy="26" r="5.5" stroke="var(--nf-icon-cutout, #fff)" strokeWidth="1.5"/>
     <path d="M16 23.5v5M13.5 26h5" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
   </svg>;
@@ -591,6 +592,7 @@ function Discovery({
   const sequence = useRef(0);
   const needsRefresh = useRef(false);
   const actionPending = useRef(false);
+  const pullStart = useRef<{ x: number; y: number } | null>(null);
   const refresh = useCallback(
     async () => {
       const seq = ++sequence.current;
@@ -779,12 +781,42 @@ function Discovery({
     );
   const count = Object.entries(filters).filter(([key,value])=>!["sort","offset","afterId","mode","search"].includes(key)&&(Array.isArray(value)?value.length>0:Boolean(value))).length;
   const people = order === "recommended" ? [...list].sort((a,b)=>(compatibilityPercentage(b)??-1)-(compatibilityPercentage(a)??-1)).slice(0,5) : list;
+  const canRefreshDirectory = order === "all" && !loading && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
+  function startDirectoryPull(event: TouchEvent<HTMLElement>) {
+    pullStart.current = null;
+    if (!canRefreshDirectory || window.scrollY > 2 || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    pullStart.current = { x: touch.clientX, y: touch.clientY };
+  }
+  function endDirectoryPull(event: TouchEvent<HTMLElement>) {
+    const start = pullStart.current;
+    pullStart.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch || !canRefreshDirectory || window.scrollY > 2) return;
+    const down = touch.clientY - start.y;
+    if (down >= 64 && down > Math.abs(touch.clientX - start.x) * 1.5) void refresh();
+  }
   return (
-    <section className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}>
+    <section
+      className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}
+      onTouchStart={startDirectoryPull}
+      onTouchEnd={endDirectoryPull}
+      onTouchCancel={() => { pullStart.current = null; }}
+    >
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header df-header">
         <Brand />
-        <span className="df-header-note"><span aria-hidden="true" /> {order === "all" ? "جميع الملفات" : "ترشيحاتك"}</span>
+        <span className="df-header-note">
+          <span aria-hidden="true" /> {order === "all" ? "جميع الملفات" : "ترشيحاتك"}
+          {order === "all" && <button
+            type="button"
+            className="dr-refresh-directory"
+            aria-label="تحديث الملفات"
+            aria-busy={loading || undefined}
+            disabled={!canRefreshDirectory}
+            onClick={() => void refresh()}
+          ><RotateCcw size={15} aria-hidden="true" /></button>}
+        </span>
       </header>
       <MotionReveal className="cm-title df-title" duration={480}>
         <div><h1>استكشف</h1><WhyWudayn label="كيف نختار من يناسبك؟"/></div>

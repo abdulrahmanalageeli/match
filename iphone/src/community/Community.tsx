@@ -362,6 +362,7 @@ function FilterSheet({
           <label className="dr-filter-availability">
             <span>متاح للتعارف</span>
             <input type="checkbox" role="switch" checked={!!extra.availableOnly} onChange={event => setExtra(current => ({ ...current, availableOnly: event.target.checked }))} />
+            <span className="dr-filter-switch" aria-hidden="true" />
           </label>
           <details className="dr-filter-section dr-filter-group">
             <summary><span>خيارات إضافية</span><ChevronLeft size={17} aria-hidden="true" /></summary>

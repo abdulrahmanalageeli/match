@@ -54,9 +54,11 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   content: "";
   position: fixed;
   inset: 0 0 auto;
-  height: var(--nf-safe-top);
+  height: calc(var(--nf-safe-top) + min(14px, var(--nf-safe-top)));
   z-index: 10;
   background: var(--page-background);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 var(--nf-safe-top), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 var(--nf-safe-top), transparent 100%);
   pointer-events: none;
 }
 body:has(.phone-app > .nf-auth-frame)::before { background: #f8f6f5; }

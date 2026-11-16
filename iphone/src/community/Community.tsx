@@ -1,5 +1,4 @@
 import { languageOptions } from "../compatibility/marriage";
-import { ScoreTile } from "../compatibility/ScoreTile";
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -446,11 +445,11 @@ function compatibilityPercentage(person: PublicPerson) {
   return preferencePercentage(person.fit);
 }
 
-function CompatibilityPill({ person }: { person: PublicPerson }) {
-  const percentage = compatibilityPercentage(person);
-  return percentage === null
-    ? <span className="df-compatibility pending" aria-label="توافق التفضيلات ينتظر اكتمال التقييمين">التفضيلات قيد الاكتمال</span>
-    : <ScoreTile percentage={percentage} ariaLabel={`توافق التفضيلات ${ar.format(percentage)} بالمئة، بناءً على التقييمين`}/>;
+function DiscoveryCompatibility({ percentage }: { percentage: number }) {
+  return <span className="df-compatibility-inline">
+    <span>توافق محتمل</span>
+    <strong><bdi>{ar.format(percentage)}٪</bdi></strong>
+  </span>;
 }
 
 function DiscoveryPortrait({ person, source, priority = false, heading = false }: { person: PublicPerson; source: CommunitySource; priority?: boolean; heading?: boolean }) {
@@ -465,9 +464,9 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       alt="" onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
-    <div className="df-portrait-badges"><CompatibilityPill person={person} />
-      {!person.isDemo&&<span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
-    </div>
+    {!person.isDemo && <div className="df-portrait-badges">
+      <span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>
+    </div>}
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={14} />{person.city}</span>}
@@ -490,6 +489,7 @@ function PersonCard({
   open: (button: HTMLButtonElement) => void;
   priority?: boolean;
 }) {
+  const percentage = compatibilityPercentage(person);
   return (
     <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
@@ -504,6 +504,9 @@ function PersonCard({
       <div className="df-card-copy">
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {person.bio && <p className="cm-person-bio" dir="auto">{person.bio}</p>}
+      <div className="df-card-compatibility">
+        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <DiscoveryCompatibility percentage={percentage} />}
+      </div>
       {!compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
       {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
@@ -528,7 +531,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} compact ariaLabel={`توافق التفضيلات ${ar.format(preference)} بالمئة`}/>}
+        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<DiscoveryCompatibility percentage={preference} />}
       </button>
     </div>
 
@@ -811,7 +814,7 @@ function Discovery({
           <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
       </div>
-      {<div className={`dr-tools${order==='recommended'&&!query.trim()?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17}/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث بالاسم أو المهنة" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
+      {<div className={`dr-tools${order==='recommended'&&!query.trim()?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17} aria-hidden="true"/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
         <label className="dr-sort"><span>الترتيب</span><select aria-label="ترتيب الاستكشاف" value={filters.sort??'compatibility'} onChange={e=>setFilters(f=>({...f,sort:e.target.value as Filters['sort']}))}><option value="compatibility">الأقرب توافقًا</option><option value="youngest">الأصغر عمرًا</option><option value="oldest">الأكبر عمرًا</option></select></label>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
       {count > 0 && (

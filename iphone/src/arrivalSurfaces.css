@@ -179,6 +179,52 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
 .phone-app .cm-shell .dr-row-actions .dr-row-interest:disabled { opacity: .55; }
 
+/* Explore search, photo surfaces, and inline compatibility. */
+.phone-app .cm-shell .df-discovery .dr-tools .dr-search {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #efeff0;
+  padding-inline: 12px;
+  color: #67676d;
+}
+.phone-app .cm-shell .df-discovery .dr-tools .dr-search:focus-within { border-color: #a27888; }
+.phone-app .cm-shell .df-discovery .dr-tools .dr-search > svg { flex: none; }
+.phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut {
+  border: 0;
+  background: transparent;
+  color: #302a2e;
+}
+.phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut > svg { stroke-width: 1.6; }
+.phone-app .cm-shell .df-discovery :is(.df-card-portrait, .df-portrait-placeholder, .dr-row-image) { background: #efeff0; }
+.phone-app .cm-shell .df-discovery .df-portrait-placeholder::before,
+.phone-app .cm-shell .df-discovery .df-portrait-placeholder .cm-weekly-contours { display: none; }
+.phone-app .cm-shell .df-discovery .dr-fit-visual { width: auto; min-width: 0; min-height: 44px; }
+.phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 12px; }
+.phone-app .cm-shell .df-discovery .df-compatibility-inline {
+  display: inline-flex;
+  position: relative;
+  align-items: baseline;
+  gap: 5px;
+  padding-block-end: 6px;
+  color: #655f64;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.phone-app .cm-shell .df-discovery .df-compatibility-inline strong { color: #702440; font-size: 13px; font-weight: 700; }
+.phone-app .cm-shell .df-discovery .df-compatibility-inline::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #efbac8, #b79ad1);
+}
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest { min-width: 64px; padding-inline: 6px; background: #f8f3f5; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest[aria-pressed='true'] { background: #eee1e7; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:not([data-connected]):not([data-pending]) { border-color: #e3d9dd; }
+.phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
+
 /* Conversation-first chrome: one context row, one composer, details on demand. */
 .phone-app .cm-shell .cm-chat[data-conversation-id] { font-family: var(--font-ui); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble,

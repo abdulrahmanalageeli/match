@@ -221,9 +221,30 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   border-radius: 2px;
   background: linear-gradient(90deg, #efbac8, #b79ad1);
 }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest { min-width: 64px; padding-inline: 6px; background: #f8f3f5; }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest[aria-pressed='true'] { background: #eee1e7; }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:not([data-connected]):not([data-pending]) { border-color: #e3d9dd; }
+.phone-app .cm-shell .df-discovery .dr-row-avatar { width: 48px; height: 48px; }
+.phone-app .cm-shell .df-discovery :is(.dr-row-image, .dr-avatar-online) { border-radius: 50%; }
+.phone-app .cm-shell .df-discovery .dr-avatar-online::after { inset-inline-end: 0; bottom: 0; }
+.phone-app .cm-shell .df-discovery .dr-row-actions { gap: 8px; }
+.phone-app .cm-shell .df-discovery :is(.dr-row-actions button, .dr-sample-preview) {
+  height: 24px;
+  min-height: 24px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+}
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest { min-width: 0; gap: 4px; }
+.phone-app .cm-shell .df-discovery .dr-row-interest[aria-pressed='true'] { background: transparent !important; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request {
+  width: 28px;
+  min-width: 28px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:is([data-connected], [data-pending], :hover:not(:disabled)) { background: transparent; box-shadow: none; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request > .nf-add-person-mark { width: 20px; height: 20px; }
 .phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
 
 .phone-app .cm-shell .dr-filter-sheet {

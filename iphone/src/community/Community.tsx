@@ -546,7 +546,12 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<><AddPersonMark/><span>إضافة</span></>}</button>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
+        {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
+          <img className="dr-row-add-logo" src="/brand/wudayn-emblem-v2.png" width={20} height={20} alt="" />
+          <span>إضافة</span>
+        </>}
+      </button>
     </div>}
     </div>
   </article>;

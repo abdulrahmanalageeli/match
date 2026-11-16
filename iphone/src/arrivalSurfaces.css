@@ -272,7 +272,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request[data-add] { display: inline-flex; align-items: center; gap: 4px; width: auto; min-width: 58px; padding-inline: 4px; font-size: 12px; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:is([data-connected], [data-pending], :hover:not(:disabled)) { background: transparent; box-shadow: none; }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request > .nf-add-person-mark { width: 20px; height: 20px; color: #641a35; }
+.phone-app .cm-shell .df-discovery .dr-row-add-logo { flex: none; object-fit: contain; }
 .phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
 html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .phone-app .cm-shell .dr-refresh-directory {

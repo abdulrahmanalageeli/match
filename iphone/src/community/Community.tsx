@@ -68,6 +68,7 @@ import { interests } from "../compatibility/model";
 import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
+import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { FitDetails, preferencePercentage, personalityPercentage } from "../compatibility/FitDetails";
 import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
@@ -255,10 +256,12 @@ function Sheet({
   title,
   onClose,
   children,
+  className,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -272,7 +275,7 @@ function Sheet({
       ref={ref}
       dir="rtl"
       aria-label={title}
-      className="cm-sheet"
+      className={className ? `cm-sheet ${className}` : "cm-sheet"}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -308,6 +311,15 @@ function FilterSheet({
     setExtra(current=>({...current,[key]:(current[key]??[]).includes(value)?(current[key]??[]).filter(item=>item!==value):[...(current[key]??[]),value]}));
   }
   const [error, setError] = useState("");
+  function clearFilters() {
+    setMin("");
+    setMax("");
+    setInterest("");
+    setExtra(emptyFilters);
+    setExcludedCities([]);
+    setExcludedNationalities([]);
+    setError("");
+  }
   function submit(e: FormEvent) {
     e.preventDefault();
     if (min && max && Number(min) > Number(max)) {
@@ -327,53 +339,33 @@ function FilterSheet({
     });
   }
   return (
-    <Sheet title="مساحة تناسب اختياراتك" onClose={close}>
+    <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
-        <p className="dr-filter-intro">اختر ما تريد رؤيته، وأخفِ ما لا يناسبك. هذه الفلاتر تخص الاستكشاف ولا تغيّر تفضيلات ملفك.</p>
-        <fieldset>
-          <legend>العمر</legend>
-          <div className="cm-age-fields">
-            <label>
-              من
-              <input
-                type="number"
-                inputMode="numeric"
-                min={18}
-                max={110}
-                placeholder="١٨"
-                value={min}
-                onChange={(e) => setMin(e.target.value)}
-              />
-            </label>
-            <label>
-              إلى
-              <input
-                type="number"
-                inputMode="numeric"
-                min={18}
-                max={110}
-                placeholder="١١٠"
-                value={max}
-                onChange={(e) => setMax(e.target.value)}
-              />
-            </label>
-          </div>
-        </fieldset>
-        <label>
-          اهتمام مشترك
-          <select
-            value={interest}
-            onChange={(e) => setInterest(e.target.value)}
-          >
-            <option value="">كل الاهتمامات</option>
-            {interests.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <ChoiceSelect label="المدينة" value={extra.city??''} options={cityOptions} placeholder="كل المدن" allowClear onChange={city=>setExtra(current=>({...current,city:city||undefined}))}/>
+        <div className="dr-filter-body">
+          <SheetChoiceSelect label="المدينة" value={extra.city ?? ""} options={cityOptions} placeholder="كل المدن" allowClear onChange={city => setExtra(current => ({ ...current, city: city || undefined }))} />
+          <fieldset className="dr-filter-age" aria-label="العمر">
+            <div className="dr-filter-age-row">
+              <span>العمر</span>
+              <div className="cm-age-fields">
+                <label>
+                  من
+                  <input type="number" inputMode="numeric" min={18} max={110} placeholder="١٨" value={min} onChange={event => setMin(event.target.value)} />
+                </label>
+                <label>
+                  إلى
+                  <input type="number" inputMode="numeric" min={18} max={110} placeholder="١١٠" value={max} onChange={event => setMax(event.target.value)} />
+                </label>
+              </div>
+            </div>
+          </fieldset>
+          <SheetChoiceSelect label="اهتمام مشترك" value={interest} options={interests.map(item => ({ value: item.id, label: item.label }))} placeholder="كل الاهتمامات" allowClear onChange={setInterest} />
+          <label className="dr-filter-availability">
+            <span>متاح للتعارف</span>
+            <input type="checkbox" role="switch" checked={!!extra.availableOnly} onChange={event => setExtra(current => ({ ...current, availableOnly: event.target.checked }))} />
+          </label>
+          <details className="dr-filter-section dr-filter-group">
+            <summary><span>خيارات إضافية</span><ChevronLeft size={17} aria-hidden="true" /></summary>
+            <div className="dr-filter-fields">
         <details className="dr-filter-section" open={!!extra.language}><summary><span>اللغات</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="يتحدث اللغة" value={extra.language ?? ''} options={languageOptions.map(value => ({value,label:value}))} placeholder="جميع اللغات" allowClear onChange={language => setExtra(current => ({...current,language:language || undefined}))}/>
           <small>تظهر الملفات التي ذكرت هذه اللغة فقط.</small>
@@ -396,13 +388,14 @@ function FilterSheet({
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
         <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
         <label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠٪ فأعلى</option><option value={75}>٧٥٪ فأعلى</option><option value={90}>٩٠٪ فأعلى</option></select><small>تظهر النسبة عند اكتمال التقييمين فقط.</small></label>
-        <label className="dr-availability"><input type="checkbox" checked={!!extra.availableOnly} onChange={e=>setExtra({...extra,availableOnly:e.target.checked})}/> متاح لطلب تعارف جديد الآن</label>
         <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
         <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="الجنسية المطلوبة" value={extra.nationality??''} options={nationalityChoices} placeholder="كل الجنسيات" allowClear onChange={nationality=>setExtra(current=>({...current,nationality:nationality||undefined}))}/>
           <label>الخلفية القبلية<select value={extra.tribalBackground??''} onChange={event=>setExtra({...extra,tribalBackground:event.target.value})}><option value="">الجميع</option><option value="tribal">قبلي</option><option value="non_tribal">غير قبلي</option><option value="prefer_not_to_say">لم يذكر الخلفية</option></select></label>
         </div></details>
-        <details className="dr-filter-section dr-filter-exclusions" open={!!(excludedCities.length||excludedNationalities.length||extra.excludeTribalBackgrounds?.length||extra.excludeSmoking?.length||extra.excludeMaritalStatuses?.length)}><summary><span><Ban size={15}/> ما لا أرغب برؤيته</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
+            </div>
+          </details>
+        <details className="dr-filter-section dr-filter-group dr-filter-exclusions"><summary><span>ما لا أرغب برؤيته</span><ChevronLeft size={17} aria-hidden="true" /></summary><div className="dr-filter-fields">
           <p>الاستبعاد يتقدّم على التصفية؛ الملفات المطابقة لا تظهر لك.</p>
           <div className="dr-exclusion-picker">
             <ChoiceSelect label="إخفاء مدن" value="" options={cityOptions.filter(option=>!excludedCities.includes(option.value))} placeholder="أضف مدينة للاستبعاد" disabled={excludedCities.length>=20} onChange={city=>{if(city)setExcludedCities(current=>current.includes(city)?current:[...current,city].slice(0,20));}}/>
@@ -418,17 +411,14 @@ function FilterSheet({
           <fieldset><legend>إخفاء حسب التدخين</legend><div className="dr-exclusion-options">{[['never','لا يدخّن'],['cigarettes','سجائر'],['vape','فيب'],['shisha','شيشة'],['sometimes','أحيانًا · غير محدد'],['yes','يدخّن · غير محدد']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeSmoking?.includes(value)} onChange={()=>toggleExcluded('excludeSmoking',value)}/>{label}</label>)}</div></fieldset>
           <fieldset><legend>إخفاء حسب الحالة الاجتماعية</legend><div className="dr-exclusion-options">{[['never_married','لم يسبق الزواج'],['divorced','مطلق / مطلقة'],['widowed','أرمل / أرملة']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeMaritalStatuses?.includes(value)} onChange={()=>toggleExcluded('excludeMaritalStatuses',value)}/>{label}</label>)}</div></fieldset>
         </div></details>
-        {error && <Banner alert text={error} />}
-        <button className="btn-primary" type="submit">
-          تطبيق التصفية
-        </button>
-        <button
-          className="btn-text"
-          type="button"
-          onClick={() => apply(emptyFilters)}
-        >
-          مسح التصفية
-        </button>
+        </div>
+        <div className="dr-filter-footer">
+          {error && <Banner alert text={error} />}
+          <div className="dr-filter-actions">
+            <button className="btn-primary" type="submit">عرض النتائج</button>
+            <button className="btn-text" type="button" onClick={clearFilters}>مسح الكل</button>
+          </div>
+        </div>
       </form>
     </Sheet>
   );
@@ -815,10 +805,9 @@ function Discovery({
         </div>
       </div>
       {<div className={`dr-tools${order==='recommended'&&!query.trim()?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17} aria-hidden="true"/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
-        <label className="dr-sort"><span>الترتيب</span><select aria-label="ترتيب الاستكشاف" value={filters.sort??'compatibility'} onChange={e=>setFilters(f=>({...f,sort:e.target.value as Filters['sort']}))}><option value="compatibility">الأقرب توافقًا</option><option value="youngest">الأصغر عمرًا</option><option value="oldest">الأكبر عمرًا</option></select></label>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
       {count > 0 && (
-        <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query,sort:filters.sort})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
+        <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (
             <button onClick={() => setFilters((current) => ({ ...current, minAge: undefined, maxAge: undefined }))} aria-label="إزالة تصفية العمر">
               {ar.format(filters.minAge ?? 18)} – {ar.format(filters.maxAge ?? 110)} عامًا <X size={13} />

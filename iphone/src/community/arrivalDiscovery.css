@@ -72,12 +72,11 @@
 .phone-app .cm-shell .df-feed-end p { font-size: 14px; line-height: 1.9; }
 
 /* The directory is a list of people, with one clear primary action per row. */
-.phone-app .cm-shell .dr-directory .dr-tools { grid-template-columns: minmax(0, 1fr) 120px 44px; gap: 8px; margin-block: 0 10px; }
+.phone-app .cm-shell .dr-directory .dr-tools { grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-block: 0 10px; }
 .phone-app .cm-shell .dr-search { min-width: 0; min-height: 46px; border: 1px solid #d8d4d1; border-radius: 10px; background: #fff; color: #716b70; padding-inline: 12px; box-shadow: none; }
 .phone-app .cm-shell .dr-search input { height: 44px; font-size: 14px; color: #242326; background: transparent; }
 .phone-app .cm-shell .dr-search input::placeholder { color: #817a80; }
 .phone-app .cm-shell .dr-search button { min-width: 44px; min-height: 44px; margin-inline-end: -10px; }
-.phone-app .cm-shell .dr-sort select { min-height: 46px; padding-inline: 9px; border: 1px solid #d8d4d1; border-radius: 10px; background: #fff; color: #474247; font-size: 13px; }
 .phone-app .cm-shell .dr-filter-shortcut { width: 44px; height: 46px; border: 1px solid #d8d4d1; border-radius: 10px; background: #fff; color: #54152a; }
 .phone-app .cm-shell .dr-rows { gap: 0 !important; }
 .phone-app .cm-shell .dr-person-row { padding: 11px 0 12px; border: 0; border-bottom: 1px solid #ddd8d5; border-radius: 0; background: transparent; box-shadow: none; }
@@ -238,7 +237,7 @@
   .phone-app .cm-shell .df-title { gap: 10px; }
   .phone-app .cm-shell .cm-title.df-title h1 { font-size: 24px; }
   .phone-app .cm-shell .df-title .cm-filter-button { padding-inline: 10px; }
-  .phone-app .cm-shell .dr-directory .dr-tools { grid-template-columns: minmax(0, 1fr) 106px 44px; gap: 6px; }
+  .phone-app .cm-shell .dr-directory .dr-tools { gap: 6px; }
   .phone-app .cm-shell .dr-search { padding-inline: 9px; }
   .phone-app .cm-shell .dr-search input { font-size: 13px; }
   .phone-app .cm-shell .dr-row-avatar { width: 44px; height: 50px; }
@@ -373,10 +372,8 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 
 /* Keep discovery controls comfortable on narrow touch screens. */
 .phone-app .cm-shell .df-discovery .dr-tools .dr-search,
-.phone-app .cm-shell .df-discovery .dr-tools .dr-sort select,
 .phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut { min-height: 44px; height: 44px; }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut { width: 44px; }
-.phone-app .cm-shell .dr-directory .dr-tools { grid-template-columns: minmax(0,1fr) 100px 44px; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request,
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest { min-height: 44px; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request { width: 44px; min-width: 44px; height: 44px; }

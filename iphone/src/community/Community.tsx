@@ -550,6 +550,32 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
 
 type RequestEntry = { id: string; featured: boolean };
 
+function shuffleDirectory(people: PublicPerson[]) {
+  const shuffled = [...people];
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function updateDirectoryOrder(current: PublicPerson[], people: PublicPerson[], reshuffle: boolean) {
+  if (reshuffle) {
+    const shuffled = shuffleDirectory(people);
+    if (shuffled.length > 1 && shuffled.length === current.length && shuffled.every((person, index) => person.id === current[index].id)) {
+      shuffled.push(shuffled.shift()!);
+    }
+    return shuffled;
+  }
+  const latest = new Map(people.map(person => [person.id, person]));
+  const retained = current.flatMap(person => {
+    const updated = latest.get(person.id);
+    latest.delete(person.id);
+    return updated ? [updated] : [];
+  });
+  return [...retained, ...shuffleDirectory([...latest.values()])];
+}
+
 function Discovery({
   source,
   onInbox,
@@ -604,16 +630,17 @@ function Discovery({
   const actionPending = useRef(false);
   const pullStart = useRef<{ x: number; y: number } | null>(null);
   const refresh = useCallback(
-    async () => {
+    async (reshuffle = true, pageCount?: number) => {
       const seq = ++sequence.current;
       setLoading(true);
       setError("");
       try {
-        const pages = order === 'all' ? restoreBrowse.current?.pages ?? 1 : 1;
+        const pages = order === 'all' ? pageCount ?? Math.max(1, Math.ceil(listRef.current.length / 24)) : 1;
         const results = await Promise.all(Array.from({length:pages},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
         const people = [...new Map(results.flat().map(person=>[person.id,person])).values()];
         if (seq !== sequence.current) return;
-        setList(people); setMore(order === "all" && results.at(-1)?.length === 24); setRecoverable(false);
+        setList(current => order === 'all' ? updateDirectoryOrder(current, people, reshuffle) : people);
+        setMore(order === "all" && results.at(-1)?.length === 24); setRecoverable(false);
         setSelected(id => id && people.some(p => p.id === id) ? id : null);
       } catch (e) {
         if (seq === sequence.current) {
@@ -627,7 +654,7 @@ function Discovery({
     },
     [source, filters, order],
   );
-  useReadRecovery(recoverable, refresh, source);
+  useReadRecovery(recoverable, () => refresh(false), source);
   useLayoutEffect(() => {
     const saved = restoreBrowse.current;
     if (!saved || loading || error || selected) return;
@@ -659,7 +686,7 @@ function Discovery({
     setSelected(null);
     setSelectedPerson(null);
     setFitPerson(null);
-    void refresh();
+    void refresh(true, restoreBrowse.current?.pages ?? 1);
     return () => { sequence.current++; };
   }, [refresh]);
   useEffect(()=>{
@@ -684,7 +711,8 @@ function Discovery({
         }));
         if(!active||seq!==sequence.current||actionPending.current)return;
         // Reapply active filters as availability changes, including an initially empty online view.
-        setList([...latest.values()]);setError('');setRecoverable(false);
+        setList(current => order === 'all' ? updateDirectoryOrder(current, [...latest.values()], false) : [...latest.values()]);
+        setError('');setRecoverable(false);
         setMore(order==='all'&&pages.at(-1)?.length===24);
         const fresh=(person:PublicPerson|null)=>person?(latest.get(person.id)??(details.has(person.id)?details.get(person.id)!:person)):null;
         setSelectedPerson(fresh);setFitPerson(fresh);
@@ -698,14 +726,29 @@ function Discovery({
     }
     const unwatch=source.watch(()=>{needsRefresh.current=true;void updatePresence();});
     const timer=window.setInterval(()=>void updatePresence(),60000);
-    document.addEventListener('visibilitychange',updatePresence);
+    const resumeDiscovery = () => {
+      if (document.hidden) return;
+      if (order === 'all') setList(current => updateDirectoryOrder(current, current, true));
+      void updatePresence();
+    };
+    document.addEventListener('visibilitychange',resumeDiscovery);
     window.addEventListener('online',updatePresence);
     if(needsRefresh.current)void updatePresence();
-    return()=>{active=false;unwatch();clearInterval(timer);document.removeEventListener('visibilitychange',updatePresence);window.removeEventListener('online',updatePresence);};
+    return()=>{active=false;unwatch();clearInterval(timer);document.removeEventListener('visibilitychange',resumeDiscovery);window.removeEventListener('online',updatePresence);};
   },[source,filters,order,loading,loadingMore]);
   async function loadMore() {
     if(loadingMore)return;setLoadingMore(true);const seq=sequence.current;
-    try{const next=await source.discover({...filters,mode:order,offset:list.length});if(seq===sequence.current){setList(current=>[...current,...next.filter(n=>!current.some(p=>p.id===n.id))]);setMore(next.length===24);}}
+    try{
+      const next=await source.discover({...filters,mode:order,offset:list.length});
+      if(seq===sequence.current){
+        setList(current=>{
+          const ids = new Set(current.map(person => person.id));
+          const additions = next.filter(person => !ids.has(person.id));
+          return [...current, ...(order === 'all' ? shuffleDirectory(additions) : additions)];
+        });
+        setMore(next.length===24);
+      }
+    }
     catch(e){if(seq===sequence.current)setError(messageFor(e));}finally{setLoadingMore(false);}
   }
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
@@ -751,7 +794,7 @@ function Discovery({
       setSelected(current => current === id ? null : current);
       setList((current) => current.filter((p) => p.id !== id));
       setNotice("أُرسل طلب التعارف.");
-      void refresh();
+      void refresh(false);
     } catch (e) {
       setError(messageFor(e));
     } finally {

@@ -2,6 +2,7 @@
 .phone-app :is(h1, h2, h3, button, label, summary) { letter-spacing: normal; }
 .phone-app .cm-shell .cm-title h1,
 .phone-app .cm-shell .cm-title.df-title h1,
+.phone-app .mo-heading h1,
 .phone-app .st-title,
 .phone-app .mp-profile .mp-hero-copy h1,
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-intake-title h1 {

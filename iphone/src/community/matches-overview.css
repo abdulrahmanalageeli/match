@@ -23,9 +23,9 @@
 .mo-filters button { display:flex; gap:5px; align-items:center; min-height:40px; padding:7px 0; border:0; border-bottom:2px solid transparent; color:var(--muted); background:none; font:inherit; font-size:12px; cursor:pointer; }
 .mo-filters button[aria-pressed=true] { color:var(--accent-fill); border-bottom-color:var(--accent-fill); }
 .mo-filters button>span { font-size:10px; }
-.mo-request { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #eee9e9; }
+.mo-request { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--nf-row-divider); }
 .mo-request-profile { display:flex; flex:1; min-width:0; align-items:center; gap:10px; padding:0; border:0; background:none; color:var(--ink); text-align:start; font:inherit; cursor:pointer; }
-.mo-request-avatar.nf-person-avatar { width:44px; height:44px; flex:none; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #e4d9dd; }
+.mo-request-avatar.nf-person-avatar { width:44px; height:44px; flex:none; border-radius:50%; border:2px solid var(--surface); box-shadow:var(--nf-portrait-shadow); }
 .mo-identity { display:grid; min-width:0; gap:3px; }
 .mo-identity>strong { font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mo-identity>span { font-size:11px; color:var(--muted); }
@@ -33,7 +33,7 @@
 .mo-identity>small[data-incoming] { color:var(--accent-fill); }
 .mo-request-action { display:grid; justify-items:end; gap:6px; flex:none; }
 .mo-request-action>time { font-size:10px; color:var(--muted); }
-.mo-search { display:flex; align-items:center; gap:8px; padding:4px 10px; border:1px solid transparent; border-radius:999px; margin-top:8px; color:var(--muted); background:#efeff0; }
+.mo-search { display:flex; align-items:center; gap:8px; margin-top:8px; }
 .mo-search input { min-width:0; width:100%; border:0; background:none; color:var(--ink); font:inherit; font-size:16px; outline:none; }
 .mo-empty { display:grid; justify-items:center; gap:14px; padding:24px 12px; text-align:center; color:var(--muted); }
 .mo-empty p { margin:0; font-size:14px; line-height:1.8; }

@@ -40,6 +40,12 @@
   --text-micro: 11px;
   --radius-control: 10px;
   --radius-card: 12px;
+  --nf-search-surface: #efeff0;
+  --nf-search-height: 34px;
+  --nf-portrait-rim: #e4d9dd;
+  --nf-portrait-shadow: 0 0 0 1px var(--nf-portrait-rim), 0 2px 5px #391b2914;
+  --nf-row-divider: #eee9eb;
+  --nf-dialog-scrim: #21212466;
   --shadow-overlay: 0 12px 40px #24232614;
   font-size: 16px;
   line-height: 1.65;
@@ -117,7 +123,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .btn-primary { color: var(--accent-ink); background: var(--accent-fill); border-color: var(--accent-fill); }
 .btn-primary:not(:disabled):active { background: #3c1022; }
-.btn-secondary { color: var(--accent); border-color: var(--control-line); background: var(--surface); }
+.btn-secondary { color: var(--accent); border-color: var(--line); background: var(--surface); }
 .btn-text, .icon-btn { color: var(--accent); background: transparent; }
 .icon-btn { width: 44px; min-height: 44px; border-radius: var(--radius-control); padding: 0; }
 .field { display: grid; gap: 7px; color: var(--ink); }

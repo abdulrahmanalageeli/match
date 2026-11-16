@@ -441,6 +441,9 @@ function DiscoveryCompatibility({ percentage }: { percentage: number }) {
   return <span className="df-compatibility-inline">
     <span>توافق محتمل</span>
     <strong><bdi>{ar.format(percentage)}٪</bdi></strong>
+    <span className="df-compatibility-track" aria-hidden="true">
+      <span style={{ width: `${percentage}%` }} />
+    </span>
   </span>;
 }
 
@@ -515,13 +518,25 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
     <div className="dr-row-overview">
-      <button className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`}>
+      <div className="dr-row-profile-group">
+        <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
           <PersonAvatar person={person} source={source} className="dr-row-image"/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span></span>
-      </button>
+        <span className="dr-row-identity">
+          <span className="dr-row-name">
+            <strong>{person.alias}</strong>
+            <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
+            {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
+            {!sampleOnly && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
+              <Heart size={14} aria-hidden="true" fill={person.interested?'currentColor':'none'}/>
+              {person.interested?'مهتم':'اهتمام'}
+            </button>}
+          </span>
+          <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
+        </span>
+      </div>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<DiscoveryCompatibility percentage={preference} />}
       </button>
@@ -531,8 +546,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      {source.setInterest&&<button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}><Heart size={16} aria-hidden="true" fill={person.interested?'currentColor':'none'}/><span>{person.interested?'مهتم':'اهتمام'}</span></button>}
-      <button className="dr-row-request" data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إرسال طلب تعارف إلى ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<AddPersonMark/>}</button>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>{person.connectionId?person.connectionStatus==='accepted'?<MessageCircle size={20} aria-hidden="true"/>:<Clock3 size={20} aria-hidden="true"/>:<><AddPersonMark/><span>إضافة</span></>}</button>
     </div>}
     </div>
   </article>;
@@ -701,7 +715,7 @@ function Discovery({
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
-    const origin = anchor.querySelector<HTMLElement>(".cm-weekly-identity");
+    const origin = (anchor.closest('.dr-row-profile-group') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
     listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.matches(":first-child") };
     move(origin, () => {
@@ -725,7 +739,7 @@ function Discovery({
       if (!button) { window.scrollTo(0, anchor.scroll); return null; }
       window.scrollTo(0, window.scrollY + button.getBoundingClientRect().top - anchor.top);
       button.focus({ preventScroll: true });
-      return button.querySelector(".cm-weekly-identity");
+      return (button.closest('.dr-row-profile-group') ?? button).querySelector(".cm-weekly-identity");
     });
   }
   async function sendRequest(target=person) {

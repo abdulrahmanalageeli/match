@@ -40,14 +40,14 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
             <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
-              {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
             </button>
             <div className="mo-current-copy">
               <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
-              {score !== null && <ScoreTile percentage={score} ariaLabel={`${number.format(score)} بالمئة توافق التفضيلات`}/>}
-              <MotionPressButton className="mo-action" onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}><MessageCircle size={15}/>المحادثة{Boolean(row.unreadCount) && <span className="mo-unread">{number.format(row.unreadCount!)}</span>}</MotionPressButton>
+              {score !== null && <ScoreTile percentage={score} />}
+              {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
             </div>
+            <MotionPressButton className="mo-action mo-action-current" onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}><MessageCircle size={15} aria-hidden="true"/>المحادثة{Boolean(row.unreadCount) && <span className="mo-unread">{number.format(row.unreadCount!)}</span>}</MotionPressButton>
           </MotionReveal>;
         })}</div> : !error && <div className="mo-empty"><p>مساحتك لبداية جادّة مع الشخص المناسب.</p><MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات<ArrowLeft size={16}/></MotionPressButton></div>}
       </section>

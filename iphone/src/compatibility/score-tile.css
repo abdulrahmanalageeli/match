@@ -1,40 +1,23 @@
 .nf-score-tile {
-  --score-line-start: #c3a085;
-  --score-line-end: #a37b72;
-  display: grid;
+  display: inline-flex;
+  position: relative;
   flex: none;
-  grid-template-columns: 18px auto;
-  grid-template-rows: 19px 3px;
-  align-items: center;
-  justify-content: center;
-  column-gap: 5px;
-  row-gap: 4px;
-  width: 86px;
-  height: 43px;
-  padding: 5px 7px;
-  border: 1px solid #e9e4e3;
-  border-radius: 10px;
-  background: #fffdfa;
-  box-shadow: 0 2px 8px #30182010;
-  color: #54152a;
-  line-height: 1;
+  align-items: baseline;
+  gap: 5px;
+  padding-block-end: 6px;
+  color: #655f64;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
-.nf-score-tile[data-band="medium"] { --score-line-start: #c58ca4; --score-line-end: #82425f; }
-.nf-score-tile[data-band="high"] { --score-line-start: #86ae9d; --score-line-end: #4d7b65; }
-.nf-score-tile-mark { display: grid; place-items: center; width: 18px; height: 18px; }
-.nf-score-tile-mark img { display: block; width: 18px; height: 18px; object-fit: contain; }
-.nf-score-tile strong {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 17px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.4px;
-  line-height: 1;
+.nf-score-tile strong { color: #702440; font-size: 13px; font-weight: 700; }
+.nf-score-tile-track {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #ede8ed;
 }
-.nf-score-tile-track { display: block; grid-column: 1 / -1; width: 100%; height: 3px; overflow: hidden; border-radius: 99px; background: #54152a12; }
-.nf-score-tile-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--score-line-start), var(--score-line-end)); }
-.nf-score-tile--compact { grid-template-columns: 16px auto; width: 74px; height: 40px; padding: 5px 6px; }
-.nf-score-tile--compact .nf-score-tile-mark,
-.nf-score-tile--compact .nf-score-tile-mark img { width: 16px; height: 16px; }
-.nf-score-tile--compact strong { font-size: 16px; }
-.nf-score-tile--compact .nf-score-tile-track { height: 2px; }
+.nf-score-tile-track > span { border-radius: inherit; background: linear-gradient(to left, #d9849e, #a987c6); }

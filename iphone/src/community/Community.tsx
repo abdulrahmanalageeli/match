@@ -1,4 +1,5 @@
 import { languageOptions } from "../compatibility/marriage";
+import { ScoreTile } from '../compatibility/ScoreTile';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -437,16 +438,6 @@ function compatibilityPercentage(person: PublicPerson) {
   return preferencePercentage(person.fit);
 }
 
-function DiscoveryCompatibility({ percentage }: { percentage: number }) {
-  return <span className="df-compatibility-inline">
-    <span>توافق محتمل</span>
-    <strong><bdi>{ar.format(percentage)}٪</bdi></strong>
-    <span className="df-compatibility-track" aria-hidden="true">
-      <span style={{ width: `${percentage}%` }} />
-    </span>
-  </span>;
-}
-
 function DiscoveryPortrait({ person, source, priority = false, heading = false }: { person: PublicPerson; source: CommunitySource; priority?: boolean; heading?: boolean }) {
   const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
   const [photoReadySrc, setPhotoReadySrc] = useState<string | null>(null);
@@ -500,7 +491,7 @@ function PersonCard({
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {person.bio && <p className="cm-person-bio" dir="auto">{person.bio}</p>}
       <div className="df-card-compatibility">
-        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <DiscoveryCompatibility percentage={percentage} />}
+        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={percentage} />}
       </div>
       {!compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
       {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
@@ -538,7 +529,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
       </div>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<DiscoveryCompatibility percentage={preference} />}
+        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} />}
       </button>
     </div>
 
@@ -845,11 +836,6 @@ function Discovery({
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
       <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
-      {order === 'recommended' && !loading && !error && people.length > 0 && <details className="df-first-week">
-        <summary>من الترشيح إلى أول محادثة</summary>
-        <ol><li>افتح الملف واقرأ التفاصيل التي تهمك.</li><li>راجع أسباب التوافق وما يحتاج نقاشًا، لا النسبة وحدها.</li><li>أرسل طلبًا إن ناسبك الملف؛ بعد القبول المتبادل وإقرار الجدّية تبدأ المحادثة.</li></ol>
-        <p>الترشيحات أقرب الخيارات المتاحة وفق إجاباتكما، وليست ضمانًا للملاءمة أو الرد.</p>
-      </details>}
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>

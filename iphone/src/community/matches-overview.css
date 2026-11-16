@@ -16,7 +16,6 @@
 .mo-current-copy>p { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
 .mo-action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:6px 11px; border:1px solid #cdb9c1; border-radius:8px; background:transparent; color:var(--accent-fill); font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
 .mo-action-incoming { background:var(--accent-fill); border-color:var(--accent-fill); color:#fff; }
-.mo-current-card .mo-action-current { white-space:nowrap; }
 .mo-unread { display:grid; place-items:center; min-width:17px; height:17px; padding-inline:3px; border-radius:50%; background:var(--accent-fill); color:#fff; font-size:10px; }
 .mo-requests { margin-top:18px; }
 .mo-filters { display:flex; gap:17px; border-bottom:1px solid var(--line); margin-bottom:3px; }
@@ -48,6 +47,5 @@
 @media (max-width:360px) {
   .mo-current-card { grid-template-columns:50px minmax(0,1fr) auto; gap:7px; padding:8px; }
   .mo-portrait.nf-person-avatar { width:50px; height:58px; }
-  .phone-app .mo-current-card .mo-action-current { padding-inline:6px; gap:4px; font-size:11px; }
   .mo-request { gap:8px; }
 }

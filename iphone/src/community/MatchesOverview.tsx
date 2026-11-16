@@ -37,6 +37,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
         <div className="mo-section-heading"><h2 id="mo-current-title">الارتباطات الحالية</h2><span>{number.format(current.length)} / ٢</span></div>
         {current.length ? <div className="mo-current-grid">{current.map((row,index) => {
           const score = preferencePercentage(row.person.fit);
+          const unread = row.unreadCount ? number.format(row.unreadCount) : null;
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
             <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
@@ -47,7 +48,14 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
               {score !== null && <ScoreTile percentage={score} />}
               {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
             </div>
-            <MotionPressButton className="mo-action mo-action-current" onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}><MessageCircle size={15} aria-hidden="true"/>المحادثة{Boolean(row.unreadCount) && <span className="mo-unread">{number.format(row.unreadCount!)}</span>}</MotionPressButton>
+            <MotionPressButton
+              className="mo-action mo-action-current"
+              aria-label={`فتح المحادثة مع ${row.person.alias}${unread ? `، ${unread} غير مقروءة` : ''}`}
+              onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}
+            >
+              <MessageCircle size={18} strokeWidth={1.5} aria-hidden="true"/>
+              {unread && <span className="mo-unread" aria-hidden="true">{unread}</span>}
+            </MotionPressButton>
           </MotionReveal>;
         })}</div> : !error && <div className="mo-empty"><p>مساحتك لبداية جادّة مع الشخص المناسب.</p><MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات<ArrowLeft size={16}/></MotionPressButton></div>}
       </section>

@@ -187,7 +187,16 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .mo-identity > span,
 .phone-app .mo-card-foot > span { font-size: 12px; color: #655d63; }
 .phone-app .mo-action { min-height: 36px; padding: 6px 10px; border-radius: 9px; font-size: 12px; }
-.phone-app .mo-action-current { background: #f0e6ea; color: #54152a; border-color: transparent; }
+.phone-app .mo-current-card .mo-action-current {
+  min-width: 28px;
+  min-height: 24px;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-fill);
+}
 .phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon { width: 36px; height: 36px; }
 .phone-app .cm-shell .cm-view > .cm-panel .cm-panel-icon svg { width: 23px; height: 23px; }
 

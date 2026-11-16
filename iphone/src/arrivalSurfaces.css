@@ -238,18 +238,3 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble[data-composed] { animation: cm-send-arrive 160ms ease-out; }
 }
 @keyframes cm-send-arrive { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-
-/* Compact directory rows: use the space beside the portrait for interests. */
-.phone-app .cm-shell .dr-person-row { padding-block: 7px; margin-bottom: 7px; }
-.phone-app .cm-shell .dr-row-overview { gap: 8px; }
-.phone-app .cm-shell .dr-row-avatar { width: 46px; height: 52px; }
-.phone-app .cm-shell .dr-row-name strong { font-size: 18px; }
-.phone-app .cm-shell .dr-row-identity { gap: 2px; }
-.phone-app .cm-shell .dr-row-hobbies { display: flex; gap: 4px; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
-.phone-app .cm-shell .dr-row-hobbies > span { flex: none; max-width: 48%; overflow: hidden; text-overflow: ellipsis; padding: 1px 6px; border: 1px solid #eddee3; border-radius: 99px; background: #fff8fa; color: #75465a; font-size: 10px; line-height: 14px; }
-.phone-app .cm-shell .dr-row-detail { gap: 7px; margin-top: 2px; }
-.phone-app .cm-shell .dr-row-actions { gap: 5px; }
-.phone-app .cm-shell .dr-row-actions .dr-row-interest { min-width: 68px; padding-inline: 7px; border: 1px solid #dcb8c5; border-radius: 11px; background: #fff; color: #682039; font-weight: 600; }
-.phone-app .cm-shell .dr-row-actions .dr-row-interest[aria-pressed='true'] { border-color: #8c3653; background: #f9eaf0; color: #54152a; }
-.phone-app .cm-shell .dr-row-actions .dr-row-request:not([data-connected]):not([data-pending]) { border-color: #dcb5c3; background: #fff3f7; color: #762342; }
-.phone-app .cm-shell .dr-row-request > .nf-add-person-mark { width: 30px; height: 30px; }

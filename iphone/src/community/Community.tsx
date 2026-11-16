@@ -117,7 +117,7 @@ import './chat-continuity.css';
 function AddPersonMark() {
   return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
     <path d="M2 11C3 2 13 1 16 11C11 5 6 6 2 11ZM2 13C5 8 12 8 15 12C7 8 4 17 13 24L15 27C7 23 0 20 2 13Z"/>
-    <path opacity=".94" d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
+    <path opacity=".6" d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
     <circle cx="16" cy="26" r="5.5" stroke="var(--nf-icon-cutout, #fff)" strokeWidth="1.5"/>
     <path d="M16 23.5v5M13.5 26h5" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
   </svg>;
@@ -525,7 +525,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <PersonAvatar person={person} source={source} className="dr-row-image"/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
-        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>{person.interests.length>0&&<span className="dr-row-hobbies">{person.interests.slice(0,2).map((hobby)=><span key={hobby}>{safeInterest(hobby)}</span>)}</span>}</span>
+        <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span></span>
       </button>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} compact ariaLabel={`توافق التفضيلات ${ar.format(preference)} بالمئة`}/>}

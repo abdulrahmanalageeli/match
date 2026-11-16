@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   BookOpen,
   Navigation2,
+  Ring,
   Settings2,
   WalletCards,
 } from "./BrandIcons";
@@ -201,7 +202,7 @@ export function MemberTabs({
   }, [active, reduced]);
   const items = [
     { id: "discover", text: "استكشف", icon: Compass, open: onDiscover },
-    { id: "home", text: "التعارف", icon: Heart, open: onHome },
+    { id: "home", text: "التعارف", icon: Ring, open: onHome },
     { id: "inbox", text: "الإشعارات", icon: Bell, open: onInbox },
     { id: "chats", text: "المحادثات", icon: MessageCircle, open: onChats },
     { id: "settings", text: "الإعدادات", icon: Settings2, open: onAccount },

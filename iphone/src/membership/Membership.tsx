@@ -43,7 +43,6 @@ export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,rest
  const trial=!seriousness&&!active&&!demo&&Boolean(price)&&trialEligible;
  const until=expiry?new Date(expiry):null;
  return <Frame title="عضوية وُدَين" back={back} className="wd-paywall" headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
-  {active&&<header className="wd-paywall-intro"><h1>خطوتك الجادّة، بمزايا أكثر</h1></header>}
   <table className="wd-tier-comparison" aria-label="مقارنة العضوية المجانية والمميزة ووسام الجدية">
    <thead><tr><th scope="col">مزايا عضويتك</th><th scope="col">مجانية</th><th scope="col">مميزة</th><th scope="col" className="wd-seriousness-heading">وسام الجدية</th></tr></thead>
    <tbody>

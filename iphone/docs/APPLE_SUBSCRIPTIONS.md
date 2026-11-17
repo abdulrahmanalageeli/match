@@ -1,5 +1,9 @@
 # Wudayn monthly Apple subscriptions
 
+## Owner entitlement testing
+
+`20261118020000_owner_membership_testing.sql` adds a Settings selector only for the explicitly allowlisted, email-confirmed owner account. The authenticated RPC derives the member from the live session, requires approval and no suspension, and supports `actual`, `free`, `premium`, and `seriousness`. Overrides expire after 24 hours and apply to server entitlement checks, badges, and capacity. Selecting `actual` removes the override. Apple receipts, billing, cancellation, and launch-trial reservations are untouched. This tests feature access, not StoreKit purchases. The migration must be deployed before the selector is returned in account state. Test with `node --test owner-membership-testing.test.mjs` from `supabase/tests`.
+
 Implemented catalog (Saudi storefront, monthly auto-renewal):
 
 | Member profile | Product ID | SAR/month |

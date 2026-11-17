@@ -70,6 +70,7 @@ export type AccountState = {
     nextPublicProfileEditAt?: string | null;
   };
   profile: Profile | null;
+  membershipTesting?: {selected:'actual'|'free'|'premium'|'seriousness'};
   membership: { tier?:"free"|"premium"|"seriousness"; connectionLimit?:number; active: boolean; expiresAt: string | null; canStart: boolean };
   introduction: {
     fit?: MatchFit;

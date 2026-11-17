@@ -31,6 +31,7 @@ import { SupportContact } from '../help/SupportContact';
 import { feedback, hasHaptics } from '../feedback/haptics';
 
 type Props = {
+  onTestMembership?: (tier:'actual'|'free'|'premium'|'seriousness')=>void;
   testerSession?: string;
   completionEntry?: number;
   onProfileChanged?: () => void;
@@ -106,7 +107,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
 }
 
 export function Settings({ testerSession, state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena, onInterview,
-  onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged }: Props) {
+  onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged, onTestMembership }: Props) {
   const { value, setPreference } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
   const [confirm, setConfirm] = useState<"pause" | "exit" | null>(null);
@@ -185,6 +186,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           </div>
         </section>
         <section className="st-section" aria-label="المساعدة"><h2>المساعدة والدعم</h2><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="التوافق، الصور، المكالمات، الحصرية، والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div></section>
+        {!demo&&state?.membershipTesting&&onTestMembership&&<section className="st-section" aria-label="اختبار العضوية"><h2>اختبار العضوية</h2><div className="st-group">{([['actual','العضوية الفعلية'],['free','المجانية'],['premium','المميزة'],['seriousness','وسام الجدية']] as const).map(([tier,label])=><PreferenceSwitch key={tier} icon={<CreditCard/>} title={label} checked={state.membershipTesting?.selected===tier} disabled={busy} onChange={()=>onTestMembership(tier)}/>)}</div><p className="flow-note">لحسابك فقط، لمدة ٢٤ ساعة. لا يغيّر فواتير Apple أو يلغي الاشتراك.</p></section>}
         <SupportContact />
         <section className="st-section" aria-labelledby="st-device-title">
           <h2 id="st-device-title">التجربة على هذا الجهاز</h2>

@@ -921,6 +921,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   else if (view === "settings")
     screen = (
       <Settings source={source} testerSession={tester?.session}
+        onTestMembership={tier=>void run(async()=>{
+          const owner=tokenRef.current;if(!owner)return;
+          const seq=++version.current;
+          const state=await callRpc<AccountState>('marriage_test_membership',{selected_tier:tier},owner);
+          acceptLive(state,owner,seq);
+        })}
         completionEntry={completionEntry}
         onProfileChanged={() => { if (token) void run(async () => { await refresh(token); }); }}
         state={live}

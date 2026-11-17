@@ -1,8 +1,8 @@
+import {MemberBadge} from '../membership/MemberBadge';
 import { useState } from 'react';
 import type { CommunitySource, PublicPerson } from '../community/data';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { AvatarPortrait } from './AvatarPortrait';
-import { MemberBadge } from '../membership/MemberBadge';
 import './person-avatar.css';
 
 /** A compact version of the profile image, with the same private-photo access rules. */

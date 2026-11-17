@@ -1,10 +1,10 @@
 @font-face{font-family:'Lateef';src:url('/fonts/Lateef-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 .wd-member-badge{display:inline-flex;vertical-align:-.18em;align-items:center;justify-content:center;flex:0 0 19px;width:19px;height:19px;margin-inline:5px 1px;line-height:1;isolation:isolate}
 .phone-app .st-member-avatar,.phone-app .nf-person-avatar{position:relative;overflow:visible!important}
-.phone-app .st-member-avatar>.wd-member-badge,.phone-app .nf-person-avatar>.wd-member-badge{position:absolute;top:-2px;right:-2px;z-index:3;margin:0;width:21px;height:21px;border-radius:50%;background:transparent;box-shadow:none}
+.phone-app .st-member-avatar>.wd-member-badge,.phone-app .nf-person-avatar>.wd-member-badge{position:absolute;top:-5px;right:-5px;z-index:3;margin:0;width:22px;height:22px;border-radius:50%;background:transparent;box-shadow:none}
 .phone-app .st-member-avatar>.wd-member-badge>.wd-membership-mark,.phone-app .nf-person-avatar>.wd-member-badge>.wd-membership-mark{width:100%!important;height:100%!important;border-radius:0}
-.wd-portrait-membership{position:absolute;top:10px;right:10px;z-index:4;line-height:1;pointer-events:none}
-.wd-portrait-membership>.wd-member-badge{margin:0;width:26px;height:26px;filter:drop-shadow(0 1px 3px #0003)}
+.wd-portrait-membership{position:absolute;top:6px;right:6px;z-index:4;line-height:1;pointer-events:none}
+.wd-portrait-membership>.wd-member-badge{margin:0;width:26px;height:26px}
 .wd-membership-mark{display:block;flex:none;width:100%;height:100%;overflow:visible;--mark-base:#641d39;--mark-rim:#ddbba0;--mark-symbol:#fff0dc;--mark-light:#ae5a76;--mark-deep:#401127}
 [data-tier=seriousness] .wd-membership-mark{--mark-base:#174e50;--mark-rim:#92c7bc;--mark-symbol:#eff9f4;--mark-light:#46958c;--mark-deep:#103c41}
 .wd-mark-body{fill:var(--mark-base);stroke:var(--mark-rim);stroke-width:.8}
@@ -15,7 +15,7 @@
 .phone-app .st-member-avatar>img,.phone-app .st-member-avatar>.nf-avatar-art{border-radius:inherit}
 .phone-app .mp-portrait{position:relative;overflow:visible}
 .phone-app .mp-portrait>img,.phone-app .mp-portrait>svg,.phone-app .mp-portrait>.nf-avatar-art{border-radius:inherit}
-.phone-app .mp-portrait>.wd-portrait-membership{top:-2px;right:-2px}
+.phone-app .mp-portrait>.wd-portrait-membership{top:-6px;right:-6px}
 .df-card-portrait:has(.wd-member-badge) .df-portrait-badges{padding-right:36px}
 .wd-mark-rim{stroke:var(--mark-rim);stroke-width:.65;opacity:.65}
 .wd-mark-symbol{stroke:var(--mark-symbol);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -208,6 +208,21 @@
 
 /* Light catches only the seal artwork; no backing or visible label. */
 .wd-member-badge{position:relative}
-.wd-member-badge>.wd-membership-mark{object-fit:contain}
-.wd-member-badge:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 35%,#fff5dfaa 50%,transparent 65%);background-size:300% 100%;background-position:100% 0;mask-image:var(--seal-image);-webkit-mask-image:var(--seal-image);mask-size:contain;-webkit-mask-size:contain;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-position:center;-webkit-mask-position:center}
+.wd-member-badge>.wd-membership-mark{object-fit:contain;filter:drop-shadow(.4px 0 0 #e8d8c4e6) drop-shadow(-.4px 0 0 #e8d8c4e6) drop-shadow(0 .5px 0 #e8d8c4e6) drop-shadow(0 -.3px 0 #e8d8c4e6) drop-shadow(0 .5px .4px #54152a24)}
+.wd-member-badge:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 35%,#fff5df55 50%,transparent 65%);background-size:300% 100%;background-position:100% 0;mask-image:var(--seal-image);-webkit-mask-image:var(--seal-image);mask-size:contain;-webkit-mask-size:contain;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-position:center;-webkit-mask-position:center}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .wd-member-badge:after{animation:wd-pass-sheen 7s ease-in-out infinite}}
+
+/* A fine metallic frame with a broad light reflection, never a travelling dot. */
+.phone-app .cm-shell .dr-person-row[data-membership=seriousness]{position:relative;box-shadow:0 2px 8px #54152a06}
+.wd-row-orbit{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1}
+.wd-row-orbit>svg{display:block;overflow:visible}
+.wd-row-orbit rect{width:calc(100% - 1px);height:calc(100% - 1px);fill:none;stroke-width:.75}
+.wd-row-sheen{stroke-width:1!important;filter:drop-shadow(0 0 .6px #ae778633)}
+.phone-app .dr-person-row[data-membership=seriousness] .wd-member-badge:after{animation:none;opacity:0}
+@media(prefers-reduced-motion:reduce){.wd-row-sheen{display:none}}
+html[data-nf-motion=reduced] .wd-row-sheen{display:none}
+
+.phone-app .mp-hero-copy>.wd-member-badge-labeled{display:flex;align-items:center;gap:5px;width:fit-content;height:25px;margin:0 0 7px;padding:2px 9px 2px 5px;border:1px solid #b6778d30;border-radius:99px;background:linear-gradient(110deg,#faf0f4,#fff9f4);color:#782d49;filter:none;font-size:10px;font-weight:600;white-space:nowrap}
+.phone-app .mp-hero-copy>.wd-member-badge-labeled[data-tier=seriousness]{background:linear-gradient(110deg,#eaf5f1,#f7fbf9);border-color:#4a898536;color:#245d58}
+.phone-app .wd-member-badge-labeled>.wd-membership-mark{width:20px;height:20px;flex:none}
+.phone-app .wd-member-badge-labeled:after{mask:none;-webkit-mask:none;border-radius:inherit}

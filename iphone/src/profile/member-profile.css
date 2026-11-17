@@ -61,3 +61,22 @@
 .mp-fact-group dd{font-size:13px;color:#60394a;line-height:1.85}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .mp-fact-chevron{transition:transform .2s ease}html:not([data-nf-motion=reduced]) .mp-fact-group[open]>dl{animation:mp-reveal .2s ease both}}
 @media(max-width:350px){.mp-fact-group>summary{padding:13px 12px;gap:9px}.mp-fact-group dl>div{padding:12px}.mp-fact-heading strong{font-size:13px}.mp-fact-heading small{font-size:9px}.mp-fact-group dd{font-size:12px}}
+
+/* Compact member introduction: clear identity, quiet status, one concise action. */
+.phone-app .mp-profile .mp-hero{grid-template-columns:minmax(0,1fr) 108px;gap:8px 16px;align-items:center}
+.phone-app .mp-profile .mp-portrait{height:128px;border-radius:11px}
+.phone-app .mp-profile .mp-eyebrow{font-size:11px;line-height:1.4;margin-bottom:2px;color:#8a8085}
+.phone-app .mp-profile .mp-hero h1{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 8px;font-size:22px;line-height:1.4;margin:3px 0 4px}
+.phone-app .mp-profile .mp-hero h1 small{display:inline;font-size:11px;line-height:1.5;margin:0;font-weight:400;color:#8a8085}
+.phone-app .mp-profile .mp-meta{font-size:12px;line-height:1.5;gap:4px}
+.phone-app .mp-profile .mp-meta svg{width:12px;height:12px;margin-top:2px}
+.phone-app .mp-profile .mp-intention{padding-block:7px;margin-top:1px;font-size:11px;line-height:1.5;gap:5px}
+.phone-app .mp-profile .mp-intention>svg{width:12px;height:12px}
+.phone-app .mp-profile .mp-primary{margin-bottom:9px;gap:6px}
+.phone-app .mp-profile .mp-primary>.mp-action-main{min-height:50px;padding:7px 12px;border-radius:10px}
+.phone-app .mp-profile .mp-action-main strong{font-size:14px;line-height:1.4}
+.phone-app .mp-profile .mp-action-main small{font-size:10px;line-height:1.5}
+.phone-app .mp-profile .mp-hero-copy>.wd-member-badge-labeled{height:21px;gap:4px;margin:0 0 3px;padding:0;border:0;border-radius:0;background:transparent;color:#754051;font-size:10px;letter-spacing:0}
+.phone-app .mp-profile .mp-hero-copy>.wd-member-badge-labeled[data-tier=seriousness]{background:transparent;color:#786345;border:0}
+.phone-app .mp-profile .wd-member-badge-labeled>.wd-membership-mark{width:19px;height:19px;filter:none}
+.phone-app .mp-profile .wd-member-badge-labeled:after{display:none}

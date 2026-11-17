@@ -481,6 +481,7 @@ function PersonCard({
   return (
     <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
+      data-membership={person.membershipTier}
       style={{animationDelay: `${Math.min(index,7)*45}ms`}}
       onClick={event => open(event.currentTarget)}
       data-weekly-person={person.id}
@@ -506,13 +507,43 @@ function PersonCard({
   );
 }
 
+function MembershipRowSpark() {
+  const gradientId=useId();
+  const ref=useRef<HTMLSpanElement>(null);
+  const [visible,setVisible]=useState(false);
+  useEffect(()=>{
+    if(!ref.current||typeof IntersectionObserver==='undefined') return;
+    const observer=new IntersectionObserver(([entry])=>setVisible(entry.isIntersecting),{threshold:.15});
+    observer.observe(ref.current);
+    return ()=>observer.disconnect();
+  },[]);
+  return <span ref={ref} className="wd-row-orbit" aria-hidden="true">
+    <svg width="100%" height="100%" focusable="false">
+      <defs><linearGradient id={`${gradientId}-rim`} x1="0%" y1="0%" x2="100%" y2="100%"><stop stopColor="#ae7786" stopOpacity=".08"/><stop offset=".45" stopColor="#ddbba0" stopOpacity=".35"/><stop offset=".75" stopColor="#ae7786" stopOpacity=".24"/><stop offset="1" stopColor="#ddbba0" stopOpacity=".12"/></linearGradient><linearGradient id={gradientId} x1="-100%" x2="0%" y1="0%" y2="0%">
+        <stop offset="0" stopColor="#ae7786" stopOpacity="0"/>
+        <stop offset=".2" stopColor="#ae7786" stopOpacity=".08"/>
+        <stop offset=".36" stopColor="#b98392" stopOpacity=".45"/>
+        <stop offset=".48" stopColor="#92516b" stopOpacity=".85"/>
+        <stop offset=".56" stopColor="#e0bfa6" stopOpacity=".95"/>
+        <stop offset=".7" stopColor="#b98392" stopOpacity=".35"/>
+        <stop offset=".85" stopColor="#ae7786" stopOpacity=".06"/>
+        <stop offset="1" stopColor="#ae7786" stopOpacity="0"/>
+        {visible&&<><animate attributeName="x1" values="-100%;-100%;100%;100%" keyTimes="0;.25;.8;1" dur="7s" repeatCount="indefinite"/><animate attributeName="x2" values="0%;0%;200%;200%" keyTimes="0;.25;.8;1" dur="7s" repeatCount="indefinite"/></>}
+      </linearGradient></defs>
+      <rect className="wd-row-frame" x=".5" y=".5" rx="11.5" stroke={`url(#${gradientId}-rim)`}/>
+      <rect className="wd-row-sheen" x=".5" y=".5" rx="11.5" stroke={`url(#${gradientId})`}/>
+    </svg>
+  </span>;
+}
+
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const preference=premium?compatibilityPercentage(person):null;
   const sampleOnly=person.isDemo&&!source.simulation;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
-  return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
+  return <article className="dr-person-row" data-membership={person.membershipTier} aria-label={`ملف ${person.alias}`}>
+    {person.membershipTier==='seriousness'&&<MembershipRowSpark/>}
     <div className="dr-row-overview">
       <div className="dr-row-profile-group">
         <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
@@ -1292,6 +1323,10 @@ export function Chat({
     } catch (cause) { setDeleteError(messageFor(cause)); }
     finally { setDeleting(false); }
   }
+  const onDeepNotice = useCallback(() => {
+    if (atBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
+    else setShowLatest(true);
+  }, []);
   function scrollToLatest() {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
     atBottom.current = true;
@@ -1431,8 +1466,7 @@ export function Chat({
         <ConversationAgreement openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
-      {conversationAllowed && !thread.accessDenied && <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen}
-        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="ملفكما مع لونا" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>}
+
       {conversationAllowed && <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div
@@ -1494,6 +1528,8 @@ export function Chat({
               </div>}
             </div>;
           })}
+      {conversationAllowed && !thread.accessDenied && <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
+        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>}
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
@@ -1543,6 +1579,7 @@ export function Chat({
         <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
         <div className="cm-chat-tools">
           {source.searchMessages && <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}
+          <button disabled={!conversationAllowed || thread.accessDenied} onClick={() => { setToolsOpen(false); typing.stop(); setDeepOpen(true); }}><img className="wd-deep-menu-mark" src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/><span><strong>تحليل وُدَين المعمّق</strong><small>طلب تحليل شخصيتكما أو متابعة تحليل سابق</small></span><ChevronLeft size={16}/></button>
           <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>

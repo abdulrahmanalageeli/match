@@ -1,4 +1,7 @@
-.nf-person-avatar { display: inline-grid; place-items: center; flex: none; overflow: hidden; isolation: isolate; }
-.nf-person-avatar > img, .nf-person-avatar > .nf-avatar-portrait, .nf-person-avatar > .nf-person-avatar-image { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 32%; border-radius: inherit; }
+.nf-person-avatar { display: inline-grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: center; flex: none; overflow: hidden; isolation: isolate; }
+.nf-person-avatar > img, .nf-person-avatar > .nf-avatar-portrait, .nf-person-avatar > .nf-person-avatar-image { display: block; min-width: 0; min-height: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 32%; border-radius: inherit; }
 .nf-person-avatar > span.nf-person-avatar-image { display: grid; place-items: center; background: var(--blush); color: var(--muted); }
 .nf-person-avatar[data-image]::before { display: none; }
+
+/* The photo occupies the avatar box, independent of its intrinsic aspect ratio. */
+.nf-person-avatar > img, .nf-person-avatar > .nf-avatar-portrait, .nf-person-avatar > .nf-person-avatar-image { grid-area: 1 / 1; }

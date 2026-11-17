@@ -28,6 +28,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
         bridge?.registerPluginInstance(AppleMembershipPlugin())
         bridge?.registerPluginInstance(PrivateSessionPlugin())
         bridge?.registerPluginInstance(PrivatePhotoPlugin())
+        bridge?.registerPluginInstance(WudaynReportExportPlugin())
         bridge?.registerPluginInstance(NisfaynPushPlugin())
         bridge?.registerPluginInstance(NisfaynVoicePlugin())
         bridge?.registerPluginInstance(NisfaynFeedbackPlugin())

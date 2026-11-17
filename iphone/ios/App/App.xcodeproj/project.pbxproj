@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		490000000000000000000034 /* WudaynReportExportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000024 /* WudaynReportExportPlugin.swift */; };
         490000000000000000000019 /* NisfaynCallCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000009 /* NisfaynCallCenter.swift */; };
 		490000000000000000000018 /* NisfaynFeedbackPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000008 /* NisfaynFeedbackPlugin.swift */; };
 		490000000000000000000015 /* NisfaynVoicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000005 /* NisfaynVoicePlugin.swift */; };
@@ -28,6 +29,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		490000000000000000000024 /* WudaynReportExportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WudaynReportExportPlugin.swift; sourceTree = "<group>"; };
         490000000000000000000009 /* NisfaynCallCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynCallCenter.swift; sourceTree = "<group>"; };
 		490000000000000000000008 /* NisfaynFeedbackPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynFeedbackPlugin.swift; sourceTree = "<group>"; };
 		490000000000000000000005 /* NisfaynVoicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynVoicePlugin.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				490000000000000000000002 /* AppleMembershipPlugin.swift */,
 				490000000000000000000003 /* PrivateSessionPlugin.swift */,
 				490000000000000000000023 /* PrivatePhotoPlugin.swift */,
+				490000000000000000000024 /* WudaynReportExportPlugin.swift */,
 				490000000000000000000004 /* NisfaynPushPlugin.swift */,
 				490000000000000000000005 /* NisfaynVoicePlugin.swift */,
                 490000000000000000000009 /* NisfaynCallCenter.swift */,
@@ -195,6 +198,7 @@
 				490000000000000000000012 /* AppleMembershipPlugin.swift in Sources */,
 				490000000000000000000013 /* PrivateSessionPlugin.swift in Sources */,
 				490000000000000000000033 /* PrivatePhotoPlugin.swift in Sources */,
+				490000000000000000000034 /* WudaynReportExportPlugin.swift in Sources */,
 				490000000000000000000014 /* NisfaynPushPlugin.swift in Sources */,
 				490000000000000000000015 /* NisfaynVoicePlugin.swift in Sources */,
                 490000000000000000000019 /* NisfaynCallCenter.swift in Sources */,

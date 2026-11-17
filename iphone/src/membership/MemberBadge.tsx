@@ -7,7 +7,7 @@ export function MembershipMark({serious=false}:{serious?:boolean}) {
 }
 
 /** Membership is distinct from identity verification. */
-export function MemberBadge({active=false,tier}:{active?:boolean;tier?:'free'|'premium'|'seriousness'}) {
+export function MemberBadge({active=false,tier,labeled=false}:{active?:boolean;tier?:'free'|'premium'|'seriousness';labeled?:boolean}) {
  const serious=tier==='seriousness';
- return active||tier==='premium'||serious ? <span className="wd-member-badge" data-tier={serious?'seriousness':'premium'} role="img" aria-label={serious?'وسام الجدية':'عضوية وُدَين المميزة'} style={{'--seal-image':`url("${serious?'/brand/wudayn-seriousness-seal.png':'/brand/wudayn-member-seal.png'}")`} as CSSProperties}><MembershipMark serious={serious}/></span> : null;
+ return active||tier==='premium'||serious ? <span className={"wd-member-badge"+(labeled?" wd-member-badge-labeled":"")} data-tier={serious?'seriousness':'premium'} role="img" aria-label={serious?'وسام الجدية':'عضوية وُدَين المميزة'} style={{'--seal-image':`url("${serious?'/brand/wudayn-seriousness-seal.png':'/brand/wudayn-member-seal.png'}")`} as CSSProperties}><MembershipMark serious={serious}/>{labeled&&<span>{serious?'وسام الجدية':'مميز'}</span>}</span> : null;
 }

@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDeepAnalysisService,analysisRequest,privateReviewRequest,validatePrivateReview,validateReport,parseDeepInput,SECTIONS} from '../api/_lib/deep-compatibility.mjs';
+import {createDeepAnalysisService,analysisRequest,privateReviewRequest,validatePrivateReview,validateReport,parseDeepInput,SECTIONS,PERSONALITY_KEYS} from '../api/_lib/deep-compatibility.mjs';
+import personalityCatalog from '../src/compatibility/personality-catalog.json' with {type:'json'};
 import handler from '../api/deep-compatibility.mjs';
 const actor='11111111-1111-4111-8111-111111111111',connectionId='22222222-2222-4222-8222-222222222222',lease='33333333-3333-4333-8333-333333333333';
 const snapshot={a:{entries:[{key:'answer:closeness',question:'القرب',answer:'أحتاج مساحة'}]},b:{entries:[{key:'personality:reassurance',question:'الطمأنة',answer:'أقدّر التواصل'}]}};
-const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',text:'قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.',evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
+const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',text:`قراءة ${i+1}: قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.`,evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
 const completion=value=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
 const response=()=>({headers:{},setHeader(key,value){this.headers[key]=value},status(value){this.code=value;return this},json(value){this.body=value;return this},end(){return this}});
 test('native endpoint permits only narrow CORS preflight and disables caching',async()=>{
@@ -77,4 +78,24 @@ test('report evidence is bilateral, real, complete and conservative about incomp
   const rows=findings();change(rows[0]);assert.throws(()=>validateReport(completion({findings:rows}),snapshot));
  }
  const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6-luna');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
+});
+
+test('personality coverage keys match the actual questionnaire',()=>{
+ assert.deepEqual([...PERSONALITY_KEYS].sort(),personalityCatalog.map(item=>item.id).sort());
+});
+
+test('complete personalities require interpretations of both sets of 12 answers and four multi-trait patterns',()=>{
+ const complete={};
+ for(const side of ['a','b'])complete[side]={entries:PERSONALITY_KEYS.map(key=>({key:`personality:${key}`,question:key,answer:'يشبهني أحيانًا'}))};
+ const rows=SECTIONS.filter(section=>section!=='patterns').map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',text:`قراءة مستقلة ${i+1}: إشارات محدودة تستحق توضيحًا بالحوار.`,evidence:[{side:'a',key:'personality:closeness'},{side:'b',key:'personality:reassurance'}]}));
+ for(let i=0;i<4;i++)rows.push({id:`f${i+8}`,section:'patterns',kind:'manageable',text:`نمط مستقل ${i+1}: تفاعل عدة إشارات، مع بديل يحتاج إلى تحقق.`,evidence:PERSONALITY_KEYS.slice(i*3,i*3+3).flatMap(key=>['a','b'].map(side=>({side,key:`personality:${key}`})))});
+ assert.equal(validateReport(completion({findings:rows}),complete).findings.length,11);
+ // Literal profile summaries cannot pass by citing the same two questions repeatedly.
+ const shallow=structuredClone(rows);for(const row of shallow)row.evidence=rows[0].evidence;
+ assert.throws(()=>validateReport(completion({findings:shallow}),complete));
+ const missing=structuredClone(rows);missing.at(-1).evidence=missing.at(-1).evidence.filter(e=>e.side!=='b'||e.key!=='personality:quiet_comfort');
+ assert.throws(()=>validateReport(completion({findings:missing}),complete));
+ const fewer=rows.filter(row=>row.id!=='f11');assert.throws(()=>validateReport(completion({findings:fewer}),complete));
+ const repeated=structuredClone(rows);repeated[1].text=repeated[0].text;assert.throws(()=>validateReport(completion({findings:repeated}),complete));
+ const duplicateEvidence=structuredClone(rows);duplicateEvidence[0].evidence.push(duplicateEvidence[0].evidence[0]);assert.throws(()=>validateReport(completion({findings:duplicateEvidence}),complete));
 });

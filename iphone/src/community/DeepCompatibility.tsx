@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronLeft, LockKeyhole, Sparkles } from '../BrandIcons';
 import { useMembershipAccess } from '../membership/access';
 import { deepSections, type DeepAction, type DeepAnalysisSource, type DeepSnapshot } from './deepCompatibilityModel';
 import type { WatchUpdates } from './updates';
+import { DeepReport } from './DeepReport';
+import { deepReportDocument, deepReportTitle } from './deepReportDocument';
+import { saveDeepReport } from './deepReportExport';
 import './deepCompatibility.css';
 
 const stateCopy: Record<DeepSnapshot['status'], string> = {
@@ -10,18 +13,20 @@ const stateCopy: Record<DeepSnapshot['status'], string> = {
   generating: 'لونا تقرأ ما بين الإجابات', review: 'التقرير جاهز لمراجعة المشاركة', shared: 'تقريركما المشترك جاهز',
   declined: 'لم تُقبل الدعوة', cancelled: 'أُلغي التحليل', stale: 'تحتاجان موافقة جديدة', failed: 'لم يكتمل التحليل',
 };
-const kindCopy = { strength: 'نقطة قوة', manageable: 'اختلاف قابل للنقاش', incompatibility: 'تعارض مع شرط أساسي', uncertain: 'المعلومات غير كافية' };
 const count = new Intl.NumberFormat('ar-SA');
 const message = (error: unknown) => error instanceof Error && /[\u0600-\u06ff]/.test(error.message) ? error.message : 'تعذّر الاتصال الآن. حاول مجددًا.';
 
-export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, sheet }: {
+export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, onNoticeChange, sheet }: {
   source?: DeepAnalysisSource; watch: WatchUpdates; connectionId: string; peerName: string; open: boolean;
-  onOpenChange(open: boolean): void; sheet(content: ReactNode): ReactNode;
+  onOpenChange(open: boolean): void; onNoticeChange?(): void; sheet(content: ReactNode): ReactNode;
 }) {
   const membership = useMembershipAccess();
   const [snapshot, setSnapshot] = useState<DeepSnapshot | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const exportLock = useRef(false);
   const [decisions, setDecisions] = useState<Record<string, boolean>>({});
   const [hidden, setHidden] = useState(() => document.hidden);
   const sequence = useRef(0), locked = useRef(false);
@@ -30,7 +35,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
   const reviewKey = snapshot?.status === 'review' ? snapshot.id + ':' + snapshot.review.map(item => item.id).join(',') : '';
   useEffect(() => setDecisions({}), [reviewKey]);
   const refresh = useCallback(async () => {
-    if (!source || document.hidden || locked.current) return;
+    if (!source || document.hidden || locked.current || exportLock.current) return;
     const current = ++sequence.current;
     try {
       const next = await source.request(connectionId, 'get');
@@ -39,6 +44,8 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
       if (current === sequence.current) { setSnapshot(null); setError(message(failure)); }
     }
   }, [source, connectionId]);
+  const latestRefresh = useRef(refresh);
+  latestRefresh.current = refresh;
   useEffect(() => {
     mounted.current = true;
     setSnapshot(null); setError(''); setBusy(false); locked.current = false;
@@ -54,7 +61,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     return () => { mounted.current = false; ++sequence.current; stop(); clearInterval(timer); document.removeEventListener('visibilitychange', visibility); };
   }, [source, watch, refresh]);
   async function act(action: DeepAction | 'generate') {
-    if (!source || locked.current) return;
+    if (!source || locked.current || exportLock.current) return;
     locked.current = true; setBusy(true); setError('');
     const current = ++sequence.current;
     try {
@@ -78,22 +85,57 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
       if (current !== sequence.current && mounted.current && !document.hidden) { setBusy(false); void refresh(); }
     }
   }
+  async function saveReport() {
+    if (!source || exportLock.current || locked.current) return;
+    exportLock.current = true; setSaving(true); setSaveError('');
+    const current = sequence.current;
+    let authorized = false;
+    try {
+      // Re-authorize immediately before export; never save a stale cached report.
+      const fresh = await source.request(connectionId, 'get');
+      if (!mounted.current || document.hidden || current !== sequence.current) return;
+      setSnapshot(fresh);
+      const html = deepReportDocument(fresh, peerName);
+      authorized = true;
+      await saveDeepReport(html);
+    } catch (failure) {
+      if (mounted.current && !document.hidden && current === sequence.current) {
+        if (!authorized) { setSnapshot(null); setError(message(failure)); }
+        else setSaveError(message(failure));
+      }
+    } finally {
+      exportLock.current = false;
+      if (mounted.current) {
+        setSaving(false);
+        // Native Save to Files may background the web view and clear its report.
+        void latestRefresh.current();
+      }
+    }
+  }
   const status = snapshot?.status;
   useEffect(() => { panel.current?.closest('dialog')?.scrollTo({ top: 0 }); }, [status]);
   const isStart = status && ['none', 'declined', 'cancelled', 'stale'].includes(status);
   const actionable = status === 'requested' && !snapshot?.requestedByMe || status === 'review' && !snapshot?.myReviewed;
   const selected = snapshot?.review.filter(item => decisions[item.id]).length ?? 0;
   const step = status === 'shared' ? 3 : status === 'review' ? 2 : status && ['ready', 'generating', 'failed'].includes(status) ? 1 : 0;
+  const hasNotice = Boolean(snapshot?.id && status && status !== 'none' && !hidden);
+  const noticeKey = hasNotice ? `${snapshot?.id}:${status}:${snapshot?.myReviewed}` : '';
+  useLayoutEffect(() => { if (noticeKey) onNoticeChange?.(); }, [noticeKey, onNoticeChange]);
+  const notice = status === 'requested' ? snapshot?.requestedByMe ? 'أرسلت دعوة لاكتشاف توافقكما بعمق' : `${peerName} يدعوك لاكتشاف توافقكما بعمق`
+    : status === 'review' ? snapshot?.myReviewed ? 'حُفظت اختياراتك · بانتظار الطرف الآخر' : 'قراءتك الخاصة جاهزة · راجع ما ترغب بمشاركته'
+    : snapshot ? stateCopy[snapshot.status] : '';
   return <>
-    <button type="button" className="wd-deep-entry" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
-      <span className="wd-deep-entry-mark"><BookOpen size={18}/></span>
-      <span><strong>ملفكما مع لونا</strong><small>{hidden ? 'تحليل التوافق المعمّق' : snapshot ? stateCopy[snapshot.status] : error ? 'تعذّر تحديث حالة التقرير' : source ? 'جارٍ التحقق من التقرير…' : 'تحليل التوافق المعمّق · وسام الجدية'}</small></span>
-      {actionable && <i aria-label="بانتظارك"/>}<ChevronLeft size={16}/>
-    </button>
-    {open && sheet(<div ref={panel} className="wd-deep" aria-busy={busy}>
+    {hasNotice && <div className="wd-deep-event" aria-label="تحديث تحليل وُدَين">
+      <span className="wd-deep-event-brand"><img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>{deepReportTitle}</span>
+      <p>{notice}</p>
+      <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
+        {actionable && <i aria-label="بانتظارك"/>}{status === 'shared' ? 'اكتشف تحليلَكما' : status === 'requested' && !snapshot?.requestedByMe ? 'مراجعة الدعوة' : status === 'review' && !snapshot?.myReviewed ? 'مراجعة المشاركة' : 'عرض التفاصيل'}<ChevronLeft size={13}/>
+      </button>
+    </div>}
+    {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
       {hidden ? <p className="wd-deep-note"><LockKeyhole size={18}/> التقرير مخفي أثناء مغادرة التطبيق.</p> : <>
-        <div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>الصورة الكاملة، من إجاباتكما.</h3><p>لونا تربط ما يهمكما، وما تتوقعانه من شريك الحياة. بلا استبيان جديد.</p></div>
-        <ol className="wd-deep-steps" aria-label="مراحل التحليل">{['الموافقة', 'التحليل', 'المراجعة', 'تقريركما'].map((label, index) => <li key={label} data-current={index === step || undefined} data-done={index < step || undefined} aria-current={index === step ? 'step' : undefined}><span>{count.format(index + 1)}</span>{label}</li>)}</ol>
+        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>الصورة الكاملة، من إجاباتكما.</h3><p>قراءة من وُدَين لما يهمكما، وما تتوقعانه من شريك الحياة. بلا استبيان جديد.</p></div>
+        <ol className="wd-deep-steps" aria-label="مراحل التحليل">{['الموافقة', 'التحليل', 'المراجعة', 'تقريركما'].map((label, index) => <li key={label} data-current={index === step || undefined} data-done={index < step || undefined} aria-current={index === step ? 'step' : undefined}><span>{count.format(index + 1)}</span>{label}</li>)}</ol></>}
         {error && <div className="wd-deep-error" role="alert"><p>{error}</p><button className="btn-text" onClick={() => void refresh()} disabled={busy}>تحديث الحالة</button></div>}
         {!source && <p className="wd-deep-note">يُتاح طلب التحليل لأعضاء وسام الجدية في التوافقات الحقيقية. هذه المحادثة التجريبية لا ترسل أي إجابات للتحليل.</p>}
         {source && !snapshot && !error && <p role="status" className="wd-deep-note">{busy ? 'جارٍ تنفيذ طلبك…' : 'جارٍ تحميل حالة التقرير…'}</p>}
@@ -127,16 +169,11 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
           <button className="btn-primary" disabled={busy} onClick={() => void act('review')}>{selected ? 'اعتماد اختيارات المشاركة' : 'عدم مشاركة أي نقطة'}</button>
           <small className="wd-deep-footnote">لن تُشارك النقاط غير المحددة. لا حاجة للإجابة عن أي سؤال.</small>
         </>)}
-        {status === 'shared' && <>
-          <div className="wd-deep-report-note"><LockKeyhole size={15}/><span>لكما وحدكما · النقاط التي وافقتما على مشاركتها</span></div>
-          <p className="wd-deep-footnote">أنت الطرف {snapshot?.requestedByMe ? 'أ' : 'ب'}، و{peerName} الطرف {snapshot?.requestedByMe ? 'ب' : 'أ'}. القراءة مبنية على إجاباتكما، وليست حكمًا على نجاح الزواج.</p>
-          {snapshot?.findings.length ? <div className="wd-deep-report">{Object.entries(deepSections).map(([key, label]) => {
-            const items = snapshot.findings.filter(item => item.section === key);
-            return items.length ? <details key={key} open={key === 'summary'}><summary>{label}<ChevronLeft size={16}/></summary><div>{items.map(item => <article key={item.id}><span className="wd-deep-kind" data-kind={item.kind}>{kindCopy[item.kind]}</span><p>{item.text}</p></article>)}</div></details> : null;
-          })}</div> : <p className="wd-deep-note">لم تتفقا على مشاركة نقاط. بقيت الإجابات خاصة بكل طرف.</p>}
-          <small className="wd-deep-footnote">قد لا تظهر بعض الأقسام حفاظًا على اختيارات المشاركة. أسئلة النقاش اختيارية، ولا تُحفظ إجابات جديدة هنا.</small>
+        {status === 'shared' && snapshot && <>
+          <DeepReport snapshot={snapshot} peerName={peerName} save={() => void saveReport()} saving={saving}/>
+          {saveError && <p role="alert" className="wd-deep-error">{saveError}</p>}
         </>}
-        {snapshot && ['requested', 'ready', 'generating', 'failed', 'review', 'shared'].includes(snapshot.status) && (snapshot.status !== 'requested' || snapshot.requestedByMe) && <Revoke busy={busy} shared={snapshot.status === 'shared'} apply={() => void act('cancel')}/>}
+        {snapshot && ['requested', 'ready', 'generating', 'failed', 'review', 'shared'].includes(snapshot.status) && (snapshot.status !== 'requested' || snapshot.requestedByMe) && <Revoke busy={busy || saving} shared={snapshot.status === 'shared'} apply={() => void act('cancel')}/>}
       </>}
     </div>)}
   </>;

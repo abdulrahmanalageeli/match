@@ -57,7 +57,7 @@ test('claimed generation uses server evidence, persists privately, returns no re
 });
 test('private previews receive only cited own evidence and reject missing or duplicate interpretations',()=>{
  const report={findings:findings()};
- const request=privateReviewRequest(snapshot,report,'a');
+ const request=privateReviewRequest(snapshot,report,'a');assert.equal(request.model,'gpt-6-luna');assert.equal(request.reasoning_effort,'low');
  const items=JSON.parse(request.messages[1].content);
  assert(items.every(item=>item.evidence.every(e=>e.key==='answer:closeness')));
  assert.equal(request.messages[1].content.includes('أقدّر التواصل'),false);
@@ -77,7 +77,7 @@ test('report evidence is bilateral, real, complete and conservative about incomp
  for(const change of [f=>f.evidence.pop(),f=>f.evidence[0].key='made-up',f=>f.kind='incompatibility',f=>f.text='نسبة النجاح ٩٩٪',f=>f.section='made-up',f=>f.id='f0',f=>f.id='f00']){
   const rows=findings();change(rows[0]);assert.throws(()=>validateReport(completion({findings:rows}),snapshot));
  }
- const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6-luna');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
+ const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6.1-sol');assert.equal(req.reasoning_effort,'medium');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
 });
 
 test('personality coverage keys match the actual questionnaire',()=>{

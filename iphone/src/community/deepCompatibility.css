@@ -1,0 +1,72 @@
+.wd-deep-entry { display:flex; align-items:center; gap:10px; width:100%; flex:none; min-height:52px; padding:8px 18px; border:0; border-block-end:1px solid var(--line); border-radius:0; background:linear-gradient(100deg,#fff 20%,#f4f8f7); color:#275553; text-align:start; }
+.wd-deep-entry-mark { display:grid; place-items:center; width:30px; height:32px; border-inline-end:1px solid #b9cfca; padding-inline-end:9px; }
+.wd-deep-entry>span:nth-child(2) { flex:1; display:grid; gap:2px; min-width:0; }
+.wd-deep-entry strong { font-size:.84rem; font-weight:650; }
+.wd-deep-entry small { font-size:.69rem; color:#687c77; }
+.wd-deep-entry i { width:6px; height:6px; background:#397671; border-radius:50%; }
+.cm-sheet.wd-deep-sheet { width:min(94vw,460px); padding:20px; }
+.cm-sheet.wd-deep-sheet>header { margin-bottom:12px; }
+.cm-sheet.wd-deep-sheet>header h2 { font-size:1.12rem; }
+.wd-deep { --deep-ink:#285651; display:grid; gap:16px; text-align:start; }
+.wd-deep h3,.wd-deep p { margin:0; }
+.wd-deep p { line-height:1.8; }
+.wd-deep h3 { font-size:1.03rem; font-weight:650; }
+.wd-deep-intro { display:grid; gap:6px; }
+.wd-deep-eyebrow { font-size:.73rem; color:var(--deep-ink); }
+.wd-deep-intro p { color:var(--muted); font-size:.82rem; }
+.wd-deep-steps { display:flex; list-style:none; padding:0; margin:0 0 3px; gap:4px; }
+.wd-deep-steps li { flex:1; display:grid; justify-items:center; gap:6px; color:var(--muted); font-size:.67rem; position:relative; }
+.wd-deep-steps li:not(:last-child)::after { content:''; position:absolute; inset-inline-start:calc(50% + 15px); top:12px; width:calc(100% - 26px); height:1px; background:var(--line); }
+.wd-deep-steps li span { display:grid; place-items:center; width:25px; height:25px; border:1px solid var(--line); border-radius:50%; font-size:.72rem; }
+.wd-deep-steps li[data-current] { color:var(--deep-ink); font-weight:700; }
+.wd-deep-steps li[data-current] span { background:#285651; color:white; border-color:#285651; box-shadow:0 0 0 3px #e7efeb; }
+.wd-deep-steps li[data-done] span { color:var(--deep-ink); background:#edf3f0; border-color:#c6d8d1; }
+.wd-deep-consent { padding:14px; border:1px solid #dce6e1; border-radius:16px; background:linear-gradient(140deg,#f4f8f5,#fff); }
+.wd-deep-consent h3 { display:flex; align-items:center; gap:7px; color:var(--deep-ink); font-size:.87rem; }
+.wd-deep-consent ul { padding-inline-start:18px; margin:10px 0; display:grid; gap:8px; font-size:.81rem; line-height:1.8; }
+.wd-deep-consent small,.wd-deep-footnote { display:block; font-size:.72rem; line-height:1.8; color:var(--muted); }
+.wd-deep .btn-primary { min-height:44px; font-size:.87rem; border-radius:14px; }
+.wd-deep .btn-text { min-height:44px; font-size:.8rem; }
+.wd-deep-note,.wd-deep-error { border:1px solid var(--line); padding:12px; border-radius:12px; font-size:.82rem; }
+.wd-deep-note svg { vertical-align:middle; margin-inline-end:5px; }
+.wd-deep-error { color:var(--accent); background:var(--blush); }
+.wd-deep-state { display:grid; justify-items:center; gap:10px; padding:10px 0; text-align:center; }
+.wd-deep-state>svg,.wd-deep-reading { color:var(--deep-ink); }
+.wd-deep-state p { color:var(--muted); font-size:.82rem; }
+.wd-deep-reading { display:grid; place-items:center; width:54px; height:54px; background:#f0f5f2; border:1px solid #cfdfd5; border-radius:20px; }
+.wd-deep-reading[data-moving] { animation:wd-deep-breathe 3.5s ease-in-out infinite; }
+.wd-deep-review-intro { display:grid; gap:7px; }
+.wd-deep-review-intro p { font-size:.79rem; color:var(--muted); }
+.wd-deep-review-tools { display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:.73rem; color:var(--deep-ink); }
+.wd-deep-review-tools .btn-text { padding:4px; font-size:.73rem; }
+.wd-deep-review-list,.wd-deep-report { display:grid; gap:8px; }
+.wd-deep details { border:1px solid var(--line); border-radius:13px; background:var(--paper); overflow:hidden; }
+.wd-deep summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:48px; padding:11px 13px; font-size:.85rem; font-weight:650; cursor:pointer; list-style:none; }
+.wd-deep summary::-webkit-details-marker { display:none; }
+.wd-deep summary>span { font-size:.72rem; color:var(--muted); }
+.wd-deep details[open]>summary { border-bottom:1px solid var(--line); color:var(--deep-ink); }
+.wd-deep details[open]>summary svg { transform:rotate(-90deg); }
+.wd-deep-choice { display:flex; gap:10px; padding:13px; align-items:flex-start; border-block-end:1px solid var(--line); }
+.wd-deep-choice:last-child { border:0; }
+.wd-deep-disclosure { border-block-end:1px solid var(--line); }
+.wd-deep-disclosure:last-child { border:0; }
+.wd-deep-disclosure .wd-deep-choice { border:0; padding-bottom:4px; }
+.wd-deep details.wd-deep-evidence { margin:0 12px 10px; border:0; background:transparent; }
+.wd-deep .wd-deep-evidence summary { min-height:40px; padding:5px 0; font-size:.71rem; font-weight:400; color:var(--deep-ink); }
+.wd-deep .wd-deep-evidence[open]>summary { border:0; }
+.wd-deep-evidence p { font-size:.74rem; color:var(--muted); }
+.wd-deep-choice input { appearance:auto; flex:none; width:18px!important; height:18px!important; min-height:0!important; padding:0!important; margin:3px 0 0!important; accent-color:var(--deep-ink); }
+.wd-deep-choice span { min-width:0; display:grid; gap:5px; }
+.wd-deep-choice strong { font-size:.79rem; }
+.wd-deep-choice small { font-size:.74rem; line-height:1.9; color:var(--muted); }
+.wd-deep-report-note { display:flex; align-items:center; gap:7px; color:var(--deep-ink); font-size:.75rem; }
+.wd-deep-report article { padding:14px; border-bottom:1px solid var(--line); }
+.wd-deep-report article:last-child { border:0; }
+.wd-deep-kind { display:inline-block; color:var(--deep-ink); font-size:.66rem; border-inline-start:2px solid #93b8aa; padding-inline-start:7px; margin-block-end:7px; }
+.wd-deep-kind[data-kind=uncertain] { color:#726658; border-color:#c7b69e; }
+.wd-deep-kind[data-kind=incompatibility] { color:var(--accent); border-color:#ae7587; }
+.wd-deep-report article p { font-size:.85rem; line-height:2; white-space:pre-line; overflow-wrap:anywhere; }
+.wd-deep-revoke { text-align:center; border-block-start:1px solid var(--line); padding-top:5px; }
+.wd-deep-revoke p { font-size:.79rem; color:var(--muted); margin-top:8px; }
+@keyframes wd-deep-breathe { 50% { box-shadow:0 0 0 8px #edf3ef80; } }
+@media(prefers-reduced-motion:reduce) { .wd-deep-reading[data-moving] { animation:none; } }

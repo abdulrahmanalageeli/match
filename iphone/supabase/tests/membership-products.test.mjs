@@ -26,6 +26,22 @@ test('verified receipts enforce product eligibility, ownership, replay and revoc
       assert.equal((await record({...receipt,signedDate:base.signedDate+100,revocationDate:Date.now()},null,true)).membership.active,false);
       assert.equal((await record(receipt)).membership.active,false,'old delivery cannot undo revocation');
       assert.equal((await record({...base,originalTransactionId:randomUUID(),transactionId:randomUUID(),productId:'com.blindmatch.marriage.monthly'})).membership.active,true,'legacy subscriptions still restore');
+      const seriousness={...base,originalTransactionId:randomUUID(),transactionId:randomUUID(),productId:'com.blindmatch.marriage.monthly.seriousness'};
+      assert.equal((await record(seriousness)).membership.active,true,'higher tier is valid for both genders');
+      assert.equal((await record(seriousness)).membership.connectionLimit,3,'higher tier permits three simultaneous connections');
+      assert.equal((await record(seriousness)).membership.tier,'seriousness');
+      await assert.rejects(record({...seriousness,productId:right,signedDate:base.signedDate-1000}),/حساب آخر/,'a transaction cannot change product even on stale replay');
+      await record({...seriousness,signedDate:base.signedDate+500,revocationDate:Date.now()},null,true);
+      assert.equal((await record(seriousness)).membership.tier,'premium','old higher-tier replay cannot undo revocation');
+      // A later signed update to an old transaction cannot mask another active higher-tier transaction.
+      const renewal={...seriousness,transactionId:randomUUID(),signedDate:base.signedDate+600};
+      await record(renewal);
+      await record({...seriousness,signedDate:base.signedDate+700,revocationDate:Date.now()},null,true);
+      assert.equal((await rpc('marriage.member_state($1)',[u.id])).membership.connectionLimit,3);
+      const womenSeal={...base,originalTransactionId:randomUUID(),transactionId:randomUUID(),productId:'com.blindmatch.marriage.monthly.seriousness.women'};
+      if(gender==='man')await assert.rejects(record(womenSeal),/نوع العضوية/);
+      else assert.equal((await record(womenSeal)).membership.connectionLimit,3);
+      assert.equal((await db.query('select product_id from marriage.store_transactions where transaction_id=$1',[seriousness.transactionId])).rows[0].product_id,seriousness.productId);
     }
   } finally { await db.close(); }
 });

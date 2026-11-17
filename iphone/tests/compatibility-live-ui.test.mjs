@@ -9,6 +9,7 @@ import {languageOptions,marriageTimelineLabels} from '../src/compatibility/marri
 import {dressStyles} from '../src/compatibility/appearance.ts';
 import { conversationInsights } from '../src/compatibility/conversation-insights.ts';
 import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMemory.ts';
+import { shuffleWithVisibility } from '../src/community/visibilityOrder.ts';
 
 const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests, DirectoryRow, PersonCard, FilterSheet };');
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
@@ -50,6 +51,7 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     if (name === '../compatibility/appearance') return {dressStyles};
     if (name === '../compatibility/conversation-insights') return { conversationInsights };
     if (name === './discoveryMemory') return { readBrowseMemory, saveBrowseMemory };
+    if (name === './visibilityOrder') return { shuffleWithVisibility };
     if (name === './useWeeklyCardTransition') return { useWeeklyCardTransition: () => (_origin, apply) => apply() };
     if (name === './chatOutbox') return { discardClosedDrafts: noop, denied: error => [401, 403].includes(error?.status) };
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));

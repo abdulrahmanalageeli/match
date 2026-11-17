@@ -161,7 +161,7 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
   const visit = (item: Activity) => { setToast(null); if (item.kind === 'visit' || item.kind === 'request' || !item.id) inbox.current(); else open.current(item.id); };
   return <aside className="nf-activity" aria-label="تنبيهات المحادثات">
     {toast && !celebrationReady && <div className="nf-activity-toast" role="status">
-      <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.person?<PersonAvatar person={toast.person} source={source}/>:toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}<MemberBadge active={toast.person?.premium}/></strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
+      <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.person?<PersonAvatar person={toast.person} source={source}/>:toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}<MemberBadge tier={toast.person?.membershipTier} active={toast.person?.premium}/></strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
       <button className="nf-activity-dismiss" aria-label="إخفاء التنبيه" onClick={() => setToast(null)}><X size={17}/></button>
     </div>}
     {quietSurface && !toast && !celebrationReady && !celebrationsBlocked && !voice?.occupied && !fitDetailId && fitChanges[0] &&

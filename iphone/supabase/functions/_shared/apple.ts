@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.112.2'
 import { Environment, SignedDataVerifier, VerificationStatus } from 'npm:@apple/app-store-server-library@3.1.0'
 
 const bundle = 'com.blindmatch.marriage'
-const products = new Set(['com.blindmatch.marriage.monthly','com.blindmatch.marriage.monthly.men','com.blindmatch.marriage.monthly.women'])
+const products = new Set(['com.blindmatch.marriage.monthly.seriousness.women','com.blindmatch.marriage.monthly.seriousness','com.blindmatch.marriage.monthly','com.blindmatch.marriage.monthly.men','com.blindmatch.marriage.monthly.women'])
 let verifier: SignedDataVerifier | undefined
 
 export class HttpError extends Error {

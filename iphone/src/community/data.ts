@@ -2,6 +2,8 @@ import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
 import { cloud } from "../cloud";
 import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession } from '../profile/profileOptions';
 import { requestAi } from '../ai/client';
+import { deepCompatibilitySource } from './deepCompatibilityClient';
+import type { DeepAnalysisSource } from './deepCompatibilityModel';
 import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim, ManualVerificationSource } from '../verification/model';
 import { callRpc, CloudError } from "../cloud";
@@ -18,6 +20,7 @@ import { createDemoSimulation, type DemoSimulationController, type DemoSimulatio
 
 export type GalleryPhoto = { id: string; path?: string };
 export type PublicPerson = {
+  membershipTier?:'free'|'premium'|'seriousness';
   premium?: boolean;
   compatibilityLocked?: boolean;
   recommendationPercentage?: number | null;
@@ -143,6 +146,7 @@ export type RequestAction =
 export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
 export type StepProgress = { rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
 export interface CommunitySource extends ManualVerificationSource {
+  deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
   family?: FamilyRequest;
@@ -212,6 +216,7 @@ export function cloudCommunity(userId: string): CommunitySource {
   }
   return {
     watch: privateUpdates(userId),
+    deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
     mediaUrl: async (...args) => (await media()).mediaUrl!(...args),
     openMedia: async (...args) => (await media()).openMedia!(...args),
@@ -522,6 +527,7 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
   const dress = (['hijab','niqab','uncovered','hijab','niqab','uncovered'] as const)[index%6];
   return {
     id:`${woman?'w':''}p${String(index+1).padStart(2,'0')}`, isDemo:true as const,
+    membershipTier: (index%5===0?'seriousness':index%5===1||index%5===3?'premium':'free') as 'free'|'premium'|'seriousness',
     alias:seed.alias,age:seed.age,city:seed.city,occupation:seed.occupation,profession:seed.occupation,bio:seed.bio,
     gender:woman?'woman' as const:'man' as const,education:seed.education,
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
@@ -663,6 +669,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     for(const key of ['skinTone','tribalBackground','tribeName','religiousAffiliation','prayerPractice'] as const)delete visibleBasics[key];
     return {
       id: person.id, isDemo:true, online:onlinePeople.has(person.id), interested:interestedPeople.has(person.id),
+      premium:person.membershipTier!=='free',membershipTier:person.membershipTier,
       atCapacity: false, viewerAtCapacity: records.filter(r => r.status === "accepted").length + (simulationOptions.externalAccepted?.()??0) >= 2,
       connectionId: records.find(r => r.peer === person.id && r.status !== "closed")?.id,
       connectionStatus: records.find(r => r.peer === person.id && r.status !== "closed")?.status as "accepted" | "pending" | undefined,

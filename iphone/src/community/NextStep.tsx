@@ -46,8 +46,8 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
     window.addEventListener('online', refresh);
     return () => { active = false; unwatch(); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source]);
-  const {premium}=useMembershipAccess();
-  const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined, premium?3:1);
+  const {premium,connectionLimit}=useMembershipAccess();
+  const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined, connectionLimit??(premium?2:1));
   if (!next || next.kind === 'request') return null;
   const Icon = next.kind === 'assessment' ? BookOpen : next.kind === 'agreement' ? Feather : next.kind === 'journey' ? Route
     : next.kind === 'capacity' ? HeartHandshake : next.kind === 'waiting' ? Send : MessageCircle;

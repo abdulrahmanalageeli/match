@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import { membershipProductId } from './membershipPricing';
+import { membershipProductId, type MembershipPlan } from './membershipPricing';
 import { cloud } from './cloud';
 
 type SignedTransaction = { jws: string };
@@ -22,28 +22,28 @@ function requireIOS() {
 
 export type MembershipOffer = {price:string; currency:string; trialEligible:boolean};
 export class MembershipOfferChangedError extends Error {}
-async function verifiedOffer(gender: 'man'|'woman'|undefined, claim:boolean) {
+async function verifiedOffer(gender: 'man'|'woman'|undefined, claim:boolean, plan:MembershipPlan='premium') {
   requireIOS();
-  const productId = membershipProductId(gender);
+  const productId = membershipProductId(gender,plan);
   const offer = await membership.offer({productId});
   if (offer.productId !== productId || !offer.signedAppTransaction || typeof offer.appleEligible!=='boolean') throw Error('حدّث تطبيق وُدَين لتحميل عرض عضويتك الصحيح.');
   if(!cloud)throw Error('عرض العضوية غير متاح الآن.');
-  const {data,error}=await cloud.functions.invoke('membership-offer',{body:{signedAppTransaction:offer.signedAppTransaction,appleEligible:offer.appleEligible,claim}});
+  const {data,error}=await cloud.functions.invoke('membership-offer',{body:{signedAppTransaction:offer.signedAppTransaction,appleEligible:offer.appleEligible,claim,productId}});
   if(error||data?.productId!==productId)throw Error('تعذّر تحميل عرض العضوية. حاول مجددًا.');
   return {offer,authorization:data as {eligible:boolean;eligibilityJws?:string;accountToken?:string}};
 }
 
-export async function getMembershipOffer(gender?: 'man' | 'woman'): Promise<MembershipOffer> {
-  const {offer,authorization}=await verifiedOffer(gender,false);
+export async function getMembershipOffer(gender?: 'man' | 'woman',plan:MembershipPlan='premium'): Promise<MembershipOffer> {
+  const {offer,authorization}=await verifiedOffer(gender,false,plan);
   return {price:offer.price,currency:offer.currency,trialEligible:authorization.eligible===true};
 }
 
-export async function purchaseMembership(accountToken: string, gender?: 'man' | 'woman', expectedTrial=false, displayedOffer?: MembershipOffer): Promise<string> {
-  const {offer,authorization}=await verifiedOffer(gender,true);
+export async function purchaseMembership(accountToken: string, gender?: 'man' | 'woman', expectedTrial=false, displayedOffer?: MembershipOffer,plan:MembershipPlan='premium'): Promise<string> {
+  const {offer,authorization}=await verifiedOffer(gender,true,plan);
   if(authorization.accountToken!==accountToken || !authorization.eligibilityJws)throw Error('تعذّر ربط العرض بحسابك.');
   if(displayedOffer && (displayedOffer.price!==offer.price || displayedOffer.currency!==offer.currency))throw new MembershipOfferChangedError('تغيّر سعر المتجر. حدّث عرض العضوية وراجعه قبل تأكيد الاشتراك.');
   if(expectedTrial && !authorization.eligible)throw new MembershipOfferChangedError('لم يعد العرض المجاني متاحًا لهذا الشراء. حدّث العرض قبل تأكيد الاشتراك.');
-  return (await membership.purchase({ accountToken, productId:membershipProductId(gender),eligibilityJws:authorization.eligibilityJws })).jws;
+  return (await membership.purchase({ accountToken, productId:membershipProductId(gender,plan),eligibilityJws:authorization.eligibilityJws })).jws;
 }
 
 export async function restoreMembership(): Promise<string> {

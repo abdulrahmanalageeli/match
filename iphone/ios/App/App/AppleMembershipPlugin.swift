@@ -15,6 +15,8 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "manage", returnType: CAPPluginReturnPromise)
     ]
     private let prices: [String: Decimal] = [
+        "com.blindmatch.marriage.monthly.seriousness.women": Decimal(string: "199.99")!,
+        "com.blindmatch.marriage.monthly.seriousness": Decimal(string: "299.99")!,
         "com.blindmatch.marriage.monthly.men": Decimal(string: "149.99")!,
         "com.blindmatch.marriage.monthly.women": Decimal(string: "99.99")!
     ]
@@ -45,9 +47,38 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         return jws
     }
 
-    @MainActor private func activeReceipt() async -> String? {
+    @MainActor private func activeReceipt(productID: String? = nil, accountToken: UUID? = nil) async -> String? {
+        var selected: (jws: String, transaction: Transaction)?
         for await result in Transaction.currentEntitlements {
-            if let jws = receipt(result) { return jws }
+            guard case .verified(let transaction) = result,
+                  transaction.revocationDate == nil, !transaction.isUpgraded,
+                  let expiry = transaction.expirationDate, expiry > Date(),
+                  productID == nil || transaction.productID == productID,
+                  accountToken == nil || transaction.appAccountToken == accountToken,
+                  let jws = receipt(result) else { continue }
+            let rank = transaction.productID.hasPrefix("com.blindmatch.marriage.monthly.seriousness") ? 2 : 1
+            let currentRank = selected?.transaction.productID.hasPrefix("com.blindmatch.marriage.monthly.seriousness") == true ? 2 : 1
+            if selected == nil || rank > currentRank || (rank == currentRank && expiry > (selected?.transaction.expirationDate ?? .distantPast)) {
+                selected = (jws, transaction)
+            }
+        }
+        return selected?.jws
+    }
+
+    @MainActor private func purchaseConflict(productID: String, accountToken: UUID) async -> (message: String, code: String)? {
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result,
+                  prices[transaction.productID] != nil || transaction.productID == legacyProductID,
+                  transaction.revocationDate == nil, !transaction.isUpgraded,
+                  let expiry = transaction.expirationDate, expiry > Date() else { continue }
+            // Do not charge before discovering that this Apple subscription belongs
+            // to another Wudayn account. Legacy receipts without a token need restore.
+            guard transaction.appAccountToken == accountToken else {
+                return ("يوجد اشتراك Apple مرتبط بحساب آخر أو يحتاج إلى استعادة. استعد مشترياتك أو سجّل الدخول إلى حساب وُدَين المرتبط قبل الشراء.", "ACCOUNT_CONFLICT")
+            }
+            if transaction.productID.hasPrefix("com.blindmatch.marriage.monthly.seriousness") && !productID.hasPrefix("com.blindmatch.marriage.monthly.seriousness") {
+                return ("لديك وسام الجدية بالفعل. لتغيير الخطة، افتح إدارة الاشتراك في Apple.", "MANAGE_SUBSCRIPTION")
+            }
         }
         return nil
     }
@@ -101,7 +132,11 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             defer { purchaseInProgress = false }
             do {
                 let product = try await selectedProduct(call)
-                if let existing = await activeReceipt() {
+                if let conflict = await purchaseConflict(productID: product.id, accountToken: token) {
+                    call.reject(conflict.message, conflict.code)
+                    return
+                }
+                if let existing = await activeReceipt(productID: product.id, accountToken: token) {
                     call.resolve(["jws": existing])
                     return
                 }

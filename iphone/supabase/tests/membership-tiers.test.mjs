@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
-test('Premium permits three connections, free recipients one, and expiry preserves existing connections',async()=>{
+test('Premium permits two connections, free recipients one, and expiry preserves existing connections',async()=>{
  const db=await createDatabase();
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' as value',args)).rows[0].value;
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
@@ -12,17 +12,17 @@ test('Premium permits three connections, free recipients one, and expiry preserv
  try{
   const man=await member('man',true),other=await member('man',true);
   const women=[];for(let n=0;n<4;n++)women.push(await member('woman'));
-  for(const woman of women.slice(0,3)){
+  for(const woman of women.slice(0,2)){
    const id=await call(man,'public.marriage_request($1)',[woman.id]);
    await call(woman,"public.marriage_act($1,'accept',null)",[id]);
   }
-  await assert.rejects(call(man,'public.marriage_request($1)',[women[3].id]));
+  await assert.rejects(call(man,'public.marriage_request($1)',[women[2].id]));
   await assert.rejects(call(other,'public.marriage_request($1)',[women[0].id]));
   const cards=await call(other,'public.marriage_browse($1)',[{mode:'all'}]);
   assert.equal(cards.find(p=>p.id===women[0].id)?.atCapacity,true);
   assert.equal(cards.find(p=>p.id===women[3].id)?.atCapacity,false);
   await db.query('update marriage.members set manual_access_until=null where id=$1',[man.id]);
-  assert.equal((await call(man,'public.marriage_inbox()')).filter(c=>c.status==='accepted').length,3);
+  assert.equal((await call(man,'public.marriage_inbox()')).filter(c=>c.status==='accepted').length,2);
   assert.equal(await rpc('marriage.connection_limit($1)',[man.id]),1);
  }finally{await db.close();}
 });

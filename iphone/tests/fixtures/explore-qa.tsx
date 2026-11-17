@@ -17,9 +17,6 @@ import '../../src/typography.css';
 
 // The real Explore components with fictional local data; no login or hosted writes.
 const source = demoCommunity(() => ({ ...demoProfile, gender: 'man' }));
-// Visual-only paid status on fictional cards; never alters hosted entitlements.
-const discoverFictional = source.discover;
-source.discover = async filters => (await discoverFictional(filters)).map((person,index)=>({...person,premium:index===0}));
 const noop = () => {};
 
 function ExplorePreview() {

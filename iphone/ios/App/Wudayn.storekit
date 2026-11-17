@@ -19,7 +19,7 @@
         {
           "winBackOffers": [],
           "type": "RecurringSubscription",
-          "groupNumber": 1,
+          "groupNumber": 2,
           "introductoryOffer": {
             "internalID": "bdea0c09-eee6-41c7-93c0-61457f4b95ba-launch",
             "paymentMode": "free",
@@ -43,6 +43,27 @@
           "internalID": "bdea0c09-eee6-41c7-93c0-61457f4b95ba",
           "familyShareable": false,
           "displayPrice": "149.99"
+        },
+        {
+          "winBackOffers": [],
+          "type": "RecurringSubscription",
+          "groupNumber": 1,
+          "referenceName": "وسام الجدية",
+          "localizations": [
+            {
+              "description": "عضوية وسام الجدية الشهرية",
+              "locale": "ar_SA",
+              "displayName": "وسام الجدية"
+            }
+          ],
+          "subscriptionGroupID": "957d21a4-c278-4daa-8022-e5a4f9d592da",
+          "adHocOffers": [],
+          "codeOffers": [],
+          "recurringSubscriptionPeriod": "P1M",
+          "productID": "com.blindmatch.marriage.monthly.seriousness",
+          "internalID": "9600a6bd-ae6a-46dd-8181-64bf69d27d5e",
+          "familyShareable": false,
+          "displayPrice": "299.99"
         }
       ],
       "id": "957d21a4-c278-4daa-8022-e5a4f9d592da",
@@ -54,7 +75,7 @@
         {
           "winBackOffers": [],
           "type": "RecurringSubscription",
-          "groupNumber": 1,
+          "groupNumber": 2,
           "introductoryOffer": {
             "internalID": "8583a3e1-3381-43dc-ad3e-723592d33e1c-launch",
             "paymentMode": "free",
@@ -78,6 +99,27 @@
           "internalID": "8583a3e1-3381-43dc-ad3e-723592d33e1c",
           "familyShareable": false,
           "displayPrice": "99.99"
+        },
+        {
+          "winBackOffers": [],
+          "type": "RecurringSubscription",
+          "groupNumber": 1,
+          "referenceName": "وسام الجدية",
+          "localizations": [
+            {
+              "description": "عضوية وسام الجدية الشهرية",
+              "locale": "ar_SA",
+              "displayName": "وسام الجدية"
+            }
+          ],
+          "subscriptionGroupID": "29258c07-343a-4345-827a-4441383d6c4d",
+          "adHocOffers": [],
+          "codeOffers": [],
+          "recurringSubscriptionPeriod": "P1M",
+          "productID": "com.blindmatch.marriage.monthly.seriousness.women",
+          "internalID": "79f9c669-b0e3-41dc-881b-80916f3034d5",
+          "familyShareable": false,
+          "displayPrice": "199.99"
         }
       ],
       "id": "29258c07-343a-4345-827a-4441383d6c4d",

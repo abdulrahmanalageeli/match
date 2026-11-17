@@ -64,12 +64,29 @@ test('local StoreKit catalog and native product IDs match the advertised monthly
   assert.equal(config.subscriptionGroups.length,2,'separate groups avoid opposite-gender crossgrades in Apple management');
   assert.equal(config.settings._storefront,'SAU');
   const plans=config.subscriptionGroups.flatMap(group=>group.subscriptions);
-  assert.equal(plans.length,2);
+  assert.equal(plans.length,4);
   for(const gender of ['man','woman']) {
     const id=pricing.MEMBERSHIP_PRODUCTS[gender],plan=plans.find(p=>p.productID===id);
     assert.equal(Number(plan.displayPrice),pricing.MONTHLY_MEMBERSHIP_SAR[gender]);
     assert.equal(plan.recurringSubscriptionPeriod,'P1M');assert.equal(plan.familyShareable,false);
     assert.equal(plan.introductoryOffer.subscriptionPeriod,'P1W');assert.equal(plan.introductoryOffer.paymentMode,'free');
     assert.ok(native.includes(`"${id}": Decimal(string: "${plan.displayPrice}")`));
+    const higher=plans.find(p=>p.productID===pricing.membershipProductId(gender,'seriousness'));
+    assert.equal(Number(higher.displayPrice),pricing.SERIOUSNESS_MEMBERSHIP_SAR[gender]);
+    assert.equal(higher.subscriptionGroupID,plan.subscriptionGroupID);
+    assert.ok(higher.groupNumber<plan.groupNumber,'higher tier must be an upgrade in the same group');
+    assert.equal(higher.introductoryOffer,undefined);
   }
+});
+
+test('higher-tier offer and checkout select the correct gender product',async()=>{
+ for(const gender of ['man','woman']){
+  const b=bridge({eligible:false});
+  const offer=await b.api.getMembershipOffer(gender,'seriousness');
+  assert.equal(offer.trialEligible,false);
+  await b.api.purchaseMembership('account-uuid',gender,false,offer,'seriousness');
+  const expected=pricing.membershipProductId(gender,'seriousness');
+  assert.equal(b.calls.find(([kind])=>kind==='purchase')[1].productId,expected);
+  assert.equal(b.calls.find(([kind])=>kind==='authorize')[1].productId,expected);
+ }
 });

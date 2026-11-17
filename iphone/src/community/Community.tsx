@@ -1,4 +1,5 @@
 import {MemberBadge} from '../membership/MemberBadge';
+import {shuffleWithVisibility} from './visibilityOrder';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { languageOptions } from "../compatibility/marriage";
 import { ScoreTile } from '../compatibility/ScoreTile';
@@ -33,6 +34,7 @@ import { recommendationReason } from './recommendationReason';
 import { canRetryRead } from './readRecovery';
 import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
+import { DeepCompatibility } from './DeepCompatibility';
 import './everyday.css';
 import {
   ArrowLeft,
@@ -300,7 +302,7 @@ function FilterSheet({
   apply: (next: Filters) => void;
   close: () => void;
 }) {
-  const {premium,upgrade}=useMembershipAccess();
+  const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const [min, setMin] = useState(filters.minAge?.toString() ?? "");
   const [max, setMax] = useState(filters.maxAge?.toString() ?? "");
   const [interest, setInterest] = useState(filters.interest ?? "");
@@ -452,7 +454,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       <span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>
     </div>}
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
-      <div className="df-identity-line">{heading ? <h1>{person.alias}<MemberBadge active={person.premium}/></h1> : <h2>{person.alias}<MemberBadge active={person.premium}/></h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
+      <div className="df-identity-line">{heading ? <h1>{person.alias}<MemberBadge tier={person.membershipTier} active={person.premium}/></h1> : <h2>{person.alias}<MemberBadge tier={person.membershipTier} active={person.premium}/></h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={14} />{person.city}</span>}
         {person.occupation && <span><BriefcaseBusiness size={14} />{person.occupation}</span>}</div>
     </div>
@@ -473,7 +475,7 @@ function PersonCard({
   open: (button: HTMLButtonElement) => void;
   priority?: boolean;
 }) {
-  const {premium}=useMembershipAccess();
+  const {premium,connectionLimit}=useMembershipAccess();
   const percentage = premium?compatibilityPercentage(person):person.recommendationPercentage??compatibilityPercentage(person);
   return (
     <MotionPressButton
@@ -504,7 +506,7 @@ function PersonCard({
 }
 
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
-  const {premium,upgrade}=useMembershipAccess();
+  const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const preference=premium?compatibilityPercentage(person):null;
   const sampleOnly=person.isDemo&&!source.simulation;
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -519,7 +521,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
         <span className="dr-row-identity">
           <span className="dr-row-name">
-            <strong>{person.alias}<MemberBadge active={person.premium}/></strong>
+            <strong>{person.alias}<MemberBadge tier={person.membershipTier} active={person.premium}/></strong>
             <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
             {!sampleOnly && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
@@ -553,12 +555,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
 type RequestEntry = { id: string; featured: boolean };
 
 function shuffleDirectory(people: PublicPerson[]) {
-  const shuffled = [...people];
-  for (let index = shuffled.length - 1; index > 0; index--) {
-    const other = Math.floor(Math.random() * (index + 1));
-    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
-  }
-  return shuffled;
+  return shuffleWithVisibility(people);
 }
 
 function updateDirectoryOrder(current: PublicPerson[], people: PublicPerson[], reshuffle: boolean) {
@@ -594,7 +591,7 @@ function Discovery({
   onInbox: (entry: RequestEntry) => void;
   onConversation: (id: string) => void;
 }) {
-  const {premium,upgrade}=useMembershipAccess();
+  const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const [remembered] = useState(() => readBrowseMemory(source));
   const restoreBrowse = useRef<typeof remembered | null>(remembered.scroll > 0 ? remembered : null);
   const [filters, setFilters] = useState<Filters>(()=>({...remembered.filters,minFit:premium?remembered.filters.minFit:undefined}));
@@ -946,7 +943,7 @@ function Discovery({
           description={
             availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
               ? "لم تظهر ملفات ضمن البحث والفلاتر الحالية. يمكنك مراجعتها دون تغيير ما يهمك في شريك الحياة. قلة النتائج ليست حكمًا على ملفك."
-              : availability.acceptedCount >= (premium?3:1) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
+              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
           }
           action={
             <div className="cm-empty-actions">
@@ -1203,6 +1200,7 @@ export function Chat({
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [deepOpen, setDeepOpen] = useState(false);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -1238,10 +1236,10 @@ export function Chat({
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
   const reading = useChatReading(source, connection.id, log, atBottom, thread, conversationAllowed && !profileOpen && !familyOpen);
-  const typing = useTyping(source, connection.id, chatReady && !profileOpen && !familyOpen && !recording && !libraryOpen && !privateHidden);
+  const typing = useTyping(source, connection.id, chatReady && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
   const profileIdentity = useRef<HTMLElement>(null);
   const profileFlight = useWeeklyCardTransition();
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deleteTarget && !messageActionId && !libraryOpen);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
@@ -1423,7 +1421,7 @@ export function Chat({
         <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias}<MemberBadge active={connection.person.premium}/> <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias}<MemberBadge tier={connection.person.membershipTier} active={connection.person.premium}/> <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -1433,6 +1431,8 @@ export function Chat({
         <ConversationAgreement openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
+      {conversationAllowed && !thread.accessDenied && <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen}
+        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="ملفكما مع لونا" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>}
       {conversationAllowed && <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div
@@ -2099,7 +2099,7 @@ function Requests({
           >
             <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
-              <strong>{row.person.alias}<MemberBadge active={row.person.premium}/> <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
+              <strong>{row.person.alias}<MemberBadge tier={row.person.membershipTier} active={row.person.premium}/> <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
   "outputDirectory": "dist",
-  "functions": { "api/interview.mjs": { "maxDuration": 60 } },
+  "functions": { "api/interview.mjs": { "maxDuration": 60 }, "api/deep-compatibility.mjs": { "maxDuration": 300 } },
   "headers": [
     {
       "source": "/",

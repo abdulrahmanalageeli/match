@@ -5,6 +5,7 @@ import {admin,currentUser,endpoint,HttpError,readBody,verifyAppPurchase} from '.
 Deno.serve(endpoint(async req=>{
  const actor=await currentUser(req)
  const body=await readBody(req)
+ const seriousness=body.productId==='com.blindmatch.marriage.monthly.seriousness'||body.productId==='com.blindmatch.marriage.monthly.seriousness.women'
  const transaction=await verifyAppPurchase(body.signedAppTransaction)
  const key=Deno.env.get('APPLE_IAP_PRIVATE_KEY')?.replace(/\\n/g,'\n')
  const kid=Deno.env.get('APPLE_IAP_KEY_ID'),issuer=Deno.env.get('APPLE_IAP_ISSUER_ID')
@@ -13,10 +14,11 @@ Deno.serve(endpoint(async req=>{
  const signingKey=createPrivateKey(key)
  if(signingKey.asymmetricKeyType!=='ec'||signingKey.asymmetricKeyDetails?.namedCurve!=='prime256v1')throw new HttpError(503,'مفتاح عرض العضوية غير صالح.')
  const {data,error}=await admin().rpc('marriage_prepare_launch_offer',{
-  actor,apple_transaction:transaction,claim:body.claim===true && body.appleEligible===true
+  actor,apple_transaction:transaction,claim:!seriousness && body.claim===true && body.appleEligible===true
  })
  if(error||!data)throw new HttpError(403,'تعذّر التحقق من أهلية العرض.')
- const eligible=data.eligible===true && body.appleEligible===true
+ if(seriousness)data.productId=data.productId==='com.blindmatch.marriage.monthly.women'?'com.blindmatch.marriage.monthly.seriousness.women':'com.blindmatch.marriage.monthly.seriousness'
+ const eligible=!seriousness && data.eligible===true && body.appleEligible===true
  if(body.claim!==true)return {eligible,productId:data.productId}
  const encode=(value:unknown)=>Buffer.from(JSON.stringify(value)).toString('base64url')
  const input=encode({alg:'ES256',typ:'JWT',kid})+'.'+encode({iss:issuer,iat:Math.floor(Date.now()/1000),

@@ -681,16 +681,16 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       if (canSeeMatches && !weeklyReady) setNotice("حُفظ ملفك. يمكنك فتح ترشيحات الأسبوع من «استكشف».");
     });
   }
-  function verifyPurchase(restore: boolean) {
+  function verifyPurchase(restore: boolean,plan: 'premium'|'seriousness'='premium',offer?:import('./billing').MembershipOffer) {
     void run(async () => {
       if (!live || !ios) throw new Error("الشراء متاح عبر تطبيق iPhone.");
       let buyer=live;
       if (!restore && token) {
         const latest = await refresh(token);
         if(latest) buyer=latest;
-        if (!latest?.membership.canStart)
+        if (!latest?.membership.canStart && !(plan==='seriousness' && latest?.membership.active && latest.membership.tier!=='seriousness'))
           throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
-        if (price?.gender !== buyer.profile?.gender) {
+        if (plan==='premium' && price?.gender !== buyer.profile?.gender) {
           setPrice(null);
           throw new Error('تغيّرت بيانات العضوية. حدّث السعر وراجعه قبل الشراء.');
         }
@@ -699,7 +699,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       try {
         jws = restore
           ? await restoreMembership()
-          : await purchaseMembership(buyer.user.appAccountToken, buyer.profile?.gender, price?.trialEligible, price ?? undefined);
+          : await purchaseMembership(buyer.user.appAccountToken, buyer.profile?.gender, plan==='seriousness'?false:price?.trialEligible, plan==='seriousness'?offer:price ?? undefined,plan);
       } catch (error) {
         if (error instanceof MembershipOfferChangedError) setPrice(null);
         throw error;
@@ -828,6 +828,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     <Membership
       back={back}
       active={active}
+      currentTier={live?.membership.tier}
       gender={(demo?sampleProfile:live?.profile)?.gender}
       currency={demo?"SAR":price?.gender===live?.profile?.gender?price?.currency:undefined}
       trialEligible={price?.gender===live?.profile?.gender&&price?.trialEligible}
@@ -837,7 +838,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
       busy={busy}
-      buy={() => verifyPurchase(false)}
+      buy={(plan,offer) => verifyPurchase(false,plan,offer)}
       restore={() => verifyPurchase(true)}
       manage={() =>
         void run(async () => {
@@ -1070,7 +1071,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     );
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
-    <MembershipAccess.Provider value={{premium:active,upgrade:openMembership}}>
+    <MembershipAccess.Provider value={{premium:active,tier:live?.membership.tier??(active?"premium":"free"),connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership}}>
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>

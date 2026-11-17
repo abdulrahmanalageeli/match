@@ -6,7 +6,7 @@ import UIKit
 final class WudaynReportExportPlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDelegate {
     let identifier = "WudaynReportExportPlugin"
     let jsName = "WudaynReportExport"
-    let pluginMethods = [CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise)]
+    let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise)]
     private var pending: CAPPluginCall?
     private var temporaryFile: URL?
 

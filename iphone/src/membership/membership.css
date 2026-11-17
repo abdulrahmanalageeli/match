@@ -1,0 +1,141 @@
+@font-face{font-family:'Lateef';src:url('/fonts/Lateef-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+.wd-member-badge{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;margin-inline-start:4px;line-height:1}
+.wd-member-badge img{display:block;width:22px!important;height:22px!important;object-fit:contain}
+.wd-upgrade-prompt{display:flex;align-items:center;gap:10px;width:100%;text-align:start;padding:13px 14px;margin:12px 0;border:1px solid #e8d5dc;border-radius:16px;background:linear-gradient(120deg,#fffaf5,#faf0f4);color:#57142c;cursor:pointer}
+.wd-upgrade-prompt>span:nth-child(2){display:grid;gap:3px;flex:1}.wd-upgrade-prompt strong{font-size:14px}.wd-upgrade-prompt small{font-size:12px;line-height:1.65;color:#79666e}.wd-upgrade-link{font-size:11px;white-space:nowrap}
+.dr-fit-visual.wd-fit-locked{display:grid;justify-items:center;gap:4px;min-width:64px;color:#754457;font-size:11px}
+.wd-paywall .flow-body{padding-top:16px}.wd-paywall .wd-paywall-intro{text-align:center;margin-bottom:20px}.wd-paywall-intro>img{width:64px;height:64px;object-fit:contain;margin:0 auto 8px}.wd-paywall .wd-paywall-intro h1{font-size:28px;line-height:1.4;margin:0 0 8px;color:#441324}.wd-paywall-intro p{font-size:14px;line-height:1.8;color:#796b70;margin:0 auto;max-width:310px}
+.wd-membership-card{position:relative;overflow:hidden;padding:23px;border-radius:24px;background:radial-gradient(ellipse at 95% 0%,#97506b66,transparent 60%),linear-gradient(135deg,#53142d,#30101e);color:#fff8f3;box-shadow:0 12px 28px #4c16341a;border:1px solid #9f718344}
+.wd-membership-card:after{content:'';position:absolute;inset:9px;border:1px solid #e6c5a426;border-radius:18px;pointer-events:none}.wd-plan-top{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:16px}.wd-plan-top>span:last-child{border:1px solid #d6af8e66;border-radius:99px;padding:3px 10px;font-size:11px;color:#f3d8c0}
+.wd-price-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.wd-price-row strong{font-size:32px;line-height:1.5;font-weight:650;letter-spacing:-.6px}.wd-price-row del{font-size:18px;color:#e1bbc9}.wd-price-row small{font-size:13px;color:#e8d0d9}.wd-membership-card .wd-price-context{font-size:11px;line-height:1.8;margin:5px 0 0;color:#d9bbc7}
+.wd-trial-strip{display:flex;align-items:center;gap:10px;border-top:1px solid #e4c4d32e;margin-top:16px;padding-top:14px}.wd-trial-strip>span{display:grid;place-items:center;width:32px;height:32px;border:1px solid #e5c5ab66;border-radius:50%;font-size:17px;color:#f1d6b8}.wd-trial-strip div{display:grid;gap:3px}.wd-trial-strip strong{font-size:13px}.wd-trial-strip small{font-size:11px;color:#e0c4cf}
+.wd-women-price{font-size:12px;line-height:1.8;background:#faf4f6;border-radius:14px;padding:12px;color:#705563;margin:12px 0}
+.wd-plan-benefits{display:grid;gap:17px;margin:24px 0;padding:0;list-style:none}.wd-plan-benefits li{display:flex;gap:11px;align-items:start}.wd-plan-benefits svg{flex:0 0 19px;color:#762640;margin-top:3px}.wd-plan-benefits div{display:grid;gap:3px}.wd-plan-benefits strong{font-size:14px;color:#39242d}.wd-plan-benefits small{font-size:12px;line-height:1.75;color:#7d7076}
+.wd-free-note{border-top:1px solid #e9e1e4;border-bottom:1px solid #e9e1e4;padding:13px 0;font-size:12px;line-height:1.9;color:#75676e;margin-bottom:16px}.wd-free-note strong{color:#4c2536}.wd-paywall .wd-billing-note{font-size:11px;line-height:1.8;color:#796b72;margin:10px 0 14px;text-align:center}.wd-paywall .wd-purchase{min-height:48px;border-radius:15px;background:linear-gradient(110deg,#671e3a,#441124);box-shadow:0 5px 14px #57142c1c}.wd-paywall .wd-actions{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}.wd-paywall .wd-actions button{font-size:12px}.wd-paywall .wd-continue{display:block;margin:12px auto;color:#6f5e66;font-size:13px}
+@media(max-width:375px){.wd-membership-card{padding:20px}.wd-price-row strong{font-size:28px}.wd-upgrade-link{white-space:normal;max-width:64px}.wd-paywall .wd-paywall-intro h1{font-size:25px}}
+
+/* The membership page has its own quiet evening surface; badges and prompts elsewhere retain the light system. */
+.flow-frame.wd-paywall{min-height:100dvh;background:radial-gradient(ellipse 110% 38% at 80% 9%,#70384c 0%,transparent 70%),linear-gradient(160deg,#25121d,#170e18 58%,#130d16);color:#fff8f4}
+.wd-paywall .flow-header{background:transparent;border-bottom-color:#fff2ec20;color:#fff8f4}
+.wd-paywall .flow-header .f-icon{color:#fff8f4;border-color:#fff2ec30;background:#ffffff0d}
+.wd-paywall .flow-brand{filter:brightness(0) invert(.91) sepia(.18) saturate(.6)}
+.wd-paywall .flow-body{padding-top:22px;padding-bottom:max(28px,env(safe-area-inset-bottom))}
+.wd-paywall .wd-paywall-intro{text-align:start;position:relative;padding:20px 0 6px;margin:0}
+.wd-paywall-intro>img{width:54px;height:54px;margin:0 0 18px;filter:drop-shadow(0 7px 16px #09020980)}
+.wd-paywall-eyebrow{display:block;color:#dbb8a7;font-size:12px;letter-spacing:.03em;margin-bottom:7px}
+.wd-paywall .wd-paywall-intro h1{font-size:clamp(26px,7vw,31px);line-height:1.35;color:#fffaf6;margin-bottom:8px}
+.wd-paywall-intro p{font-size:13px;color:#e2ced4;max-width:320px;margin:0;line-height:1.75}
+.wd-paywall .wd-plan-benefits{gap:0;margin:20px 0 18px;padding:4px 0;border-top:1px solid #fff2ec25;border-bottom:1px solid #fff2ec25}
+.wd-paywall .wd-plan-benefits li{gap:13px;padding:10px 0;align-items:center}
+.wd-paywall .wd-plan-benefits li+li{border-top:1px solid #fff2ec13}
+.wd-paywall .wd-plan-benefits svg{color:#e9bba9;margin:0}
+.wd-paywall .wd-plan-benefits strong{color:#fff8f4;font-size:13px}
+.wd-paywall .wd-plan-benefits small{color:#c9afb9;font-size:11px;line-height:1.55}
+.wd-paywall .wd-membership-card{padding:18px 20px;border-radius:19px;background:linear-gradient(145deg,#ffffff17,#ffffff09);border:1px solid #e6bcb576;box-shadow:0 14px 30px #05020846}
+.wd-paywall .wd-membership-card:after{inset:6px;border-radius:14px;border-color:#f0d2bd20}
+.wd-paywall .wd-plan-top{margin-bottom:5px}
+.wd-paywall .wd-plan-top>span:last-child{background:#ead4c21a;color:#f4d3bc}
+.wd-paywall .wd-price-row strong{font-size:32px;color:#fff8f3}
+.wd-paywall .wd-trial-strip{margin-top:9px;padding-top:9px}
+.wd-paywall .wd-women-price,.wd-paywall .wd-billing-note{background:transparent;color:#d0bac3;font-size:11px;line-height:1.7;text-align:start;padding:0;margin:12px 0}
+.wd-paywall .wd-purchase{background:linear-gradient(120deg,#f8e3d2,#d9aab3);color:#421529;box-shadow:0 9px 22px #0502084d;font-weight:700}
+.wd-paywall .wd-continue,.wd-paywall .wd-actions .f-link,.wd-paywall .flow-note{color:#dec8d0}
+.wd-paywall .wd-free-note{color:#d0bac3;border-color:#fff2ec22;font-size:11px}
+.wd-paywall .wd-free-note strong{color:#fff6f0}
+@media(max-width:375px){.wd-paywall .wd-paywall-intro h1{font-size:26px}.wd-paywall .wd-membership-card{padding:16px}.wd-paywall .wd-price-row strong{font-size:29px}}
+
+/* Keep the offer and its billing terms together on a standard iPhone screen.
+   Larger text and short viewports remain scrollable rather than clipping controls. */
+.wd-paywall .flow-header{min-height:54px;padding-block:6px}
+.wd-paywall .flow-body{padding-top:6px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.wd-paywall .wd-paywall-intro{padding:0;display:grid;grid-template-columns:1fr 40px;column-gap:12px;align-items:center}
+.wd-paywall .wd-paywall-intro>img{grid-column:2;grid-row:1 / 3;width:40px;height:40px;margin:0}
+.wd-paywall .wd-paywall-intro h1{grid-column:1;grid-row:1;font-size:24px;line-height:1.4;margin:0}
+.wd-paywall .wd-paywall-intro p{grid-column:1;grid-row:2;font-size:12px;line-height:1.6;margin-top:3px}
+.wd-paywall .wd-plan-benefits{margin:14px 0 12px}
+.wd-paywall .wd-plan-benefits li{padding:8px 0;gap:10px}
+.wd-paywall .wd-plan-benefits div{gap:1px}
+.wd-paywall .wd-plan-benefits small{line-height:1.5}
+.wd-paywall .wd-membership-card{padding:12px 16px}
+.wd-paywall .wd-plan-top{margin:0;font-size:12px}
+.wd-paywall .wd-plan-top>span:last-child{padding:2px 8px;font-size:10px}
+.wd-paywall .wd-price-row strong{font-size:28px;line-height:1.4}
+.wd-paywall .wd-trial-strip{padding-top:7px;margin-top:7px;gap:8px}
+.wd-paywall .wd-trial-strip>span{width:26px;height:26px;font-size:15px;flex-shrink:0}
+.wd-paywall .wd-trial-strip div{gap:1px}
+.wd-paywall .wd-billing-note,.wd-paywall .wd-women-price{margin:9px 0;line-height:1.65}
+.wd-paywall .wd-purchase{min-height:46px;margin:0}
+.wd-paywall .wd-continue{margin:3px auto;min-height:40px}
+.wd-paywall .wd-free-note{margin:0;padding:7px 0;line-height:1.6}
+.wd-paywall .wd-actions{gap:14px;margin-top:2px}
+.wd-paywall .wd-actions button{min-height:40px;padding-block:6px}
+.wd-paywall .f-link.centered{color:#dec8d0;min-height:40px}
+.wd-paywall .wd-membership-card + .wd-purchase{margin-top:10px}
+@media(max-width:375px){.wd-paywall .wd-paywall-intro h1{font-size:22px}}
+.wd-tier-comparison{width:100%;border-collapse:collapse;margin:12px 0;color:#fff8f4;font-size:11px;table-layout:fixed}
+.wd-tier-comparison th{text-align:start;font-weight:500}
+.wd-tier-comparison thead th{font-size:11px;color:#d5b5a6;padding:5px 0 7px;border-bottom:1px solid #fff2ec30}
+.wd-tier-comparison th:first-child{width:55%}
+.wd-tier-comparison th:not(:first-child),.wd-tier-comparison td{text-align:center;width:22.5%}
+.wd-tier-comparison tbody th,.wd-tier-comparison td{height:26px;padding:3px 2px;border-bottom:1px solid #fff2ec12;line-height:1.5;overflow-wrap:anywhere}
+.wd-tier-comparison td{color:#c3a7b3;font-size:10px}
+.wd-tier-comparison td:last-child{background:#eac4b708;color:#f5cfbd}
+.wd-tier-comparison svg{display:inline-block;vertical-align:middle}
+.wd-tier-comparison .wd-member-badge{width:19px;height:19px;margin-inline:0 4px;vertical-align:middle}
+.wd-tier-comparison .wd-member-badge img{width:19px!important;height:19px!important}
+.wd-paywall .flow-header{gap:8px}
+.wd-paywall .flow-header>span:not(.flow-brand){margin-inline-start:auto}
+.wd-paywall .flow-header .flow-brand{display:none}
+.wd-header-logo{display:block;flex:0 0 26px;width:26px;height:26px;object-fit:contain;filter:grayscale(1) brightness(2.8);margin-inline-start:0}
+.wd-paywall .wd-paywall-intro{display:block;padding:0}
+.wd-paywall .wd-paywall-intro h1{font-family:'Lateef','Geeza Pro',serif;font-size:29px;margin:0;line-height:1.15;text-align:center;font-weight:400;font-synthesis:none;color:#f6e4da}
+.wd-tier-comparison{margin:4px 0 8px}
+.wd-tier-comparison tbody th{position:relative}
+.wd-tier-comparison tbody th,.wd-tier-comparison td{height:24px;padding:2px 1px}
+.wd-tier-comparison tr[data-shared-start]>th,.wd-tier-comparison tr[data-shared-start]>td{border-top:1px solid #cba3b24d;padding-top:5px}
+.wd-benefit-info{display:inline;position:static;margin-inline-start:4px;font-weight:400}
+.wd-benefit-info>summary{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;width:20px;height:20px;padding:0;list-style:none;cursor:pointer;color:#c8a9b7;border:0;background:none;border-radius:50%}
+.wd-benefit-info>summary::-webkit-details-marker{display:none}
+.wd-benefit-info>summary::marker{content:''}
+.wd-benefit-info>summary{position:relative;color:#c4a2b0;width:16px;height:17px;border:1px solid #ad83964d;border-radius:6px 6px 6px 2px;background:linear-gradient(145deg,#cba3b20f,#cba3b203);box-shadow:inset 0 1px 0 #ead1db08;opacity:.35}
+.wd-benefit-info[open]>summary{border-color:#cfadbd;background:linear-gradient(145deg,#cba3b226,#cba3b20d);border-radius:6px 6px 6px 2px}
+.wd-benefit-info>summary .wd-info-mark{display:block;flex-shrink:0;width:12px;height:12px;object-fit:contain;filter:brightness(1.05)}
+.wd-benefit-info[open]>summary .wd-info-mark{filter:brightness(1.18)}
+.wd-benefit-info>summary:focus-visible{outline:1px solid #eac4b7;outline-offset:2px}
+.wd-benefit-info>summary::before{content:'';position:absolute;inset:-3.5px -6px}
+.wd-benefit-info[open]>summary{color:#fff5ed;background:#ffffff12}
+.wd-benefit-tooltip{position:absolute;z-index:30;inset-inline-start:0;top:calc(100% + 5px);display:grid;gap:5px;width:min(270px,75vw);padding:12px 14px;border:1px solid #bd8c9d66;border-radius:13px;background:linear-gradient(145deg,#422331,#281623);box-shadow:0 10px 28px #08030b80;color:#efdee4;font-size:12px;line-height:1.8;text-align:start;font-weight:400;white-space:normal}
+.wd-benefit-tooltip strong{color:#fff5eb;font-size:12px}
+.wd-trial-compact{position:relative;display:flex;align-items:center;gap:4px;margin-top:3px;color:#f3d0bb;font-size:11px}
+.wd-trial-highlight{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #d9afbf45}
+.wd-trial-highlight>strong{font-size:21px;font-weight:700;line-height:1.4;color:#fff4e9;white-space:nowrap}
+.wd-trial-highlight>span{font-size:11px;line-height:1.6;color:#d8bac9}
+.wd-trial-highlight b{color:#f3d6e2;font-weight:700}
+.wd-paywall .wd-price-row{gap:7px}
+.wd-paywall .wd-price-row strong{font-size:26px}
+.wd-paywall .wd-membership-card{padding:10px 14px}
+.wd-paywall .wd-billing-note{margin:7px 0;line-height:1.6}
+
+/* A single light follows the pricing card perimeter without moving the card. */
+.wd-price-orbit{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 3px #efbbd080)}
+.wd-price-orbit rect{width:calc(100% - 2px);height:calc(100% - 2px);fill:none;stroke-linecap:round;animation:wd-price-perimeter 11s linear infinite}
+.wd-price-orbit-trail{--orbit-tail:5px;stroke:#d9a4bc;stroke-width:1;stroke-dasharray:5 95;opacity:.25}
+.wd-price-orbit-glow{--orbit-tail:1.8px;stroke:#edc4d2;stroke-width:1.5;stroke-dasharray:1.8 98.2;opacity:.65}
+.wd-price-orbit-tip{--orbit-tail:0px;stroke:#fff0e9;stroke-width:2.2;stroke-dasharray:.15 99.85}
+@keyframes wd-price-perimeter{from{stroke-dashoffset:var(--orbit-tail)}to{stroke-dashoffset:calc(var(--orbit-tail) - 100px)}}
+@media(prefers-reduced-motion:reduce){.wd-price-orbit{display:none}}
+
+/* A tiny jewellery-like glint travels on the outline, with a soft halo. */
+.wd-price-spark-tail{display:none}
+@supports (offset-path: inset(1px round 18px)) {
+ .wd-paywall .wd-membership-card{overflow:visible}
+ .wd-price-orbit{display:none}
+ .wd-price-spark,.wd-price-spark-tail{position:absolute;inset:0 auto auto 0;pointer-events:none;z-index:2;offset-path:inset(0 round 18px);offset-anchor:center;offset-rotate:auto;animation:wd-spark-orbit 9s linear infinite;animation-delay:-9s}
+ .wd-price-spark{width:9px;height:9px;filter:drop-shadow(0 0 3px #e5b78f99)}
+ .wd-price-spark-tail{display:block;width:3px;height:1.5px;border-radius:50%;background:currentColor;box-shadow:0 0 3px currentColor}
+ .wd-price-spark::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,#fff7e7 15%,#f4d6ad 55%,#d796aa);clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%);animation:wd-spark-breathe 3s ease-in-out infinite}
+ .wd-price-spark::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:radial-gradient(circle,#f2cf9d33,#c77c9820 38%,transparent 70%)}
+}
+@keyframes wd-spark-orbit{to{offset-distance:100%}}
+@keyframes wd-spark-breathe{0%,100%{transform:scale(.7);opacity:.75}50%{transform:scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.wd-price-spark,.wd-price-spark-tail{display:none}}

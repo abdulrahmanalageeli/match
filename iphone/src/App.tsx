@@ -1,3 +1,4 @@
+import {MembershipAccess} from './membership/access';
 import { finalizeStagedPortrait } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
@@ -61,6 +62,7 @@ import {
   completeMembership,
   currentMembership,
   getMembershipOffer,
+  MembershipOfferChangedError,
   isIOSBilling,
   manageMembership,
   onMembershipUpdate,
@@ -243,23 +245,24 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [price, setPrice] = useState<string | null>(null);
+  const [price, setPrice] = useState<{gender:'man'|'woman';price:string;currency:string;trialEligible:boolean}|null>(null);
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
   const active = demo || Boolean(live?.membership.active);
+  const memberAccess = demo || Boolean(live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
-  const chatUnread = useUnreadCount(active ? source : null);
-  const mutual = useMutualMatches(active && !paused ? source : null);
+  const chatUnread = useUnreadCount(memberAccess ? source : null);
+  const mutual = useMutualMatches(memberAccess && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
-  useNativeCalls(!demo && active ? token : null,tester?.session);
+  useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
   useEffect(()=>{
-    if(!source||!active||(demo&&!tester))return;
+    if(!source||!memberAccess||(demo&&!tester))return;
     let alive=true;let timeout:ReturnType<typeof setTimeout>|undefined;
     const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count);}).catch(()=>{});},400);};
     refresh();const stop=source.watch(refresh);return()=>{alive=false;clearTimeout(timeout);stop();};
-  },[source,active,demo,!!tester]);
-  usePushNotifications(tester ? `tester:${tester.session}` : !demo && active ? token : null, async (id, kind,event) => {
+  },[source,memberAccess,demo,!!tester]);
+  usePushNotifications(tester ? `tester:${tester.session}` : !demo && memberAccess ? token : null, async (id, kind,event) => {
     if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
@@ -275,9 +278,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
   useEffect(() => {
-    if (!source || !active) return;
+    if (!source || !memberAccess) return;
     return () => discardClosedDrafts(source, new Set());
-  }, [source, active]);
+  }, [source, memberAccess]);
   const accepted = live?.user.applicationStatus === "approved";
   const ios = isIOSBilling();
 
@@ -503,8 +506,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (!ios || !token || !accepted || demo) return;
     let disposed = false;
     const processing = new Set<string>();
+    const pending = new Set<string>();
     const sync = async (jws: string) => {
       if (disposed || tokenRef.current !== token || processing.has(jws)) return;
+      pending.add(jws);
       processing.add(jws);
       try {
         const s = await request<AccountState>("/membership", "POST", token, {
@@ -514,6 +519,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           version.current++;
           setLive(s);
           await completeMembership(jws);
+          pending.delete(jws);
         }
       } catch {
         /* Keep StoreKit transaction unfinished until the server can verify it. */
@@ -526,22 +532,38 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         void sync(jws);
       }),
     );
-    void currentMembership()
-      .then((jws) => {
-        if (jws) void sync(jws);
-      })
-      .catch(() => {});
+    const retryPending = () => {
+      if (disposed || document.hidden || tokenRef.current !== token) return;
+      for (const jws of pending) void sync(jws);
+    };
+    const resume = () => {
+      if (disposed || document.hidden || tokenRef.current !== token) return;
+      retryPending();
+      void currentMembership().then(jws => { if (jws) void sync(jws); }).catch(() => {});
+    };
+    resume();
+    const retryTimer = window.setInterval(retryPending, 30000);
+    window.addEventListener('online', resume);
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', resume);
     return () => {
       disposed = true;
+      pending.clear();
+      window.clearInterval(retryTimer);
+      window.removeEventListener('online', resume);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('visibilitychange', resume);
       void cleanup.then((handle) => handle.remove()).catch(() => {});
     };
   }, [token, accepted, demo, ios]);
   useEffect(() => {
-    if (!ios || !accepted || demo) return;
+    if (!ios || !accepted || demo || view!=='membership' || !live?.profile?.gender) return;
     let disposed = false;
-    getMembershipOffer()
+    const gender=live.profile.gender;
+    setPrice(null);
+    getMembershipOffer(gender)
       .then((offer) => {
-        if (!disposed) setPrice(offer.price);
+        if (!disposed) setPrice({gender,...offer});
       })
       .catch(() => {
         if (!disposed) setPrice(null);
@@ -549,7 +571,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => {
       disposed = true;
     };
-  }, [ios, accepted, demo, view]);
+  }, [ios, accepted, demo, view, live?.profile?.gender, token]);
 
   function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
@@ -619,7 +641,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
         });
         if (!saved) return;
-        canSeeMatches = Boolean(cloud && saved.membership.active && saved.user.applicationStatus === "approved" && !saved.user.paused);
+        canSeeMatches = Boolean(cloud && saved.user.applicationStatus === "approved" && !saved.user.paused);
       }
       if(portraitChange!==undefined||(portraitPolicy!==undefined&&p.portrait&&portraitPolicy!==(p.portrait.revealPolicy??'never'))){
         try {
@@ -662,14 +684,26 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   function verifyPurchase(restore: boolean) {
     void run(async () => {
       if (!live || !ios) throw new Error("الشراء متاح عبر تطبيق iPhone.");
+      let buyer=live;
       if (!restore && token) {
         const latest = await refresh(token);
+        if(latest) buyer=latest;
         if (!latest?.membership.canStart)
           throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
+        if (price?.gender !== buyer.profile?.gender) {
+          setPrice(null);
+          throw new Error('تغيّرت بيانات العضوية. حدّث السعر وراجعه قبل الشراء.');
+        }
       }
-      const jws = restore
-        ? await restoreMembership()
-        : await purchaseMembership(live.user.appAccountToken);
+      let jws: string;
+      try {
+        jws = restore
+          ? await restoreMembership()
+          : await purchaseMembership(buyer.user.appAccountToken, buyer.profile?.gender, price?.trialEligible, price ?? undefined);
+      } catch (error) {
+        if (error instanceof MembershipOfferChangedError) setPrice(null);
+        throw error;
+      }
       await update("/membership", "POST", { signedTransaction: jws });
       await completeMembership(jws);
       go("main");
@@ -794,8 +828,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     <Membership
       back={back}
       active={active}
+      gender={(demo?sampleProfile:live?.profile)?.gender}
+      currency={demo?"SAR":price?.gender===live?.profile?.gender?price?.currency:undefined}
+      trialEligible={price?.gender===live?.profile?.gender&&price?.trialEligible}
       demo={demo}
-      price={demo ? membershipPriceLabel(sampleProfile.gender) : price}
+      price={demo ? membershipPriceLabel(sampleProfile.gender) : price?.gender===live?.profile?.gender ? price?.price??null : null}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -809,8 +846,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       }
       refresh={() =>
         void run(async () => {
-          if (token) await refresh(token);
-          if (ios) setPrice((await getMembershipOffer()).price);
+          setPrice(null);
+          const latest = token ? await refresh(token) : undefined;
+          if (ios && latest?.profile?.gender) { const gender=latest.profile.gender; setPrice({gender,...await getMembershipOffer(gender)}); }
         })
       }
       onPolicy={() => setPolicy(true)}
@@ -890,7 +928,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         previewPhoto={tester?.actor === 'abdulrahman' && sampleProfile.gender === 'man' ? '/demo/portraits/tester-shemagh.webp' : undefined}
         paused={demo ? samplePaused : Boolean(live?.user.paused)}
         demo={demo}
-        onBack={active ? undefined : () => go("main")}
+        onBack={memberAccess ? undefined : () => go("main")}
         onMembership={openMembership}
         onEdit={() => {setApplicationChapter(undefined);go("application");}}
         onBeena={demo||cloud ? ()=>{setApplicationChapter('beena');go('application');}:undefined}
@@ -901,7 +939,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onPrivacy={() => setPolicy(true)}
         busy={busy}
       >
-        {active && <MemberTabs source={source} active="settings" onHome={() => go("curated")}
+        {memberAccess && <MemberTabs source={source} active="settings" onHome={() => go("curated")}
           onDiscover={source ? () => go("discover") : undefined}
           onInbox={source ? () => go("inbox") : undefined} onChats={source ? () => go("chats") : undefined}
           chatUnread={chatUnread} onAccount={openAccount} />}
@@ -953,7 +991,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         busy={busy}
       />
     );
-  else if (!active || view === "membership")
+  else if (view === "membership")
     screen = membership(() =>
       view === "membership" ? go(returnFromMembership) : openAccount(),
     );
@@ -1032,9 +1070,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     );
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
+    <MembershipAccess.Provider value={{premium:active,upgrade:openMembership}}>
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource}>
-    <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${active}`}
-      source={active ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={active?pair?.voice:undefined}>
+    <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
+      source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
       {tester && !onboardingPreview && <details className="nf-tester-tools">
         <summary aria-label="أدوات الاختبار الخاص" className={tester.actor==='abdulrahman'?'nf-simulation-toggle':undefined}>{tester.actor==='abdulrahman'&&<span>محاكاة</span>}<ChevronDown size={16} aria-hidden="true" /></summary>
@@ -1062,7 +1101,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </div>
       )}
       <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
-      {source && active && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
+      {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
       {mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
@@ -1158,5 +1197,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     </div>
     </VoiceCallsProvider>
     </SupportProvider>
+    </MembershipAccess.Provider>
   );
 }

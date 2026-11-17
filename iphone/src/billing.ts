@@ -1,9 +1,11 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { membershipProductId } from './membershipPricing';
+import { cloud } from './cloud';
 
 type SignedTransaction = { jws: string };
 interface AppleMembershipPlugin {
-  offer(): Promise<{ price: string }>;
-  purchase(options: { accountToken: string }): Promise<SignedTransaction>;
+  offer(options: { productId: string }): Promise<{ price: string; productId: string; currency:string; appleEligible:boolean; signedAppTransaction:string }>;
+  purchase(options: { accountToken: string; productId: string; eligibilityJws:string }): Promise<SignedTransaction>;
   restore(): Promise<SignedTransaction>;
   current(): Promise<{ jws: string | null }>;
   complete(options: SignedTransaction): Promise<void>;
@@ -18,14 +20,30 @@ function requireIOS() {
   if (!isIOSBilling()) throw new Error('الاشتراك المدفوع متاح من تطبيق iPhone.');
 }
 
-export function getMembershipOffer(): Promise<{ price: string }> {
+export type MembershipOffer = {price:string; currency:string; trialEligible:boolean};
+export class MembershipOfferChangedError extends Error {}
+async function verifiedOffer(gender: 'man'|'woman'|undefined, claim:boolean) {
   requireIOS();
-  return membership.offer();
+  const productId = membershipProductId(gender);
+  const offer = await membership.offer({productId});
+  if (offer.productId !== productId || !offer.signedAppTransaction || typeof offer.appleEligible!=='boolean') throw Error('حدّث تطبيق وُدَين لتحميل عرض عضويتك الصحيح.');
+  if(!cloud)throw Error('عرض العضوية غير متاح الآن.');
+  const {data,error}=await cloud.functions.invoke('membership-offer',{body:{signedAppTransaction:offer.signedAppTransaction,appleEligible:offer.appleEligible,claim}});
+  if(error||data?.productId!==productId)throw Error('تعذّر تحميل عرض العضوية. حاول مجددًا.');
+  return {offer,authorization:data as {eligible:boolean;eligibilityJws?:string;accountToken?:string}};
 }
 
-export async function purchaseMembership(accountToken: string): Promise<string> {
-  requireIOS();
-  return (await membership.purchase({ accountToken })).jws;
+export async function getMembershipOffer(gender?: 'man' | 'woman'): Promise<MembershipOffer> {
+  const {offer,authorization}=await verifiedOffer(gender,false);
+  return {price:offer.price,currency:offer.currency,trialEligible:authorization.eligible===true};
+}
+
+export async function purchaseMembership(accountToken: string, gender?: 'man' | 'woman', expectedTrial=false, displayedOffer?: MembershipOffer): Promise<string> {
+  const {offer,authorization}=await verifiedOffer(gender,true);
+  if(authorization.accountToken!==accountToken || !authorization.eligibilityJws)throw Error('تعذّر ربط العرض بحسابك.');
+  if(displayedOffer && (displayedOffer.price!==offer.price || displayedOffer.currency!==offer.currency))throw new MembershipOfferChangedError('تغيّر سعر المتجر. حدّث عرض العضوية وراجعه قبل تأكيد الاشتراك.');
+  if(expectedTrial && !authorization.eligible)throw new MembershipOfferChangedError('لم يعد العرض المجاني متاحًا لهذا الشراء. حدّث العرض قبل تأكيد الاشتراك.');
+  return (await membership.purchase({ accountToken, productId:membershipProductId(gender),eligibilityJws:authorization.eligibilityJws })).jws;
 }
 
 export async function restoreMembership(): Promise<string> {

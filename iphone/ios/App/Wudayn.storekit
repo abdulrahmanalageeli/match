@@ -1,0 +1,87 @@
+{
+  "version": {
+    "major": 3,
+    "minor": 0
+  },
+  "products": [],
+  "settings": {
+    "_locale": "ar_SA",
+    "_storefront": "SAU",
+    "_storeKitErrors": [],
+    "_failTransactionsEnabled": false
+  },
+  "identifier": "d63b8b5b-c692-4183-9db3-fd810e07492a",
+  "nonRenewingSubscriptions": [],
+  "subscriptionGroups": [
+    {
+      "localizations": [],
+      "subscriptions": [
+        {
+          "winBackOffers": [],
+          "type": "RecurringSubscription",
+          "groupNumber": 1,
+          "introductoryOffer": {
+            "internalID": "bdea0c09-eee6-41c7-93c0-61457f4b95ba-launch",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W",
+            "numberOfPeriods": 1,
+            "displayPrice": "0"
+          },
+          "referenceName": "عضوية وُدَين للرجال",
+          "localizations": [
+            {
+              "description": "عضوية شهرية للترشيحات والتواصل الجاد",
+              "locale": "ar_SA",
+              "displayName": "عضوية وُدَين للرجال"
+            }
+          ],
+          "subscriptionGroupID": "957d21a4-c278-4daa-8022-e5a4f9d592da",
+          "adHocOffers": [],
+          "codeOffers": [],
+          "recurringSubscriptionPeriod": "P1M",
+          "productID": "com.blindmatch.marriage.monthly.men",
+          "internalID": "bdea0c09-eee6-41c7-93c0-61457f4b95ba",
+          "familyShareable": false,
+          "displayPrice": "149.99"
+        }
+      ],
+      "id": "957d21a4-c278-4daa-8022-e5a4f9d592da",
+      "name": "عضوية وُدَين للرجال"
+    },
+    {
+      "localizations": [],
+      "subscriptions": [
+        {
+          "winBackOffers": [],
+          "type": "RecurringSubscription",
+          "groupNumber": 1,
+          "introductoryOffer": {
+            "internalID": "8583a3e1-3381-43dc-ad3e-723592d33e1c-launch",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W",
+            "numberOfPeriods": 1,
+            "displayPrice": "0"
+          },
+          "referenceName": "عضوية وُدَين للنساء",
+          "localizations": [
+            {
+              "description": "عضوية شهرية للترشيحات والتواصل الجاد",
+              "locale": "ar_SA",
+              "displayName": "عضوية وُدَين للنساء"
+            }
+          ],
+          "subscriptionGroupID": "29258c07-343a-4345-827a-4441383d6c4d",
+          "adHocOffers": [],
+          "codeOffers": [],
+          "recurringSubscriptionPeriod": "P1M",
+          "productID": "com.blindmatch.marriage.monthly.women",
+          "internalID": "8583a3e1-3381-43dc-ad3e-723592d33e1c",
+          "familyShareable": false,
+          "displayPrice": "99.99"
+        }
+      ],
+      "id": "29258c07-343a-4345-827a-4441383d6c4d",
+      "name": "عضوية وُدَين للنساء"
+    }
+  ]
+}

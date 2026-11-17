@@ -4,6 +4,7 @@ import type { CommunitySource, SeriousnessAgreement, StepProgress } from './data
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { chooseNextStep, nextStepState, type NextStepAssessment, type NextStepSnapshot, type NextStepState } from './nextStepModel';
 import './next-step.css';
+import {useMembershipAccess} from '../membership/access';
 
 export function NextStep({ source, assessment, onAssessment, onRequest, onConversation, onStateChange }: {
   source: CommunitySource;
@@ -45,7 +46,8 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
     window.addEventListener('online', refresh);
     return () => { active = false; unwatch(); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source]);
-  const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined);
+  const {premium}=useMembershipAccess();
+  const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined, premium?3:1);
   if (!next || next.kind === 'request') return null;
   const Icon = next.kind === 'assessment' ? BookOpen : next.kind === 'agreement' ? Feather : next.kind === 'journey' ? Route
     : next.kind === 'capacity' ? HeartHandshake : next.kind === 'waiting' ? Send : MessageCircle;

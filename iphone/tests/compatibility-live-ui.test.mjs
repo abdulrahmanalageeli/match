@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { describeFit, dimensions } from '../src/compatibility/model.ts';
+import { describeFit, dimensions,interests } from '../src/compatibility/model.ts';
+import * as profileOptions from '../src/profile/profileOptions.ts';
+import {languageOptions,marriageTimelineLabels} from '../src/compatibility/marriage.ts';
+import {dressStyles} from '../src/compatibility/appearance.ts';
 import { conversationInsights } from '../src/compatibility/conversation-insights.ts';
 import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMemory.ts';
 
-const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests };');
+const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests, DirectoryRow, PersonCard, FilterSheet };');
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
 const relationshipCountsCode = compile(await readFile(new URL('../src/community/useRelationshipCounts.ts', import.meta.url), 'utf8'));
 function compile(source) { return ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText; }
@@ -19,7 +22,7 @@ const named = (tree, name) => nodes(tree).find(node => node.type?.name === name)
 const textOf = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(textOf).join('') : textOf(node?.props?.children ?? '');
 
 // Execute the actual components with hook state and effect cleanup, without native animation runtimes.
-function mount(code, component, initialProps) {
+function mount(code, component, initialProps, membership={premium:true,upgrade:noop}) {
   const hooks = [], effects = [], modules = new Map(); let cursor = 0, changed = false, props = initialProps;
   const memo = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value, i) => value !== old.deps[i])) hooks[at] = { deps, value: fn() }; return hooks[at].value; };
   const effect = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value, i) => value !== old.deps[i])) { old?.cleanup?.(); const item = hooks[at] = { deps }; effects.push(() => { item.cleanup = fn(); }); } };
@@ -40,6 +43,11 @@ function mount(code, component, initialProps) {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }), Fragment: 'fragment' };
     if (name === 'react-dom') return { flushSync: fn => fn() };
+    if (name === '../membership/access') return {useMembershipAccess:()=>membership,MembershipPrompt:Object.defineProperty(()=>null,'name',{value:'MembershipPrompt'})};
+    if (name === '../profile/profileOptions') return profileOptions;
+    if (name === '../compatibility/model') return {interests};
+    if (name === '../compatibility/marriage') return {languageOptions,marriageTimelineLabels};
+    if (name === '../compatibility/appearance') return {dressStyles};
     if (name === '../compatibility/conversation-insights') return { conversationInsights };
     if (name === './discoveryMemory') return { readBrowseMemory, saveBrowseMemory };
     if (name === './useWeeklyCardTransition') return { useWeeklyCardTransition: () => (_origin, apply) => apply() };
@@ -63,6 +71,41 @@ function sourceWith(people = []) {
 }
 const person = (score, id = 'partner') => ({ id, alias: 'رهام', fit: { preference: score }, age: 29, city: 'الرياض' });
 const baseProps = source => ({ source, onInbox: noop, onAccount: noop, onChatChange: noop, onMutual: noop, onConversationOpened: noop, onBrowse: noop });
+
+test('minimum compatibility filter is Premium-only and stale free thresholds are cleared on apply',()=>{
+ for(const premium of [false,true]){
+  let applied,upgrades=0;
+  const m=mount(communityCode,'FilterSheet',{filters:{minFit:75,city:'الرياض'},apply:value=>{applied=value;},close:noop},{premium,upgrade:()=>upgrades++});
+  const tree=m.render();
+  const locked=nodes(tree).find(n=>n.type==='button'&&textOf(n).includes('التصفية بنسبة التوافق'));
+  assert.equal(Boolean(locked),!premium);
+  if(locked){locked.props.onClick();assert.equal(upgrades,1);}
+  nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:noop});
+  assert.equal(applied.minFit,premium?75:undefined);m.close();
+ }
+});
+
+test('free discovery routes initiation to membership and hides directory scores',async()=>{
+ const candidate={...person(78),interests:[],reasons:[]},source=sourceWith([candidate]);let upgrades=0,sent=0,interests=[];
+ source.request=async()=>{sent++;return 'request';};
+ source.setInterest=async(id,value)=>{interests.push([id,value]);};
+ const access={premium:false,upgrade:()=>upgrades++};
+ const m=mount(communityCode,'Discovery',baseProps(source),access);
+ m.render();await settle();let tree=m.render();
+ nodes(tree).find(node=>node.type==='button'&&textOf(node).includes('جميع الملفات')).props.onClick();
+ m.render();await settle();tree=m.render();
+ await named(tree,'DirectoryRow').props.request();assert.equal(upgrades,1);assert.equal(sent,0);
+ named(tree,'DirectoryRow').props.interest();await settle();
+ assert.deepEqual(interests,[[candidate.id,true]]);assert.equal(upgrades,1);
+ named(m.render(),'DirectoryRow').props.interest();await settle();
+ assert.deepEqual(interests,[[candidate.id,true],[candidate.id,false]]);
+ const row=mount(communityCode,'DirectoryRow',{person:candidate,source,open:noop,explain:noop,request:noop,interest:noop,busy:false},access);
+ tree=row.render();assert.equal(named(tree,'ScoreTile'),undefined);
+ nodes(tree).find(node=>node.props?.className==='dr-fit-visual wd-fit-locked').props.onClick();assert.equal(upgrades,2);
+ const card=mount(communityCode,'PersonCard',{person:{...candidate,recommendationPercentage:72},source,open:noop},access);
+ assert.equal(named(card.render(),'ScoreTile').props.percentage,72);
+ m.close();row.close();card.close();
+});
 
 test('relationship tab counts only accepted matches and updates after source changes', async () => {
   const source = sourceWith();

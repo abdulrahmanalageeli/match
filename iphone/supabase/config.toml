@@ -27,6 +27,10 @@ enable_confirmations = true
 [functions.verify-membership]
 verify_jwt = false
 
+# Auth + live session + Apple-signed app transaction, then service-only allocation.
+[functions.membership-offer]
+verify_jwt = false
+
 [functions.apple-notifications]
 verify_jwt = false
 

@@ -1,3 +1,5 @@
+import {MemberBadge} from '../membership/MemberBadge';
+import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { languageOptions } from "../compatibility/marriage";
 import { ScoreTile } from '../compatibility/ScoreTile';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
@@ -298,6 +300,7 @@ function FilterSheet({
   apply: (next: Filters) => void;
   close: () => void;
 }) {
+  const {premium,upgrade}=useMembershipAccess();
   const [min, setMin] = useState(filters.minAge?.toString() ?? "");
   const [max, setMax] = useState(filters.maxAge?.toString() ?? "");
   const [interest, setInterest] = useState(filters.interest ?? "");
@@ -328,7 +331,7 @@ function FilterSheet({
       return;
     }
     apply({
-      ...extra, offset: undefined, afterId: undefined,
+      ...extra, minFit:premium?extra.minFit:undefined, offset: undefined, afterId: undefined,
       excludeCities:excludedCities,excludeNationalities:excludedNationalities,
       minAge: min ? Number(min) : undefined,
       maxAge: max ? Number(max) : undefined,
@@ -385,7 +388,7 @@ function FilterSheet({
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
         <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
-        <label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠٪ فأعلى</option><option value={75}>٧٥٪ فأعلى</option><option value={90}>٩٠٪ فأعلى</option></select><small>تظهر النسبة عند اكتمال التقييمين فقط.</small></label>
+        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠٪ فأعلى</option><option value={75}>٧٥٪ فأعلى</option><option value={90}>٩٠٪ فأعلى</option></select><small>تظهر النسبة عند اكتمال التقييمين فقط.</small></label>:<button type="button" className="btn-text" onClick={upgrade}><LockKeyhole size={14}/>التصفية بنسبة التوافق مع العضوية المميزة</button>}
         <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
         <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="الجنسية المطلوبة" value={extra.nationality??''} options={nationalityChoices} placeholder="كل الجنسيات" allowClear onChange={nationality=>setExtra(current=>({...current,nationality:nationality||undefined}))}/>
@@ -449,7 +452,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       <span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>
     </div>}
     <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
-      <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
+      <div className="df-identity-line">{heading ? <h1>{person.alias}<MemberBadge active={person.premium}/></h1> : <h2>{person.alias}<MemberBadge active={person.premium}/></h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={14} />{person.city}</span>}
         {person.occupation && <span><BriefcaseBusiness size={14} />{person.occupation}</span>}</div>
     </div>
@@ -470,7 +473,8 @@ function PersonCard({
   open: (button: HTMLButtonElement) => void;
   priority?: boolean;
 }) {
-  const percentage = compatibilityPercentage(person);
+  const {premium}=useMembershipAccess();
+  const percentage = premium?compatibilityPercentage(person):person.recommendationPercentage??compatibilityPercentage(person);
   return (
     <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
@@ -489,9 +493,9 @@ function PersonCard({
       <div className="df-card-compatibility">
         {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={percentage} variant="logo"/>}
       </div>
-      {!compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
+      {premium && !compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
       </div>
-      {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
+      {premium && person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
       </div>
@@ -500,7 +504,8 @@ function PersonCard({
 }
 
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
-  const preference=compatibilityPercentage(person);
+  const {premium,upgrade}=useMembershipAccess();
+  const preference=premium?compatibilityPercentage(person):null;
   const sampleOnly=person.isDemo&&!source.simulation;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
@@ -514,7 +519,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
         <span className="dr-row-identity">
           <span className="dr-row-name">
-            <strong>{person.alias}</strong>
+            <strong>{person.alias}<MemberBadge active={person.premium}/></strong>
             <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
             {!sampleOnly && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
@@ -525,19 +530,19 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
-      <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
+      {premium?<button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
         {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} variant="logo"/>}
-      </button>
+      </button>:<button className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     </div>
 
     <div className="dr-row-detail">
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
-          <span>إضافة</span>
+          <span>{premium?"إضافة":"بادر بالتعارف"}</span>
         </>}
       </button>
     </div>}
@@ -589,9 +594,11 @@ function Discovery({
   onInbox: (entry: RequestEntry) => void;
   onConversation: (id: string) => void;
 }) {
+  const {premium,upgrade}=useMembershipAccess();
   const [remembered] = useState(() => readBrowseMemory(source));
   const restoreBrowse = useRef<typeof remembered | null>(remembered.scroll > 0 ? remembered : null);
-  const [filters, setFilters] = useState<Filters>(remembered.filters);
+  const [filters, setFilters] = useState<Filters>(()=>({...remembered.filters,minFit:premium?remembered.filters.minFit:undefined}));
+  useEffect(()=>{if(!premium)setFilters(current=>current.minFit?{...current,minFit:undefined}:current);},[premium]);
   const [order, setOrder] = useState<"recommended" | "all">(remembered.order);
   const [filterOpen, setFilterOpen] = useState(false);
   const [query, setQuery] = useState(remembered.query);
@@ -783,6 +790,7 @@ function Discovery({
   }
   async function sendRequest(target=person) {
     if (!target || actionPending.current) return;
+    if(!premium){upgrade();return;}
     const id = target.id;
     actionPending.current = true;
     setBusy(true);
@@ -821,13 +829,13 @@ function Discovery({
   }
   if (person)
     return (
-      <Profile source={source} person={person} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
+      <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : "طلب التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
-          {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />الحد الأقصى تعارفان متزامنان. يمكنك العودة لاحقًا.</p>}
+          {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
         </>}
       />
@@ -879,6 +887,7 @@ function Discovery({
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
       <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
+      <MembershipPrompt/>
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>
@@ -937,7 +946,7 @@ function Discovery({
           description={
             availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
               ? "لم تظهر ملفات ضمن البحث والفلاتر الحالية. يمكنك مراجعتها دون تغيير ما يهمك في شريك الحياة. قلة النتائج ليست حكمًا على ملفك."
-              : availability.acceptedCount >= 2 ? 'لديك تعارفان حاليان، وهو الحد المتاح. يمكنك تصفّح الملفات المؤهلة، وتتاح دعوة جديدة عند انتهاء أحدهما.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
+              : availability.acceptedCount >= (premium?3:1) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
           }
           action={
             <div className="cm-empty-actions">
@@ -966,7 +975,7 @@ function Discovery({
         </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
-      {fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
+      {premium&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
         <FilterSheet
           filters={filters}
@@ -1414,7 +1423,7 @@ export function Chat({
         <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias}<MemberBadge active={connection.person.premium}/> <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -2090,7 +2099,7 @@ function Requests({
           >
             <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
-              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
+              <strong>{row.person.alias}<MemberBadge active={row.person.premium}/> <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

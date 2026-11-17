@@ -90,7 +90,7 @@ test('ring timeout, individual participant lease and hard call deadline expire w
  }finally{await db.close()}
 });
 
-test('discovery pause preserves voice; closed, blocked, unapproved, suspended, unpaid and revoked sessions cannot renew it',async()=>{
+test('pause and subscription expiry preserve voice; closed, blocked, unapproved, suspended and revoked sessions cannot renew it',async()=>{
  const db=await createDatabase();try{
   const {add,pair,start,state,act,grant,call}=setup(db),a=await add('man'),b=await add('woman'),request=await pair(a,b);
   const first=await start(a,request);await act(b,first.id,'accept');await grant(a,first.id);
@@ -109,7 +109,7 @@ test('discovery pause preserves voice; closed, blocked, unapproved, suspended, u
   await db.query("update marriage.member_requests set status='accepted' where id=$1",[request]);
   const paid=await start(a,request);await act(b,paid.id,'accept');
   await db.query('update marriage.store_transactions set revoked=true');
-  assert.equal(await grant(a,paid.id),null);assert.equal((await state(b,paid.id)).endReason,'unavailable');
+  assert.ok(await grant(a,paid.id),'voice is shared by Free and Premium');assert.equal((await state(b,paid.id)).status,'active');
   assert.equal((await act(a,paid.id,'end')).status,'ended');
   await db.query('update marriage.store_transactions set revoked=false');
   const blocked=await start(a,request);await act(b,blocked.id,'accept');

@@ -14,7 +14,12 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manage", returnType: CAPPluginReturnPromise)
     ]
-    private let productID = "com.blindmatch.marriage.monthly"
+    private let prices: [String: Decimal] = [
+        "com.blindmatch.marriage.monthly.men": Decimal(string: "149.99")!,
+        "com.blindmatch.marriage.monthly.women": Decimal(string: "99.99")!
+    ]
+    // Existing subscriptions remain restorable; new purchases use gender-specific products.
+    private let legacyProductID = "com.blindmatch.marriage.monthly"
     private var updates: Task<Void, Never>?
     @MainActor private var purchaseInProgress = false
     @MainActor private var pendingDelivery: [String: Transaction] = [:]
@@ -33,7 +38,8 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     deinit { updates?.cancel() }
 
     @MainActor private func receipt(_ result: VerificationResult<Transaction>) -> String? {
-        guard case .verified(let transaction) = result, transaction.productID == productID else { return nil }
+        guard case .verified(let transaction) = result,
+              prices[transaction.productID] != nil || transaction.productID == legacyProductID else { return nil }
         let jws = result.jwsRepresentation
         pendingDelivery[jws] = transaction
         return jws
@@ -49,15 +55,36 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func offer(_ call: CAPPluginCall) {
         Task { @MainActor in
             do {
-                guard let product = try await Product.products(for: [productID]).first else {
-                    call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
-                    return
-                }
-                call.resolve(["price": product.displayPrice])
+                let product = try await selectedProduct(call)
+                let appResult = try await AppTransaction.shared
+                guard case .verified = appResult else { throw NSError(domain: "WudaynMembership", code: 3) }
+                let intro = product.subscription?.introductoryOffer
+                let week = intro?.paymentMode == .freeTrial && intro?.periodCount == 1 &&
+                    ((intro?.period.unit == .week && intro?.period.value == 1) || (intro?.period.unit == .day && intro?.period.value == 7))
+                let appleEligible = await product.subscription?.isEligibleForIntroOffer ?? false
+                call.resolve(["price": product.displayPrice, "productId": product.id,
+                    "currency": product.priceFormatStyle.currencyCode,
+                    "appleEligible": week && appleEligible,
+                    "signedAppTransaction": appResult.jwsRepresentation])
             } catch {
                 call.reject("تعذّر تحميل سعر العضوية من App Store.", "STORE_ERROR", error)
             }
         }
+    }
+
+    @MainActor private func selectedProduct(_ call: CAPPluginCall) async throws -> Product {
+        guard let id = call.getString("productId"), let expected = prices[id],
+              let product = try await Product.products(for: [id]).first,
+              product.type == .autoRenewable,
+              let period = product.subscription?.subscriptionPeriod,
+              period.unit == .month, period.value == 1 else {
+            throw NSError(domain: "WudaynMembership", code: 1, userInfo: [NSLocalizedDescriptionKey: "العضوية الشهرية غير مهيأة في App Store."])
+        }
+        // Never show the requested Saudi price while Apple would charge a different one.
+        if product.priceFormatStyle.currencyCode == "SAR" && product.price != expected {
+            throw NSError(domain: "WudaynMembership", code: 2, userInfo: [NSLocalizedDescriptionKey: "سعر العضوية في المتجر يحتاج إلى تحديث."])
+        }
+        return product
     }
 
     @objc func purchase(_ call: CAPPluginCall) {
@@ -73,15 +100,16 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             purchaseInProgress = true
             defer { purchaseInProgress = false }
             do {
+                let product = try await selectedProduct(call)
                 if let existing = await activeReceipt() {
                     call.resolve(["jws": existing])
                     return
                 }
-                guard let product = try await Product.products(for: [productID]).first else {
-                    call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
+                guard let eligibility = call.getString("eligibilityJws"), !eligibility.isEmpty else {
+                    call.reject("أعد تحميل عرض العضوية قبل الشراء.", "OFFER_REQUIRED")
                     return
                 }
-                switch try await product.purchase(options: [.appAccountToken(token)]) {
+                switch try await product.purchase(options: [.appAccountToken(token), .introductoryOfferEligibility(compactJWS: eligibility)]) {
                 case .success(let result):
                     guard let jws = receipt(result) else {
                         call.reject("تعذّر التحقق من عملية الشراء.", "UNVERIFIED")

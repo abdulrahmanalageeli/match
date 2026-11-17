@@ -30,7 +30,7 @@ export function nextStepState(snapshot: NextStepSnapshot): NextStepState {
 }
 
 /** Offer one useful action. Never infer consent, readiness, or a completed assessment. */
-export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStepAssessment): NextStepChoice | null {
+export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStepAssessment, capacity=2): NextStepChoice | null {
   const accepted = snapshot.connections.filter(c => c.status === 'accepted');
   const state = nextStepState(snapshot);
   const conversation = (c: Connection, kind: NextStepChoice['kind'], title: string, detail: string, action: string, attention = false): NextStepChoice => ({
@@ -84,8 +84,8 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
   const exclusive = accepted.find(c => snapshot.progress.get(c.id)?.exclusive || c.person.exclusive);
   if (exclusive) return conversation(exclusive, 'capacity', `مساحتك الآن مع ${exclusive.person.alias}`,
     snapshot.progress.get(exclusive.id)?.stage === 2 ? 'وصلتما للخطوة العائلية. اتفقا على الشخص والوسيلة والموعد بالوتيرة التي تناسبكما.' : 'اخترتما التعارف الحصري. لا تبدأ طلبات جديدة خلاله، ويمكنكما مراجعة المسار معًا.', 'متابعة مسارنا');
-  if (accepted.length >= 2) return conversation(accepted[0], 'capacity', 'مساحة للتعارف بتركيز',
-    'لديك تعارفان قائمان؛ هذا هو الحد الحالي. يمكنك تصفّح الملفات، وتبدأ دعوة جديدة بعد انتهاء أحد التعارفين.', `متابعة الحديث مع ${accepted[0].person.alias}`);
+  if (accepted.length >= capacity) return conversation(accepted[0], 'capacity', 'مساحة للتعارف بتركيز',
+    'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتبدأ دعوة جديدة بعد انتهاء ارتباط قائم.', `متابعة الحديث مع ${accepted[0].person.alias}`);
 
   for (const c of accepted) {
     const a = snapshot.agreements.get(c.id);

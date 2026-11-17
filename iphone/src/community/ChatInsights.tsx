@@ -4,6 +4,7 @@ import type { MatchFit } from '../compatibility/model';
 import { conversationInsights, type ConversationPrompt } from '../compatibility/conversation-insights';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './chat-insights.css';
+import {useMembershipAccess} from '../membership/access';
 
 const ar = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
 const normalizeMessage = (value: string) => value.trim().replace(/\s+/g, ' ');
@@ -21,7 +22,8 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
   const [kind, setKind] = useState<ConversationPrompt['kind'] | 'all'>('all');
   const [position, setPosition] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const result = conversationInsights(fit);
+  const {premium} = useMembershipAccess();
+  const result = conversationInsights(premium ? fit : undefined);
   const used = new Set(usedMessages.map(normalizeMessage));
   const prompts = result.prompts.filter(item => !used.has(normalizeMessage(item.prompt)));
   const kinds = [...new Set(prompts.map(item => item.kind))];

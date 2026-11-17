@@ -1,3 +1,4 @@
+import {MemberBadge} from '../membership/MemberBadge';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight, BookOpen, ChevronLeft, CirclePause, CirclePlay, CreditCard, Download, Eye, Feather,
@@ -94,7 +95,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
       <span className="st-dialog-icon" aria-hidden="true">{pause ? <CirclePause /> : <LogOut />}</span>
       <h2 id="st-confirm-heading">{label}؟</h2>
       <p id="st-confirm-detail">{pause
-        ? "سيُغلق الترشيح المقترح ويُخفى ملفك عن الطلبات الجديدة. تبقى المحادثات المقبولة وجسر الأهل متاحة مع صلاحية العضوية؛ يمكنك الاستئناف هنا متى شئت." + (demo ? "" : " يستمر اشتراك Apple حتى تلغيه.")
+        ? "سيُغلق الترشيح المقترح ويُخفى ملفك عن الطلبات الجديدة. تبقى المحادثات المقبولة وجسر الأهل متاحة؛ يمكنك الاستئناف هنا متى شئت." + (demo ? "" : " يستمر اشتراك Apple حتى تلغيه.")
         : demo ? "ستنتهي هذه الجلسة وتعود إلى شاشة البداية." : "سيظل حسابك واشتراكك محفوظين ويمكنك تسجيل الدخول مجددًا."}</p>
       <form method="dialog" onSubmit={event => { event.preventDefault(); onConfirm(); }}>
         <button className="btn-secondary" type="button" autoFocus onClick={onCancel}>تراجع</button>
@@ -125,8 +126,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const owner = demo ? "demo" : state?.user.id;
   const member = demo ? demoMember : state?.profile;
   const firstLetter = Array.from(member?.displayName.trim() || "")[0];
-  const canManageMatching = Boolean(demo || state?.membership.active);
-  const canSeeMembership = canManageMatching || state?.user.applicationStatus === "approved";
+  const canManageMatching = Boolean(demo || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending);
+  const canSeeMembership = canManageMatching || state?.membership.active;
   const membershipDetail = demo ? "تجربة مجانية" : state?.membership.active ? "عضوية فعّالة" :
     state?.membership.canStart ? "متاحة للاشتراك" : "بانتظار توفر ترشيح مناسب";
   const location = member?.city || state?.user.email;
@@ -139,7 +140,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
   if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel}/>;
-  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
+  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims,premium:state?.membership.active}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
   if(profilePanel==='photos'&&source)return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager"><header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header><span className="st-profile-kicker">حضور يعبّر عنك</span><h1>صور ملفي</h1><ProfileGallery source={source} editable onChanged={onProfileChanged}/></div></main>;
   return (
     <main className="app-screen st-screen" dir="rtl">
@@ -151,7 +152,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         <h1 className="st-title">الإعدادات</h1>
         <p className="st-intro">ملفك، خصوصيتك، وتفضيلات حسابك.</p>
         <section className="st-member-card" aria-label="ملفي الشخصي">
-          <div className="st-member-identity"><span className="st-member-avatar" aria-hidden="true">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}</span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
+          <div className="st-member-identity"><span className="st-member-avatar" aria-hidden="true">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}</span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}<MemberBadge active={state?.membership.active}/></h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           {source&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صور ملفي</strong><small>إضافة وإدارة صور المعرض</small></span><ChevronLeft size={16}/></button>}
         </section>
@@ -166,7 +167,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدم معًا، الخطوبة أو الزواج · خطوات خاصة لحسابك" action={()=>setShowCompletion(true)} disabled={busy}/></div>}
           </div>
         </section>}
-        {state?.user.profileReviewPending && <p role="status">تعديلات ملفك قيد المراجعة ويمكنك تصحيحها دون انتظار. تبقى محادثاتك المقبولة متاحة مع صلاحية العضوية؛ يرى أطرافها آخر بياناتك المعتمدة.</p>}
+        {state?.user.profileReviewPending && <p role="status">تعديلات ملفك قيد المراجعة ويمكنك تصحيحها دون انتظار. تبقى محادثاتك المقبولة متاحة؛ يرى أطرافها آخر بياناتك المعتمدة.</p>}
         {!state?.user.profileReviewPending && state?.user.nextPublicProfileEditAt && new Date(state.user.nextPublicProfileEditAt).getTime() > Date.now() && <p>التعديل التالي لبيانات ملفك العامة متاح في {new Date(state.user.nextPublicProfileEditAt).toLocaleDateString('ar-SA')}. يمكنك مراجعة التفضيلات وإيقاف مشاركة صورك من أدواتها.</p>}
         <section className="st-section" aria-labelledby="st-privacy-title">
           <h2 id="st-privacy-title">العضوية والخصوصية</h2>

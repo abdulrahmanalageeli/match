@@ -1,3 +1,5 @@
+import {MemberBadge} from '../membership/MemberBadge';
+import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { languageOpennessLabels } from "../compatibility/marriage";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarHeart, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
@@ -35,6 +37,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   person: PublicPerson; source?: CommunitySource | null; back:()=>void; backText:string;
   primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void;
 }) {
+  const {premium}=useMembershipAccess();
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
   const [failed,setFailed]=useState(false);
   const [passportOpen,setPassportOpen]=useState(false);
@@ -47,7 +50,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const percentage=preferencePercentage(person.fit);
   const personality=personalityPercentage(person.fit);
-  const hasFit=!preview&&Boolean(person.fit||person.reasons.length);
+  const hasFit=premium&&!person.compatibilityLocked&&!preview&&Boolean(person.fit||person.reasons.length);
   const hasDetails=Boolean(person.occupation||person.education||person.familyPreference||person.marriageIntent||b&&Object.values(b).some(v=>v!==undefined&&v!==null&&v!==''));
   const passportConnection=connectionId||(person.connectionStatus==='accepted'?person.connectionId:undefined);
   const canOpenPassport=!preview&&source?.readiness&&passportConnection&&(source.readinessEligibleConnection?.(passportConnection)??true);
@@ -71,7 +74,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين.</span></p>}
     <section className="mp-hero" data-weekly-featured={featured||undefined} ref={identity} aria-label={`ملف ${person.alias}`}>
       <ScenePaths className="mp-arrival-paths" parallax />
-      <div className="mp-hero-copy">{!preview&&<span className="mp-eyebrow">ملف شخصي</span>}<h1 ref={heading} tabIndex={-1}>{person.alias}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
+      <div className="mp-hero-copy">{!preview&&<span className="mp-eyebrow">ملف شخصي</span>}<h1 ref={heading} tabIndex={-1}>{person.alias}<MemberBadge active={person.premium}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
         <div className="mp-meta">{person.city&&<span><MapPin size={14}/><bdi>{canonicalCity(person.city)}</bdi></span>}</div>
       </div>
       <div className={'mp-portrait'+(!person.portrait&&!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt="" onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>
@@ -93,6 +96,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           {person.fit?<span className="mp-fit-preview-scores"><span><strong>{percentage===null?'—':<bdi dir="ltr">{percentage}%</bdi>}</strong><span>توافق التفضيلات</span></span><span><strong>{personality===null?'—':<bdi dir="ltr">{personality}%</bdi>}</strong><span>انسجام الشخصية</span></span></span>:<span className="mp-fit-preview-reason">{person.reasons[0]}</span>}
           <small>{person.fit&&(percentage===null||personality===null)?'عرض تفاصيل النتائج المتاحة وما يلزم لإكمالها':'من إجاباتكما · اكتشفا نقاط الاتفاق وما يحتاج حوارًا'}</small>
         </MotionPressButton>}
+        {!preview&&!premium&&<MembershipPrompt detail="اكتشف نسبة التوافق وتفاصيلها مع هذا العضو، وبادر بطلب التعارف."/>}
         <PersonalPrompts key={person.id} answers={person}/>
         {!!person.interests.length&&<section className="mp-interests"><h2>اهتماماتي</h2><div>{person.interests.map(item=><span key={item}>{interests.find(i=>i.id===item)?.label??item}</span>)}</div></section>}
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
@@ -133,7 +137,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           b?.prayerPractice&&b.prayerPractice!=='prefer_not_to_say'&&['الصلاة',prayerPracticeLabels[b.prayerPractice]],
         ]}/>
       </>}
-      {section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit}/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
+      {hasFit&&section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit}/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
     </MotionReveal>
     {preview&&<p className="mp-preview-footnote"><Sparkles size={16}/><span>نسبة التوافق تختلف من شخص لآخر؛ تظهر عند مقارنة تقييميكما. إجابات التقييم ومتطلبات الشريك الخاصة لا تظهر في هذا الملف.</span></p>}
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}

@@ -1,3 +1,4 @@
+import {MembershipAccess} from '../../src/membership/access';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Community } from '../../src/community/Community';
@@ -16,6 +17,9 @@ import '../../src/typography.css';
 
 // The real Explore components with fictional local data; no login or hosted writes.
 const source = demoCommunity(() => ({ ...demoProfile, gender: 'man' }));
+// Visual-only paid status on fictional cards; never alters hosted entitlements.
+const discoverFictional = source.discover;
+source.discover = async filters => (await discoverFictional(filters)).map((person,index)=>({...person,premium:index===0}));
 const noop = () => {};
 
 function ExplorePreview() {
@@ -38,4 +42,4 @@ function ExplorePreview() {
 }
 
 initializeDevicePreferences();
-createRoot(document.getElementById('root')!).render(<ExplorePreview />);
+createRoot(document.getElementById('root')!).render(<MembershipAccess.Provider value={{premium:new URLSearchParams(location.search).get('tier')!=='free',upgrade:()=>location.href='/tests/fixtures/membership-qa.html'}}><ExplorePreview /></MembershipAccess.Provider>);

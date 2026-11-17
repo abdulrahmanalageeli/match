@@ -18,6 +18,9 @@ import { createDemoSimulation, type DemoSimulationController, type DemoSimulatio
 
 export type GalleryPhoto = { id: string; path?: string };
 export type PublicPerson = {
+  premium?: boolean;
+  compatibilityLocked?: boolean;
+  recommendationPercentage?: number | null;
   manualVerifications?: ManualVerificationClaim[];
   isDemo?: boolean;
   atCapacity?: boolean; viewerAtCapacity?: boolean; connectionId?: string; connectionStatus?: "pending" | "accepted";

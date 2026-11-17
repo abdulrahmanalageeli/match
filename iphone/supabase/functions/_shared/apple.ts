@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.112.2'
 import { Environment, SignedDataVerifier, VerificationStatus } from 'npm:@apple/app-store-server-library@3.1.0'
 
 const bundle = 'com.blindmatch.marriage'
-const product = 'com.blindmatch.marriage.monthly'
+const products = new Set(['com.blindmatch.marriage.monthly','com.blindmatch.marriage.monthly.men','com.blindmatch.marriage.monthly.women'])
 let verifier: SignedDataVerifier | undefined
 
 export class HttpError extends Error {
@@ -67,11 +67,18 @@ async function verify<T>(work:()=>Promise<T>):Promise<T>{
   }
 }
 
+export async function verifyAppPurchase(value:unknown):Promise<string>{
+  const receipt=await verify(()=>apple().verifyAndDecodeAppTransaction(validateJws(value)))
+  if(receipt.bundleId!==bundle || !receipt.appTransactionId || !/^[0-9]{1,80}$/.test(receipt.appTransactionId))
+    throw new HttpError(403,'تعذّر التحقق من حساب App Store.')
+  return receipt.appTransactionId
+}
+
 export async function ingest(jws: unknown, actor: string|null, notification: boolean) {
   const signed=validateJws(jws)
   const receipt=await verify(()=>apple().verifyAndDecodeTransaction(signed))
-  if(notification && (receipt.productId!==product || !receipt.appAccountToken))return null
-  if(receipt.bundleId!==bundle || receipt.productId!==product || !receipt.appAccountToken)
+  if(notification && (!products.has(receipt.productId??'') || !receipt.appAccountToken))return null
+  if(receipt.bundleId!==bundle || !products.has(receipt.productId??'') || !receipt.appAccountToken)
     throw new HttpError(403,'الاشتراك لا يخص هذا التطبيق.')
   const {data,error}=await admin().rpc('marriage_record_receipt',{actor,receipt,notification})
   if(error)throw new HttpError(error.code==='42501'?403:error.code==='22023'?400:503,'تعذّر تسجيل اشتراك Apple.')

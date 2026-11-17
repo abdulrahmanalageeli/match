@@ -1,0 +1,9 @@
+import {createContext,useContext} from 'react';
+export const MembershipAccess = createContext<{premium:boolean;upgrade:()=>void}>({premium:false,upgrade:()=>{}});
+export const useMembershipAccess=()=>useContext(MembershipAccess);
+
+export function MembershipPrompt({detail='بادر بطلب تعارف، واكتشف تفاصيل التوافق مع العضوية المميزة.'}:{detail?:string}) {
+  const {premium,upgrade}=useMembershipAccess();
+  if(premium)return null;
+  return <button className="wd-upgrade-prompt" onClick={upgrade}><img src="/brand/wudayn-member-seal.png" alt="" width="30" height="30"/><span><strong>خذ خطوتك الجادّة</strong><small>{detail}</small></span><span className="wd-upgrade-link">اكتشف العضوية ←</span></button>;
+}

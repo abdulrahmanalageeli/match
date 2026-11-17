@@ -1,3 +1,5 @@
+import {MemberBadge} from '../membership/MemberBadge';
+import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { useId, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, MessageCircle, Ring, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
@@ -21,6 +23,8 @@ const dates = new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short',
 const stamp = (row: Connection) => Date.parse(row.updatedAt || row.createdAt || '') || 0;
 
 export function MatchesOverview({ source, connections, loading, error, onRetry, onBrowse, onProfile, onConversation, busy, onAccept, onDecline, onRemove }: Props) {
+  const {premium}=useMembershipAccess();
+  const capacity=premium?3:1;
   const logoMaskId = useId();
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
   const [query, setQuery] = useState('');
@@ -36,16 +40,16 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
     {error && <div className="mo-empty" role="alert"><p>{error}</p><MotionPressButton className="btn-secondary" onClick={onRetry}>إعادة المحاولة</MotionPressButton></div>}
     {loading && !connections.length && !error ? <CommunitySkeleton variant="conversations" label="جارٍ تحضير مساحة التعارف…"/> : <>
       <section aria-labelledby="mo-current-title">
-        <div className="mo-section-heading"><h2 id="mo-current-title">الارتباطات الحالية</h2><span>{number.format(current.length)} / ٢</span></div>
+        <div className="mo-section-heading"><h2 id="mo-current-title">الارتباطات الحالية</h2><span>{number.format(current.length)} / {number.format(capacity)}</span></div>
         {current.length ? <div className="mo-current-grid">{current.map((row,index) => {
-          const score = preferencePercentage(row.person.fit);
+          const score = premium?preferencePercentage(row.person.fit):null;
           const unread = row.unreadCount ? number.format(row.unreadCount) : null;
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
             <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
             </button>
             <div className="mo-current-copy">
-              <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
+              <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}<MemberBadge active={row.person.premium}/></button>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
               {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
               <button className="mo-remove-match" disabled={busy} onClick={()=>onRemove(row.id)} aria-label={`إنهاء التعارف مع ${row.person.alias}`}>إنهاء التعارف</button>
@@ -85,10 +89,10 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             </div>
           </MotionReveal>;
         })}
-          {current.length === 1 && !loading && !error && <article className="mo-empty-slot" aria-label="مساحة التعارف الثانية">
+          {current.length < capacity && !loading && !error && <article className="mo-empty-slot" aria-label="مساحة لارتباط جديد">
             <span className="mo-slot-symbol" aria-hidden="true"><Ring size={24} strokeWidth={1.3}/></span>
-            <div><strong>{current[0].person.exclusive ? 'مساحة التعارف الثانية' : 'مساحة لتعارف ثانٍ'}</strong>
-              <p>{current[0].person.exclusive ? 'غير متاحة أثناء الارتباط الحصري.' : 'يمكنك متابعة تعارفين فقط في الوقت نفسه.'}</p>
+            <div><strong>مساحة لارتباط جديد</strong>
+              <p>{current[0].person.exclusive ? 'غير متاحة أثناء الارتباط الحصري.' : `تتيح عضويتك ${number.format(capacity)} ارتباطات متزامنة.`}</p>
             </div>
           </article>}
         </div> : !error && <div className="mo-empty"><p>مساحتك لبداية جادّة مع الشخص المناسب.</p><MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات<ArrowLeft size={16}/></MotionPressButton></div>}
@@ -103,7 +107,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
           return <MotionReveal as="article" className="mo-request" key={row.id} data-request-row={row.id} delay={Math.min(index*30,90)} distance={5}>
             <button className="mo-request-profile" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-request-avatar"/>
-              <span className="mo-identity"><strong>{row.person.alias}</strong><span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
+              <span className="mo-identity"><strong>{row.person.alias}<MemberBadge active={row.person.premium}/></strong><span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
             </button>
             <div className="mo-request-action">{incoming ? <div className="mo-request-decisions">
               <MotionPressButton className="mo-action mo-action-incoming" disabled={busy} onClick={()=>onAccept(row.id)} aria-label={`قبول طلب ${row.person.alias}`}><Check size={14}/>قبول</MotionPressButton>
@@ -114,6 +118,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
         {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':'ستظهر الطلبات الجديدة هنا.'}</p>}
       </section>
     </>}
+    <MembershipPrompt detail="قبول الطلبات متاح لك مجانًا. مع العضوية المميزة يمكنك المبادرة واكتشاف تفاصيل التوافق."/>
     <div className="mo-history"><RequestHistory source={source} title="التعارفات السابقة"/></div>
   </section>;
 }

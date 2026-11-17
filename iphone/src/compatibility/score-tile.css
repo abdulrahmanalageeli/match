@@ -10,6 +10,16 @@
 }
 .nf-score-tile-copy { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 1px; }
 .nf-score-tile strong { color: #702440; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.nf-score-ring { display: block; flex: none; stroke-width: 2.25; }
-.nf-score-ring-track { stroke: #eae1e8; }
-.nf-score-ring-stone { fill: #fbf3f8; stroke: #a56890; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.nf-score-ring { display: block; flex: none; stroke-width: 3.2; }
+.nf-score-ring-rim { stroke: #87556c; stroke-opacity: .24; stroke-width: .6; }
+.nf-score-ring-inner { stroke: #79475f; stroke-opacity: .3; stroke-width: .6; filter: drop-shadow(0 .35px .25px #54152a18); }
+.nf-score-ring-track { stroke: #f0e9ed; }
+.nf-score-ring-setting { fill: #f0e9ed; }
+.nf-score-stone-separation { stroke: #fffdfd; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nf-score-ring-stone { stroke-width: .75; stroke-linejoin: round; }
+.nf-score-ring-facets { stroke-width: .55; stroke-opacity: .6; stroke-linecap: round; stroke-linejoin: round; }
+.nf-logo-wave { animation:nf-logo-flow 8s linear infinite; }
+.nf-logo-wave-back { animation-direction:reverse; animation-duration:11s; }
+@keyframes nf-logo-flow { to { transform:translateX(-48px); } }
+@media (prefers-reduced-motion:reduce) { .nf-logo-wave { animation:none; } }
+html[data-nf-ambient-paused] .nf-logo-wave { animation-play-state:paused; }

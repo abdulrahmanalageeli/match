@@ -17,6 +17,7 @@ import {
   BookOpen,
   Navigation2,
   Ring,
+  InterlockedRings,
   Settings2,
   WalletCards,
 } from "./BrandIcons";
@@ -27,8 +28,11 @@ import { Brand } from "./Brand";
 import { FitDetails } from "./compatibility/FitDetails";
 import { useDevicePreferences, useSystemReducedMotion } from "./settings/preferences";
 import "./home.css";
+import { useRelationshipCounts } from './community/useRelationshipCounts';
+import type { CommunitySource } from './community/data';
 
 type HomeProps = {
+  source?: CommunitySource | null;
   proposal: Proposal | null;
   onOpen: () => void;
   onAccount: () => void;
@@ -159,6 +163,7 @@ function ProfileHero({ proposal }: { proposal: Proposal }) {
 }
 
 type TabsProps = {
+  source?: CommunitySource | null;
   active: "home" | "discover" | "inbox" | "chats" | "settings";
   onHome?: () => void;
   onDiscover?: () => void;
@@ -179,9 +184,11 @@ export function MemberTabs({
   onInbox,
   onChats,
   chatUnread = 0,
-  requestUnread = 0,
+  requestUnread,
+  source,
   onAccount,
 }: TabsProps) {
+  const relationships = useRelationshipCounts(source);
   const marker = useRef<HTMLSpanElement>(null);
   const device = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
@@ -202,7 +209,7 @@ export function MemberTabs({
   }, [active, reduced]);
   const items = [
     { id: "discover", text: "استكشف", icon: Compass, open: onDiscover },
-    { id: "home", text: "التعارف", icon: Ring, open: onHome },
+    { id: "home", text: "التوافقات", icon: relationships.accepted >= 2 ? InterlockedRings : Ring, open: onHome },
     { id: "inbox", text: "الإشعارات", icon: Bell, open: onInbox },
     { id: "chats", text: "المحادثات", icon: MessageCircle, open: onChats },
     { id: "settings", text: "الإعدادات", icon: Settings2, open: onAccount },
@@ -211,7 +218,7 @@ export function MemberTabs({
     <nav className="mi-tabbar" aria-label="التنقل الرئيسي">
       {items.map(({ id, text, icon: Icon, open }) => {
         if (!open && active !== id) return null;
-        const count = id === "chats" ? chatUnread : id === "home" ? requestUnread : 0;
+        const count = id === "chats" ? chatUnread : id === "home" ? requestUnread ?? relationships.incoming : 0;
         const unread = count > 0;
         const label = <>
           <span className="mi-tab-icon"><Icon aria-hidden="true" />{unread &&
@@ -235,6 +242,7 @@ export function MemberTabs({
 }
 
 export function Home({
+  source,
   proposal,
   onOpen,
   onAccount,
@@ -346,6 +354,7 @@ export function Home({
         </div>
       </div>
       <MemberTabs
+        source={source}
         active="home"
         onDiscover={onDiscover}
         onInbox={onInbox}

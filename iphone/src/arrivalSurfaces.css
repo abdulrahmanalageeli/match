@@ -91,8 +91,9 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-title.df-title h1 { font-size: 23px; margin: 0; line-height: 1.35; }
 .phone-app .cm-shell .df-feed-tabs { gap: 16px; }
 .phone-app .cm-shell .df-feed-tabs button { min-height: 40px; padding-block: 7px; font-size: 13px; gap: 6px; }
-.phone-app .cm-shell .df-feed-controls { margin-bottom: 10px; }
-.phone-app .cm-shell .dr-tools { margin-block: 0 8px; }
+.phone-app .cm-shell .df-feed-controls { margin-bottom: 6px; }
+.phone-app .cm-shell .dr-tools { margin-block: 0 4px; align-items: center; }
+.phone-app .cm-shell .df-discovery-help { margin-block: 2px 10px; }
 .phone-app .cm-shell .dr-tools .dr-search { min-height: 38px; height: 38px; border-radius: 9px; font-size: 12px; }
 .phone-app .cm-shell .dr-tools .dr-filter-shortcut { min-height: 36px; height: 36px; width: 36px; padding: 0; border-radius: 9px; align-self: center; }
 .phone-app .cm-shell .dr-tools-recommended { display: flex; justify-content: flex-end; }
@@ -220,6 +221,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 /* Directory, request, and conversation search share a compact neutral surface. */
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) {
   min-height: var(--nf-search-height);
+  height: var(--nf-search-height);
   border: 1px solid transparent;
   border-radius: 999px;
   background: var(--nf-search-surface);
@@ -227,22 +229,51 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   color: var(--muted);
   box-shadow: none;
 }
-.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input { min-height: 0; height: calc(var(--nf-search-height) - 2px); font-size: 16px; }
+.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input { min-height: 0; height: calc(var(--nf-search-height) - 2px); padding-block: 0; font-size: 16px; }
+.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input::placeholder { font-size: 14px; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input:focus-visible { outline: none; box-shadow: none; }
+.phone-app .cm-shell :is(.nf-help-search, .nf-choice-sheet-search) input:focus-visible { outline: none; box-shadow: none; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search):focus-within { border-color: #a27888; }
-.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) > svg { flex: none; }
+.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) > svg { flex: none; width: 16px; height: 16px; }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-search { height: var(--nf-search-height); }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut {
+  display: inline-grid;
+  place-items: center;
+  width: var(--nf-search-height);
+  height: var(--nf-search-height);
+  min-height: var(--nf-search-height);
+  align-self: center;
   border: 0;
   background: transparent;
   color: #302a2e;
 }
+.phone-app .cm-shell .df-discovery .dr-tools { grid-template-columns:minmax(0,1fr) auto var(--nf-search-height); align-items:center; }
+.phone-app .cm-shell .df-discovery .dr-tools[data-search-open] { grid-template-columns:minmax(0,112px) minmax(0,1fr) var(--nf-search-height); }
+.dr-search-control { display:flex; align-items:center; gap:5px; min-width:0; }
+.dr-search-control .dr-search { flex:1; min-width:0; }
+.dr-search-toggle { display:grid; place-items:center; position:relative; flex:none; width:var(--nf-search-height); height:var(--nf-search-height); padding:0; border:0; border-radius:50%; background:none; color:var(--accent-fill); cursor:pointer; }
+.dr-search-toggle[data-active]::after { content:""; position:absolute; top:4px; right:4px; width:4px; height:4px; border-radius:50%; background:var(--accent-fill); }
+.dr-search-explainer { min-width:0; display:flex; align-items:center; justify-content:flex-start; }
+.dr-search-explainer .wd-why-link { gap:4px; padding:0; min-height:30px; font-size:10px; line-height:1.4; text-align:center; }
+.dr-search-explainer .wd-why-link>svg { width:12px; height:12px; flex:none; }
+.phone-app :is(button, a, input, select, summary) { -webkit-tap-highlight-color: transparent; }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut > svg { stroke-width: 1.6; }
 .phone-app .cm-shell .df-discovery :is(.df-card-portrait, .df-portrait-placeholder, .dr-row-image) { background: #efeff0; }
 .phone-app .cm-shell .df-discovery .df-portrait-placeholder::before,
 .phone-app .cm-shell .df-discovery .df-portrait-placeholder .cm-weekly-contours { display: none; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual { width: auto; min-width: 0; min-height: 44px; }
+.phone-app .cm-shell .df-discovery .dr-row-overview > .dr-fit-visual { border-inline-start: 1px solid var(--arrival-rule); padding-inline-start: 12px; }
 .phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 12px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary { display: flex; align-items: center; gap: 14px; margin-block: 4px 14px; text-align: start; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-compatibility { flex: none; margin: 0; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-ring { width: 36px; height: 34px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-tile { gap: 6px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-tile strong { font-size: 18px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-reason { flex: 1; min-width: 0; margin: 0; padding: 0; padding-inline-start: 14px; border-inline-start: 1px solid var(--arrival-rule); font-size: 12px; line-height: 1.7; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact { align-items: center; gap: 6px; padding: 0; margin-block: 0 12px; border: 0; border-radius: 0; background: transparent; color: #716b70; font-size: 12px; line-height: 1.5; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > svg { width: 16px; height: 16px; flex: none; color: #795462; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong { margin-inline-start: 2px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong small { font-size: 11px; }
 .phone-app .cm-shell .df-discovery .dr-row-overview { gap: 10px; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group { position: relative; display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group > .dr-row-profile { position: absolute; inset: 0; z-index: 1; min-height: 0; border-radius: 6px; }
@@ -297,7 +328,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request[data-add] { display: inline-flex; align-items: center; gap: 4px; width: auto; min-width: 58px; padding-inline: 4px; font-size: 12px; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:is([data-connected], [data-pending], :hover:not(:disabled)) { background: transparent; box-shadow: none; }
-.phone-app .cm-shell .df-discovery .dr-row-add-logo { flex: none; object-fit: contain; }
+.phone-app .cm-shell .df-discovery .dr-row-add-logo { flex: none; width:1.15em; height:1.15em; object-fit:contain; }
+.phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-logo { transform:scale(1.18,1.32); transform-origin:center; }
 .phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
 html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .phone-app .cm-shell .dr-refresh-directory {

@@ -13,8 +13,10 @@
 .nf-choice-sheet-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; flex: none; gap: 8px; padding: 12px 12px 4px; }
 .nf-choice-sheet-header h2 { margin: 0; text-align: center; font-size: 18px; font-weight: 700; line-height: 1.5; }
 .nf-choice-sheet-header button { min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: none; color: #5a0f28; font-size: 15px; }
-.nf-choice-sheet-search { display: flex; align-items: center; flex: none; gap: 8px; min-height: 46px; margin: 8px 20px 14px; padding-inline: 12px; border-radius: 11px; background: #eee9e9; color: #887b82; }
-.nf-choice-sheet-search input { width: 100%; min-width: 0; min-height: 46px; padding: 10px 0; border: 0; outline: none; background: none; font: inherit; font-size: 16px; color: #30232c; }
+.nf-choice-sheet-search { display: flex; align-items: center; flex: none; gap: 8px; min-height: var(--nf-search-height, 30px); height: var(--nf-search-height, 30px); margin: 8px 20px 14px; padding-inline: 12px; border-radius: 11px; background: #eee9e9; color: #887b82; }
+.nf-choice-sheet-search input { width: 100%; min-width: 0; min-height: 0; height: calc(var(--nf-search-height, 30px) - 2px); padding: 0; border: 0; outline: none; background: none; font: inherit; font-size: 16px; color: #30232c; }
+.nf-choice-sheet-search input::placeholder { font-size: 14px; }
+.nf-choice-sheet-search input:focus-visible { outline: none; box-shadow: none; }
 .nf-choice-sheet-search input::-webkit-search-cancel-button { display: none; }
 .nf-choice-sheet-search:focus-within { outline: 2px solid #956176; outline-offset: 2px; }
 .nf-choice-sheet-search > svg { flex: none; }

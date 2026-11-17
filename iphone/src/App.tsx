@@ -901,7 +901,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onPrivacy={() => setPolicy(true)}
         busy={busy}
       >
-        {active && <MemberTabs active="settings" onHome={() => go("curated")}
+        {active && <MemberTabs source={source} active="settings" onHome={() => go("curated")}
           onDiscover={source ? () => go("discover") : undefined}
           onInbox={source ? () => go("inbox") : undefined} onChats={source ? () => go("chats") : undefined}
           chatUnread={chatUnread} onAccount={openAccount} />}
@@ -1018,6 +1018,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   else
     screen = (
       <Home
+        source={source}
         proposal={proposal}
         paused={demo ? samplePaused : Boolean(live?.user.paused)}
         onOpen={() => go("proposal")}

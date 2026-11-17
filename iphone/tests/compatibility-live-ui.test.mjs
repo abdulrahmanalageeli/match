@@ -9,6 +9,7 @@ import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMe
 
 const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests };');
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
+const relationshipCountsCode = compile(await readFile(new URL('../src/community/useRelationshipCounts.ts', import.meta.url), 'utf8'));
 function compile(source) { return ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText; }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const noop = () => {};
@@ -63,6 +64,77 @@ function sourceWith(people = []) {
 const person = (score, id = 'partner') => ({ id, alias: 'رهام', fit: { preference: score }, age: 29, city: 'الرياض' });
 const baseProps = source => ({ source, onInbox: noop, onAccount: noop, onChatChange: noop, onMutual: noop, onConversationOpened: noop, onBrowse: noop });
 
+test('relationship tab counts only accepted matches and updates after source changes', async () => {
+  const source = sourceWith();
+  source.connections = [{status:'accepted'}, {status:'pending',direction:'incoming'}, {status:'pending',direction:'outgoing'}];
+  const m = mount(relationshipCountsCode, 'useRelationshipCounts', source);
+  m.render(); await settle(); let counts = m.render();
+  assert.equal(counts.accepted, 1); assert.equal(counts.incoming, 1);
+  source.connections[1] = {status:'accepted'}; source.notify(); await settle();
+  counts = m.render(); assert.equal(counts.accepted, 2); assert.equal(counts.incoming, 0);
+  source.connections.splice(0,1); source.notify(); await settle();
+  assert.equal(m.render().accepted, 1);
+  const other = sourceWith(); assert.equal(m.render(other).accepted, 0);
+  await settle(); assert.equal(m.render().accepted, 0); m.close();
+});
+
+test('incoming requests can be accepted from the list once; outgoing requests cannot', async () => {
+  const source = sourceWith(), gate = deferred(), calls = [], mutual = [];
+  source.connections = [
+    { id: 'incoming', status: 'pending', direction: 'incoming', person: person(70) },
+    { id: 'outgoing', status: 'pending', direction: 'outgoing', person: person(60, 'other') },
+  ];
+  source.act = async (id, action) => { calls.push([id, action]); await gate.promise; source.connections = source.connections.map(row => row.id === id ? {...row, status: 'accepted'} : row); };
+  const m = mount(communityCode, 'Requests', {...baseProps(source), matches: true, onMutual: row => mutual.push(row.id)});
+  m.render(); await settle(); let overview = named(m.render(), 'MatchesOverview');
+  overview.props.onAccept('outgoing'); assert.equal(calls.length, 0);
+  overview.props.onAccept('incoming'); overview.props.onAccept('incoming');
+  assert.deepEqual(calls, [['incoming', 'accept']]);
+  assert.equal(named(m.render(), 'MatchesOverview').props.busy, true);
+  gate.resolve(); await settle(); await settle();
+  overview = named(m.render(), 'MatchesOverview');
+  assert.deepEqual(mutual, ['incoming']);
+  assert.equal(overview.props.connections.find(row => row.id === 'incoming').status, 'accepted');
+  assert.equal(overview.props.busy, false); m.close();
+});
+
+test('declining from the request list requires confirmation and removes the closed request', async () => {
+  const source = sourceWith(), calls = [];
+  source.connections = [{id: 'incoming', status: 'pending', direction: 'incoming', person: person(70)}];
+  source.act = async (id, action) => { calls.push([id, action]); source.connections = []; };
+  const m = mount(communityCode, 'Requests', {...baseProps(source), matches: true});
+  m.render(); await settle(); named(m.render(), 'MatchesOverview').props.onDecline('incoming');
+  let sheet = named(m.render(), 'Sheet');
+  assert.equal(calls.length, 0); assert.equal(sheet.props.title, 'رفض طلب التعارف؟');
+  sheet.props.onClose(); assert.equal(named(m.render(), 'Sheet'), undefined);
+  named(m.render(), 'MatchesOverview').props.onDecline('incoming'); sheet = named(m.render(), 'Sheet');
+  nodes(sheet).find(node => node.type === 'button' && textOf(node) === 'تأكيد الرفض').props.onClick();
+  await settle(); await settle();
+  assert.deepEqual(calls, [['incoming', 'decline']]);
+  assert.equal(named(m.render(), 'MatchesOverview').props.connections.length, 0); m.close();
+});
+
+test('ending an accepted match requires confirmation and submits once', async () => {
+  const source = sourceWith(), calls = [], gate = deferred();
+  source.connections = [{id:'accepted',status:'accepted',direction:'incoming',person:person(70)}, {id:'pending',status:'pending',direction:'incoming',person:person(60)}];
+  source.act = async (id, action, reason, allowRematch) => { calls.push([id,action,allowRematch]); await gate.promise; source.connections=source.connections.filter(row=>row.id!==id); };
+  const m=mount(communityCode,'Requests',{...baseProps(source),matches:true});
+  m.render(); await settle();
+  named(m.render(),'MatchesOverview').props.onRemove('pending');
+  assert.equal(named(m.render(),'Sheet'),undefined);
+  named(m.render(),'MatchesOverview').props.onRemove('accepted');
+  let sheet=named(m.render(),'Sheet'); assert.equal(sheet.props.title,'إنهاء التعارف؟'); assert.equal(calls.length,0);
+  nodes(sheet).find(node=>node.type==='button'&&textOf(node)==='الاستمرار في التعارف').props.onClick();
+  assert.equal(named(m.render(),'Sheet'),undefined); assert.equal(calls.length,0);
+  named(m.render(),'MatchesOverview').props.onRemove('accepted'); sheet=named(m.render(),'Sheet');
+  const confirm=nodes(sheet).find(node=>node.type==='button'&&textOf(node)==='تأكيد إنهاء التعارف');
+  confirm.props.onClick(); confirm.props.onClick();
+  assert.deepEqual(calls,[['accepted','cancel',false]]);
+  gate.resolve(); await settle(); await settle();
+  assert.equal(named(m.render(),'Sheet'),undefined);
+  assert.equal(named(m.render(),'MatchesOverview').props.connections.some(row=>row.id==='accepted'),false); m.close();
+});
+
 test('navigation captures discovery position before the parent resets the page scroll', async () => {
   const source = sourceWith([person(90)]);
   const r = mount(communityCode, 'Discovery', baseProps(source));
@@ -89,7 +161,7 @@ test('an unchanged message does not freeze the active chat fit; queued updates f
 test('an open recommended profile refreshes after moving out of the top five, then closes if no longer eligible', async () => {
   const source = sourceWith([person(90)]), m = mount(communityCode, 'Discovery', baseProps(source));
   m.render(); await settle(); let tree = m.render();
-  named(tree, 'PersonCard').props.open({ querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
+  named(tree, 'PersonCard').props.open({ closest: () => null, querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
   tree = m.render(); assert.equal(tree.props.person.fit.preference, 90);
   source.discover = async filters => filters.mode === 'all' ? [person(61)] : [person(95, 'new-top-match')];
   source.notify(); await settle(); tree = m.render();
@@ -102,7 +174,7 @@ test('an open recommended profile refreshes after moving out of the top five, th
 test('an open compatibility sheet refreshes in place and changes arriving during a read are not lost', async () => {
   const source = sourceWith([person(90)]), m = mount(communityCode, 'Discovery', baseProps(source));
   m.render(); await settle(); let tree = m.render();
-  nodes(tree).find(node => node.type === 'button' && textOf(node).includes('استكشف الجميع')).props.onClick();
+  nodes(tree).find(node => node.type === 'button' && textOf(node).includes('جميع الملفات')).props.onClick();
   m.render(); await settle(); tree = m.render(); named(tree, 'DirectoryRow').props.explain();
   tree = m.render(); assert.equal(named(tree, 'FitDetails').props.fit.preference, 90);
   const read = deferred(); let calls = 0;

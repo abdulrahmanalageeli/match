@@ -5,7 +5,7 @@ import { useDevicePreferences, useSystemReducedMotion } from '../settings/prefer
 import { feedback } from '../feedback/haptics';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './chatMedia.css';
-import { nativePrivatePhoto, preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
+import { preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
 
 const seconds = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 const safeError = (e: unknown) => e instanceof Error && /[\u0600-\u06ff]/.test(e.message) ? e.message : 'تعذّر إرسال المرفق. حاول مجددًا.';
@@ -101,14 +101,14 @@ function RecordingWaveform({ stream }: { stream: MediaStream }) {
   return <canvas ref={canvas} className="cm-record-waveform" width={180} height={32} aria-hidden="true"/>;
 }
 
-function PhotoViewer({ url, once, close }: { url: string; once: boolean; close: () => void }) {
+function PhotoViewer({ url, close }: { url: string; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { const node = dialog.current; node?.showModal(); return () => node?.close(); }, []);
-  return <dialog ref={dialog} className="cm-photo-viewer" dir="rtl" aria-label={once ? 'صورة للعرض مرة واحدة' : 'صورة المحادثة'}
+  return <dialog ref={dialog} className="cm-photo-viewer" dir="rtl" aria-label="صورة المحادثة"
     onCancel={event => { event.preventDefault(); close(); }} onContextMenu={event => event.preventDefault()}>
-    <header><span><LockKeyhole size={17}/>{once ? 'صورة لمرة واحدة' : 'بينكما فقط'}</span><button type="button" aria-label="إغلاق الصورة" onClick={close} autoFocus><X size={23}/></button></header>
+    <header><span><LockKeyhole size={17}/>بينكما فقط</span><button type="button" aria-label="إغلاق الصورة" onClick={close} autoFocus><X size={23}/></button></header>
     <div className="cm-photo-viewer-image"><img src={url} alt="الصورة المرسلة في المحادثة" draggable={false} onDragStart={event => event.preventDefault()}/></div>
-    <footer>{once && <strong><CircleDashed size={17}/>لن يمكن فتحها مجددًا بعد الإغلاق أو مغادرة التطبيق.</strong>}<p>لا يستطيع الموقع منع لقطات الشاشة أو تصوير الشاشة بجهاز آخر. احترم خصوصية الطرف الآخر.</p></footer>
+    <footer><p>لا يستطيع الموقع منع لقطات الشاشة أو تصوير الشاشة بجهاز آخر. احترم خصوصية الطرف الآخر.</p></footer>
   </dialog>;
 }
 
@@ -178,10 +178,13 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
       const value = await source.openMedia(requestId, attachment.id);
       if (!alive.current || ticket !== generation.current || document.hidden) { if (value.startsWith('blob:')) URL.revokeObjectURL(value); return; }
       displayed.current = value; setSpent(true);
-      if (nativePrivatePhoto()) {
-        try { await showPrivatePhoto(value, () => alive.current && ticket === generation.current); }
-        finally { if (displayed.current === value) closeViewer(); }
-      } else setViewer(value);
+      try {
+        await showPrivatePhoto(value, () => alive.current && ticket === generation.current);
+      } catch {
+        if (alive.current && ticket === generation.current) setError('تعذّر عرض الصورة بعد تسجيل فتحها. اطلب إرسالها مجددًا.');
+      } finally {
+        if (displayed.current === value) closeViewer();
+      }
     } catch (cause) { if (alive.current && ticket === generation.current) setError(safeError(cause)); }
     finally { if (alive.current && ticket === generation.current) setOpening(false); }
   }
@@ -191,12 +194,11 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
       <span className="cm-once-mark">{opening ? <LoaderCircle className="cm-spin" size={24}/> : opened ? <CheckCheck size={24}/> : <CircleDashed size={25}/>}</span>
       <span><strong>{opened ? 'تم فتح الصورة' : 'صورة لمرة واحدة'}</strong><small>{opening ? 'جارٍ الفتح…' : opened ? 'لا يمكن عرضها مجددًا' : senderIsMe ? 'يمكن للطرف الآخر فتحها مرة واحدة' : 'اضغط للعرض · تختفي عند الإغلاق'}</small></span>
       {!senderIsMe && !opened && !opening && <Eye size={17}/>}</button>
-      {error && <p className="cm-once-error" role="alert">{error}</p>}
-      {viewer && <PhotoViewer url={viewer} once close={closeViewer}/>}</>;
+      {error && <p className="cm-once-error" role="alert">{error}</p>}</>;
   }
   if (error) return <button type="button" className="cm-media-retry" onClick={() => setRetry(n => n + 1)}><RotateCcw size={16}/> إعادة تحميل المرفق</button>;
   if (!url) return <div className="cm-media-loading" role="status"><LoaderCircle size={19}/> تحميل المرفق…</div>;
-  return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={event => event.preventDefault()} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={false} onDragStart={event => event.preventDefault()} onError={() => setError('تعذّر تحميل الصورة.')}/></button>{viewer && <PhotoViewer url={viewer} once={false} close={closeViewer}/>}</>
+  return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={event => event.preventDefault()} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={false} onDragStart={event => event.preventDefault()} onError={() => setError('تعذّر تحميل الصورة.')}/></button>{viewer && <PhotoViewer url={viewer} close={closeViewer}/>}</>
     : <VoicePlayer memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
 }
 
@@ -306,7 +308,7 @@ export function ChatMediaComposer({ source, requestId, disabled, callActive, onR
     </MotionReveal>
       : draft ? <div className="cm-media-preview" aria-busy={busy}>
         <div className="cm-media-preview-content">{draft.kind === 'photo' ? <img src={draft.url} alt="معاينة الصورة قبل الإرسال"/> : <VoicePlayer url={draft.url} duration={draft.duration}/>}</div>
-        {draft.kind === 'photo' && <div className="cm-once-setting"><label><input type="checkbox" checked={draft.viewOnce === true} disabled={busy} onChange={event => setDraft(current => current ? {...current, viewOnce: event.target.checked} : current)}/><CircleDashed size={19}/><span><strong>عرض لمرة واحدة</strong><small>{draft.viewOnce ? 'تُفتح مرة واحدة، ثم لا يمكن الرجوع إليها.' : 'يستطيع الطرف الآخر العودة إلى الصورة.'}</small></span></label>{draft.viewOnce && <p>لقطات الشاشة لا يمكن منعها في الموقع. أرسل فقط ما ترتاح لمشاركته.</p>}</div>}
+        {draft.kind === 'photo' && <div className="cm-once-setting"><label><input type="checkbox" checked={draft.viewOnce === true} disabled={busy} onChange={event => setDraft(current => current ? {...current, viewOnce: event.target.checked} : current)}/><CircleDashed size={19}/><span><strong>عرض لمرة واحدة</strong><small>{draft.viewOnce ? 'تُفتح مرة واحدة في تطبيق وُدَين على الآيفون.' : 'يستطيع الطرف الآخر العودة إلى الصورة.'}</small></span></label>{draft.viewOnce && <p>لا يمكن ضمان منع لقطات الشاشة. أرسل فقط ما ترتاح لمشاركته.</p>}</div>}
         {busy && <div className="cm-upload-status" role="status"><progress aria-label="إرسال المرفق"/><span>جارٍ رفع المرفق وتأكيد إرساله…</span></div>}
         <div className="cm-media-preview-actions">
           <span>{busy ? 'يمكن أن يستغرق قليلًا بحسب اتصالك' : error ? 'المرفق محفوظ هنا، ويمكنك إعادة المحاولة' : draft.kind === 'photo' ? 'جاهزة للإرسال' : 'استمع قبل الإرسال'}</span>

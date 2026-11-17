@@ -91,6 +91,7 @@ export const Quote = /* @__PURE__ */ icon("Quote", "M4 6h6v6H6q0 4-3 6m11-12h6v6
 export const RefreshCw = /* @__PURE__ */ icon("RefreshCw", "M3 10a9 9 0 0 1 16-4l2 4m0-6v6h-6M21 14a9 9 0 0 1-16 4l-2-4m0 6v-6h6");
 export const Reply = /* @__PURE__ */ icon("Reply", "m10 5-7 7 7 7m-7-7h11q7 0 7 8");
 export const Ring = /* @__PURE__ */ icon("Ring", "M8.5 4.7 12 2l3.5 2.7L12 8.2ZM10.5 6.7a7.1 7.1 0 1 0 3 0");
+export const InterlockedRings = /* @__PURE__ */ icon("InterlockedRings", "M12.6 9.4a6.3 6.3 0 1 0 2.2 5.1M11.4 14.6a6.3 6.3 0 1 0-2.2-5.1");
 export const RotateCcw = /* @__PURE__ */ icon("RotateCcw", "M3 10a9 9 0 1 1 2 8M3 4v6h6");
 export const Route = /* @__PURE__ */ icon("Route", "M5 5h10q6 0 6 5t-6 5H9q-6 0-6 5m2-15v.1M3 20h.1");
 export const ScanLine = /* @__PURE__ */ icon("ScanLine", "M3 8V3h5m8 0h5v5m0 8v5h-5m-8 0H3v-5m0-4h18");

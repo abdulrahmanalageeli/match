@@ -8,10 +8,10 @@ const viewer = registerPlugin<{
 
 export const nativePrivatePhoto = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 
-// Check before redeeming the one-time download. Old native builds must not fall
-// back to the unprotected HTML viewer or consume an image they cannot display.
+// Check before redeeming the one-time download. Unsupported platforms and old
+// native builds must not consume a photo or fall back to the HTML viewer.
 export async function preparePrivatePhoto() {
-  if (!nativePrivatePhoto()) return;
+  if (!nativePrivatePhoto()) throw Error('افتح هذه الصورة في تطبيق وُدَين على الآيفون. لن تُحتسب المشاهدة هنا.');
   if (!Capacitor.isPluginAvailable('PrivatePhoto')) throw Error('حدّث تطبيق وُدَين من TestFlight لفتح الصور لمرة واحدة بأمان.');
   if (!(await viewer.available()).available) throw Error('أوقف تسجيل الشاشة أو مشاركتها، ثم حاول مجددًا.');
 }

@@ -116,13 +116,8 @@ import "./discovery.css";
 import "./journey.css";
 import './chat-continuity.css';
 
-function AddPersonMark() {
-  return <svg className="nf-add-person-mark" width="24" height="24" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-    <path d="M2 11C3 2 13 1 16 11C11 5 6 6 2 11ZM2 13C5 8 12 8 15 12C7 8 4 17 13 24L15 27C7 23 0 20 2 13Z"/>
-    <path d="M30 11C29 2 19 1 16 11C21 5 26 6 30 11ZM30 13C27 8 20 8 17 12C25 8 28 17 19 24L17 27C25 23 32 20 30 13Z"/>
-    <circle cx="16" cy="26" r="5.5" stroke="var(--nf-icon-cutout, #fff)" strokeWidth="1.5"/>
-    <path d="M16 23.5v5M13.5 26h5" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-  </svg>;
+function AddPersonMark({ compact = false }: { compact?: boolean }) {
+  return <img className={compact?'dr-row-add-logo':'nf-add-person-mark'} src="/brand/wudayn-add-plus-v2.png" width={compact?14:24} height={compact?14:24} alt="" aria-hidden="true"/>;
 }
 
 type Tab = "discover" | "curated" | "inbox" | "chats";
@@ -490,10 +485,12 @@ function PersonCard({
       <div className="df-card-copy">
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {person.bio && <p className="cm-person-bio" dir="auto">{person.bio}</p>}
+      <div className="df-card-fit-summary">
       <div className="df-card-compatibility">
-        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={percentage} />}
+        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={percentage} variant="logo"/>}
       </div>
       {!compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
+      </div>
       {person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
@@ -529,7 +526,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
       </div>
       <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} />}
+        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} variant="logo"/>}
       </button>
     </div>
 
@@ -539,7 +536,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
       <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'الحد الأقصى تعارفان متزامنان':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
-          <img className="dr-row-add-logo" src="/brand/wudayn-emblem-v2.png" width={20} height={20} alt="" />
+          <AddPersonMark compact/>
           <span>إضافة</span>
         </>}
       </button>
@@ -598,6 +595,9 @@ function Discovery({
   const [order, setOrder] = useState<"recommended" | "all">(remembered.order);
   const [filterOpen, setFilterOpen] = useState(false);
   const [query, setQuery] = useState(remembered.query);
+  const [searchOpen, setSearchOpen] = useState(Boolean(remembered.query.trim()));
+  const searchId = useId();
+  const searchToggle = useRef<HTMLButtonElement>(null);
   const [availability, setAvailability] = useState<NextStepState>({loaded:false,acceptedCount:0,exclusive:false,pendingIncomingCount:0});
   const [recoverable, setRecoverable] = useState(false);
   const [hiddenNotice, setHiddenNotice] = useState('');
@@ -872,7 +872,7 @@ function Discovery({
         </span>
       </header>
       <MotionReveal className="cm-title df-title" duration={480}>
-        <div><h1>استكشف</h1><WhyWudayn label="كيف نختار من يناسبك؟"/></div>
+        <div><h1>استكشف</h1></div>
 
       </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
@@ -885,7 +885,10 @@ function Discovery({
           <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
       </div>
-      {<div className={`dr-tools${order==='recommended'&&!query.trim()?' dr-tools-recommended':''}`}><label className="dr-search"><Search size={17} aria-hidden="true"/><input aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>
+      {<div className="dr-tools" data-search-open={searchOpen||undefined}><div className="dr-search-explainer"><WhyWudayn label="كيف نختار من يناسبك؟"/></div><div className="dr-search-control">
+        <button ref={searchToggle} type="button" className="dr-search-toggle" aria-label={searchOpen?'طي البحث':query.trim()?'فتح البحث، يوجد بحث نشط':'فتح البحث'} aria-expanded={searchOpen} aria-controls={searchId} data-active={Boolean(query.trim())||undefined} onClick={()=>setSearchOpen(value=>!value)}><Search size={17} aria-hidden="true"/></button>
+        {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
+      </div>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
@@ -1608,6 +1611,7 @@ function Requests({
   const initialRequestId = entry?.id;
   const [list, setList] = useState<Connection[]>([]);
   const [selected, setSelected] = useState<string | null>(initialRequestId ?? null);
+  const [declineTarget, setDeclineTarget] = useState<string | null>(null);
   const [chat, setChat] = useState(false);
   const [filter, setFilter] = useState<Category>("all");
   const [query, setQuery] = useState("");
@@ -1624,6 +1628,7 @@ function Requests({
     "decline" | "cancel" | SafetyAction | null
   >(null);
   const [actionError, setActionError] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const sequence = useRef(0);
   const acting = useRef(false);
   const navigation = useRef(0);
@@ -1775,8 +1780,10 @@ function Requests({
   async function act(
     action: "accept" | "demoAccept" | "decline" | "cancel" | SafetyAction,
     reason?: string,
+    target?: Connection,
   ) {
-    if (!item || acting.current || (discoveryUnavailable && item.status === 'pending')) return;
+    const request = target ?? item;
+    if (!request || acting.current || (discoveryUnavailable && request.status === 'pending')) return;
     acting.current = true;
     const intent = navigation.current;
     setBusy(true);
@@ -1784,22 +1791,24 @@ function Requests({
     try {
       if (action === "demoAccept") {
         if (!source.demoAcceptOutgoing) return;
-        await source.demoAcceptOutgoing(item.id);
-      } else await source.act(item.id, action, reason || undefined, allowRematch);
+        await source.demoAcceptOutgoing(request.id);
+      } else await source.act(request.id, action, reason || undefined, allowRematch);
       if (intent !== navigation.current) return;
       feedback('success');
       setConfirm(null);
+      setDeclineTarget(null);
+      setRemoveTarget(null);
       if (action === "accept" || action === "demoAccept") {
-        setList(rows => rows.map(row => row.id === item.id ? { ...row, status: "accepted" } : row));
-        const accepted = (await source.inbox()).find(row=>row.id===item.id&&row.status==='accepted');
+        setList(rows => rows.map(row => row.id === request.id ? { ...row, status: "accepted" } : row));
+        const accepted = (await source.inbox()).find(row=>row.id===request.id&&row.status==='accepted');
         if (intent !== navigation.current) return;
-        onMutual(accepted || { ...item, status: "accepted" });
+        onMutual(accepted || { ...request, status: "accepted" });
         void refresh();
       } else {
         if (action === 'report') setReportSent(true);
         setSelected(null);
         setChat(false);
-        setList((previous) => previous.filter((c) => c.id !== item.id));
+        setList((previous) => previous.filter((c) => c.id !== request.id));
         setNotice(
           action === "report"
             ? ""
@@ -1830,12 +1839,12 @@ function Requests({
         connection={item}
         back={leaveChat}
         close={closeDetail}
-        backLabel={conversations ? "العودة للمحادثات" : matches ? "العودة للتعارف" : "العودة للإشعارات"}
+        backLabel={conversations ? "العودة للمحادثات" : matches ? "العودة للتوافقات" : "العودة للإشعارات"}
       />
     );
   if (item)
     return (
-      <Profile source={source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التعارف':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
+      <Profile source={source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التوافقات':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
         {actionError && <Banner alert text={actionError} />}
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
@@ -1956,10 +1965,30 @@ function Requests({
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;
   }
-  if (matches) return <MatchesOverview source={source} connections={list} loading={loading} error={error}
+  if (matches) return <>
+    {actionError && <Banner alert text={actionError}/>}
+    {notice && <Banner text={notice}/>}
+    <MatchesOverview source={source} connections={list} loading={loading} error={error}
+    busy={busy || Boolean(discoveryUnavailable)}
+    onAccept={id=>{const row=list.find(row=>row.id===id&&row.status==='pending'&&row.direction==='incoming');if(row)void act('accept',undefined,row);}}
+    onDecline={id=>{setActionError('');setDeclineTarget(id);}}
+    onRemove={id=>{if(!busy&&list.some(row=>row.id===id&&row.status==='accepted')){setActionError('');setAllowRematch(false);setRemoveTarget(id);}}}
     onRetry={()=>void refresh()} onBrowse={onBrowse}
     onProfile={id=>{listScroll.current=window.scrollY;navigation.current++;flushSync(()=>{setSelected(id);setChat(false);setActionError('');setNotice('');});window.scrollTo({top:0,behavior:'instant'});}}
-    onConversation={(id,origin)=>{listScroll.current=window.scrollY;enterChat(id,origin);}}/>;
+    onConversation={(id,origin)=>{listScroll.current=window.scrollY;enterChat(id,origin);}}/>
+    {removeTarget && list.some(row=>row.id===removeTarget&&row.status==='accepted') && <Sheet title="إنهاء التعارف؟" onClose={()=>{if(!busy)setRemoveTarget(null);}}>
+      <p>هل ترغب بإنهاء التعارف مع {list.find(row=>row.id===removeTarget)?.person.alias}؟ ستُغلق المحادثة ولن يتمكّن أي منكما من إرسال رسائل أو بدء مكالمات.</p>
+      {actionError && <Banner alert text={actionError}/>}
+      <RematchChoice checked={allowRematch} change={setAllowRematch} disabled={busy}/>
+      <button className="btn-primary" disabled={busy} onClick={()=>{const row=list.find(row=>row.id===removeTarget&&row.status==='accepted');if(row)void act('cancel',undefined,row);}}>{busy?'جارٍ إنهاء التعارف…':'تأكيد إنهاء التعارف'}</button>
+      <button className="btn-text" disabled={busy} onClick={()=>setRemoveTarget(null)}>الاستمرار في التعارف</button>
+    </Sheet>}
+    {declineTarget && list.some(row=>row.id===declineTarget&&row.status==='pending'&&row.direction==='incoming') && <Sheet title="رفض طلب التعارف؟" onClose={()=>{if(!busy)setDeclineTarget(null);}}>
+      <p>سيُغلق طلب التعارف.</p>
+      {actionError && <Banner alert text={actionError}/>}
+      <button className="btn-primary" disabled={busy || Boolean(discoveryUnavailable)} onClick={()=>{const row=list.find(row=>row.id===declineTarget&&row.status==='pending'&&row.direction==='incoming');if(row)void act('decline',undefined,row);}}>{busy?'جارٍ إغلاق الطلب…':'تأكيد الرفض'}</button>
+    </Sheet>}
+  </>;
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
     <header className="cm-header"><Brand /></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
@@ -2092,15 +2121,6 @@ export function Community(props: CommunityProps) {
   const [requestToOpen, setRequestToOpen] = useState<RequestEntry>();
   const [conversationToOpen, setConversationToOpen] = useState<string>();
   const { tab, source, onTab, onAccount, onHome, paused, onResume } = props;
-  const [requestUnread,setRequestUnread]=useState(0);
-  useEffect(()=>{
-    let active=true,sequence=0;
-    setRequestUnread(0);
-    const refresh=async()=>{if(document.hidden)return;const current=++sequence;try{const rows=await source.inbox();if(active&&current===sequence)setRequestUnread(rows.filter(row=>row.status==='pending'&&row.direction==='incoming').length);}catch{/* Keep the last known count while reconnecting. */}};
-    void refresh();const unwatch=source.watch(()=>void refresh());
-    document.addEventListener('visibilitychange',refresh);window.addEventListener('online',refresh);
-    return()=>{active=false;unwatch();document.removeEventListener('visibilitychange',refresh);window.removeEventListener('online',refresh);};
-  },[source,tab]);
   const discoveryUnavailable = paused || Boolean(props.profileReviewPending);
   useEffect(() => {
     if (tab === "inbox" && requestToOpen) setRequestToOpen(undefined);
@@ -2142,7 +2162,7 @@ export function Community(props: CommunityProps) {
           onDiscover={() => onTab("discover")}
           onInbox={() => onTab("inbox")}
           onChats={props.onChats ?? (() => onTab("chats"))}
-          requestUnread={requestUnread}
+          source={source}
           chatUnread={props.chatUnread}
           onAccount={onAccount}
         />

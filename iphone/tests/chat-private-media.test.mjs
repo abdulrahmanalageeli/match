@@ -5,10 +5,11 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const compiled = ts.transpileModule(await readFile(new URL('../src/community/ChatMedia.tsx', import.meta.url), 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+const compiledPrivacy = ts.transpileModule(await readFile(new URL('../src/community/privatePhoto.ts', import.meta.url), 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const settle = () => new Promise(resolve => setImmediate(resolve));
-function mount({once = true, sender = false, openedAt = null, deferred = false, kind = 'photo', native = false, protectedAvailable = true} = {}) {
+function mount({once = true, sender = false, openedAt = null, deferred = false, kind = 'photo', native = false, platform = native ? 'ios' : 'web', pluginAvailable = true, protectedAvailable = true, deferredViewer = false, viewerFails = false} = {}) {
   const hooks = [], pending = [], docEvents = new Map(), winEvents = new Map(), revoked = [];
-  let index = 0, downloads = 0, opens = 0, complete, nativeShows = 0;
+  let index = 0, downloads = 0, opens = 0, complete, finishViewer, nativeShows = 0;
   const document = {hidden:false, addEventListener:(name,fn)=>{if(!docEvents.has(name))docEvents.set(name,new Set());docEvents.get(name).add(fn);},removeEventListener:(name,fn)=>docEvents.get(name)?.delete(fn)};
   const window = {addEventListener:(name,fn)=>winEvents.set(name,fn),removeEventListener:name=>winEvents.delete(name)};
   const source = {mediaUrl:async()=>{downloads++;return 'blob:normal';},openMedia:async()=>{opens++;if(deferred)await new Promise(resolve=>{complete=resolve;});return 'blob:once';}};
@@ -17,8 +18,19 @@ function mount({once = true, sender = false, openedAt = null, deferred = false, 
     useState:initial=>{const at=index++;if(!(at in hooks))hooks[at]=typeof initial==='function'?initial():initial;return [hooks[at],value=>{hooks[at]=typeof value==='function'?value(hooks[at]):value;}];},
     useEffect:(fn,deps)=>{const at=index++,old=hooks[at];if(!old||deps.some((value,i)=>value!==old.deps[i])){old?.cleanup?.();const item={deps};hooks[at]=item;pending.push(()=>{item.cleanup=fn();});}},
   };
-  const privacy = {nativePrivatePhoto:()=>native,preparePrivatePhoto:async()=>{if(native&&!protectedAvailable)throw Error('حدّث التطبيق');},showPrivatePhoto:async()=>{nativeShows++;},closePrivatePhoto:()=>{}};
-  const exports = {}, context = {exports, document, window, URL:{revokeObjectURL:url=>revoked.push(url)}, require:name=>name==='react'?react:name==='./privatePhoto'?privacy:name==='react/jsx-runtime'?{jsx:(tag,props)=>({tag,props}),jsxs:(tag,props)=>({tag,props}),Fragment:'fragment'}:{}};
+  const privacy = {};
+  const bridge = {
+    Capacitor: {isNativePlatform:()=>native,getPlatform:()=>platform,isPluginAvailable:()=>pluginAvailable},
+    registerPlugin:()=>({available:async()=>({available:protectedAvailable})}),
+  };
+  vm.runInNewContext(compiledPrivacy,{exports:privacy,require:()=>bridge,Error});
+  privacy.showPrivatePhoto = async()=>{
+    nativeShows++;
+    if (viewerFails) throw Error('Native viewer failed');
+    if(deferredViewer)await new Promise(resolve=>{finishViewer=resolve;});
+  };
+  privacy.closePrivatePhoto = ()=>finishViewer?.();
+  const exports = {}, context = {exports, document, window, Error, URL:{revokeObjectURL:url=>revoked.push(url)}, require:name=>name==='react'?react:name==='./privatePhoto'?privacy:name==='react/jsx-runtime'?{jsx:(tag,props)=>({tag,props}),jsxs:(tag,props)=>({tag,props}),Fragment:'fragment'}:{}};
   vm.runInNewContext(compiled,context);
   const props = {source,requestId:'room',senderIsMe:sender,attachment:{id:'image',kind,mime:'image/jpeg',size:10,viewOnce:once,openedAt}};
   function render(){index=0;const tree=exports.MessageMedia(props);for(const effect of pending.splice(0))effect();return tree;}
@@ -53,33 +65,67 @@ test('native builds without protection do not redeem or display a one-time image
   assert.equal(instance.button().props.disabled,false);instance.unmount();
 });
 
-test('explicit recipient opening consumes once, and closing revokes the blob and prevents reopening',async()=>{
+test('missing native plugin does not consume a photo and explains how to update',async()=>{
+  const instance = mount({native:true,pluginAvailable:false});
+  instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,0);
+  assert.equal(instance.nativeShows,0);
+  assert.equal(instance.viewer(),null);
+  assert.equal(instance.button().props.disabled,false);
+  assert.match(JSON.stringify(instance.render()),/حدّث تطبيق/);
+  instance.unmount();
+});
+
+test('unsupported native platform does not consume a one-time photo',async()=>{
+  const instance = mount({native:true,platform:'android'});
+  instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,0);
+  assert.equal(instance.nativeShows,0);
+  assert.equal(instance.viewer(),null);
+  assert.equal(instance.button().props.disabled,false);
+  instance.unmount();
+});
+
+test('viewer failure after consumption releases the photo and refuses replay',async()=>{
+  const instance = mount({native:true,viewerFails:true});
+  instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,1);
+  assert.equal(instance.nativeShows,1);
+  assert.equal(instance.viewer(),null);
+  assert.equal(instance.button().props.disabled,true);
+  assert.deepEqual(instance.revoked,['blob:once']);
+  assert.match(JSON.stringify(instance.render()),/اطلب إرسالها مجددًا/);
+  instance.button().props.onClick();await settle();
+  assert.equal(instance.opens,1);
+  instance.unmount();
+});
+
+test('browser does not redeem or display a one-time image',async()=>{
   const instance=mount();instance.button().props.onClick();await settle();
-  assert.equal(instance.opens,1);assert.equal(instance.downloads,0);assert.equal(instance.viewer().props.url,'blob:once');
-  assert.equal(instance.viewer().props.once,true);instance.viewer().props.close();
-  assert.equal(instance.viewer(),null);assert.equal(instance.button().props.disabled,true);assert.deepEqual(instance.revoked,['blob:once']);
-  instance.button().props.onClick();await settle();assert.equal(instance.opens,1);instance.unmount();
+  assert.equal(instance.opens,0);assert.equal(instance.downloads,0);assert.equal(instance.viewer(),null);
+  assert.match(JSON.stringify(instance.render()),/لن تُحتسب المشاهدة هنا/);
+  instance.unmount();
 });
 
 test('backgrounding closes and revokes a view-once image immediately',async()=>{
-  const instance=mount();instance.button().props.onClick();await settle();await instance.hide();
+  const instance=mount({native:true,deferredViewer:true});instance.button().props.onClick();await settle();await instance.hide();
   assert.equal(instance.viewer(),null);assert(instance.revoked.includes('blob:once'));assert.equal(instance.button().props.disabled,true);instance.unmount();
 });
 
 test('a one-time image finishing after backgrounding is discarded rather than displayed',async()=>{
-  const instance=mount({deferred:true});instance.button().props.onClick();await settle();await instance.hide();await instance.resolve();
+  const instance=mount({native:true,deferred:true});instance.button().props.onClick();await settle();await instance.hide();await instance.resolve();
   assert.equal(instance.viewer(),null);assert.deepEqual(instance.revoked,['blob:once']);instance.unmount();
 });
 
 test('leaving or deleting a message while its one-time download is pending discards the result',async()=>{
-  const instance=mount({deferred:true});instance.button().props.onClick();await settle();instance.unmount();await instance.resolve();
+  const instance=mount({native:true,deferred:true});instance.button().props.onClick();await settle();instance.unmount();await instance.resolve();
   assert.equal(instance.viewer(),null);assert.deepEqual(instance.revoked,['blob:once']);
 });
 
 test('ordinary photos use an in-app button instead of a downloadable link and release their blob on unmount',async()=>{
   const instance=mount({once:false});await settle();
   assert.equal(instance.downloads,1);assert.equal(instance.button().tag,'button');assert.equal(instance.button().props.href,undefined);
-  instance.button().props.onClick();assert.equal(instance.viewer().props.once,false);assert.equal(instance.opens,0);
+  instance.button().props.onClick();assert.equal(instance.viewer().props.url,'blob:normal');assert.equal(instance.opens,0);
   instance.pagehide();assert.equal(instance.viewer(),null);instance.unmount();assert(instance.revoked.includes('blob:normal'));
 });
 

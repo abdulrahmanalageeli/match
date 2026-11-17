@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { Community } from '../../src/community/Community';
 import { demoCommunity, demoProfile } from '../../src/community/data';
 import { initializeDevicePreferences } from '../../src/settings/preferences';
+import { Settings } from '../../src/settings/Settings';
+import { MemberTabs } from '../../src/Home';
 import '../../src/design.css';
 import '../../src/flows.css';
 import '../../src/screens.css';
@@ -18,10 +20,20 @@ const noop = () => {};
 
 function ExplorePreview() {
   const [tab, setTab] = useState<'discover' | 'curated' | 'inbox' | 'chats'>('discover');
+  const [settings, setSettings] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const show = (next: typeof tab) => { setTab(next); setSettings(false); };
+  if (settings) return <div className="phone-app"><Settings source={source} state={null}
+    demoMember={{...demoProfile,gender:'man',displayName:'عضو تجريبي'}} demo paused={paused} busy={false}
+    onEdit={noop} onMembership={noop} onToggle={()=>setPaused(value=>!value)}
+    onDelete={noop} onExit={()=>show('discover')} onPrivacy={noop}>
+    <MemberTabs source={source} active="settings" onHome={()=>show('curated')} onDiscover={()=>show('discover')}
+      onInbox={()=>show('inbox')} onChats={()=>show('chats')} onAccount={()=>setSettings(true)}/>
+  </Settings></div>;
   return <div className="phone-app">
     <Community source={source} tab={tab} onTab={setTab} viewerGender="man"
       onMutual={noop} onConversationOpened={noop} onHome={() => setTab('curated')}
-      onAccount={noop} paused={false} onResume={noop} />
+      onAccount={()=>setSettings(true)} paused={paused} onResume={()=>setPaused(false)} />
   </div>;
 }
 

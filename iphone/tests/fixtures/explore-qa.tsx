@@ -39,4 +39,5 @@ function ExplorePreview() {
 }
 
 initializeDevicePreferences();
-createRoot(document.getElementById('root')!).render(<MembershipAccess.Provider value={{premium:new URLSearchParams(location.search).get('tier')!=='free',upgrade:()=>location.href='/tests/fixtures/membership-qa.html'}}><ExplorePreview /></MembershipAccess.Provider>);
+const tier=new URLSearchParams(location.search).get('tier')==='seriousness'?'seriousness':new URLSearchParams(location.search).get('tier')==='free'?'free':'premium';
+createRoot(document.getElementById('root')!).render(<MembershipAccess.Provider value={{premium:tier!=='free',tier,upgrade:()=>location.href='/tests/fixtures/membership-qa.html'}}><ExplorePreview /></MembershipAccess.Provider>);

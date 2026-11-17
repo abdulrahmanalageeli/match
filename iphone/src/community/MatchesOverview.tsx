@@ -1,4 +1,3 @@
-import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { useId, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, MessageCircle, Ring, Search } from '../BrandIcons';
@@ -49,7 +48,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
             </button>
             <div className="mo-current-copy">
-              <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}<MemberBadge tier={row.person.membershipTier} active={row.person.premium}/></button>
+              <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
               {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
               <button className="mo-remove-match" disabled={busy} onClick={()=>onRemove(row.id)} aria-label={`إنهاء التعارف مع ${row.person.alias}`}>إنهاء التعارف</button>
@@ -107,7 +106,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
           return <MotionReveal as="article" className="mo-request" key={row.id} data-request-row={row.id} delay={Math.min(index*30,90)} distance={5}>
             <button className="mo-request-profile" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-request-avatar"/>
-              <span className="mo-identity"><strong>{row.person.alias}<MemberBadge tier={row.person.membershipTier} active={row.person.premium}/></strong><span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
+              <span className="mo-identity"><strong>{row.person.alias}</strong><span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
             </button>
             <div className="mo-request-action">{incoming ? <div className="mo-request-decisions">
               <MotionPressButton className="mo-action mo-action-incoming" disabled={busy} onClick={()=>onAccept(row.id)} aria-label={`قبول طلب ${row.person.alias}`}><Check size={14}/>قبول</MotionPressButton>

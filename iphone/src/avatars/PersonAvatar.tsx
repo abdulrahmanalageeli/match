@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CommunitySource, PublicPerson } from '../community/data';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { AvatarPortrait } from './AvatarPortrait';
+import { MemberBadge } from '../membership/MemberBadge';
 import './person-avatar.css';
 
 /** A compact version of the profile image, with the same private-photo access rules. */
@@ -13,10 +14,11 @@ export function PersonAvatar({ person, source, className = '' }: {
   const photo = /^\/demo\/portraits\/[a-z0-9_-]+\.(webp|png|jpe?g)$/i.test(person.demoPhoto || '') && failedPhoto !== person.demoPhoto
     ? person.demoPhoto : undefined;
   const image = Boolean(person.portrait || person.publicAvatar || photo);
-  return <span className={`nf-person-avatar ${className}`} data-image={image || undefined} data-tone={(letter.codePointAt(0) ?? 0) % 3} aria-hidden="true">
+  return <span className={`nf-person-avatar ${className}`} data-image={image || undefined} data-tone={(letter.codePointAt(0) ?? 0) % 3}>
     {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} alt="" className="nf-person-avatar-image"/>
       : person.publicAvatar ? <AvatarPortrait avatar={person.publicAvatar} decorative/>
       : photo ? <img src={photo} alt="" width="112" height="140" loading="lazy" decoding="async" onError={() => setFailedPhoto(photo)}/>
-      : <b>{letter}</b>}
+      : <b aria-hidden="true">{letter}</b>}
+    <MemberBadge tier={person.membershipTier} active={person.premium}/>
   </span>;
 }

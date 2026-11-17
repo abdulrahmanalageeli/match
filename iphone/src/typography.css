@@ -31,3 +31,36 @@
 }
 .phone-app .cm-shell .dr-preference-inline strong { font-variant-numeric: tabular-nums; }
 .phone-app :is(input, textarea, select) { font-size: max(16px, 1em); }
+
+/* Member profiles share one scale across overview, details and compatibility. */
+.phone-app .mp-profile {
+  --text-title: 22px;
+  --text-section: 15px;
+  --mp-body: 14px;
+  --mp-label: 12px;
+  --mp-control: 13px;
+  --mp-score: 26px;
+}
+.phone-app .mp-profile .mp-hero-copy h1 { font-size: var(--text-title); }
+.phone-app .mp-profile .mp-content :is(h2, h3, h4, .mp-fact-heading strong, .mp-fit-preview-heading strong, .mp-passport-link strong) {
+  font-size: var(--text-section); font-weight: 600; line-height: 1.5;
+}
+.phone-app .mp-profile .mp-content :is(p, dd, .mp-interests span, .mp-fit li, .mp-fit-preview-reason) {
+  font-size: var(--mp-body); font-weight: 400; line-height: 1.8;
+}
+.phone-app .mp-profile .mp-content :is(dt, small, .bn-eyebrow, .bn-shared-story > span, .bn-shared-story footer,
+  .nf-fit-boundary, .nf-fit-heading > p, .nf-fit-score > p, .nf-pref-count-note, .mp-details-intro,
+  .mp-fit-preview-scores > span > span, .mp-prompt-card h3) {
+  font-size: var(--mp-label); font-weight: 400; line-height: 1.6;
+}
+.phone-app .mp-profile :is(.mp-eyebrow, .mp-meta, .mp-hero h1 small, .mp-intention, .mp-portrait-caption,
+  .mp-navigation, .mp-preview-footnote, .mp-preview-note, .mp-primary .cm-help, .mp-action-copy small) {
+  font-size: var(--mp-label); line-height: 1.6;
+}
+.phone-app .mp-profile :is(.mp-sections button, .mp-primary > button, .mp-action-copy strong,
+  .mp-secondary button, .mp-back, .mp-prompts-toggle, .nf-personality-explain, .nf-pref-more) {
+  font-size: var(--mp-control); line-height: 1.5;
+}
+.phone-app .mp-profile .mp-content :is(.nf-fit-score > strong, .mp-fit-preview-scores strong, .bn-summary-score > strong) {
+  font-size: var(--mp-score); font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums;
+}

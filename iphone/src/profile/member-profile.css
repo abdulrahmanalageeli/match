@@ -80,3 +80,18 @@
 .phone-app .mp-profile .mp-hero-copy>.wd-member-badge-labeled[data-tier=seriousness]{background:transparent;color:#786345;border:0}
 .phone-app .mp-profile .wd-member-badge-labeled>.wd-membership-mark{width:19px;height:19px;filter:none}
 .phone-app .mp-profile .wd-member-badge-labeled:after{display:none}
+
+/* Compact rhythm shared by all profile sections; controls retain their hit area. */
+.phone-app .mp-profile .mp-content :is(.mp-story,.mp-interests,.mp-personal-prompts,.mp-fit-preview){margin-bottom:18px}
+.phone-app .mp-profile .mp-content :is(h2,.mp-prompt-card h3){margin-bottom:8px}
+.phone-app .mp-profile .mp-prompts-heading{margin-bottom:10px}
+.phone-app .mp-profile .mp-prompts-heading h2{margin-bottom:0}
+.phone-app .mp-profile .mp-prompt-card{padding:14px 0}
+.phone-app .mp-profile .mp-highlights{margin-bottom:18px;padding-block:14px;gap:12px 10px}
+.phone-app .mp-profile :is(.mp-highlights dt,.mp-fact-group dt){margin-bottom:4px}
+.phone-app .mp-profile .mp-fact-group>summary{min-height:64px;padding:12px 14px}
+.phone-app .mp-profile .mp-fact-group dl>div{padding:12px 14px}
+.phone-app .mp-profile .mp-fit-preview{padding:14px;gap:12px}
+.phone-app .mp-profile .mp-fit-preview-scores>span{flex-direction:column;align-items:flex-start;gap:4px}
+.phone-app .mp-profile .mp-fit .nf-fit-scores{padding-block:16px}
+.phone-app .mp-profile .mp-passport-link{padding-block:14px}

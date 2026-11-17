@@ -121,7 +121,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
   const hasNotice = Boolean(snapshot?.id && status && status !== 'none' && !hidden);
   const noticeKey = hasNotice ? `${snapshot?.id}:${status}:${snapshot?.myReviewed}` : '';
   useLayoutEffect(() => { if (noticeKey) onNoticeChange?.(); }, [noticeKey, onNoticeChange]);
-  const notice = status === 'requested' ? snapshot?.requestedByMe ? 'أرسلت دعوة لاكتشاف توافقكما بعمق' : `${peerName} يدعوك لاكتشاف توافقكما بعمق`
+  const notice = status === 'requested' ? snapshot?.requestedByMe ? 'أرسلت دعوة لاكتشاف توافقكما بعمق' : `دعوة من ${peerName} لاكتشاف توافقكما بعمق`
     : status === 'review' ? snapshot?.myReviewed ? 'حُفظت اختياراتك · بانتظار الطرف الآخر' : 'قراءتك الخاصة جاهزة · راجع ما ترغب بمشاركته'
     : snapshot ? stateCopy[snapshot.status] : '';
   return <>
@@ -129,7 +129,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
       <span className="wd-deep-event-brand"><img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>{deepReportTitle}</span>
       <p>{notice}</p>
       <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
-        {actionable && <i aria-label="بانتظارك"/>}{status === 'shared' ? 'اكتشف تحليلَكما' : status === 'requested' && !snapshot?.requestedByMe ? 'مراجعة الدعوة' : status === 'review' && !snapshot?.myReviewed ? 'مراجعة المشاركة' : 'عرض التفاصيل'}<ChevronLeft size={13}/>
+        {actionable && <i aria-label="بانتظارك"/>}{status === 'shared' ? 'قراءة التحليل' : status === 'requested' && !snapshot?.requestedByMe ? 'مراجعة الدعوة' : status === 'review' && !snapshot?.myReviewed ? 'مراجعة المشاركة' : 'عرض التفاصيل'}<ChevronLeft size={13}/>
       </button>
     </div>}
     {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
@@ -149,7 +149,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
             : <p className="wd-deep-note">طلب تحليل جديد غير متاح الآن. يلزم اكتمال إجابات الطرفين وتوفّر طلب ضمن حد الاستخدام.</p>}
         </>}
         {status === 'requested' && <>
-          <div className="wd-deep-state"><Sparkles size={22}/><h3>{snapshot?.requestedByMe ? 'دعوتك وصلت' : `${peerName} يدعوك لتحليل التوافق`}</h3><p>{snapshot?.requestedByMe ? 'يبدأ التحليل بعد موافقة الطرف الآخر. لا تحتاجان إلى إجابات جديدة.' : 'المشاركة اختيارية ومجانية لك. راجع ما سيُستخدم وما يمكن مشاركته قبل الموافقة.'}</p></div>
+          <div className="wd-deep-state"><Sparkles size={22}/><h3>{snapshot?.requestedByMe ? 'دعوتك وصلت' : `دعوة من ${peerName} لتحليل التوافق`}</h3><p>{snapshot?.requestedByMe ? 'يبدأ التحليل بعد موافقة الطرف الآخر. لا تحتاجان إلى إجابات جديدة.' : 'المشاركة اختيارية ومجانية لك. راجع ما سيُستخدم وما يمكن مشاركته قبل الموافقة.'}</p></div>
           {!snapshot?.requestedByMe && <><ConsentCopy/><button className="btn-primary" disabled={busy} onClick={() => void act('accept')}>أوافق وأبدأ التحليل</button><button className="btn-text" disabled={busy} onClick={() => void act('decline')}>لا أرغب بالمشاركة</button></>}
         </>}
         {(status === 'ready' || status === 'generating' || status === 'failed') && <div className="wd-deep-state" role="status">

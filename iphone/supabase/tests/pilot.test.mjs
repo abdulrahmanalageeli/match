@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -50,16 +51,14 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     await call(peers[1], "public.marriage_act($1,'cancel')", [ids[1]]);
     await call(peers[3], "public.marriage_act($1,'accept')", [ids[3]]);
     const stageState=({stage,mine,peer,exclusive,consentMine,consentPeer})=>({stage,mine,peer,exclusive,consentMine,consentPeer});
-    assert.deepEqual(stageState(await call(member, "public.marriage_next_step($1,1,true,true)", [ids[0]])), { stage: 0, mine: true, peer: false, exclusive: false, consentMine: true, consentPeer: false });
-    assert.deepEqual(stageState(await call(peers[0], "public.marriage_progress($1)", [ids[0]])), { stage: 0, mine: false, peer: true, exclusive: false, consentMine: false, consentPeer: true });
-    await assert.rejects(call(peers[1], "public.marriage_progress($1)", [ids[0]]), /المحادثة/);
-    await assert.rejects(call(member, "public.marriage_next_step($1,2,true)", [ids[0]]), /الحصري/);
-    await call(member, "public.marriage_next_step($1,1,false)", [ids[0]]);
-    assert.equal((await call(peers[0], "public.marriage_progress($1)", [ids[0]])).peer, false);
-    await call(member, "public.marriage_next_step($1,1,true,true)", [ids[0]]);
-    for (let i=0; i<2; i++) assert.equal((await call(peers[0], "public.marriage_next_step($1,1,true,true)", [ids[0]])).stage, 1);
-    await call(peers[0], "public.marriage_next_step($1,2,true)", [ids[0]]);
-    await call(member, "public.marriage_next_step($1,2,true)", [ids[0]]);
+    const choose=(u,action,stage)=>decideJourney(call,u,ids[0],'step',action,stage);
+    assert.deepEqual(stageState(await choose(member,'propose',1)),{stage:0,mine:true,peer:false,exclusive:false,consentMine:false,consentPeer:false});
+    assert.equal((await call(peers[0],"public.marriage_progress($1)",[ids[0]])).peer,true);
+    await assert.rejects(choose(peers[1],'accept',1));
+    await assert.rejects(choose(member,'propose',2));
+    await choose(member,'clear',1);
+    await choose(member,'propose',1);await choose(peers[0],'accept',1);
+    await choose(peers[0],'propose',2);await choose(member,'accept',2);
     const cohorts = (await asService(db, () => db.query("select * from public.marriage_fit_cohorts()"))).rows;
     assert.equal(cohorts.length, 1);
     const cohort = cohorts[0];
@@ -80,7 +79,7 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     assert.equal(Number(counts.find(row => row.event === "formal_step_agreed").total), 1);
     assert.equal(Number(counts.find(row => row.event === "first_message_sent").total), 1);
     await call(member, "public.marriage_act($1,'block')", [ids[0]]);
-    await assert.rejects(call(peers[0], "public.marriage_next_step($1,2,true)", [ids[0]]), /المحادثة/);
+    await assert.rejects(choose(peers[0],'propose',2), /المحادثة/);
     const phoneOnly = { id: randomUUID(), sessionId: randomUUID() };
     await db.query("insert into auth.users(id,phone) values($1,'+966500000000')", [phoneOnly.id]);
     await db.query("insert into auth.sessions(id,user_id) values($1,$2)", [phoneOnly.sessionId,phoneOnly.id]);

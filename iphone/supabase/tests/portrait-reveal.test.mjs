@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -48,12 +49,12 @@ test('clear portrait is per-peer, mutual-stage gated and revoked by rewind, clos
   await assert.rejects(call(peer,"public.marriage_portrait_policy($1,'family')",[p.id]),/تغيّرت/);
   await call(owner,"public.marriage_portrait_policy($1,'serious')",[p.id]);
   assert.equal(await read(peer,p.clearPath),0);
-  await call(owner,'public.marriage_next_step($1,1,true,true)',[request]);
+  await decideJourney(call,owner,request,'step','propose',1);
   assert.equal(await read(peer,p.clearPath),0,'one person cannot confirm a relationship stage');
-  await call(peer,'public.marriage_next_step($1,1,true,true)',[request]);assert.equal(await read(peer,p.clearPath),1);
+  await decideJourney(call,peer,request,'step','accept',1);assert.equal(await read(peer,p.clearPath),1);
   await call(owner,"public.marriage_portrait_policy($1,'family')",[p.id]);assert.equal(await read(peer,p.clearPath),0);
-  await call(owner,'public.marriage_next_step($1,2,true,true)',[request]);assert.equal(await read(peer,p.clearPath),0);
-  await call(peer,'public.marriage_next_step($1,2,true,true)',[request]);assert.equal(await read(peer,p.clearPath),1);
+  await decideJourney(call,owner,request,'step','propose',2);assert.equal(await read(peer,p.clearPath),0);
+  await decideJourney(call,peer,request,'step','accept',2);assert.equal(await read(peer,p.clearPath),1);
   await call(owner,'public.marriage_rewind_step($1,2,true)',[request]);assert.equal(await read(peer,p.clearPath),1);
   await call(peer,'public.marriage_rewind_step($1,2,true)',[request]);assert.equal(await read(peer,p.clearPath),0,'mutual rewind immediately revokes clear object');
   await call(owner,"public.marriage_portrait_policy($1,'serious')",[p.id]);assert.equal(await read(peer,p.clearPath),1);

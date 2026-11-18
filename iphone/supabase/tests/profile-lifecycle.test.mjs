@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -42,8 +43,8 @@ test('discovery pause preserves accepted chat, replies, receipts, progress and v
   assert.equal((await call(a,'public.marriage_inbox()'))[0].id,id);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].id,id);
   await call(a,'public.marriage_progress($1)',[id]);
-  await call(a,'public.marriage_next_step($1,1,true,true)',[id]);
-  await call(b,'public.marriage_next_step($1,1,true,true)',[id]);
+  await decideJourney(call,a,id,'step','propose',1);
+  await decideJourney(call,b,id,'step','accept',1);
   await call(a,'public.marriage_photo_state($1)',[id]);
   const voice=await call(a,'public.marriage_call_start($1,$2)',[id,randomUUID()]);assert.equal(voice.status,'ringing');
  } finally {await db.close();}

@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -45,18 +46,19 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,1);
   assert.equal((await storage(third,'object.sign','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
   await call(third,"public.marriage_gallery('remove',$1)",[photos[0].id]);assert.equal((await call(man,"public.marriage_gallery('list')")).length,3);
-  await call(man,'public.marriage_next_step($1,1,true,true)',[ab]);await call(outsider,'public.marriage_next_step($1,1,true,true)',[ab]);
+  await decideJourney(call,man,ab,'exclusive','propose');await decideJourney(call,outsider,ab,'exclusive','accept');
+  await decideJourney(call,man,ab,'step','propose',1);await decideJourney(call,outsider,ab,'step','accept',1);
   assert(!(await call(third,'public.marriage_browse()')).some(p=>p.id===man.id));
   assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
   await assert.rejects(call(third,'public.marriage_rewind_step($1,1,true)',[ab]));
   let p=await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);assert(p.rewindMine);assert(p.exclusive);assert.equal(p.stage,1);
   p=await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);assert.equal(p.stage,1,'same person cannot approve twice');
   p=await call(outsider,'public.marriage_rewind_step($1,1,false)',[ab]);assert.equal(p.stage,1);assert(!p.rewindPeer);
-  await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);p=await call(outsider,'public.marriage_rewind_step($1,1,true)',[ab]);assert.equal(p.stage,0);assert(!p.exclusive);
+  await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);p=await call(outsider,'public.marriage_rewind_step($1,1,true)',[ab]);assert.equal(p.stage,0);assert(p.exclusive);
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[ac])).rows[0].status,'closed','rewind never reopens old conversations');
   await assert.rejects(call(man,'public.marriage_rewind_step($1,1,true)',[ab]),/تغيّرت/);
-  await call(man,'public.marriage_next_step($1,1,true,true)',[ab]);await call(outsider,'public.marriage_next_step($1,1,true,true)',[ab]);
-  await call(man,'public.marriage_next_step($1,2,true,true)',[ab]);await call(outsider,'public.marriage_next_step($1,2,true,true)',[ab]);
+  await decideJourney(call,man,ab,'step','propose',1);await decideJourney(call,outsider,ab,'step','accept',1);
+  await decideJourney(call,man,ab,'step','propose',2);await decideJourney(call,outsider,ab,'step','accept',2);
   await call(man,'public.marriage_rewind_step($1,2,true)',[ab]);p=await call(outsider,'public.marriage_rewind_step($1,2,true)',[ab]);assert.equal(p.stage,1);assert(p.exclusive);
  }finally{await db.close();}
 });
@@ -68,7 +70,7 @@ test('private pair rewind and gallery remain reciprocal and isolated',async()=>{
   await db.exec(`update nisfayn_test.room set data=data||'{"matched":true,"stage":2,"exclusive":true,"agree":{},"retiredFictional":true}'::jsonb`);
   let s=await rpc('rewind',a,{stage:2,agree:true});assert.equal(s.stage,2);assert.equal(s.rewind.actor,'abdulrahman');
   s=await rpc('rewind',b,{stage:2,agree:true});assert.equal(s.stage,1);assert(s.exclusive);
-  await rpc('rewind',a,{stage:1,agree:true});s=await rpc('rewind',b,{stage:1,agree:true});assert.equal(s.stage,0);assert(!s.exclusive);assert(s.retiredFictional);
+  await rpc('rewind',a,{stage:1,agree:true});s=await rpc('rewind',b,{stage:1,agree:true});assert.equal(s.stage,0);assert(s.exclusive);assert(s.retiredFictional);
   const images=[];for(let i=0;i<3;i++){const p=await rpc('gallery_prepare',a);images.push(p);await db.query('insert into storage.objects(bucket_id,name) values($1,$2)',['nisfayn-profile-gallery',p.path]);await rpc('gallery_commit',a,{id:p.id});}
   await assert.rejects(rpc('gallery_prepare',a),/ثلاث/);assert.equal((await rpc('gallery_list',b,{subject:'abdulrahman'})).length,3);
   await rpc('gallery_remove',b,{id:images[0].id});assert.equal((await rpc('gallery_list',a)).length,3);

@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -19,7 +20,7 @@ test('activity times use persisted events and are stable across reads',async()=>
   assert.equal((await call(b,'public.marriage_inbox()'))[0].createdAt,before.createdAt);
   await call(b,"public.marriage_act($1,'accept')",[id]);
   assert.equal((await call(a,'public.marriage_progress($1)',[id])).updatedAt,undefined);
-  const step=await call(a,'public.marriage_next_step($1,1,true,true)',[id]);assert(step.updatedAt);
+  const step=await decideJourney(call,a,id,'exclusive','propose',null);assert(step.updatedAt);
   assert.equal((await call(b,'public.marriage_progress($1)',[id])).updatedAt,step.updatedAt);
   const room=async()=>(await db.query('select data from nisfayn_test.room')).rows[0].data;
   assert.equal((await room()).journeyUpdatedAt,undefined);

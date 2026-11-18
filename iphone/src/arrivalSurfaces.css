@@ -239,7 +239,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   background: transparent;
   color: #302a2e;
 }
-.phone-app .cm-shell .df-discovery .dr-tools { grid-template-columns:minmax(0,1fr) auto var(--nf-search-height); align-items:center; }
+.phone-app .cm-shell .df-discovery .dr-tools { --nf-search-height: 44px; grid-template-columns:minmax(0,1fr) auto var(--nf-search-height); align-items:center; }
 .phone-app .cm-shell .df-discovery .dr-tools[data-search-open] { grid-template-columns:minmax(0,112px) minmax(0,1fr) var(--nf-search-height); }
 .dr-search-control { display:flex; align-items:center; gap:5px; min-width:0; }
 .dr-search-control .dr-search { flex:1; min-width:0; }
@@ -312,10 +312,10 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-interest[aria-pressed='true'] { background: transparent !important; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request {
-  width: 28px;
-  min-width: 28px;
-  height: 24px;
-  min-height: 24px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
 }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request[data-add] { display: inline-flex; align-items: center; gap: 4px; width: auto; min-width: 58px; padding-inline: 4px; font-size: 0.75rem; }

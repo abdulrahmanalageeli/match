@@ -80,7 +80,7 @@ import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
-import { FitDetails, preferencePercentage, personalityPercentage } from "../compatibility/FitDetails";
+import { FitDetails, personalityPercentage } from "../compatibility/FitDetails";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { PersonAvatar } from "../avatars/PersonAvatar";
 import { MatchesOverview } from './MatchesOverview';
@@ -445,10 +445,6 @@ function WeeklyContours() {
   </svg>;
 }
 
-function compatibilityPercentage(person: PublicPerson) {
-  return preferencePercentage(person.fit);
-}
-
 function DiscoveryPortrait({ person, source, priority = false, heading = false }: { person: PublicPerson; source: CommunitySource; priority?: boolean; heading?: boolean }) {
   const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
   const [photoReadySrc, setPhotoReadySrc] = useState<string | null>(null);
@@ -550,7 +546,6 @@ function MembershipRowSpark() {
 
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
-  const preference=premium?compatibilityPercentage(person):null;
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
   const {personalLine, context} = decisionContext(person);
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -577,9 +572,6 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
-      {premium?<button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} من ١٠٠`}. عرض الشرح`}>
-        {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} variant="logo"/>}
-      </button>:<button className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     </div>
 
     <div className="dr-row-detail">
@@ -588,6 +580,9 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         {context&&<p className="df-card-reason">{context}</p>}
       </div>
 
+    {premium ? person.fit && !person.compatibilityLocked &&
+      <button type="button" className="df-read-fit" onClick={explain} aria-label={`قراءة التوافق مع ${person.alias}`}>قراءة التوافق <ChevronLeft size={14}/></button> :
+      <button type="button" className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
       <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>

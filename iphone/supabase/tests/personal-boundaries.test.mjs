@@ -114,7 +114,17 @@ test('personal boundaries survive closure, unpaid history, repeat incidents, and
     assert.equal(older.length,3);
     assert.deepEqual(await call(a,'public.marriage_request_history_page($1)',[newest.at(-1).id]),[]);
     await call(historicPeer,'public.marriage_report_incident($1,null,$2,$3)',[older.at(-1).id,'واقعة سابقة',randomUUID()]);
-    for(let n=0;n<30;n++) await call(other,'public.marriage_browse()');
-    await assert.rejects(call(other,'public.marriage_discover()'),/تمهّل/);
+    // Run the requests in one statement so the minute bucket cannot roll over mid-test.
+    await asMember(db,other.id,other.sessionId,()=>db.exec(`do $test$
+      begin
+        for i in 1..30 loop perform public.marriage_browse(); end loop;
+        begin
+          perform public.marriage_discover();
+        exception when sqlstate 'P0001' then
+          if sqlerrm like 'تمهّل%' then return; end if;
+          raise;
+        end;
+        raise exception 'Expected the shared discovery budget to reject request 31';
+      end $test$`));
   } finally { await db.close(); }
 });

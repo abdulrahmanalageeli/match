@@ -59,6 +59,7 @@ export type Proposal = {
 
 export type AccountState = {
   demoDiscoveryEnabled?: boolean;
+  demoInteractionsEnabled?: boolean;
   testingTrial?: {enabled:boolean;expiresAt:string|null};
   user: {
     id: string;

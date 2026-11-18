@@ -1391,7 +1391,7 @@ export function Chat({
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReport && !canReply && !canDelete && !canReact}
-                actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
+                actionLabel={msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + connection.person.alias} actionDescriptionId={messageActionHelp}
                 onHold={() => openMessageActions(msg)}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
@@ -1402,8 +1402,8 @@ export function Chat({
                 <div className="cm-message-meta">
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
-                    <span aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
-                    status?.status !== "failed" && <span data-receipt={msg.readAt ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
+                    <span role="img" aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
+                    status?.status !== "failed" && <span role="img" data-receipt={msg.readAt ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
                       {msg.readAt || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
                       <span className="cm-receipt-label">{msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
                 </div>
@@ -1413,7 +1413,7 @@ export function Chat({
                 open={() => openMessageActions(msg)} />}
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
-                <span>{status.error}</span><button onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
+                <span>{status.error}</span><button onClick={() => { composer.current?.focus({preventScroll:true}); thread.outbox.retry(status.clientId); }}><RotateCcw size={13} /> إعادة الإرسال</button>
               </div>}
             </div>;
           })}

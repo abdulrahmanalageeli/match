@@ -389,7 +389,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
   const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
   const scenarioIndex = openingScenarios.findIndex(item => [item.text,item.clarification,...item.priorWording].includes(doc?.currentQuestion?.text ?? ''));
-  const answerLimit = scenarioIndex >= 0 ? 700 : 900;
+  const answerLimit = !clarifying && scenarioIndex >= 0 ? 700 : 900;
   const hybrid = Boolean(hybridEnabled && doc?.promptVersion === 'wudayn-interview-4' &&
     doc.status !== 'confirmed' && !fallbackReview && (hasOpening && doc.status === 'review'));
   const hybridReady = Boolean(hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis);
@@ -453,8 +453,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             <label htmlFor="wi-clarification">وش تحب توضّح عن إجاباتك؟</label>
             <p>اذكر الموضوع والإجابة التي تعبّر عنك. اختياراتك اليدوية تبقى كما هي وتقدر تعدّلها في المراجعة.</p>
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || !answer.trim()} aria-label="إرسال التوضيح"><ArrowUp size={20}/></button>
-              <textarea ref={clarifier} id="wi-clarification" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={2} dir="rtl" disabled={actionBlocked}/>
+              <textarea ref={clarifier} id="wi-clarification" aria-describedby="wi-clarification-count" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={2} dir="rtl" disabled={actionBlocked}/>
             </div>
+            <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
           <HybridAssessment choices={structuredChoices} aiProposals={aiProposals} onChange={changeStructuredChoices}
@@ -542,8 +543,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يهمك في الزواج. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
             {openingTurn && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
-            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-help' : undefined} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
-            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button><span>{number(answer.length)} / {number(answerLimit)}</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
+            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-count wi-answer-help' : 'wi-answer-count'} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
+            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button><span id="wi-answer-count">{number(answer.length)} من {number(answerLimit)} حرف</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}

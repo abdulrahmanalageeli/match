@@ -2,6 +2,7 @@ import { languageOpennessLabels } from "../compatibility/marriage";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
+import { denied } from '../community/chatOutbox';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { dressStyles, dressFlexibilities, skinTones } from '../compatibility/appearance';
 import { interests } from '../compatibility/model';
@@ -43,24 +44,34 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const fitButton=useRef<HTMLButtonElement>(null);
   const sections=useRef<HTMLDivElement>(null);
   const heading=useRef<HTMLHeadingElement>(null);const contentId=useId();
-  useLayoutEffect(()=>{heading.current?.focus({preventScroll:true});},[]);
-  const [visible,setVisible] = useState<{id:string; source:CommunitySource; allowed:boolean} | null>(null);
+  const [visible,setVisible] = useState<{id:string; source:CommunitySource; status:'allowed'|'denied'|'error'} | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const check = !preview && !person.isDemo && source?.profileVisible;
+  const access = !check ? 'allowed' : visible?.id === person.id && visible.source === source ? visible.status : 'loading';
+  useLayoutEffect(()=>{if (access === 'allowed') heading.current?.focus({preventScroll:true});},[access,person.id]);
   useEffect(()=>{
     if (!check || !source) return;
     let active=true, sequence=0;
     const refresh=async()=>{
       const current=++sequence;
       if (document.hidden) {setVisible(null); return;}
-      const allowed=await check(person.id).catch(()=>false);
-      if(active && current===sequence)setVisible({id:person.id,source,allowed});
+      try {
+        const allowed = await check(person.id);
+        if(active && current===sequence)setVisible({id:person.id,source,status:allowed?'allowed':'denied'});
+      } catch (cause) {
+        if(active && current===sequence)setVisible({id:person.id,source,status:denied(cause)?'denied':'error'});
+      }
     };
     void refresh();
     const stop=source.watch(refresh), timer=window.setInterval(refresh,10000);
     document.addEventListener('visibilitychange',refresh);
     return ()=>{active=false;stop();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
-  },[check,source,person.id]);
-  if(check && (visible?.id!==person.id || visible.source!==source || !visible.allowed)) return <article className="mp-profile screen-content"><button onClick={back}>{backText}</button><p role="status">{visible?.id===person.id && !visible.allowed ? 'الملف غير متاح.' : 'جارٍ فتح الملف…'}</p></article>;
+  },[check,source,person.id,attempt]);
+  if(access !== 'allowed') return <article className="mp-profile screen-content" dir="rtl">
+    <button className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
+    <p role={access === 'error' ? 'alert' : 'status'}>{access === 'error' ? 'تعذّر التحقق من إتاحة الملف. تحقّق من اتصالك وحاول مجددًا.' : access === 'denied' ? 'الملف غير متاح.' : 'جارٍ فتح الملف…'}</p>
+    {access === 'error' && <button className="btn-secondary" onClick={()=>{setVisible(null);setAttempt(value=>value+1);}}>إعادة المحاولة</button>}
+  </article>;
   const b=person.marriageBasics;
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const {personalLine, context}=decisionContext(person);

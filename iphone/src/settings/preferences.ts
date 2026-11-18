@@ -31,6 +31,19 @@ export function initializeDevicePreferences() {
     next = decode(window.localStorage.getItem(storageKey));
   } catch { /* Device settings remain available for the current session. */ }
   apply(next);
+  // WebKit updates this system font when the iOS Content Size Category changes.
+  if (CSS.supports("font", "-apple-system-body")) {
+    const metric = document.createElement("span");
+    metric.setAttribute("aria-hidden", "true");
+    metric.style.cssText = "font:-apple-system-body;position:fixed;visibility:hidden;pointer-events:none;width:1em;height:1em";
+    document.body.append(metric);
+    const sync = () => {
+      const size = parseFloat(getComputedStyle(metric).fontSize);
+      if (size > 0) document.documentElement.style.setProperty("--nf-system-text", size * 16 / 17 + "px");
+    };
+    sync();
+    new ResizeObserver(sync).observe(metric);
+  }
   const updateAmbientVisibility = () => {
     document.documentElement.toggleAttribute('data-nf-ambient-paused', document.hidden);
   };

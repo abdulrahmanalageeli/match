@@ -45,8 +45,8 @@ export function SwipeReply({ disabled, onReply, onHold, actionsDisabled = false,
     }
   }
   return <div className="cm-swipe-message" data-ready={Math.abs(distance) >= 56 || undefined}
-    tabIndex={actionsEnabled ? 0 : undefined} role={actionsEnabled ? 'group' : undefined}
-    aria-label={actionsEnabled ? actionLabel : undefined} aria-describedby={actionsEnabled ? actionDescriptionId : undefined}
+    tabIndex={actionsEnabled ? 0 : undefined} role="group"
+    aria-label={actionLabel} aria-describedby={actionsEnabled ? actionDescriptionId : undefined}
     aria-haspopup={actionsEnabled ? 'dialog' : undefined}
     onPointerDown={event => {
       stopHold();
@@ -100,5 +100,6 @@ export function SwipeReply({ disabled, onReply, onHold, actionsDisabled = false,
     onClickCapture={event => { if (suppressClick.current) { suppressClick.current = false; event.preventDefault(); event.stopPropagation(); } }}>
     <span className="cm-swipe-hint" aria-hidden="true" style={{ opacity: Math.min(1, Math.abs(distance) / 56) }}><Reply size={19}/></span>
     <div className="cm-swipe-content" data-dragging={distance !== 0 || undefined} style={{ transform: distance ? `translateX(${distance}px)` : undefined }}>{children}</div>
+    {actionsEnabled && <button type="button" className="cm-accessible-actions" aria-haspopup="dialog" onClick={onHold}>خيارات الرسالة</button>}
   </div>;
 }

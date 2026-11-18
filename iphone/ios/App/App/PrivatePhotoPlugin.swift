@@ -97,11 +97,15 @@ final class PrivatePhotoController: UIViewController {
         canvas.addSubview(picture); protected = true
         let close = UIButton(type: .system)
         close.setTitle("إغلاق الصورة", for: .normal); close.tintColor = .white
-        close.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        close.backgroundColor = .black
+        close.layer.cornerRadius = 12
+        close.titleLabel?.font = .preferredFont(forTextStyle: .body)
+        close.titleLabel?.adjustsFontForContentSizeCategory = true
+        close.titleLabel?.numberOfLines = 0
         close.translatesAutoresizingMaskIntoConstraints = false
         close.addTarget(self, action: #selector(finish), for: .touchUpInside)
         view.addSubview(close)
-        NSLayoutConstraint.activate([close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8), close.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16), close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44), close.widthAnchor.constraint(greaterThanOrEqualToConstant: 120)])
+        NSLayoutConstraint.activate([close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8), close.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16), close.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16), close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44), close.widthAnchor.constraint(greaterThanOrEqualToConstant: 120)])
         for event in [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification, UIApplication.userDidTakeScreenshotNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: event, object: nil, queue: .main) { [weak self] _ in self?.finish() })
         }

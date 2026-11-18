@@ -5,7 +5,6 @@ const config: CapacitorConfig = {
   appName: 'Wudayn AI',
   loggingBehavior: 'none',
   webDir: 'dist',
-  backgroundColor: '#faf6ee',
   ios: { contentInset: 'never' }
 };
 

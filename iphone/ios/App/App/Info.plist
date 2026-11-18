@@ -14,8 +14,6 @@
   <string>$(NISFAYN_APNS_ENVIRONMENT)</string>
   <key>CAPACITOR_DEBUG</key>
   <string>$(CAPACITOR_DEBUG)</string>
-  <key>UIUserInterfaceStyle</key>
-  <string>Light</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ar</string>
 	<key>CFBundleLocalizations</key>

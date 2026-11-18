@@ -1,0 +1,117 @@
+html:root { font-size: max(100%, var(--nf-system-text, 0px)); }
+html[data-nf-text="large"] { font-size: max(112.5%, var(--nf-system-text, 0px)); }
+:root {
+  --text-title: 1.5rem;
+  --text-section: 1.125rem;
+  --text-body: 1rem;
+  --text-secondary: .875rem;
+  --text-caption: .75rem;
+  --text-micro: .6875rem;
+}
+
+.cm-accessible-actions:not(:focus-visible) {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); padding: 0; border: 0; white-space: nowrap;
+}
+.cm-accessible-actions:focus-visible { min-height: 44px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-chat-head, .cm-media-tools, .cm-media-preview-actions) button,
+.phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-audio-play, .cm-first-starter, .cm-reaction-chip, .cm-history),
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] button,
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-retry button {
+  min-width: 44px; min-height: 44px;
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 44px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] {
+  flex-wrap: wrap; max-height: 24%; overflow-y: auto;
+}
+:root .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] :is(.cm-agreement-summary > button, .cm-end-visible, .cm-journey-summary) {
+  min-height: 44px; font-size: .75rem; white-space: normal; text-align: start; max-width: 100%;
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose {
+  max-height: 45%; overflow-y: auto; overscroll-behavior: contain;
+}
+.phone-app .cm-chat .cm-media-preview-content > img {
+  max-height: min(160px, calc(var(--chat-available-height, 100dvh) * .18));
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble p,
+.phone-app .cm-shell .cm-chat[data-conversation-id] textarea { font-size: 1rem; overflow-wrap: anywhere; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy { min-width: 0; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy strong { font-size: 1rem; overflow-wrap: anywhere; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy small { font-size: .75rem; }
+.phone-app .mp-profile .mp-sections { flex-wrap: wrap; }
+.phone-app .mp-profile .mp-sections button { white-space: normal; min-width: 0; height: auto; }
+.wi-dialog .wi-compose-meta { flex-wrap: wrap; }
+.wi-dialog .wi-session-milestones li > span { white-space: normal; overflow-wrap: anywhere; }
+.wi-dialog .wi-compose-row textarea { min-width: 0; }
+.pg-lightbox .pg-close, .cm-photo-viewer > header button {
+  min-width: 44px; min-height: 44px; background: #191519; color: #fff; border: 1px solid #b4aab0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-chat *, .cm-chat *::before, .cm-chat *::after {
+    animation-duration: .01ms !important; transition-duration: 0s !important; scroll-behavior: auto !important;
+  }
+}
+html[data-nf-motion="reduced"] .cm-chat * {
+  animation-duration: .01ms !important; transition-duration: 0s !important; scroll-behavior: auto !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:has(.cm-shell, .mp-profile, .wi-dialog[open], .nf-photos[open]) {
+    color-scheme: dark;
+    --paper: #1d191d; --canvas: var(--paper); --surface: #2b252b; --chrome: #292329f5;
+    --ink: #f8f1f4; --muted: #d0c1c9; --accent: #f2b4ca; --accent-fill: #783349; --accent-ink: #fff;
+    --line: #544951; --control-line: #ac96a1; --blush: #44303b; --rose: #e4a0b9;
+    --brass: #e0c99d;
+    --supporting-ink: var(--muted); --tinted-ink: var(--accent); --positive-ink: #b4e2c6;
+    --adaptive-chrome: var(--chrome); --raised-tint: var(--blush);
+  }
+  :root :is(.phone-app:has(.cm-shell), .cm-chat-stage, .cm-chat-log, .wi-dialog, .wi-thread, .wi-composer, .wi-session-compass) {
+    background: var(--paper); color: var(--ink);
+  }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] { background: var(--paper); color: var(--ink); }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-chat-head, .cm-chat-compose, .cm-chat-plan[data-ready],
+    .cm-composer-surface, .cm-media-preview, .cm-media-preview-actions, .cm-once-setting, .cm-bubble, .cm-jump, .cm-history) {
+    background: var(--surface); border-color: var(--line); color: var(--ink);
+  }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble.self {
+    background: #663047; border-color: #955a71; color: #fff;
+  }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-chat-person-copy strong, .cm-first-message h2, textarea, .cm-chat-tools strong) { color: var(--ink); }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-chat-person-copy small, .cm-message-meta, .cm-chat-day, .cm-first-message p, .cm-chat-tools small),
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] textarea::placeholder { color: var(--muted); }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] :is(.cm-chat-head > button:not(.cm-chat-person), .cm-media-tools button,
+    .cm-chat-plan[data-ready] button, .cm-chat-plan[data-ready] button span, .cm-first-starter, .cm-message-retry, .cm-message-retry button) { color: var(--accent); }
+  :root .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-stage { background: var(--paper); }
+  :root .cm-sheet, :root .cm-agreement-dialog, :root .nf-photos { background: var(--surface); color: var(--ink); }
+  :root .nf-photos .nf-photo-error, :root .wi-dialog .wi-error { background: #48272f; color: #ffcfda; }
+
+  :root .phone-app :is(.mp-hero, .mp-sections, .mp-fit-preview, .mp-fact-group, .mp-fact-group dl, .mp-passport-link,
+    .mp-story-accent, .dr-person-row, .df-person, .dr-search, .cm-inbox-search, .cm-request, .cm-notification-row) {
+    background: var(--surface); color: var(--ink); border-color: var(--line);
+  }
+  :root .phone-app :is(.mp-hero-copy h1, .mp-fact-heading strong, .mp-fact-group dd, .mp-story h2, .mp-personal-line, .cm-title h1) { color: var(--ink); }
+  :root .phone-app :is(.mp-hero-copy small, .mp-hero .mp-meta, .mp-fact-heading small, .mp-fact-group dt, .mp-story p, .mp-decision-context) { color: var(--muted); }
+  :root .phone-app :is(.mp-back, .mp-eyebrow, .mp-intention, .mp-fact-icon, .mp-sections button, .mp-hero .mp-decision-timeline) { color: var(--accent); }
+  :root .phone-app .mp-sections button[aria-pressed=true] { background: var(--blush); color: var(--ink); }
+  :root .wi-dialog :is(.wi-header, .wi-current-question, .wi-compose-row, .wi-hybrid-card, .wi-hybrid-batch,
+    .wi-hybrid-option, .wi-proposal, .wi-recovery, .wi-clarification, .wi-review-rows, .wi-choice-help,
+    .wi-profile-options label, .wi-review-group > summary, .wi-button:not(.wi-button-primary), input, textarea, select) {
+    background: var(--surface); color: var(--ink); border-color: var(--line);
+  }
+  :root .wi-dialog :is(.wi-bubble-member, .wi-answer-help, .wi-intro-cues span, .wi-hybrid-option[aria-pressed=true],
+    .wi-hybrid-suggestion, .wi-chat-suggestions button, .wi-icon, .wi-living-portrait, .wi-choice-proposal) {
+    background: var(--blush); color: var(--ink); border-color: var(--accent);
+  }
+  :root .wi-dialog :is(h1,h2,h3,h4,p,label,strong,legend), .wi-dialog #wi-dialog-name { color: var(--ink); }
+  :root .wi-dialog .wi-hybrid {
+    --hybrid-ink: var(--ink); --hybrid-accent: var(--accent);
+    --hybrid-line: var(--line); --hybrid-tint: var(--blush);
+  }
+  :root .wi-dialog :is(.wi-answer-scale output, .wi-answer-scale-ends, .wi-hybrid-progress small) { color: var(--muted); }
+  :root .wi-dialog :is(.wi-speaker, .wi-compose-meta, .wi-compose-meta button, .wi-session-milestones li,
+    .wi-chat-context, small, .wi-link, .wi-bubble-history, .wi-topic-divider) { color: var(--muted); }
+  :root .wi-dialog .wi-compose-row textarea::placeholder { color: var(--muted); }
+  :root .wi-dialog .wi-send:not(:disabled) { background: var(--accent-fill); color: var(--accent-ink); }
+  :root :is(.cm-chat, .wi-dialog, .mp-profile, .nf-photos) :focus-visible { outline-color: var(--accent); }
+}

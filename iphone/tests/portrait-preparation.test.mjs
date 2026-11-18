@@ -57,7 +57,7 @@ test('automatic reveal retains only a normalized clear JPEG when explicitly sele
  globalThis.Image=class{naturalWidth=1600;naturalHeight=2000;async decode(){}};
  globalThis.Worker=class{postMessage(job){queueMicrotask(()=>this.onmessage({data:job.pixels}));}terminate(){}};
  globalThis.document={createElement(name){assert.equal(name,'canvas');let blurred=false;
-  const canvas={width:0,height:0,getContext(){return{fillRect(){},drawImage(){},getImageData(){return{data:new Uint8ClampedArray(8)};},putImageData(){blurred=true;}};},
+  const canvas={width:0,height:0,getContext(){return{save(){},restore(){},translate(){},beginPath(){},arc(){},stroke(){},createLinearGradient(){return{addColorStop(){}};},fillRect(){},drawImage(){},getImageData(){return{data:new Uint8ClampedArray(8)};},putImageData(){blurred=true;}};},
    toBlob(done,mime,quality){assert.equal(canvas.width,640);assert.equal(canvas.height,800);assert.equal(mime,'image/jpeg');assert.equal(quality,.88);encodings.push(blurred?'blurred':'clear');done(new Blob([blurred?'blurred':'clear'],{type:mime}));}};
   canvases.push(canvas);return canvas;
  }};

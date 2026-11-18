@@ -54,7 +54,32 @@ export async function preparePortrait(file: File, blur: number, revealPolicy: Po
     const encode = () => new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));
     const clearBlob = policy !== 'never' ? await encode() : undefined;
     if (policy !== 'never' && !clearBlob) throw Error('تعذّر تجهيز النسخة الواضحة. أعيدي اختيار الصورة.');
-    if(blur){const pixels=ctx.getImageData(0,0,640,800);await blurPortraitPixels(pixels.data,640,800,Math.max(1,Math.round(blur*.3)));ctx.putImageData(pixels,0,0);}
+    if(blur){
+      const pixels=ctx.getImageData(0,0,640,800);
+      await blurPortraitPixels(pixels.data,640,800,Math.max(1,Math.round(blur*.3)));
+      ctx.putImageData(pixels,0,0);
+      // Brand only the already-blurred public copy; never expose source pixels
+      // inside the emblem or alter the separately consented clear image.
+      const emblem=new Image();
+      emblem.src='/brand/wudayn-emblem-v2.png';
+      await emblem.decode();
+      ctx.save();
+      const veil=ctx.createLinearGradient(0,0,640,800);
+      veil.addColorStop(0,'rgba(250,239,231,0.22)');
+      veil.addColorStop(.5,'rgba(111,42,65,0.12)');
+      veil.addColorStop(1,'rgba(74,23,43,0.32)');
+      ctx.fillStyle=veil;
+      ctx.fillRect(0,0,640,800);
+      ctx.translate(320,400);
+      ctx.strokeStyle='rgba(255,240,221,0.28)';
+      ctx.lineWidth=1.5;
+      for(const radius of [158,172]){
+        ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.globalAlpha=.52;
+      ctx.drawImage(emblem,-128,-128,256,256);
+      ctx.restore();
+    }
     const blob=await encode();
     canvas.width=0;canvas.height=0;if(!blob)throw Error('تعذّر تجهيز الصورة.');
     return {blob,blur,revealPolicy:policy,...(clearBlob ? {clearBlob} : {}),url:URL.createObjectURL(blob)};

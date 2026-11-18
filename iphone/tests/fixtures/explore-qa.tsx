@@ -17,6 +17,7 @@ import '../../src/typography.css';
 
 // The real Explore components with fictional local data; no login or hosted writes.
 const source = demoCommunity(() => ({ ...demoProfile, gender: 'man' }));
+if(new URLSearchParams(location.search).has('luna')) source.lunaSearch=async()=>({summary:'أبحث عن شخص يحب القراءة والحياة الهادئة.',criteria:[{label:'القراءة',kind:'prefer'}],people:(await source.discover({mode:'all'})).slice(0,3)});
 const noop = () => {};
 
 function ExplorePreview() {

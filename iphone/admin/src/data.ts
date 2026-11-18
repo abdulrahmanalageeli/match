@@ -2,6 +2,7 @@ import { call, AdminError, verificationEvidence } from './client';
 import type { AdminApi, AuditRow, FamilyReviewRow, MemberDetail, ReportRow, SupportRow, VerificationRow, VerificationStatus } from './types';
 
 export const liveApi: AdminApi = {
+  async membership(member_id,selected_tier,days,search_blocked,expected_revision,reason,request_id) { await call("marriage_admin_membership",{member_id,selected_tier,days,search_blocked,expected_revision,reason,request_id}); },
   interviewSummary: id => call('marriage_interview_admin_summary', { member: id }),
   support: (status, before) => call('marriage_support', { action: 'admin_list', payload: { status, before } }),
   supportReply: (id, revision, status, response, requestId) => call('marriage_support', { action: 'admin_reply', payload: { id, revision, status, response, requestId } }),

@@ -152,6 +152,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         </header>
         <h1 className="st-title">الإعدادات</h1>
         <p className="st-intro">ملفك، خصوصيتك، وتفضيلات حسابك.</p>
+        {state?.user.id&&<p className="flow-note">معرّف العضو <code dir="ltr" style={{overflowWrap:"anywhere",userSelect:"all"}}>{state.user.id}</code></p>}
         <section className="st-member-card" aria-label="ملفي الشخصي">
           <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>

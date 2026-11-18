@@ -1,3 +1,4 @@
+import {LunaSearch} from './LunaSearch';
 import {MemberBadge} from '../membership/MemberBadge';
 import {MembershipEntry} from '../membership/MembershipEntry';
 import {shuffleWithVisibility} from './visibilityOrder';
@@ -964,6 +965,7 @@ function Discovery({
         {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
       </div>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
+      <LunaSearch source={source} open={person=>{setSelectedPerson(person);setSelected(person.id);}}/>
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (

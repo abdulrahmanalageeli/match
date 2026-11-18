@@ -10,20 +10,23 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
   const [permission, setPermission] = useState('prompt');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [preview,setPreview]=useState<PushPreview>('private');
+  const [preview,setPreview]=useState<PushPreview|null>(null);
   const [controls,setControls] = useState<PushControls | null>(null);
   const available = Boolean(owner && (!demo || (testerSession && nativePush)) && pushSupported() && pushConfigured);
   useEffect(() => {
     let active = true;
-    setEnabled(false); setError(''); setPreview('private'); setControls(null);
+    setControls(null); setEnabled(false); setPreview(null); setError('');
+    const refreshPrivacy=()=>{
+      if (available && owner && nativePush) void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);},
+        ()=>{if(active)setPreview(null);});
+    };
     if (available && owner) {
       void pushControls(owner).then(value=>{if(active)setControls(value);}).catch(()=>{if(active)setError('تعذّر تحميل تفضيلات التنبيهات.');});
-      void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);}).catch(()=>{});
+      refreshPrivacy();
       void Promise.all([getPushPreference(owner), pushStatus()]).then(([setting, device]) => {
         if (active) { setEnabled(setting.enabled); setPermission(device.permission); }
       }, () => { if (active) setError('تعذّر تحميل إعداد الإشعارات.'); });
     }
-    const refreshPrivacy=()=>{if(available&&owner)void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);}).catch(()=>{});};
     window.addEventListener('nisfayn:push-privacy',refreshPrivacy);
     return () => { active = false;window.removeEventListener('nisfayn:push-privacy',refreshPrivacy); };
   }, [available, owner]);
@@ -68,12 +71,17 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         catch { setPermission((await pushStatus()).permission);setError('تحقق من إذن الإشعارات لهذا الجهاز.'); }
         finally { setBusy(false); }
       }}>تفعيل التنبيهات على هذا الجهاز</button>}
-      {nativePush&&available&&enabled&&<label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>{preview==='private' ? 'يظهر «لديك تحديث جديد» مع اسم التطبيق وأيقونته.' : 'قد يظهر نوع النشاط أو الاسم أو نص الرسالة على شاشة القفل بحسب اختيارك.'}</small></span>
-        <select aria-label="معاينة الإشعارات" value={preview} disabled={busy} onChange={async event=>{
+      {nativePush&&available&&enabled&&<><label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>اختر ما يظهر على شاشة القفل.</small></span>
+        <select aria-label="معاينة الإشعارات" value={preview??''} disabled={busy} onChange={async event=>{
           const next=event.target.value as PushPreview;if(!owner)return;setBusy(true);setError('');
           try{setPreview((await pushPrivacy(owner,next)).preview);}catch{setError('لم يُحفظ إعداد المعاينة. حاول مجددًا.');}finally{setBusy(false);}
-        }}><option value="private">إشعار خاص</option><option value="event">نوع النشاط</option><option value="name">الاسم ونوع النشاط</option><option value="content">الاسم والرسالة</option></select>
-      </label>}
+        }}><option value="" disabled>اختر المعاينة</option><option value="private">إشعار خاص</option><option value="name">الاسم فقط</option><option value="content">الاسم والرسالة</option></select>
+      </label>
+      {preview&&<div className="st-lock-preview" role="status" aria-label="مثال لإشعار على شاشة القفل">
+        <small><Bell size={14} aria-hidden="true"/> وُدَين · مثال توضيحي</small>
+        <strong>{preview==='private'?'إشعار جديد': 'رسالة من نورة'}</strong>
+        {preview==='content'&&<span>يسعدني أن نتعرّف أكثر.</span>}
+      </div>}</>}
       {available && enabled && controls && <details className="st-push-controls">
         <summary className="st-row">تخصيص التنبيهات</summary>
         {switches.filter(([key])=>key!=='analysis'||!testerSession).map(([key,label])=><button key={key} type="button" className="st-row st-switch"

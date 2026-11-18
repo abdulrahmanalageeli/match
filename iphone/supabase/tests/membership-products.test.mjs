@@ -63,6 +63,7 @@ test('checkout requires a reachable real member; Apple grace, renewals and revoc
       isInBillingRetryPeriod:true, autoRenewStatus:1};
     const eventSQL = 'select public.marriage_apply_apple_event(null,$1,true,$2) s';
     const apply = (receipt,snapshot) => asService(db,async () => (await db.query(eventSQL,[receipt,snapshot])).rows[0].s);
+    const periods = user => asMember(db,user.id,user.sessionId,async()=> (await db.query('select public.marriage_my_settings() s')).rows[0].s.subscriptions);
     assert.equal((await read(peer)).canStart,false);
     await assert.rejects(asMember(db,peer.id,peer.sessionId,()=>db.query(eventSQL,[tx,lifecycle])),{code:'42501'});
     assert.equal((await apply(tx,lifecycle)).membership.status,'paid');
@@ -70,16 +71,26 @@ test('checkout requires a reachable real member; Apple grace, renewals and revoc
     await db.query('update marriage.members set is_dummy=true where id=$1',[member.id]);
     assert.equal((await read(peer)).canStart,false);
     await db.query('update marriage.members set is_dummy=false where id=$1',[member.id]);
-    const renewed = {...tx,transactionId:'700000003',purchaseDate:now+1,signedDate:now+2,expiresDate:now+900000};
-    const stopped = {...lifecycle,observedAt:now+3,status:1,autoRenewStatus:0,gracePeriodExpiresDate:null,isInBillingRetryPeriod:false};
+    const renewed = {...tx,transactionId:'700000003',purchaseDate:now+1,signedDate:now+2,expiresDate:now+900000,offerDiscountType:'FREE_TRIAL'};
+    const renewing = {...lifecycle,observedAt:now+2,status:1,autoRenewStatus:1,gracePeriodExpiresDate:null,isInBillingRetryPeriod:false,renewalPrice:149990,currency:'SAR',renewalDate:renewed.expiresDate};
+    await apply(renewed,renewing);
+    const [trial]=await periods(member);
+    assert.equal(trial.freeTrial,true);assert.equal(trial.autoRenew,true);assert.equal(trial.milliunits,149990);
+    assert.equal(trial.currency,'SAR');assert.equal(Date.parse(trial.renewalDate),renewed.expiresDate);
+    assert.deepEqual(await periods(peer),[]);
+    const stopped = {...renewing,observedAt:now+3,autoRenewStatus:0};
     assert.equal((await apply(renewed,stopped)).membership.active,true);
     assert.equal(Date.parse((await apply(tx,lifecycle)).membership.expiresAt),renewed.expiresDate);
+    const [cancelled]=await periods(member);
+    assert.equal(cancelled.autoRenew,false);assert.equal(cancelled.milliunits,null);
+    assert.equal(Date.parse(cancelled.endsAt),renewed.expiresDate);
     await apply({...tx,signedDate:now+4,revocationDate:now+4},{...stopped,observedAt:now+4,status:5});
     assert.equal((await read(member)).active,true);
     const revoked = {...renewed,signedDate:now+6,revocationDate:now+5};
     delete revoked.appAccountToken;
     assert.equal((await apply(revoked,{...stopped,status:5,observedAt:now+6})).membership.status,'expired');
     assert.equal((await apply(renewed,stopped)).membership.active,false);
+    assert.deepEqual(await periods(member),[]);
     assert.equal((await read(peer)).canStart,false);
     await asService(db,async () => {
       const claim = () => db.query("select public.marriage_claim_apple_checks('Sandbox') id");

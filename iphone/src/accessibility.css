@@ -76,7 +76,7 @@ html[data-nf-motion="reduced"] .cm-chat * {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:has(.cm-shell, .mp-profile, .wi-dialog[open], .nf-photos[open]) {
+  :root:has(.cm-shell, .mp-profile, .st-screen, .st-profile-view, .wi-dialog[open], .nf-photos[open]) {
     color-scheme: dark;
     --paper: #1d191d; --canvas: var(--paper); --surface: #2b252b; --chrome: #292329f5;
     --ink: #f8f1f4; --muted: #d0c1c9; --accent: #f2b4ca; --accent-fill: #783349; --accent-ink: #fff;
@@ -85,6 +85,19 @@ html[data-nf-motion="reduced"] .cm-chat * {
     --supporting-ink: var(--muted); --tinted-ink: var(--accent); --positive-ink: #b4e2c6;
     --adaptive-chrome: var(--chrome); --raised-tint: var(--blush);
   }
+  :root .phone-app :is(.st-screen, .st-profile-view) { background: var(--paper); color: var(--ink); }
+  :root .phone-app :is(.st-screen, .st-profile-view) .wudayn-wordmark { color: var(--accent); }
+  :root .phone-app :is(.st-group, .st-member-card, .st-member-photos, .st-dialog, .st-data-json, .st-candidate-preview) {
+    background: var(--surface); color: var(--ink); border-color: var(--line);
+  }
+  :root .phone-app .st-top, :root .phone-app .st-group .st-row::before { border-color: var(--line); }
+  :root .phone-app :is(.st-title, .st-member-identity h2, .st-section h2, .st-photo-manager h1) { color: var(--ink); }
+  :root .phone-app :is(.st-intro, .st-icon, .st-chevron, .st-profile-kicker, .st-member-identity p, .st-member-photos small,
+    .st-row-copy small, .st-notice, .st-dialog p, .st-data-visibility dd) { color: var(--muted); }
+  :root .phone-app :is(.st-member-actions button:first-child, .st-member-avatar, .st-dialog-icon) { background: var(--blush); color: var(--accent); border-color: var(--control-line); }
+  :root .phone-app .st-member-actions button:last-child { background: var(--accent-fill); color: var(--accent-ink); border-color: var(--control-line); }
+  :root .phone-app .st-row:is(:hover,:active):enabled { background: var(--blush); }
+  :root .phone-app .st-danger :is(.st-row-copy,.st-icon) { color: #ffbdcc; }
   :root :is(.phone-app:has(.cm-shell), .cm-chat-stage, .cm-chat-log, .wi-dialog, .wi-thread, .wi-composer, .wi-session-compass) {
     background: var(--paper); color: var(--ink);
   }

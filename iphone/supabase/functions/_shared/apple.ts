@@ -95,6 +95,7 @@ export async function ingest(jws: unknown, actor: string|null, notification: boo
       throw new HttpError(403,'تعذّر مطابقة بيانات التجديد.')
     lifecycle = {originalTransactionId: renewal.originalTransactionId, status: snapshot.status,
       observedAt: snapshot.observedAt, gracePeriodExpiresDate: renewal.gracePeriodExpiresDate,
+      renewalPrice: renewal.renewalPrice, currency: renewal.currency, renewalDate: renewal.renewalDate,
       isInBillingRetryPeriod: renewal.isInBillingRetryPeriod, autoRenewStatus: renewal.autoRenewStatus}
   }
   const {data,error}=await admin().rpc('marriage_apply_apple_event',{actor,receipt,notification,lifecycle})

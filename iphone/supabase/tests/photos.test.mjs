@@ -1,3 +1,4 @@
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -7,7 +8,7 @@ function fixture(db){
  const rpc=async(expression,args=[]) => (await db.query('select '+expression+' as value',args)).rows[0].value;
  const call=(u,expression,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
  async function add(gender){
-  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);await seedCommunicationMember(db,u,gender);
   const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,assessment:true,photo:false}}]);
   await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));
@@ -38,6 +39,14 @@ test('private photos require explicit mutual grants and block signed URLs, enume
   assert.equal((await call(b,'public.marriage_photo_state($1)',[request])).peer,null);
   await call(a,'public.marriage_photo_share($1,true)',[request]);
   assert.equal((await call(b,'public.marriage_photo_state($1)',[request])).peer.id,p.id);
+  const summary=u=>call(u,'public.marriage_my_settings()');
+  const shares=(await summary(a)).shares;
+  assert.deepEqual(shares.map(grant=>[grant.requestId,grant.name]),[[request,'مثال']]);
+  assert(Date.parse(shares[0].expiresAt)>Date.now());
+  assert(!JSON.stringify(shares).includes(p.path));
+  assert.deepEqual((await summary(b)).shares,[]);
+  await call(outsider,'public.marriage_revoke_my_photo_share($1)',[request]);
+  assert.equal((await summary(a)).shares.length,1);
   const exported=await call(a,'public.marriage_personal_data()');
   assert.equal(exported.exportVersion,2);assert.equal(exported.privatePhoto.id,p.id);assert.equal(exported.photoShares[0].requestId,request);
   assert(!JSON.stringify(exported).includes(p.path));
@@ -57,9 +66,11 @@ test('private photos require explicit mutual grants and block signed URLs, enume
   assert.equal((await read(b,p.path)).length,0);assert.equal((await call(b,'public.marriage_photo_state($1)',[request])).peer,null);
   await call(a,'public.marriage_photo_share($1,true)',[request]);
   await db.query("update marriage.photo_grants set expires_at=now()-interval '1 second' where photo_id=$1",[p.id]);
+  assert.deepEqual((await summary(a)).shares,[]);
   assert.equal((await read(b,p.path)).length,0);
   await call(a,'public.marriage_photo_share($1,true)',[request]);
   await call(a,'public.marriage_pause(true)');assert.equal((await read(b,p.path)).length,1,'discovery pause preserves an explicit private photo grant');
+  assert.equal((await summary(a)).visibility,'paused');
   await call(a,'public.marriage_pause(false)');
   for(const [change,restore] of [
    ["update marriage.members set suspended=true where id=$1","update marriage.members set suspended=false where id=$1"],
@@ -68,6 +79,10 @@ test('private photos require explicit mutual grants and block signed URLs, enume
   await db.query('insert into marriage.blocks values($1,$2,now())',[b.id,a.id]);assert.equal((await read(b,p.path)).length,0);
   await db.query('delete from marriage.blocks where member_id=$1 and blocked_id=$2',[b.id,a.id]);
   await db.query("update marriage.member_requests set status='closed' where id=$1",[request]);assert.equal((await read(b,p.path)).length,0);
+  await db.query('update marriage.store_transactions set revoked=true where original_id=$1::text',[a.id]);
+  await call(a,'public.marriage_revoke_my_photo_share($1)',[request]);
+  await call(a,'public.marriage_revoke_my_photo_share($1)',[request]);
+  assert.deepEqual((await summary(a)).shares,[]);
   await db.query('delete from auth.sessions where id=$1',[a.sessionId]);
   await assert.rejects(read(a,p.path),/يلزم تسجيل الدخول/);
  }finally{await db.close();}

@@ -1,4 +1,4 @@
-import {decideJourney} from './communication-fixture.mjs';
+import {decideJourney,seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -9,7 +9,7 @@ function fixture(db) {
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
  const approve=u=>asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
  async function member(gender='woman',approved=true) {
-  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);await seedCommunicationMember(db,u,gender);await db.query("update marriage.members set review_status='draft' where id=$1",[u.id]);
   u.profile={displayName:'الاسم المعتمد',age:29,gender,city:'الرياض',profession:'مهندس',bio:'النص المعتمد',lookingFor:'',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',consentVersion:'2026-11-07-privacy',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,assessment:true,photo:true}};
   await call(u,'public.marriage_apply($1)',[u.profile]);
   if(approved)await approve(u);
@@ -17,7 +17,7 @@ function fixture(db) {
  }
  const apply=(u,patch={})=>call(u,'public.marriage_apply($1)',[{...u.profile,...patch}]);
  const state=u=>call(u,'public.marriage_state()');
- async function connect(a,b){const id=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[id]);return id;}
+ async function connect(a,b){const id=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[id]);await signCommunicationAgreement(call,a.profile.gender==="woman"?a:b,a.profile.gender==="man"?a:b,id);return id;}
  const send=(u,id,body='رسالة مستمرة')=>call(u,'public.marriage_message($1,$2,$3)',[id,body,randomUUID()]);
  const family=async(u,action,payload={})=>{const r=await call(u,'public.marriage_family($1,$2)',[action,payload]);if(r?.error)throw Error(r.error);return r;};
  return {rpc,call,approve,member,apply,state,connect,send,family};
@@ -73,11 +73,16 @@ test('public edits enter review, preserve approved text and accepted chat, and e
   assert.equal(result.user.applicationStatus,'pending');assert.equal(result.user.profileReviewPending,true);
   assert(Date.parse(result.user.nextPublicProfileEditAt)>Date.now()+29*86400000);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'النص المعتمد');
+  const settings=await call(a,'public.marriage_my_settings()');
+  assert.equal(settings.visibility,'review');
+  assert.equal(settings.approvedPreview.bio,'النص المعتمد');
+  assert.equal(settings.approvedPreview.portrait,null);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.portrait,null);
   await send(a,id);await send(b,id);
   await assert.rejects(call(a,'public.marriage_discover()'));
   result=await apply(a,{bio:'تصحيح أثناء المراجعة'});assert.equal(result.profile.bio,'تصحيح أثناء المراجعة');
   await approve(a);assert.equal((await state(a)).user.profileReviewPending,false);
+  assert.equal((await call(a,'public.marriage_my_settings()')).approvedPreview,null);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'تصحيح أثناء المراجعة');
   await assert.rejects(apply(a,{bio:'تعديل مبكر'}),/٣٠ يومًا/);
   result=await state(a);assert.equal(result.profile.bio,'تصحيح أثناء المراجعة');assert.equal(result.user.applicationStatus,'approved');
@@ -85,6 +90,9 @@ test('public edits enter review, preserve approved text and accepted chat, and e
   await db.query("update marriage.members set last_public_profile_edit_at=now()-interval '30 days' where id=$1",[a.id]);
   assert.equal((await state(a)).user.nextPublicProfileEditAt,null);
   assert.equal((await apply(a,{bio:'تعديل في الموعد'})).user.applicationStatus,'pending');
+  await db.query("update marriage.members set approved_profile_snapshot=jsonb_set(approved_profile_snapshot,'{card}','null') where id=$1",[a.id]);
+  assert.equal((await call(a,'public.marriage_my_settings()')).approvedPreview,null);
+  assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'');
  } finally {await db.close();}
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Feather, HeartHandshake, MessageCircle, Route, Send } from "../BrandIcons";
+import { ChevronLeft, BookOpen, Feather, HeartHandshake, MessageCircle, Route, Send } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement, StepProgress } from './data';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { chooseNextStep, nextStepState, type NextStepAssessment, type NextStepSnapshot, type NextStepState } from './nextStepModel';
@@ -55,11 +55,11 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
     if (next.target === 'assessment') onAssessment?.();
     else if (next.connectionId) (next.target === 'request' ? onRequest : onConversation)(next.connectionId);
   };
-  return <MotionReveal key={next.key} as="section" className="nf-next-step" duration={320} distance={5} aria-label="خطوتك التالية">
-    <span className="nf-next-step-icon" aria-hidden="true"><Icon size={20} strokeWidth={1.6}/></span>
-    <div className="nf-next-step-copy"><span className="nf-next-step-eyebrow">{next.attention ? 'بانتظارك' : 'الخطوة التالية'}</span>
-      <h2>{next.title}</h2><p>{next.detail}</p>
-      <MotionPressButton onClick={open}>{next.action}<ArrowLeft size={14} aria-hidden="true"/></MotionPressButton>
-    </div>
+  return <MotionReveal key={next.key} className="df-next-step" duration={320} distance={5}>
+    <MotionPressButton className="df-next-step-action" type="button" onClick={open}>
+      <span className="df-next-step-mark" aria-hidden="true"><Icon size={17} strokeWidth={1.75}/></span>
+      <strong className="df-next-step-label" dir="auto">{next.action}</strong>
+      <ChevronLeft className="df-next-step-chevron" size={15} aria-hidden="true"/>
+    </MotionPressButton>
   </MotionReveal>;
 }

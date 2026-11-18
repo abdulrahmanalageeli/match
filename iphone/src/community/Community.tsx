@@ -77,7 +77,6 @@ import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, e
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { FitDetails, preferencePercentage, personalityPercentage } from "../compatibility/FitDetails";
-import { BeenaSummary } from "../beena/BeenaSummary";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { PersonAvatar } from "../avatars/PersonAvatar";
 import { MatchesOverview } from './MatchesOverview';
@@ -499,7 +498,6 @@ function PersonCard({
       </div>
       {premium && !compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
       </div>
-      {premium && person.fit?.beena?.complete && <BeenaSummary fit={person.fit.beena} compact/>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
       </div>
@@ -946,10 +944,6 @@ function Discovery({
           ><RotateCcw size={15} aria-hidden="true" /></button>}
         </div>
       </header>
-      <MotionReveal className="cm-title df-title" duration={480}>
-        <div><h1>استكشف</h1></div>
-
-      </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
       <NextStep source={source}

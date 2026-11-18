@@ -50,15 +50,17 @@ test('the compact summary explains its displayed score when another section chan
   assert(result.reasons.includes(result.summary));
 });
 
-test('preference, personality and Beena changes are summarized independently', () => {
+test('only preference and personality changes are shown; legacy Beena scores stay hidden', () => {
   const next = structuredClone(first);
   next.surveyAnswers.children_plan = 'B'; next.surveyAnswers.partner_children_plan = 'B';
   next.personalityAnswers.directness = 'A';
   next.beena.answers.family_boundaries = { self: 'D', partner: ['D'], importance: 2 };
   const result = compareFits(fitOf(), fitOf(next, second));
-  assert.deepEqual(result.scoreChanges.map(score => score.key), ['preferences', 'personality', 'beena']);
+  assert.deepEqual(result.scoreChanges.map(score => score.key), ['preferences', 'personality']);
   assert(result.reasons.some(reason => reason.startsWith('وضوح الاحتياج:')));
-  assert(result.reasons.some(reason => reason.startsWith('نحن والأهل:')));
+  assert(!result.reasons.some(reason => reason.startsWith('نحن والأهل:')));
+  const legacyOnly=structuredClone(first);legacyOnly.beena=next.beena;
+  assert.equal(compareFits(fitOf(),fitOf(legacyOnly,second)),null);
 });
 
 test('personality domain explanations refresh when changes balance out in the overall percentage', () => {

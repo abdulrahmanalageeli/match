@@ -25,6 +25,7 @@ function mount(name, initial) {
     if(name==='../BrandIcons')return icons;
     if(name==='../onboarding/remainingAssessments')return{hasPreferenceAnswer,hasScenarioAnswer};
     if(name==='./model')return{name:'fixture',categories:catalog.categories,dimensions:catalog.dimensions,interests:[],maxInterests:3,maxPriorities:2,beenaScenarios:scenarios,beenaVersion:'beena-v1',beenaProgress:value=>{const answered=scenarios.filter(s=>hasScenarioAnswer(s.options,value?.answers[s.id],'self')&&hasScenarioAnswer(s.options,value?.answers[s.id],'partner')).length;return{answered,total:scenarios.length,complete:answered===scenarios.length}}};
+    if(name==='../ui/SheetChoiceSelect')return{SheetChoiceSelect:()=>null};
     if(name.endsWith('.css'))return{};throw Error(name);
   };
   vm.runInNewContext(codes[name],{exports,require,document:{documentElement:{dataset:{}}},window:{matchMedia:()=>({matches:false})}});
@@ -62,41 +63,22 @@ test('prefilled preferences show no repeated questions and full editing remains 
   assert.ok(byClass(ui.render({remainingOnly:false}),'compat-question-workspace'));
 });
 
-test('partial Beena asks only the missing side and retains optional importance and story',()=>{
-  const value=beena();delete value.answers[scenarios[0].id].partner;value.story={scenarioId:scenarios[0].id,text:'قصة محفوظة',share:false};
-  const ui=mount('BeenaFields',{value,registration:true,remainingOnly:true});let tree=ui.render();
-  assert.equal(text(nodes(tree).find(node=>node.type==='h3')),'أي التصرفات ترتاح إليها من شريكك؟');
-  assert.equal(nodes(byClass(tree,'bn-perspectives')).filter(node=>node.type==='button').length,1);
-  nodes(byClass(tree,'bn-options')).find(node=>node.type==='button').props.onClick();tree=ui.render();
-  byClass(tree,'bn-next').props.onClick();tree=ui.render();
-  assert.equal(byClass(tree,'bn-scene'),undefined);
-  assert.ok(byClass(tree,'bn-completion'));
-  assert.equal(ui.props.value.answers[scenarios[0].id].importance,2);
-  assert.equal(ui.props.value.story.text,'قصة محفوظة');
-  assert.ok(text(tree).includes('أهمية المواقف لك'));
-  assert.ok(text(tree).includes('أضف موقفًا بكلماتك'));
-});
-
-test('Beena defaults partner acceptance to the self choice but preserves manual edits',()=>{
-  const ui=mount('BeenaFields',{value:{version:'beena-v1',answers:{}},registration:true,remainingOnly:true});let tree=ui.render();
-  nodes(byClass(tree,'bn-options')).find(node=>node.type==='button').props.onClick();tree=ui.render();
-  assert.equal(ui.props.value.answers[scenarios[0].id].self,'A');
-  assert.equal(Array.from(ui.props.value.answers[scenarios[0].id].partner).join(','),'A');
-  assert.ok(text(tree).includes('مقترح'));
-  assert.ok(text(byClass(tree,'bn-next')).includes('السؤال التالي'));
-  nodes(byClass(tree,'bn-perspectives')).filter(node=>node.type==='button')[1].props.onClick();tree=ui.render();
-  assert.ok(text(tree).includes('بدأنا بتصرفك كخيار مقبول'));
-  nodes(byClass(tree,'bn-options')).filter(node=>node.type==='button')[1].props.onClick();tree=ui.render();
-  nodes(byClass(tree,'bn-perspectives')).filter(node=>node.type==='button')[0].props.onClick();tree=ui.render();
-  nodes(byClass(tree,'bn-options')).filter(node=>node.type==='button')[1].props.onClick();ui.render();
-  assert.equal(ui.props.value.answers[scenarios[0].id].self,'B');
-  assert.equal(Array.from(ui.props.value.answers[scenarios[0].id].partner).join(','),'A,B');
-});
-
-test('completed Beena hides the question deck, and skipped remainder can be resumed',()=>{
-  const complete=mount('BeenaFields',{value:beena(),remainingOnly:true});assert.equal(byClass(complete.render(),'bn-scene'),undefined);
-  const value=beena();delete value.answers[scenarios[5].id].self;const ui=mount('BeenaFields',{value,remainingOnly:true});let tree=ui.render();
-  byClass(tree,'bn-skip').props.onClick();tree=ui.render();assert.equal(byClass(tree,'bn-scene'),undefined);
-  nodes(tree).find(node=>node.type==='button'&&text(node).includes('إكمال المتبقي')).props.onClick();tree=ui.render();
-  assert.ok(byClass(tree,'bn-scene'));assert.equal(text(nodes(tree).find(node=>node.type==='h3')),'ما التصرف الأقرب لك؟');
+test('Beena is optional Q&A with no third-score or scenario workflow',()=>{
+ const value=beena(),original=JSON.stringify(value);
+ const ui=mount('BeenaFields',{value});let tree=ui.render();
+ assert.equal(byClass(tree,'bn-scene'),undefined);
+ assert.equal(byClass(tree,'bn-progress'),undefined);
+ assert.equal(byClass(tree,'bn-modes'),undefined);
+ const input=nodes(tree).find(node=>node.type==='textarea');
+ input.props.onChange({target:{value:'نتعاون حسب الوقت المتاح لكل طرف.'}});tree=ui.render();
+ assert.equal(ui.props.value.story.share,false);
+ assert.equal(ui.props.value.story.text,'نتعاون حسب الوقت المتاح لكل طرف.');
+ assert.equal(JSON.stringify(ui.props.value.answers),JSON.stringify(value.answers));
+ assert.equal(JSON.stringify(value),original,'old private answers remain unchanged');
+ const share=nodes(tree).find(node=>node.type==='input'&&node.props.type==='checkbox');
+ share.props.onChange({target:{checked:true}});tree=ui.render();
+ assert.equal(ui.props.value.story.share,true);
+ nodes(tree).find(node=>node.type==='button'&&text(node).includes('حذف الإجابة')).props.onClick();ui.render();
+ assert.equal(ui.props.value.story,undefined);
+ assert.equal(JSON.stringify(ui.props.value.answers),JSON.stringify(value.answers));
 });

@@ -7,3 +7,25 @@
 .phone-app .nf-next-step button { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; padding: 8px 0 0; background: transparent; border: 0; color: var(--accent-fill); font: inherit; font-size: 12px; font-weight: 650; text-align: start; }
 .nf-next-step button:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 4px; border-radius: 5px; }
 @media (max-width: 360px) { .phone-app .nf-next-step { padding: 14px 12px; gap: 10px; } .nf-next-step-icon { width: 30px; flex-basis: 30px; } }
+
+.phone-app .df-next-step { margin-block: 0 8px; }
+.phone-app .df-next-step-action {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 76%, var(--blush));
+  color: var(--accent-fill);
+  font: inherit;
+  text-align: start;
+}
+.df-next-step-action:active { background: var(--blush); }
+.df-next-step-action:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.df-next-step-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--blush); }
+.df-next-step-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; font-weight: 650; }
+.df-next-step-chevron { color: var(--muted); }

@@ -35,13 +35,6 @@
 .phone-app .cm-shell .cm-applied button { min-height: 40px; border-color: #d8d4d1; border-radius: 10px; background: #fff; color: #716b70; padding-inline: 14px; font-size: 13px; }
 .phone-app .cm-shell .df-interest-filters button[aria-pressed="true"] { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .cm-shell .cm-awareness { background: transparent; border: 0; border-radius: 0; padding: 0; margin: 0 0 14px; font-size: 12px; color: #716b70; line-height: 1.8; }
-.phone-app .cm-shell .df-discovery > .nf-next-step { align-items: center; border: 0; border-inline-start: 2px solid #54152a; border-radius: 0; background: #eeece8; box-shadow: none; padding: 8px 12px; margin: 0 0 14px; gap: 10px; }
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-icon { flex: 0 0 22px; width: 22px; height: 28px; border: 0; border-radius: 0; background: transparent; color: #54152a; }
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy { display: flex; align-items: center; gap: 12px; }
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-eyebrow,
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy p { display: none; }
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy h2 { flex: 1; font-size: 14px; color: #242326; line-height: 1.7; }
-.phone-app .cm-shell .df-discovery > .nf-next-step .nf-next-step-copy button { flex: none; min-height: 44px; padding: 5px 0; gap: 5px; border: 0; background: transparent; color: #54152a; font-size: 12px; white-space: nowrap; }
 .phone-app .cm-shell .df-beena-invite { padding: 16px 0; margin-block: 0 21px; border: 0; border-block: 1px solid #e5e2de; border-radius: 0; background: transparent; box-shadow: none; color: #54152a; }
 .phone-app .cm-shell .df-beena-invite strong { color: #242326; font-size: 15px; }
 .phone-app .cm-shell .df-beena-invite small { color: #716b70; font-size: 13px; line-height: 1.8; }

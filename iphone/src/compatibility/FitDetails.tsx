@@ -4,7 +4,6 @@ import { dimensions, preferencePercentage, personalityPercentage, type MatchFit 
 export { preferencePercentage, personalityPercentage } from "./model";
 import { PersonalityAnalysis } from "./PersonalityAnalysis";
 import { PreferenceInsights } from "./PreferenceInsights";
-import { BeenaSummary } from "../beena/BeenaSummary";
 import "./fit.css";
 
 const arabic = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
@@ -13,8 +12,7 @@ const topic = (id: string) => dimensions.find(dimension => dimension.id === id);
 export function suggestedQuestions(fit?: MatchFit) {
   const ids = fit && ["marriage-v1", "marriage-v2"].includes(fit.version) ? [...fit.discussion, ...fit.missing, ...fit.strengths] : [];
   const questions = ids.map(id => topic(id)?.discussion).filter((value): value is string => Boolean(value));
-  const situations = fit?.beena?.version === 'beena-v1' ? [...fit.beena.prompts].sort((a, b) => Number(b.kind === 'discussion') - Number(a.kind === 'discussion')).map(item => item.prompt) : [];
-  return [...new Set([...situations, ...questions, "كيف تتصور توزيع المسؤوليات في بيتنا؟", "عند الاختلاف، ما الذي يساعدك على العودة للحوار؟"])].slice(0, 3);
+  return [...new Set([...questions, "كيف تتصور توزيع المسؤوليات في بيتنا؟", "عند الاختلاف، ما الذي يساعدك على العودة للحوار؟"])].slice(0, 3);
 }
 
 export function FitDetails({ fit }: { fit: MatchFit }) {
@@ -65,7 +63,6 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
     </div>
     <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>
     <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>
-    <BeenaSummary fit={fit.beena}/>
     <section className="nf-fit-conversation"><h3>سؤال لبداية أوضح</h3><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></section>
     <p className="nf-fit-boundary">قراءات مستقلة من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نسبة عند اكتمال تقييمها لدى الطرفين.</p>
   </section>;

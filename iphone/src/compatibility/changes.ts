@@ -15,7 +15,8 @@ export type CompatibilityChange = {
 const labels: Record<CompatibilityScoreKey, string> = {
   preferences: 'توافق التفضيلات', personality: 'انسجام الشخصية', beena: 'توافق بيننا',
 };
-const order = ['preferences', 'personality', 'beena'] as const;
+// Ignore legacy Beena snapshots when building member-visible score notices.
+const order: readonly CompatibilityScoreKey[] = ['preferences', 'personality'];
 
 /** Keep only complete, authorized derived results, with a deterministic order. */
 export function compatibilitySnapshot(fit?: MatchFit | null): CompatibilitySnapshot | null {
@@ -42,16 +43,6 @@ export function compatibilitySnapshot(fit?: MatchFit | null): CompatibilitySnaps
         ...(['same', 'near', 'different', 'far', 'opposite'] as const).map(key => [key, analysis.distribution[key]] as [string, number]),
       ] : [],
     };
-  }
-  const beena = fit.beena;
-  if (beena?.version === 'beena-v1' && beena.complete && beena.total === beenaScenarios.length && beena.covered === beena.total
-    && typeof beena.percentage === 'number' && Number.isFinite(beena.percentage) && beena.percentage >= 0 && beena.percentage <= 100
-    && Array.isArray(beena.aligned) && Array.isArray(beena.discussion)) {
-    const outcomes = [...beena.aligned, ...beena.discussion];
-    if (outcomes.length === beena.total && new Set(outcomes).size === beena.total && outcomes.every(id => beenaScenarios.some(scenario => scenario.id === id))) {
-      sections.beena = { score: Math.round(beena.percentage), method: beena.version,
-        topics: beenaScenarios.map(scenario => [scenario.id, beena.aligned.includes(scenario.id) ? 'aligned' : 'discussion']), metrics: [] };
-    }
   }
   return Object.keys(sections).length ? { key: JSON.stringify(sections), sections } : null;
 }

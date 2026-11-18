@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer, transformWithEsbuild } from 'vite';
 import preferences from '../src/compatibility/catalog.json' with { type: 'json' };
 import personality from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import scenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 import { initialInterviewDocument } from '../api/_lib/interview.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,6 +28,7 @@ const fixture = `
   import '/src/design.css';
   import '/src/flows.css';
   import '/src/screens.css';
+  import '/src/accessibility.css';
   initializeDevicePreferences();
   window.applied = [];
   function Fixture() {
@@ -158,10 +160,13 @@ try {
   const url = 'http://127.0.0.1:5297/__interview-hybrid';
   const dialog = page.locator('.wi-dialog');
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  assert.equal(await page.locator('#wi-answer').getAttribute('maxlength'), '900');
+  assert.match(await page.locator('#wi-answer-count').innerText(), /٩٠٠/);
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name: 'إرسال الرسالة', exact: true }).click();
   const card = page.locator('.wi-hybrid-card');
-  assert.equal(await card.count(), 0);
+  await card.waitFor();
+  assert.equal(calls.some(call=>['structuredConfirm','directConfirm'].includes(call.action)),false);
   releaseOpening();
   await card.waitFor();
   const self = card.locator('fieldset').first();
@@ -211,6 +216,14 @@ try {
     assert.equal(await card.evaluate(element => element.scrollWidth > element.clientWidth), false);
     await page.screenshot({ path: resolve(output, `cards-${width}.png`) });
   }
+  await page.setViewportSize({width:375,height:667});
+  await page.emulateMedia({colorScheme:'dark'});
+  await page.evaluate(()=>document.documentElement.style.setProperty('--nf-system-text','32px'));
+  assert.equal(await card.evaluate(el=>el.scrollWidth > el.clientWidth), false);
+  assert.equal(await dialog.evaluate(el=>el.scrollWidth > el.clientWidth), false);
+  await page.screenshot({path:resolve(output,'luna-dark-large-375.png')});
+  await page.evaluate(()=>document.documentElement.style.removeProperty('--nf-system-text'));
+  await page.emulateMedia({colorScheme:'light'});
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.wi-hybrid').waitFor();
@@ -269,6 +282,12 @@ try {
   await portrait.locator(':scope > summary').click();
   await portrait.getByText('حياتكم اليومية', { exact: true }).click();
   assert.equal(await personalityAnswer.inputValue(), 'C');
+  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:44}};
+  snapshot.document.currentQuestion.text = scenarios[0].clarification;
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.locator('#wi-answer').waitFor();
+  assert.equal(await page.locator('#wi-answer').getAttribute('maxlength'),'700');
+  assert.match(await page.locator('#wi-answer-count').innerText(),/٧٠٠/);
   const guidedChoices = calls.find(call => call.action === 'structuredConfirm').choices;
   draft = Object.fromEntries(guidedChoices.map(({ id, values }) => [id, values]));
   delete draft[firstId];

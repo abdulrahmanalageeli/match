@@ -5,7 +5,8 @@ import { Chat } from '../../src/community/Community';
 import { demoCommunity, type CommunitySource, type Message, type Connection } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
 import '../../src/design.css';import '../../src/flows.css';import '../../src/screens.css';import '../../src/motion.css';
-import '../../src/mobile/keyboard.css';import '../../src/community/arrivalChat.css';import '../../src/arrivalSurfaces.css';import '../../src/typography.css';
+import '../../src/mobile/keyboard.css';import '../../src/community/arrivalDiscovery.css';import '../../src/community/arrivalChat.css';import '../../src/arrivalSurfaces.css';import '../../src/typography.css';
+import '../../src/accessibility.css';
 import { initializeDevicePreferences } from '../../src/settings/preferences';
 
 const params = new URLSearchParams(location.search), actor = params.get('actor') === 'abdulrahman' ? 'abdulrahman' : 'reham';
@@ -28,7 +29,16 @@ window.addEventListener('storage',event=>{if(event.key===key)listeners.forEach(f
 const asMessage = (row:Row):Message => {const {sender,media:_,...message}=row;return {...message,senderIsMe:sender===actor};};
 const imageUrl = async (path:string) => URL.createObjectURL(await (await fetch(path)).blob());
 const base = demoCommunity(()=>testProfile(actor),false);
+let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,
+ ...(params.has('interrupt') ? {
+   demoAcceptOutgoing: undefined,
+   profileVisible: async () => {
+     const response = await fetch('/__qa/profile');
+     if (!response.ok) throw Object.assign(new Error('تعذّر التحقق'), {status:response.status});
+     return response.json();
+   }
+ } : {}),
  watch:fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},
  callPermission:async()=>permission,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
@@ -37,7 +47,7 @@ const source:CommunitySource = {...base,
  progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>({status:params.has('renew')?'expired':'accepted',actor,days:14,womanSignedAt:time(10),manSignedAt:time(9),deadline:new Date(Date.now()+14*86400000).toISOString()}),
  thread:async()=>read().map(asMessage),
  markRead:async()=>{},unreadCount:async()=>0,
- send:async(_room,body,clientId,replyToId)=>{await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),original=rows.find(row=>row.id===replyToId);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(original?{reply:{id:original.id,body:original.deletedAt?'تم حذف هذه الرسالة':original.body,senderIsMe:original.sender===actor}}:{})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
+ send:async(_room,body,clientId,replyToId)=>{if(failNextSend){failNextSend=false;throw Error('تعذّر إرسال الرسالة.');}await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),original=rows.find(row=>row.id===replyToId);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(original?{reply:{id:original.id,body:original.deletedAt?'تم حذف هذه الرسالة':original.body,senderIsMe:original.sender===actor}}:{})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
  async mediaUrl(_room,id){const row=read().find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.attachment?.viewOnce)throw Error('الصورة غير متاحة.');return imageUrl(row.media);},
  async openMedia(_room,id){const rows=read(),row=rows.find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.sender===actor||row.attachment?.openedAt)throw Error('تم فتح هذه الصورة بالفعل.');if(row.attachment?.viewOnce){row.attachment.openedAt=new Date().toISOString();write(rows);}return imageUrl(row.media);},
  async deleteMessage(_room,id){const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.sender!==actor)throw Error('يمكنك حذف رسائلك فقط.');row.deletedAt=new Date().toISOString();row.body='تم حذف هذه الرسالة';row.attachment=null;delete row.media;row.reply=null;for(const other of rows)if(other.reply?.id===id)other.reply={...other.reply,body:'تم حذف هذه الرسالة',deletedAt:row.deletedAt};write(rows);},

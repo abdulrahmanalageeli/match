@@ -9,7 +9,7 @@ const code=ts.transpileModule(await readFile(new URL('../src/billing.ts',import.
 function bridge({native=true,wrongProduct=false,eligible=true,account='account-uuid',offerError=false}={}) {
   const calls=[],exports={};
   let productId;
-  const plugin={offer:async options=>{productId=options.productId;calls.push(['offer',options]);return {price:'localized Apple price',currency:'SAR',appleEligible:true,signedAppTransaction:'apple-app-jws',productId:wrongProduct?'legacy':options.productId};},purchase:async options=>{calls.push(['purchase',options]);return {jws:'signed'};}};
+  const plugin={offer:async options=>{productId=options.productId;calls.push(['offer',options]);return {price:'localized Apple price',currency:'SAR',period:'شهر',introduction:'أسبوع مجاني',appleEligible:true,signedAppTransaction:'apple-app-jws',productId:wrongProduct?'legacy':options.productId};},purchase:async options=>{calls.push(['purchase',options]);return {jws:'signed'};}};
   const cloud={functions:{invoke:async(name,{body})=>{calls.push(['authorize',body]);return {error:offerError,data:{productId,eligible,accountToken:account,eligibilityJws:'server-jws'}};}}};
   vm.runInNewContext(code,{exports,require:name=>name==='@capacitor/core'?{Capacitor:{isNativePlatform:()=>native,getPlatform:()=>native?'ios':'web'},registerPlugin:()=>plugin}:name==='./cloud'?{cloud}:pricing});
   return {api:exports,calls};

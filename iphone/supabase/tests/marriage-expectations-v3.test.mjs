@@ -4,7 +4,7 @@ import {
 } from "../../src/compatibility/model.ts";
 import { reciprocalTopicAgreement } from "../../src/compatibility/preference-evidence.ts";
 import personality from "../../src/compatibility/personality-catalog.json" with { type: "json" };
-import { createDatabase, addUser } from "./harness.mjs";
+import { createDatabase, addUser, asMember } from "./harness.mjs";
 import { seedCommunicationMember } from "./communication-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -206,6 +206,7 @@ async function seed(db, p) {
         p.marriageBasics.prayerPractice ?? null,
       ],
     );
+  return u.sessionId;
 }
 const revised = [
   69,
@@ -261,12 +262,17 @@ test("the audit pairs run through the historical and current database and the cu
             [version],
           )
         ).rows[0].catalog;
-        if (v3) assert.deepEqual(catalog.dimensions, dimensions);
         const a = profile("man", catalog.dimensions, version),
           b = profile("woman", catalog.dimensions, version);
         change(a, b, v3);
-        await seed(db, a);
+        const sessionId = await seed(db, a);
         await seed(db, b);
+        if (v3 && index === 0) {
+          const current = (await asMember(db, a.id, sessionId, member => member.query("select public.marriage_catalog()->'assessment' as catalog"))).rows[0].catalog;
+          assert.deepEqual(current.dimensions, dimensions);
+          const scoredFields = ({ selfPrompt, partnerPrompt, discussion, ...dimension }) => dimension;
+          assert.deepEqual(catalog.dimensions.map(scoredFields), dimensions.map(scoredFields));
+        }
         const {
           rows: [row],
         } = await db.query(

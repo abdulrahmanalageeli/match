@@ -5,6 +5,7 @@ import {MemberBadge} from '../membership/MemberBadge';
 import {MembershipEntry} from '../membership/MembershipEntry';
 import {shuffleWithVisibility} from './visibilityOrder';
 import {useMembershipAccess} from '../membership/access';
+import memberAr from '../member-copy.ts';
 import { languageOptions } from "../compatibility/marriage";
 import { ScoreTile } from '../compatibility/ScoreTile';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
@@ -34,7 +35,7 @@ import { journeyNext } from './journeyNext';
 import { NextStep } from './NextStep';
 import type { NextStepState } from './nextStepModel';
 import { readBrowseMemory, saveBrowseMemory } from './discoveryMemory';
-import { recommendationReason } from './recommendationReason';
+import { decisionContext } from '../profile/decisionContext';
 import { canRetryRead } from './readRecovery';
 import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
@@ -166,7 +167,7 @@ const dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
 const emptyFilters: Filters = {};
 const filterHeightOptions = numericOptions(120, 230, 'سم');
 const filterWeightOptions = numericOptions(35, 250, 'كجم');
-const reportCategories = ['إساءة أو ضغط غير مرغوب', 'انتحال أو معلومات مضللة', 'طلب أموال أو احتيال', 'انتهاك الخصوصية', 'محتوى غير مناسب', 'سبب آخر'];
+const reportCategories = ['تهديد فوري للسلامة', 'إساءة أو ضغط غير مرغوب', 'انتحال أو معلومات مضللة', 'طلب أموال أو احتيال', 'انتهاك الخصوصية', 'محتوى غير مناسب', 'سبب آخر'];
 const practicalQuestions = [
   ['السكن والمدينة', 'أين تتصور أن نستقر، وهل سيكون السكن مستقلًا؟ وما حدود المرونة في الانتقال؟'],
   ['تكاليف الزواج والمال', 'كيف نناقش المهر وتكاليف الزواج والميزانية بما يناسب ظروفنا، دون ضغط على أي منا؟'],
@@ -183,7 +184,7 @@ function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
 function RequestWaiting({ connection }: { connection: Connection }) {
   const sentDate = connection.createdAt && messageDay(connection.createdAt);
   const expiryDate = connection.expiresAt && messageDay(connection.expiresAt);
-  return <div className="cm-request-waiting"><strong>{connection.direction === 'outgoing' ? 'الخطوة التالية لدى الطرف الآخر' : 'هذه دعوة للتعارف، والقرار لك'}</strong>{sentDate && <p>أُرسل الطلب في <time dateTime={connection.createdAt}>{sentDate}</time>.</p>}{expiryDate && <p>تنتهي مهلة الرد في <time dateTime={connection.expiresAt}>{expiryDate}، {time.format(new Date(connection.expiresAt!))}</time>. بعدها ينتقل الطلب إلى السجل المغلق.</p>}<p>{connection.direction === 'outgoing' ? 'يظهر الرد في الإشعارات داخل التطبيق. تأخر الرد وحده لا يوضح سبب الانتظار، ويمكنك سحب طلبك متى شئت.' : 'يمكنك قراءة الملف ثم القبول أو الاعتذار. قبول الطلب يفتح المحادثة، ولا يعني الالتزام الحصري.'}</p><small>تنبيهات الويب تظهر أثناء فتحه؛ إشعارات iPhone تعتمد على تفعيل الخدمة وإذن جهازك.</small></div>;
+  return <div className="cm-request-waiting"><strong>{connection.direction === 'outgoing' ? 'الخطوة التالية لدى الطرف الآخر' : 'هذه دعوة للتعارف، والقرار لك'}</strong>{sentDate && <p>أُرسل الطلب في <time dateTime={connection.createdAt}>{sentDate}</time>.</p>}{expiryDate && <p>تنتهي مهلة الرد في <time dateTime={connection.expiresAt}>{expiryDate}، {time.format(new Date(connection.expiresAt!))}</time>. بعدها ينتقل الطلب إلى السجل المغلق.</p>}<p>{connection.direction === 'outgoing' ? 'يظهر الرد في الإشعارات داخل التطبيق. تأخر الرد وحده لا يوضح سبب الانتظار، ويمكنك سحب طلبك متى شئت.' : 'يمكنك قراءة الملف ثم القبول أو الاعتذار. بعد قبول الطلب، تبدأ المراسلة عند الموافقة على شروط التعارف ومدته.'}</p><small>تنبيهات الويب تظهر أثناء فتحه؛ إشعارات iPhone تعتمد على تفعيل الخدمة وإذن جهازك.</small></div>;
 }
 
 function messageDay(createdAt: string) {
@@ -454,16 +455,18 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   const avatar = person.publicAvatar;
   const candidatePhoto = !avatar && person.demoPhoto?.startsWith("/demo/portraits/") ? person.demoPhoto : undefined;
   const photo = candidatePhoto && candidatePhoto !== failedPhotoSrc ? candidatePhoto : undefined;
+  const timeline = person.marriageBasics?.marriageTimeline;
   return <>
-    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
+    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
       alt="" onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
-    <div className="df-portrait-shade" aria-hidden="true" /><span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
-    {!person.isDemo && <div className="df-portrait-badges">
-      <span className="df-photo-label">{person.portrait ? person.portrait.blur > 0 ? "صورة مع تمويه اختياري" : "صورة شخصية" : avatar ? "صورة رمزية" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>
-    </div>}
-    <div className="df-portrait-identity"><span className="df-intention"><Heart size={12} />{person.marriageIntent || "تعارف بقصد الزواج"}</span>
+    <div className="df-portrait-shade" aria-hidden="true" />
+    <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
+    <div className="df-portrait-badges">
+      {(!person.portrait||person.isDemo)&&!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
+    </div>
+    <div className="df-portrait-identity">{timeline && <span className="df-intention"><Clock3 size={12} />توقيت الزواج · {marriageTimelineLabels[timeline]}</span>}
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={14} />{person.city}</span>}
         {person.occupation && <span><BriefcaseBusiness size={14} />{person.occupation}</span>}</div>
@@ -475,6 +478,7 @@ function PersonCard({
   person,
   source,
   open,
+  explain,
   priority = false,
   compact = false,
   index = 0,
@@ -483,11 +487,13 @@ function PersonCard({
   person: PublicPerson;
   source: CommunitySource;
   open: (button: HTMLButtonElement) => void;
+  explain: () => void;
   priority?: boolean;
 }) {
-  const {premium,connectionLimit}=useMembershipAccess();
-  const percentage = premium?compatibilityPercentage(person):person.recommendationPercentage??compatibilityPercentage(person);
-  return (
+  const {premium}=useMembershipAccess();
+  const {personalLine, context} = decisionContext(person);
+  const descriptionId = useId();
+  return <div className="df-recommendation">
     <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
       data-membership={person.membershipTier}
@@ -495,24 +501,22 @@ function PersonCard({
       onClick={event => open(event.currentTarget)}
       data-weekly-person={person.id}
       aria-label={`عرض ملف ${person.alias}`}
+      aria-describedby={descriptionId}
     >
       <div className="cm-person-top cm-weekly-identity df-card-portrait">
         <DiscoveryPortrait person={person} source={source} priority={priority} />
       </div>
-      <div className="df-card-copy">
+      <div className="df-card-copy" id={descriptionId}>
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
-      {person.bio && <p className="cm-person-bio" dir="auto">{person.bio}</p>}
-      <div className="df-card-fit-summary">
-      <div className="df-card-compatibility">
-        {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={percentage} variant="logo"/>}
-      </div>
-      {premium && !compact && <p className="df-card-reason"><Sparkles size={13} aria-hidden="true"/><span>{recommendationReason(person.fit)}</span></p>}
-      </div>
-      <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ") || "تعارف بقصد الزواج"}</span>
+      {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
+      {context && <p className="df-card-reason">{context}</p>}
+      <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
       </div>
     </MotionPressButton>
-  );
+    {!premium && person.recommendationPercentage != null && <ScoreTile percentage={person.recommendationPercentage} variant="logo"/>}
+    {premium && person.fit && !person.compatibilityLocked && <button type="button" className="df-read-fit" onClick={explain} aria-label={`قراءة التوافق مع ${person.alias}`}>قراءة التوافق <ChevronLeft size={14}/></button>}
+  </div>;
 }
 
 function MembershipRowSpark() {
@@ -548,6 +552,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const preference=premium?compatibilityPercentage(person):null;
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
+  const {personalLine, context} = decisionContext(person);
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" data-membership={person.membershipTier} aria-label={`ملف ${person.alias}`}>
@@ -566,7 +571,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
             {!sampleOnly && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
               <Heart size={14} aria-hidden="true" fill={person.interested?'currentColor':'none'}/>
-              {person.interested?'مهتم':'اهتمام'}
+              {person.interested?memberAr.removeInterest:memberAr.showInterest}
             </button>}
           </span>
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
@@ -578,10 +583,13 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
     </div>
 
     <div className="dr-row-detail">
-      {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
+      <div className="dr-decision-copy">
+        {personalLine&&<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)}>{personalLine}</button>}
+        {context&&<p className="df-card-reason">{context}</p>}
+      </div>
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
           <span>{premium?"إضافة":"ترقية العضوية"}</span>
@@ -828,7 +836,7 @@ function Discovery({
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
     const origin = (anchor.closest('.dr-row-profile-group') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
-    listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.matches(":first-child") };
+    listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
     move(origin, () => {
       flushSync(() => { setNotice(""); setError(""); setRowError(''); setInterestNotice(''); setSelected(item.id); setSelectedPerson(item); });
       const hero = identity.current;
@@ -875,7 +883,7 @@ function Discovery({
       setBusy(false);
     }
   }
-  async function rowAction(item:PublicPerson,action:'interest'|'dismiss'|'report',reason?:string) {
+  async function rowAction(item:PublicPerson,action:'interest'|'dismiss'|'block'|'report',reason?:string) {
     if(actionPending.current)return;
     actionPending.current=true;setRowBusy(item.id);setRowError('');setInterestNotice('');
     try {
@@ -887,6 +895,7 @@ function Discovery({
         setInterestNotice(item.interested?'أُلغي اهتمامك.':'أُرسل إشعار باهتمامك.');
       } else {
         if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
+        else if(action==='block' && source.blockPerson) {await source.blockPerson(item.id);setHiddenNotice('تم حظر العضو.');}
         else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(true);}
         setList(rows=>rows.filter(row=>row.id!==item.id));
       }
@@ -895,12 +904,12 @@ function Discovery({
   }
   if (person)
     return (
-      <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
+      <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onBlock={source.blockPerson ? ()=>{closeProfile();void rowAction(person,"block");} : undefined} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         interestAction={source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? memberAr.openChat : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? memberAr.request : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
@@ -1043,6 +1052,7 @@ function Discovery({
             source={source}
             priority={index < 2} index={index}
             open={button => openProfile(item, button)}
+            explain={()=>setFitPerson(item)}
           />
         ))}
       </div>
@@ -1070,12 +1080,14 @@ function Discovery({
 }
 
 function SafetySheet({
+  evidence = false,
   action,
   apply,
   close,
   busy,
   error,
 }: {
+  evidence?: boolean;
   action: SafetyAction;
   apply: (reason: string) => void;
   close: () => void;
@@ -1087,13 +1099,14 @@ function SafetySheet({
   const reportReason = [category, reason.trim()].filter(Boolean).join('\n');
   return (
     <Sheet
-      title={action === "report" ? "إبلاغ عن عضو" : "حظر العضو"}
+      title={action === "report" ? memberAr.reportBlock : memberAr.block}
       onClose={close}
     >
       {action === "block" ? (
         <p>سيُغلق الطلب والمحادثة، ولن يظهر هذا العضو لك مجددًا.</p>
       ) : (
         <div className="cm-report-form">
+        {evidence && <p>يُحفظ نص الرسالة المحددة أو نوع المرفق لمدة ٣٠ يومًا. يمكن لمالك المنصة أو المشرف المكلّف بالبلاغ مراجعته.</p>}
         <p>اختر ما يصف المشكلة. يكفي اختيار السبب لإرسال البلاغ، ويمكنك إضافة تفاصيل تساعد على فهمه.</p>
         <label className="cm-report-label">سبب البلاغ
           <select value={category} onChange={event=>setCategory(event.target.value)} disabled={busy}>
@@ -1121,7 +1134,7 @@ function SafetySheet({
         disabled={busy || (action === "report" && !category)}
         onClick={() => apply(action === 'report' ? reportReason : '')}
       >
-        {action === "report" ? "إرسال البلاغ" : "تأكيد الحظر"}
+        {action === "report" ? memberAr.sendReportBlock : memberAr.block}
       </button>
     </Sheet>
   );
@@ -1224,20 +1237,20 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       <span className="nf-journey-eyebrow">خطوة بخطوة، باتفاقكما</span>
       <h3>{progress ? stages[progress.stage] : 'مسار واضح لكما'}</h3>
       <p>{progress?.exclusive ? 'اخترتما التركيز على بعضكما. الترشيحات الأخرى متوقفة ما دام التعارف حصريًا.' : 'للحديث وجهة: اتفقا على الوقت والخطوة التالية. كل انتقال يحدث بموافقتكما.'}</p>
-      {progress && <ol className="nf-journey-track" aria-label="مراحل التعارف">{['التعارف', 'النقاش الجاد', 'الخطوة العائلية'].map((label,index)=><li key={label} aria-current={index===progress.stage?'step':undefined} data-complete={index < progress.stage || undefined}><span aria-hidden="true">{index < progress.stage ? <Check size={12}/> : ar.format(index+1)}</span><small>{label}</small></li>)}</ol>}
+      {progress && <ol className="nf-journey-track" aria-label="مراحل التعارف">{stages.map((label,index)=><li key={label} aria-current={index===progress.stage?'step':undefined} data-complete={index < progress.stage || undefined}><span aria-hidden="true">{index < progress.stage ? <Check size={12}/> : ar.format(index+1)}</span><small>{label}</small></li>)}</ol>}
     </MotionReveal>
     {savedStep&&<SuccessNotice {...savedStep} close={()=>setSavedStep(null)}/>}
     {progress && <section className="nf-journey-next" aria-label="الخطوة القادمة">
       {!progress.exclusive && <>
         <h3>{progress.consentPeer && !progress.consentMine ? 'لديك طلب التزام حصري' : progress.consentMine ? 'اقتراحك بانتظار الموافقة' : 'عندما تختاران التركيز على بعضكما'}</h3>
         <p className="nf-journey-next-note">{progress.consentMine ? 'تبقى المرحلة الحالية كما هي حتى يوافق الطرف الآخر.' : progress.consentPeer ? 'راجع ما سيتغيّر قبل اتخاذ قرارك.' : 'اختيار الحصرية خطوة مستقلة عن الحديث الجاد حول الزواج.'}</p>
-        {!commitmentOpen ? <MotionPressButton className="btn-primary" disabled={busy} onClick={()=>setReviewCommitment(true)}>مراجعة الالتزام الحصري<ChevronLeft size={16}/></MotionPressButton> : <div className="nf-journey-consent">
-        <p>عند موافقتكما معًا، تُغلق جميع طلبات التعارف والمحادثات الأخرى لكليكما، وتُوقف الترشيحات والتواصل مع أشخاص جدد. يظهر بجانب اسميكما «تعارف حصري».</p>
+        {!commitmentOpen ? <MotionPressButton className="btn-primary" disabled={busy} onClick={()=>setReviewCommitment(true)}>{memberAr.reviewExclusive}<ChevronLeft size={16}/></MotionPressButton> : <div className="nf-journey-consent">
+        <p>{memberAr.exclusiveEffect}</p>
         <p>تبقى السجلات محفوظة. يمكنك إنهاء هذا التعارف في أي وقت؛ المحادثات المغلقة لا تُفتح تلقائيًا.</p>
         {otherConnections !== null && <details className="nf-journey-closure"><summary>ما سيُغلق في حسابك <span>{ar.format(otherConnections.length)}</span><ChevronLeft size={14}/></summary>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></details>}
-        {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>أفهم أن موافقتنا معًا تُغلق علاقات التعارف الأخرى، وأوافق على الالتزام الحصري.</span></label>}
+        {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>{memberAr.exclusiveConsent}</span></label>}
         <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستفعّل الالتزام وتغلق التعارف الآخر.' : 'لن تُغلق أي محادثة قبل موافقتكما معًا.'}</p>
-        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void act(false)}>{progress.consentMine ? 'سحب طلب الالتزام' : progress.consentPeer ? 'أوافق وأفعّل الالتزام الحصري' : 'اقتراح الالتزام الحصري'}</MotionPressButton>
+        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void act(false)}>{progress.consentMine ? memberAr.withdrawExclusive : progress.consentPeer ? memberAr.acceptExclusive : memberAr.proposeExclusive}</MotionPressButton>
          {source.journeyChoice&&progress.consentPeer&&!progress.consentMine&&<button type="button" className="btn-text" disabled={busy} onClick={()=>void decide('exclusive','clear')}>رفض طلب الحصرية</button>}
         {!progress.consentMine&&!progress.consentPeer&&<button type="button" className="btn-text" disabled={busy} onClick={()=>{setReviewCommitment(false);setExclusiveConsent(false);}}>ليس الآن</button>}
         </div>}
@@ -1248,7 +1261,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       {(source.journeyChoice || progress.exclusive) && progress.stage < 2 && <>
         <h3>{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
         <p className="nf-journey-next-note">{progress.mine ? "تنتقلان للخطوة التالية بعد موافقة الطرف الآخر." : progress.peer ? "راجع الخطوة ووافق عندما تكون مستعدًا." : "يصل اقتراحك للطرف الآخر؛ لا تتغيّر المرحلة إلا باتفاقكما."}</p>
-        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void act(false)}>{progress.mine ? "سحب طلبي" : (progress.peer ? "الموافقة على: " : "اقتراح: ") + stages[progress.stage + 1]}</MotionPressButton>
+        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void act(false)}>{(progress.mine ? memberAr.withdrawStage : progress.peer ? memberAr.acceptStage : memberAr.proposeStage)[progress.stage + 1]}</MotionPressButton>
         {source.journeyChoice && progress.peer && !progress.mine && <button className="btn-text" disabled={busy} onClick={()=>void decide('step','clear',progress.stage+1)}>ليس الآن</button>}
       </>}
     </section>}
@@ -1256,8 +1269,8 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     {openFamily&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={openFamily}><UsersRound size={19}/><span><strong>جسر الأهل</strong><small>راجعا الموافقات أولًا؛ لا تُرسل دعوة تلقائيًا.</small></span><ChevronLeft size={15}/></MotionPressButton>}
     {progress && progress.stage > 0 && source.rewindStep && <details className="nf-journey-option" open={rewindConfirm || Boolean(progress.rewindPeer || progress.rewindMine)} data-pending={progress.rewindPeer || undefined}>
       <summary><RotateCcw size={18}/><span><strong>مساحة لخطوة أهدأ</strong><small>{progress.rewindPeer ? "اقتراح عودة · بانتظار موافقتك" : progress.rewindMine ? "اقتراحك بانتظار الطرف الآخر" : "العودة مرحلة واحدة باتفاقكما"}</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
-      {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{progress.stage === 1 ? "بعد موافقتكما يعود التعارف الأولي. يمكنكما إدارة الحصرية بشكل مستقل." : "تعودان إلى النقاش الجاد حول الزواج. تبقى المحادثة واتفاق الجدية والمدة محفوظة."}</p>}
-      {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>سحب اقتراح العودة</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{progress.rewindPeer ? "أوافق على العودة إلى: " : "إرسال اقتراح العودة إلى: "}{stages[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?"البقاء في المرحلة الحالية":"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>اقتراح خطوة إلى الوراء</button>}
+      {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{memberAr.rewindEffect[progress.stage - 1]}</p>}
+      {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>{memberAr.withdrawRewind}</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{(progress.rewindPeer ? memberAr.acceptRewind : memberAr.proposeRewind)[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?memberAr.keepStage:"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>{memberAr.rewind}</button>}
     </div></details>}
     {error && <><Banner alert text={error}/><button className="btn-text" onClick={() => setRetry(n => n+1)}>إعادة المحاولة</button></>}
     <details className="nf-journey-option"><summary><MessageCircle size={18}/><span><strong>أفكار تساعد الحوار</strong><small>من توافقكما ومن تفاصيل الحياة</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
@@ -1306,6 +1319,7 @@ export function Chat({
   const [ending, setEnding] = useState(false);
   const [endError, setEndError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<{id:string; submission:string} | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [messageActionAnchor, setMessageActionAnchor] = useState<HTMLElement | null>(null);
   const [reactionError, setReactionError] = useState('');
@@ -1341,6 +1355,7 @@ export function Chat({
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
     const saved = !status || status.status === 'saved';
     return { status, deleted,
+      canReport: Boolean(source.reportIncident) && !msg.senderIsMe && saved,
       canReply: canDraft && !deleted && saved,
       canReact: Boolean(source.reactToMessage) && canSend && !deleted && saved,
       canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
@@ -1348,14 +1363,14 @@ export function Chat({
   }
   const actionMessage = thread.rows.find(msg => msg.id === messageActionId);
   const actionPermissions = actionMessage ? messagePermissions(actionMessage) : null;
-  const hasMessageActions = Boolean(actionPermissions?.canReply || actionPermissions?.canDelete || actionPermissions?.canReact);
+  const hasMessageActions = Boolean(actionPermissions?.canReport || actionPermissions?.canReply || actionPermissions?.canDelete || actionPermissions?.canReact);
   useEffect(() => {
     if (messageActionId && (!hasMessageActions || privateHidden)) setMessageActionId(null);
   }, [messageActionId, hasMessageActions, privateHidden]);
 
   function openMessageActions(message: Message) {
     const permissions = messagePermissions(message);
-    if (!permissions.canReply && !permissions.canDelete && !permissions.canReact) return;
+    if (!permissions.canReport && !permissions.canReply && !permissions.canDelete && !permissions.canReact) return;
     const row = Array.from(log.current?.querySelectorAll<HTMLElement>('[data-server-id]') ?? [])
       .find(element => element.dataset.serverId === message.id);
     setMessageActionAnchor(row?.querySelector<HTMLElement>('.cm-bubble') ?? null);
@@ -1478,7 +1493,8 @@ export function Chat({
     setSafetyBusy(true);
     setSafetyError("");
     try {
-      await source.act(connection.id, safety, reason || undefined);
+      if (safety === 'report' && evidence && source.reportIncident) await source.reportIncident(connection.id,evidence.id,reason,evidence.submission);
+      else await source.act(connection.id, safety, reason || undefined);
       feedback('success');
       thread.outbox.clear();
       if (safety === 'report') onReported?.();
@@ -1561,14 +1577,14 @@ export function Chat({
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
-            const { status, deleted, canReply, canDelete, canReact } = messagePermissions(msg);
+            const { status, deleted, canReply, canDelete, canReact, canReport } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             const read = msg.readByPeer || Boolean(msg.readAt);
             return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
-              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReply && !canDelete && !canReact}
-                actionLabel="خيارات الرسالة" actionDescriptionId={messageActionHelp}
+              <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReport && !canReply && !canDelete && !canReact}
+                actionLabel={msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + connection.person.alias} actionDescriptionId={messageActionHelp}
                 onHold={() => openMessageActions(msg)}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
@@ -1579,8 +1595,8 @@ export function Chat({
                 <div className="cm-message-meta">
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
-                    <span aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
-                    status?.status !== "failed" && <span data-receipt={read ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
+                    <span role="img" aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
+                    status?.status !== "failed" && <span role="img" data-receipt={read ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
                       {read || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
                       <span className="cm-receipt-label">{read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
                 </div>
@@ -1590,7 +1606,7 @@ export function Chat({
                 open={() => openMessageActions(msg)} />}
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
-                <span>{status.error}</span><button disabled={!canSend} onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
+                <span>{status.error}</span><button disabled={!canSend} onClick={() => { composer.current?.focus({preventScroll:true}); thread.outbox.retry(status.clientId); }}><RotateCcw size={13} /> إعادة الإرسال</button>
               </div>}
             </div>;
           })}
@@ -1631,6 +1647,7 @@ export function Chat({
         onClose={() => setMessageActionId(null)}
         reactions={actionPermissions?.canReact ? <ReactionPicker reactions={actionMessage.reactions} pending={thread.pendingReactionIds.has(actionMessage.id)} choose={reaction => void chooseReaction(actionMessage, reaction)}/> : undefined}>
           <div className="cm-message-action-list">
+            {!actionMessage.senderIsMe && source.reportIncident && <MotionPressButton onClick={()=>{setMessageActionId(null);setEvidence({id:actionMessage.id,submission:crypto.randomUUID()});setSafetyError('');setSafety('report');}}>الإبلاغ عن هذه الرسالة</MotionPressButton>}
             {actionPermissions?.canReply && <MotionPressButton onClick={() => { flushSync(() => setMessageActionId(null)); chooseReply(actionMessage); }}><Reply size={19} aria-hidden="true"/><span>الرد على الرسالة</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
@@ -1653,8 +1670,8 @@ export function Chat({
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>
           {source.family&&<button onClick={() => { setToolsOpen(false); openFamily(); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
           <button onClick={() => { setToolsOpen(false); setPhotos(true); }}><LockKeyhole size={20}/><span><strong>الصور الخاصة</strong><small>إدارة الصور التي تختار مشاركتها</small></span><ChevronLeft size={16}/></button>
-          <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>إبلاغ</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
-          <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>حظر</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
+          <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>{memberAr.reportBlock}</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
+          <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>{memberAr.block}</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
         </div>
       </Sheet>}
       {endMatch && <Sheet title="إنهاء التعارف" onClose={() => { if (!ending) setEndMatch(false); }}>
@@ -1667,8 +1684,8 @@ export function Chat({
       </Sheet>}
       {photos && <PhotoSharing requestId={connection.id} name={connection.person.alias} demo={Boolean(source.demoAcceptOutgoing)} watch={source.watch} close={() => setPhotos(false)} />}
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
-      {safety && <SafetySheet action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
-        close={() => { if (!safetyBusy) { setSafety(null); setSafetyError(""); } }}/>}
+      {safety && <SafetySheet evidence={!!evidence} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
+        close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}
       {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
@@ -1972,12 +1989,12 @@ function Requests({
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
           <button className="btn-primary" data-chat-entry="" onClick={() => fromProfile(item.id, false)}>
-            <MessageCircle size={19} /> متابعة المحادثة <ArrowLeft className="mp-action-arrow" size={17}/>
+            <MessageCircle size={19} /> {memberAr.openChat} <ArrowLeft className="mp-action-arrow" size={17}/>
           </button>
         ) : item.direction === "incoming" ? (
           <>
             <p className="cm-help">
-              <LockKeyhole size={15} /> قبول الطلب يفتح محادثة خاصة بينكما.
+              <LockKeyhole size={15} /> بعد قبول الطلب، تبدأ المراسلة عند الموافقة على شروط التعارف ومدته.
             </p>
             <button
               className="btn-primary"
@@ -1985,14 +2002,14 @@ function Requests({
               disabled={busy}
               onClick={() => void act("accept")}
             >
-              <Check size={19} /> {busy?'جارٍ قبول الطلب…':'قبول طلب التعارف'}
+              <Check size={19} /> {busy?'جارٍ قبول الطلب…':memberAr.acceptRequest}
             </button>
             <button
               className="btn-text"
               disabled={busy}
               onClick={() => setConfirm("decline")}
             >
-              <CircleMinus size={16}/> الاعتذار عن الطلب
+              <CircleMinus size={16}/> {memberAr.declineRequest}
             </button>
           </>
         ) : (
@@ -2005,17 +2022,17 @@ function Requests({
               disabled={busy}
               onClick={() => {setAllowRematch(false);setConfirm("cancel");}}
             >
-              <RotateCcw size={16}/> سحب طلب التعارف
+              <RotateCcw size={16}/> {memberAr.cancelRequest}
             </button>
           </>
         )}
       </>}>
         <div className="cm-safety">
           <button disabled={busy} onClick={() => setConfirm("report")}>
-            <Flag size={15} /> إبلاغ
+            <Flag size={15} /> {memberAr.reportBlock}
           </button>
           <button disabled={busy} onClick={() => setConfirm("block")}>
-            <Ban size={15} /> حظر
+            <Ban size={15} /> {memberAr.block}
           </button>
         </div>
         {(confirm === "report" || confirm === "block") && (
@@ -2084,7 +2101,7 @@ function Requests({
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {!existing && <AddPersonMark/>}
-        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : premium ? 'إرسال طلب تعارف' : 'اشترك وابدأ التعارف'}
+        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? memberAr.openChat : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : premium ? memberAr.request : 'اشترك وابدأ التعارف'}
       </button>
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;
@@ -2181,8 +2198,8 @@ function Requests({
           }
           description={
             search ? "جرّب اسمًا آخر أو امسح البحث." : conversations && onlyUnread ? undefined : conversations || filter === "accepted"
-              ? "اختر ملفًا مناسبًا وأرسل طلب تعارف. بعد القبول المتبادل وإقرار الجدّية تبدأ المحادثة؛ إرسال الطلب لا يضمن الرد."
-              : "تظهر هنا طلبات التعارف المتعلقة بملفك."
+              ? "اختر ملفًا مناسبًا وأرسل طلب تعارف. تبدأ المراسلة بعد قبول الطلب والموافقة على شروط التعارف ومدته."
+              : memberAr.requestsEmpty
           }
           action={search ? <button className="btn-secondary" onClick={() => setQuery('')}>مسح البحث</button> :
             conversations && onlyUnread ? <button className="btn-secondary" onClick={() => setOnlyUnread(false)}>عرض كل المحادثات</button> :

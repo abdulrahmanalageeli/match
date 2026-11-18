@@ -1,9 +1,11 @@
+import memberAr from './member-copy.ts';
 import {MembershipAccess} from './membership/access';
 import { finalizeStagedPortrait, finalizePortraitStage, pendingPortraitStage } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
 import {membershipPriceLabel} from './membershipPricing';
+import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
@@ -232,7 +234,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
-          ? live?.demoDiscoveryEnabled
+          ? live?.demoDiscoveryEnabled && live.demoInteractionsEnabled
             ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current)
             : cloudCommunity(token, memberPendingSends(token))
           : null,
@@ -247,7 +249,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [price, setPrice] = useState<{gender:'man'|'woman';price:string;currency:string;trialEligible:boolean}|null>(null);
+  const [price, setPrice] = useState<{gender:'man'|'woman';price:string;currency:string;trialEligible:boolean;period:string;introduction?:string}|null>(null);
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
   const active = tier !== 'free';
@@ -289,6 +291,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => releaseChatSource(source);
   }, [source, memberAccess]);
   const accepted = live?.user.applicationStatus === "approved";
+  const canSyncBilling = accepted || Boolean(live?.user.profileReviewPending);
   const ios = isIOSBilling();
 
   function remember(t: string | null, draftCleared = false) {
@@ -514,7 +517,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     };
   }, [token, demo, source]);
   useEffect(() => {
-    if (!ios || !token || !accepted || demo) return;
+    if (!ios || !token || !canSyncBilling || demo) return;
     let disposed = false;
     const processing = new Set<string>();
     const pending = new Set<string>();
@@ -566,9 +569,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       document.removeEventListener('visibilitychange', resume);
       void cleanup.then((handle) => handle.remove()).catch(() => {});
     };
-  }, [token, accepted, demo, ios]);
+  }, [token, canSyncBilling, demo, ios]);
   useEffect(() => {
-    if (!ios || !accepted || demo || view!=='membership' || !live?.profile?.gender) return;
+    if (!ios || !canSyncBilling || demo || view!=='membership' || !live?.profile?.gender) return;
     let disposed = false;
     const gender=live.profile.gender;
     setPrice(null);
@@ -582,7 +585,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => {
       disposed = true;
     };
-  }, [ios, accepted, demo, view, live?.profile?.gender, token]);
+  }, [ios, canSyncBilling, demo, view, live?.profile?.gender, token]);
 
   function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
@@ -880,6 +883,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       trialEligible={price?.gender===live?.profile?.gender&&price?.trialEligible}
       demo={demo}
       price={demo ? membershipPriceLabel(sampleProfile.gender) : price?.gender===live?.profile?.gender ? price?.price??null : null}
+      pilotEligible={Boolean(!demo && live?.testingTrial?.eligible)} startPilot={()=>void run(async()=>{
+        const owner=tokenRef.current;
+        if(!owner)return;
+        await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
+        await refresh(owner);
+      })}
+      period={price?.gender===live?.profile?.gender?price?.period:undefined} introduction={price?.gender===live?.profile?.gender?price?.introduction:undefined} status={live?.membership.status}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -998,7 +1008,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           chatUnread={chatUnread} onAccount={openAccount} />}
       </Settings>
     );
-  else if (view === "membership" && active)
+  else if (view === "membership" && (active || accepted || live?.user.profileReviewPending))
     screen = membership(() => go(returnFromMembership));
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
     screen = (
@@ -1189,7 +1199,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         >
           <p>
             {confirm === "delete"
-              ? "سيُحذف حسابك وملفك. إذا كان لديك اشتراك لدى Apple فألغِه من إعدادات الاشتراكات."
+              ? memberAr.deleteWarning
               : confirm === "pass"
                 ? "سيُغلق هذا الترشيح بعد تأكيد اعتذارك."
                 : confirm === "block"
@@ -1228,7 +1238,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
             }
           >
             {confirm === "delete"
-              ? "حذف الحساب نهائيًا"
+              ? memberAr.deleteAccount
               : confirm === "report"
                 ? "إرسال البلاغ"
                 : "تأكيد"}

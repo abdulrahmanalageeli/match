@@ -37,7 +37,7 @@ test('isolated marriage database enforces role, consent, billing, matching and c
       assert.deepEqual(state.profile.surveyAnswers,{conversation_initiative_preference:'B'});
       await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
     }
-    assert.equal((await run(woman,()=>rpc('public.marriage_state()'))).membership.canStart,true);
+    assert.equal((await run(woman,()=>rpc('public.marriage_state()'))).membership.canStart,false);
     const receipt=(token,tx) =>({bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:token,
       originalTransactionId:'original-'+tx,transactionId:tx,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'});
     let manReceipt;

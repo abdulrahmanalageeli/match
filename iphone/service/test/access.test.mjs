@@ -98,13 +98,15 @@ test("paid access opens only for an available reciprocal pool and a purchase sur
   s.apply(b.id, { ...b.profile, city: "جدة" });
   s.approve(b.id);
   assert.equal(s.state(a.id).membership.canStart, false);
+  s.recordReceipt(receipt(b), b.id);
+  assert.equal(s.state(a.id).membership.canStart, false);
   s.apply(b.id, { ...b.profile, preferredMinAge: 40 });
   s.approve(b.id);
   assert.equal(s.state(a.id).membership.canStart, false);
   s.apply(b.id, b.profile);
   s.approve(b.id);
   assert.equal(s.state(a.id).membership.canStart, true);
-  assert.equal(s.state(b.id).membership.canStart, true);
+  assert.equal(s.state(b.id).membership.canStart, false);
   assert.equal(s.state(a.id).introduction, null);
   s.pause(b.id, true);
   assert.equal(s.state(a.id).membership.canStart, false);

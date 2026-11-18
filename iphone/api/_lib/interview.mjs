@@ -1,3 +1,4 @@
+import memberAr from '../../src/member-ar.json' with { type: 'json' };
 import OpenAI from 'openai';
 import { randomUUID } from 'node:crypto';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
@@ -152,7 +153,18 @@ export function initialInterviewDocument(required = false) {
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
 const LEGACY_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
 const REQUIRED_OPENING_QUESTION = 'وش أهم شيء تبحث عنه في حياتك مع شريكك؟ جملة واحدة تكفي.';
-const isOpeningQuestion = text => text === REQUIRED_OPENING_QUESTION || text === LEGACY_OPENING_QUESTION;
+const AUDIT_OPENING_QUESTION = 'وش يهمك نعرف عن حياتك اليوم وتطلعاتك للزواج؟ ممكن تذكر الصفات اللي تهمك في الطرف الآخر والتوقيت اللي يناسبك.';
+const isOpeningQuestion = text => [REQUIRED_OPENING_QUESTION, LEGACY_OPENING_QUESTION, AUDIT_OPENING_QUESTION].includes(text);
+const scenarioWordings = item => [item.text, item.clarification, ...item.priorWording];
+function nextOpeningQuestion(turns) {
+  const last = turns.at(-1);
+  const current = openingScenarios.find(item => item.text === last?.question);
+  if (current && !last.skipped && /^(?:على حسب|حسب الظروف|يعتمد|ما فهمت|وش تقصد(?:ين)?)[؟.!،\s]*$/u.test(last.answer.trim())) {
+    return { topic: current.topic, text: current.clarification, suggestions: [] };
+  }
+  const visited = new Set(turns.map(turn => turn.question));
+  return scenarioQuestion(openingScenarios.find(item => !scenarioWordings(item).some(text => visited.has(text))));
+}
 function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
 function scenarioQuestion(scenario) {
   return scenario ? { topic: scenario.topic, text: scenario.text, suggestions: scenario.suggestions } : null;
@@ -160,9 +172,14 @@ function scenarioQuestion(scenario) {
 function unfinishedOpeningScenario(document) {
   if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
   const turns = document.turns ?? [];
-  if (turns.length < 1 || turns.length > openingScenarios.length || !isOpeningQuestion(turns[0].question)) return null;
-  const visited = new Set(turns.map(turn => turn.question));
-  return scenarioQuestion(openingScenarios.find(item => ![item.text,item.previousText,item.legacyText,item.earlierText].some(text => visited.has(text))));
+  if (!isOpeningQuestion(turns[0]?.question) || turns.slice(1).some(turn => !openingScenarios.some(item => scenarioWordings(item).includes(turn.question)))) return null;
+  const expected = nextOpeningQuestion(turns);
+  const saved = document.currentQuestion;
+  const scenario = openingScenarios.find(item => item.text === expected?.text);
+  // An older client may already be answering the prior wording of this scenario.
+  if (scenario && scenario.priorWording.includes(saved?.text)) return saved;
+  if (document.draftAnswer?.trim() && openingScenarios.some(item => scenarioWordings(item).includes(saved?.text))) return saved;
+  return expected;
 }
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
@@ -299,7 +316,7 @@ function validDocument(document) {
   const assessmentContext=validateAssessmentContext(document.assessmentContext);
   return { ...initialInterviewDocument(), ...document, assessmentContext, proposals: withContextProposals({ ...document,assessmentContext }, (Array.isArray(document.proposals) ? document.proposals : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns,assessmentContext)).filter(Boolean)),
     profileProposals:profileProposalsFrom(document.profileProposals,document.turns),profileConfirmed:profileProposalsFrom(document.profileConfirmed,document.turns),profileContext:validateProfileContext(document.profileContext),
-    currentQuestion: document.promptVersion === PROMPT_VERSION && document.status === 'active' && document.turns.length === 0
+    currentQuestion: document.promptVersion === PROMPT_VERSION && document.status === 'active' && document.turns.length === 0 && (!document.draftAnswer?.trim() || !question)
       ? openingQuestion() : question ? { topic: question.topic, text: question.text, suggestions: questionSuggestions(question.suggestions, question.text) } : null,
     readiness: validateNotes(document.readiness, document.turns, true), clarifications: validateNotes(document.clarifications, document.turns),
     confirmed: (Array.isArray(document.confirmed) ? document.confirmed : []).slice(0, MAX_PROPOSALS).map(value => validateProposal(value, document.turns,assessmentContext,true)).filter(Boolean),
@@ -455,12 +472,12 @@ function choiceHelpRequest(input, memberGender) {
   const field = requiredFields.find(item => item.id === input.fieldId);
   const preference = preferenceById.get(field.fieldId);
   const femaleWork = field.id === 'preference:wife_work:self' && (memberGender ?? input.gender) === 'woman';
-  const womanWorkLabels = ['أرغب في العمل ومواصلة طموحي', 'أفضل عدم العمل بعد الزواج', 'مرنة حسب ظروفي واتفاقنا'];
+  const womanWorkLabels = memberAr.womanWork;
   const question = field.kind === 'personality' ? personalityById.get(field.fieldId).prompt
     : femaleWork ? 'هل ترغبين في العمل بعد الزواج؟'
       : field.side === 'self' ? preference.selfPrompt : preference.partnerPrompt;
-  const options = field.kind === 'personality' ? personalityOptions : preference.options.map((option, index) => ({
-    code: option.code, label: femaleWork ? womanWorkLabels[index] ?? option.self : option[field.side],
+  const options = field.kind === 'personality' ? personalityOptions : preference.options.map(option => ({
+    code: option.code, label: femaleWork ? womanWorkLabels[option.code] ?? option.self : option[field.side],
   }));
   const codes = options.map(option => option.code);
   const clean = value => redactSensitiveInterviewText(value.replace(/[٠-٩۰-۹]/g, digit => String('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹'.indexOf(digit) % 10))).text;
@@ -603,7 +620,7 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
 السؤال الأول دعوة لفقرة تعريف واحدة عن الشخص وحياته وما يبحث عنه في شريك وزواج واستعداده وتوقيته. افحص هذه الفقرة كاملة أمام قاموسي التفضيلات والشخصية، واستخرج فورًا كل قيمة صريحة تسندها حتى لو غطت محاور لاحقة. بعد أول إجابة لا تعِد سؤال التعريف العام؛ اسأل فقط عن missingFields المتبقية. الاستعداد يُسجل فقط كإفادات صريحة عن النية والتوقيت والتحضير والخطوة القادمة، ولا يثبت الصدق ولا ينتج درجة جدية أو أهلية.
 اسأل عن موقف العضو وما يتقبله من الطرف الآخر. يمكن جمع السؤالين مع عرض الخيارين بوضوح. لا تستنتج تفضيل الشريك من وصف الشخص لنفسه، ولا تفترض موقفه من جنسه أو مدينته. اسأل عن حضور الحفلات الموسيقية كخيار ترفيهي محدد. ميّز بين ما يختاره العضو لنفسه وما يرتاح له من شريكه. كلمة «منفتح» وحدها، وحب الموسيقى، وعدم الحضور بسبب التكلفة أو المكان، لا تحسم الإجابة. لا تستنتج التدين أو حدود الاختلاط أو الانفتاح الفكري من حضور حفلة أو الاعتذار عنها.
 أسلوب الجلسة قريب وعفوي مع جدية موضوع الزواج: عربية سعودية بيضاء مفهومة، دون مبالغة في العامية أو تقمص دور معالج أو مستشار بشري. اجعل كل رسالة سطرًا أو سطرين، لا محاضرة ولا دردشة مفتوحة بلا غرض. رد على المعنى قبل سؤالك، ولا تردد إجابة العضو بصياغة ثانية. لا تبدأ كل رد بـ«فهمتك» أو «جميل» أو «واضح»، ولا تمدح شخصيته أو نضجه بسبب إجابة. نوّع الإيقاع حسب الكلام، لا حسب قالب ثابت.
-اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب» فاسأل بهدوء: على حسب أي جانب؟ إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
+اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب»، اربط السؤال بنقطة محددة من كلامه. في موضوع السكن مثلًا: «وش اللي يفرق معك في اختيار السكن؟». إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
 فهم الاستعداد هنا يقتصر على ملخص خاص لخطة الزواج والخطوة القادمة وما يحتاج نقاشًا، من كلام العضو فقط. لا تتخذ قرار قبول أو رفض آلي، ولا تضع درجة جدية أو أهلية، ولا تتنبأ بنجاح الزواج. ليست الجلسة تشخيصًا نفسيًا ولا اختبارًا له إجابات صحيحة وخاطئة. لا تجعل تردد الشخص أو اختصاره سببًا للحكم عليه.`;
   }
@@ -751,20 +768,30 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     const suggestions = questionSuggestions(result.quickReplies, question.text);
     if (suggestions.length) question.suggestions = suggestions;
   }
-  if (question && alreadyAsked(question.text, document)) question.text = requiredInterview(document) ? `خلّنا نوضح هذه النقطة: ${question.text}`.slice(0, 500) : `عن ${next.title}، وش الجانب اللي ما تطرقنا له وتحب توضّحه؟`;
+  if (question && alreadyAsked(question.text, document)) {
+    const field = missingFields(routing, next)[0];
+    const dimension = field?.kind === 'preference' && preferenceById.get(field.fieldId);
+    const subject = dimension?.title || (field?.kind === 'personality' && personalityById.get(field.fieldId)?.title) || next.title;
+    const clarifications = [
+      field?.side === 'partner' ? `بخصوص ${subject}، وش يهمك في اختيار الطرف الآخر؟` : `بخصوص ${subject}، وش اللي يفرق معك من موقف للثاني؟`,
+      `وش مثال من حياتك يوضح رأيك في موضوع ${subject}؟`,
+      `بخصوص ${subject}، وش يناسبك ندوّنه بكلماتك؟`,
+    ];
+    question.text = clarifications.find(text => !alreadyAsked(text, document)) ?? 'هل يناسبك ترك هذه النقطة للمراجعة في اختيارات التوافق؟';
+    question.suggestions = [];
+  }
   if (question && result.reply.trim()) {
     const reply = result.reply.trim().slice(0, Math.max(0, 498 - question.text.length));
     if (reply) question.text = `${reply}\n\n${question.text}`;
   }
   // Three fixed, brief situations after the private introduction. All extraction
   // remains evidence-backed; unanswered assessment fields stay for the quick form.
-  const openingFlow = hybrid && (isOpeningQuestion(last?.question) || openingScenarios.some(item => [item.text,item.previousText,item.legacyText,item.earlierText].includes(last?.question ?? '')));
-  const completedScenarios = new Set(document.turns.map(turn => turn.question));
-  const nextScenario = openingFlow ? openingScenarios.find(item => ![item.text,item.previousText,item.legacyText,item.earlierText].some(text => completedScenarios.has(text))) : undefined;
+  const openingFlow = hybrid && (isOpeningQuestion(last?.question) || openingScenarios.some(item => scenarioWordings(item).includes(last?.question)));
+  const opening = openingFlow ? nextOpeningQuestion(document.turns) : null;
   return { ...document, model: INTERVIEW_MODEL,
     proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
-    currentQuestion: openingFlow ? scenarioQuestion(nextScenario) : question,
-    status: openingFlow ? (nextScenario ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
+    currentQuestion: openingFlow ? opening : question,
+    status: openingFlow ? (opening ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
 }
 
@@ -994,7 +1021,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const question = clarifying
         ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : unfinishedOpeningScenario(document) ?? document.currentQuestion;
-      if (openingScenarios.some(item => [item.text,item.previousText,item.legacyText,item.earlierText].includes(question?.text ?? '')) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
+      if (openingScenarios.some(item => scenarioWordings(item).includes(question?.text)) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
       if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
       next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,

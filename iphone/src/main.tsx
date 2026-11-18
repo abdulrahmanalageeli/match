@@ -19,6 +19,7 @@ import './community/arrivalDiscovery.css'
 import './community/arrivalChat.css'
 import './arrivalSurfaces.css'
 import './typography.css'
+import './accessibility.css';
 
 document.documentElement.lang='ar'
 document.documentElement.dir='rtl'

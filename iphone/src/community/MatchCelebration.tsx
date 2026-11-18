@@ -115,9 +115,8 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
         <span className="nf-match-seal"><Check size={16} strokeWidth={1.8} /></span>
       </div>
       <div className="nf-match-copy">
-        <span className="nf-match-eyebrow" lang={milestone ? 'ar' : 'en'} dir={milestone ? 'rtl' : 'ltr'}>{milestone === 'family' ? 'من حديث جميل إلى خطوة واضحة' : milestone === 'exclusive' ? 'اختيار متبادل، ومساحة لكما' : 'MATCH FOUND'}</span>
-        <h2 ref={title} id={titleId} tabIndex={-1}>{milestone === 'family' ? 'خطوة أقرب، معًا' : milestone === 'exclusive' ? 'اخترتما بعضكما' : 'تم التوافق'}</h2>
-        <p id={detailId}>{milestone === 'family' ? <>أنت و<bdi>{name}</bdi> وافقتما على الخطوة الرسمية أو العائلية.<br/>اتفقا الآن على الشخص والوسيلة والموعد. لا تُرسل رسائل إلى العائلة تلقائيًا.</> : milestone === 'exclusive' ? <>بدأ التزامك الحصري مع <bdi>{name}</bdi>.<br/>أُغلقت التعارفات الأخرى، وتبقى هذه المساحة لكما. يمكنكما مراجعة المرحلة من مسار التعارف.</> : <>أنت و<bdi>{name}</bdi> اخترتما التعارف.<br />هذه بداية حديث يستحق الاهتمام.</>}</p>
+        <h2 ref={title} id={titleId} tabIndex={-1}>{milestone === 'family' ? 'اتفقتما على التواصل مع الأهل' : milestone === 'exclusive' ? 'بدأ التعارف الحصري' : 'قُبل طلب التعارف'}</h2>
+        <p id={detailId}>{milestone === 'family' ? <>أنت و<bdi>{name}</bdi> وافقتما على التواصل مع الأهل.<br/>اتفقا الآن على الشخص والوسيلة والموعد. لا تُرسل رسائل إلى العائلة تلقائيًا.</> : milestone === 'exclusive' ? <>بدأ تعارفك الحصري مع <bdi>{name}</bdi>.<br/>أُغلقت التعارفات الأخرى، وتبقى هذه المساحة لكما. يمكنكما مراجعة المرحلة من مسار التعارف.</> : <>أنت و<bdi>{name}</bdi> اخترتما التعارف.<br />يمكنكما الآن مراجعة شروط التعارف ومدته.</>}</p>
         <span className="nf-match-rule" aria-hidden="true" />
       </div>
       <div className="nf-match-actions">

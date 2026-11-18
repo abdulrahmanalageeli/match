@@ -15,6 +15,7 @@
 		490000000000000000000014 /* NisfaynPushPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000004 /* NisfaynPushPlugin.swift */; };
 		490000000000000000000011 /* MarriageBridgeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000001 /* MarriageBridgeController.swift */; };
 		490000000000000000000012 /* AppleMembershipPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000002 /* AppleMembershipPlugin.swift */; };
+		EF4231F87DC3431192A2D101 /* MembershipStoreOffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF4231F87DC3431192A2D102 /* MembershipStoreOffer.swift */; };
 		490000000000000000000013 /* PrivateSessionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000003 /* PrivateSessionPlugin.swift */; };
 		490000000000000000000033 /* PrivatePhotoPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000023 /* PrivatePhotoPlugin.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
@@ -36,6 +37,7 @@
 		490000000000000000000004 /* NisfaynPushPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynPushPlugin.swift; sourceTree = "<group>"; };
 		490000000000000000000001 /* MarriageBridgeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarriageBridgeController.swift; sourceTree = "<group>"; };
 		490000000000000000000002 /* AppleMembershipPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMembershipPlugin.swift; sourceTree = "<group>"; };
+		EF4231F87DC3431192A2D102 /* MembershipStoreOffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembershipStoreOffer.swift; sourceTree = "<group>"; };
 		490000000000000000000003 /* PrivateSessionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateSessionPlugin.swift; sourceTree = "<group>"; };
 		490000000000000000000023 /* PrivatePhotoPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivatePhotoPlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				490000000000000000000001 /* MarriageBridgeController.swift */,
 				490000000000000000000002 /* AppleMembershipPlugin.swift */,
+				EF4231F87DC3431192A2D102 /* MembershipStoreOffer.swift */,
 				490000000000000000000003 /* PrivateSessionPlugin.swift */,
 				490000000000000000000023 /* PrivatePhotoPlugin.swift */,
 				490000000000000000000024 /* WudaynReportExportPlugin.swift */,
@@ -196,6 +199,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				490000000000000000000011 /* MarriageBridgeController.swift in Sources */,
 				490000000000000000000012 /* AppleMembershipPlugin.swift in Sources */,
+				EF4231F87DC3431192A2D101 /* MembershipStoreOffer.swift in Sources */,
 				490000000000000000000013 /* PrivateSessionPlugin.swift in Sources */,
 				490000000000000000000033 /* PrivatePhotoPlugin.swift in Sources */,
 				490000000000000000000034 /* WudaynReportExportPlugin.swift in Sources */,

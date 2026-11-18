@@ -15,7 +15,7 @@ type WelcomeProps = {
 const previews = [
   { id: 'discovery', label: 'اكتشف', icon: Compass, title: 'شريك يناسب حياتك.', description: 'قيمه، أولوياته، واستعداده للزواج. اعرف ما يجمعكما قبل أول حديث.', detail: 'اختيارات أقرب لشخصيتك وتطلعاتك', alt: 'معاينة شاشة اكتشاف الملفات ونسب توافق التفضيلات، ببيانات توضيحية' },
   { id: 'compatibility', label: 'افهم التوافق', icon: HeartHandshake, title: 'النسبة بداية للسؤال.', description: 'نقارن إجاباتكم عن الحياة والشخصية ومواقف «بيننا». ونوضّح وين تتفقون، ووش يحتاج تتكلمون عنه.', detail: 'أسباب مفهومة · أفكار تفتح الحوار', alt: 'معاينة شرح التوافق ونقاط الاتفاق والمواضيع التي تستحق الحوار' },
-  { id: 'journey', label: 'تقدّما معًا', icon: UsersRound, title: 'من التوافق إلى الخطوة الرسمية.', description: 'نية زواج واضحة، ووقت متفق عليه، ثم خطوة مع الأهل حين تكونان مستعدّين.', detail: 'اتفاق جاد · التزام حصري · جسر الأهل', alt: 'معاينة خطوات التقدّم للزواج والانتقال إلى الخطوة العائلية بموافقة الطرفين' },
+  { id: 'journey', label: 'تقدّما معًا', icon: UsersRound, title: 'تعارف بقصد الزواج', description: 'تتفقان على مدة التعارف، وتختاران متى يناسبكما التواصل مع الأهل.', detail: 'شروط التعارف · التعارف الحصري · جسر الأهل', alt: 'معاينة خطوات التقدّم للزواج والانتقال إلى الخطوة العائلية بموافقة الطرفين' },
 ] as const;
 function WelcomeLogo({ maskId, className }: { maskId: string; className: string }) {
   return <svg className={className} viewBox="0 0 768 768" aria-hidden="true"><defs><mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="768" height="768">
@@ -111,8 +111,8 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
 
     <section className="wd-intention" aria-labelledby="welcome-intention-heading"><div className="wd-intention-heading"><span className="wd-welcome-kicker">الجدّية في كل خطوة</span><h2 id="welcome-intention-heading">نيّة صادقة.<br/>ووجهة واحدة: الزواج.</h2></div><ol className="wd-intention-list">
       <li><span>٠١</span><div><h3>اختيار يستحق اهتمامك</h3><p>تواصل مع شخصين كحد أقصى، لتمنح كل فرصة جادّة وقتها.</p></div></li>
-      <li><span>٠٢</span><div><h3>اتفاق من البداية</h3><p>نية الزواج، والمدة، والخطوة الرسمية التالية. تتفقان عليها معًا.</p></div></li>
-      <li><span>٠٣</span><div><h3>جسر إلى الأهل</h3><p>مساحة خاصة للعائلتين لترتيب الخطوة الرسمية.</p></div></li>
+      <li><span>٠٢</span><div><h3>اتفاق من البداية</h3><p>تتفقان على شروط التعارف ومدته قبل أول رسالة.</p></div></li>
+      <li><span>٠٣</span><div><h3>جسر إلى الأهل</h3><p>مساحة خاصة للتواصل مع الأهل بعد موافقة المشاركين.</p></div></li>
     </ol></section>
 
     <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">أجمل نهاية هنا،<br/>بداية حياتكما معًا.</h2><p>حين تختاران بعضكما، يبدأ التزام حصري يمنح خطوتكما نحو الزواج كل الاهتمام.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ رحلتك للزواج <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>

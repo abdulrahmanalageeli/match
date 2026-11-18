@@ -20,9 +20,9 @@ function usePhotos(owner: string | null, requestId?: string, watch?: WatchUpdate
   const [busy, setBusy] = useState(true);
   const [version, setVersion] = useState(0);
   const [visible, setVisible] = useState(!document.hidden);
-  const refresh = useCallback(() => { setState(emptyPhotos); setBusy(true); setVersion(v => v + 1); }, []);
+  const refresh = useCallback(() => { setState(emptyPhotos); setError(""); setBusy(true); setVersion(v => v + 1); }, []);
   const unavailable = useCallback(() => { setState(emptyPhotos); setError("الصورة غير متاحة الآن. حدّث الحالة للمحاولة مجددًا."); }, []);
-  useLayoutEffect(() => { setState(emptyPhotos); setBusy(Boolean(owner)); }, [owner, requestId]);
+  useLayoutEffect(() => { setState(emptyPhotos); setError(""); setBusy(true); }, [owner, requestId]);
   useEffect(() => {
     const visibility = () => { setVisible(!document.hidden); setState(emptyPhotos); if (!document.hidden) refresh(); };
     document.addEventListener("visibilitychange", visibility);
@@ -33,11 +33,10 @@ function usePhotos(owner: string | null, requestId?: string, watch?: WatchUpdate
     return () => { document.removeEventListener("visibilitychange", visibility); window.clearInterval(timer); stop?.(); };
   }, [owner, watch, refresh]);
   useEffect(() => {
-    setError("");
-    if (!owner || !visible) { setState(emptyPhotos); setBusy(false); return; }
+    if (!owner || !visible) { setState(emptyPhotos); setBusy(true); return; }
     const controller = new AbortController();
     void photoState(owner, requestId, controller.signal).then(value => {
-      if (!controller.signal.aborted) setState(value);
+      if (!controller.signal.aborted) { setState(value); setError(""); }
     }, () => {
       if (!controller.signal.aborted) { setState(emptyPhotos); setError("تعذّر فتح الصور الخاصة. قد تكون المشاركة انتهت أو أُغلقت المحادثة."); }
     }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
@@ -110,12 +109,12 @@ export function PhotoSettings({ owner, demo, close }: { owner: string; demo: boo
     {demo ? <div className="nf-photo-placeholder"><ShieldCheck size={36} /><p>الصور متاحة في الحساب الحقيقي فقط.<br />لا نرفع ملفات شخصية في التجربة.</p></div> : <>
       {preview ? <img className="nf-photo-image" src={preview.url} alt="معاينة صورتك قبل الحفظ" /> : photos.state.mine ?
         <PrivateImage owner={owner} photo={photos.state.mine} onUnavailable={photos.unavailable} label="صورتك الخاصة" /> :
-        <div className="nf-photo-placeholder"><Camera size={36} /><span>{photos.busy ? "جارٍ تحميل صورتك…" : "لم تضف صورة بعد"}</span></div>}
+        !photos.error && <div className="nf-photo-placeholder" role="status"><Camera size={36} /><span>{photos.busy ? "جارٍ تحميل صورتك…" : "لم تضف صورة بعد"}</span></div>}
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="nf-photo-input" aria-label="اختيار صورة خاصة" onChange={event => void choose(event.target.files?.[0])} />
       {preview ? <><p className="nf-photo-note">بحفظها تؤكد أنها صورتك وأنك توافق على تخزينها بشكل خاص. استبدال الصورة يلغي مشاركات الصورة السابقة.</p>
         <button className="btn-primary" disabled={working} onClick={() => void save()}>{working ? "جارٍ الحفظ…" : "حفظ صورتي الخاصة"}</button>
         <button className="btn-text" disabled={working} onClick={() => setPreview(null)}>تراجع</button></> : <>
-        <button className="btn-secondary" disabled={working || photos.busy} onClick={() => input.current?.click()}><ImagePlus size={17} />{photos.state.mine ? "تغيير الصورة" : "اختيار صورة"}</button>
+        <button className="btn-secondary" disabled={working || photos.busy || !!photos.error} onClick={() => input.current?.click()}><ImagePlus size={17} />{photos.state.mine ? "تغيير الصورة" : "اختيار صورة"}</button>
         {photos.state.mine && !remove && <button className="btn-text nf-photo-delete" onClick={() => setRemove(true)}><Trash2 size={16} /> حذف الصورة</button>}
         {remove && <div className="nf-photo-confirm"><p>سيُوقف ظهور الصورة لكل من شاركتها معه.</p><button className="btn-primary" disabled={working} onClick={() => void erase()}>تأكيد حذف الصورة</button><button className="btn-text" disabled={working} onClick={() => setRemove(false)}>تراجع</button></div>}
       </>}
@@ -128,12 +127,14 @@ export function PhotoSettings({ owner, demo, close }: { owner: string; demo: boo
 
 export function PhotoSharing({ requestId, name, demo, watch, close }: { requestId: string; name: string; demo: boolean; watch: WatchUpdates; close: () => void }) {
   const [owner, setOwner] = useState<string | null>(null);
+  const [ownerAttempt, setOwnerAttempt] = useState(0);
+  const [ownerError, setOwnerError] = useState("");
   const [openPeer, setOpenPeer] = useState(false);
   const [consent, setConsent] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const photos = usePhotos(owner, requestId, watch);
-  useEffect(() => { let active = true; if (!demo) void photoOwner().then(id => { if (active) setOwner(id); }, () => { if (active) setError("انتهت الجلسة."); }); return () => { active = false; }; }, [demo]);
+  useEffect(() => { let active = true; if (!demo) void photoOwner().then(id => { if (active) setOwner(id); }, () => { if (active) setOwnerError("تعذّر التحقق من حسابك لفتح الصور الخاصة."); }); return () => { active = false; }; }, [demo, ownerAttempt]);
   useEffect(() => { if (!photos.visible || !photos.state.peer) setOpenPeer(false); }, [photos.visible, photos.state.peer]);
   async function share(value: boolean) {
     if (!owner || working || value && !consent) return;
@@ -144,9 +145,9 @@ export function PhotoSharing({ requestId, name, demo, watch, close }: { requestI
   }
   return <PhotoDialog title="مشاركة خاصة بينكما" close={close}>
     <p className="nf-photo-intro">المشاركة اختيارية ومستقلة لكل طرف. إذنك يسمح لـ<bdi>{name}</bdi> بمشاهدة صورتك لمدة ٢٤ ساعة، ويمكنك سحبه قبل ذلك.</p>
-    {demo ? <div className="nf-photo-placeholder"><ShieldCheck size={36} /><p>لا توجد صور شخصية في التجربة.<br />في الحساب الحقيقي يختار كل طرف متى يشارك صورته.</p></div> : <>
+    {demo ? <div className="nf-photo-placeholder"><ShieldCheck size={36} /><p>لا توجد صور شخصية في التجربة.<br />في الحساب الحقيقي يختار كل طرف متى يشارك صورته.</p></div> : ownerError || photos.error ? null : !owner || photos.busy ? <p role="status">جارٍ تحديث إذن مشاركة الصور…</p> : <>
       <section className="nf-photo-section"><h3>صورتك</h3>
-        {photos.busy ? <p role="status">جارٍ تحديث الإذن…</p> : photos.state.mine ? photos.state.sharedUntil ? <>
+        {photos.state.mine ? photos.state.sharedUntil ? <>
           <p className="nf-photo-note">صورتك متاحة حتى {time.format(new Date(photos.state.sharedUntil))}.</p>
           <button className="btn-secondary" disabled={working} onClick={() => void share(false)}>إيقاف مشاركة صورتي الآن</button>
         </> : <><label className="nf-photo-consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> أوافق على مشاركة صورتي مع {name} لمدة ٢٤ ساعة.</label>
@@ -157,7 +158,10 @@ export function PhotoSharing({ requestId, name, demo, watch, close }: { requestI
           <button className="btn-secondary" onClick={() => setOpenPeer(true)}><Eye size={17} /> عرض الصورة المشتركة</button> : <div className="nf-photo-wait"><LockKeyhole size={22} /><p>لم يشارك الطرف الآخر صورته حاليًا.</p></div>}
       </section>
     </>}
-    {(error || photos.error) && <p role="alert" className="nf-photo-error">{error || photos.error}<button className="btn-text" onClick={photos.refresh}>إعادة المحاولة</button></p>}
+    {(ownerError || photos.error || error) && <p role="alert" className="nf-photo-error">{ownerError || photos.error || error}<button className="btn-text" onClick={() => {
+      if (ownerError) { setOwnerError(""); setOwnerAttempt(v=>v+1); }
+      else { setError(""); photos.refresh(); }
+    }}>إعادة المحاولة</button></p>}
     <p className="nf-photo-foot">سحب الإذن يمنع المشاهدة الجديدة. لا يمكن منع لقطات الشاشة أو محو نسخة احتفظ بها الطرف الآخر.</p>
   </PhotoDialog>;
 }

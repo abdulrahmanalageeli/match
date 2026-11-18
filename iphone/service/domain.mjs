@@ -194,25 +194,30 @@ class Store {
     this.db.prepare("DELETE FROM sessions WHERE digest=?").run(digest(token));
   }
   membership(id) {
-    const { expiry } = this.db
+    const { expiry, purchases } = this.db
       .prepare(
-        "SELECT MAX(expires_at) AS expiry FROM transactions WHERE user_id=? AND revoked=0",
+        "SELECT MAX(CASE WHEN revoked=0 THEN expires_at END) AS expiry, COUNT(*) AS purchases FROM transactions WHERE user_id=?",
       )
       .get(id);
     const active = Boolean(expiry && expiry > Date.now());
     return {
       active,
+      status: active ? "paid" : purchases ? "expired" : "free",
       expiresAt: expiry ? new Date(expiry).toISOString() : null,
-      canStart: !active && this.hasEligiblePartner(id),
+      canStart: !active && (this.hasEligiblePartner(id) || Boolean(this.db.prepare(`
+        SELECT 1 FROM introductions i JOIN users u ON u.id=?
+        JOIN users p ON p.id=CASE WHEN i.first_id=u.id THEN i.second_id ELSE i.first_id END
+        WHERE u.id IN (i.first_id,i.second_id) AND i.closed=0 AND u.application_status='approved'
+          AND p.application_status='approved' AND NOT EXISTS (SELECT 1 FROM blocks b WHERE
+            (b.reporter=u.id AND b.subject=p.id) OR (b.reporter=p.id AND b.subject=u.id))
+      `).get(id))),
     };
   }
   hasEligiblePartner(id, partnerId = null) {
-    return this.eligiblePartners(id, partnerId, false, 1).length > 0;
+    return this.eligiblePartners(id, partnerId, true, 1).length > 0;
   }
   eligiblePartners(id, partnerId, paidOnly, limit) {
-    // Use the same eligibility rules for an anonymous readiness signal and an
-    // operator's proposed pair. Selling the first subscriptions must not depend
-    // on the prospective other member having already paid.
+    // Checkout and operator proposals use the same reachable pool.
     return this.db
       .prepare(
         `

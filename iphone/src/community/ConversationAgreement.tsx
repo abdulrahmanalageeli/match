@@ -1,3 +1,4 @@
+import memberAr, { durationLabel } from '../member-copy.ts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, Check, Feather, Users, X } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement } from './data';
@@ -35,7 +36,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  const allowed=agreement.status==='accepted'||agreement.status==='family',woman=agreement.actor==='reham';
  const myName=agreement.mineName||(woman?'رهام':'عبدالرحمن'),peerName=agreement.peerName||(woman?'عبدالرحمن':'رهام');
  const womanName=woman?myName:peerName,manName=woman?peerName:myName;
- const date=agreement.deadline?new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',calendar:'gregory',hour:'numeric',minute:'2-digit'}).format(new Date(agreement.deadline)):'';
+ const date=agreement.deadline?new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',year:'numeric',numberingSystem:'arab',calendar:'gregory',hour:'numeric',minute:'2-digit'}).format(new Date(agreement.deadline)):'';
  const mine=agreement.familyAgreed?.[agreement.actor],peer=agreement.familyAgreed?.[woman?'abdulrahman':'reham'];
  const familyActions=<>
    {!mine && agreement.status!=='family' && <button className="btn-primary" disabled={busy} onClick={()=>void submit(peer?'family_accept':'family_propose')}>{peer?'الموافقة على التواصل العائلي':'اقتراح التواصل العائلي'}</button>}
@@ -44,19 +45,19 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  </>;
  if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return null;
  if(allowed)return <div className="cm-agreement-summary">
-  <button onClick={()=>setExpanded(true)} aria-label={agreement.status==='family'?'تفاصيل الاتفاق العائلي':`تفاصيل اتفاقكما حتى ${date}`} aria-haspopup="dialog"><CalendarDays size={15}/><span>{agreement.status==='family'?'اتفاق عائلي':`${dueSoon?'موعدكما قريب · ':''}حتى ${date}`}</span></button>
+  <button onClick={()=>setExpanded(true)} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`} aria-haspopup="dialog"><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':`${dueSoon?'موعدكما قريب · ':''}حتى ${date}`}</span></button>
   {expanded&&<AgreementDetails close={()=>setExpanded(false)}>
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
-    <h2>اتفاقكما، بوضوح</h2>
+    <h2>{memberAr.agreementTitle}</h2>
     <p className="cm-agreement-deadline">{agreement.status==='family'?'اتفقتما على التواصل العائلي':`مدة التعارف حتى ${date}`}</p>
     <SuccessNotice title={agreement.status==='family'?'خطوتكما العائلية، باتفاقكما':'وقّعتما على بداية واضحة'} detail={agreement.status==='family'?'اتفقا على الشخص والوسيلة والموعد. تبقى تفاصيل التواصل قراركما.':'تبدأ المدة من القبول المتبادل. راجعا اتجاه الحديث قبل موعدها.'}/>
-    <p>وقّعتما ميثاق الجدية. اتفقتما على الانتقال للتواصل العائلي أو إنهاء التعارف باحترام.</p>
+    <p>وقّعتما شروط التعارف. اتفقتما على الانتقال للتواصل العائلي أو إنهاء التعارف باحترام.</p>
     {familyActions}
     {agreement.status==='accepted'&&<div className="cm-extension-actions">
       <p>{dueSoon?'بقي أقل من يوم على موعدكما. اختارا ما يناسبكما بهدوء.':'يمكنكما مراجعة المدة والخطوة التالية معًا.'} لا تتغير مرحلة التعارف تلقائيًا.</p>
-      {agreement.extension?<><p>{agreement.extension.actor===agreement.actor?'اقترحتَ تمديد المدة؛ بانتظار موافقة الطرف الآخر.':`الطرف الآخر يقترح ${agreement.extension.days} أيام إضافية.`}</p>{agreement.extension.actor!==agreement.actor&&<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على التمديد</button>}</>:<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}
+      {agreement.extension?<><p>{agreement.extension.actor===agreement.actor?'اقتراح التمديد بانتظار موافقة الطرف الآخر.':`يقترح الطرف الآخر تمديد المدة ${durationLabel(agreement.extension.days)}.`}</p>{agreement.extension.actor!==agreement.actor&&<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على التمديد</button>}</>:<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}
       {onJourney&&<button className="btn-secondary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة الخطوة التالية</button>}
-      {onEnd&&<button className="fb-text-button" onClick={()=>{setExpanded(false);onEnd();}}>إنهاء التعارف باحترام</button>}
+      {onEnd&&<button className="fb-text-button" onClick={()=>{setExpanded(false);onEnd();}}>{memberAr.endConnection}</button>}
     </div>}
     <small>هذا الاتفاق يخص محادثتكما. لإيقاف وصول الأهل إلى غرفة قائمة، اسحب الموافقة من جسر الأهل.</small>{error&&<p role="alert">{error}</p>}
     <HelpButton topic="journey" label="ما الذي يحدث بعد ذلك؟"/>
@@ -70,7 +71,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
   {agreement.status==='expired'?<><p>يمكنكما أيضًا تمديد المدة بموافقتكما معًا.</p>{agreement.extension ? agreement.extension.actor===agreement.actor ? <p>اقتراح التمديد بانتظار الطرف الآخر.</p> : <button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على {agreement.extension.days} أيام إضافية</button> : <button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}<div className="cm-agreement-family"><Users size={21}/><span>الانتقال للتواصل العائلي يحتاج موافقتكما معًا.</span></div>{familyActions}<p className="cm-agreement-wait">يتوقف إرسال الرسائل حتى تتفقا على التمديد أو التواصل العائلي.</p>{onEnd&&<button className="btn-text" disabled={busy} onClick={onEnd}>إنهاء التعارف باحترام</button>}</>:<>
    <div className="cm-agreement-terms"><p><Check size={16}/> نيّتي تعارف جاد بهدف الزواج.</p><p><Check size={16}/> ألتزم بالاحترام والوضوح وحفظ الخصوصية.</p><p><Check size={16}/> بنهاية المدة، ننتقل للتواصل العائلي بموافقتنا أو ننهي التعارف بوضوح.</p></div>
    {woman?<><label className="cm-timeline-label">اختاري مدة التعارف</label><p className="cm-agreement-wait">تبدأ المدة بعد توقيع الطرف الآخر، وليس عند إرسال اقتراحك.</p><div className="cm-timeline-choices">{[7,14,30].map(n=><button key={n} aria-pressed={days===n} onClick={()=>{setDays(n);setSigned(false);}} disabled={busy}><b>{new Intl.NumberFormat('ar').format(n)}</b><span>يومًا</span></button>)}</div>{agreement.status==='proposed'&&<p className="cm-agreement-wait" role="status">اقترحتِ {agreement.days} يومًا. بانتظار توقيع {peerName} وموافقته.</p>}</>:<div className="cm-timeline-offer"><CalendarDays size={23}/><strong>{agreement.status==='proposed'?`${peerName} تقترح ${agreement.days} يومًا`:`${peerName} تختار مدة التعارف`}</strong><p>{agreement.status==='proposed'?'تبدأ المدة عند موافقتك. التوقيع يعني قبول الميثاق والمدة معًا.':'تظهر المدة هنا بعد أن تختارها وتوقّع الميثاق.'}</p></div>}
-   {(woman||agreement.status==='proposed')&&<><label className="cm-agreement-sign"><input type="checkbox" checked={signed} onChange={e=>setSigned(e.target.checked)} disabled={busy}/><span>أنا {myName}، قرأت ميثاق الجدية وأوافق عليه وعلى مدة التعارف المحددة.</span></label><button className="btn-primary" disabled={!signed||busy} onClick={()=>void submit(woman?'propose':'accept')}>{busy?'جارٍ حفظ التوقيع…':woman?agreement.status==='proposed'?'تحديث اقتراح المدة':'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}</button></>}
+   {(woman||agreement.status==='proposed')&&<><label className="cm-agreement-sign"><input type="checkbox" checked={signed} onChange={e=>setSigned(e.target.checked)} disabled={busy}/><span>أنا {myName}، قرأت شروط التعارف وأوافق عليه وعلى مدة التعارف المحددة.</span></label><button className="btn-primary" disabled={!signed||busy} onClick={()=>void submit(woman?'propose':'accept')}>{busy?'جارٍ حفظ التوقيع…':woman?agreement.status==='proposed'?'تحديث اقتراح المدة':'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}</button></>}
    <div className="cm-agreement-signatures"><span className={agreement.womanSignedAt?'signed':''}>{womanName} {agreement.womanSignedAt?'· وقّعت':'· بانتظار التوقيع'}</span><span>{manName} · بانتظار التوقيع</span></div>
   </>}{error&&<p role="alert" className="form-error">{error}</p>}
  </section>;

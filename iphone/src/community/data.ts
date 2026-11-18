@@ -170,7 +170,7 @@ export interface CommunitySource extends ManualVerificationSource {
   readinessTestMode?: boolean;
   readinessEligibleConnection?(connectionId: string): boolean;
   discover(filters: Filters): Promise<PublicPerson[]>;
-  portraitUrl(photo: ProfilePortrait): Promise<string>;
+  portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => void): Promise<string>;
   portraitState?(photo: ProfilePortrait): Promise<ProfilePortrait>;
   setPortrait(file: Blob, blur: number, reveal?: { policy: PortraitRevealPolicy; clearBlob?: Blob }): Promise<ProfilePortrait>;
   setPortraitPolicy(photo: ProfilePortrait, policy: PortraitRevealPolicy): Promise<ProfilePortrait>;
@@ -178,6 +178,10 @@ export interface CommunitySource extends ManualVerificationSource {
   heartbeat?(): Promise<void>;
   setInterest?(memberId: string, interested: boolean): Promise<void>;
   dismissPerson?(memberId: string): Promise<void>;
+  profileVisible?(memberId: string): Promise<boolean>;
+  blockPerson?(memberId: string): Promise<void>;
+  reportIncident?(requestId: string, messageId: string | null, reason: string, submissionId: string): Promise<string>;
+  directoryWork?(choice?: string | null): Promise<string | null>;
   reportPerson?(memberId: string, reason: string): Promise<void>;
   gallery?(subject?: string): Promise<GalleryPhoto[]>;
   galleryUrl?(photo: GalleryPhoto): Promise<string>;
@@ -188,7 +192,7 @@ export interface CommunitySource extends ManualVerificationSource {
   notifications?(): Promise<ActivityNotification[]>;
   readNotifications?(ids: string[]): Promise<void>;
   inbox(): Promise<Connection[]>;
-  requestHistory?(): Promise<RequestHistoryEntry[]>;
+  requestHistory?(beforeId?: string): Promise<RequestHistoryEntry[]>;
   matchingExclusions?(): Promise<MatchingExclusion[]>;
   request(memberId: string): Promise<string>;
   demoAcceptOutgoing?(requestId: string): Promise<void>;
@@ -257,12 +261,13 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       if (!current || current.id !== photo.id) throw Error("الصورة غير متاحة.");
       return current;
     },
-    async portraitUrl(photo) {
+    async portraitUrl(photo, authorized) {
       if (!cloud) throw Error("الصورة غير متاحة.");
       const current = await timedRpc<ProfilePortrait | null>("marriage_portrait_view", { photo_id: photo.id });
       if (!current || current.id !== photo.id) throw Error("الصورة غير متاحة.");
       const { data, error } = await cloud.storage.from("nisfayn-profile-portraits").download(current.path);
       if (error) throw Error("تعذّر تحميل الصورة.");
+      authorized?.(current);
       return URL.createObjectURL(data);
     },
     async setPortrait(file, blur, reveal) {
@@ -297,6 +302,10 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     heartbeat: () => timedRpc("marriage_heartbeat", {}),
     setInterest: (memberId, interested) => timedRpc("marriage_discovery_action", {member_id:memberId,action:interested?'interest':'uninterest'}),
     dismissPerson: memberId => timedRpc("marriage_discovery_action", {member_id:memberId,action:'dismiss'}),
+    profileVisible: subject => timedRpc("marriage_profile_visible", {subject}),
+    blockPerson: memberId => timedRpc("marriage_discovery_action", {member_id:memberId,action:'block'}),
+    reportIncident: (requestId,messageId,reason,submissionId) => timedRpc("marriage_report_incident", {request_id:requestId,message_id:messageId,reason,submission_id:submissionId}),
+    directoryWork: choice => timedRpc("marriage_directory_work", {choice:choice ?? null,writing:choice !== undefined}),
     reportPerson: (memberId, reason) => timedRpc("marriage_discovery_action", {member_id:memberId,action:'report',reason}),
     gallery: subject => timedRpc("marriage_gallery", { action: "list", subject: subject ?? null }),
     async galleryUrl(photo) {
@@ -328,7 +337,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     },
     discover: (f) => timedRpc("marriage_browse", { options: { ...f, mode: f.mode ?? "recommended" } }),
     inbox: () => timedRpc("marriage_inbox", {}),
-    requestHistory: () => timedRpc("marriage_request_history", {}),
+    requestHistory: beforeId => beforeId ? timedRpc("marriage_request_history_page", {before_id:beforeId}) : timedRpc("marriage_request_history", {}),
     matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),
     notifications: () => timedRpc('marriage_notifications', {}),
     readNotifications: ids => timedRpc('marriage_notifications_read', { notification_ids: ids }),
@@ -760,7 +769,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     return value;
   }
   function chatReady(id: string) { return !simulationOptions.interactiveJourney || ['accepted','family'].includes(agreement(id).status); }
-  function requireChat(id: string) { threadRows(id); if (!chatReady(id)) throw Error('وقّعا ميثاق الجدية واتفقا على المدة قبل بدء الحديث.'); }
+  function requireChat(id: string) { threadRows(id); if (!chatReady(id)) throw Error('تبدأ المراسلة بعد موافقتكما على شروط التعارف ومدته.'); }
   function advanceRelationship(record: Local): string | undefined {
     if (!simulationOptions.interactiveJourney) return;
     const person = examples.find(person => person.id === record.peer);
@@ -768,11 +777,11 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const value = agreement(record.id), now = new Date().toISOString();
     if (value.status === 'none' && viewer().gender === 'man') {
       agreements.set(record.id, { ...value, status:'proposed', days:person.age < 28 ? 14 : 7, proposalId:crypto.randomUUID(), womanSignedAt:now });
-      return `${person.alias}: اقترحت مدة التعارف ووقّعت الميثاق`;
+      return `${person.alias}: أرسلت اقتراح مدة التعارف`;
     }
     if (value.status === 'proposed' && viewer().gender === 'woman') {
       agreements.set(record.id, { ...value, status:'accepted', manSignedAt:now, deadline:new Date(Date.now() + value.days! * 86400000).toISOString() });
-      return `${person.alias}: وافق على الميثاق والمدة`;
+      return `${person.alias}: وافق على شروط التعارف ومدته`;
     }
     const actor=value.actor, peer=actor==='abdulrahman'?'reham':'abdulrahman';
     if (value.familyAgreed?.[actor] && !value.familyAgreed[peer]) {
@@ -890,10 +899,10 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     async agree(id, action, payload={}) {
       const value=agreement(id),now=new Date().toISOString();
       if(action==='propose') {
-        if(value.actor!=='reham'||!payload.signed||![7,14,30].includes(payload.days??0)||['accepted','family'].includes(value.status))throw Error('راجعي الميثاق واختاري المدة.');
+        if(value.actor!=='reham'||!payload.signed||![7,14,30].includes(payload.days??0)||['accepted','family'].includes(value.status))throw Error('راجعي شروط التعارف واختاري المدة.');
         agreements.set(id,{...value,status:'proposed',days:payload.days,proposalId:crypto.randomUUID(),womanSignedAt:now});
       } else if(action==='accept') {
-        if(value.actor!=='abdulrahman'||value.status!=='proposed'||!payload.signed||payload.proposalId!==value.proposalId)throw Error('راجع الاقتراح ووقّع الميثاق.');
+        if(value.actor!=='abdulrahman'||value.status!=='proposed'||!payload.signed||payload.proposalId!==value.proposalId)throw Error('راجع شروط التعارف والمدة المقترحة.');
         agreements.set(id,{...value,status:'accepted',manSignedAt:now,deadline:new Date(Date.now()+value.days!*86400000).toISOString()});
       } else if(action==='extend') {
         if(![7,14].includes(payload.days??0)||!['accepted','expired'].includes(value.status))throw Error('اختر مدة صالحة.');
@@ -975,7 +984,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
           (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
           !records.some((r) => r.peer === p.id && r.status === "closed" && !r.allowRematch) &&
           (f.mode === "all" || (!records.some(r => r.peer === p.id) && weekly().includes(p.id))) &&
-          (!f.work || (examples.find(x => x.id === p.id)?.surveyAnswers as Record<string, string> | undefined)?.wife_work === f.work),
+          !f.work,
       );
       const cursor = f.afterId
         ? options.findIndex((p) => p.id === f.afterId) + 1

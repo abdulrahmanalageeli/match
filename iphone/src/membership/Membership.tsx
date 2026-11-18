@@ -3,6 +3,7 @@ import {getMembershipOffer,type MembershipOffer} from '../billing';
 import {membershipPriceLabel,seriousnessPriceLabel,type MembershipPlan} from '../membershipPricing';
 import {Check} from '../BrandIcons';
 import {Frame} from '../Screens';
+import {TestingTrial} from '../TestingTrial';
 import './membership.css';
 
 type Click=()=>void;
@@ -27,24 +28,29 @@ const benefitExplanations:Record<string,string>={
  'ميثاق التعارف':'اتفاق بينكما على أسلوب التواصل والحدود قبل بدء الحديث. قبول طلب التعارف وحده لا يفعّل المحادثة.',
 };
 export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,restore,manage,refresh,expiry,onPolicy,
- gender,trialEligible=false,currency,currentTier,loadOffer=getMembershipOffer}: {
+ period,introduction,status,pilotEligible,startPilot,gender,trialEligible=false,currency,currentTier,loadOffer=getMembershipOffer}: {
  back:Click;active:boolean;demo:boolean;price:string|null;canStart:boolean;canBuy:boolean;busy:boolean;
  buy:(plan?:MembershipPlan,offer?:MembershipOffer)=>void;restore:Click;manage:Click;refresh:Click;expiry:string|null;onPolicy:Click;
+ period?:string;introduction?:string;status?:'free'|'expired'|'paid'|'granted'|'trial';pilotEligible?:boolean;startPilot?:Click;
  gender?:'man'|'woman';trialEligible?:boolean;currency?:string;currentTier?:'free'|'premium'|'seriousness';loadOffer?:typeof getMembershipOffer;
 }) {
  const [plan,setPlan]=useState<'premium'|'seriousness'>(currentTier==='seriousness'?'seriousness':'premium');
  const seriousness=plan==='seriousness';
  const upgrading=active&&currentTier==='premium'&&seriousness;
- const managing=active&&!upgrading;
+ const managing=active&&!upgrading&&status!=='trial';
  const [seriousOffer,setSeriousOffer]=useState<MembershipOffer|null>(null);
  const [offerError,setOfferError]=useState(false);
  useEffect(()=>{if(!seriousness||!canBuy||demo)return;let cancelled=false;setSeriousOffer(null);setOfferError(false);loadOffer(gender,'seriousness').then(offer=>{if(!cancelled)setSeriousOffer(offer)}).catch(()=>{if(!cancelled)setOfferError(true)});return()=>{cancelled=true}},[seriousness,canBuy,demo,gender,loadOffer]);
  const selectedPrice=seriousness?(demo?seriousnessPriceLabel(gender):seriousOffer?.price??null):price;
  const displayPrice=selectedPrice??(seriousness?seriousnessPriceLabel(gender):membershipPriceLabel(gender));
+ const selectedPeriod=seriousness?seriousOffer?.period:period;
  const trial=!seriousness&&!active&&!demo&&Boolean(price)&&trialEligible;
  const until=expiry?new Date(expiry):null;
  return <Frame title="عضوية وُدَين" back={back} className="wd-paywall" headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
   <p className="wd-billing-note">عضويتك الحالية: {currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</p>
+  {status==='expired'&&<p className="wd-billing-note">انتهت صلاحية عضويتك.</p>}
+  {status==='trial'&&<p className="wd-billing-note">تجربتك المجانية مفعّلة.</p>}
+  {pilotEligible && startPilot && <TestingTrial busy={busy} accept={startPilot}/>}
   <table className="wd-tier-comparison" aria-label="مقارنة العضوية المجانية والمميزة ووسام الجدية">
    <thead><tr><th scope="col">مزايا عضويتك</th><th scope="col">مجانية</th><th scope="col">مميزة</th><th scope="col" className="wd-seriousness-heading">وسام الجدية</th></tr></thead>
    <tbody>
@@ -74,24 +80,24 @@ export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,rest
   </table>
   {(!active||currentTier==='premium')&&<div className="wd-plan-choice" role="group" aria-label="اختر عضويتك"><button type="button" aria-pressed={!seriousness} onClick={()=>setPlan('premium')}><img src="/brand/wudayn-member-seal.png" alt=""/><span>المميزة<small>{price??membershipPriceLabel(gender)}</small></span></button><button type="button" aria-pressed={seriousness} onClick={()=>setPlan('seriousness')}><img src="/brand/wudayn-seriousness-seal.png" alt=""/><span>وسام الجدية<small>{seriousOffer?.price??seriousnessPriceLabel(gender)}</small></span></button></div>}
   <section className="wd-membership-card" aria-label="تفاصيل العضوية والسعر">
-   {trial&&<div className="wd-trial-highlight"><strong>٧ أيام مجانًا</strong><span className="wd-trial-limit"><span>عرض إطلاق محدود</span><b><span>لأول ٥٠ امرأة</span><span>و٥٠ رجلًا</span></b></span></div>}
+   {trial&&<div className="wd-trial-highlight"><strong>{introduction||'٧ أيام مجانًا'}</strong><span className="wd-trial-limit"><span>عرض إطلاق محدود</span><b><span>لأول ٥٠ امرأة</span><span>و٥٠ رجلًا</span></b></span></div>}
    <span className="wd-price-spark" aria-hidden="true"/>
    {Array.from({length:24},(_,index)=><span key={index} className="wd-price-spark-tail" aria-hidden="true" style={{animationDelay:`${-9+(index+1)*.01875}s`,opacity:Math.pow(1-index/24,1.7)*.65,color:`hsl(${36-index*61/23} ${60-index*20/23}% ${85-index*25/23}%)`}}/>)}
    <svg className="wd-price-orbit" width="100%" height="100%" aria-hidden="true" focusable="false"><rect className="wd-price-orbit-trail" x="1" y="1" rx="18" pathLength="100"/><rect className="wd-price-orbit-glow" x="1" y="1" rx="18" pathLength="100"/><rect className="wd-price-orbit-tip" x="1" y="1" rx="18" pathLength="100"/></svg>
    <div className="wd-plan-top"><strong>{seriousness?'وسام الجدية':'وُدَين المميزة'}</strong>{!active&&!seriousness&&<span>{gender==='woman'?'سعر خاص للنساء':'عرض الإطلاق'}</span>}</div>
-   <div className="wd-price-row"><strong>{managing?'عضوية فعّالة':displayPrice}</strong>{!managing&&<small>/ شهريًا</small>}
+   <div className="wd-price-row"><strong>{managing?'عضوية فعّالة':displayPrice}</strong>{!managing&&<small>{selectedPeriod?' / '+selectedPeriod:' / شهريًا'}</small>}
    </div>
    {!managing&&!selectedPrice&&<p className="wd-price-context">سعر الباقة في السعودية. يظهر سعر متجرك عند الشراء.</p>}
    {active&&<p className="wd-price-context">راجع سعر التجديد وموعده في اشتراكات Apple.</p>}
   </section>
   {active&&until&&!isNaN(until.getTime())&&<p className="wd-billing-note">عضويتك سارية حتى {until.toLocaleDateString('ar-SA',{calendar:'gregory',dateStyle:'long'})}.</p>}
-  {!managing&&<p className="wd-billing-note">{trial?`٧ أيام مجانًا، ثم ${price} شهريًا بتجديد تلقائي عبر Apple. ألغِ قبل نهاية التجربة بـ٢٤ ساعة لتجنب الخصم.`:`${selectedPrice?selectedPrice+' شهريًا. ':''}تجديد تلقائي عبر Apple حتى الإلغاء.`}</p>}
+  {!managing&&<p className="wd-billing-note">{trial?`٧ أيام مجانًا، ثم ${price} لكل ${selectedPeriod} بتجديد تلقائي عبر Apple. ألغِ قبل نهاية التجربة بـ٢٤ ساعة لتجنب الخصم.`:`${selectedPrice&&selectedPeriod?selectedPrice+' لكل '+selectedPeriod+'. ':''}تجديد تلقائي عبر Apple حتى الإلغاء.`}</p>}
   {seriousness&&offerError&&<p className="wd-billing-note" role="status">تعذّر تحميل وسام الجدية من Apple. اختر المميزة أو أعد اختيار وسام الجدية للمحاولة.</p>}
-  {demo?<button className="f-primary wd-purchase" onClick={back}>العودة للتجربة</button>:managing?<button className="f-primary wd-purchase" disabled={!canBuy||busy} onClick={manage}>إدارة الاشتراك في Apple</button>:<button className="f-primary wd-purchase" disabled={(!canStart&&!upgrading)||!canBuy||!selectedPrice||busy} onClick={()=>buy(plan,seriousness?seriousOffer??undefined:undefined)}>{busy?'جارٍ المتابعة…':trial?'ابدأ أسبوعك المجاني':seriousness?'اشترك في وسام الجدية':'انضم إلى وُدَين المميزة'}</button>}
+  {demo?<button className="f-primary wd-purchase" onClick={back}>العودة للتجربة</button>:managing?<button className="f-primary wd-purchase" disabled={!canBuy||busy} onClick={manage}>إدارة الاشتراك في Apple</button>:<button className="f-primary wd-purchase" disabled={(!canStart&&!upgrading)||!canBuy||!selectedPrice||!selectedPeriod||busy} onClick={()=>buy(plan,seriousness?seriousOffer??undefined:undefined)}>{busy?'جارٍ المتابعة…':trial?'ابدأ أسبوعك المجاني':seriousness?'اشترك في وسام الجدية':'انضم إلى وُدَين المميزة'}</button>}
   {!active&&!demo&&<button className="f-link wd-continue" onClick={back}>المتابعة مجانًا</button>}
   {!canBuy&&!demo&&<p className="wd-billing-note">الاشتراك متاح من تطبيق وُدَين على iPhone.</p>}
   {!active&&(!canStart||!price)&&<button className="f-link centered" disabled={busy} onClick={refresh}>تحديث عرض العضوية</button>}
   {!active&&!canStart&&<p className="flow-note">الاشتراك متاح بعد اعتماد ملفك وتوفر ترشيحات مناسبة. يمكنك متابعة حسابك مجانًا.</p>}
-  <div className="wd-actions">{!demo&&<button className="f-link" disabled={busy||!canBuy} onClick={restore}>استعادة المشتريات</button>}<button className="f-link" onClick={onPolicy}>الشروط والخصوصية</button></div>
+  <div className="wd-actions">{!demo&&!managing&&(status==='expired'||status==='trial')&&<button className="f-link" disabled={busy||!canBuy} onClick={manage}>إدارة الاشتراك في Apple</button>}{!demo&&<button className="f-link" disabled={busy||!canBuy} onClick={restore}>استعادة المشتريات</button>}<button className="f-link" onClick={onPolicy}>الشروط والخصوصية</button></div>
  </Frame>;
 }

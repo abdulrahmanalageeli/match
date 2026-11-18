@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, MessageCircle, Route, X } from "../BrandIcons";
 import type { ActivityNotification, CommunitySource, PublicPerson, StepProgress } from '../community/data';
@@ -14,7 +15,7 @@ import { CompatibilityNotice, CompatibilityChangeSheet } from './CompatibilityNo
 
 type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit' | 'request'; stamp: string; person?: PublicPerson };
 type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
-export const journeyStages = ['التعارف الأول', 'نقاش جاد حول الزواج', 'الخطوة الرسمية أو العائلية'];
+export const journeyStages = memberAr.stages;
 
 export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, celebrationsBlocked = false }: { source: CommunitySource; pushOwner?:string|null; onOpen: (id: string) => void; onNotifications: () => void; celebrationsBlocked?: boolean }) {
   const [toast, setToast] = useState<Activity | null>(null);
@@ -98,13 +99,13 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
           // Consecutive saves become one net change per connection, rather than a stack of alerts.
           return next.length || current.length ? next : current;
         });
-        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `لديك اهتمام من ${n.person.alias}` : n.kind === 'profile_visit' ? `زيارة جديدة لملفك من ${n.person.alias}` : 'اتفقتما على التعارف الحصري', detail: n.kind === 'interest' ? 'تعرّف على الملف من الإشعارات' : n.kind === 'profile_visit' ? 'يمكنك الاطّلاع على الملف من الإشعارات' : 'يمكنكما متابعة الحديث في محادثتكما', stamp: n.createdAt, person:n.person }));
+        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `${memberAr.interest} من ${n.person.alias}` : n.kind === 'profile_visit' ? `${memberAr.visit} من ${n.person.alias}` : 'اتفقتما على التعارف الحصري', detail: n.kind === 'interest' ? 'تعرّف على الملف من الإشعارات' : n.kind === 'profile_visit' ? 'يمكنك الاطّلاع على الملف من الإشعارات' : 'يمكنكما متابعة الحديث في محادثتكما', stamp: n.createdAt, person:n.person }));
         for (const c of allConnections) if (c.status === 'pending' && c.direction === 'incoming') {
           next.push({key:c.id+':request',id:c.id,kind:'request',title:`طلب تعارف من ${c.person.alias}`,detail:'اطّلع على الملف واقبل الطلب أو اعتذر',stamp:c.createdAt||c.updatedAt||c.id,person:c.person});
         }
         const openChat = document.querySelector('[data-conversation-id]')?.getAttribute('data-conversation-id');
         for (const c of connections) {
-          if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `${c.unreadCount} رسالة غير مقروءة · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount), person:c.person });
+          if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `الرسائل غير المقروءة: ${new Intl.NumberFormat('ar-SA').format(c.unreadCount)} · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount), person:c.person });
           const p = progress.get(c.id), previous = stages.get(c.id);
           if (p) {
             if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`اقتراح من ${c.person.alias}: العودة إلى المرحلة السابقة`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage),person:c.person});

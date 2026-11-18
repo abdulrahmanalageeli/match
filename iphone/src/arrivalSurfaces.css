@@ -75,7 +75,7 @@ html .phone-app [data-motion-reveal] { animation: none !important; translate: no
 html .phone-app [data-motion-press] { transition: none !important; scale: none !important; }
 html .phone-app [data-motion-press]:active { translate: none !important; }
 
-.phone-app .mi-tab { font-size: 10px; gap: 4px; color: #999398; }
+.phone-app .mi-tab { font-size: 10px; gap: 4px; color: var(--supporting-ink, #999398); }
 .phone-app .mi-tab svg { width: 20px; height: 20px; stroke-width: 1.45; }
 .phone-app .mi-tab-active { color: var(--accent); }
 .phone-app .mi-tab-active svg { stroke-width: 1.8; }
@@ -100,13 +100,13 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .dr-row-request > .dr-invitation-mark { width: 22px; height: 22px; }
 .phone-app .cm-shell .dr-row-request > .nf-icon { width: 20px; height: 20px; }
 .phone-app .cm-shell .dr-preference-inline { gap: 5px; align-items: center; }
-.phone-app .cm-shell .dr-preference-inline > svg { color: #8b737d; }
+.phone-app .cm-shell .dr-preference-inline > svg { color: var(--supporting-ink, #8b737d); }
 .phone-app .cm-shell .cm-list:has(> .cm-request) { gap: 9px; }
 .phone-app .cm-shell .cm-request,
-.phone-app .cm-shell .cm-notification-row { padding: 12px; min-height: 76px; border: 0; border-radius: var(--nf-card-radius); background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .cm-shell .cm-notification-row { padding: 12px; min-height: 76px; border: 0; border-radius: var(--nf-card-radius); background: var(--surface); box-shadow: var(--nf-card-shadow); }
 .phone-app .cm-shell .cm-notification-row { margin-bottom: 2px; padding: 9px 10px; min-height: 64px; gap: 10px; border-radius: var(--radius-control); box-shadow: none; border-bottom: 1px solid var(--nf-row-divider); }
-.phone-app .cm-shell .cm-notification-row[data-unread] { background: #f8f0f3; }
-.phone-app .cm-shell .cm-notification-row:not([data-unread]) .nf-feed-row-head strong { color: #72666b; font-weight: 400; }
+.phone-app .cm-shell .cm-notification-row[data-unread] { background: var(--raised-tint, #f8f0f3); }
+.phone-app .cm-shell .cm-notification-row:not([data-unread]) .nf-feed-row-head strong { color: var(--supporting-ink, #72666b); font-weight: 400; }
 .phone-app .cm-shell .nf-feed-avatar { width: 38px; height: 38px; flex-basis: 38px; border-radius: 50%; }
 .phone-app .cm-shell .nf-feed-avatar > .nf-person-avatar { border: 2px solid var(--surface); box-shadow: var(--nf-portrait-shadow); }
 .phone-app .cm-shell .nf-feed-avatar > i { width: 18px; height: 18px; }
@@ -116,16 +116,16 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .nf-feed-row-head strong { font-size: 14px; line-height: 1.4; }
 .phone-app .cm-shell .nf-feed-copy > small { font-size: 12px; line-height: 1.4; }
 .phone-app .cm-shell .nf-feed-meta { font-size: 10px; line-height: 1.4; margin-top: 0; gap: 6px; }
-.phone-app .cm-shell .nf-feed-read-state { color: #8a7c82; }
-.phone-app .cm-shell [data-unread] .nf-feed-read-state { color: #74314b; font-weight: 600; }
+.phone-app .cm-shell .nf-feed-read-state { color: var(--supporting-ink, #8a7c82); }
+.phone-app .cm-shell [data-unread] .nf-feed-read-state { color: var(--tinted-ink, #74314b); font-weight: 600; }
 .phone-app .cm-shell .cm-request-copy strong { font-size: 17px; }
 .phone-app .cm-shell .cm-request-copy .cm-inbox-preview,
-.phone-app .nf-feed-copy > small { color: #655d63; font-size: 13px; }
+.phone-app .nf-feed-copy > small { color: var(--supporting-ink, #655d63); font-size: 13px; }
 .phone-app .nf-feed-filters button { border-radius: 9px; box-shadow: none; min-height: 36px; padding: 6px 11px; font-size: 12px; }
-.phone-app .st-group { background: #fff; border: 0; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
+.phone-app .st-group { background: var(--surface); border: 0; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
 .phone-app .st-icon { width: 30px; height: 30px; min-width: 30px; border-radius: 8px; background: transparent; }
 .phone-app .st-icon > svg { width: 20px; height: 20px; }
-.phone-app .st-row-copy small { color: #655d63; }
+.phone-app .st-row-copy small { color: var(--supporting-ink, #655d63); }
 .phone-app .st-member-card { margin-block-end: 18px; border-color: var(--nf-row-divider); border-radius: var(--radius-card); }
 .phone-app .st-member-identity { gap: 12px; padding: 14px; }
 .phone-app .st-member-avatar {
@@ -141,7 +141,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .st-member-photos { min-height: 52px; padding: 10px 14px; border-top-color: var(--nf-row-divider); }
 .phone-app :is(.st-row + .st-row, .st-marriage-group > div + div > .st-row)::before { border-top-color: var(--nf-row-divider); opacity: 1; }
 .phone-app .mp-fact-group,
-.phone-app .mp-fit-preview { background: #fff; border-color: #eee9ec; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
+.phone-app .mp-fit-preview { background: var(--surface); border-color: #eee9ec; border-radius: var(--nf-card-radius); box-shadow: var(--nf-card-shadow); }
 .phone-app .mp-fact-icon { width: 28px; height: 28px; background: transparent; }
 .phone-app .mp-primary > .btn-primary {
   min-height: 44px;
@@ -167,18 +167,18 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-chat-head .cm-guide-button { width: 36px; height: 36px; min-height: 36px; padding: 6px; border-radius: 9px; }
 .phone-app .cm-shell .cm-chat-head .cm-call-button svg,
 .phone-app .cm-shell .cm-chat-head .cm-guide-button svg { width: 21px; height: 21px; }
-.phone-app .pg-add { border-color: #ddd4d8; background: #fff; border-radius: 12px; box-shadow: none; }
+.phone-app .pg-add { border-color: #ddd4d8; background: var(--surface); border-radius: 12px; box-shadow: none; }
 
 .phone-app .mo-heading { padding-block: 14px 12px; }
 .phone-app .mo-heading h1 { font-size: 24px; }
-.phone-app .mo-summary { padding: 12px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .mo-summary { padding: 12px; border: 0; border-radius: 12px; background: var(--surface); box-shadow: var(--nf-card-shadow); }
 .phone-app .mo-list { gap: 10px; }
-.phone-app .mo-card { padding: 12px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--nf-card-shadow); }
+.phone-app .mo-card { padding: 12px; border: 0; border-radius: 12px; background: var(--surface); box-shadow: var(--nf-card-shadow); }
 .phone-app .mo-profile { padding-block: 11px; gap: 12px; }
 .phone-app .mo-avatar.cm-avatar { width: 52px; height: 62px; }
 .phone-app .mo-card-status { font-size: 11px; }
 .phone-app .mo-identity > span,
-.phone-app .mo-card-foot > span { font-size: 12px; color: #655d63; }
+.phone-app .mo-card-foot > span { font-size: 12px; color: var(--supporting-ink, #655d63); }
 .phone-app .mo-action { min-height: 36px; padding: 6px 10px; border-radius: 9px; font-size: 12px; }
 .phone-app .mo-current-card .mo-action-current {
   min-width: 28px;
@@ -198,13 +198,13 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-title.df-title h1 { font-size: 15px; font-weight: 600; line-height: 1.35; }
 .phone-app .cm-shell .dr-preference-inline { font-family: var(--font-ui); gap: 4px; align-items: baseline; }
 .phone-app .cm-shell .dr-preference-inline strong { font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 0; }
-.phone-app .cm-shell .dr-preference-inline .dr-fit-caption { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; color: #795462; }
-.phone-app .mi-tab { font-size: 12px; font-weight: 500; gap: 5px; min-height: 56px; color: #817b80; }
+.phone-app .cm-shell .dr-preference-inline .dr-fit-caption { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; color: var(--tinted-ink, #795462); }
+.phone-app .mi-tab { font-size: 12px; font-weight: 500; gap: 5px; min-height: 56px; color: var(--supporting-ink, #817b80); }
 .phone-app .mi-tab svg { width: 23px; height: 23px; stroke-width: 1.65; }
 .phone-app .mi-tab-active { color: var(--accent); font-weight: 600; }
 .phone-app .cm-shell .dr-avatar-online { inset: -3px; width: auto; height: auto; border: 2px solid #32805b; border-radius: 15px; background: transparent; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 .phone-app .cm-shell .dr-avatar-online::after { content: ''; position: absolute; inset-inline-end: -3px; bottom: -3px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #32805b; }
-.phone-app .cm-shell .dr-online-label { color: #276947; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.phone-app .cm-shell .dr-online-label { color: var(--positive-ink, #276947); font-size: 10px; font-weight: 600; white-space: nowrap; }
 .phone-app .cm-shell .dr-row-context { flex-wrap: wrap; }
 .phone-app .cm-shell .dr-fit-visual { width: 74px; min-width: 74px; min-height: 40px; padding: 0; border: 0; background: transparent; align-items: center; justify-content: center; }
 .phone-app .cm-shell .dr-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -222,7 +222,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   box-shadow: none;
 }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input { min-height: 0; height: calc(var(--nf-search-height) - 2px); padding-block: 0; font-size: 16px; }
-.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input::placeholder { font-size: 14px; }
+.phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input::placeholder { font-size: 0.875rem; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search) input:focus-visible { outline: none; box-shadow: none; }
 .phone-app .cm-shell :is(.nf-help-search, .nf-choice-sheet-search) input:focus-visible { outline: none; box-shadow: none; }
 .phone-app .cm-shell :is(.df-discovery .dr-tools .dr-search, .cm-inbox-search, .mo-search):focus-within { border-color: #a27888; }
@@ -246,7 +246,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .dr-search-toggle { display:grid; place-items:center; position:relative; flex:none; width:var(--nf-search-height); height:var(--nf-search-height); padding:0; border:0; border-radius:50%; background:none; color:var(--accent-fill); cursor:pointer; }
 .dr-search-toggle[data-active]::after { content:""; position:absolute; top:4px; right:4px; width:4px; height:4px; border-radius:50%; background:var(--accent-fill); }
 .dr-search-explainer { min-width:0; display:flex; align-items:center; justify-content:flex-start; }
-.dr-search-explainer .wd-why-link { gap:4px; padding:0; min-height:30px; font-size:10px; line-height:1.4; text-align:center; }
+.dr-search-explainer .wd-why-link { gap:4px; padding:0; min-height:30px; font-size: 0.625rem; line-height:1.4; text-align:center; }
 .dr-search-explainer .wd-why-link>svg { width:12px; height:12px; flex:none; }
 .phone-app :is(button, a, input, select, summary) { -webkit-tap-highlight-color: transparent; }
 .phone-app .cm-shell .df-discovery .dr-tools .dr-filter-shortcut > svg { stroke-width: 1.6; }
@@ -255,17 +255,17 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .df-portrait-placeholder .cm-weekly-contours { display: none; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual { width: auto; min-width: 0; min-height: 44px; }
 .phone-app .cm-shell .df-discovery .dr-row-overview > .dr-fit-visual { border-inline-start: 1px solid var(--arrival-rule); padding-inline-start: 12px; }
-.phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 12px; }
+.phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 0.75rem; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary { display: flex; align-items: center; gap: 14px; margin-block: 4px 14px; text-align: start; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-compatibility { flex: none; margin: 0; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-ring { width: 36px; height: 34px; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-tile { gap: 6px; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-tile strong { font-size: 18px; }
-.phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-reason { flex: 1; min-width: 0; margin: 0; padding: 0; padding-inline-start: 14px; border-inline-start: 1px solid var(--arrival-rule); font-size: 12px; line-height: 1.7; }
-.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact { align-items: center; gap: 6px; padding: 0; margin-block: 0 12px; border: 0; border-radius: 0; background: transparent; color: #716b70; font-size: 12px; line-height: 1.5; }
-.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > svg { width: 16px; height: 16px; flex: none; color: #795462; }
-.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong { margin-inline-start: 2px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong small { font-size: 11px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-reason { flex: 1; min-width: 0; margin: 0; padding: 0; padding-inline-start: 14px; border-inline-start: 1px solid var(--arrival-rule); font-size: 0.75rem; line-height: 1.7; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact { align-items: center; gap: 6px; padding: 0; margin-block: 0 12px; border: 0; border-radius: 0; background: transparent; color: #716b70; font-size: 0.75rem; line-height: 1.5; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > svg { width: 16px; height: 16px; flex: none; color: var(--tinted-ink, #795462); }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong { margin-inline-start: 2px; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.phone-app .cm-shell .df-discovery .df-card-copy > .bn-compact > strong small { font-size: 0.6875rem; }
 .phone-app .cm-shell .df-discovery .dr-row-overview { gap: 10px; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group { position: relative; display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group > .dr-row-profile { position: absolute; inset: 0; z-index: 1; min-height: 0; border-radius: 6px; }
@@ -283,9 +283,9 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #694052;
+  color: var(--tinted-ink, #694052);
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   white-space: nowrap;
 }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
@@ -318,7 +318,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   min-height: 24px;
   padding: 0;
 }
-.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request[data-add] { display: inline-flex; align-items: center; gap: 4px; width: auto; min-width: 58px; padding-inline: 4px; font-size: 12px; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request[data-add] { display: inline-flex; align-items: center; gap: 4px; width: auto; min-width: 58px; padding-inline: 4px; font-size: 0.75rem; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request:is([data-connected], [data-pending], :hover:not(:disabled)) { background: transparent; box-shadow: none; }
 .phone-app .cm-shell .df-discovery .dr-row-add-logo { flex: none; width:1.15em; height:1.15em; object-fit:contain; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-logo { transform:scale(1.18,1.32); transform-origin:center; }
@@ -352,7 +352,7 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
   padding: 0;
   border: 0;
   border-radius: 24px 24px 0 0;
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
 }
 .phone-app .cm-shell .dr-filter-sheet[open] { display: flex; flex-direction: column; }
@@ -369,7 +369,7 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
   background: #c6c5c8;
 }
 .phone-app .cm-shell .dr-filter-sheet > header { flex: none; margin: 0; padding: 7px 16px; }
-.phone-app .cm-shell .dr-filter-sheet > header h2 { font-size: 20px; }
+.phone-app .cm-shell .dr-filter-sheet > header h2 { font-size: 1.25rem; }
 .phone-app .cm-shell .dr-filter-sheet > header .icon-btn { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #282429; box-shadow: none; }
 .phone-app .cm-shell .dr-filter-form { display: flex; flex-direction: column; gap: 0; min-height: 0; }
 .dr-filter-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-inline: 16px; }
@@ -377,15 +377,15 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
   border: 0;
   border-block-end: 1px solid #e8e7e9;
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
 }
 .phone-app .dr-filter-body > .nf-sheet-choice-row { padding: 4px 0; min-height: 44px; }
-.dr-filter-body .nf-sheet-choice-label { color: #231f23; font-size: 14px; font-weight: 650; }
-.dr-filter-body .nf-sheet-choice-value { font-size: 13px; }
+.dr-filter-body .nf-sheet-choice-label { color: #231f23; font-size: 0.875rem; font-weight: 650; }
+.dr-filter-body .nf-sheet-choice-value { font-size: 0.8125rem; }
 .dr-filter-age-row,
-.phone-app .dr-filter-body > .dr-filter-availability { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; color: #231f23; font-size: 14px; font-weight: 650; }
+.phone-app .dr-filter-body > .dr-filter-availability { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; color: #231f23; font-size: 0.875rem; font-weight: 650; }
 .dr-filter-age-row .cm-age-fields { display: flex; gap: 6px; }
-.phone-app .dr-filter-age-row label { display: flex; align-items: center; gap: 2px; padding-inline: 6px; border-radius: 999px; background: #efeff0; font-size: 12px; }
+.phone-app .dr-filter-age-row label { display: flex; align-items: center; gap: 2px; padding-inline: 6px; border-radius: 999px; background: #efeff0; font-size: 0.75rem; }
 .phone-app .dr-filter-age-row input { width: 2.5em; height: 32px; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; text-align: center; font-size: 16px; }
 .dr-filter-age-row input::-webkit-inner-spin-button { appearance: none; }
 .dr-filter-availability { position: relative; cursor: pointer; }
@@ -408,19 +408,19 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
   border-radius: 999px;
   background: #d8d7da;
 }
-.dr-filter-switch::before { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0002; }
+.dr-filter-switch::before { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px #0002; }
 .dr-filter-availability input:checked + .dr-filter-switch { background: #54152a; }
 .dr-filter-availability input:checked + .dr-filter-switch::before { inset-inline-start: auto; inset-inline-end: 2px; }
 .dr-filter-availability input:focus-visible + .dr-filter-switch { outline: 2px solid #54152a; outline-offset: 2px; }
-.phone-app .dr-filter-body > .dr-filter-group > summary { min-height: 44px; padding: 4px 0; color: #231f23; font-size: 14px; }
+.phone-app .dr-filter-body > .dr-filter-group > summary { min-height: 44px; padding: 4px 0; color: #231f23; font-size: 0.875rem; }
 .phone-app .dr-filter-body > .dr-filter-group > summary > svg { color: #69656b; }
 .dr-filter-body .dr-filter-fields { gap: 9px; padding: 0 8px 9px; }
-.dr-filter-body .dr-filter-fields .dr-filter-section { border-radius: 9px; background: #fff; }
+.dr-filter-body .dr-filter-fields .dr-filter-section { border-radius: 9px; background: var(--surface); }
 .dr-filter-body .dr-filter-fields .dr-filter-section summary { min-height: 40px; padding: 6px 9px; }
 .phone-app .dr-filter-body .dr-filter-fields select { min-height: 38px; padding-block: 5px; }
 .phone-app .dr-filter-body .dr-filter-fields .nf-choice-control { min-height: 38px; }
 .phone-app .dr-filter-body .dr-filter-fields .nf-choice-control input { min-height: 36px; padding-block: 4px; }
-.dr-filter-footer { flex: none; padding: 12px 16px max(12px, var(--nf-safe-bottom, 0px)); background: #fff; }
+.dr-filter-footer { flex: none; padding: 12px 16px max(12px, var(--nf-safe-bottom, 0px)); background: var(--surface); }
 .dr-filter-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .phone-app .dr-filter-actions > button { min-height: 44px; }
 .phone-app .dr-filter-actions > .btn-primary { border-radius: 11px; background: #54152a; }
@@ -431,34 +431,34 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble,
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-family: var(--font-chat); letter-spacing: normal; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble > p { font-size: 16px; font-weight: 400; line-height: 1.55; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-size: 17px; font-weight: 400; line-height: 1.5; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 10px; line-height: 1.4; margin-top: 5px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-size: 1.0625rem; font-weight: 400; line-height: 1.5; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 0.625rem; line-height: 1.4; margin-top: 5px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { min-height: 64px; padding: max(9px, var(--nf-safe-top)) 12px 9px; gap: 8px; }
 .phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { padding-block-start: 9px; }
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { padding-block-start: max(9px, var(--nf-safe-top)); }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person-copy small { font-size: 11px; margin-top: 1px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 38px; background: #fff; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { display: inline-flex; flex: 1; min-width: 0; width: auto; min-height: 38px; padding: 0; border: 0; gap: 5px; margin: 0; font-size: 11px; white-space: nowrap; color: #65565e; }
-.phone-app .cm-shell .cm-journey-summary .cm-journey-attention { font-size: 9px; color: #54152a; background: #f3e9ed; border-radius: 4px; padding: 2px 4px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person-copy small { font-size: 0.6875rem; margin-top: 1px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 38px; background: var(--surface); }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { display: inline-flex; flex: 1; min-width: 0; width: auto; min-height: 38px; padding: 0; border: 0; gap: 5px; margin: 0; font-size: 0.6875rem; white-space: nowrap; color: var(--supporting-ink, #65565e); }
+.phone-app .cm-shell .cm-journey-summary .cm-journey-attention { font-size: 0.5625rem; color: var(--accent); background: var(--raised-tint, #f3e9ed); border-radius: 4px; padding: 2px 4px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary { width: auto; flex: none; margin: 0; padding: 0; border: 0; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 38px; padding: 0 4px; gap: 4px; font-size: 10px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 38px; padding: 0 4px; gap: 4px; font-size: 0.625rem; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > button svg { width: 12px; height: 12px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-end-visible { min-height: 38px; padding: 0 3px; margin: 0; flex: none; font-size: 10px; color: #8e606b; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-end-visible { min-height: 38px; padding: 0 3px; margin: 0; flex: none; font-size: 0.625rem; color: var(--tinted-ink, #8e606b); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose { padding-top: 7px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose { padding-bottom: max(6px, calc(var(--nf-safe-bottom) - var(--chat-keyboard-overlap, 0px))); }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-composer-surface { border-color: #e7e1e4; border-radius: 16px; background: #fff; padding: 3px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-composer-surface { border-color: #e7e1e4; border-radius: 16px; background: var(--surface); padding: 3px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools { gap: 0; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; border: 0; background: transparent; color: #82737b; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; border: 0; background: transparent; color: var(--supporting-ink, #82737b); }
 .phone-app .cm-shell .cm-chat .cm-bubble:has(.cm-message-photo),
 .phone-app .cm-shell .cm-chat .cm-bubble:has(.cm-once-photo) { min-width: 0; max-width: min(74%, 260px); }
 .phone-app .cm-shell .cm-chat .cm-message-photo img { max-height: 220px; object-fit: contain; }
 .phone-app .cm-shell .cm-chat .cm-once-photo { min-width: 0; min-height: 70px; padding: 10px; gap: 9px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-receipt-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message { padding-block: 22px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { font-size: 13px; max-width: 280px; margin-inline: auto; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { font-size: 0.8125rem; max-width: 280px; margin-inline: auto; }
 @media (max-width: 360px) {
   .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { padding-inline: 8px; gap: 3px; }
-  .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { font-size: 10px; gap: 3px; }
+  .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { font-size: 0.625rem; gap: 3px; }
 }
 
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-journey-summary { grid-column: auto; align-items: center; flex: 0 0 auto; }
@@ -466,17 +466,17 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary { margin-inline-start: 8px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-end-visible { margin-inline-start: auto; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-icon { width: 36px; height: 36px; margin-inline: auto; border: 0; background: transparent; box-shadow: none; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message h2 { margin: 12px 0 7px; font-size: 20px; color: #332b30; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message h2 { margin: 12px 0 7px; font-size: 1.25rem; color: var(--supporting-ink, #332b30); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-message p { margin-block: 0 10px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-starter { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; border: 0; background: none; color: #795462; font: inherit; font-size: 12px; padding: 5px 8px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day { justify-content: center; gap: 9px; margin-block: 12px; font-size: 10px; color: #8a8186; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-first-starter { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; border: 0; background: none; color: var(--tinted-ink, #795462); font: inherit; font-size: 0.75rem; padding: 5px 8px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day { justify-content: center; gap: 9px; margin-block: 12px; font-size: 0.625rem; color: var(--supporting-ink, #8a8186); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-day::after { flex: 0 0 24px; opacity: .4; }
 
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button { min-height: 60px; padding-block: 11px; gap: 10px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button strong { font-size: 14px; line-height: 1.4; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button small { font-size: 11px; line-height: 1.5; margin-top: 2px; }
-.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-tools-intro { margin-block: 5px 10px; font-size: 12px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button strong { font-size: 0.875rem; line-height: 1.4; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-tools > button small { font-size: 0.6875rem; line-height: 1.5; margin-top: 2px; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-tools-intro { margin-block: 5px 10px; font-size: 0.75rem; }
 
 /* Keep the reading lane stable while composing; secondary context stays above it. */
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person { min-width: 0; }

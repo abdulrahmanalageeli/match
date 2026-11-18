@@ -8,8 +8,8 @@ test('next-step summary distinguishes both participants, current agreement, and 
   assert.equal(journeyNext({ ...current, consentMine: true }, 'رهام').waiting, 'بانتظار رهام');
   assert.equal(journeyNext({ ...current, consentPeer: true }, 'رهام').yours, true);
   const next = journeyNext({ ...current, exclusive: true, stage: 1, peer: true }, 'رهام');
-  assert.equal(next.waiting, 'بانتظار موافقتك'); assert.equal(next.title, 'الخطوة الرسمية أو العائلية');
-  assert.equal(next.agreed, 'نقاش جاد حول الزواج · حصري');
+  assert.equal(next.waiting, 'بانتظار موافقتك'); assert.equal(next.title, 'التواصل مع الأهل');
+  assert.equal(next.agreed, 'مناقشة أساسيات الزواج · حصري');
   assert.equal(journeyNext({ ...current, rewindPeer: true }, 'رهام').title, 'مراجعة العودة خطوة');
   assert.equal(journeyNext({ ...current, exclusive: true, stage: 2 }, 'رهام').title, 'تنسيق الخطوة العائلية');
 });

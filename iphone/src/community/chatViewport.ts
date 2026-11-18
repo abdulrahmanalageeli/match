@@ -24,6 +24,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     const top = Math.round((viewport?.offsetTop ?? 0) + inset);
     const overlap = focused ? Math.max(0, Math.round(restingHeight - height)) : 0;
     root.toggleAttribute('data-nf-chat-keyboard', keyboard);
+    root.toggleAttribute('data-nf-chat-compact', height - inset < 480);
     if (height !== lastHeight) root.style.setProperty('--chat-viewport-height', height + 'px');
     if (top !== lastTop) element.style.setProperty('--chat-viewport-top', top + 'px');
     if (inset !== lastInset || height !== lastHeight) element.style.setProperty('--chat-available-height', Math.max(0, height - inset) + 'px');
@@ -63,6 +64,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     element.removeEventListener('focusout', schedule);
     root.removeAttribute('data-nf-chat-viewport');
     root.removeAttribute('data-nf-chat-keyboard');
+    root.removeAttribute('data-nf-chat-compact');
     root.style.removeProperty('--chat-viewport-height');
     element.style.removeProperty('--chat-viewport-top');
     element.style.removeProperty('--chat-available-height');

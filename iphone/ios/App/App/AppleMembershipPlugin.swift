@@ -87,16 +87,19 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             do {
                 let product = try await selectedProduct(call)
+                guard let terms = await MembershipStoreOffer(product) else { throw NSError(domain: "WudaynMembership", code: 4) }
                 let appResult = try await AppTransaction.shared
                 guard case .verified = appResult else { throw NSError(domain: "WudaynMembership", code: 3) }
                 let intro = product.subscription?.introductoryOffer
                 let week = intro?.paymentMode == .freeTrial && intro?.periodCount == 1 &&
                     ((intro?.period.unit == .week && intro?.period.value == 1) || (intro?.period.unit == .day && intro?.period.value == 7))
                 let appleEligible = await product.subscription?.isEligibleForIntroOffer ?? false
-                call.resolve(["price": product.displayPrice, "productId": product.id,
+                var response: JSObject = ["price": product.displayPrice, "productId": product.id, "period": terms.period,
                     "currency": product.priceFormatStyle.currencyCode,
                     "appleEligible": week && appleEligible,
-                    "signedAppTransaction": appResult.jwsRepresentation])
+                    "signedAppTransaction": appResult.jwsRepresentation]
+                if let introduction = terms.introduction { response["introduction"] = introduction }
+                call.resolve(response)
             } catch {
                 call.reject("تعذّر تحميل سعر العضوية من App Store.", "STORE_ERROR", error)
             }
@@ -132,6 +135,15 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             defer { purchaseInProgress = false }
             do {
                 let product = try await selectedProduct(call)
+                guard let terms = await MembershipStoreOffer(product), let price = call.getString("price"),
+                      product.displayPrice == price, terms.period == call.getString("period") else {
+                    call.reject("تغيّر عرض المتجر. راجع السعر والمدة قبل الشراء.", "OFFER_CHANGED")
+                    return
+                }
+                if let expectedIntro = call.getString("introduction"), expectedIntro != terms.introduction {
+                    call.reject("تغيّر العرض الأولي. راجع العضوية قبل الشراء.", "OFFER_CHANGED")
+                    return
+                }
                 if let conflict = await purchaseConflict(productID: product.id, accountToken: token) {
                     call.reject(conflict.message, conflict.code)
                     return

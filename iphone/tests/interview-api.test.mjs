@@ -917,9 +917,9 @@ test('an in-progress interview recognizes earlier scenario wording after copy ch
   const initial=initialInterviewDocument();
   initial.turns=[
     {id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false},
-    {id:randomUUID(),topic:'family',question:openingScenarios[0].legacyText,answer:'أدخل الأهل بعد شهرين.',skipped:false},
+    {id:randomUUID(),topic:'family',question:openingScenarios[0].priorWording[2],answer:'أدخل الأهل بعد شهرين.',skipped:false},
   ];
-  initial.currentQuestion={topic:'practical',text:openingScenarios[1].legacyText,suggestions:[]};
+  initial.currentQuestion={topic:'practical',text:openingScenarios[1].priorWording[2],suggestions:[]};
   const h=harness({initial:{document:initial,revision:2}});
   const result=await h.service({action:'answer',hybrid:true,revision:2,requestId:randomUUID(),answer:'أفضّل أن نخطط للمصاريف معًا.'},headers);
   assert.equal(result.document.currentQuestion.text,openingScenarios[2].text);
@@ -951,4 +951,18 @@ test('retry of a saved signup answer keeps the scenario route even if an older c
   const retried=await h.service({action:'retry',revision:2},headers);
   assert.equal(retried.document.currentQuestion.text,openingScenarios[0].text);
   assert.equal(retried.document.turns.length,1);
+});
+
+test('a brief ambiguous housing answer gets one specific clarification, also after reloading', async () => {
+  const h = harness();
+  let state = await start(h);
+  const reply = text => h.service({action:'answer', hybrid:true, revision:state.revision, requestId:randomUUID(), answer:text},headers);
+  state = await reply(answer);
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].text);
+  state = await reply('على حسب؟');
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
+  state = await h.service({action:'load'}, headers);
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
+  state = await reply('على حسب');
+  assert.equal(state.document.currentQuestion.text, openingScenarios[1].text);
 });

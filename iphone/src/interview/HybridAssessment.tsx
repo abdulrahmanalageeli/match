@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil } from '../BrandIcons';
@@ -41,11 +42,7 @@ const personalityByDimension: Record<string, string[]> = {
   repair_after_conflict: ['support'],
 };
 
-const workLabels: Record<string, string> = {
-  A: 'أرغب في العمل ومواصلة طموحي',
-  B: 'أفضل عدم العمل بعد الزواج',
-  C: 'مرنة حسب ظروفي واتفاقنا',
-};
+const workLabels: Record<string, string> = memberAr.womanWork;
 const helpScenarios: Record<string, string> = {
   'preference:shared_budget:self': 'لو زادت مصاريف البيت هذا الشهر، كيف تحبّ أن ترتّبا الميزانية؟',
   'preference:family_boundaries:self': 'لو اقترح أحد الأهل تغيير قرار يخصّ بيتكما، كيف تحبّ أن تتعاملا معه؟',

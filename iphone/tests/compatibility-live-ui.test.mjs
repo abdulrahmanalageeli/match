@@ -45,6 +45,7 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }), Fragment: 'fragment' };
     if (name === 'react-dom') return { flushSync: fn => fn() };
     if (name === '../membership/access') return {useMembershipAccess:()=>membership,MembershipPrompt:Object.defineProperty(()=>null,'name',{value:'MembershipPrompt'})};
+    if (name === '../profile/decisionContext') return {decisionContext: person => ({personalLine:person.bio,context:person.familyPreference})};
     if (name === '../profile/profileOptions') return profileOptions;
     if (name === '../compatibility/model') return {interests};
     if (name === '../compatibility/marriage') return {languageOptions,marriageTimelineLabels};

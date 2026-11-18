@@ -1,5 +1,5 @@
-.nf-test-gate{min-height:100dvh;box-sizing:border-box;max-width:480px;margin:auto;padding:46px 26px;background:var(--page-background);display:flex;flex-direction:column;align-items:center;text-align:center;color:var(--ink)}
-.nf-tester-tools { position: relative; z-index: 20; height: calc(28px + var(--nf-safe-top)); padding-top: var(--nf-safe-top); }
+.nf-test-gate{min-height:100dvh;box-sizing:border-box;max-width:480px;margin:auto;padding:max(46px,calc(env(safe-area-inset-top,0px) + 12px)) 26px max(46px,env(safe-area-inset-bottom,0px));background:var(--page-background);display:flex;flex-direction:column;align-items:center;text-align:center;color:var(--ink)}
+.nf-tester-tools { position: relative; z-index: 20; height: calc(28px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
 .nf-tester-tools > summary { display: flex; align-items: center; justify-content: center; width: 64px; height: 28px; margin-inline: auto; list-style: none; cursor: pointer; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; }
 .nf-tester-tools > summary::-webkit-details-marker { display: none; }
 .nf-tester-tools[open] > summary svg { transform: rotate(180deg); }

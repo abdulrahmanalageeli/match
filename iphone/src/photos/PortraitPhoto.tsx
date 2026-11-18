@@ -3,9 +3,10 @@ import { UserRound } from "../BrandIcons";
 import type { ProfilePortrait } from '../types';
 import type { CommunitySource } from '../community/data';
 
-type LoadedPortrait = { signature: string; url: string; key: string; revealed: boolean };
+type LoadedPortrait = { signature: string; source: CommunitySource; url: string; key: string; revealed: boolean; blur: number };
+const viewKey = (photo: ProfilePortrait) => [photo.id,photo.path,photo.blur,photo.revealed??false].join('|');
 
-export function PortraitPhoto({portrait,source,alt,className}:{portrait:ProfilePortrait;source?:CommunitySource|null;alt:string;className?:string}) {
+export function PortraitPhoto({portrait,source,alt,className,captionClassName,frameClassName}:{portrait:ProfilePortrait;source?:CommunitySource|null;alt:string;className?:string;captionClassName?:string;frameClassName?:string}) {
   const [loaded,setLoaded]=useState<LoadedPortrait|null>(null);
   const element=useRef<HTMLElement|null>(null);
   const invalidate=useRef<(()=>void)|null>(null);
@@ -28,14 +29,15 @@ export function PortraitPhoto({portrait,source,alt,className}:{portrait:ProfileP
       try {
         const info=source!.portraitState?await source!.portraitState(portrait):portrait;
         if(requestGeneration!==generation)return;
-        const key=[info.id,info.path,info.revealed??false].join('|');
+        const key=viewKey(info);
         if(current?.key===key)return;
         // Never keep a previously revealed image while replacing/rechecking its access.
         discard();
         requestGeneration=generation;
-        const url=await source!.portraitUrl(info);
+        let shown=info;
+        const url=await source!.portraitUrl(info, authorized=>{shown=authorized;});
         if(!active||document.hidden||!inViewport||requestGeneration!==generation){if(url.startsWith('blob:'))URL.revokeObjectURL(url);return;}
-        current={signature,url,key,revealed:info.revealed===true};
+        current={signature,source:source!,url,key:viewKey(shown),revealed:shown.revealed===true,blur:shown.blur};
         setLoaded(current);
       } catch { discard();requestGeneration=generation; }
       finally {inFlight=false;if(active&&requestGeneration!==generation&&!document.hidden&&inViewport)void refresh();}
@@ -61,5 +63,10 @@ export function PortraitPhoto({portrait,source,alt,className}:{portrait:ProfileP
     document.addEventListener('visibilitychange',visibility);
     return()=>{active=false;clearTimeout(wake);clearInterval(timer);observer?.disconnect();stop();document.removeEventListener('visibilitychange',visibility);discard();invalidate.current=null;};
   },[source,signature,portrait.id,portrait.path,portrait.revealed,portrait.revealPolicy]);
-  return loaded?.signature===signature?<img ref={node=>{element.current=node;}} className={className} src={loaded.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span ref={node=>{element.current=node;}} className={className} aria-label="الصورة غير متاحة بعد"><UserRound size={30}/></span>;
+  const shown=loaded?.signature===signature && loaded.source===source ? loaded : null;
+  const photo=shown?<img ref={node=>{element.current=node;}} className={className} src={shown.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span ref={node=>{element.current=node;}} className={className} aria-label="الصورة غير متاحة بعد"><UserRound size={30}/></span>;
+  if (!captionClassName && !frameClassName) return photo;
+  return <>{frameClassName?<div className={frameClassName}>{photo}</div>:photo}
+    {captionClassName && shown && <span className={captionClassName}>{shown.revealed?'الصورة الواضحة متاحة لك بإذن صاحبها':shown.blur>0?'صورة بتمويه اختياري':'صورة شخصية'}</span>}
+  </>;
 }

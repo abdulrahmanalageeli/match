@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { useId, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, MessageCircle, Ring, Search } from '../BrandIcons';
@@ -114,7 +115,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             </div> : <MotionPressButton className="mo-action" onClick={()=>onProfile(row.id)}>عرض الطلب<ArrowLeft size={14}/></MotionPressButton>}{date && <time dateTime={date}>{dates.format(new Date(date))}</time>}</div>
           </MotionReveal>;
         })}</div>
-        {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':'ستظهر الطلبات الجديدة هنا.'}</p>}
+        {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':memberAr.requestsEmpty}</p>}
       </section>
     </>}
     <MembershipPrompt detail="قبول الطلبات متاح لك مجانًا. مع العضوية المميزة يمكنك المبادرة واكتشاف تفاصيل التوافق."/>

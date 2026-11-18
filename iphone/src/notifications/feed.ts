@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import type { ActivityNotification, Connection, PublicPerson, StepProgress } from '../community/data';
 
 export type FeedKind = 'visit' | 'interest' | 'request' | 'message' | 'journey' | 'exclusive' | 'match';
@@ -19,7 +20,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     return {
       id: n.id, activityId: n.id, person: n.person, kind: interest ? 'interest' : visit ? 'visit' : 'exclusive',
       at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
-      title: interest ? `لديك اهتمام من ${n.person.alias}` : visit ? `زيارة جديدة لملفك من ${n.person.alias}` : `اتفقت مع ${n.person.alias} على التعارف الحصري`,
+      title: interest ? `${memberAr.interest} من ${n.person.alias}` : visit ? `${memberAr.visit} من ${n.person.alias}` : `اتفقت مع ${n.person.alias} على التعارف الحصري`,
       detail: interest ? 'تعرّف على الملف، وأرسل طلب تعارف إذا ناسبك' : visit ? 'يمكنك الاطّلاع على الملف أيضًا' : open ? 'يمكنكما متابعة الحديث في محادثتكما' : 'إشعار من تعارف سابق',
       target: visit || interest ? 'profile' : open ? 'conversation' : null,
     };
@@ -42,7 +43,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
           unread: true, target: 'conversation', requestId: c.id });
       } else if (!exclusive.has(c.id)) {
         rows.push({ id: `match:${c.id}`, kind: 'match', person: c.person, at: date,
-          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'راجعا ميثاق التعارف والمدة قبل أول رسالة', unread: false,
+          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'راجعا شروط التعارف ومدته قبل أول رسالة', unread: false,
           target: 'conversation', requestId: c.id });
       }
       const commitment = p && !p.exclusive && p.consentPeer && !p.consentMine;

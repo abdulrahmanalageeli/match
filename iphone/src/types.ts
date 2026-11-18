@@ -60,7 +60,7 @@ export type Proposal = {
 export type AccountState = {
   demoDiscoveryEnabled?: boolean;
   demoInteractionsEnabled?: boolean;
-  testingTrial?: {enabled:boolean;expiresAt:string|null};
+  testingTrial?: {enabled:boolean;eligible?:boolean;expiresAt:string|null};
   user: {
     id: string;
     email: string | null;
@@ -73,7 +73,7 @@ export type AccountState = {
   };
   profile: Profile | null;
   membershipTesting?: {selected:'actual'|'free'|'premium'|'seriousness'};
-  membership: { tier?:"free"|"premium"|"seriousness"; connectionLimit?:number; active: boolean; expiresAt: string | null; canStart: boolean };
+  membership: { tier?:"free"|"premium"|"seriousness"; connectionLimit?:number; status?:'free'|'expired'|'trial'|'paid'|'granted'; active: boolean; expiresAt: string | null; canStart: boolean };
   introduction: {
     fit?: MatchFit;
     id: string;

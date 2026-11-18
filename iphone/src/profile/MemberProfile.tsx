@@ -1,13 +1,15 @@
 import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { languageOpennessLabels } from "../compatibility/marriage";
-import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarHeart, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
+import { denied } from '../community/chatOutbox';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { dressStyles, dressFlexibilities, skinTones } from '../compatibility/appearance';
 import { interests } from '../compatibility/model';
 import { FitDetails, preferencePercentage, personalityPercentage } from '../compatibility/FitDetails';
+import { decisionContext } from './decisionContext';
 import { BeenaSummary } from '../beena/BeenaSummary';
 import { ProfileGallery } from '../photos/ProfileGallery';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
@@ -34,9 +36,9 @@ const validCount = (value: unknown, min: number, max: number): value is number =
 function Story({title,children,accent=false}:{title:string;children:string;accent?:boolean}) {
   return <section className={'mp-story'+(accent?' mp-story-accent':'')}><h2>{accent?<Heart size={16}/>:<Feather size={16}/>} {title}</h2><p dir="auto">{children}</p></section>;
 }
-export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,interestAction}: {
+export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,onBlock,interestAction}: {
   person: PublicPerson; source?: CommunitySource | null; back:()=>void; backText:string;
-  primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void;
+  primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void; onBlock?:()=>void;
   interestAction?: { toggle:()=>void; busy:boolean; notice:string; error:string };
 }) {
   const {premium}=useMembershipAccess();
@@ -47,9 +49,37 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const fitButton=useRef<HTMLButtonElement>(null);
   const sections=useRef<HTMLDivElement>(null);
   const heading=useRef<HTMLHeadingElement>(null);const contentId=useId();
-  useLayoutEffect(()=>{heading.current?.focus({preventScroll:true});},[]);
+  const [visible,setVisible] = useState<{id:string; source:CommunitySource; status:'allowed'|'denied'|'error'} | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const check = !preview && !person.isDemo && source?.profileVisible;
+  const access = !check ? 'allowed' : visible?.id === person.id && visible.source === source ? visible.status : 'loading';
+  useLayoutEffect(()=>{if (access === 'allowed') heading.current?.focus({preventScroll:true});},[access,person.id]);
+  useEffect(()=>{
+    if (!check || !source) return;
+    let active=true, sequence=0;
+    const refresh=async()=>{
+      const current=++sequence;
+      if (document.hidden) {setVisible(null); return;}
+      try {
+        const allowed = await check(person.id);
+        if(active && current===sequence)setVisible({id:person.id,source,status:allowed?'allowed':'denied'});
+      } catch (cause) {
+        if(active && current===sequence)setVisible({id:person.id,source,status:denied(cause)?'denied':'error'});
+      }
+    };
+    void refresh();
+    const stop=source.watch(refresh), timer=window.setInterval(refresh,10000);
+    document.addEventListener('visibilitychange',refresh);
+    return ()=>{active=false;stop();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  },[check,source,person.id,attempt]);
+  if(access !== 'allowed') return <article className="mp-profile screen-content" dir="rtl">
+    <button className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
+    <p role={access === 'error' ? 'alert' : 'status'}>{access === 'error' ? 'تعذّر التحقق من إتاحة الملف. تحقّق من اتصالك وحاول مجددًا.' : access === 'denied' ? 'الملف غير متاح.' : 'جارٍ فتح الملف…'}</p>
+    {access === 'error' && <button className="btn-secondary" onClick={()=>{setVisible(null);setAttempt(value=>value+1);}}>إعادة المحاولة</button>}
+  </article>;
   const b=person.marriageBasics;
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
+  const {personalLine, context}=decisionContext(person);
   const percentage=preferencePercentage(person.fit);
   const personality=personalityPercentage(person.fit);
   const hasFit=premium&&!person.compatibilityLocked&&!preview&&Boolean(person.fit||person.reasons.length);
@@ -59,7 +89,6 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const highlights = [
     {label:'العمل',value:person.occupation,icon:BriefcaseBusiness},
     {label:'التعليم',value:person.education,icon:GraduationCap},
-    {label:'توقيت إتمام الزواج',value:b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline],icon:CalendarHeart},
   ].filter(item=>item.value);
   function selectSection(next:typeof section){
     if(next===section)return;
@@ -79,7 +108,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>
           <Heart size={17} fill={person.interested?'currentColor':'none'} aria-hidden="true"/>اهتمام
         </button>}
-        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ عن الملف</button></details>}
+        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary>{onBlock && <button type="button" onClick={onBlock}>حظر العضو</button>}<button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ والحظر</button></details>}
       </div>}
     </header>
     {interestAction?.error?<p className="mp-interest-feedback" role="alert">{interestAction.error}</p>:interestAction?.notice?<p className="mp-interest-feedback" role="status">{interestAction.notice}</p>:null}
@@ -88,11 +117,16 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       <ScenePaths className="mp-arrival-paths" parallax />
       <div className="mp-hero-copy">{!preview&&<span className="mp-eyebrow">ملف شخصي</span>}<MemberBadge tier={person.membershipTier} active={person.premium} labeled/><h1 ref={heading} tabIndex={-1}>{person.alias}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
         <div className="mp-meta">{person.city&&<span><MapPin size={14}/><bdi>{canonicalCity(person.city)}</bdi></span>}</div>
+        {b?.marriageTimeline && <p className="mp-decision-timeline">توقيت الزواج · {marriageTimelineLabels[b.marriageTimeline]}</p>}
       </div>
-      <div className={'mp-portrait'+(!person.portrait&&!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} alt={`الصورة الشخصية لـ ${person.alias}`}/>:person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt="" onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>
+      {person.portrait?<div className="mp-portrait-column"><PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/></div>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={`صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
       <div className="mp-intention"><Heart size={13}/><span>{person.marriageIntent||'تعارف بقصد الزواج'}</span>{person.exclusive&&<strong><Check size={12}/> تعارف حصري</strong>}</div>
     </section>
-    {!person.isDemo&&<div className="mp-portrait-caption">{person.portrait?person.portrait.blur>0?'صورة شخصية مع تمويه اختياري':'صورة شخصية اختيارية':person.publicAvatar?'صورة رمزية اختيارية':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
+    {(!person.portrait||person.isDemo)&&!(person.isDemo&&source?.simulation)&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
+    {(personalLine||context)&&<div className="mp-decision-copy">
+      {personalLine&&<p className="mp-personal-line" dir="auto">{personalLine}</p>}
+      {context&&<p className="mp-decision-context">{context}</p>}
+    </div>}
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}
     <div className="mp-sections" ref={sections} role="group" aria-label="أقسام الملف">
       <MotionPressButton aria-pressed={section==='about'} aria-controls={contentId} onClick={()=>selectSection('about')}><Feather size={16} aria-hidden="true"/>نبذة</MotionPressButton>

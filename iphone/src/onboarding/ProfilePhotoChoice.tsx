@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Check, Eye, ImagePlus, LockKeyhole, Sparkles, Trash2 } from "../BrandIcons";
 import { AvatarPicker } from './AvatarPicker';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
-import { preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';
+import { initialPortraitCrop, preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';
+import { PortraitCropDialog } from '../photos/PortraitCropDialog';
 import type { PublicAvatar } from '../compatibility/appearance';
 import type { ProfilePortrait, PortraitRevealPolicy } from '../types';
 import type { CommunitySource } from '../community/data';
@@ -17,11 +18,13 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
   const [mode,setMode]=useState<'photo'|'avatar'>(change||existing?'photo':'avatar');
   const [file,setFile]=useState<File|null>(null),[blur,setBlur]=useState(change?.blur??existing?.blur??65),[preparing,setPreparing]=useState(false),[error,setError]=useState('');
   const [policy,setPolicy]=useState<PortraitRevealPolicy>(revealPolicy??change?.revealPolicy??existing?.revealPolicy??'never');
+  const [pendingFile,setPendingFile]=useState<File|null>(null);
+  const [crop,setCrop]=useState(initialPortraitCrop);
   const input=useRef<HTMLInputElement>(null),callbacks=useRef({onChange,onBusy,consented,immediateVerification});callbacks.current={onChange,onBusy,consented,immediateVerification};
   useEffect(()=>{if(!file)return;let active=true;setPreparing(true);callbacks.current.onBusy(true);
-    const timer=setTimeout(()=>{void preparePortrait(file,blur,policy).then(async result=>{if(active){callbacks.current.onChange(result);setError('');if(callbacks.current.immediateVerification&&callbacks.current.consented){const staged=await stageOnboardingPortrait(result,'woman',true);if(active)callbacks.current.onChange(staged);}}else URL.revokeObjectURL(result.url);}).catch(e=>{if(active)setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}).finally(()=>{if(active){setPreparing(false);callbacks.current.onBusy(false);}});},140);
+    const timer=setTimeout(()=>{void preparePortrait(file,blur,policy,crop).then(async result=>{if(active){callbacks.current.onChange(result);setError('');if(callbacks.current.immediateVerification&&callbacks.current.consented){const staged=await stageOnboardingPortrait(result,'woman',true);if(active)callbacks.current.onChange(staged);}}else URL.revokeObjectURL(result.url);}).catch(e=>{if(active)setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}).finally(()=>{if(active){setPreparing(false);callbacks.current.onBusy(false);}});},140);
     return()=>{active=false;clearTimeout(timer);callbacks.current.onBusy(false);};
-  },[file,blur,policy]);
+  },[file,blur,policy,crop]);
   const showingExisting=change===undefined&&existing;
   const canReveal=Boolean(file||change?.clearBlob||(change===undefined&&existing?.hasClear));
   function choosePolicy(next:PortraitRevealPolicy){
@@ -36,12 +39,13 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
     {mode==='photo'?<>
       <p className="nf-photo-intro">لمحة أقرب لكِ، بالقدر الذي ترتاحين له. يمكنكِ إظهار انطباع عن حضورك مع اختيار درجة التمويه، أو الاكتفاء بصورة رمزية.</p>
       <div className="nf-photo-stage">{change?<img src={change.url} alt="صورتك كما ستظهر للأعضاء"/>:showingExisting?<PortraitPhoto portrait={existing!} source={source} alt="صورة ملفك الحالية"/>:<div><Camera size={34}/><span>صورتك، باختيارك</span></div>}{preparing&&<span className="nf-photo-processing" role="status">تجهيز التمويه…</span>}</div>
-      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{const selected=e.target.files?.[0];if(selected){setError('');setFile(selected);}e.target.value='';}}/>
+      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{setPendingFile(e.target.files?.[0]??null);e.target.value='';}}/>
+      {pendingFile&&<PortraitCropDialog file={pendingFile} cancel={()=>setPendingFile(null)} apply={value=>{setError('');setCrop(value);setFile(pendingFile);setPendingFile(null);}}/>}
       <button type="button" className="btn-secondary" disabled={preparing} onClick={()=>input.current?.click()}><ImagePlus size={17}/>{change||showingExisting?'اختيار صورة أخرى':'اختيار صورتي'}</button>
       {(file||change||showingExisting)&&<><div className="nf-photo-blur"><label htmlFor="portrait-blur">درجة التمويه <strong>{new Intl.NumberFormat('ar-SA').format(blur)}٪</strong></label><input id="portrait-blur" type="range" min="0" max="100" step="5" value={blur} disabled={!file||preparing} onChange={e=>{const next=Number(e.target.value);setBlur(next);if(next===0){setPolicy('never');onPolicyChange?.('never');}}} aria-valuetext={blur===0?'دون تمويه':new Intl.NumberFormat('ar-SA').format(blur)+' بالمئة'}/><div><span>واضحة</span><span>تمويه أعلى</span></div>{!file&&<small>لتعديل درجة التمويه اختاري الصورة مجددًا.</small>}</div>
       <section className="nf-photo-reveal" aria-label="إزالة التمويه تلقائيًا"><header><span><Eye size={20}/></span><div><h3>وضوح أكبر، في الوقت المناسب</h3><p>أنتِ تختارين متى تُرى صورتك بوضوح.</p></div></header>
         <label htmlFor="portrait-reveal">إزالة التمويه تلقائيًا<select id="portrait-reveal" value={policy} disabled={blur===0||preparing} onChange={e=>choosePolicy(e.target.value as PortraitRevealPolicy)}>
-          <option value="never">إبقاء التمويه دائمًا</option><option value="matched" disabled={!canReveal}>بعد قبول التعارف من الطرفين</option><option value="serious" disabled={!canReveal}>عند النقاش الجاد حول الزواج</option><option value="family" disabled={!canReveal}>عند الخطوة الرسمية أو العائلية</option>
+          <option value="never">إبقاء التمويه دائمًا</option><option value="matched" disabled={!canReveal}>بعد قبول طلب التعارف</option><option value="serious" disabled={!canReveal}>عند مناقشة أساسيات الزواج</option><option value="family" disabled={!canReveal}>عند الاتفاق على التواصل مع الأهل</option>
         </select></label>
         {blur===0?<p className="nf-photo-reveal-note">صورتك واضحة بالفعل للأعضاء المؤهلين. اختاري تمويهًا أعلى لتخصيص وقت إزالته.</p>:!canReveal?<p className="nf-photo-reveal-note">الصورة الحالية محفوظة بتمويه فقط. أعيدي اختيار الصورة لتفعيل الإزالة التلقائية؛ لا يمكن استعادة التفاصيل من النسخة المموّهة.</p>:<p className="nf-photo-reveal-note">{policy==='never'?'تبقى الصورة بالتمويه الذي اخترته للجميع. لا نحتفظ بنسخة واضحة لهذا الخيار.':'تظهر النسخة الواضحة للطرف الذي وصل معكِ إلى هذا الموعد فقط. يبقى التمويه ظاهرًا لبقية الأعضاء. مراحل المسار تحتاج اتفاقكما معًا.'}</p>}
         {policy!=='never'&&<div className="nf-photo-reveal-detail"><LockKeyhole size={15}/><span>باختيار هذا الموعد، توافقين على حفظ نسخة واضحة خاصة ومشاركتها تلقائيًا مع الطرف المؤهل. يعود التمويه عند التراجع عن المرحلة أو إنهاء التعارف أو إلغاء هذا الخيار. لا يمكن سحب صورة حفظها الطرف الآخر سابقًا.</span></div>}

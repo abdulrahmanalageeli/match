@@ -31,7 +31,7 @@ function mount(){
  const document={hidden:false,addEventListener:(n,f)=>events.set(n,f),removeEventListener:n=>events.delete(n)};
  const window={...document,setInterval:f=>{timers.add(f);return f;},clearInterval:f=>timers.delete(f)};
  const cleanup=vm.runInNewContext(code,{
-  ios:true,token:'owner',accepted:true,demo:false,tokenRef,version:{current:0},document,window,
+  ios:true,token:'owner',canSyncBilling:true,accepted:true,demo:false,tokenRef,version:{current:0},document,window,
   request:async(...args)=>{calls.push(args);if(resolveRequest)return await new Promise(resolve=>{resolveRequest=resolve;});if(fail)throw Error('network');return {membership:{active:true}};},
   setLive:s=>delivered.push(s),completeMembership:async jws=>finished.push(jws),
   currentMembership:async()=>current,

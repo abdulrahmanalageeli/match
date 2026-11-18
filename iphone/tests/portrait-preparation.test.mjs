@@ -9,7 +9,13 @@ const source=await readFile(preparationUrl,'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText
  .replaceAll("'./portraitBlur'",JSON.stringify(new URL('../src/photos/portraitBlur.ts',import.meta.url).href))
  .replaceAll('import.meta.url',JSON.stringify(preparationUrl.href));
-const{preparePortrait,blurPortraitPixels}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const{preparePortrait,blurPortraitPixels,portraitCropRect,initialPortraitCrop}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+
+test('portrait previews and export can frame either edge and zoom a full aspect-ratio source',()=>{
+ assert.deepEqual(portraitCropRect(2000,1000,{x:1,y:0,zoom:1}),{x:1200,y:0,w:800,h:1000});
+ assert.deepEqual(portraitCropRect(800,1600,initialPortraitCrop),{x:0,y:210,w:800,h:1000});
+ assert.deepEqual(portraitCropRect(800,1000,{x:0,y:1,zoom:2}),{x:0,y:500,w:400,h:500});
+});
 
 test('zero blur preserves every source byte',()=>{
  const pixels=Uint8ClampedArray.from([9,73,254,127,128,1,97,255]);

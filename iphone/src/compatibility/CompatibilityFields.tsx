@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, CookingPot, Dice5, Footprints, Heart, Landmark, PenLine, Plane, SlidersHorizontal, Sparkles, Star, UserRound } from "../BrandIcons";
 import { categories, dimensions, interests, maxInterests, maxPriorities, type CompatibilitySelection } from "./model";
@@ -114,7 +115,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
         <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{prompt}</h3>
         <p className="compat-hint">{side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
         <div className="compat-answer-options" role="group" aria-labelledby={prefix + "-heading"}>
-          {dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? ({ A: "أرغب في العمل ومواصلة طموحي", B: "أفضل عدم العمل بعد الزواج", C: "مرنة حسب ظروفي واتفاقنا" } as Record<string,string>)[option.code] : option[side]}</span></button>)}
+          {dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? (memberAr.womanWork as Record<string,string>)[option.code] : option[side]}</span></button>)}
         </div>
         {!required && <button className="compat-skip" type="button" onClick={() => { selectAnswer(""); if (!value && questionIndex < positions.length-1) move(positions[questionIndex+1]); else if (!value && remainingOnly) setRemainingFinished(true); }}>{value ? "إزالة اختياري" : side === "self" ? "أتجاوز هذا السؤال الآن" : "ليس لدي تفضيل محدد — متابعة"}</button>}
         {dim.id === "residence_plan" && <p className="compat-footnote">إذا اخترت مدينة نتفق عليها، حدّد مدن الانتقال من تصفية الملفات بعد التسجيل.</p>}

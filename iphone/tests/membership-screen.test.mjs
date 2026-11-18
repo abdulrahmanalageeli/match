@@ -18,7 +18,7 @@ const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(
 const noop=()=>{};
 function mount(extra={}){
  const instance={state:[],effects:[],pending:[],cursor:0,dirty:true};let tree;
- const props={active:false,demo:false,price:'149.99 SAR',currency:'SAR',gender:'man',canStart:true,canBuy:true,busy:false,trialEligible:true,expiry:null,back:noop,buy:noop,restore:noop,manage:noop,refresh:noop,onPolicy:noop,...extra};
+ const props={active:false,demo:false,price:'149.99 SAR',currency:'SAR',period:'شهر',gender:'man',canStart:true,canBuy:true,busy:false,trialEligible:true,expiry:null,back:noop,buy:noop,restore:noop,manage:noop,refresh:noop,onPolicy:noop,...extra};
  return {get tree(){while(instance.dirty){instance.dirty=false;instance.cursor=0;rendering=instance;tree=exports.Membership(props);rendering=undefined;for(const effect of instance.pending.splice(0))effect()}return tree},async settle(){await Promise.resolve();await Promise.resolve();return this.tree},update(patch){Object.assign(props,patch);instance.dirty=true;return this.tree},unmount(){for(const effect of instance.effects)effect?.cleanup?.()}};
 }
 function screen(extra={}){return mount(extra).tree;}
@@ -44,7 +44,7 @@ test('restore and policy remain available while price retrieval fails',()=>{
 
 test('active Premium may choose a higher tier, but checkout waits for its Apple offer',async()=>{
  let resolveOffer;const calls=[],purchases=[];
- const offer={gender:'man',price:'299.99 SAR',currency:'SAR',trialEligible:false,productId:pricing.SERIOUSNESS_PRODUCT};
+ const offer={gender:'man',price:'299.99 SAR',currency:'SAR',period:'شهر',trialEligible:false,productId:pricing.SERIOUSNESS_PRODUCT};
  const view=mount({active:true,currentTier:'premium',canStart:false,buy:(...args)=>purchases.push(args),loadOffer:(...args)=>{calls.push(args);return new Promise(resolve=>{resolveOffer=resolve})}});
  assert.match(text(button(view.tree,'wd-purchase')),/إدارة الاشتراك/);
  nodes(view.tree).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();
@@ -70,7 +70,7 @@ test('failed or obsolete higher-tier offers cannot enable purchase',async()=>{
  view.update({gender:'woman'});
  resolvers[1]({price:'299.99 SAR',gender:'man'});await view.settle();
  assert.equal(button(view.tree,'wd-purchase').props.disabled,true,'obsolete gender response is ignored');
- resolvers[2]({price:'199.99 SAR',gender:'woman'});await view.settle();
+ resolvers[2]({price:'199.99 SAR',period:'شهر',gender:'woman'});await view.settle();
  assert.equal(Boolean(button(view.tree,'wd-purchase').props.disabled),false);view.unmount();
 });
 

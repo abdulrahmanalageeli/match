@@ -74,7 +74,7 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
     age: initial ? String(initial.birthDate ? ageFromBirthday(initial.birthDate) ?? initial.age : initial.age) : "",
     preferredMinAge: initial ? String(initial.preferredMinAge) : "",
     preferredMaxAge: initial ? String(initial.preferredMaxAge) : "",
-    interestIds: initial?.interestIds ?? [], surveyAnswers: initial?.surveyAnswers ?? {},
+    interestIds: initial?.interestIds ?? [], surveyAnswers: Object.fromEntries(dimensions.flatMap(d => [d.id, d.partnerId]).filter(id => initial?.surveyAnswers?.[id]).map(id => [id, initial!.surveyAnswers![id]])),
     assessmentVersion, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
     personalityVersion, personalityAnswers: initial?.personalityAnswers ?? {},
     appearanceVersion: "appearance-v1",

@@ -1,13 +1,13 @@
 import catalog from './catalog.json' with { type: 'json' };
 import type { MatchFit } from './model.ts';
 
-export type PreferenceTopicStatus = 'aligned' | 'one_sided' | 'different' | 'missing';
+export type PreferenceTopicStatus = 'aligned' | 'conditional' | 'one_sided' | 'different' | 'missing';
 export type PreferenceTopic = { id: string; status: PreferenceTopicStatus };
 export type PreferenceCategory = { id: string; covered: number; total: number; aligned: number; discussion: number };
 export type PreferenceCriteria = { matched: number; different: number; missing: number; total: number };
 export type PreferenceEvidence = {
   version: 'preference-evidence-v1';
-  method: 'reciprocal-weighted-v1';
+  method: 'reciprocal-weighted-v1' | 'reciprocal-weighted-v3';
   topics: PreferenceTopic[];
   categories: PreferenceCategory[];
   criteria: PreferenceCriteria;
@@ -24,7 +24,7 @@ const record = (value: unknown): value is Record<string, unknown> => !!value && 
 const count = (value: unknown, maximum = catalog.dimensions.length): value is number => Number.isInteger(value) && (value as number) >= 0 && (value as number) <= maximum;
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 
-/** These are unweighted topic counts, never a second compatibility percentage. */
+/** Each topic counts once here, regardless of its ranking weight. */
 export function preferenceCategoryCounts(topics: PreferenceReadout['topics']): PreferenceCategory[] {
   return catalog.categories.map(category => {
     const categoryIds = new Set(catalog.dimensions.filter(dimension => dimension.category === category.id).map(dimension => dimension.id));
@@ -36,7 +36,7 @@ export function preferenceCategoryCounts(topics: PreferenceReadout['topics']): P
 }
 
 function validPartition(fit: MatchFit): boolean {
-  if (!['marriage-v1', 'marriage-v2'].includes(fit.version) || !count(fit.covered) || !count(fit.total) || fit.total === 0) return false;
+  if (!['marriage-v1', 'marriage-v2', 'marriage-v3'].includes(fit.version) || !count(fit.covered) || !count(fit.total) || fit.total === 0) return false;
   if (![fit.strengths, fit.discussion, fit.missing].every(values => Array.isArray(values) && values.every(id => typeof id === 'string' && ids.has(id)))) return false;
   const all = [...fit.strengths, ...fit.discussion, ...fit.missing];
   return new Set(all).size === all.length && all.length === fit.total && fit.covered === fit.strengths.length + fit.discussion.length;
@@ -44,16 +44,17 @@ function validPartition(fit: MatchFit): boolean {
 
 /** Fail closed if the explanation disagrees with the score's coverage/outcome metadata. */
 export function validatedPreferenceEvidence(fit: MatchFit): PreferenceEvidence | null {
+  const method = fit.version === 'marriage-v3' ? 'reciprocal-weighted-v3' : 'reciprocal-weighted-v1';
   const evidence: unknown = fit.preferenceEvidence;
   if (!validPartition(fit) || fit.total !== catalog.dimensions.length || !record(evidence)
     || !exactKeys(evidence, ['version','method','topics','categories','criteria'])
-    || evidence.version !== 'preference-evidence-v1' || evidence.method !== 'reciprocal-weighted-v1'
+    || evidence.version !== 'preference-evidence-v1' || evidence.method !== method
     || !Array.isArray(evidence.topics) || evidence.topics.length !== catalog.dimensions.length
     || !Array.isArray(evidence.categories) || evidence.categories.length !== catalog.categories.length) return null;
   const topics: PreferenceTopic[] = [];
   for (const topic of evidence.topics) {
     if (!record(topic) || !exactKeys(topic, ['id','status']) || typeof topic.id !== 'string' || !ids.has(topic.id)
-      || !['aligned','one_sided','different','missing'].includes(topic.status as string)) return null;
+      || !['aligned','conditional','one_sided','different','missing'].includes(topic.status as string)) return null;
     const status = topic.status as PreferenceTopicStatus;
     const matchingPartition = status === 'aligned' ? fit.strengths : status === 'missing' ? fit.missing : fit.discussion;
     if (!matchingPartition.includes(topic.id)) return null;
@@ -69,10 +70,10 @@ export function validatedPreferenceEvidence(fit: MatchFit): PreferenceEvidence |
   if (new Set(evidence.categories.map(category => category.id)).size !== categories.length) return null;
   const criteria = evidence.criteria;
   if (!record(criteria) || !exactKeys(criteria, ['matched','different','missing','total'])
-    || !count(criteria.total, 24) || !count(criteria.matched, 24) || !count(criteria.different, 24) || !count(criteria.missing, 24)
+    || !count(criteria.total, 26) || !count(criteria.matched, 26) || !count(criteria.different, 26) || !count(criteria.missing, 26)
     || criteria.matched + criteria.different + criteria.missing !== criteria.total
     || !fit.criteria || fit.criteria.total !== criteria.total || fit.criteria.covered !== criteria.matched + criteria.different) return null;
-  return { version: 'preference-evidence-v1', method: 'reciprocal-weighted-v1', topics, categories,
+  return { version: 'preference-evidence-v1', method, topics, categories,
     criteria: { matched: criteria.matched, different: criteria.different, missing: criteria.missing, total: criteria.total } };
 }
 
@@ -86,4 +87,12 @@ export function readPreferenceEvidence(fit: MatchFit): PreferenceReadout {
     return status ? [{ id: dimension.id, status }] : [];
   });
   return { source: 'legacy', topics, categories: preferenceCategoryCounts(topics), criteria: null };
+}
+
+/** Share of assessed topics where both partners' stated expectations are met. */
+export function reciprocalTopicAgreement(fit: MatchFit, readout = readPreferenceEvidence(fit)) {
+  if (fit.version !== 'marriage-v3' || !fit.assessmentComplete || fit.provisional || fit.percentage == null
+    || readout.source !== 'evidenced' || fit.covered !== fit.total) return null;
+  const agreed = readout.topics.filter(topic => topic.status === 'aligned').length;
+  return { agreed, total: fit.total, percentage: Math.round(100 * agreed / fit.total) };
 }

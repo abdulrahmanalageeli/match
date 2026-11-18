@@ -119,12 +119,12 @@ export type Filters = {
   minAge?: number;
   maxAge?: number;
   interest?: string;
-  afterId?: string;
+  afterId?: string; subjectId?: string;
   mode?: "recommended" | "all"; offset?: number; search?: string; city?: string; maritalStatus?: string; smoking?: string; dressStyle?: string; work?: string; minFit?: number; availableOnly?: boolean; sort?: "compatibility" | "youngest" | "oldest";
 };
 export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
   const b=p.marriageBasics;
-  return (!f.language || !!b?.spokenLanguages?.includes(f.language)) && (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).includes(f.search))&&
+  return (!f.language || !!b?.spokenLanguages?.includes(f.language)) && (!f.city||canonicalCity(p.city)===canonicalCity(f.city))&&(!f.search||(p.alias+' '+p.occupation+' '+p.bio).toLowerCase().includes(f.search.toLowerCase()))&&
     (!f.education||!!p.education&&canonicalEducation(p.education)===canonicalEducation(f.education))&&
     (!f.profession||!!p.occupation&&canonicalProfession(p.occupation)===canonicalProfession(f.profession))&&
     (f.minHeight===undefined||b?.heightCm!==undefined&&b.heightCm>=f.minHeight)&&(f.maxHeight===undefined||b?.heightCm!==undefined&&b.heightCm<=f.maxHeight)&&
@@ -136,6 +136,10 @@ export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
     (!f.interest||p.interests.some(value=>value===f.interest||value===interests.find(item=>item.id===f.interest)?.label))&&
     (!f.onlineOnly||p.online===true)&&(!f.nationality||normalizeNationality(canonicalNationality(b?.nationality??''))===normalizeNationality(canonicalNationality(f.nationality)))&&
     (!f.tribalBackground||b?.tribalBackground===f.tribalBackground)&&
+    (!f.excludeCities?.length || !!canonicalCity(p.city) && !canonicalCity(p.city).startsWith('مدينة أخرى')) &&
+    (!f.excludeNationalities?.length || !!b?.nationality && b.nationality!=='prefer_not_to_say') &&
+    (!f.excludeTribalBackgrounds?.length || !!b?.tribalBackground && b.tribalBackground!=='prefer_not_to_say') &&
+    (!f.excludeSmoking?.length || !!b?.smoking && (!['yes','sometimes'].includes(b.smoking) || !f.excludeSmoking.some(v=>['cigarettes','vape','shisha'].includes(v)))) && (!f.excludeMaritalStatuses?.length || !!b?.maritalStatus) &&
     !f.excludeCities?.some(value=>canonicalCity(value)===canonicalCity(p.city))&&!f.excludeNationalities?.some(value=>normalizeNationality(canonicalNationality(value))===normalizeNationality(canonicalNationality(b?.nationality??'')))&&
     !f.excludeTribalBackgrounds?.includes(b?.tribalBackground??'')&&!f.excludeSmoking?.includes(b?.smoking??'')&&
     !f.excludeMaritalStatuses?.includes(b?.maritalStatus??'');
@@ -153,7 +157,8 @@ export type StepProgress = { exclusiveId?:string; stepId?:string; rewindMine?: b
 export interface CommunitySource extends ManualVerificationSource {
   pendingSends?: PendingChatSends;
   committedSends?(requestId: string, clientIds: string[]): Promise<string[]>;
-  lunaSearch?(query:string):Promise<LunaResults>;
+  relocationCities?(destinations?:string[]):Promise<string[]>;
+  lunaSearch?(query:string, filters:Filters):Promise<LunaResults>;
   deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
@@ -232,9 +237,10 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     async confirmMediaViewed(request_id, media_id) {
       await timedRpc('marriage_chat_media', { action: 'viewed', request_id, media_id });
     },
-    async lunaSearch(query) {
+    relocationCities:destinations=>timedRpc('marriage_relocation_cities',{destinations:destinations??null}),
+    async lunaSearch(query,filters) {
       const { searchWithLuna } = await import('./lunaSearchClient');
-      return searchWithLuna(userId, query);
+      return searchWithLuna(userId, query, filters);
     },
     deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
@@ -361,8 +367,8 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
 
 const sampleLifeAnswers: Record<string, string> = {
   ...Object.fromEntries(dimensions.flatMap(d => [[d.id, d.options[0].code], [d.partnerId, d.options[0].code]])),
-  children_plan: "A", partner_children_plan: "A", shared_budget: "B", partner_shared_budget: "B",
-  repair_after_conflict: "B", partner_repair_after_conflict: "B", weekly_planning: "A", partner_weekly_planning: "A",
+  children_plan: "A", partner_children_plan: "A", financial_provision: "B", partner_financial_provision: "B",
+  repair_after_conflict: "B", partner_repair_after_conflict: "B", housing_arrangement: "A", partner_housing_arrangement: "A",
   closeness_pace: "B", partner_closeness_pace: "B", marriage_timeline: "B", partner_marriage_timeline: "B",
 };
 // Fictional examples only. Real testing accounts start with no Beena answers.
@@ -392,11 +398,11 @@ export const demoProfile: Profile = {
   lifeTogether: "بيت هادئ تملؤه الأحاديث، ومساحة لطموح كل منا، ووقت ثابت للأهل ولأنفسنا.",
   education: "بكالوريوس تصميم",
   marriageIntent: "تعارف جاد يهدف إلى الزواج",
-  assessmentVersion: "marriage-v2",
+  assessmentVersion: "marriage-v3",
   personalityVersion,
   beena: fictionalBeena(0),
   personalityAnswers: Object.fromEntries(personalityQuestions.map((q, index) => [q.id, "BCDDE"[index % 5]])),
-  marriageBasics: { heightCm: 165, weightKg: 59, nationality: "سعودية", tribalBackground: "prefer_not_to_say", maritalStatus: "never_married", childrenCount: 0, smoking: "never", skinTone: "tone_3", dressStyle: "hijab", dressFlexibility: "keep" },
+  marriageBasics: { polygynyPreference:"not_open", heightCm: 165, weightKg: 59, nationality: "سعودية", tribalBackground: "prefer_not_to_say", maritalStatus: "never_married", childrenCount: 0, smoking: "never", skinTone: "tone_3", dressStyle: "hijab", dressFlexibility: "keep" },
   publicAvatar: { style: "hijab", skinTone: "tone_3" },
   appearanceVersion: "appearance-v1",
   partnerCriteria: { height: { mode: "prefer", min: 170 }, smoking: { mode: "prefer", target: "never" }, tribalBackground: { mode: "any" } },
@@ -522,21 +528,22 @@ const demoWomen: DemoSeed[] = [
 // This assessment measures behaviors, not MBTI categories. Fictional responses
 // intentionally span all 12 measured dimensions; no types are inferred for users.
 function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
-  const [social,initiative,depth,openness,closeness,, ,planning,novelty,conflict,directness] = seed.traits;
+  const [social,,,openness,closeness,,,,novelty,conflict,directness] = seed.traits;
   const self: Record<string,string> = {
     children_plan: seed.children ?? 'A', residence_plan: seed.relocate ? 'C' : 'A', wife_work: index % 5 === 3 ? 'C' : 'A',
     marriage_timeline: seed.timeline === 'over_a_year' ? 'C' : seed.timeline === 'when_ready' ? 'D' : seed.timeline === 'six_to_twelve_months' ? 'B' : 'A',
-    family_boundaries: seed.meeting === 'family_before_formal' ? 'B' : index % 3 ? 'A' : 'C',
-    shared_budget: planning >= 4 ? 'A' : planning === 3 ? 'B' : 'C', household_roles: planning >= 4 ? 'A' : index % 2 ? 'B' : 'C',
-    weekly_planning: planning >= 4 ? 'A' : planning === 3 ? 'B' : 'C', social_rhythm: social <= 2 ? 'A' : social === 3 ? 'B' : 'C',
-    conversation_initiative_preference: initiative <= 1 ? 'A' : initiative === 2 ? 'D' : initiative === 3 ? 'B' : 'C',
+    // Independent illustrative choices for fictional members.
+    family_authority: 'ABC'[index % 3], financial_provision: 'ABCD'[index % 4],
+    domestic_labor: 'BDA'[index % 3], housing_arrangement: 'ABD'[index % 3],
+    mixed_gatherings: 'BCA'[index % 3], faith_routine: 'CAB'[index % 3],
+    public_event_attendance: 'BAC'[index % 3], parenting_approach: 'BADC'[index % 4],
+    social_rhythm: social <= 2 ? 'A' : social === 3 ? 'B' : 'C',
     match_disagreement_style: directness === 5 ? 'A' : novelty === 5 && social >= 4 ? 'C' : index % 2 ? 'B' : 'D',
-    repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C', conversation_depth: depth >= 4 ? 'A' : 'B',
-    closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A', curiosity_style: depth >= 4 ? 'A' : social >= 4 ? 'C' : 'B',
-    early_openness: openness <= 2 ? 'A' : openness === 3 ? 'B' : 'C',
+    repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C',
+    closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A',
   };
   return Object.fromEntries(dimensions.flatMap(d => [[d.id,self[d.id]], [d.partnerId,
-    d.id === 'conversation_initiative_preference' && initiative <= 2 ? 'C' : self[d.id]] ]));
+    d.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[d.id]] ]));
 }
 
 export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => group.map((seed,index) => {
@@ -554,8 +561,9 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
     marriageIntent:seed.timeline==='when_ready'?'تعارف جاد على مهل':'تعارف جاد يهدف إلى الزواج',
     familyPreference:seed.meeting==='family_before_formal'||seed.meeting==='after_formal'?'من البداية':'بعد التعارف الأول',
-    assessmentVersion:'marriage-v2' as const,personalityVersion,
+    assessmentVersion:'marriage-v3' as const,personalityVersion,
     personalityAnswers:Object.fromEntries(personalityQuestions.map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
+    relocationCities:seed.relocate?['الرياض','جدة']:[],
     surveyAnswers:demoSurvey(seed,index),beena:fictionalBeena(index+genderIndex*15+1),
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),
     partnerCriteria:{ tribalBackground:{mode:'any' as const},nationality:{mode:'any' as const},smoking:{mode:seed.smoking?'any' as const:'prefer' as const,target:'never' as const} },
@@ -563,7 +571,7 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
       heightCm:woman?[165,169,162,167,164,166,160,171,158,163,168,161,170,164,166][index]:[179,183,174,181,176,178,172,180,185,175,177,173,182,179,178][index],
       weightKg:woman?[59,64,55,62,58,60,54,67,52,65,61,57,66,58,63][index]:[78,85,72,82,76,80,69,87,84,75,83,73,86,79,77][index],
       nationality:seed.nationality??(woman?'سعودية':'سعودي'),maritalStatus:seed.status??'never_married',childrenCount:seed.childrenCount??0,
-      smoking:seed.smoking??'never',tribalBackground:index%5===4?'prefer_not_to_say':index%2?'tribal':'non_tribal',
+      polygynyPreference:index%5===3?'open_to_discussion':'not_open',smoking:seed.smoking??'never',tribalBackground:index%5===4?'prefer_not_to_say':index%2?'tribal':'non_tribal',
       marriageTimeline:seed.timeline,meetingPreference:seed.meeting,
       ...(woman?{skinTone:tone,dressStyle:dress,dressFlexibility:index%2?'open_to_discussion':'keep'}:{}),
     } as MarriageBasics,
@@ -591,6 +599,7 @@ function validatePortraitReveal(blur: number, reveal?: { policy: PortraitRevealP
 
 export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController } {
   const listeners = new Set<() => void>();
+  let relocationCities:string[]=[];
   const peerPrefix = viewer().gender === "man" ? "w" : "";
   let simulation: DemoSimulationController;
   function notify() { persist(); listeners.forEach((listener) => listener()); }
@@ -681,7 +690,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
   function candidates() {
-    return rankPreferences({ ...viewer(), id: "demo-viewer" }, examples).map(({ person, ...fit }) => card(person, fit));
+    return rankPreferences({ ...viewer(), relocationCities, id: "demo-viewer" }, examples).map(({ person, ...fit }) => card(person, fit));
   }
   function card(person: (typeof examples)[number], { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // Fixtures have no member consent receipt. Keep their private matching
@@ -826,6 +835,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     async notifications(){return activityRows.filter(row=>!blockedPeople.has(row.person.id)).slice().reverse().map(row=>({...row,person:candidates().find(p=>p.id===row.person.id)||row.person}));},
     async readNotifications(ids){const selected=new Set(ids);const time=new Date().toISOString();activityRows.forEach(row=>{if(selected.has(row.id))row.readAt??=time;});notify();},
     async acknowledgeMatch(key){celebrationsSeen.add(key);notify();},
+    async relocationCities(next){if(next){relocationCities=[...next];notify();}return [...relocationCities];},
     readinessTestMode: true,
     familyTestMode: true,
     family: createDemoFamily(id => {
@@ -962,7 +972,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if (exclusiveId) return [];
       const options = candidates().filter(
         (p) =>
-          !hiddenPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
+          (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
           !records.some((r) => r.peer === p.id && r.status === "closed" && !r.allowRematch) &&
           (f.mode === "all" || (!records.some(r => r.peer === p.id) && weekly().includes(p.id))) &&
           (!f.work || (examples.find(x => x.id === p.id)?.surveyAnswers as Record<string, string> | undefined)?.wife_work === f.work),
@@ -975,7 +985,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return options.slice(f.offset ?? cursor, (f.offset ?? cursor) + 24);
     },
     async inbox() {
-      const member = { ...viewer(), id: "demo-viewer" };
+      const member = { ...viewer(), relocationCities, id: "demo-viewer" };
       return records.flatMap((r) => {
         if (r.status === "closed") return [];
         const peer = examples.find(p => p.id === r.peer);

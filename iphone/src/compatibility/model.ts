@@ -8,12 +8,13 @@ import { compareBeena, beenaRankMultiplier, type BeenaFit, type BeenaProfile } f
 import { createPersonalityEvidence, validatedPersonalityEvidence, type PersonalityEvidencePayload } from './personality-analysis.ts';
 import { preferenceCategoryCounts, type PreferenceEvidence, type PreferenceTopic } from './preference-evidence.ts';
 
-export const assessmentVersion = "marriage-v2" as const;
+export const assessmentVersion = "marriage-v3" as const;
 export const categories = catalog.categories;
 export const dimensions = catalog.dimensions;
 export const maxPriorities = 2;
 export type MatchFit = {
-  version: typeof assessmentVersion;
+  version: "marriage-v1" | "marriage-v2" | typeof assessmentVersion;
+  practicalConcerns?: string[];
   band: "insufficient" | "strong" | "mixed" | "explore";
   provisional: boolean;
   covered: number;
@@ -32,7 +33,7 @@ export type MatchFit = {
   } & Partial<PersonalityEvidencePayload>;
 };
 export function preferencePercentage(fit?: MatchFit): number | null {
-  return fit && ["marriage-v1", "marriage-v2"].includes(fit.version) && fit.assessmentComplete && !fit.provisional && fit.total > 0 && fit.covered === fit.total
+  return fit && ["marriage-v1", "marriage-v2", assessmentVersion].includes(fit.version) && fit.assessmentComplete && !fit.provisional && fit.total > 0 && fit.covered === fit.total
     && typeof fit.percentage === "number" && Number.isFinite(fit.percentage)
     && fit.percentage >= 0 && fit.percentage <= 100 ? Math.round(fit.percentage) : null;
 }
@@ -80,6 +81,7 @@ type PairProfile = {
   priorityCategories?: readonly string[];
   assessmentVersion?: string;
   marriageBasics?: MarriageBasics;
+  relocationCities?: string[];
   partnerCriteria?: PartnerCriteria;
   personalityAnswers?: Readonly<Record<string, string>>;
   personalityVersion?: string;
@@ -146,11 +148,12 @@ function acceptsCriteria(member: PairProfile, peer: PairProfile) {
 
 function preferredCriteria(member: PairProfile, peer: PairProfile) {
   const keys = (Object.keys(member.partnerCriteria ?? {}) as (keyof PartnerCriteria)[])
-    .filter(key => member.partnerCriteria?.[key]?.mode === "prefer" && !(key === "children" && member.partnerCriteria.children?.target === "any"));
+    .filter(key => ["prefer", "require"].includes(member.partnerCriteria?.[key]?.mode ?? "") && !(key === "children" && member.partnerCriteria?.children?.target === "any"));
   const known = keys.map(key => criterionFit(member, peer, key)).filter(value => value !== null);
   const matched = known.filter(Boolean).length;
-  return { total: keys.length, covered: known.length, matched, different: known.length - matched,
-    missing: keys.length - known.length, score: known.length ? matched / known.length : null };
+  const requiredConflict = keys.some(key => member.partnerCriteria?.[key]?.mode === "require" && criterionFit(member, peer, key) === false);
+  return { requiredConflict, total: keys.length, covered: known.length, matched, different: known.length - matched,
+    missing: keys.length - known.length };
 }
 
 function personalityFit(first: PairProfile, second: PairProfile): NonNullable<MatchFit["personality"]> {
@@ -177,6 +180,7 @@ function personalityFit(first: PairProfile, second: PairProfile): NonNullable<Ma
 type Dimension = typeof dimensions[number];
 function answer(member: PairProfile, dim: Dimension, side: "self" | "partner") {
   const value = member.surveyAnswers?.[side === "self" ? dim.id : dim.partnerId];
+  if (dim.id === 'public_event_attendance' && side === 'self' && value === 'D') return undefined;
   return dim.options.some(option => option.code === value) ? value : undefined;
 }
 
@@ -186,16 +190,44 @@ function ageAccepted(age: number, member: PairProfile) {
 }
 
 function shareCity(first: PairProfile, second: PairProfile) {
-  const city = canonicalCity(first.city);
-  return !!city && city === canonicalCity(second.city)
+  const city = canonicalCity(first.city ?? "");
+  return !!city && city === canonicalCity(second.city ?? "")
     && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(city);
 }
 
-// Staying and joining a partner describe the same practical outcome when both
-// already live in the same city. Unknown answers still earn no compatibility.
+// Preference matching has modest empirical support (Eastwick et al., doi:10.1037/pspp0000524).
+// The category weights and penalties below are ranking rules chosen by Wudayn.
+// Anchors describe explicit preference satisfaction. A conditional or unresolved
+// answer gets partial credit. Letter order has no meaning for nominal questions.
+const highImpactTopics = new Set(['children_plan','family_authority','housing_arrangement','financial_provision','wife_work','domestic_labor','marriage_timeline','mixed_gatherings','faith_routine']);
+function agreement(member: PairProfile, peer: PairProfile, dim: Dimension, wanted: string, observed: string) {
+  const id = dim.id;
+  if (id === 'public_event_attendance') {
+    // B accepts abstaining or selective attendance. C asks for willingness to attend.
+    return Number(wanted === 'D' || wanted === observed ||
+      (wanted === 'B' && observed === 'A') || (wanted === 'C' && observed === 'B'));
+  }
+  if (id === 'residence_plan' && shareCity(member, peer)) return 1;
+  if (id === 'marriage_timeline' && wanted!=='D' && observed!=='D' && answerFits(member,peer,dim,wanted,observed)) return 1;
+  if ((id === 'children_plan' && [wanted, observed].includes('C'))
+    || (['marriage_timeline','parenting_approach'].includes(id) && [wanted, observed].includes('D'))) return 0.5;
+  const flexible = id === 'wife_work' ? 'C' : ['domestic_labor','financial_provision','housing_arrangement'].includes(id) ? 'D' : null;
+  if (wanted === flexible) return 1;
+  if (observed === flexible) return 0.5;
+  if (wanted === observed) return 1;
+  if (id === 'marriage_timeline' && 'ABC'.includes(wanted) && 'ABC'.includes(observed) && Math.abs(wanted.charCodeAt(0) - observed.charCodeAt(0)) === 1) return 0.5;
+  return 0;
+}
+
 function answerFits(member: PairProfile, peer: PairProfile, dim: Dimension, wanted: string | undefined, observed: string | undefined) {
-  return wanted !== undefined && observed !== undefined
-    && (wanted === observed || (dim.id === 'residence_plan' && shareCity(member, peer)));
+  if (!wanted || !observed) return false;
+  if (dim.id === 'marriage_timeline') {
+    const windows=(code:string)=>code==='E'?'AB':code==='F'?'ABC':code;
+    return [...windows(wanted)].some(window=>windows(observed).includes(window));
+  }
+  if(dim.id==='public_event_attendance')return observed!=='D' && (wanted==='D' || wanted===observed || wanted==='B'&&observed==='A' || wanted==='C'&&observed==='B');
+  if(dim.id==='wife_work'&&wanted==='C' || ['domestic_labor','financial_provision','housing_arrangement'].includes(dim.id)&&wanted==='D')return true;
+  return wanted === observed || (dim.id === 'residence_plan' && shareCity(member, peer));
 }
 
 function acceptsRequirements(member: PairProfile, peer: PairProfile) {
@@ -208,50 +240,65 @@ function acceptsRequirements(member: PairProfile, peer: PairProfile) {
 }
 
 function canShareCity(first: PairProfile, second: PairProfile) {
-  const plans = [first.surveyAnswers?.residence_plan, second.surveyAnswers?.residence_plan];
-  return plans.every(code => code === "A" || code === "B" || code === "C")
-    && plans.some(code => code === "B" || code === "C");
+  function cities(person:PairProfile, peer:PairProfile) {
+    const plan=person.surveyAnswers?.residence_plan;
+    if (!plan || !['A','B','C'].includes(plan)) return [];
+    const choices=[person.city,...(plan==='B'?[peer.city]:plan==='C'?person.relocationCities??[]:[])];
+    return choices.map(canonicalCity).filter(city=>city && !city.startsWith('مدينة أخرى'));
+  }
+  const allowed=cities(second,first);
+  return cities(first,second).some(city=>allowed.includes(city));
 }
 
-// Compare what the asker wants with what the other person actually reported. Missing
-// answers carry no points and are excluded from both the numerator and denominator.
+function cityKnown(member: PairProfile) {
+  const city = canonicalCity(member.city ?? "");
+  return !!city && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(city);
+}
+
 function directedFit(member: PairProfile, peer: PairProfile) {
-  let numerator = 0;
-  let denominator = 0;
+  let numerator = 0, denominator = 0, penalty = 1;
   for (const category of categories) {
-    let known = 0;
-    let matches = 0;
+    let known = 0, points = 0;
     for (const dim of dimensions.filter(item => item.category === category.id)) {
-      const want = answer(member, dim, "partner");
-      const observed = answer(peer, dim, "self");
+      const want = answer(member, dim, 'partner'), observed = answer(peer, dim, 'self');
       if (!want || !observed) continue;
+      const credit = agreement(member, peer, dim, want, observed);
       known++;
-      if (answerFits(member, peer, dim, want, observed)) matches++;
+      points += credit;
+      if (credit === 0 && member.hardRequirements?.includes(dim.id)) penalty = Math.min(penalty, 0.5);
+      else if (credit === 0 && highImpactTopics.has(dim.id)) penalty = Math.min(penalty, 0.75);
+      else if (credit === 0.5 && ['children_plan','marriage_timeline'].includes(dim.id)) penalty = Math.min(penalty, 0.9);
     }
     if (!known) continue;
     const weight = category.weight * (member.priorityCategories?.includes(category.id) ? 2 : 1);
-    numerator += weight * matches / known;
+    numerator += weight * points / known;
     denominator += weight;
   }
-  if (!denominator) return null;
   const criteria = preferredCriteria(member, peer);
-  return criteria.score === null ? numerator / denominator : (numerator / denominator) * 0.8 + criteria.score * 0.2;
+  // Each known optional detail contributes two points of evidence against the
+  // baseline category weights (100 points when complete and unprioritized).
+  numerator += 2 * criteria.matched;
+  denominator += 2 * criteria.covered;
+  if (criteria.requiredConflict) penalty = Math.min(penalty, 0.5);
+  return { score: denominator ? numerator / denominator : 0, penalty, criteria };
 }
 
 export function comparePreferences(first: PairProfile, second: PairProfile) {
+  const woman=first.gender==='woman'?first:second;
+  const man=woman===first?second:first;
+  if(woman.marriageBasics?.polygynyPreference==='not_open' &&
+     (man.marriageBasics?.polygynyPreference!=='not_open' || !['never_married','divorced','widowed'].includes(man.marriageBasics?.maritalStatus??''))) return null;
   const sameCity = shareCity(first, second);
   if (
     first.id === second.id || first.gender === second.gender ||
-    !first.city.trim() || !second.city.trim() ||
+    !first.city?.trim() || !second.city?.trim() ||
     (!sameCity && !canShareCity(first, second)) ||
     !ageAccepted(first.age, second) || !ageAccepted(second.age, first) ||
     !acceptsRequirements(first, second) || !acceptsRequirements(second, first) ||
     !acceptsCriteria(first, second) || !acceptsCriteria(second, first)
   ) return null;
   const result = describeFit(first, second);
-  if (!result.reasons.length) result.reasons.push(sameCity
-    ? "تتوافق مدينتكما والفئة العمرية التي اختارها كلٌّ منكما."
-    : "يتوافق عمركما مع التفضيلات التي اخترتماها، وتتيح اختيارات السكن مدينة مشتركة.");
+  if (!result.reasons.length) result.reasons.push('يمكنكما مناقشة التفضيلات الظاهرة في تفاصيل المقارنة.');
   return result;
 }
 
@@ -270,26 +317,46 @@ export function describeFit(first: PairProfile, second: PairProfile) {
     const wantB = answer(second, dim, "partner");
     if (!selfA || !selfB || !wantA || !wantB) { missing.push(dim.id); topics.push({ id: dim.id, status: 'missing' }); continue; }
     coveredCategories.add(dim.category);
-    const forwardMatch = answerFits(first, second, dim, wantA, selfB), reverseMatch = answerFits(second, first, dim, wantB, selfA);
-    topics.push({ id: dim.id, status: forwardMatch && reverseMatch ? 'aligned' : forwardMatch || reverseMatch ? 'one_sided' : 'different' });
+    const ab = agreement(first, second, dim, wantA, selfB), ba = agreement(second, first, dim, wantB, selfA);
+    const forwardMatch = ab === 1, reverseMatch = ba === 1;
+    topics.push({ id: dim.id, status: forwardMatch && reverseMatch ? 'aligned' : Math.min(ab, ba) === 0.5 ? 'conditional' : forwardMatch || reverseMatch ? 'one_sided' : 'different' });
     if (forwardMatch && reverseMatch) {
       strengths.push(dim.id);
       reasons.push(dim.reason);
     } else { discussion.push(dim.id); }
   }
   const covered = strengths.length + discussion.length;
-  const provisional = covered < 5 || coveredCategories.size < 3;
   const forward = directedFit(first, second);
   const reverse = directedFit(second, first);
-  const reciprocal = forward === null || reverse === null ? 0 : Math.sqrt(forward * reverse);
+  const practicalConcerns: string[] = [];
+  let practicalPenalty = 1;
+  if (!ageAccepted(first.age, second) || !ageAccepted(second.age, first)) {
+    practicalConcerns.push('age_range');
+    practicalPenalty = 0.85;
+  }
+  const locationKnown = cityKnown(first) && cityKnown(second);
+  if (locationKnown && !shareCity(first, second) && first.surveyAnswers?.residence_plan === 'A' && second.surveyAnswers?.residence_plan === 'A') {
+    practicalConcerns.push('relocation');
+    practicalPenalty = 0.6;
+  }
+  const childPlans = [first.surveyAnswers?.children_plan, second.surveyAnswers?.children_plan];
+  if (childPlans.includes('A') && childPlans.includes('B')) {
+    practicalConcerns.push('children_intent');
+    practicalPenalty = Math.min(practicalPenalty, 0.75);
+  }
+  if (!locationKnown) practicalConcerns.push('location_unknown');
+  if (forward.criteria.requiredConflict || reverse.criteria.requiredConflict) practicalConcerns.push('required_criterion');
+  const reciprocal = Math.sqrt(forward.score * reverse.score) * Math.min(practicalPenalty, forward.penalty, reverse.penalty);
+  const provisional = covered < 5 || coveredCategories.size < 3 || !locationKnown || forward.criteria.missing + reverse.criteria.missing > 0;
   const band: MatchFit["band"] = provisional ? "insufficient" : reciprocal >= 0.75 ? "strong" : reciprocal >= 0.45 ? "mixed" : "explore";
   const assessmentComplete = covered === dimensions.length && dimensions.length > 0 &&
-    first.assessmentVersion === assessmentVersion && second.assessmentVersion === assessmentVersion;
-  const forwardCriteria = preferredCriteria(first, second), reverseCriteria = preferredCriteria(second, first);
-  const fit: MatchFit = { version: assessmentVersion, band, provisional, covered, total: dimensions.length, strengths, discussion, missing,
+    first.assessmentVersion === assessmentVersion && second.assessmentVersion === assessmentVersion && locationKnown &&
+    !forward.criteria.missing && !reverse.criteria.missing;
+  const forwardCriteria = forward.criteria, reverseCriteria = reverse.criteria;
+  const fit: MatchFit = { version: assessmentVersion, band, practicalConcerns, provisional, covered, total: dimensions.length, strengths, discussion, missing,
     assessmentComplete, percentage: assessmentComplete ? Math.round(reciprocal * 100) : null,
     criteria: { covered: forwardCriteria.covered + reverseCriteria.covered, total: forwardCriteria.total + reverseCriteria.total },
-    preferenceEvidence: { version: 'preference-evidence-v1', method: 'reciprocal-weighted-v1', topics, categories: preferenceCategoryCounts(topics), criteria: {
+    preferenceEvidence: { version: 'preference-evidence-v1', method: 'reciprocal-weighted-v3', topics, categories: preferenceCategoryCounts(topics), criteria: {
       matched: forwardCriteria.matched + reverseCriteria.matched,
       different: forwardCriteria.different + reverseCriteria.different,
       missing: forwardCriteria.missing + reverseCriteria.missing,

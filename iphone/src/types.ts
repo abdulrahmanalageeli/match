@@ -36,7 +36,7 @@ export type Profile = {
   familyPreference: string;
   interestIds?: string[];
   surveyAnswers?: Record<string, string>;
-  assessmentVersion?: "legacy-v0" | "marriage-v1" | "marriage-v2";
+  assessmentVersion?: "legacy-v0" | "marriage-v1" | "marriage-v2" | "marriage-v3";
   hardRequirements?: string[];
   priorityCategories?: string[];
 };

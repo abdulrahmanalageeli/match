@@ -20,7 +20,7 @@ function countAnswers(category: string, answers: Record<string, string>) {
 
 export function CompatibilityFields({ interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
   const prefix = useId();
-  const completedHere = useRef(new Set<number>()), inferredPartners = useRef(new Set<string>()), previousMode = useRef(remainingOnly);
+  const completedHere = useRef(new Set<number>()), previousMode = useRef(remainingOnly);
   if (previousMode.current !== remainingOnly) { completedHere.current.clear(); previousMode.current = remainingOnly; }
   const [remainingFinished, setRemainingFinished] = useState(false);
   const card = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), outline = useRef<HTMLDetailsElement>(null);
@@ -57,23 +57,10 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
     completedHere.current.add(activePosition);
     const answers = { ...surveyAnswers };
     if (next) answers[answerKey] = next; else delete answers[answerKey];
-    if (side === "self") {
-      const defaults = (dim as typeof dim & { partnerDefault?: Record<string, string> }).partnerDefault;
-      const inferred = next ? defaults?.[next] : undefined;
-      const partnerWasInferred = inferredPartners.current.has(dim.partnerId);
-      if (!next && partnerWasInferred) {
-        delete answers[dim.partnerId];
-        inferredPartners.current.delete(dim.partnerId);
-      } else if (inferred && (partnerWasInferred || !hasPreferenceAnswer(dim.options, answers[dim.partnerId]))) {
-        answers[dim.partnerId] = inferred;
-        inferredPartners.current.add(dim.partnerId);
-      }
-    } else inferredPartners.current.delete(dim.partnerId);
     change({ surveyAnswers: answers, hardRequirements: !next && side === "partner" ? hardRequirements.filter(id => id !== dim.id) : hardRequirements });
   }
   function move(next: number) {
-    const inferredReview = next === topicIndex * 2 + 1 && inferredPartners.current.has(dim.partnerId);
-    if (next < 0 || next >= total || (remainingOnly && !positions.includes(next) && !inferredReview)) return;
+    if (next < 0 || next >= total || (remainingOnly && !positions.includes(next))) return;
     if (required && next > activePosition && !answered) return;
     setRemainingFinished(false);
     if (next === activePosition) return;
@@ -98,11 +85,8 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
       </div>
       <p className="compat-interest-note" aria-live="polite">{number.format(interestIds.length)} من {number.format(maxInterests)} اهتمامات · اختيارية وتظهر في ملفك</p>
     </details>;
-  const partnerIsInferred = inferredPartners.current.has(dim.partnerId);
-  const skipInferredPartner = side === "self" && partnerIsInferred && hasPreferenceAnswer(dim.options, surveyAnswers[dim.partnerId]);
-  const nextPositionIsPartner = positions[questionIndex + 1] === topicIndex * 2 + 1;
-  const nextQuestionPosition = positions[questionIndex + (skipInferredPartner && nextPositionIsPartner ? 2 : 1)];
-  const assessmentNote = <p className="compat-assessment-note">نبدأ بما يشبهك، ونقترح منه ما قد يناسبك في شريك الحياة. كل اقتراح قابل للتعديل. {required ? 'لا توجد إجابة صحيحة أو خاطئة.' : 'ويمكنك تجاوز أي سؤال.'}</p>;
+  const nextQuestionPosition = positions[questionIndex + 1];
+  const assessmentNote = <p className="compat-assessment-note">اختر ما يصفك، ثم حدّد ما يناسبك من شريكك. يمكن أن تختلف الإجابتان. {required ? 'لا توجد إجابة صحيحة أو خاطئة.' : 'ويمكنك تجاوز أي سؤال.'}</p>;
 
   return <div className="compat-fields" dir="rtl">
     {!registration && interestPicker}
@@ -123,30 +107,30 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
 
       <div className="compat-perspective" role="group" aria-label="زاوية الإجابة">
         {(!remainingOnly || positions.includes(topicIndex * 2)) && <button type="button" aria-pressed={side === "self"} onClick={() => move(topicIndex * 2)}><UserRound size={15} aria-hidden="true"/>أنا{surveyAnswers[dim.id] && <Check size={13} aria-label="أجبت"/>}</button>}
-        {(!remainingOnly || positions.includes(topicIndex * 2 + 1) || partnerIsInferred) && <button type="button" disabled={required && !answered && side === "self"} aria-pressed={side === "partner"} onClick={() => { if (partnerIsInferred) completedHere.current.add(topicIndex * 2 + 1); move(topicIndex * 2 + 1); }}><Heart size={15} aria-hidden="true"/>شريك الحياة{partnerIsInferred && <small>مقترح</small>}{surveyAnswers[dim.partnerId] && <Check size={13} aria-label="أجبت"/>}</button>}
+        {(!remainingOnly || positions.includes(topicIndex * 2 + 1)) && <button type="button" disabled={required && !answered && side === "self"} aria-pressed={side === "partner"} onClick={() => move(topicIndex * 2 + 1)}><Heart size={15} aria-hidden="true"/>شريك الحياة{surveyAnswers[dim.partnerId] && <Check size={13} aria-label="أجبت"/>}</button>}
       </div>
       <div className="compat-panel" key={answerKey} data-dir={direction}>
         <span className="compat-topic-label"><span>{dim.title}</span>{registration && <span className="compat-question-position" aria-label={`السؤال ${number.format(questionIndex + 1)} من ${number.format(positions.length)}`}>{number.format(questionIndex + 1)} / {number.format(positions.length)}</span>}</span>
         <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{prompt}</h3>
-        <p className="compat-hint">{side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : partnerIsInferred ? "اقترحناه من إجابتك. عدّله إذا كان ما تريده مختلفًا." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
+        <p className="compat-hint">{side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
         <div className="compat-answer-options" role="group" aria-labelledby={prefix + "-heading"}>
           {dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? ({ A: "أرغب في العمل ومواصلة طموحي", B: "أفضل عدم العمل بعد الزواج", C: "مرنة حسب ظروفي واتفاقنا" } as Record<string,string>)[option.code] : option[side]}</span></button>)}
         </div>
         {!required && <button className="compat-skip" type="button" onClick={() => { selectAnswer(""); if (!value && questionIndex < positions.length-1) move(positions[questionIndex+1]); else if (!value && remainingOnly) setRemainingFinished(true); }}>{value ? "إزالة اختياري" : side === "self" ? "أتجاوز هذا السؤال الآن" : "ليس لدي تفضيل محدد — متابعة"}</button>}
-        {dim.id === "residence_plan" && <p className="compat-footnote">وضوح تفضيل السكن يساعد في الترشيح من مدينة أخرى إذا كان الانتقال ممكنًا لأحدكما.</p>}
+        {dim.id === "residence_plan" && <p className="compat-footnote">إذا اخترت مدينة نتفق عليها، حدّد مدن الانتقال من تصفية الملفات بعد التسجيل.</p>}
         <details className="compat-refine">
           <summary><SlidersHorizontal size={14} aria-hidden="true"/>ما أهمية هذا لك؟{(isPriority || hardRequirements.includes(dim.id)) && <span>محددة</span>}<ChevronDown size={13} aria-hidden="true"/></summary>
           <label className="compat-priority"><input type="checkbox" checked={isPriority} disabled={!isPriority && priorityCategories.length >= maxPriorities} onChange={() => change({ priorityCategories: isPriority ? priorityCategories.filter(id => id !== category.id) : [...priorityCategories, category.id] })}/><span><strong><Star size={14} aria-hidden="true"/>من أولوياتي</strong><small>امنح «{category.label}» أهمية أكبر. يمكنك اختيار محورين.</small></span></label>
-          {dim.hardAllowed && surveyAnswers[dim.partnerId] && <label className="compat-hard"><input type="checkbox" checked={hardRequirements.includes(dim.id)} onChange={event => change({ hardRequirements: event.target.checked ? [...hardRequirements, dim.id] : hardRequirements.filter(id => id !== dim.id) })}/><span><strong>شرط أساسي عندي</strong><small>يُرشَّح من اختار تفضيلك لنفسه فقط.</small></span></label>}
+          {dim.hardAllowed && surveyAnswers[dim.partnerId] && <label className="compat-hard"><input type="checkbox" checked={hardRequirements.includes(dim.id)} onChange={event => change({ hardRequirements: event.target.checked ? [...hardRequirements, dim.id] : hardRequirements.filter(id => id !== dim.id) })}/><span><strong>شرط أساسي عندي</strong><small>يُشترط أن تلائم إجابة الطرف الآخر تفضيلك.</small></span></label>}
         </details>
       </div>
       <footer className="compat-navigation"><button type="button" className="compat-previous" disabled={questionIndex <= 0} onClick={() => move(positions[questionIndex - 1])}><ChevronRight size={17} aria-hidden="true"/>السابق</button>
-        {nextQuestionPosition !== undefined ? <button type="button" className="compat-next" disabled={required && !answered} onClick={() => move(nextQuestionPosition)}>{remainingOnly ? "السؤال التالي" : side === "self" && !skipInferredPartner ? "وماذا عن شريك الحياة؟" : "الفكرة التالية"}<ChevronLeft size={17} aria-hidden="true"/></button> : remainingOnly ? <button type="button" className="compat-next" disabled={required && !answered} onClick={() => required && firstMissing >= 0 ? move(firstMissing) : setRemainingFinished(true)}>{required && firstMissing >= 0 ? "إكمال المتبقي" : "اكتملت المراجعة"}<Check size={16}/></button> : <span className="compat-finish"><Check size={16} aria-hidden="true"/>{required && filled < total ? "اختر إجابتك لنكمل الملف" : "هذه آخر فكرة، أكمل ملفك أدناه"}</span>}
+        {nextQuestionPosition !== undefined ? <button type="button" className="compat-next" disabled={required && !answered} onClick={() => move(nextQuestionPosition)}>{remainingOnly ? "السؤال التالي" : side === "self" ? "وماذا عن شريك الحياة؟" : "الفكرة التالية"}<ChevronLeft size={17} aria-hidden="true"/></button> : remainingOnly ? <button type="button" className="compat-next" disabled={required && !answered} onClick={() => required && firstMissing >= 0 ? move(firstMissing) : setRemainingFinished(true)}>{required && firstMissing >= 0 ? "إكمال المتبقي" : "اكتملت المراجعة"}<Check size={16}/></button> : <span className="compat-finish"><Check size={16} aria-hidden="true"/>{required && filled < total ? "اختر إجابتك لنكمل الملف" : "هذه آخر فكرة، أكمل ملفك أدناه"}</span>}
       </footer>
       </div>}
       {!remainingOnly && activePosition === total-1 && <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'اكتملت صورتك عن الحياة' : 'وصلت إلى آخر فكرة'}</strong><small>{filled === total ? 'يمكنك مراجعة إجاباتك من المواضيع، ثم متابعة التسجيل.' : `بقيت ${number.format(total-filled)} إجابات${required ? " لنكمل صورتك عن الحياة." : " اختيارية. يمكنك إكمالها أو متابعة التسجيل الآن."}`}</small></p>{firstMissing >= 0 && firstMissing !== position && <button type="button" onClick={()=>move(firstMissing)}>إكمال المتبقي<ChevronLeft size={15} aria-hidden="true"/></button>}</div>}
     </section>
-    {remainingOnly && <details className="compat-refine"><summary><SlidersHorizontal size={14}/>{required ? "ما الأهم لك؟" : "أولوياتك وشروطك الاختيارية"}<ChevronDown size={13}/></summary><p className="compat-assessment-note">لا نختار الأولويات أو الشروط الأساسية بدلًا عنك.</p>{sections.map(section => <label className="compat-priority" key={section.id}><input type="checkbox" checked={priorityCategories.includes(section.id)} disabled={!priorityCategories.includes(section.id) && priorityCategories.length >= maxPriorities} onChange={event => change({priorityCategories:event.target.checked?[...priorityCategories,section.id]:priorityCategories.filter(id=>id!==section.id)})}/><span><strong>{section.label}</strong></span></label>)}{topics.filter(topic=>topic.hardAllowed&&hasPreferenceAnswer(topic.options,surveyAnswers[topic.partnerId])).map(topic=><label className="compat-hard" key={topic.id}><input type="checkbox" checked={hardRequirements.includes(topic.id)} onChange={event=>change({hardRequirements:event.target.checked?[...hardRequirements,topic.id]:hardRequirements.filter(id=>id!==topic.id)})}/><span><strong>{topic.title} · شرط أساسي</strong><small>يُرشَّح من اختار تفضيلك لنفسه فقط.</small></span></label>)}</details>}
+    {remainingOnly && <details className="compat-refine"><summary><SlidersHorizontal size={14}/>{required ? "ما الأهم لك؟" : "أولوياتك وشروطك الاختيارية"}<ChevronDown size={13}/></summary><p className="compat-assessment-note">لا نختار الأولويات أو الشروط الأساسية بدلًا عنك.</p>{sections.map(section => <label className="compat-priority" key={section.id}><input type="checkbox" checked={priorityCategories.includes(section.id)} disabled={!priorityCategories.includes(section.id) && priorityCategories.length >= maxPriorities} onChange={event => change({priorityCategories:event.target.checked?[...priorityCategories,section.id]:priorityCategories.filter(id=>id!==section.id)})}/><span><strong>{section.label}</strong></span></label>)}{topics.filter(topic=>topic.hardAllowed&&hasPreferenceAnswer(topic.options,surveyAnswers[topic.partnerId])).map(topic=><label className="compat-hard" key={topic.id}><input type="checkbox" checked={hardRequirements.includes(topic.id)} onChange={event=>change({hardRequirements:event.target.checked?[...hardRequirements,topic.id]:hardRequirements.filter(id=>id!==topic.id)})}/><span><strong>{topic.title} · شرط أساسي</strong><small>يُشترط أن تلائم إجابة الطرف الآخر تفضيلك.</small></span></label>)}</details>}
     {registration && interestPicker}
   </div>;
 }

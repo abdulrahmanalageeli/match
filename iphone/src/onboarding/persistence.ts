@@ -62,6 +62,10 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
   try { data = JSON.parse(text); } catch { return null; }
   if (isRecord(data) && isRecord(data.answers)) {
     // Recover usable drafts written before these server-only fields were excluded.
+    if (['marriage-v1','marriage-v2'].includes(String(data.answers.assessmentVersion)) && isRecord(data.answers.surveyAnswers)) {
+      data.answers.surveyAnswers = Object.fromEntries(Object.entries(data.answers.surveyAnswers).filter(([id]) => surveyOptions.has(id)));
+      data.answers.assessmentVersion = assessmentVersion;
+    }
     delete data.answers.portrait;
     delete data.answers.signupConsents;
   }

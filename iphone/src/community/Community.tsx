@@ -1,4 +1,5 @@
 import {DemoDeepReading} from './DemoDeepReading';
+import {RelocationCities} from './RelocationCities';
 import {LunaSearch} from './LunaSearch';
 import {MemberBadge} from '../membership/MemberBadge';
 import {MembershipEntry} from '../membership/MembershipEntry';
@@ -296,11 +297,12 @@ function Sheet({
 }
 
 function FilterSheet({
-  filters,
+  source,onSaved,filters,
   apply,
   close,
 }: {
   filters: Filters;
+  source: CommunitySource; onSaved:()=>void;
   apply: (next: Filters) => void;
   close: () => void;
 }) {
@@ -346,6 +348,11 @@ function FilterSheet({
     <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
         <div className="dr-filter-body">
+          <p>الفلاتر مؤقتة وتُطبّق بعد شروط الطرفين. عند الاستبعاد نعرض فقط من أفصح عن المعلومة المطلوبة.</p>
+          <label>ترتيب النتائج<select value={extra.sort??''} onChange={e=>setExtra(current=>({...current,sort:(e.target.value||undefined) as Filters['sort']}))}>
+            <option value="">الترتيب الافتراضي</option><option value="compatibility">حسب التوافق</option><option value="youngest">الأصغر سنًا</option><option value="oldest">الأكبر سنًا</option>
+          </select></label>
+          <small>الترشيحات الأسبوعية مرتبة بالتوافق. في «جميع الملفات» يخلط الترتيب الافتراضي الملفات المؤهلة ويمنح وسام الجدية فرصة ظهور أعلى.</small>
           <SheetChoiceSelect label="المدينة" value={extra.city ?? ""} options={cityOptions} placeholder="كل المدن" allowClear onChange={city => setExtra(current => ({ ...current, city: city || undefined }))} />
           <fieldset className="dr-filter-age" aria-label="العمر">
             <div className="dr-filter-age-row">
@@ -388,11 +395,11 @@ function FilterSheet({
           </div>)}
           <small>تُستبعد الإجابات غير المذكورة عند تحديد نطاق.</small>
         </div></details>
-        <div className="cm-age-fields"><label>الحالة الاجتماعية<select value={extra.maritalStatus??''} onChange={e=>setExtra({...extra,maritalStatus:e.target.value})}><option value="">الكل</option><option value="never_married">لم يسبق الزواج</option><option value="divorced">مطلق / مطلقة</option><option value="widowed">أرمل / أرملة</option></select></label>
+        <div className="cm-age-fields"><label>الحالة الاجتماعية<select value={extra.maritalStatus??''} onChange={e=>setExtra({...extra,maritalStatus:e.target.value})}><option value="">الكل</option><option value="never_married">لم يسبق الزواج</option><option value="divorced">مطلق / مطلقة</option><option value="widowed">أرمل / أرملة</option><option value="married">متزوج</option></select></label>
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
         <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
-        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠٪ فأعلى</option><option value={75}>٧٥٪ فأعلى</option><option value={90}>٩٠٪ فأعلى</option></select><small>تظهر النسبة عند اكتمال التقييمين فقط.</small></label>:<button type="button" className="btn-text" onClick={upgrade}><LockKeyhole size={14}/>التصفية بنسبة التوافق مع العضوية المميزة</button>}
+        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠ نقطة فأعلى</option><option value={75}>٧٥ نقطة فأعلى</option><option value={90}>٩٠ نقطة فأعلى</option></select><small>تظهر الدرجة من ١٠٠ عند اكتمال التقييمين.</small></label>:<button type="button" className="btn-text" onClick={upgrade}><LockKeyhole size={14}/>التصفية بدرجة التوافق مع العضوية المميزة</button>}
         <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
         <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="الجنسية المطلوبة" value={extra.nationality??''} options={nationalityChoices} placeholder="كل الجنسيات" allowClear onChange={nationality=>setExtra(current=>({...current,nationality:nationality||undefined}))}/>
@@ -412,10 +419,11 @@ function FilterSheet({
             <div className="dr-selected-filters" aria-label="الجنسيات المستبعدة">{excludedNationalities.map(nationality=><button type="button" key={nationality} onClick={()=>setExcludedNationalities(current=>current.filter(value=>value!==nationality))} aria-label={`إزالة استبعاد ${nationality}`}><span>{nationalityChoices.find(option=>option.value===nationality)?.label??nationality}</span><X size={13} aria-hidden="true"/></button>)}</div>
             {excludedNationalities.length>=20&&<small>يمكنك استبعاد ٢٠ جنسية. أزل اختيارًا لإضافة جنسية أخرى.</small>}
           </div>
-          <fieldset><legend>إخفاء حسب الخلفية القبلية</legend><div className="dr-exclusion-options">{[['tribal','قبلي'],['non_tribal','غير قبلي'],['prefer_not_to_say','لم يذكر الخلفية']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeTribalBackgrounds?.includes(value)} onChange={()=>toggleExcluded('excludeTribalBackgrounds',value)}/>{label}</label>)}</div></fieldset>
+          <fieldset><legend>إخفاء حسب الخلفية القبلية</legend><div className="dr-exclusion-options">{[['tribal','قبلي'],['non_tribal','غير قبلي']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeTribalBackgrounds?.includes(value)} onChange={()=>toggleExcluded('excludeTribalBackgrounds',value)}/>{label}</label>)}</div></fieldset>
           <fieldset><legend>إخفاء حسب التدخين</legend><div className="dr-exclusion-options">{[['never','لا يدخّن'],['cigarettes','سجائر'],['vape','فيب'],['shisha','شيشة'],['sometimes','أحيانًا · غير محدد'],['yes','يدخّن · غير محدد']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeSmoking?.includes(value)} onChange={()=>toggleExcluded('excludeSmoking',value)}/>{label}</label>)}</div></fieldset>
-          <fieldset><legend>إخفاء حسب الحالة الاجتماعية</legend><div className="dr-exclusion-options">{[['never_married','لم يسبق الزواج'],['divorced','مطلق / مطلقة'],['widowed','أرمل / أرملة']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeMaritalStatuses?.includes(value)} onChange={()=>toggleExcluded('excludeMaritalStatuses',value)}/>{label}</label>)}</div></fieldset>
+          <fieldset><legend>إخفاء حسب الحالة الاجتماعية</legend><div className="dr-exclusion-options">{[['never_married','لم يسبق الزواج'],['divorced','مطلق / مطلقة'],['widowed','أرمل / أرملة'],['married','متزوج']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeMaritalStatuses?.includes(value)} onChange={()=>toggleExcluded('excludeMaritalStatuses',value)}/>{label}</label>)}</div></fieldset>
         </div></details>
+        <RelocationCities source={source} onSaved={onSaved}/>
         </div>
         <div className="dr-filter-footer">
           {error && <Banner alert text={error} />}
@@ -564,7 +572,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
-      {premium?<button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
+      {premium?<button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} من ١٠٠`}. عرض الشرح`}>
         {preference===null?<span className="dr-fit-pending">—<small>غير مكتمل</small></span>:<ScoreTile percentage={preference} variant="logo"/>}
       </button>:<button className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     </div>
@@ -628,6 +636,7 @@ function Discovery({
   const [filters, setFilters] = useState<Filters>(()=>({...remembered.filters,minFit:premium?remembered.filters.minFit:undefined}));
   useEffect(()=>{if(!premium)setFilters(current=>current.minFit?{...current,minFit:undefined}:current);},[premium]);
   const [order, setOrder] = useState<"recommended" | "all">(remembered.order);
+  const [preferenceRevision,setPreferenceRevision]=useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [query, setQuery] = useState(remembered.query);
   const [searchOpen, setSearchOpen] = useState(Boolean(remembered.query.trim()));
@@ -679,7 +688,7 @@ function Discovery({
         const results = await Promise.all(Array.from({length:pages},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
         const people = [...new Map(results.flat().map(person=>[person.id,person])).values()];
         if (seq !== sequence.current) return;
-        setList(current => order === 'all' ? updateDirectoryOrder(current, people, reshuffle) : people);
+        setList(current => order === 'all' && !filters.sort ? updateDirectoryOrder(current, people, reshuffle) : people);
         setMore(order === "all" && results.at(-1)?.length === 24); setRecoverable(false);
         setSelected(id => id && people.some(p => p.id === id) ? id : null);
       } catch (e) {
@@ -769,12 +778,12 @@ function Discovery({
         // Re-query the authorized directory rather than freezing its old score.
         await Promise.all([...new Map(openPeople.current.map(person=>[person.id,person])).values()].map(async person=>{
           if(latest.has(person.id)){details.set(person.id,latest.get(person.id)!);return;}
-          const eligible=await source.discover({...filters,mode:'all',search:person.alias,offset:0});
+          const eligible=await source.discover({...filters,mode:order,subjectId:person.id,offset:0});
           details.set(person.id,eligible.find(candidate=>candidate.id===person.id)??null);
         }));
         if(!active||seq!==sequence.current||actionPending.current)return;
         // Reapply active filters as availability changes, including an initially empty online view.
-        setList(current => order === 'all' ? updateDirectoryOrder(current, [...latest.values()], false) : [...latest.values()]);
+        setList(current => order === 'all' && !filters.sort ? updateDirectoryOrder(current, [...latest.values()], false) : [...latest.values()]);
         setError('');setRecoverable(false);
         setMore(order==='all'&&pages.at(-1)?.length===24);
         const fresh=(person:PublicPerson|null)=>person?(latest.get(person.id)??(details.has(person.id)?details.get(person.id)!:person)):null;
@@ -791,7 +800,7 @@ function Discovery({
     const timer=window.setInterval(()=>void updatePresence(),60000);
     const resumeDiscovery = () => {
       if (document.hidden) return;
-      if (order === 'all') setList(current => updateDirectoryOrder(current, current, true));
+      if (order === 'all' && !filters.sort) setList(current => updateDirectoryOrder(current, current, true));
       void updatePresence();
     };
     document.addEventListener('visibilitychange',resumeDiscovery);
@@ -807,7 +816,7 @@ function Discovery({
         setList(current=>{
           const ids = new Set(current.map(person => person.id));
           const additions = next.filter(person => !ids.has(person.id));
-          return [...current, ...(order === 'all' ? shuffleDirectory(additions) : additions)];
+          return [...current, ...(order === 'all' && !filters.sort ? shuffleDirectory(additions) : additions)];
         });
         setMore(next.length===24);
       }
@@ -899,7 +908,7 @@ function Discovery({
       />
     );
   const count = Object.entries(filters).filter(([key,value])=>!["sort","offset","afterId","mode","search"].includes(key)&&(Array.isArray(value)?value.length>0:Boolean(value))).length;
-  const people = order === "recommended" ? [...list].sort((a,b)=>(compatibilityPercentage(b)??-1)-(compatibilityPercentage(a)??-1)).slice(0,5) : list;
+  const people = order === "recommended" ? list.slice(0,5) : list;
   const canRefreshDirectory = order === "all" && !loading && !pullRefreshing && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
   async function refreshDirectory() {
     if (!canRefreshDirectory) return;
@@ -958,10 +967,10 @@ function Discovery({
       </div>
       {<div className="dr-tools" data-search-open={searchOpen||undefined}><div className="dr-search-explainer"><WhyWudayn label="كيف نختار من يناسبك؟"/></div><div className="dr-search-control">
         <button ref={searchToggle} type="button" className="dr-search-toggle" aria-label={searchOpen?'طي البحث':query.trim()?'فتح البحث، يوجد بحث نشط':'فتح البحث'} aria-expanded={searchOpen} aria-controls={searchId} data-active={Boolean(query.trim())||undefined} onClick={()=>setSearchOpen(value=>!value)}><Search size={17} aria-hidden="true"/></button>
-        {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
+        {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة أو النبذة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
       </div>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
-      <LunaSearch source={source} open={person=>{setSelectedPerson(person);setSelected(person.id);}}/>
+      <LunaSearch key={preferenceRevision} filters={{...filters,search:query,mode:order}} source={source} open={person=>{setSelectedPerson(person);setSelected(person.id);}}/>
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (
@@ -1008,8 +1017,8 @@ function Discovery({
           title={availability.exclusive ? 'مساحة أهدأ لتعارفكما' : count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
           description={
             availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
-              ? "لم تظهر ملفات ضمن البحث والفلاتر الحالية. يمكنك مراجعتها دون تغيير ما يهمك في شريك الحياة. قلة النتائج ليست حكمًا على ملفك."
-              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : "لا توجد ترشيحات ضمن تفضيلات الطرفين حاليًا. استكشف الملفات الأخرى أو راجع تفضيلاتك؛ لا حاجة لتغيير ما يهمّك."
+              ? "لم تظهر ملفات تستوفي التصفية الحالية وشروط الطرفين. مسح التصفية يزيل قيود البحث المؤقتة فقط."
+              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : order==='recommended' ? 'انتهت ترشيحات هذا الأسبوع أو لم يعد بينها ملف مؤهل. يمكنك تصفّح بقية الملفات.' : 'لا تتوفر الآن ملفات جديدة تستوفي شروطك الأساسية وشروط الطرف الآخر.'
           }
           action={
             <div className="cm-empty-actions">
@@ -1046,13 +1055,12 @@ function Discovery({
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
       {premium&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
-        <FilterSheet
+        <FilterSheet source={source} onSaved={()=>{setPreferenceRevision(n=>n+1);void refresh(false);}}
           filters={filters}
           close={() => setFilterOpen(false)}
           apply={(value) => {
             setFilterOpen(false);
             setNotice("");
-            setOrder("all");
             setFilters({...value,search:query});
           }}
         />

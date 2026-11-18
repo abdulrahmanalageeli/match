@@ -59,7 +59,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const highlights = [
     {label:'العمل',value:person.occupation,icon:BriefcaseBusiness},
     {label:'التعليم',value:person.education,icon:GraduationCap},
-    {label:'توقيت الزواج',value:b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline],icon:CalendarHeart},
+    {label:'توقيت إتمام الزواج',value:b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline],icon:CalendarHeart},
   ].filter(item=>item.value);
   function selectSection(next:typeof section){
     if(next===section)return;
@@ -105,7 +105,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         {!!highlights.length&&<dl className="mp-highlights" aria-label="لمحة سريعة">{highlights.map(({label,value,icon:Icon})=><div key={label}><dt><Icon size={17} strokeWidth={1.5} aria-hidden="true"/>{label}</dt><dd dir="auto">{value}</dd></div>)}</dl>}
         {hasFit&&<MotionPressButton className="mp-fit-preview" aria-controls={contentId} onClick={openFit}>
           <span className="mp-fit-preview-heading"><Sparkles size={17} aria-hidden="true"/><strong>توافقكما</strong><ChevronLeft size={16} aria-hidden="true"/></span>
-          {person.fit?<span className="mp-fit-preview-scores"><span><strong>{percentage===null?'—':<bdi dir="ltr">{percentage}%</bdi>}</strong><span>توافق التفضيلات</span></span><span><strong>{personality===null?'—':<bdi dir="ltr">{personality}%</bdi>}</strong><span>انسجام الشخصية</span></span></span>:<span className="mp-fit-preview-reason">{person.reasons[0]}</span>}
+          {person.fit?<span className="mp-fit-preview-scores"><span><strong>{percentage===null?'—':<bdi dir="ltr">{percentage}/100</bdi>}</strong><span>توافق التفضيلات</span></span><span><strong>{personality===null?'—':<bdi dir="ltr">{personality}%</bdi>}</strong><span>تشابه الإجابات الشخصية</span></span></span>:<span className="mp-fit-preview-reason">{person.reasons[0]}</span>}
           <small>{person.fit&&(percentage===null||personality===null)?'عرض تفاصيل النتائج المتاحة وما يلزم لإكمالها':'من إجاباتكما · اكتشفا نقاط الاتفاق وما يحتاج حوارًا'}</small>
         </MotionPressButton>}
         {!preview&&!premium&&<MembershipPrompt detail="اكتشف نسبة التوافق وتفاصيلها مع هذا العضو، وبادر بطلب التعارف."/>}
@@ -140,7 +140,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         ]}/>
         <Facts title="بداية الزواج" note="التوقيت، واللقاء، وإشراك الأهل" icon={Heart} items={[
           person.marriageIntent&&['النية من التعارف',person.marriageIntent],
-          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['التوقيت المرغوب للزواج',marriageTimelineLabels[b.marriageTimeline]],
+          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['التوقيت المرغوب لإتمام الزواج',marriageTimelineLabels[b.marriageTimeline]],
           b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['تفضيل اللقاء',meetingPreferenceLabels[b.meetingPreference]],
           person.familyPreference&&['إشراك الأهل',person.familyPreference],
         ]}/>
@@ -160,4 +160,3 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;
 }
-

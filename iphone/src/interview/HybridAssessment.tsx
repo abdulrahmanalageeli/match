@@ -21,29 +21,26 @@ type Card = {
   self: Field;
   partner: Field;
   personality: Field[];
-  partnerDefault?: Readonly<Partial<Record<string, string>>>;
 };
 
 const themes = [
-  { label: 'الزواج والخطط المقبلة', dimensions: ['children_plan', 'residence_plan', 'wife_work', 'marriage_timeline', 'family_boundaries'] },
-  { label: 'حياتكم اليومية', dimensions: ['shared_budget', 'household_roles', 'weekly_planning', 'social_rhythm'] },
-  { label: 'التواصل والتعارف', dimensions: ['conversation_initiative_preference', 'conversation_depth', 'curiosity_style', 'early_openness'] },
-  { label: 'القرب والتفاهم', dimensions: ['closeness_pace', 'match_disagreement_style', 'repair_after_conflict'] },
+  { label: 'الزواج والسكن', dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
+  { label: 'البيت والأهل', dimensions: ['wife_work', 'financial_provision', 'domestic_labor', 'family_authority', 'parenting_approach'] },
+  { label: 'حياتكم اليومية', dimensions: ['faith_routine', 'mixed_gatherings', 'public_event_attendance', 'social_rhythm', 'closeness_pace'] },
+  { label: 'التواصل وقت الاختلاف', dimensions: ['match_disagreement_style', 'repair_after_conflict'] },
 ];
 
 const personalityByDimension: Record<string, string[]> = {
-  weekly_planning: ['planning', 'novelty'],
+  housing_arrangement: ['planning', 'novelty'],
   social_rhythm: ['social_energy'],
-  conversation_initiative_preference: ['initiative'],
-  conversation_depth: ['depth', 'quiet_comfort'],
-  early_openness: ['openness'],
+  mixed_gatherings: ['initiative'],
+  faith_routine: ['depth', 'quiet_comfort'],
+  parenting_approach: ['openness'],
   closeness_pace: ['closeness', 'reassurance'],
   match_disagreement_style: ['conflict_pace', 'directness'],
   repair_after_conflict: ['support'],
 };
 
-// Some topics stay paired on screen but require a separate partner choice.
-const explicitPartnerChoices = new Set(['residence_plan', 'conversation_initiative_preference', 'match_disagreement_style', 'early_openness']);
 const workLabels: Record<string, string> = {
   A: 'أرغب في العمل ومواصلة طموحي',
   B: 'أفضل عدم العمل بعد الزواج',
@@ -87,7 +84,7 @@ function makeThemeCards(gender?: Gender) {
             options: question.options.map(option => ({ code: option.code, label: option.label })),
           };
         }),
-        partnerDefault: explicitPartnerChoices.has(id) ? undefined : dimension.partnerDefault,
+
       };
       return fields;
     }),
@@ -99,18 +96,12 @@ function selected(field: Field, choices: Choices) {
   return values?.length === 1 ? field.options.find(option => option.code === values[0]) : undefined;
 }
 
-function partnerSuggestion(card: Card, choices: Choices) {
-  const self = selected(card.self, choices);
-  if (self) return card.partner.options.find(option => option.code === card.partnerDefault?.[self.code]);
-}
-
 function assessmentFields(card: Card) {
   return [card.self, card.partner, ...card.personality];
 }
 
 function needsCard(card: Card, choices: Choices) {
-  return [card.self, ...card.personality].some(field => !selected(field, choices))
-    || (!selected(card.partner, choices) && !partnerSuggestion(card, choices));
+  return assessmentFields(card).some(field => !selected(field, choices));
 }
 
 function ChoiceCard({ field, value, onChoose, disabled, captured = false, compact = false, help }: {
@@ -294,7 +285,6 @@ export function HybridAssessment({
   const [index, setIndex] = useState(() => cards.findIndex(card => needsCard(card, choices)));
   const started = useRef(false);
   const [history, setHistory] = useState<number[]>([]);
-  const [partnerEditor, setPartnerEditor] = useState(false);
   const [portraitOpen, setPortraitOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousIndex = useRef(index);
@@ -303,10 +293,6 @@ export function HybridAssessment({
   const allSelected = fields.flatMap(field => {
     const answer = selected(field, choices);
     return answer ? [{ id: field.id, values: [answer.code] }] : [];
-  });
-  const suggestions = cards.flatMap(item => {
-    const suggestion = partnerSuggestion(item, choices);
-    return suggestion && !selected(item.partner, choices) ? [{ field: item.partner, option: suggestion }] : [];
   });
   const answered = allSelected.length;
   const available = fields.length - answered;
@@ -337,33 +323,20 @@ export function HybridAssessment({
     started.current = true;
     const next = cards.findIndex((item, itemIndex) => itemIndex > index && needsCard(item, choices));
     setHistory(previous => [...previous, index]);
-    setPartnerEditor(false);
     setIndex(next);
   }
 
   function goBack() {
     const previous = history.at(-1);
     if (previous === undefined) return;
-    setPartnerEditor(false);
     setHistory(current => current.slice(0, -1));
     setIndex(previous);
   }
 
-  function adoptSuggestions() {
-    started.current = true;
-    const next = { ...choices };
-    for (const { field, option } of suggestions) next[field.id] = [option.code];
-    onChange(next, suggestions.map(({ field }) => field.id));
-  }
-
-  const proposal = card ? partnerSuggestion(card, choices) : undefined;
   const canAdvance = card && !needsCard(card, choices);
   const timing = cards.find(item => item.self.id === 'preference:marriage_timeline:self')!;
   const formalStep = selected(timing.self, choices);
   const partnerStep = selected(timing.partner, choices);
-  const opening = cards.find(item => item.self.id === 'preference:early_openness:self')!;
-  const closeness = cards.find(item => item.self.id === 'preference:closeness_pace:self')!;
-  const hasTradeOff = Boolean(selected(opening.self, choices) && selected(closeness.self, choices));
   const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => choose(field.id, code)} disabled={disabled}/>;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     <div className="wi-hybrid-progress">
@@ -421,13 +394,7 @@ export function HybridAssessment({
       </p>}
       {card ? <div className="wi-hybrid-card">
         <ChoiceCard field={card.self} value={selected(card.self, choices)?.code} captured={wasCaptured(card.self)} onChoose={code => choose(card.self.id, code)} disabled={disabled} help={helpFor(card.self)}/>
-        {proposal && !selected(card.partner, choices) && !partnerEditor ? <div>
-          <div className="wi-hybrid-suggestion">
-            <div><small>اقتراح للشريك · للمراجعة لاحقًا</small><strong>{proposal.label}</strong></div>
-            <button type="button" className="wi-link" onClick={() => { started.current = true; setPartnerEditor(true); }} disabled={disabled}><Pencil size={14} aria-hidden="true"/> اختيار مختلف</button>
-          </div>
-          {helpFor(card.partner)}
-        </div> : <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled} help={helpFor(card.partner)}/>}
+        <ChoiceCard field={card.partner} value={selected(card.partner, choices)?.code} captured={wasCaptured(card.partner)} onChoose={code => choose(card.partner.id, code)} disabled={disabled} help={helpFor(card.partner)}/>
         {card.personality.map(field => <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} captured={wasCaptured(field)} onChoose={code => choose(field.id, code)} disabled={disabled} compact help={helpFor(field)}/>)}
       </div> : <>
         <p className="wi-lead">{capturedCount ? `أضفنا ${number.format(capturedCount)} إجابة من حوارك. راجعها مع اختياراتك قبل الاعتماد.` : 'راجع اختياراتك وعدّل أي إجابة قبل اعتماد التوافق.'}</p>
@@ -444,12 +411,6 @@ export function HybridAssessment({
             />)}
           </div>
         </details>}
-        {suggestions.length > 0 && <div className="wi-hybrid-batch">
-          <h2>تفضيلات مقترحة للشريك</h2>
-          <p>راجع المقترحات وعدّل ما يناسبك، ثم اعتمدها معًا.</p>
-          {suggestions.map(({field, option}) => <ReviewChoice key={field.id} field={field} suggested={option.label} side="تفضيلي في الشريك" onChoose={code => choose(field.id, code)} disabled={disabled}/>)}
-          <MotionPressButton className="wi-button wi-wide" onClick={adoptSuggestions} disabled={disabled}>اعتماد {number.format(suggestions.length)} من المقترحات<Check size={16} aria-hidden="true"/></MotionPressButton>
-        </div>}
         <div className="wi-hybrid-review">
           {themeCards.map(theme => <details key={theme.label}>
             <summary>{theme.label}<ChevronDown size={17} aria-hidden="true"/></summary>
@@ -458,7 +419,7 @@ export function HybridAssessment({
                 key={field.id}
                 field={field}
                 value={selected(field, choices)?.code}
-                suggested={field.id === item.partner.id ? partnerSuggestion(item, choices)?.label : undefined}
+
                 captured={wasCaptured(field)}
                 side={field.id === item.self.id ? 'عنّي' : field.id === item.partner.id ? 'تفضيلي في الشريك' : 'عن شخصيتي'}
                 onChoose={code => choose(field.id, code)}
@@ -467,17 +428,11 @@ export function HybridAssessment({
             </div>
           </details>)}
         </div>
-        {hasTradeOff && <details className="wi-portrait-theme wi-reflection">
-          <summary>القرب والخصوصية في البداية</summary>
-          <p>قد يختلف ما تفضّل مشاركته في أول حديث عن احتياجك للقرب بعد ما ترتاح. راجع الاختيارين إذا ودّك توضّح الفرق.</p>
-          <ReviewChoice field={opening.self} value={selected(opening.self, choices)?.code} side="بداية التعارف" disabled={disabled} onChoose={code => choose(opening.self.id, code)}/>
-          <ReviewChoice field={closeness.self} value={selected(closeness.self, choices)?.code} side="مع ازدياد القرب" disabled={disabled} onChoose={code => choose(closeness.self.id, code)}/>
-        </details>}
         <details className="wi-portrait-theme wi-reflection">
           <summary>جاهزيتك للخطوة الرسمية</summary>
           <p>راجع توقيتك وتوقّعاتك من الشريك قبل اعتماد الملف.</p>
           <ReviewChoice field={timing.self} value={formalStep?.code} side="التوقيت اللي يناسبني" disabled={disabled} onChoose={code => choose(timing.self.id, code)}/>
-          <ReviewChoice field={timing.partner} value={partnerStep?.code} suggested={partnerSuggestion(timing, choices)?.label} side="التوقيت اللي يناسبني عند الشريك" disabled={disabled} onChoose={code => choose(timing.partner.id, code)}/>
+          <ReviewChoice field={timing.partner} value={partnerStep?.code} side="التوقيت اللي يناسبني عند الشريك" disabled={disabled} onChoose={code => choose(timing.partner.id, code)}/>
           {formalStep?.code === 'D' && <p>موعدك غير محدد. تقدر تتركه مفتوحًا إلى أن تتضح خطتك.</p>}
         </details>
         {reviewExtras}

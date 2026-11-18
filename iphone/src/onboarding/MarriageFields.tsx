@@ -84,7 +84,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       {sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
       <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>
     </Group>
-    <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت الزواج وطريقتك المفضلة للقاء" icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
+    <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت إتمام الزواج وطريقتك المفضلة للقاء. يحدّد استبيان التوافق توقيت أول خطوة رسمية." icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
       <Choices title="متى تود إتمام الزواج إذا وجدت الشخص المناسب؟" required={required} value={value.marriageTimeline} labels={marriageTimelineLabels} onChange={marriageTimeline => change({ marriageTimeline })} />
       <small>هذا توقيت الزواج نفسه، وهو منفصل عن موعد الخطوة الرسمية في تقييم التوافق. يظهر اختيارك للأعضاء في الاستكشاف وملفك.</small>
       <Choices title="كيف تفضّل ترتيب اللقاء والخطوة الرسمية؟" required={required} value={value.meetingPreference} labels={meetingPreferenceLabels} onChange={meetingPreference => change({ meetingPreference })} />
@@ -93,8 +93,11 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
     <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
       <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined, ...(maritalStatus==='never_married'&&value.childrenCount===undefined?{childrenCount:0}:{}) })} />
       {gender === "man" && value.maritalStatus === "married" && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
-      {!eligibilityOnly && <><Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
-      <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small></>}
+      {!eligibilityOnly && <>
+      <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
+      {gender==='woman' && value.polygynyPreference==='not_open' && <small>ستقتصر الترشيحات الجديدة على رجل غير متزوج صرّح بأنه لا يرغب في التعدد مستقبلًا.</small>}
+      <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small>
+      </>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="عدد الأبناء" value={value.childrenCount === undefined ? '' : String(value.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />
@@ -147,7 +150,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
       <Mode title="أهمية وجود لغة مشتركة" value={value.sharedLanguage?.mode ?? (required ? undefined : "any")} onChange={mode => change({sharedLanguage:{mode}})}>
         <p>نبحث عن لغة واحدة على الأقل من اللغات التي تتحدثها.</p>
         {!basics?.spokenLanguages?.length && <p role="alert">أضف اللغات التي تتحدثها في تفاصيلك قبل حفظ هذا التفضيل.</p>}
-        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يستبعد من لا يشاركك لغة، وكذلك من لم يذكر لغاته.</small>
+        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يتطلب لغة مشتركة صرّح بها كلاكما.</small>
       </Mode>
     </Group>
     <Group title="الدراسة والعمل" note="ما يناسب حياتك، دون ترتيب للمؤهلات أو المهن" icon={BookOpen} open={reveal === "الدراسة والعمل"} summary={selected(['education','profession'])}>
@@ -175,7 +178,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
     <Group title="الحياة السابقة والعادات" note="حدودك ومساحة تقبّلك" icon={Heart} open={reveal === "الحياة السابقة والعادات"} summary={selected(['maritalStatus','children','smoking'])}>
       <Mode title="الحالة الاجتماعية" value={value.maritalStatus?.mode ?? (required ? undefined : "any")} onChange={mode => change({ maritalStatus: mode === "any" ? { mode } : { values: ["never_married"], ...value.maritalStatus, mode } })}>
         <p>اختر الحالات التي تناسبك:</p><div className="nf-criterion-checks">{(Object.keys(maritalLabels) as Array<keyof typeof maritalLabels>).filter(status=>status !== 'married' || gender === 'woman').map(status => <label key={status}><input type="checkbox" checked={value.maritalStatus?.values?.includes(status) ?? false} onChange={e => change({ maritalStatus: { mode: value.maritalStatus?.mode ?? "prefer", values: e.target.checked ? [...(value.maritalStatus?.values ?? []), status] : value.maritalStatus?.values?.filter(v => v !== status) } })} />{maritalLabels[status]}</label>)}</div>
-        {gender === 'woman' && <small>إذا كنتِ لا تقبلين متزوجًا حاليًا، اختاري الحالات الأخرى واجعليها «شرطًا أساسيًا». الموقف من التعدد مستقبلًا يحتاج إلى حديث واضح بينكما.</small>}
+        {gender === 'woman' && <small>يسري اختيار «لا أقبل التعدد» تلقائيًا على الترشيحات الجديدة حتى إذا تركتِ الحالة الاجتماعية مفتوحة.</small>}
       </Mode>
       <Mode title="وجود أبناء" value={value.children?.mode ?? (required ? undefined : "any")} onChange={mode => change({ children: mode === "any" ? { mode } : { target: "none", ...value.children, mode } })}><p>أفضل أن يكون الطرف الآخر دون أبناء.</p><small>اختر «لا يهمني» إذا كنت منفتحًا على الحالتين.</small></Mode>
       <Mode title="التدخين" value={value.smoking?.mode ?? (required ? undefined : "any")} onChange={mode => change({ smoking: mode === "any" ? { mode } : { target: "never", mode } })}><p>أفضل شريكًا لا يدخّن.</p></Mode>

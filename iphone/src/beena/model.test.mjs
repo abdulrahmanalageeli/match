@@ -81,7 +81,7 @@ test('stories use a Unicode codepoint limit and cannot change matching or appear
 test('Beena nudges ordering only when complete without changing existing percentages or eligibility', () => {
   const surveyAnswers = Object.fromEntries(dimensions.flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']]));
   const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 25, preferredMaxAge: 40,
-    assessmentVersion: 'marriage-v2', surveyAnswers, beena: first };
+    assessmentVersion: 'marriage-v3', surveyAnswers, beena: first };
   const b = { ...a, id: 'b', gender: 'man', beena: second };
   const legacy = describeFit({ ...a, beena: undefined }, { ...b, beena: undefined });
   const fit = describeFit(a, b);
@@ -90,6 +90,6 @@ test('Beena nudges ordering only when complete without changing existing percent
   assert.equal(describeFit({ ...a, beena: undefined }, b).rankValue, legacy.rankValue);
   const incompatible = { ...b, id: 'z', beena: complete('C', ['D']) };
   assert.deepEqual(rankPreferences(a, [incompatible, { ...b, beena: undefined, id: 'm' }, b]).map(x => x.person.id), ['b', 'm', 'z']);
-  assert.equal(comparePreferences(a, { ...b, preferredMinAge: 30 }), null);
+  assert(comparePreferences(a, { ...b, preferredMinAge: 30 }).rankValue < fit.rankValue);
   assert.equal(comparePreferences(a, { ...b, gender: 'woman' }), null);
 });

@@ -14,7 +14,7 @@ export type Actor='abdulrahman'|'reham';
 export type TestSession={actor:Actor;session:string;profile:Profile;profileRevision:string};
 type Row=Omit<Message,'reply'>&{sender:Actor;reply?:{id:string;body:string;sender:Actor;deletedAt?:string|null}|null};
 type PublicTestProfile=Partial<Profile>&{beenaStory?:SharedBeenaStory};
-const unavailablePairFit:MatchFit={version:'marriage-v2',band:'insufficient',provisional:true,covered:0,total:dimensions.length,
+const unavailablePairFit:MatchFit={version:'marriage-v3',band:'insufficient',provisional:true,covered:0,total:dimensions.length,
  strengths:[],discussion:[],missing:dimensions.map(item=>item.id),assessmentComplete:false,percentage:null,beena:compareBeena()};
 type State={exclusiveId?:string;stepId?:string;pairFit?:MatchFit;manualVerifications?:Partial<Record<Actor,ManualVerificationClaim[]>>;beenaFit?:BeenaFit;onlineActors?:Partial<Record<Actor,boolean>>;interests?:Partial<Record<Actor,boolean>>;hiddenPeople?:Partial<Record<Actor,boolean>>;allowRematch?:boolean;rematchRequestedBy?:Actor;matchCelebration?:string;celebrationSeen?:Partial<Record<Actor,string>>;profileRevision:string;rewind?:{actor:Actor;stage:number};matchedAt?:string;journeyUpdatedAt?:string;exclusive?:boolean;exclusiveConsent?:Partial<Record<Actor,boolean>>;retiredFictional?:boolean;actor:Actor;matched:boolean;seriousness?:Omit<SeriousnessAgreement,'actor'>;messages:Row[];read:Partial<Record<Actor,string>>;delivered?:Partial<Record<Actor,string>>;callPermission?:{status:'none'|'pending'|'accepted'|'declined';invitedBy?:Actor};profiles:Partial<Record<Actor,PublicTestProfile>>;stage:number;agree:Partial<Record<Actor,boolean>>;call:(VoiceCall&{caller:Actor})|null};
 export const testStorage='nisfayn-private-pair-v1';
@@ -33,7 +33,7 @@ export function testProfile(actor:Actor,profile?:Partial<Profile>):Profile{
 }
 export function testPerson(actor:Actor,profile?:PublicTestProfile):PublicPerson{
  const p=profile??{};
- const publicAvatar = actor === 'reham' ? p.publicAvatar ?? testProfile(actor).publicAvatar : p.publicAvatar ?? null;
+ const publicAvatar = actor === 'reham' && p.publicAvatar === undefined ? testProfile(actor).publicAvatar : p.publicAvatar ?? null;
  const portrait = actor === 'reham' ? undefined : p.portrait;
  return {id:actor,alias:p.displayName || (actor==='reham'?'رهام':'عبدالرحمن'),age:p.age??0,city:p.city??'',occupation:p.profession??'',bio:p.bio??'',
  publicAvatar,portrait,marriageBasics:p.marriageBasics,lookingFor:p.lookingFor,valuesStatement:p.valuesStatement,lifeTogether:p.lifeTogether,

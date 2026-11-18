@@ -12,7 +12,7 @@ const publicWriting = new Set(['bio','lookingFor','lifeTogether','valuesStatemen
 
 export const INTERVIEW_MODEL = 'gpt-6-luna';
 export const CONSENT_VERSION = 'wudayn-interview-v1';
-export const PROMPT_VERSION = 'wudayn-interview-3';
+export const PROMPT_VERSION = 'wudayn-interview-4';
 export const MAX_BODY = 32000;
 const MAX_STORED_TURNS = 80;
 const DEFAULT_TURN_LIMIT = 48;
@@ -65,24 +65,6 @@ const personalityFollowUps = {
 };
 // Short, unambiguous fallbacks if the generated follow-up is unusable.
 // Each partner question names its subject so a topic change never loses context.
-const preferenceFollowUps = {
-  children_plan: ['كيف تتخيل موضوع الأطفال في حياتك بعد الزواج؟', 'وش تتمنى يكون موقف شريكك من الإنجاب؟'],
-  residence_plan: ['لو الزواج احتاج انتقال لمدينة ثانية، كيف تشوف الموضوع؟', 'وش الموقف اللي يناسبك من شريكك لو احتجتم تنتقلون لمدينة ثانية؟'],
-  wife_work: ['كيف تشوف عمل الزوجة وطموحها بعد الزواج؟', 'وش تتمنى يكون موقف الطرف الآخر من عمل الزوجة وطموحها؟'],
-  marriage_timeline: ['إذا ارتحت للشخص، متى تحس الخطوة الرسمية تناسبك؟', 'وش التوقيت اللي يناسبك للخطوة الرسمية عند الطرف الآخر؟'],
-  family_boundaries: ['إذا فيه قرار يخص بيتكم، متى تحب تدخل رأي الأهل؟', 'كيف تتمنى شريكك يتعامل مع رأي الأهل في قرارات بيتكم؟'],
-  shared_budget: ['كيف ترتاح ترتّب مصاريف البيت المشتركة؟', 'وش الطريقة اللي تناسبك من شريكك في ترتيب مصاريف البيت؟'],
-  household_roles: ['لو أسبوعكم مزدحم، كيف تحب تتوزع شغلات البيت؟', 'وش تتمنى من شريكك في تقاسم شغلات البيت؟'],
-  weekly_planning: ['إذا عندكم يوم إجازة، كيف تحب ترتّبونه؟', 'كيف تحب يكون أسلوب شريكك في ترتيب يوم الإجازة؟'],
-  social_rhythm: ['بعد أسبوع مزدحم، كيف تحب توازن بين الزيارات ووقت الراحة؟', 'وش الإيقاع اللي يناسبك من شريكك بين الزيارات ووقت الراحة؟'],
-  conversation_initiative_preference: ['بداية الحديث مع شخص جديد، كيف تكون عادة؟', 'في بداية الحديث، وش الأسلوب اللي ترتاح له من الطرف الآخر؟'],
-  match_disagreement_style: ['إذا اختلفت مع شخص قريب، كيف تتعامل مع اختلافكم عادة؟', 'إذا اختلفت مع شريكك، وش الأسلوب اللي ترتاح له منه؟'],
-  repair_after_conflict: ['بعد الزعل، كيف تحب تفتح باب الصلح؟', 'بعد الزعل، كيف تتمنى شريكك يرجع يفتح معك الحوار؟'],
-  conversation_depth: ['وش نوع الحديث اللي يخليك تسترسل مع شخص تتعرف عليه؟', 'وش أسلوب الحديث اللي تستمتع فيه من شريكك؟'],
-  closeness_pace: ['لما تبدأ ترتاح لشخص ويزيد القرب، وش يساعدك تاخذ راحتك؟', 'وش الطريقة اللي تريحك من شريكك في بناء القرب بينكم؟'],
-  curiosity_style: ['لما يلفتك شخص جديد، كيف تحب تتعرف عليه أكثر؟', 'وش الطريقة اللي تحب الطرف الآخر يتعرف فيها عليك أكثر؟'],
-  early_openness: ['في بداية التعارف الجاد، وش ترتاح تشاركه عن نفسك؟', 'في بداية التعارف، وش القدر اللي ترتاح إن الطرف الآخر يشاركه عن نفسه؟'],
-};
 export class InterviewError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
@@ -180,7 +162,7 @@ function unfinishedOpeningScenario(document) {
   const turns = document.turns ?? [];
   if (turns.length < 1 || turns.length > openingScenarios.length || !isOpeningQuestion(turns[0].question)) return null;
   const visited = new Set(turns.map(turn => turn.question));
-  return scenarioQuestion(openingScenarios.find(item => !visited.has(item.text) && !visited.has(item.legacyText)));
+  return scenarioQuestion(openingScenarios.find(item => ![item.text,item.previousText,item.legacyText,item.earlierText].some(text => visited.has(text))));
 }
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
@@ -215,7 +197,7 @@ export function validateProposal(value, turns, assessmentContext = [], allowCont
   if (!record(value) || !validValues(value.kind, value.fieldId, value.side, value.values)
     || !safeText(value.summary, 240) || typeof value.needsClarification !== 'boolean'
     || (value.source !== undefined && value.source !== 'self_default')
-    || (value.source === 'self_default' && (!['preference', 'beena'].includes(value.kind) || value.side !== 'partner'))) return null;
+    || (value.source === 'self_default' && (value.kind !== 'beena' || value.side !== 'partner'))) return null;
   const evidence = evidenceFor(value.evidence, turns, assessmentContext);
   if (!evidence || evidence.every(item => { const turn=turns.find(turn => turn.id===item.turnId); return turn ? unclearConfirmation(turn) : false; })) return null;
   const contextIds = value.source === 'self_default'
@@ -326,7 +308,6 @@ function validDocument(document) {
 
 const requiredInterview = document => document.promptVersion === PROMPT_VERSION;
 const requiredFields = preferences.dimensions.flatMap(d => ['self', 'partner'].map(side => ({ id: `preference:${d.id}:${side}`, kind: 'preference', fieldId: d.id, side, topic: topics.find(t => t.dimensionIds.includes(d.id)) })) ).concat(personality.map(p => ({ id: `personality:${p.id}:self`, kind: 'personality', fieldId: p.id, side: 'self', topic: topics.find(t => personalityThemes[t.id].ids.includes(p.id)) })));
-const defaultablePreferenceIds = preferences.dimensions.filter(dimension => dimension.partnerDefault).map(dimension => dimension.id);
 function withPartnerDefaults(proposals, blocked = new Set()) {
   const known = new Map(proposals.map(item => [item.id, item]));
   const apply = (kind, fieldId, valueFor) => {
@@ -349,9 +330,6 @@ function withPartnerDefaults(proposals, blocked = new Set()) {
       summary: 'اقتراح مبدئي من إجابتك — يمكنك تغييره', evidence: self.evidence,
       needsClarification: false, source: 'self_default' });
   };
-  for (const dimension of preferences.dimensions) {
-    if (dimension.partnerDefault) apply('preference', dimension.id, value => dimension.partnerDefault[value]);
-  }
   for (const scenario of scenarios) apply('beena', scenario.id, value => value);
   return [...known.values()];
 }
@@ -373,9 +351,6 @@ function withMemberContext(document,input) {
   if(input.profileContext===undefined&&input.assessmentContext===undefined)return document;
   const profileContext=input.profileContext??document.profileContext??[];
   const context=new Map((input.assessmentContext??document.assessmentContext??[]).map(item=>[item.id,item]));
-  const timeline=profileContext.find(item=>item.fieldId==='marriageBasics.marriageTimeline')?.values[0];
-  const timelineCode={within_3_months:'A',three_to_six_months:'A',six_to_twelve_months:'B',over_a_year:'C',when_ready:'D'}[timeline];
-  if(!input.hybrid&&input.action!=='clarify'&&timelineCode&&(input.assessmentContext===undefined||!context.has('preference:marriage_timeline:self')))context.set('preference:marriage_timeline:self',{id:'preference:marriage_timeline:self',values:[timelineCode]});
   if(JSON.stringify(profileContext)===JSON.stringify(document.profileContext??[])&&JSON.stringify([...context.values()])===JSON.stringify(document.assessmentContext??[]))return document;
   const next={...document,profileContext,assessmentContext:[...context.values()]};
   return {...next,proposals:withContextProposals(next,(document.proposals??[]).filter(item=>!item.evidence?.some(e=>e.turnId.startsWith('context:'))))};
@@ -423,13 +398,11 @@ function focusedQuestion(topic, document) {
     if (field) {
       const dimension = preferenceById.get(field.fieldId);
       const bothSides = missing.some(item => item.fieldId === field.fieldId && item.kind === 'preference' && item.side !== field.side);
-      const selfCreatesDefault = field.side === 'self' && Boolean(dimension.partnerDefault);
-      const text = preferenceFollowUps[field.fieldId]?.[field.side === 'self' ? 0 : 1] ?? (field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt);
+      const text = field.side === 'self' ? dimension.selfPrompt : dimension.partnerPrompt;
       // One coherent topic can cover both perspectives, without assuming that
       // the member wants a partner identical to themselves.
-      if (bothSides && !selfCreatesDefault) return { ...questionFrom(topic), text: `${text} ووش تفضّل من شريكك في نفس الجانب؟`,
-        suggestions: dimension.options.map(option => `أنا ${option.self}، وأفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
-      return { ...questionFrom(topic), text, suggestions: dimension.options.map(option => field.side === 'self' ? option.self : `أفضّل شريكًا ${option.partner}`).filter(text => safeText(text, 100)).slice(0, 4) };
+      if (bothSides) return { ...questionFrom(topic), text: dimension.selfPrompt + ' ' + dimension.partnerPrompt, suggestions: [] };
+      return { ...questionFrom(topic), text, suggestions: dimension.options.map(option => field.side === 'self' ? option.self : option.partner).filter(text => safeText(text, 100)).slice(0, 4) };
     }
   }
   return { ...questionFrom(topic), ...(repeated ? { text: personalityQuestion(topic, document) || `في جانب ${topic.title}، وش التفصيل اللي تحب توضّحه أكثر؟` } : {}) };
@@ -612,7 +585,7 @@ answerDisposition يصف أحدث جواب: answered إذا قدّم معنى و
 استخرج حتى64 اقتراحًا من السجل كاملًا. kind=preference لقاموس التفضيلات، fieldId=id الأصلي، side=self لما يصف نفسه وpartner لما يريده من الطرف الآخر، values رمز واحد من الخيارات. لا تفترض أن الشخص يريد شريكًا مثله أو نقيضه. كلمة نحن قد تصف اتفاقًا مشتركًا إذا قال ذلك صراحة؛ لا تخمن رغبة الشريك من وصف الذات. kind=beena لخيارات المواقف، self رمز واحد، partner قائمة الخيارات المقبولة التي صرّح بها فقط. importance=2 فقط إذا صرح أن الأمر مهم جدًا، و1 إذا صرح أنه مهم له؛ وإلا لا تضف importance.
 kind=personality فقط لعبارات personalityCatalog الاثنتي عشرة، fieldId=id، side=self دائمًا وvalues رمز واحد A–E من personalityOptions وفق مدى انطباق العبارة على سلوك العضو كما وصفه. هذه إجابات ذاتية قابلة للمراجعة وليست تشخيصًا أو اختبار شخصية مستقلًا. لا تستنتج الإجابة من أسلوب الكتابة أو طول النص أو العمر أو الجنس أو الثقافة أو رغباته في الشريك. فرّق بين سلوكه المعتاد وموقف استثنائي أو أمنية للمستقبل. استخدم أمثلة شخصية أو وصفًا صريحًا للتكرار؛ لا تجعل غياب الكلام عن صفة إجابة محايدة C. إذا وصف السلوك دون وضوح درجته، ضع needsClarification=true مع شرح عدم اليقين، أو اترك البند بلا اقتراح واسأل عنه بلطف. لا تستنتج اضطرابًا أو نمط تعلّق أو قيمة الإنسان. لا تعكس عبارات مثل conflict_pace: الرموز تصف العبارة نفسها كما هي، والحساب يتم لاحقًا في النظام. إجابات الشخصية تبقى مقترحات خاصة ولا تدخل التوافق حتى يراجعها ويؤكدها المستخدم.
 ادمج جوانب الشخصية في الحوار نفسه. استخدم personalityIds وpersonalityQuestion في المحور المحدد لتسأل جانبًا غير واضح بعد أمثلة الحياة، دون تكرار ما أجاب عنه أو تحويل الحوار إلى قائمة اختبارات. يفضّل سؤال قصير عن جانب أو جانبين مترابطين وعن تصرفه المعتاد. راجع السجل كاملًا؛ لا تملأ شخصية كاملة قسرًا. إذا تُرك جانب غامضًا أو تخطّاه، يبقى ناقصًا دون تخمين.
-لا ترفع درجة المعنى: «بين فترة وفترة» أو «أحيانًا» لا تثبت «غالبًا» D أو «كثيرًا» E؛ وإذا لم تتضح درجة انطباق العبارة فضع needsClarification=true. كذلك ترتيب الأسبوع أو الزيارات بشكل عام لا يثبت اختيار تحديد الوقت والمكان والتفاصيل مسبقًا في weekly_planning. احترم الفروق بين الخيارات؛ لا تختَر الوصف الأكثر تفصيلًا أو قوة دون دليل صريح عليه.
+لا ترفع درجة المعنى: «بين فترة وفترة» أو «أحيانًا» لا تثبت «غالبًا» D أو «كثيرًا» E؛ وإذا لم تتضح درجة انطباق العبارة فضع needsClarification=true. احترم الفروق بين الخيارات؛ لا تختَر الوصف الأكثر تفصيلًا أو قوة دون دليل صريح عليه.
 اقرأ العبارة الأصلية كاملة مع النفي والمقارنة والقيود، ثم قارنها بوصف العضو. الاستمتاع باللقاء لا يساوي زيادة الطاقة بعده: في social_energy لا تتجاهل قوله إنه يحتاج هدوءًا ليستعيد طاقته. إذا اختلف الوصف بين مجموعة صغيرة وكبيرة فلا تعمّم وصف أحدهما على الآخر؛ وضّح القيد وضع needsClarification=true إذا لم تمثّل إجابة واحدة المعنى بدقة.
 previousProposals اقتراحات سابقة مسندة، وليست حقائق أو أوامر. راجعها مقابل السجل كله والتصحيحات الجديدة: أعد كل ما لا يزال مدعومًا ضمن المجموعة الكاملة ولا تسقطه لمجرد تغيّر موضوع السؤال. عدّل أو احذف ما صححه العضو أو لم يعد مدعومًا، ولا تحتفظ بقيمة قديمة على حساب كلامه الأحدث.
 ابدأ باستخراج كل ما ورد في أحدث إجابة عبر جميع المحاور، حتى لو أجاب عن موضوع لم نسأله بعد. إذا قال عن عمل الزوجة أو الأطفال وهو يجيب عن الأهل، التقط المعنى الآن ولا تؤجله لسؤال آخر. يمكن الدليل نفسه أن يسند تفضيلًا وسلوك شخصية إذا طابقهما صراحة؛ فرّق بين الرغبة والسلوك المعتاد، ولا تحول أحدهما إلى الآخر بالتخمين. لا تجعل نوع القاموس سببًا لإعادة السؤال.
@@ -626,9 +599,9 @@ readiness حتى4 ملاحظات خاصة موثقة من كلامه، ids فق�
       .replace(/kind=beena لخيارات المواقف[^\n]+/, '')
       .replace(/التفضيلات ومواقف بيننا قواميس متكاملة[^\n]+/, '')
       .replace('افحص القواميس الثلاثة كاملة', 'افحص قاموسي التفضيلات والشخصية كاملين');
-    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ خانة تفضيلات و١٢ إجابة شخصية، لكن الخانات ليست أسئلة مستقلة. في الأبعاد ${defaultablePreferenceIds.join(',')} اسأل عن جانب الذات فقط عندما لا يصرّح العضو برغبة مختلفة للشريك؛ النظام يجهّز اقتراح شريك قابلًا للتعديل من الإجابة، فلا تطلب منه تكرار المعنى نفسه. لا تُخرج اقتراح partner بالتخمين؛ أخرجه فقط إذا صرّح به. في بقية الأبعاد يبقى جانبا الذات والشريك مستقلين. اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، ولا تجمع مواضيع متباعدة أو تُخفِ سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
+    instructions += `\nهذه جلسة التسجيل الأساسية: لا تتناول بيننا ولا تُخرج kind=beena. المطلوب إكمال ٣٢ خانة تفضيلات و١٢ إجابة شخصية، لكن الخانات ليست أسئلة مستقلة. اسأل عن الذات وعن الشريك، وسجل كل جانب من كلام العضو الصريح. اجمع جانبين أو ثلاثة مترابطة في موقف واحد قصير عندما يسهل الرد عليها معًا، ولا تجمع مواضيع متباعدة أو تُخفِ سلسلة أسئلة طويلة داخل رسالة. missingFields يحدد البنود التي لم تتضح؛ اختصر المسار باستخراج ما صرّح به، لا بحذف ما يحتاج فهمًا. خاطب الشخص مباشرة، بسؤال طبيعي واضح لا قائمة استبيان. يمكنه رفض الإفصاح؛ لا تختلق إجابة بديلة ولا تعتبر الصمت موافقة. لا تدّعِ إكمال الجلسة بينما توجد بنود ناقصة. عند الالتباس اطلب توضيحًا، ولا تعرض أسماء النماذج أو مصطلحات تقنية.
 السؤال الأول دعوة لفقرة تعريف واحدة عن الشخص وحياته وما يبحث عنه في شريك وزواج واستعداده وتوقيته. افحص هذه الفقرة كاملة أمام قاموسي التفضيلات والشخصية، واستخرج فورًا كل قيمة صريحة تسندها حتى لو غطت محاور لاحقة. بعد أول إجابة لا تعِد سؤال التعريف العام؛ اسأل فقط عن missingFields المتبقية. الاستعداد يُسجل فقط كإفادات صريحة عن النية والتوقيت والتحضير والخطوة القادمة، ولا يثبت الصدق ولا ينتج درجة جدية أو أهلية.
-إذا بقي جانبا self وpartner لبعد بلا partnerDefault، اسأل عنهما معًا في سؤال قصير واحد وأدرج المعرّفين معًا في questionFields. أما البعد الذي له partnerDefault فاسأل self وحده، وسيعرض النظام افتراض partner للمراجعة النهائية. فسّر أي رغبة شريك صريحة مستقلًا ولا تستنتجها داخل مخرجاتك. إن قدّمت quickReplies لسؤال مركب، يجب أن يصرّح كل خيار بالجانبين؛ وإلا أعد [] واترك الكتابة الحرة متاحة.
+اسأل عن موقف العضو وما يتقبله من الطرف الآخر. يمكن جمع السؤالين مع عرض الخيارين بوضوح. لا تستنتج تفضيل الشريك من وصف الشخص لنفسه، ولا تفترض موقفه من جنسه أو مدينته. اسأل عن حضور الحفلات الموسيقية كخيار ترفيهي محدد. ميّز بين ما يختاره العضو لنفسه وما يرتاح له من شريكه. كلمة «منفتح» وحدها، وحب الموسيقى، وعدم الحضور بسبب التكلفة أو المكان، لا تحسم الإجابة. لا تستنتج التدين أو حدود الاختلاط أو الانفتاح الفكري من حضور حفلة أو الاعتذار عنها.
 أسلوب الجلسة قريب وعفوي مع جدية موضوع الزواج: عربية سعودية بيضاء مفهومة، دون مبالغة في العامية أو تقمص دور معالج أو مستشار بشري. اجعل كل رسالة سطرًا أو سطرين، لا محاضرة ولا دردشة مفتوحة بلا غرض. رد على المعنى قبل سؤالك، ولا تردد إجابة العضو بصياغة ثانية. لا تبدأ كل رد بـ«فهمتك» أو «جميل» أو «واضح»، ولا تمدح شخصيته أو نضجه بسبب إجابة. نوّع الإيقاع حسب الكلام، لا حسب قالب ثابت.
 اسأل عن تفصيل عملي من الحياة، أو مثال صغير إذا كان يساعد فعلًا، لا سيناريو تخيلي جديد في كل رسالة. لا تفترض أن المثال المقترح حدث للعضو، ولا تلقّنه الإجابة التي تبدو أفضل. إذا قال «على حسب» فاسأل بهدوء: على حسب أي جانب؟ إذا كانت الإجابة قصيرة لكنها واضحة، اقبلها دون استجواب إضافي. إذا مزح، يمكن مجاراته بخفة محترمة دون مزاح مصطنع أو إيموجي متكرر، ثم ارجع لنقطة الحوار. لا تعرض أرقام البنود أو رموز الخيارات أو تسميات الصفات، ولا تسأل «كم درجتك» أو «ما نمطك».
 nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان الجوانب المتبقية في المحور نفسه؛ اختر منها ما يتصل بآخر إجابة، وحدد بوضوح هل تسأل عن تصرفه هو أم ما يريده من الشريك. question في سياق المحور مثال يساعدك، وليس نصًا تنسخه حرفيًا. أعد قراءة أحدث إجابة قبل السؤال حتى لا تطلب نقطة اتضحت فيها للتو. إذا كانت المعلومة متعارضة فاطلب توضيح الفرق دون الحكم على صدقه.
@@ -640,7 +613,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   instructions+='\nقبل إرسال الناتج، راجع كل عبارة صريحة فيها أريد/أفضل/لا أقبل/شرط، وتأكد أن لها اقتراحًا في القاموس المناسب أو طلب توضيح عند غموضها. لا تُسقط استبعادًا صريحًا لمجرد أنه شرط مهم. «لا أقبل مطلقة وهذا شرط أساسي» يعني fieldId=partnerCriteria.maritalStatus وvalues=["divorced"] وmode=require وexclude=true. انسخ evidence.quote حرفيًا من answer كما كُتب، ولا تحوّل «لا أقبل مطلقة» في الدليل إلى «غير مطلقة». لا تستخرج شرطًا من مثال المحاور أو هذا المثال؛ استخرجه فقط إن ورد في كلام العضو.';
   if (!sensitiveProfileAllowed) instructions += `\nلم يمنح العضو إذن معالجة التفاصيل الحساسة. profileCatalog المرفق لا يحتوي الحقول الحساسة، ولا يجوز استنتاج أو اقتراح أو سؤال أي معلومة حساسة. ${SENSITIVE_REDACTION} بديل خصوصية أضافه الخادم قبل الإرسال: تجاهله تمامًا، ولا تقتبسه كدليل ولا تسأل عما أخفاه. حلّل فقط النص غير المحجوب.`;
   instructions += '\nالتعريف والمواقف محادثة خاصة للتحليل فقط. لا تستخرج أو تصغ bio أو lookingFor أو lifeTogether أو valuesStatement أو marriageIntent من المحادثة؛ هذه النصوص تُكتب من النموذج بعد التقييم. استخرج كل إجابة صريحة تدعمها الرسالة ولو غطت عشرة بنود أو أكثر، دون اختلاق اختيارات من السكوت أو فرض أن موقفًا افتراضيًا يثبت سمة ثابتة. مواقف البداية تكشف التوقيت الممكن والخطوات المعلنة والمرونة وطريقة الحوار، لا تكشف الصدق أو درجة الجدية. سجّل عدم الوضوح والتناقض بلطف في clarifications، ولا تضف اختبارًا أو حكمًا على الشخص.';
-  if (hybrid) instructions += '\nافصل بين موعد الخطوة الرسمية وموعد إتمام الزواج: marriage_timeline في التوافق يخص الخطوة الرسمية وحدها، وmarriageBasics.marriageTimeline يخص إتمام الزواج. لا تستنتج موعد أحدهما من الآخر. اربط كل اقتراح بعبارة تصرّح بتوقيته.';
+  instructions += '\nافصل بين موعد الخطوة الرسمية وموعد إتمام الزواج: marriage_timeline في التوافق يخص الخطوة الرسمية وحدها، وmarriageBasics.marriageTimeline يخص إتمام الزواج. لا تستنتج موعد أحدهما من الآخر. اربط كل اقتراح بعبارة تصرّح بتوقيته.';
   instructions += '\nمدينة الأصل ليست مدينة الإقامة ولا دليلًا على القبيلة أو الجنسية. خطط حفل الزواج وتوقيت الإنجاب وترتيب السكن وتوزيع المصاريف تفاصيل اختيارية: استخرجها فقط عند تصريح العضو بها، ولا تطل الجلسة بسؤالها إذا لم ترد؛ يستطيع إكمالها في النموذج. لا تفسر اختيار مناقشة التفاصيل كرفض أو شرط. الرغبة في الإنجاب لا تحدد موعده، وترتيب الميزانية لا يحدد من يدفع. لا تستنتج قسمة المصاريف بالتساوي من كلمة التعاون. بيننا سؤال وجواب اختياري يكتبه العضو بنفسه خارج جلسة التسجيل، وليس شرطًا لإكمالها.';
   if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   return {
@@ -653,7 +626,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
       profileCatalog:(sensitiveProfileAllowed?profileCatalog:safeProfileCatalog).filter(field=>!publicWriting.has(field.fieldId)).map(({path:_path,options,...field})=>({...field,...(options?{options:options.map(option=>option.value===option.label?option.value:[option.value,option.label])}:{})})),previousProfileProposals:providerSafe.profileProposals??[],profileConfirmed:providerSafe.profileConfirmed??[],knownProfileContext:providerSafe.profileContext??[],knownAssessmentContext:providerSafe.assessmentContext??[],
       nextTopic: topicContext(next),
       possibleFollowUpTopic: topicContext(same),
-      preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options, partnerDefault }) => ({ id, title, selfPrompt, partnerPrompt, options, ...(partnerDefault ? { partnerDefault } : {}) })),
+      preferenceCatalog: preferences.dimensions.map(({ id, title, selfPrompt, partnerPrompt, options }) => ({ id, title, selfPrompt, partnerPrompt, options })),
       ...(requiredInterview(document) ? { missingFields: missingFields(document).map(({ topic, ...field }) => ({ ...field, topic: topic.id })) } : { beenaCatalog: scenarios.map(({ id, title, scene, options }) => ({ id, title, scene, options })) }),
       personalityCatalog: personality, personalityOptions,
     }) }],
@@ -745,16 +718,6 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     if(!prior||evidencePosition(item.evidence)>=evidencePosition(prior.evidence))profileRetained.set(item.id,item);
   }
   const profileProposals=[...profileRetained.values()];
-  // The profile timeline and assessment timing share an exact canonical map.
-  // Reuse its grounded evidence instead of asking the same timing question again.
-  const statedTimeline=profileProposals.find(item=>item.fieldId==='marriageBasics.marriageTimeline'&&!item.needsClarification);
-  const timingCode={within_3_months:'A',three_to_six_months:'A',six_to_twelve_months:'B',over_a_year:'C',when_ready:'D'}[statedTimeline?.values[0]];
-  if(!hybrid&&timingCode){
-    const candidate={id:'preference:marriage_timeline:self',kind:'preference',fieldId:'marriage_timeline',side:'self',values:[timingCode],summary:statedTimeline.summary,evidence:statedTimeline.evidence,needsClarification:false};
-    const index=proposals.findIndex(item=>item.id===candidate.id);
-    if(index<0)proposals.push(candidate);
-    else if(evidencePosition(candidate.evidence)>=evidencePosition(proposals[index].evidence))proposals[index]=candidate;
-  }
   proposals = withPartnerDefaults(proposals, invalidated);
   // Previously captured fields help avoid re-asking because an extraction
   // accidentally omitted one. These values never enter confirmable results.
@@ -781,8 +744,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     const field = requiredFields.find(item => item.id === id && item.kind === 'preference');
     if (!field) return false;
     const counterpart = requiredFields.find(item => item.kind === 'preference' && item.fieldId === field.fieldId && item.side !== field.side);
-    const dimension = preferenceById.get(field.fieldId);
-    return counterpart && pendingIds.has(counterpart.id) && !targetIds.has(counterpart.id) && !dimension?.partnerDefault;
+    return counterpart && pendingIds.has(counterpart.id) && !targetIds.has(counterpart.id);
   });
   if (question && targetsMissing && !splitsPreferencePair && result.questionTopic === next.id && (!result.followUp || followUp) && (!revisiting || followUp || requiredInterview(document)) && safeText(result.question, 500) && !alreadyAsked(result.question, document)) {
     question.text = result.question.trim();
@@ -796,9 +758,9 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   }
   // Three fixed, brief situations after the private introduction. All extraction
   // remains evidence-backed; unanswered assessment fields stay for the quick form.
-  const openingFlow = hybrid && (isOpeningQuestion(last?.question) || openingScenarios.some(item => [item.text,item.legacyText].includes(last?.question)));
+  const openingFlow = hybrid && (isOpeningQuestion(last?.question) || openingScenarios.some(item => [item.text,item.previousText,item.legacyText,item.earlierText].includes(last?.question ?? '')));
   const completedScenarios = new Set(document.turns.map(turn => turn.question));
-  const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text) && !completedScenarios.has(item.legacyText)) : undefined;
+  const nextScenario = openingFlow ? openingScenarios.find(item => ![item.text,item.previousText,item.legacyText,item.earlierText].some(text => completedScenarios.has(text))) : undefined;
   return { ...document, model: INTERVIEW_MODEL,
     proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
     currentQuestion: openingFlow ? scenarioQuestion(nextScenario) : question,
@@ -1032,7 +994,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const question = clarifying
         ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : unfinishedOpeningScenario(document) ?? document.currentQuestion;
-      if (openingScenarios.some(item => [item.text,item.legacyText].includes(question?.text)) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
+      if (openingScenarios.some(item => [item.text,item.previousText,item.legacyText,item.earlierText].includes(question?.text ?? '')) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active';
       if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
       next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,

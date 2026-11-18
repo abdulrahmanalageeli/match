@@ -65,7 +65,7 @@ test('first load stays quiet; a changed assessment shows one silent notice and d
   assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
   source.connections = [connection(changed)]; source.notify(); await settle();
   let notice = named(m.render(), 'CompatibilityNotice'); assert(notice);
-  assert.equal(notice.props.name, 'رهام'); assert.equal(notice.props.change.scoreChanges[0].before, 78); assert.equal(notice.props.change.scoreChanges[0].after, 70);
+  assert.equal(notice.props.name, 'رهام'); assert.equal(notice.props.change.scoreChanges[0].before, 60); assert.equal(notice.props.change.scoreChanges[0].after, 55);
   assert.equal(m.soundCount(), 0, 'Compatibility changes never play the activity sound');
   source.notify(); await settle(); assert.equal(named(m.render(), 'CompatibilityNotice').key, notice.key);
   notice.props.onDismiss(); m.render(); source.notify(); await settle();

@@ -680,7 +680,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           ...p,
           ...(provenance ? { _answerProvenance: provenance } : {}),
           ...(readiness ? { _membershipReadiness: readiness } : {}),
-          consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
+          consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2", "marriage-v3"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
         });
         if (!saved) return;
         canSeeMatches = Boolean(cloud && saved.user.applicationStatus === "approved" && !saved.user.paused);

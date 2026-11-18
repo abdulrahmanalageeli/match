@@ -9,8 +9,8 @@ import { compareBeena } from '../src/beena/model.ts';
 
 function profile(id, offset = 0) {
   return { displayName: id, age: 29, city: 'الرياض', gender: id === 'reham' ? 'woman' : 'man', profession: 'عمل', bio: 'نبذة عامة',
-    contact: 'PRIVATE CONTACT', preferredMinAge: 22, preferredMaxAge: 40, assessmentVersion: 'marriage-v2',
-    surveyAnswers: Object.fromEntries(dimensions.flatMap((d, index) => [[d.id, d.options[(index + offset) % d.options.length].code], [d.partnerId, d.options[index % d.options.length].code]])),
+    contact: 'PRIVATE CONTACT', preferredMinAge: 22, preferredMaxAge: 40, assessmentVersion: 'marriage-v3',
+    surveyAnswers: Object.fromEntries(dimensions.flatMap((d, index) => [[d.id, d.options[(index + offset) % (d.id==='public_event_attendance'?3:d.options.length)].code], [d.partnerId, d.options[index % d.options.length].code]])),
     personalityVersion: 'personality-v1', personalityAnswers: Object.fromEntries(personalityCatalog.map((q, i) => [q.id, 'ABCDE'[(i + offset) % 5]])),
     partnerCriteria: { skinTone: { mode: 'prefer', values: ['tone_3'] } }, hardRequirements: ['private-requirement'], priorityCategories: ['values'],
     signupConsents: { sensitiveProfile: true, secret: 'PRIVATE CONSENT' }, signupConsentRecordedAt: 'private-time',

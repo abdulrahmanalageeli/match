@@ -22,7 +22,7 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));
   user.profile={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندسة مدنية',education:'بكالوريوس هندسة',bio:'نبذة',contact:user.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:choices.version,signupConsents:choices,
-   appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',surveyAnswers:answers,hardRequirements:[],priorityCategories:[],
+   appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v3',surveyAnswers:answers,hardRequirements:[],priorityCategories:[],
    personalityAnswers:{},personalityVersion:'personality-v1',marriageBasics:{heightCm:165,weightKg:62,childrenCount:0},partnerCriteria:{},...patch};
   await call(user,'public.marriage_apply($1)',[user.profile]);
   await db.query("update marriage.members set review_status='approved',manual_access_until=now()+interval '1 day' where id=$1",[user.id]);
@@ -62,7 +62,7 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
   preferred=(await sql('select * from marriage.preferred_criteria($1,$2)',[man.id,woman.id]))[0];
   assert.deepEqual(preferred,{score:0.5,covered:2,total:2});
   fit=(await sql('select fit from marriage.pair_fit($1,$2)',[man.id,woman.id]))[0].fit;
-  assert.equal(fit.percentage,95,'explicit preferences retain the existing 20% directional weighting');
+  assert.equal(fit.percentage,99,'one optional mismatch contributes one extra detail in its direction');
   assert.equal(await rpc("marriage.criterion_fit($1,$2,'education',$3)",[man.id,unknown.id,criteria.education]),null);
   assert.equal(await rpc("marriage.criterion_fit($1,$2,'profession',$3)",[man.id,unknown.id,criteria.profession]),null);
   await db.query("update marriage.partner_criteria set rule=jsonb_set(rule,'{mode}','\"require\"') where member_id=$1",[man.id]);
@@ -85,10 +85,19 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
 
   await db.query("insert into marriage.cities(label) values('مدينة أخرى داخل السعودية') on conflict(label) do nothing");
   await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='مدينة أخرى داخل السعودية') where member_id=any($1)",[[man.id,woman.id]]);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false,'the same unspecified bucket does not establish the same city');
+  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'an unknown city keeps the pair eligible');
   await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='residence_plan'",[woman.id]);
   assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'explicit relocation choices may establish a shared future city');
 
+  // Saving a profile from an older installed client preserves new-version answers.
+  const upgraded=await add('woman',{hardRequirements:['housing_arrangement']});
+  const oldCatalog=await rpc("(select catalog from marriage.assessment_versions where id='marriage-v2')");
+  const oldAnswers=Object.fromEntries(oldCatalog.dimensions.flatMap(d=>[[d.id,'B'],[d.partnerId,'B']]));
+  await call(upgraded,'public.marriage_apply($1)',[{...upgraded.profile,assessmentVersion:'marriage-v2',surveyAnswers:oldAnswers,hardRequirements:[]}]);
+  assert.equal(await rpc("(select version from marriage.member_assessment where member_id=$1)",[upgraded.id]),'marriage-v3');
+  assert.equal(await rpc("(select option_code from marriage.member_answers where member_id=$1 and question_code='housing_arrangement')",[upgraded.id]),'A');
+  assert.equal(await rpc("(select option_code from marriage.member_answers where member_id=$1 and question_code='social_rhythm')",[upgraded.id]),'B');
+  assert.equal(await rpc("exists(select 1 from marriage.fit_hard_requirements where member_id=$1 and dimension='housing_arrangement')",[upgraded.id]),true);
   for(const fn of ['profile_choice_key(text)','structured_profile_choices(text)','canonical_education(text)','canonical_profession(text)','structured_profile_value(text,text)','normalize_structured_criteria(jsonb)']){
    assert.equal(await rpc("has_function_privilege('anon',$1,'execute')",['marriage.'+fn]),false);
    assert.equal(await rpc("has_function_privilege('authenticated',$1,'execute')",['marriage.'+fn]),false);

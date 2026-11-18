@@ -8,13 +8,13 @@ import { useDevicePreferences, useSystemReducedMotion } from '../settings/prefer
 import './compatibility-notice.css';
 
 const arabic = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
-const percent = (value: number) => `${arabic.format(value)}٪`;
 
 function ScoreChange({ score }: { score: CompatibilityChange['scoreChanges'][number] }) {
-  return <span className="nf-compatibility-score-change" aria-label={`${score.label}، من ${percent(score.before)} إلى ${percent(score.after)}`}>
+  const display = (value: number) => arabic.format(value) + (score.key === 'preferences' ? ' من ١٠٠' : '٪');
+  return <span className="nf-compatibility-score-change" aria-label={`${score.label}، من ${display(score.before)} إلى ${display(score.after)}`}>
     <span className="nf-compatibility-score-label" aria-hidden="true">{score.label}</span>
     <span className="nf-compatibility-score-values" aria-hidden="true">
-      <span>{percent(score.before)}</span><ArrowLeft size={13}/><strong>{percent(score.after)}</strong>
+      <span>{display(score.before)}</span><ArrowLeft size={13}/><strong>{display(score.after)}</strong>
     </span>
   </span>;
 }

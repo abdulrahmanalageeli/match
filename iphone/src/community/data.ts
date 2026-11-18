@@ -347,8 +347,8 @@ export function cloudCommunity(userId: string): CommunitySource {
 
 const sampleLifeAnswers: Record<string, string> = {
   ...Object.fromEntries(dimensions.flatMap(d => [[d.id, d.options[0].code], [d.partnerId, d.options[0].code]])),
-  children_plan: "A", partner_children_plan: "A", shared_budget: "B", partner_shared_budget: "B",
-  repair_after_conflict: "B", partner_repair_after_conflict: "B", weekly_planning: "A", partner_weekly_planning: "A",
+  children_plan: "A", partner_children_plan: "A", financial_provision: "B", partner_financial_provision: "B",
+  repair_after_conflict: "B", partner_repair_after_conflict: "B", housing_arrangement: "A", partner_housing_arrangement: "A",
   closeness_pace: "B", partner_closeness_pace: "B", marriage_timeline: "B", partner_marriage_timeline: "B",
 };
 // Fictional examples only. Real testing accounts start with no Beena answers.
@@ -378,7 +378,7 @@ export const demoProfile: Profile = {
   lifeTogether: "بيت هادئ تملؤه الأحاديث، ومساحة لطموح كل منا، ووقت ثابت للأهل ولأنفسنا.",
   education: "بكالوريوس تصميم",
   marriageIntent: "تعارف جاد يهدف إلى الزواج",
-  assessmentVersion: "marriage-v2",
+  assessmentVersion: "marriage-v3",
   personalityVersion,
   beena: fictionalBeena(0),
   personalityAnswers: Object.fromEntries(personalityQuestions.map((q, index) => [q.id, "BCDDE"[index % 5]])),
@@ -508,21 +508,22 @@ const demoWomen: DemoSeed[] = [
 // This assessment measures behaviors, not MBTI categories. Fictional responses
 // intentionally span all 12 measured dimensions; no types are inferred for users.
 function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
-  const [social,initiative,depth,openness,closeness,, ,planning,novelty,conflict,directness] = seed.traits;
+  const [social,,,openness,closeness,,,,novelty,conflict,directness] = seed.traits;
   const self: Record<string,string> = {
     children_plan: seed.children ?? 'A', residence_plan: seed.relocate ? 'C' : 'A', wife_work: index % 5 === 3 ? 'C' : 'A',
     marriage_timeline: seed.timeline === 'over_a_year' ? 'C' : seed.timeline === 'when_ready' ? 'D' : seed.timeline === 'six_to_twelve_months' ? 'B' : 'A',
-    family_boundaries: seed.meeting === 'family_before_formal' ? 'B' : index % 3 ? 'A' : 'C',
-    shared_budget: planning >= 4 ? 'A' : planning === 3 ? 'B' : 'C', household_roles: planning >= 4 ? 'A' : index % 2 ? 'B' : 'C',
-    weekly_planning: planning >= 4 ? 'A' : planning === 3 ? 'B' : 'C', social_rhythm: social <= 2 ? 'A' : social === 3 ? 'B' : 'C',
-    conversation_initiative_preference: initiative <= 1 ? 'A' : initiative === 2 ? 'D' : initiative === 3 ? 'B' : 'C',
+    // Independent illustrative choices for fictional members.
+    family_authority: 'ABC'[index % 3], financial_provision: 'ABCD'[index % 4],
+    domestic_labor: 'BDA'[index % 3], housing_arrangement: 'ABD'[index % 3],
+    mixed_gatherings: 'BCA'[index % 3], faith_routine: 'CAB'[index % 3],
+    public_event_attendance: 'BAC'[index % 3], parenting_approach: 'BADC'[index % 4],
+    social_rhythm: social <= 2 ? 'A' : social === 3 ? 'B' : 'C',
     match_disagreement_style: directness === 5 ? 'A' : novelty === 5 && social >= 4 ? 'C' : index % 2 ? 'B' : 'D',
-    repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C', conversation_depth: depth >= 4 ? 'A' : 'B',
-    closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A', curiosity_style: depth >= 4 ? 'A' : social >= 4 ? 'C' : 'B',
-    early_openness: openness <= 2 ? 'A' : openness === 3 ? 'B' : 'C',
+    repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C',
+    closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A',
   };
   return Object.fromEntries(dimensions.flatMap(d => [[d.id,self[d.id]], [d.partnerId,
-    d.id === 'conversation_initiative_preference' && initiative <= 2 ? 'C' : self[d.id]] ]));
+    d.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[d.id]] ]));
 }
 
 export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => group.map((seed,index) => {
@@ -540,7 +541,7 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
     marriageIntent:seed.timeline==='when_ready'?'تعارف جاد على مهل':'تعارف جاد يهدف إلى الزواج',
     familyPreference:seed.meeting==='family_before_formal'||seed.meeting==='after_formal'?'من البداية':'بعد التعارف الأول',
-    assessmentVersion:'marriage-v2' as const,personalityVersion,
+    assessmentVersion:'marriage-v3' as const,personalityVersion,
     personalityAnswers:Object.fromEntries(personalityQuestions.map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
     surveyAnswers:demoSurvey(seed,index),beena:fictionalBeena(index+genderIndex*15+1),
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),

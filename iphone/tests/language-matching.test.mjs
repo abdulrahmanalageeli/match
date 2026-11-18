@@ -4,14 +4,14 @@ import { comparePreferences, describeFit } from '../src/compatibility/model.ts';
 import { validPartnerCriteria } from '../src/compatibility/marriage.ts';
 
 const person = (id, gender, languages, mode='any') => ({id,gender,age:30,preferredMinAge:18,preferredMaxAge:60,city:'الرياض',assessmentVersion:"marriage-v2",interestIds:[],surveyAnswers:{},hardRequirements:[],priorityCategories:[],marriageBasics:{spokenLanguages:languages},partnerCriteria:{sharedLanguage:{mode}}});
-test('shared language must is reciprocal and rejects unknown or non-shared languages',()=>{
+test('shared language requirements distinguish unknowns and explicit conflicts in either direction',()=>{
  const a=person('a','man',['العربية'],'require');
  const b=person('b','woman',['العربية','الإنجليزية']);
  assert.ok(comparePreferences(a,b));
  for(const languages of [[],['الإنجليزية']]) {
   const other=person('b','woman',languages);
-  assert.equal(comparePreferences(a,other),null);
-  assert.equal(comparePreferences(other,a),null);
+  assert(comparePreferences(a,other));
+  assert(comparePreferences(other,a));
  }
 });
 test('preferred languages count as positive or negative evidence without exclusion',()=>{

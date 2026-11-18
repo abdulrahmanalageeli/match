@@ -220,10 +220,9 @@ class Store {
       WHERE u.id=? AND (? IS NULL OR p.id=?)
         AND u.application_status='approved' AND p.application_status='approved'
         AND u.paused=0 AND p.paused=0
-        AND json_extract(u.profile,'$.city')=json_extract(p.profile,'$.city')
         AND json_extract(u.profile,'$.gender')<>json_extract(p.profile,'$.gender')
-        AND json_extract(u.profile,'$.age') BETWEEN json_extract(p.profile,'$.preferredMinAge') AND json_extract(p.profile,'$.preferredMaxAge')
-        AND json_extract(p.profile,'$.age') BETWEEN json_extract(u.profile,'$.preferredMinAge') AND json_extract(u.profile,'$.preferredMaxAge')
+        AND json_extract(u.profile,'$.age') BETWEEN 18 AND 110
+        AND json_extract(p.profile,'$.age') BETWEEN 18 AND 110
         AND NOT EXISTS (SELECT 1 FROM introductions i
           WHERE i.first_id=min(u.id,p.id) AND i.second_id=max(u.id,p.id))
         AND NOT EXISTS (SELECT 1 FROM introductions i WHERE i.closed=0

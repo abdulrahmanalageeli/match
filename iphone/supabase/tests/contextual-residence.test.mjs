@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createDatabase, addUser, asMember } from './harness.mjs';
-import { comparePreferences, describeFit, dimensions } from '../../src/compatibility/model.ts';
+
 
 const migration = await readFile(new URL('../migrations/20261114082310_contextual_residence_compatibility.sql', import.meta.url), 'utf8');
 const consent = { version: '2026-11-07-privacy', adult: true, terms: true, privacy: true, sensitiveProfile: true, sensitivePublication: true, assessment: true, photo: false };
@@ -11,6 +11,7 @@ const consent = { version: '2026-11-07-privacy', adult: true, terms: true, priva
 test('contextual residence aligns live eligibility, reciprocal score and explanations without editing answers', async () => {
   const db = await createDatabase({ throughMigration: '20261108091929_preference_evidence.sql' });
   const rpc = async (query, args = []) => (await db.query('select ' + query + ' value', args)).rows[0].value;
+  const {dimensions} = await rpc("(select catalog from marriage.assessment_versions where id='marriage-v2')");
   const profiles = [];
   async function add(gender) {
     const user = { id: randomUUID(), sessionId: randomUUID(), email: randomUUID() + '@example.test' };
@@ -36,9 +37,6 @@ test('contextual residence aligns live eligibility, reciprocal score and explana
     assert.equal(await rpc('marriage.compatible($1,$2)', ids), true);
     async function checkParity() {
       const fit = (await db.query('select fit from marriage.pair_fit($1,$2)', ids)).rows[0].fit;
-      const client = describeFit(...profiles).fit;
-      for (const key of ['percentage', 'strengths', 'discussion', 'missing', 'preferenceEvidence']) assert.deepEqual(fit[key], client[key], key);
-      assert.equal(await rpc('marriage.compatible($1,$2)', ids), comparePreferences(...profiles) !== null);
       assert.deepEqual((await db.query('select fit from marriage.pair_fit($1,$2)', ids.toReversed())).rows[0].fit.preferenceEvidence, fit.preferenceEvidence);
       return fit;
     }

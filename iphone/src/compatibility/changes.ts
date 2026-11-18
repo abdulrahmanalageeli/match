@@ -64,6 +64,7 @@ export function compareCompatibility(before?: CompatibilitySnapshot | null, afte
       if (!title) continue;
       const detail = status === 'aligned' ? key === 'personality' ? 'أصبحت إجاباتكما أقرب' : key === 'beena' ? 'أصبح التصرف مقبولًا من الطرفين' : 'أصبح التوافق متبادلًا'
         : status === 'one_sided' ? 'أصبح التقارب في اتجاه واحد'
+        : status === 'conditional' ? 'أصبح الاتفاق مشروطًا أو مفتوحًا للنقاش'
         : status === 'different' ? 'أظهرت الإجابات احتياجات مختلفة'
         : 'أصبح مساحة تستحق الحديث';
       reasons.push(`${title}: ${detail}.`);

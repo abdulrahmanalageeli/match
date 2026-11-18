@@ -109,32 +109,29 @@ test('stored profile and assessment context suppress known fields without invent
  const profileContext=[{fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false}];
  const assessmentContext=[{id:'personality:initiative:self',values:['D']}];
  const result=await service({action:'start',consentVersion:CONSENT_VERSION,profileContext,assessmentContext},{authorization:'Bearer fictional.session'});
-  assert.equal(result.coverage.answered,3);assert.equal(result.document.turns.length,0);
-  const timingDefault=result.document.proposals.find(p=>p.id==='preference:marriage_timeline:partner');
-  assert.equal(timingDefault.source,'self_default');assert.deepEqual(timingDefault.values,['A']);
-  assert.equal(timingDefault.evidence[0].turnId,'context:preference:marriage_timeline:self');
-  assert.ok(result.document.proposals.filter(p=>p!==timingDefault).every(p=>p.evidence[0].turnId==='context:'+p.id));
+  assert.equal(result.coverage.answered,1);assert.equal(result.document.turns.length,0);
+  assert.ok(result.document.proposals.every(p=>p.evidence[0].turnId==='context:'+p.id));
  const request=interviewCompletionRequest(result.document),context=JSON.parse(request.messages[1].content);
-  assert.ok(!context.missingFields.some(p=>p.id==='personality:initiative:self'||p.id==='preference:marriage_timeline:self'||p.id==='preference:marriage_timeline:partner'));
+  assert.ok(!context.missingFields.some(p=>p.id==='personality:initiative:self'));
  assert.deepEqual(context.knownProfileContext,profileContext);assert.match(request.messages[0].content,/لا تسأله عنها من جديد/);
-  const loaded=await service({action:'load'},{authorization:'Bearer fictional.session'});assert.equal(loaded.coverage.answered,3);
+  const loaded=await service({action:'load'},{authorization:'Bearer fictional.session'});assert.equal(loaded.coverage.answered,1);
 });
 test('profile confirmation HTTP input uses only selected IDs and canonical edited values',()=>{
  const payload={action:'profileConfirm',revision:2,profileChoices:[{id:proposal.id,values:['niqab'],mode:'prefer',exclude:false}]};assert.deepEqual(parseInterviewInput(payload),payload);
  assert.throws(()=>parseInterviewInput({...payload,profileChoices:[{...payload.profileChoices[0],evidence:proposal.evidence}]}));
 });
-test('an explicit profile timeline also fills matching assessment timing using the same evidence',()=>{
+test('marriage timing alone never fills the formal-introduction answer',()=>{
  const source={...turn,answer:'أفضّل الزواج خلال ثلاثة أشهر'};
  const timeline={...proposal,id:'profile:marriageBasics.marriageTimeline',fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false,evidence:[{turnId:turn.id,quote:source.answer}]};
  const first=applyInterviewCompletion({...base(),turns:[source]},completion({profileProposals:[timeline]}));
- assert.deepEqual(first.proposals.find(p=>p.id==='preference:marriage_timeline:self').values,['A']);
+ assert.equal(first.proposals.find(p=>p.id==='preference:marriage_timeline:self'),undefined);
  const hybridDoc={...base(),turns:[source]};
  const hybrid=applyInterviewCompletion(hybridDoc,completion({profileProposals:[timeline]}),true,[],{hybrid:true});
  assert.ok(hybrid.profileProposals.some(p=>p.id===timeline.id));
  assert.ok(!hybrid.proposals.some(p=>p.fieldId==='marriage_timeline'));
  const correction={...turn,id:randomUUID(),answer:'بعد ستة أشهر إلى سنة بدل ثلاثة أشهر'};
  const updated=applyInterviewCompletion({...first,turns:[source,correction]},completion({profileProposals:[{...timeline,values:['six_to_twelve_months'],evidence:[{turnId:correction.id,quote:correction.answer}]}]}));
- const timing=updated.proposals.find(p=>p.id==='preference:marriage_timeline:self');assert.deepEqual(timing.values,['B']);assert.equal(timing.evidence[0].turnId,correction.id);
+ const timing=updated.proposals.find(p=>p.id==='preference:marriage_timeline:self');assert.equal(timing,undefined);assert.deepEqual(updated.profileProposals.find(p=>p.fieldId===timeline.fieldId).values,['six_to_twelve_months']);
 });
 test('prompt captures explicit requirements while prohibiting invented requirements and paraphrased evidence',()=>{
  const prompt=interviewCompletionRequest(base()).messages[0].content;

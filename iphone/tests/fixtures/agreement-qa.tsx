@@ -9,10 +9,17 @@ import '../../src/motion.css';
 // Synthetic local state only. No member session or backend writes.
 const params = new URLSearchParams(location.search);
 let agreement = { status: params.has('expired') ? 'expired' : 'proposed', actor: params.has('man') ? 'abdulrahman' : 'reham', proposalId: 'proposal-1', days: 30, mineName: 'عضو تجريبي', peerName: 'شريك تجريبي', womanSignedAt: new Date().toISOString(), deadline: params.has('expired') ? new Date(Date.now()-86400000).toISOString() : undefined } as SeriousnessAgreement;
+if(params.has('countdown')){
+ agreement.status='accepted';
+ agreement.deadline=new Date(Date.now()+4000).toISOString();
+}
 const source = { ...demoCommunity(() => demoProfile), agreement: async () => ({ ...agreement }), agree: async (_id: string, action: string, payload: any) => {
   if(action === 'propose') agreement = { ...agreement, days: payload.days, proposalId: 'proposal-2' };
   if(action === 'accept') agreement = { ...agreement, status: 'accepted', deadline: new Date(Date.now()+30*86400000).toISOString() };
   if(action === 'extend') agreement = { ...agreement, extension: { id: 'extension', actor: agreement.actor, days: 7 } };
+  if(action==='family_propose') agreement={...agreement,familyProposalId:'demo-family',familyAgreed:{[agreement.actor]:true}};
+  if(action==='family_clear') agreement={...agreement,familyProposalId:undefined,familyAgreed:{}};
+  if(agreement.status==='accepted'&&agreement.deadline&&Date.parse(agreement.deadline)<=Date.now())agreement.status='expired';
   return { ...agreement };
 } };
 function Fixture() {

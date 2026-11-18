@@ -35,6 +35,44 @@ test('real member communication requires mutual agreement; history and cleanup r
   const proposal=await agreement(b,'propose',{days:7,signed:true});
   await assert.rejects(send(b),/اتفاق الجدية/);
   await agreement(a,'accept',{proposalId:proposal.proposalId,signed:true});
+  const choice=(u,topic,action,token=null,stage=null)=>call(u,'public.marriage_journey_choice($1,$2,$3,$4,$5)',[id,topic,action,token,stage]);
+  for(const [proposer,responder] of [[a,b],[b,a]]){
+   let family=await agreement(proposer,'family_propose',{confirmed:true});
+   const token=family.familyProposalId;
+   await agreement(proposer,'family_clear',{proposalId:token});
+   await assert.rejects(agreement(responder,'family_accept',{confirmed:true,proposalId:token}));
+   family=await agreement(proposer,'family_propose',{confirmed:true});
+   await agreement(responder,'family_clear',{proposalId:family.familyProposalId});
+   family=await agreement(proposer,'family_propose',{confirmed:true});
+   await assert.rejects(agreement(responder,'family_accept',{confirmed:true,proposalId:token}));
+   assert.equal((await agreement(responder,'family_accept',{confirmed:true,proposalId:family.familyProposalId})).status,'family');
+   assert.equal((await agreement(proposer,'family_clear',{proposalId:family.familyProposalId})).status,'accepted');
+   let proposal=await choice(proposer,'exclusive','propose');
+   assert.equal((await choice(responder,'exclusive','clear',proposal.exclusiveId)).exclusive,false);
+   await assert.rejects(choice(responder,'exclusive','accept',proposal.exclusiveId));
+   proposal=await choice(proposer,'exclusive','propose');
+   assert.equal((await choice(responder,'exclusive','accept',proposal.exclusiveId)).exclusive,true);
+   assert.equal((await choice(proposer,'exclusive','clear',proposal.exclusiveId)).stage,0);
+   assert.equal(await voiceAllowed(),true);
+  }
+  for(const stage of [1,2]){
+   const p=await choice(a,'step','propose',null,stage);
+   assert.equal((await call(b,'public.marriage_progress($1)',[id])).peer,true);
+   const next=await choice(b,'step','accept',p.stepId,stage);
+   assert.equal(next.stage,stage);assert.equal(next.exclusive,false);
+   if(stage===2)assert.equal((await choice(b,'step','clear',next.stepId,2)).stage,1);
+  }
+  await assert.rejects(choice(outsider,'exclusive','propose'));
+  const deadline=(await agreement(a)).deadline;
+  await db.query("update marriage.conversation_agreements set data=jsonb_set(data,'{deadline}',to_jsonb(now()-interval '1 second')) where request_id=$1",[id]);
+  for(const user of [a,b]){
+   assert.equal((await agreement(user)).status,'expired');
+   await assert.rejects(send(user),/اتفاق الجدية/);
+  }
+  const family=await agreement(a,'family_propose',{confirmed:true});
+  await agreement(b,'family_accept',{proposalId:family.familyProposalId,confirmed:true});
+  assert.equal((await agreement(b,'family_clear',{proposalId:family.familyProposalId})).status,'expired');
+  await db.query("update marriage.conversation_agreements set data=jsonb_set(data,'{deadline}',to_jsonb($2::text)) where request_id=$1",[id,deadline]);
   const message=await send(a);
   assert.equal(await voiceAllowed(),true);
   const ringing=await startVoice(a);

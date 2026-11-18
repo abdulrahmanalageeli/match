@@ -32,9 +32,9 @@ test('seriousness gate: roles, signed proposal versions, expiry, mutual family s
  await assert.rejects(rpc('token',a,{callId}));await assert.rejects(rpc('send',a,{clientId:id,body:'blocked again'}));
  await rpc('read',b,{id});
  await assert.rejects(rpc('agreement_family',b,{confirmed:false}));
- s=await rpc('agreement_family',b,{confirmed:true});assert.equal(s.seriousness.status,'expired');
+ s=await rpc('agreement_family',b,{decision:'family_propose',confirmed:true});assert.equal(s.seriousness.status,'expired');
  await assert.rejects(rpc('call_start',a,{clientId:id}));
- s=await rpc('agreement_family',a,{confirmed:true});assert.equal(s.seriousness.status,'family');
+ s=await rpc('agreement_family',a,{decision:'family_accept',confirmed:true,proposalId:s.seriousness.familyProposalId});assert.equal(s.seriousness.status,'family');
  const next='10000000-0000-4000-8000-000000000032';await rpc('send',b,{clientId:next,body:'family next step'});
  await assert.rejects(rpc('reset',b));s=await rpc('reset',a);assert.equal(s.seriousness.status,'none');assert.equal(s.messages.length,2);assert.equal(s.callPermission.status,'accepted');
  }finally{await db.close();}

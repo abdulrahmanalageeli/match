@@ -230,9 +230,9 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-current-question .wi-speaker img { object-fit:contain; }
 .wi-bubble-guide .wi-reflection { border-inline-start:2px solid #bc91a4; padding-inline-start:.8em; color:#614552; }
 .wi-bubble-guide .wi-next-question { margin-block-start:.8em; font-weight:600; }
-.wi-closing { margin-block:0 1rem; padding:1rem; }
+.wi-closing { margin-block:0 1rem; padding:1rem; background:var(--surface,#fff); color:var(--ink,#3c2e37); }
 .wi-closing .wi-speaker { display:flex; align-items:center; gap:.4rem; color:#795368; }
-.wi-closing .wi-link { margin-block-start:.5rem; }
+.wi-closing .wi-link { min-block-size:44px; margin-block-start:.5rem; }
 .wi-current-question[data-settled] { box-shadow:none; }
 .wi-new-answer { animation:wi-turn-in .18s ease-out both; }
 .wi-new-answer small { display:block; margin-top:6px; color:#967886; font-size:0.625rem; }

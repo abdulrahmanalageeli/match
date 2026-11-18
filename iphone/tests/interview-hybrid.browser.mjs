@@ -290,6 +290,18 @@ try {
   assert.equal(await page.locator('.wi-closing .wi-next-question').innerText(), followUp);
   assert(await card.isVisible(), 'the optional question leaves the assessment available');
   await page.screenshot({path:resolve(output,'luna-opening-reply.png')});
+  await page.emulateMedia({colorScheme:'dark'});
+  const contrast = await page.locator('.wi-closing').evaluate(el => {
+    const luminance = color => {
+      const [r,g,b] = color.match(/\d+/g).map(Number).map(n => n/255).map(n => n <= .04045 ? n/12.92 : ((n+.055)/1.055)**2.4);
+      return .2126*r+.7152*g+.0722*b;
+    };
+    const a = luminance(getComputedStyle(el).backgroundColor);
+    const b = luminance(getComputedStyle(el.querySelector('.wi-reflection')).color);
+    return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  });
+  assert(contrast >= 4.5, 'Luna’s reflection must remain readable in dark mode');
+  await page.emulateMedia({colorScheme:'light'});
   await page.getByRole('button',{name:'أردّ على لونا'}).click();
   assert.equal(await page.locator('#wi-clarification').getAttribute('maxlength'),'700');
   await page.getByRole('button',{name:'إلغاء التوضيح'}).click();

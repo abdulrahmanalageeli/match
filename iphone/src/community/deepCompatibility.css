@@ -91,7 +91,7 @@
 .wd-deep-couple b { font-size:18px; font-weight:600; color:#4b2836; }
 .wd-deep-couple small { font-size:10px; color:#a09298; }
 .wd-deep-couple i { width:22px; height:1px; background:#dacbd1; }
-.wd-deep-art { position:relative; width:100%; max-width:400px; margin:0 auto; flex:none; height:clamp(150px,23dvh,220px); display:grid; place-items:center; touch-action:pan-y; }
+.wd-deep-art { position:relative; width:100%; max-width:400px; margin:0 auto; flex:none; height:clamp(74px,11dvh,105px); display:grid; place-items:center; touch-action:pan-y; }
 .wd-deep-art>svg { width:100%; height:100%; overflow:visible; }
 .wd-deep-art-mark { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; }
 .wd-deep-art-mark img { object-fit:contain; width:52px; height:52px; padding:6px; box-sizing:content-box; background:#fffdfc; border-radius:50%; }
@@ -134,5 +134,7 @@
 @keyframes wd-deep-draw { to { stroke-dashoffset:0; } }
 @keyframes wd-deep-flow { from { stroke-dashoffset:100; } to { stroke-dashoffset:0; } }
 @media(max-width:540px) { .phone-app .cm-sheet.wd-deep-sheet:has(.wd-deep-shared) { border-radius:0; width:100vw; height:100dvh; padding-inline:22px; } }
-@media(max-height:740px) { .wd-deep-art { height:125px; } .wd-deep .wd-deep-story-copy h3 { font-size:23px; margin-bottom:10px; } .wd-deep .wd-deep-story-copy>p { font-size:16px; } .wd-deep-couple { margin-top:0; } }
+@media(max-height:740px) { .wd-deep-art { height:70px; } .wd-deep .wd-deep-story-copy h3 { font-size:23px; margin-bottom:10px; } .wd-deep .wd-deep-story-copy>p { font-size:16px; } .wd-deep-couple { margin-top:0; } }
 @media(prefers-reduced-motion:reduce) { .wd-deep-story,.wd-deep-index,.wd-deep-method,.wd-deep-thread,.wd-deep-thread-light { animation:none; } .wd-deep-thread { stroke-dashoffset:0; } .wd-deep-thread-light { display:none; } .wd-deep-navigation * { transition:none!important; } }
+.wd-deep .wd-deep-story-copy>p+p { margin-top:12px; }
+.wd-deep-discuss { display:inline-flex; align-items:center; gap:8px; min-height:44px; margin-top:12px; border:0; background:transparent; color:#702e4a; font:inherit; font-size:14px; cursor:pointer; }

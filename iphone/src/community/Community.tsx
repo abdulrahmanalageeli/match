@@ -1570,7 +1570,7 @@ export function Chat({
             </div>;
           })}
       {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.simulation
-        ? deepOpen && !privateHidden && <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setDeepOpen(false)}><DemoDeepReading person={connection.person}/></Sheet>
+        ? <DemoDeepReading key={connection.id} person={connection.person} open={deepOpen && !privateHidden} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setDeepOpen(false)}>{content}</Sheet>}/>
         : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
         onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>)}
         </div>

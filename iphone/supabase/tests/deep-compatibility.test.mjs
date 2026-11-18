@@ -135,3 +135,18 @@ test('incomplete evidence blocks generation, blocking invalidates drafts, cleanu
   assert.equal((await db.query('select count(*)::int n from marriage.deep_analyses')).rows[0].n,0);
  }finally{await db.close();}
 });
+test('fictional readings require membership and have an independent daily quota',async()=>{
+ const {db,a,grant,rpc}=await setup();
+ const reserve=()=>asMember(db,a.id,a.sessionId,()=>rpc('public.marriage_demo_deep_reserve()'));
+ try {
+  await assert.rejects(reserve(),error=>error.code==='42501');
+  await grant();
+  for(let i=0;i<3;i++) {
+   const own=await reserve();
+   assert.equal(own.entries.find(e=>e.key==='personality:reassurance').answer,'لا يشبهني إطلاقًا');
+  }
+  await assert.rejects(reserve(),error=>error.code==='54000');
+  await db.query("update marriage.demo_deep_usage set usage_date=usage_date-1 where member_id=$1",[a.id]);
+  assert.ok((await reserve()).entries.length>2);
+ } finally {await db.close();}
+});

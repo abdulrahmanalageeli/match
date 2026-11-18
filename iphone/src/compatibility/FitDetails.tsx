@@ -67,6 +67,6 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
     <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>
     <BeenaSummary fit={fit.beena}/>
     <section className="nf-fit-conversation"><h3>سؤال لبداية أوضح</h3><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></section>
-    <p className="nf-fit-boundary">ثلاث قراءات مستقلة من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نسبة عند اكتمال تقييمها لدى الطرفين.</p>
+    <p className="nf-fit-boundary">قراءات مستقلة من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نسبة عند اكتمال تقييمها لدى الطرفين.</p>
   </section>;
 }

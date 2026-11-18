@@ -12,6 +12,16 @@ const {validProfileProposalValues,validProfileProposal,applyProfileProposals,pro
 const plain=value=>JSON.parse(JSON.stringify(value));
 const proposal=(fieldId,values,extra={})=>({id:'profile:'+fieldId,fieldId,values,mode:fieldId.startsWith('partnerCriteria.')?'prefer':null,exclude:false,summary:'معلومة صرّح بها العضو',evidence:[{turnId:'turn-1',quote:'نص العضو'}],needsClarification:false,...extra});
 
+test('explicit origin and marriage plans are reviewable without replacing current city or existing answers',()=>{
+ const original={city:'الرياض',marriageBasics:{nationality:'سعودي'}};
+ const fields={originCity:'الطائف',weddingStyle:'simple',childrenTiming:'discuss',housingPlan:'independent',expenseSharing:'proportional'};
+ const patch=applyProfileProposals(original,Object.entries(fields).map(([key,value])=>proposal('marriageBasics.'+key,[value])));
+ assert.deepEqual(plain(patch.marriageBasics),{nationality:'سعودي',...fields});
+ assert.equal(patch.city,undefined);
+ assert.equal(validProfileProposal(proposal('marriageBasics.expenseSharing',['50/50'])),false);
+ assert.equal(profileContextFromAnswers({...original,...patch}).length,7);
+});
+
 test('an explicit not-divorced preference keeps the actual exclusion without claiming never-married only',()=>{
  const p=proposal('partnerCriteria.maritalStatus',['divorced'],{mode:'require',exclude:true});
  const patch=applyProfileProposals({},[p]);
@@ -25,7 +35,7 @@ test('reviewed profile and partner facts merge without changing unrelated fields
  assert.equal(JSON.stringify(original),before);assert.equal(patch.bio,undefined);assert.equal(patch.city,undefined);
  assert.deepEqual(plain(patch.marriageBasics),{heightCm:180,smoking:'never',meetingPreference:'family_before_formal'});
  assert.deepEqual(plain(patch.partnerCriteria),{education:{mode:'any'},dressStyle:{mode:'prefer',values:['niqab']}});
- assert.equal(patch.lookingFor,'أبحث عن شريكة تقدّر أهلها وجادة في الزواج.');assert.equal(patch.familyPreference,'من البداية');
+ assert.equal(patch.lookingFor,undefined,'public prose remains member-authored in the form');assert.equal(patch.familyPreference,'من البداية');
 });
 test('uncertain proposals, unknown fields and forged consent or verification writes never apply',()=>{
  for(const fieldId of ['signupConsents.assessment','portrait.verified','__proto__.admin','gender','birthDate','contact','compatibilityScore'])assert.equal(validProfileProposal(proposal(fieldId,['true'])),false);

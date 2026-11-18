@@ -18,6 +18,7 @@ import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
+import { marriagePlanKeys, marriagePlanQuestions, marriagePlanLabel } from '../compatibility/marriagePlans';
 import { PersonalPrompts } from './PersonalPrompts';
 
 const ar = new Intl.NumberFormat('ar-SA');
@@ -33,9 +34,10 @@ const validCount = (value: unknown, min: number, max: number): value is number =
 function Story({title,children,accent=false}:{title:string;children:string;accent?:boolean}) {
   return <section className={'mp-story'+(accent?' mp-story-accent':'')}><h2>{accent?<Heart size={16}/>:<Feather size={16}/>} {title}</h2><p dir="auto">{children}</p></section>;
 }
-export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport}: {
+export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,interestAction}: {
   person: PublicPerson; source?: CommunitySource | null; back:()=>void; backText:string;
   primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void;
+  interestAction?: { toggle:()=>void; busy:boolean; notice:string; error:string };
 }) {
   const {premium}=useMembershipAccess();
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
@@ -70,7 +72,17 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   function openFit(){selectSection('fit');fitButton.current?.focus({preventScroll:true});}
   if(passportOpen&&canOpenPassport)return <SharedReadinessPassportPanel key={passportConnection} source={source} connectionId={passportConnection} name={person.alias} onBack={()=>{setPassportOpen(false);requestAnimationFrame(()=>passportButton.current?.focus());}}/>;
   return <article className="mp-profile screen-content" dir="rtl" data-self-preview={preview||undefined}>
-    <header className="mp-navigation"><button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button><span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>{onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ عن الملف</button></details>}</header>
+    <header className="mp-navigation">
+      <button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button>
+      <span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>
+      {(interestAction||onReport)&&<div className="mp-navigation-actions">
+        {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>
+          <Heart size={17} fill={person.interested?'currentColor':'none'} aria-hidden="true"/>اهتمام
+        </button>}
+        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ عن الملف</button></details>}
+      </div>}
+    </header>
+    {interestAction?.error?<p className="mp-interest-feedback" role="alert">{interestAction.error}</p>:interestAction?.notice?<p className="mp-interest-feedback" role="status">{interestAction.notice}</p>:null}
     {preview&&<p className="mp-preview-note"><Eye size={15}/><span>هكذا يظهر ملفك للأعضاء المؤهلين.</span></p>}
     <section className="mp-hero" data-weekly-featured={featured||undefined} ref={identity} aria-label={`ملف ${person.alias}`}>
       <ScenePaths className="mp-arrival-paths" parallax />
@@ -109,6 +121,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           person.occupation&&['مجال العمل أو الوضع المهني',person.occupation],
           person.education&&['التعليم',person.education],
           b?.nationality&&['الجنسية',b.nationality],
+          b?.originCity&&['مدينة الأصل',b.originCity],
           Boolean(b?.spokenLanguages?.length) && ['اللغات', b!.spokenLanguages!.join(' · ')],
           b?.preferredLanguage && ['لغة التواصل المفضلة', b.preferredLanguage],
           b?.languageOpenness && ['اختلاف اللغة', languageOpennessLabels[b.languageOpenness]],
@@ -131,6 +144,10 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['تفضيل اللقاء',meetingPreferenceLabels[b.meetingPreference]],
           person.familyPreference&&['إشراك الأهل',person.familyPreference],
         ]}/>
+        <Facts title="خطط الحياة الزوجية" note="تفضيلات صريحة للنقاش والاتفاق" icon={Heart} items={marriagePlanKeys.map(key => {
+          const label = marriagePlanLabel(key, b?.[key]);
+          return label ? [marriagePlanQuestions[key].label, label] as [string, string] : undefined;
+        })}/>
         <Facts title="قناعات وتطلّعات" note="ما يختار مشاركته من قناعاته" icon={Leaf} items={[
           b?.polygynyPreference&&b.polygynyPreference!=='prefer_not_to_say'&&['الموقف من التعدد',polygynyLabels[b.polygynyPreference]],
           b?.religiousAffiliation&&b.religiousAffiliation!=='prefer_not_to_say'&&['المذهب',religiousAffiliationLabels[b.religiousAffiliation]],

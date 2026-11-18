@@ -16,7 +16,7 @@ export const chapters = [
   { key: "criteria", label: "ما يناسبك", title: "ما يهمك في الشريك", note: "وش أساسي عندك، ووش ممكن تتفاهمون عليه؟ مو لازم يكون كل شيء شرط." },
   { key: "compatibility", label: "جلسة التوافق", title: "خلّنا نسمع منك", note: "نتكلم عن حياتك واللي تتمناه في شريكك. بعدها تشوف وش فهمنا، وتعدّل وتؤكد بنفسك." },
   { key: "personality", label: "شخصيتك", title: "أقرب إلى طبيعتك", note: "نبني على الكلام اللي أكدته، ما نطلب منك تعيده. وإذا بقي شيء، تكمله بالحوار أو من الأسئلة." },
-  { key: "beena", label: "بيننا", title: "لو صار بينكم هذا الموقف؟", note: "مواقف من الحياة: الأهل، المصاريف، والاختلافات الصغيرة. جاوب باللي يشبهك، مو بالإجابة اللي تحس إنها الأفضل." },
+  { key: "beena", label: "بيننا", title: "بيننا · سؤال وجواب", note: "سؤال تختاره وإجابة بكلماتك. المشاركة اختيارية، وتختار بنفسك ما يظهر في ملفك." },
   { key: "preferences", label: "تفضيلاتك", title: "كيف تود أن يبدأ التعارف؟", note: "وش يناسبك في بداية التعارف؟ ومتى تحب تكون الخطوة مع الأهل؟" },
   { key: "readiness", label: "الجاهزية", title: "قبل الخطوة الرسمية", note: "موقفان قصيران عن إشراك الأهل وخطوتك القادمة، ثم اتفاق العضوية." },
   { key: "review", label: "المراجعة", title: "راجع ملفك", note: "خذ نظرة أخيرة. هذا اللي بيشوفه الطرف الآخر، وتقدر تعدّل أي شيء قبل الإرسال." },
@@ -103,13 +103,14 @@ export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[]
     1: Number.isInteger(b.heightCm)&&b.heightCm!>=120&&b.heightCm!<=230&&Number.isInteger(b.weightKg)&&b.weightKg!>=35&&b.weightKg!<=250&&(!sensitive||Boolean(b.skinTone))&&
       (p.gender!=='woman'||Boolean(b.dressStyle&&b.dressFlexibility)),
     2: Boolean(b.spokenLanguages?.length&&b.preferredLanguage&&b.languageOpenness),
-    3: Boolean(b.nationality)&&(!sensitive||Boolean(b.tribalBackground)),
+    3: Boolean(b.nationality&&b.originCity)&&(!sensitive||Boolean(b.tribalBackground)),
     4: Boolean(b.marriageTimeline&&b.meetingPreference),
     5: Boolean(b.maritalStatus&&b.polygynyPreference&&(b.maritalStatus!=='married'||b.currentWives)),
     6: b.childrenCount!==undefined&&Boolean(b.smoking),
     7: !sensitive||Boolean(b.religiousAffiliation&&b.prayerPractice),
+    8: Boolean(b.weddingStyle&&b.housingPlan&&b.expenseSharing&&(b.childrenTiming||p.surveyAnswers?.children_plan==='B')),
   };
-  return [1,2,3,4,5,6,7].filter(slide=>!complete[slide]&&(slide!==7||sensitive));
+  return [1,2,3,4,5,6,7,8].filter(slide=>!complete[slide]&&(slide!==7||sensitive));
 }
 
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {

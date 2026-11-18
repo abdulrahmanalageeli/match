@@ -95,3 +95,9 @@
 .phone-app .mp-profile .mp-fit-preview-scores>span{flex-direction:column;align-items:flex-start;gap:4px}
 .phone-app .mp-profile .mp-fit .nf-fit-scores{padding-block:16px}
 .phone-app .mp-profile .mp-passport-link{padding-block:14px}
+
+.mp-navigation-actions{display:flex;align-items:center;gap:4px}
+.mp-interest{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:4px 6px;border:0;background:transparent;color:var(--accent-fill);font:inherit;font-size:.75rem;white-space:nowrap}
+.mp-interest[aria-pressed=true]{font-weight:700}
+.mp-interest:disabled{opacity:.55}
+.mp-interest-feedback{margin:0 0 8px;color:var(--accent-fill);font-size:.75rem}

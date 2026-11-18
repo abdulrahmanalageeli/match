@@ -9,6 +9,7 @@ import "./scenario-experience.css";
 import { SelfAppearanceFields, AppearanceCriteriaFields } from "./AppearanceFields";
 import { SheetChoiceSelect as ChoiceSelect } from "../ui/SheetChoiceSelect";
 import { educationOptions, professionOptions, nationalityChoices, numericOptions } from "../profile/profileOptions";
+import { marriagePlanKeys, marriagePlanQuestions } from '../compatibility/marriagePlans';
 import { AnswerScale } from "../interview/AnswerScale";
 
 export const maritalLabels = { never_married: "لم يسبق الزواج", divorced: "مطلّق / مطلّقة", widowed: "أرمل / أرملة", married: "متزوج حاليًا" };
@@ -59,6 +60,11 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
   const pluralMarriageLabels = gender === "woman" ? { not_open: "لا أقبل التعدد", open_to_discussion: "منفتحة على النقاش", open: "منفتحة على التعدد", prefer_not_to_say: "أفضل مناقشته لاحقًا" } : polygynyLabels;
   return <div className="nf-marriage-fields" data-slideshow={Boolean(activeSection) || undefined} data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><Leaf size={20} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفاصيل تُكمل الصورة.</strong><span>{required ? "لمسات بسيطة تُكمل ملفك. راجع ما يظهر عنك قبل إرساله." : "افتح ما ترغب بإضافته. هذه التفاصيل اختيارية وتظهر للأعضاء المؤهلين."}</span></p></div>
+    <Group activeSection={activeSection} title="خطط الحياة الزوجية" note="السكن، والمصاريف، وحفل الزواج، وتوقيت الإنجاب" icon={Home}>
+      <small>تظهر اختياراتك في ملفك كبداية للحوار. يمكنك ترك ما لم تحسمه دون إجابة.</small>
+      {marriagePlanKeys.map(key => <Choices key={key} title={marriagePlanQuestions[key].question} value={value[key]} labels={marriagePlanQuestions[key].options} onChange={answer => change({[key]:answer})}/>)}
+      <small>سؤال توقيت الإنجاب لمن يرغب فيه؛ اتركه دون إجابة إن لم يكن مناسبًا لك.</small>
+    </Group>
     <Group activeSection={activeSection} title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={Sparkles} open={reveal === "المظهر واللباس" || (required && reveal === null)} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
       <div className="field-pair"><NumberField label="الطول" unit="سم" value={value.heightCm} min={120} max={230} required={required} onChange={heightCm=>change({heightCm})}/>
         <NumberField label="الوزن" unit="كجم" value={value.weightKg} min={35} max={250} required={required} onChange={weightKg=>change({weightKg})}/></div>
@@ -72,6 +78,8 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
     </Group>
     <Group activeSection={activeSection} title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal === "الخلفية والعائلة"} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder={required ? "اختر الجنسية" : "اختر الجنسية · اختياري"} required={required} allowClear={!required} />
+      <label>مدينة الأصل — اختياري<input value={value.originCity ?? ''} maxLength={80} onChange={event => change({originCity:event.target.value.trim() ? event.target.value : undefined})} placeholder="المدينة التي ترجع إليها بالأصل" /></label>
+      <small>تختلف عن مدينة إقامتك الحالية، وتظهر في تفاصيل ملفك إذا أضفتها.</small>
       {sensitiveAllowed && <Choices title="الخلفية القبلية" value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
       {sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
       <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>

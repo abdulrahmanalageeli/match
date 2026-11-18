@@ -17,6 +17,8 @@ export function BeenaSummary({ fit, story, compact = false, onPrompt }: {
   const discussion = [...new Set(known?.discussion ?? [])].map(topicTitle).filter(Boolean);
   const prompts = (known?.prompts ?? []).filter(prompt => topicTitle(prompt.scenarioId)).sort((a, b) => Number(b.kind === 'discussion') - Number(a.kind === 'discussion')).slice(0, 2);
   const storyOnly = Boolean(story?.text.trim() && !fit);
+  if (storyOnly) return <section className="bn-public-qa" aria-labelledby={id}><h3 id={id}><MessageCircle size={16} aria-hidden="true"/>بيننا · سؤال وجواب</h3><p className="bn-qa-question">{beenaScenarios.find(item=>item.id===story!.scenarioId)?.prompt ?? 'ما الذي تود مشاركته عن نفسك؟'}</p><p className="bn-qa-answer" dir="auto">{story!.text}</p></section>;
+  if (!known?.covered && !story?.text.trim()) return null;
   if (compact) return <div className="bn-compact" aria-label={percentage === null ? 'بيننا: المواقف غير مكتملة' : `بيننا: تقبّل المواقف ${number.format(percentage)} بالمئة`}><HeartHandshake size={16}/><span>بيننا</span><strong>{percentage === null ? <small>بانتظار المواقف</small> : <>{number.format(percentage)}<small>٪</small></>}</strong></div>;
   return <section className="bn-summary" aria-labelledby={id}>
     <header className="bn-summary-heading"><span className="bn-emblem"><HeartHandshake size={22} strokeWidth={1.5}/></span><div><span className="bn-eyebrow">{storyOnly ? 'موقف بكلماتي' : 'مواقف من حياتكما'}</span><h3 id={id}>بيننا</h3></div>{!storyOnly && <div className="bn-summary-score"><strong>{percentage === null ? '—' : <>{number.format(percentage)}<small>٪</small></>}</strong><span>{percentage === null ? 'بانتظار اكتمال المواقف' : 'تقبّل متبادل'}</span></div>}</header>

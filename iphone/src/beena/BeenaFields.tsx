@@ -2,13 +2,14 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Feather, HeartHandshake, LockKeyhole, MessageCircle, Sparkles, Trash2 } from "../BrandIcons";
 import { beenaProgress, beenaScenarios, beenaVersion, type BeenaAnswer, type BeenaProfile } from './model';
 import { hasScenarioAnswer } from '../onboarding/remainingAssessments';
+import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import './beena.css';
 import '../onboarding/scenario-experience.css';
 
 const number = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
 
 export function BeenaFields({ value, onChange, storyReview = true, registration = false, remainingOnly = false }: { value?: BeenaProfile | null; onChange: (value: BeenaProfile | null) => void; storyReview?: boolean; registration?: boolean; remainingOnly?: boolean }) {
-  const [mode, setMode] = useState<'situations' | 'story'>(() => value?.story?.text && !Object.keys(value.answers).length ? 'story' : 'situations');
+  const [mode, setMode] = useState<'situations' | 'story'>('story');
   const [requestedIndex, setIndex] = useState(0);
   const completedHere = useRef(new Set<number>()), inferredPartners = useRef(new Set<string>()), previousMode = useRef(remainingOnly);
   if (previousMode.current !== remainingOnly) { completedHere.current.clear(); previousMode.current = remainingOnly; }
@@ -87,14 +88,14 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
   function clearStory() { const next = { ...current() }; delete next.story; onChange(next); }
   const partnerIsInferred = inferredPartners.current.has(scenario.id);
 
-  return <section className="bn-fields" aria-label="بيننا: مواقف الحياة" data-field="beena" tabIndex={-1}>
+  return <section className="bn-fields" aria-label="بيننا: سؤال وجواب اختياري" data-field="beena" tabIndex={-1}>
     {!registration && <header className="bn-intro">
       <span className="bn-emblem" aria-hidden="true"><HeartHandshake size={25} strokeWidth={1.4}/></span>
-      <div><span className="bn-eyebrow">بيننا · الحياة كما نعيشها</span><h2>موقف صغير. فهم أعمق.</h2><p>كيف تتصرف، وما الذي ترتاح إليه من شريكك؟ قد تتشابه إجاباتكما أو تتكامل.</p></div>
+      <div><span className="bn-eyebrow">بيننا · اختياري</span><h2>سؤال يفتح بابًا للحوار.</h2><p>اختر سؤالًا واحدًا، وأجب بطريقتك. أنت تختار إن ظهرت إجابتك في ملفك.</p></div>
     </header>}
     <div className="bn-modes" role="group" aria-label="طريقة المشاركة في بيننا">
-      <button type="button" aria-pressed={mode === 'situations'} onClick={() => changeMode('situations')}><MessageCircle size={17}/> مواقف الحياة <small>{number.format(progress.answered)}/{number.format(progress.total)}</small></button>
-      <button type="button" aria-pressed={mode === 'story'} onClick={() => changeMode('story')}><Feather size={17}/> أكتب موقفًا</button>
+      <button type="button" aria-pressed={mode === 'story'} onClick={() => changeMode('story')}><Feather size={17}/> سؤال وجواب</button>
+      <button type="button" aria-pressed={mode === 'situations'} onClick={() => changeMode('situations')}><MessageCircle size={17}/> مواقف خاصة</button>
     </div>
 
     {mode === 'situations' ? <>
@@ -128,20 +129,19 @@ export function BeenaFields({ value, onChange, storyReview = true, registration 
       </article>}
       {(finished || remainingDone) && <div className="bn-completion" role="status" ref={completion} tabIndex={-1}><span><Check size={20}/></span><div><strong>{progress.complete ? 'اكتملت مواقفك الستة.' : 'كل إجابة تقرّب الصورة.'}</strong><p>{progress.complete ? 'تظهر قراءة المواقف عند إكمال الطرف الآخر أيضًا. يمكنك مراجعة أي إجابة أو إضافة موقف بكلماتك.' : `أكملت ${number.format(progress.answered)} من ${number.format(progress.total)} مواقف. يمكنك العودة للبقية لاحقًا؛ لن تظهر نسبة قبل اكتمال إجابات الطرفين.`}</p>{remainingOnly&&!progress.complete&&<button type="button" onClick={()=>{completedHere.current.clear();setFinished(false);setIndex(0);setPerspective('self')}}>إكمال المتبقي<ArrowLeft size={14}/></button>}<button type="button" onClick={() => changeMode('story')}><Feather size={14}/> أضف موقفًا بكلماتك</button></div></div>}
     </> : <article className="bn-story-editor" ref={scene}>
-      <div className="bn-story-editor-heading"><span><Feather size={21}/></span><div><small>مساحة لصوتك أنت</small><h3 ref={heading} tabIndex={-1}>احكِ ما لا تختصره الخيارات.</h3></div></div>
-      <p>اكتب موقفًا تتخيله في حياتكما، وكيف تود أن تتعاملا معه. يمكنك الاكتفاء بالقصة أو إكمال المواقف أيضًا.</p>
-      <label htmlFor={id + '-topic'}>موضوع الموقف<select id={id + '-topic'} value={value?.story?.scenarioId ?? scenario.id} onChange={event => changeStory({ scenarioId: event.target.value })}>{beenaScenarios.map(entry => <option value={entry.id} key={entry.id}>{entry.title}</option>)}</select></label>
-      <label htmlFor={id + '-story'}>بكلماتك أنت<textarea id={id + '-story'} value={value?.story?.text ?? ''} rows={5} maxLength={1000} onChange={event => changeStory({ text: Array.from(event.target.value).slice(0, 500).join('') })} placeholder={beenaScenarios.find(entry => entry.id === (value?.story?.scenarioId ?? scenario.id))?.storyPrompt} aria-describedby={id + '-story-help'}/></label>
+      <SheetChoiceSelect label="اختر السؤال" value={value?.story?.scenarioId ?? scenario.id} options={beenaScenarios.map(entry=>({value:entry.id,label:entry.title}))} onChange={scenarioId=>changeStory({scenarioId})}/>
+      <h3 className="bn-qa-question" ref={heading} tabIndex={-1}>{beenaScenarios.find(entry=>entry.id===(value?.story?.scenarioId??scenario.id))?.prompt}</h3>
+      <label htmlFor={id + '-story'}>إجابتك<textarea id={id + '-story'} value={value?.story?.text ?? ''} rows={3} maxLength={1000} onChange={event => changeStory({ text: Array.from(event.target.value).slice(0, 500).join('') })} placeholder="جملة أو اثنتان تعبّران عنك…" aria-describedby={id + '-story-help'}/></label>
       <div className="bn-story-count"><span>اختياري</span><span>{number.format(Array.from(value?.story?.text ?? '').length)} / ٥٠٠</span></div>
-      <label className="bn-share"><input type="checkbox" checked={value?.story?.share === true} onChange={event => changeStory({ share: event.target.checked })}/><span><strong>أعرض القصة في ملفي للأعضاء المؤهلين</strong><small>مشاركة اختيارية. دون هذا الاختيار تبقى القصة خاصة بك. يمكنك إخفاؤها أو حذفها لاحقًا.</small></span></label>
-      <p className="bn-story-help" id={id + '-story-help'}>القصة بداية حوار، ولا تدخل كلماتها في النسبة. تجنّب أسماء الآخرين وأرقام التواصل والتفاصيل الحساسة.</p>
-      {storyReview && <p className="bn-story-help">نشر قصة جديدة يتطلب مراجعة الملف. إن كان ملفك معتمدًا، يتوقف ظهوره والتواصل مؤقتًا حتى اعتماد التحديث؛ تبقى التعارفات محفوظة. حفظ القصة بشكل خاص لا يغيّر حالة ملفك.</p>}
-      {value?.story && <button type="button" className="bn-clear" onClick={clearStory}><Trash2 size={14}/> حذف القصة من المسودة</button>}
+      <label className="bn-share"><input type="checkbox" checked={value?.story?.share === true} onChange={event => changeStory({ share: event.target.checked })}/><span><strong>أعرض السؤال وإجابتي في ملفي</strong><small>لا تظهر إلا باختيارك. يمكنك إخفاؤها أو حذفها لاحقًا.</small></span></label>
+      <p className="bn-story-help" id={id + '-story-help'}>إجابة اختيارية لبداية حوار؛ لا تغيّر نسبة التوافق ولا تُرسل للتحليل المعمّق. تجنّب أسماء الآخرين وأرقام التواصل والتفاصيل الحساسة.</p>
+      {storyReview && <details className="bn-qa-publishing"><summary>كيف تظهر الإجابة في ملفي؟</summary><p className="bn-story-help">نشر إجابة جديدة يتطلب مراجعة الملف. إن كان ملفك معتمدًا، يتوقف ظهوره والتواصل مؤقتًا حتى اعتماد التحديث؛ تبقى التوافقات محفوظة. حفظ الإجابة دون مشاركة لا يغيّر حالة ملفك.</p></details>}
+      {value?.story && <button type="button" className="bn-clear" onClick={clearStory}><Trash2 size={14}/> حذف الإجابة من المسودة</button>}
     </article>}
-    {remainingOnly && <details className="nf-question-about"><summary><Sparkles size={15}/><span>أهمية المواقف لك · اختياري</span><ChevronDown size={15}/></summary><div>{beenaScenarios.filter(entry=>hasScenarioAnswer(entry.options,value?.answers[entry.id],'self')||hasScenarioAnswer(entry.options,value?.answers[entry.id],'partner')).map(entry=><div className="bn-importance" key={entry.id}><span>{entry.title}</span><div role="group" aria-label={`أهمية ${entry.title}`}>{([1,2] as const).map(importance=><button type="button" key={importance} aria-pressed={(value?.answers[entry.id]?.importance??1)===importance} onClick={()=>onChange({...current(),answers:{...value?.answers,[entry.id]:{...value?.answers[entry.id],importance}}})}>{importance===1?'أهمية عادية':'مهم لي'}</button>)}</div></div>)}<p>تغيير الأهمية لا يغيّر اختياراتك ولا يستبعد شخصًا تلقائيًا.</p></div></details>}
-    {registration && <details className="nf-question-about"><summary><BookOpen size={15} aria-hidden="true"/><span>عن مواقف «بيننا»</span><ChevronDown size={15} aria-hidden="true"/></summary><div><strong>بيننا · الحياة كما نعيشها</strong><h2>موقف صغير. فهم أعمق.</h2><p>كيف تتصرف، وما الذي ترتاح إليه من شريكك؟ قد تتشابه إجاباتكما أو تتكامل.</p></div></details>}
+    {mode === 'situations' && remainingOnly && <details className="nf-question-about"><summary><Sparkles size={15}/><span>أهمية المواقف لك · اختياري</span><ChevronDown size={15}/></summary><div>{beenaScenarios.filter(entry=>hasScenarioAnswer(entry.options,value?.answers[entry.id],'self')||hasScenarioAnswer(entry.options,value?.answers[entry.id],'partner')).map(entry=><div className="bn-importance" key={entry.id}><span>{entry.title}</span><div role="group" aria-label={`أهمية ${entry.title}`}>{([1,2] as const).map(importance=><button type="button" key={importance} aria-pressed={(value?.answers[entry.id]?.importance??1)===importance} onClick={()=>onChange({...current(),answers:{...value?.answers,[entry.id]:{...value?.answers[entry.id],importance}}})}>{importance===1?'أهمية عادية':'مهم لي'}</button>)}</div></div>)}<p>تغيير الأهمية لا يغيّر اختياراتك ولا يستبعد شخصًا تلقائيًا.</p></div></details>}
+    {mode === 'situations' && registration && <details className="nf-question-about"><summary><BookOpen size={15} aria-hidden="true"/><span>عن مواقف «بيننا»</span><ChevronDown size={15} aria-hidden="true"/></summary><div><strong>بيننا · الحياة كما نعيشها</strong><h2>موقف صغير. فهم أعمق.</h2><p>كيف تتصرف، وما الذي ترتاح إليه من شريكك؟ قد تتشابه إجاباتكما أو تتكامل.</p></div></details>}
     <p className="bn-save-hint">راجع إجاباتك، ثم استخدم زر المتابعة أو حفظ الملف في الصفحة لحفظ تغييراتك.</p>
-    {value && <div className="bn-reset">{deleting ? <div role="group" aria-label="تأكيد حذف بيانات بيننا"><p>حذف جميع إجابات «بيننا» والقصة؟ تختفي قراءة المواقف بعد حفظ الملف، ويمكنك البدء مجددًا.</p><div><button type="button" onClick={() => { onChange(null); setDeleting(false); setFinished(false); setIndex(0); setPerspective('self'); setMode('situations'); }}>نعم، احذف من المسودة</button><button type="button" onClick={() => setDeleting(false)}>احتفظ بها</button></div></div> : <button type="button" className="bn-clear" onClick={() => setDeleting(true)}><Trash2 size={14}/> حذف إجابات بيننا والقصة</button>}</div>}
-    <p className="bn-privacy"><LockKeyhole size={15} aria-hidden="true"/><span>إجابات الاختيارات خاصة. نعرض مواضيع الانسجام والنقاش، ونحسب القراءة من مدى تقبّل كل طرف لتصرف الآخر. ليست توقعًا لنجاح الزواج.</span></p>
+    {value && Object.keys(value.answers).length > 0 && <div className="bn-reset">{deleting ? <div role="group" aria-label="تأكيد حذف بيانات بيننا"><p>حذف الإجابة والمواقف الخاصة؟ يُطبّق الحذف بعد حفظ الملف.</p><div><button type="button" onClick={() => { onChange(null); setDeleting(false); setFinished(false); setIndex(0); setPerspective('self'); setMode('story'); }}>نعم، احذف من المسودة</button><button type="button" onClick={() => setDeleting(false)}>احتفظ بها</button></div></div> : <button type="button" className="bn-clear" onClick={() => setDeleting(true)}><Trash2 size={14}/> مسح بيانات بيننا</button>}</div>}
+    {mode === 'situations' && <p className="bn-privacy"><LockKeyhole size={15} aria-hidden="true"/><span>إجابات الاختيارات خاصة. نعرض مواضيع الانسجام والنقاش، ونحسب القراءة من مدى تقبّل كل طرف لتصرف الآخر. ليست توقعًا لنجاح الزواج.</span></p>}
   </section>;
 }

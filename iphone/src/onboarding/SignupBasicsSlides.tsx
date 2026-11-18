@@ -14,17 +14,17 @@ import { generatedPublicProfileDraft, missingPublicProfileDraft, type PublicProf
 import './signup-slides.css';
 
 export type SignupSlidesHandle = { advance: () => boolean; back: () => boolean };
-const details = ['المظهر واللباس','اللغات والتواصل','الخلفية والعائلة','بداية تناسبك','الزواج والتعدد','الأبناء والعادات','الدين في حياتي'];
+const details = ['المظهر واللباس','اللغات والتواصل','الخلفية والعائلة','بداية تناسبك','الزواج والتعدد','الأبناء والعادات','الدين في حياتي','خطط الحياة الزوجية'];
 const identityTitles = ['أهلًا بك. نبدأ باسمك.','متى يوم ميلادك؟','وين تقيم حاليًا؟','هل يناسبك مسار وُدَين؟'];
 const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.','ثلاث لمحات تشبهك.','خطوتك القادمة.'];
 const reviewedStoryTitles = ['راجع عملك ودراستك.','راجع نبذتك.','راجع اللمحات التي تظهر في ملفك.','راجع هدفك من الزواج.'];
 const slideSubtitles = {
   identity: ['الاسم الذي سيظهر في ملفك.', 'نستخدمه لحساب العمر فقط؛ يبقى التاريخ خاصًا.', 'نقرّب لك الخيارات من المكان الذي تعيش فيه.', 'نتأكد من الأهلية قبل بدء جلسة التوافق.'],
   story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'جملة صادقة تكفي لبداية جميلة.', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'اختيارك يوضح أن التعارف هنا بقصد الزواج.'],
-  details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'تفاصيل عملية تجعل التوافق أدق.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.'],
+  details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'تفاصيل عملية تجعل التوافق أدق.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.', 'توقعات واضحة للسكن والمصاريف وبداية حياتكما.'],
 } as const;
 const slideLabels = { identity: 'الأساسيات', story: 'حياتك', details: 'تفاصيلك' } as const;
-export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:8; }
+export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:9; }
 
 /** Validates only the visible cluster. Missing later answers never move this slide. */
 export function signupSlideError(chapter: Chapter, index: number, p: Answers, required: boolean, sensitive: boolean, publication = false): string | null {

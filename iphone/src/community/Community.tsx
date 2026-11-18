@@ -539,7 +539,7 @@ function MembershipRowSpark() {
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const preference=premium?compatibilityPercentage(person):null;
-  const sampleOnly=person.isDemo&&!source.simulation;
+  const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" data-membership={person.membershipTier} aria-label={`ملف ${person.alias}`}>
@@ -613,7 +613,6 @@ function Discovery({
   onConversation,
   onAccount,
   profileSaved = false,
-  onBeena, beenaAnswered = 0,
 }: {
   source: CommunitySource;
   onAccount: () => void;
@@ -822,7 +821,7 @@ function Discovery({
     if (!origin) return;
     listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.matches(":first-child") };
     move(origin, () => {
-      flushSync(() => { setNotice(""); setError(""); setSelected(item.id); setSelectedPerson(item); });
+      flushSync(() => { setNotice(""); setError(""); setRowError(''); setInterestNotice(''); setSelected(item.id); setSelectedPerson(item); });
       const hero = identity.current;
       if (!hero) return null;
       window.scrollTo(0, 0);
@@ -847,7 +846,7 @@ function Discovery({
   }
   async function sendRequest(target=person) {
     if (!target || actionPending.current) return;
-    if(!premium){upgrade();return;}
+    if(!premium&&!(target.isDemo&&source.demoInteractions)){upgrade();return;}
     const id = target.id;
     actionPending.current = true;
     setBusy(true);
@@ -875,6 +874,7 @@ function Discovery({
         if(!source.setInterest)throw Error('الاهتمام غير متاح الآن.');
         await source.setInterest(item.id,!item.interested);
         setList(rows=>rows.map(row=>row.id===item.id?{...row,interested:!item.interested}:row));
+        setSelectedPerson(current=>current?.id===item.id?{...current,interested:!item.interested}:current);
         setInterestNotice(item.interested?'أُلغي اهتمامك.':'أُرسل إشعار باهتمامك.');
       } else {
         if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
@@ -887,10 +887,11 @@ function Discovery({
   if (person)
     return (
       <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
+        interestAction={source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
         featured={listPosition.current?.featured}
-        primary={person.isDemo&&!source.simulation?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
+        primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium || (person.isDemo && source.demoInteractions) ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
@@ -951,7 +952,7 @@ function Discovery({
       </MotionReveal>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
-      <NextStep source={source} assessment={{completed:beenaAnswered,total:6,label:'بيننا'}} onAssessment={onBeena}
+      <NextStep source={source}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
@@ -1879,8 +1880,9 @@ function Requests({
     setActionError("");
     try {
       if (action === "demoAccept") {
-        if (!source.demoAcceptOutgoing) return;
-        await source.demoAcceptOutgoing(request.id);
+        const demoSource=request.person.isDemo?source.demoInteractions??source:source;
+        if (!demoSource.demoAcceptOutgoing) return;
+        await demoSource.demoAcceptOutgoing(request.id);
       } else await source.act(request.id, action, reason || undefined, allowRematch);
       if (intent !== navigation.current) return;
       feedback('success');
@@ -1922,7 +1924,7 @@ function Requests({
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
         initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
-        source={source}
+        source={item.person.isDemo?source.demoInteractions??source:source}
         onCompletion={onCompletion}
         onReported={()=>setReportSent(true)}
         connection={item}
@@ -1933,7 +1935,7 @@ function Requests({
     );
   if (item)
     return (
-      <Profile source={source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التوافقات':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
+      <Profile source={item.person.isDemo?source.demoInteractions??source:source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التوافقات':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
         {actionError && <Banner alert text={actionError} />}
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
@@ -1964,7 +1966,7 @@ function Requests({
         ) : (
           <>
             <p className="cm-help">طلبك بانتظار ردّ الطرف الآخر.</p>
-            {source.demoAcceptOutgoing && item.id!=='tester-pair' && <button className="btn-secondary cm-demo-peer" data-chat-entry="" disabled={busy}
+            {(source.demoAcceptOutgoing || (item.person.isDemo && source.demoInteractions?.demoAcceptOutgoing)) && item.id!=='tester-pair' && <button className="btn-secondary cm-demo-peer" data-chat-entry="" disabled={busy}
               onClick={() => void act("demoAccept")}><MessageCircle size={15} /> محاكاة قبول الطرف الآخر</button>}
             <button
               className="btn-secondary"

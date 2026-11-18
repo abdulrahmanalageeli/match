@@ -20,7 +20,6 @@ import { HelpCenter } from '../help/HelpCenter';
 import { MemberProfile } from '../profile/MemberProfile';
 import { publicProfile } from '../profile/publicProfile';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
-import { beenaProgress } from '../beena/model';
 import { ReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { FamilyBridgePanel } from '../family/FamilyBridge';
 import { VerificationCenter } from '../verification/VerificationCenter';
@@ -162,7 +161,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           <div className="st-group st-marriage-group">
             {hasPreviousVerification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="طلبات التوثيق السابقة" detail="متابعة طلباتك السابقة أو سحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
             {onInterview&&<div className="st-interview-entry"><SettingRow icon={<HeartHandshake/>} title="جلسة التوافق" detail="حوار خاص لفهم ما يناسبك" action={onInterview} disabled={busy}/></div>}
-            {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · مواقف الحياة" detail={`${new Intl.NumberFormat('ar-SA').format(beenaProgress(member?.beena).answered)} من ٦ مواقف · كيف نعيش الحياة معًا؟`} action={onBeena} disabled={busy}/></div>}
+            {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · سؤال وجواب" detail={member?.beena?.story?.text.trim() ? member.beena.story.share ? "إجابتك ظاهرة في ملفك" : "إجابتك خاصة · المشاركة باختيارك" : "اختياري · أضف إجابة تعبّر عنك"} action={onBeena} disabled={busy}/></div>}
             {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div>}
             {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="اربط أفراد أسرتك، وخطّطوا للخطوة الرسمية بخصوصية" action={()=>openPanel('family')} disabled={busy}/></div>}
             {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدم معًا، الخطوبة أو الزواج · خطوات خاصة لحسابك" action={()=>setShowCompletion(true)} disabled={busy}/></div>}

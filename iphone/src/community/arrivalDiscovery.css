@@ -18,9 +18,9 @@
 .phone-app .cm-shell .df-header { min-height: 50px; padding-block: max(8px, var(--nf-safe-top)) 12px; border-bottom: 1px solid var(--arrival-rule); }
 .phone-app .cm-shell .df-header-note { color: #716b70; font-size: 13px; gap: 8px; }
 .phone-app .cm-shell .df-header-note > span { background: #788274; box-shadow: none; }
-.phone-app .cm-shell .cm-title.df-title { display: flex; align-items: center; gap: 16px; margin: 18px 0; }
+.phone-app .cm-shell .cm-title.df-title { display: flex; align-items: center; gap: 16px; margin: 8px 0; }
 .phone-app .cm-shell .df-eyebrow { display: none; }
-.phone-app .cm-shell .cm-title.df-title h1 { margin: 0 0 6px; color: #242326; font-size: 26px; line-height: 1.5; font-weight: 600; letter-spacing: 0; }
+.phone-app .cm-shell .cm-title.df-title h1 { margin: 0; color: #242326; font-size: 20px; line-height: 1.4; font-weight: 600; letter-spacing: 0; }
 .phone-app .cm-shell .df-title p { display: block; color: #716b70; font-size: 14px; line-height: 1.8; margin: 0; }
 .phone-app .cm-shell .df-title .cm-filter-button { flex-shrink: 0; min-height: 44px; padding: 10px 13px; border: 1px solid #d4cfcd; border-radius: 10px; background: #fff; color: #54152a; box-shadow: none; font-size: 14px; font-weight: 500; }
 .phone-app .cm-shell .df-title .cm-filter-button.selected { background: #f0e8eb; border-color: #54152a; }
@@ -235,7 +235,6 @@
 }
 @media (max-width: 380px) {
   .phone-app .cm-shell .df-title { gap: 10px; }
-  .phone-app .cm-shell .cm-title.df-title h1 { font-size: 24px; }
   .phone-app .cm-shell .df-title .cm-filter-button { padding-inline: 10px; }
   .phone-app .cm-shell .dr-directory .dr-tools { gap: 6px; }
   .phone-app .cm-shell .dr-search { padding-inline: 9px; }

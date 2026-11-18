@@ -180,8 +180,8 @@ test('new applicants clear marriage eligibility before the Luna step', () => {
 
 test('details slideshow contains only unresolved applicable groups', () => {
  const p={...answers(),marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}};
- assert.deepEqual(unresolvedDetailSlides(p,false),[1,2,3,4,6]);
- p.marriageBasics={...p.marriageBasics,heightCm:165,weightKg:60,dressStyle:'hijab',dressFlexibility:'keep',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',marriageTimeline:'when_ready',meetingPreference:'discuss_together',childrenCount:0,smoking:'never'};
+ assert.deepEqual(unresolvedDetailSlides(p,false),[1,2,3,4,6,8]);
+ p.marriageBasics={...p.marriageBasics,originCity:'الطائف',weddingStyle:'simple',childrenTiming:'discuss',housingPlan:'independent',expenseSharing:'equal',heightCm:165,weightKg:60,dressStyle:'hijab',dressFlexibility:'keep',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',marriageTimeline:'when_ready',meetingPreference:'discuss_together',childrenCount:0,smoking:'never'};
  assert.deepEqual(unresolvedDetailSlides(p,false),[]);
  assert.deepEqual(unresolvedDetailSlides(p,true),[1,3,7]);
  p.marriageBasics={...p.marriageBasics,skinTone:'tone_4',tribalBackground:'prefer_not_to_say',religiousAffiliation:'prefer_not_to_say',prayerPractice:'prefer_not_to_say'};

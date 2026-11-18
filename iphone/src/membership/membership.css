@@ -5,6 +5,7 @@
 .phone-app .st-member-avatar>.wd-member-badge>.wd-membership-mark,.phone-app .nf-person-avatar>.wd-member-badge>.wd-membership-mark{width:100%!important;height:100%!important;border-radius:0}
 .wd-portrait-membership{position:absolute;top:6px;right:6px;z-index:4;line-height:1;pointer-events:none}
 .wd-portrait-membership>.wd-member-badge{margin:0;width:26px;height:26px}
+.df-card-portrait .wd-portrait-membership>.wd-member-badge{width:34px;height:34px}
 .wd-membership-mark{display:block;flex:none;width:100%;height:100%;overflow:visible;--mark-base:#641d39;--mark-rim:#ddbba0;--mark-symbol:#fff0dc;--mark-light:#ae5a76;--mark-deep:#401127}
 [data-tier=seriousness] .wd-membership-mark{--mark-base:#174e50;--mark-rim:#92c7bc;--mark-symbol:#eff9f4;--mark-light:#46958c;--mark-deep:#103c41}
 .wd-mark-body{fill:var(--mark-base);stroke:var(--mark-rim);stroke-width:.8}
@@ -16,7 +17,7 @@
 .phone-app .mp-portrait{position:relative;overflow:visible}
 .phone-app .mp-portrait>img,.phone-app .mp-portrait>svg,.phone-app .mp-portrait>.nf-avatar-art{border-radius:inherit}
 .phone-app .mp-portrait>.wd-portrait-membership{top:-6px;right:-6px}
-.df-card-portrait:has(.wd-member-badge) .df-portrait-badges{padding-right:36px}
+.df-card-portrait:has(.wd-member-badge) .df-portrait-badges{padding-right:44px}
 .wd-mark-rim{stroke:var(--mark-rim);stroke-width:.65;opacity:.65}
 .wd-mark-symbol{stroke:var(--mark-symbol);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .wd-mark-detail{stroke:var(--mark-rim);stroke-width:1;stroke-linecap:round}

@@ -149,6 +149,7 @@ export interface CommunitySource extends ManualVerificationSource {
   deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
+  demoInteractions?: CommunitySource;
   family?: FamilyRequest;
   familyTestMode?: boolean;
   familyEligibleConnection?(connectionId: string): boolean;

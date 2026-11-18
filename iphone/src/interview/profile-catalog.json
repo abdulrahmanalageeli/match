@@ -2047,9 +2047,18 @@
         "value": "never",
         "label": "لا أستخدم أيًا منها"
       },
-      { "value": "cigarettes", "label": "سجائر" },
-      { "value": "vape", "label": "فيب" },
-      { "value": "shisha", "label": "شيشة" },
+      {
+        "value": "cigarettes",
+        "label": "سجائر"
+      },
+      {
+        "value": "vape",
+        "label": "فيب"
+      },
+      {
+        "value": "shisha",
+        "label": "شيشة"
+      },
       {
         "value": "sometimes",
         "label": "أدخّن أحيانًا"
@@ -3504,5 +3513,123 @@
     "maxItems": 8,
     "allowExclude": true,
     "sensitive": true
+  },
+  {
+    "fieldId": "marriageBasics.originCity",
+    "path": [
+      "marriageBasics",
+      "originCity"
+    ],
+    "label": "مدينة الأصل",
+    "kind": "text",
+    "maxLength": 80
+  },
+  {
+    "fieldId": "marriageBasics.weddingStyle",
+    "path": [
+      "marriageBasics",
+      "weddingStyle"
+    ],
+    "label": "حفل الزواج والميزانية",
+    "kind": "enum",
+    "options": [
+      {
+        "value": "simple",
+        "label": "حفل بسيط للأهل والمقرّبين وتكاليف محدودة"
+      },
+      {
+        "value": "moderate",
+        "label": "حفل متوسط بميزانية متفق عليها"
+      },
+      {
+        "value": "larger",
+        "label": "حفل أكبر مع تخصيص ميزانية مناسبة له"
+      },
+      {
+        "value": "discuss",
+        "label": "نتفق على حجم الحفل والميزانية حسب ظروفنا"
+      }
+    ]
+  },
+  {
+    "fieldId": "marriageBasics.childrenTiming",
+    "path": [
+      "marriageBasics",
+      "childrenTiming"
+    ],
+    "label": "توقيت الإنجاب",
+    "kind": "enum",
+    "options": [
+      {
+        "value": "first_year",
+        "label": "خلال السنة الأولى من الزواج"
+      },
+      {
+        "value": "after_one_two_years",
+        "label": "بعد سنة إلى سنتين"
+      },
+      {
+        "value": "after_two_years",
+        "label": "بعد أكثر من سنتين"
+      },
+      {
+        "value": "discuss",
+        "label": "نتفق على التوقيت عندما نكون مستعدّين"
+      }
+    ]
+  },
+  {
+    "fieldId": "marriageBasics.housingPlan",
+    "path": [
+      "marriageBasics",
+      "housingPlan"
+    ],
+    "label": "ترتيب السكن",
+    "kind": "enum",
+    "options": [
+      {
+        "value": "independent",
+        "label": "منزل مستقل عن الأهل"
+      },
+      {
+        "value": "separate_family_building",
+        "label": "وحدة مستقلة في مبنى العائلة"
+      },
+      {
+        "value": "with_family",
+        "label": "السكن مع الأهل في المنزل نفسه"
+      },
+      {
+        "value": "discuss",
+        "label": "منفتح على الاتفاق حسب الظروف"
+      }
+    ]
+  },
+  {
+    "fieldId": "marriageBasics.expenseSharing",
+    "path": [
+      "marriageBasics",
+      "expenseSharing"
+    ],
+    "label": "توزيع مصاريف البيت",
+    "kind": "enum",
+    "options": [
+      {
+        "value": "husband_essentials",
+        "label": "الزوج يتحمّل الأساسيات، ومساهمة الزوجة اختيارية"
+      },
+      {
+        "value": "proportional",
+        "label": "نتشارك بحسب دخل كل طرف"
+      },
+      {
+        "value": "equal",
+        "label": "نتشارك بالتساوي — ٥٠/٥٠"
+      },
+      {
+        "value": "discuss",
+        "label": "نتفق على التفاصيل حسب ظروفنا"
+      }
+    ]
   }
 ]

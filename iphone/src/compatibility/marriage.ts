@@ -1,8 +1,10 @@
 import { skinTones, dressStyles, dressFlexibilities, type SkinTone, type DressStyle, type DressFlexibility } from "./appearance.ts";
 import { educationOptions, professionOptions } from '../profile/profileOptions.ts';
+import { marriagePlanKeys, marriagePlanLabel, type MarriagePlans } from './marriagePlans.ts';
 
 export type CriteriaMode = "any" | "prefer" | "require";
-export type MarriageBasics = {
+export type MarriageBasics = MarriagePlans & {
+  originCity?: string;
   heightCm?: number;
   weightKg?: number;
   tribalBackground?: "tribal" | "non_tribal" | "prefer_not_to_say";
@@ -65,7 +67,11 @@ const oneOf = (value: unknown, values: string[]) => typeof value === "string" &&
 export function validMarriageBasics(value: unknown, allowIncomplete = false): value is MarriageBasics {
   if (!object(value)) return false;
   const allowed = ["spokenLanguages", "preferredLanguage", "languageOpenness", "heightCm", "weightKg", "tribalBackground", "tribeName", "nationality", "maritalStatus", "currentWives", "polygynyPreference", "religiousAffiliation", "prayerPractice", "marriageTimeline", "meetingPreference", "childrenCount", "smoking", "skinTone", "dressStyle", "dressFlexibility"];
-  if (Object.keys(value).some(key => !allowed.includes(key))) return false;
+  if (Object.keys(value).some(key => !allowed.includes(key) && key !== 'originCity' && !marriagePlanKeys.includes(key as keyof MarriagePlans))) return false;
+  if (value.originCity !== undefined && (typeof value.originCity !== 'string' || !value.originCity.trim() || value.originCity.length > 80 || /https?:\/\/|www\./i.test(value.originCity))) return false;
+  for (const key of marriagePlanKeys) {
+    if (value[key] !== undefined && (typeof value[key] !== 'string' || !marriagePlanLabel(key, value[key] as string))) return false;
+  }
   if (value.spokenLanguages !== undefined && (!Array.isArray(value.spokenLanguages) || value.spokenLanguages.length > languageOptions.length || new Set(value.spokenLanguages).size !== value.spokenLanguages.length || !value.spokenLanguages.every(v => oneOf(v, languageOptions)))) return false;
   if (value.preferredLanguage !== undefined && !oneOf(value.preferredLanguage, languageOptions)) return false;
   if (value.languageOpenness !== undefined && !oneOf(value.languageOpenness, Object.keys(languageOpennessLabels))) return false;

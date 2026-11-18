@@ -1,3 +1,4 @@
+import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
 import { SignupBasicsSlides, type SignupSlidesHandle } from './SignupBasicsSlides';
 import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
@@ -30,7 +31,7 @@ import { HelpButton } from '../help/HelpCenter';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { feedback } from '../feedback/haptics';
 import { BeenaFields } from '../beena/BeenaFields';
-import { beenaProgress, beenaScenarios } from '../beena/model';
+import { beenaScenarios } from '../beena/model';
 import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
 import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
@@ -129,6 +130,8 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
         {p.marriageBasics?.spokenLanguages?.length ? <p>اللغات: {p.marriageBasics.spokenLanguages.join(' · ')}</p> : null}
         {p.marriageBasics?.preferredLanguage && <p>لغة التواصل المفضلة: {p.marriageBasics.preferredLanguage}</p>}
         {p.marriageBasics?.nationality && <p>الجنسية: {p.marriageBasics.nationality}</p>}
+        {p.marriageBasics?.originCity && <p>مدينة الأصل: {p.marriageBasics.originCity}</p>}
+        {marriagePlanKeys.map(key=>{const label=marriagePlanLabel(key,p.marriageBasics?.[key]);return label?<p key={key}>{marriagePlanQuestions[key].label}: {label}</p>:null;})}
         {p.marriageBasics?.tribalBackground && p.marriageBasics.tribalBackground !== 'prefer_not_to_say' && <p>الخلفية القبلية: {tribalLabels[p.marriageBasics.tribalBackground]}{p.marriageBasics.tribeName ? " — " + p.marriageBasics.tribeName : ""}</p>}
         {p.marriageBasics?.maritalStatus && <p>الحالة الاجتماعية: {maritalLabels[p.marriageBasics.maritalStatus]}</p>}
         {p.marriageBasics?.maritalStatus === 'married' && p.marriageBasics.currentWives !== undefined && <p>عدد الزوجات حاليًا: {arabicNumber(p.marriageBasics.currentWives)}</p>}
@@ -182,10 +185,10 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
         <p>أجبت عن {arabicNumber(personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length)} من {arabicNumber(personalityQuestions.length)} سؤالًا.</p>
         <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{personalityQuestions.flatMap(q => { const answer = q.options.find(o => o.code === p.personalityAnswers?.[q.id]); return answer ? [<div key={q.id}><dt>{q.prompt}</dt><dd>{answer.label}</dd></div>] : []; })}</dl></details>
       </ReviewGroup>}
-      {withCompatibility && !registration && <ReviewGroup title="بيننا · مواقف الحياة" edit={() => edit('beena')} {...groupProps('beena')}>
-        <p>أكملت {arabicNumber(beenaProgress(p.beena).answered)} من ٦ مواقف. إجاباتك فردية وخاصة.</p>
-        {!!p.beena?.story?.text.trim() && <><strong>قصتي · {p.beena.story.share ? 'تظهر للأعضاء المؤهلين' : 'خاصة بي'}</strong><p dir="auto">{p.beena.story.text}</p></>}
-        <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{beenaScenarios.map(s=>{const a=p.beena?.answers[s.id];return a&&(a.self||a.partner?.length)?<div key={s.id}><dt>{s.title}</dt><dd>أسلوبي: {s.options.find(o=>o.code===a.self)?.label??'لم أحدد بعد'}<br/>أرحّب بـ: {s.options.filter(o=>a.partner?.includes(o.code)).map(o=>o.label).join('، ')||'لم أحدد بعد'}{a.importance===2&&' · مهم جدًا لي'}</dd></div>:null;})}</dl></details>
+      {withCompatibility && !registration && <ReviewGroup title="بيننا · اختياري" edit={() => edit('beena')} {...groupProps('beena')}>
+        <p>السؤال والإجابة اختياريان. لا تظهر إجابتك إلا إذا اخترت مشاركتها.</p>
+        {!!p.beena?.story?.text.trim() && <><strong>إجابتي · {p.beena.story.share ? 'تظهر للأعضاء المؤهلين' : 'خاصة بي'}</strong><p>{beenaScenarios.find(s=>s.id===p.beena?.story?.scenarioId)?.prompt}</p><p dir="auto">{p.beena.story.text}</p></>}
+        <details className="nf-review-styles"><summary>المواقف الخاصة · اختياري</summary><dl>{beenaScenarios.map(s=>{const a=p.beena?.answers[s.id];return a&&(a.self||a.partner?.length)?<div key={s.id}><dt>{s.title}</dt><dd>أسلوبي: {s.options.find(o=>o.code===a.self)?.label??'لم أحدد بعد'}<br/>أرحّب بـ: {s.options.filter(o=>a.partner?.includes(o.code)).map(o=>o.label).join('، ')||'لم أحدد بعد'}{a.importance===2&&' · مهم جدًا لي'}</dd></div>:null;})}</dl></details>
       </ReviewGroup>}
       <ReviewGroup title="تفضيلات التعارف" edit={() => edit("preferences")} {...groupProps('preferences')}>
         <p>العمر من {arabicNumber(Number(p.preferredMinAge))} إلى {arabicNumber(Number(p.preferredMaxAge))} عامًا</p>

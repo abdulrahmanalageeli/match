@@ -163,3 +163,15 @@ test('confirmation leaves analyzed context proposals and attestation fingerprint
  const out=await service({action:'confirm',revision:2,choices:context.map((item,i)=>({...item,values:i===0?['B']:item.values}))},{authorization:'Bearer '+token});
  assert.equal(attested,true);assert.equal(out.document.confirmed.length,44);assert.equal(out.document.status,'confirmed');
 });
+
+
+test('explicit optional marriage plans remain reviewed profile facts, not extra assessment answers',()=>{
+ const spoken={...turn,answer:'أنا من الطائف وأقيم في الرياض وأفضّل نتشارك بالتساوي.'};
+ const facts=[['originCity','الطائف','من الطائف'],['expenseSharing','equal','نتشارك بالتساوي']].map(([field,value,quote])=>({...proposal,id:`profile:marriageBasics.${field}`,fieldId:`marriageBasics.${field}`,values:[value],mode:null,exclude:false,evidence:[{turnId:spoken.id,quote}]}));
+ const doc={...initialInterviewDocument(true),turns:[spoken]};
+ const out=applyInterviewCompletion(doc,completion({profileProposals:facts}));
+ assert.equal(out.profileProposals.length,2);
+ assert.equal(out.profileConfirmed.length,0);
+ assert.equal(interviewCoverage(out).answered,0);
+ assert.equal(validProfileValues({...facts[1],values:['50/50']}),false);
+});

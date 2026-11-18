@@ -56,11 +56,28 @@ existing product assertions and isolate browser styles, native calls and auth si
 effects from Node-only tests. Evidence: `tmp/account-flow-full-unit-final.log`.
 The local browser signup check also passed (including height/weight, consent,
 partner criteria and family timing); external requests were blocked. Admin tests
-passed **58/58**. Database tests use disposable PGlite instances, never live users.
+passed **58/58**. All **176/176 database tests** passed using disposable PGlite
+instances, never live users. Evidence: `tmp/account-flow-database-final.log`.
 Current signup-gate rejection tests remain in place; tests of established accounts
 seed established profiles instead of depending on obsolete minimal signup payloads.
-The native build passed all **21 core tests** and simulator compilation. Its UI
-result is tracked in [the macOS run](https://github.com/abdulrahmanalageeli/match/actions/runs/43703446144).
+The native build passed all **21 core tests** and simulator compilation. The final
+The user requested stopping further checks. Cancellation was requested for the
+final [macOS run](https://github.com/abdulrahmanalageeli/match/actions/runs/43708398783)
+and [Linux run](https://github.com/abdulrahmanalageeli/match/actions/runs/43708398760).
+The final signup UI rerun was not confirmed. The preceding run passed the chat
+failure/retry/revocation scenario and navigation smoke test, but signup automation
+was interrupted by the system password suggestion. Its latest fixture correction
+is pushed; no complete UI pass is claimed.
+
+The signup UI fixture disables the system strong-password suggestion only under
+the DEBUG UI-test flag, because the simulator overlay intercepted test keystrokes.
+Real signup retains password AutoFill. Linux exposed a repeatable PGlite teardown
+error in the pair-deletion test. A test hook confirmed the assertions completed
+before shutdown failed. The test-only runtime was upgraded from PGlite 0.3.14 to
+0.4.6, retaining PostgreSQL 17. Its [upstream lifecycle change](https://github.com/electric-sql/pglite/commit/d848955)
+removes the old filesystem shutdown path. No privacy assertions were removed.
+All 176 database tests also passed with only tracked migrations, UTC, and CI's
+Node 22.23.4; the unrelated untracked portrait migration is excluded from that run.
 
 Physical-device microphone, Bluetooth, incoming/background calls, APNs delivery,
 one-time screenshot protection and StoreKit remain unverified. Successful real

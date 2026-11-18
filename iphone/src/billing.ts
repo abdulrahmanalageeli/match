@@ -2,10 +2,10 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor
 
 type SignedTransaction = { jws: string };
 type MembershipGender = 'man' | 'woman';
-export type MembershipOffer = { price: string; productId: string };
+export type MembershipOffer = { price: string; period: string; productId: string; introduction?: string };
 interface AppleMembershipPlugin {
   offer(options: { gender: MembershipGender }): Promise<MembershipOffer>;
-  purchase(options: { accountToken: string; gender: MembershipGender; productId: string }): Promise<SignedTransaction>;
+  purchase(options: MembershipOffer & { accountToken: string; gender: MembershipGender }): Promise<SignedTransaction>;
   restore(): Promise<SignedTransaction>;
   current(): Promise<{ jws: string | null }>;
   complete(options: SignedTransaction): Promise<void>;
@@ -25,9 +25,9 @@ export function getMembershipOffer(gender: MembershipGender): Promise<Membership
   return membership.offer({ gender });
 }
 
-export async function purchaseMembership(accountToken: string, gender: MembershipGender, productId: string): Promise<string> {
+export async function purchaseMembership(accountToken: string, gender: MembershipGender, offer: MembershipOffer): Promise<string> {
   requireIOS();
-  return (await membership.purchase({ accountToken, gender, productId })).jws;
+  return (await membership.purchase({ ...offer, accountToken, gender })).jws;
 }
 
 export async function restoreMembership(): Promise<string> {

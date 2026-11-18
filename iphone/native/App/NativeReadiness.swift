@@ -42,7 +42,7 @@ struct NativeReadiness: View {
             }
             Section("المشاركات الحالية") {
                 ForEach(Array(passport["grants"].array.enumerated()), id: \.offset) { _, grant in
-                    VStack(alignment: .leading) { Text("حتى \(grant["expiresAt"].string.prefix(10))"); NativeAction(title: "إلغاء هذه المشاركة") { passport = try await request("revoke", .object(["connectionId": grant["connectionId"]])) } }
+                    VStack(alignment: .leading) { Text("حتى \(NativeDates.display(grant["expiresAt"].string))"); NativeAction(title: "إلغاء هذه المشاركة") { passport = try await request("revoke", .object(["connectionId": grant["connectionId"]])) } }
                 }
             }
             if !passport["consentedAt"].isNull { Button("حذف الجواز وسحب الموافقة", role: .destructive) { withdraw = true } }
@@ -79,21 +79,60 @@ struct NativeJourney: View {
     var body: some View {
         Form {
             Section("خطواتكما") {
-                Text("المرحلة الحالية: \(Int(progress["stage"].number))")
-                Text("كل خطوة تحتاج موافقة الطرفين. يمكنك التراجع عن موافقتك قبل اكتمال الخطوة.").foregroundStyle(.secondary)
-                Toggle("أوافق على حصرية التعارف عند الحاجة", isOn: $exclusive)
-                NativeAction(title: progress["mine"].bool ? "سحب موافقتي على الخطوة التالية" : "أوافق على الخطوة التالية") {
-                    _ = try await store.client.rpc("marriage_next_step", ["request_id": .string(connectionID), "stage_number": .number(progress["exclusive"].bool ? progress["stage"].number + 1 : 1), "agree": .bool(!(progress["exclusive"].bool ? progress["mine"].bool : progress["consentMine"].bool)), "exclusive_consent": .bool(exclusive)])
-                    try await load()
+                if !progress.isNull {
+                    let stage = Int(progress["stage"].number)
+                    let isExclusive = progress["exclusive"].bool
+                    let mine = progress[isExclusive ? "mine" : "consentMine"].bool
+                    let peer = progress[isExclusive ? "peer" : "consentPeer"].bool
+                    let stages = NativeCatalog.memberCopy["stages"].array
+                    if stages.indices.contains(stage) { LabeledContent("المرحلة الحالية", value: stages[stage].string) }
+                    Text("كل خطوة تحتاج موافقة الطرفين. يمكنك التراجع عن موافقتك قبل اكتمال الخطوة.").foregroundStyle(.secondary)
+                    if !isExclusive {
+                        Text(NativeCatalog.copy("exclusiveEffect")).font(.footnote)
+                        if !mine { Toggle(NativeCatalog.copy("exclusiveConsent"), isOn: $exclusive) }
+                        NativeAction(title: NativeCatalog.copy(mine ? "withdrawExclusive" : peer ? "acceptExclusive" : "proposeExclusive")) {
+                            try await nextStep(1, agree: !mine, consent: exclusive)
+                            exclusive = false
+                        }.disabled(!mine && !exclusive)
+                    } else if stages.indices.contains(stage + 1) {
+                        let labels = NativeCatalog.memberCopy[mine ? "withdrawStage" : peer ? "acceptStage" : "proposeStage"].array
+                        NativeAction(title: labels[stage + 1].string) { try await nextStep(stage + 1, agree: !mine, consent: false) }
+                    }
+                } else { ProgressView() }
+                if progress["stage"].number > 0 {
+                    if progress["rewindMine"].bool {
+                        NativeAction(title: NativeCatalog.copy("withdrawRewind")) { try await rewindStep(false) }
+                    } else {
+                        Button(NativeCatalog.copy("rewind")) { rewind = true }
+                    }
                 }
-                Button("طلب العودة للخطوة السابقة") { rewind = true }.disabled(progress["stage"].number <= 0)
             }
             NavigationLink("جواز الجاهزية والمشاركة", destination: NativeReadiness(connectionID: connectionID))
             NavigationLink("جسر الأهل", destination: NativeFamily(connectionID: connectionID))
         }.navigationTitle("خطوات التعارف").task { await store.perform { try await load() } }
             .confirmationDialog("طلب العودة للخطوة السابقة؟", isPresented: $rewind, titleVisibility: .visible) {
-                NativeAction(title: "تأكيد الطلب") { _ = try await store.client.rpc("marriage_rewind_step", ["request_id": .string(connectionID), "expected_stage": progress["stage"], "agree": .bool(true)]); try await load() }
+                if let previousStage {
+                    let peer = progress["rewindPeer"].bool
+                    NativeAction(title: NativeCatalog.memberCopy[peer ? "acceptRewind" : "proposeRewind"].array[previousStage].string) {
+                        try await rewindStep(true)
+                    }
+                    if peer { NativeAction(title: NativeCatalog.copy("keepStage")) { try await rewindStep(false) } }
+                }
+            } message: {
+                if let previousStage { Text(NativeCatalog.memberCopy["rewindEffect"].array[previousStage].string) }
             }
+    }
+    private var previousStage: Int? {
+        let index = Int(progress["stage"].number) - 1
+        return NativeCatalog.memberCopy["rewindEffect"].array.indices.contains(index) ? index : nil
+    }
+    private func rewindStep(_ agree: Bool) async throws {
+        _ = try await store.client.rpc("marriage_rewind_step", ["request_id": .string(connectionID), "expected_stage": progress["stage"], "agree": .bool(agree)])
+        try await load()
+    }
+    private func nextStep(_ stage: Int, agree: Bool, consent: Bool) async throws {
+        _ = try await store.client.rpc("marriage_next_step", ["request_id": .string(connectionID), "stage_number": .number(Double(stage)), "agree": .bool(agree), "exclusive_consent": .bool(consent)])
+        try await load()
     }
     private func load() async throws { progress = try await store.client.rpc("marriage_progress", ["request_id": .string(connectionID)]) }
 }

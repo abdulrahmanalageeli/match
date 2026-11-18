@@ -9,9 +9,12 @@ const assert=require('node:assert/strict');
  const gallery=[];
  await page.route('**/functions/v1/pair-test*',async route=>{
   const upload=route.request().url().includes('gallery_upload');const b=upload?{}:route.request().postDataJSON();let value={...state,session:'a'.repeat(64)};
-  if(upload){gallery.push({id:String(gallery.length+1)});value={ok:true};}
-  if(b.action==='gallery_list')value=gallery;
-  if(b.action==='gallery_url')value={url:'http://127.0.0.1:5493/demo/portraits/tester-shemagh.webp'};
+  if(upload){gallery.push({id:String(gallery.length+1),bytes:route.request().postDataBuffer()});value={ok:true};}
+  if(b.action==='gallery_list')value=gallery.map(({id})=>({id}));
+  if(route.request().url().includes('gallery_download')){
+   const photo=gallery.find(item=>item.id===b.payload.id);
+   return route.fulfill(photo?{status:200,contentType:'image/jpeg',body:photo.bytes,headers:{'access-control-allow-origin':'*'}}:{status:404});
+  }
   if(b.action==='gallery_remove'){const i=gallery.findIndex(p=>p.id===b.payload.id);if(i>=0)gallery.splice(i,1);value={ok:true};}
   if(b.action==='notifications')value=[];
   if(b.action==='rewind'){assert.equal(b.payload.stage,1);if(b.payload.agree&&state.rewind?.actor==='abdulrahman'){state.stage=0;state.exclusive=false;delete state.rewind;}else if(b.payload.agree)state.rewind={actor:'reham',stage:1};else delete state.rewind;value={...state};}

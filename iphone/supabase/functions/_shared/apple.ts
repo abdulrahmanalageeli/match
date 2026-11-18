@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 import { createClient } from 'npm:@supabase/supabase-js@2.112.2'
-import { Environment, SignedDataVerifier, VerificationStatus } from 'npm:@apple/app-store-server-library@3.1.0'
+import { AppStoreServerAPIClient, Environment, SignedDataVerifier, VerificationStatus } from 'npm:@apple/app-store-server-library@3.1.0'
+import { timingSafeEqual, createHash } from 'node:crypto'
 
 const bundle = 'com.blindmatch.marriage'
 const product = 'com.blindmatch.marriage.monthly'
@@ -68,14 +69,29 @@ async function verify<T>(work:()=>Promise<T>):Promise<T>{
   }
 }
 
-export async function ingest(jws: unknown, actor: string|null, notification: boolean) {
+type SubscriptionSnapshot = { signedRenewalInfo?: string; status?: number; observedAt: number; original?: string }
+
+export async function ingest(jws: unknown, actor: string|null, notification: boolean, snapshot?: SubscriptionSnapshot) {
   const signed=validateJws(jws)
   const receipt=await verify(()=>apple().verifyAndDecodeTransaction(signed))
   const supported = typeof receipt.productId === 'string' && products.has(receipt.productId)
-  if(notification && (!supported || !receipt.appAccountToken))return null
-  if(receipt.bundleId!==bundle || !supported || !receipt.appAccountToken)
+  if(notification && !supported)return null
+  if(receipt.bundleId!==bundle || !supported || (!notification && !receipt.appAccountToken))
     throw new HttpError(403,'الاشتراك لا يخص هذا التطبيق.')
-  const {data,error}=await admin().rpc('marriage_record_receipt',{actor,receipt,notification})
+  let lifecycle = null
+  if (snapshot?.original && receipt.originalTransactionId !== snapshot.original)
+    throw new HttpError(403,'سجل الاشتراك غير متطابق.')
+  if (snapshot?.signedRenewalInfo && snapshot.status !== undefined) {
+    const renewalJws = validateJws(snapshot.signedRenewalInfo)
+    const renewal = await verify(() => apple().verifyAndDecodeRenewalInfo(renewalJws))
+    if (!receipt.originalTransactionId || renewal.originalTransactionId !== receipt.originalTransactionId ||
+        renewal.environment !== receipt.environment || !Number.isFinite(snapshot.observedAt))
+      throw new HttpError(403,'تعذّر مطابقة بيانات التجديد.')
+    lifecycle = {originalTransactionId: renewal.originalTransactionId, status: snapshot.status,
+      observedAt: snapshot.observedAt, gracePeriodExpiresDate: renewal.gracePeriodExpiresDate,
+      isInBillingRetryPeriod: renewal.isInBillingRetryPeriod, autoRenewStatus: renewal.autoRenewStatus}
+  }
+  const {data,error}=await admin().rpc('marriage_apply_apple_event',{actor,receipt,notification,lifecycle})
   if(error)throw new HttpError(error.code==='42501'?403:error.code==='22023'?400:503,'تعذّر تسجيل اشتراك Apple.')
   return data
 }
@@ -84,8 +100,36 @@ export async function notification(req: Request) {
   const body=await readBody(req)
   const signed=validateJws(body.signedPayload)
   const message=await verify(()=>apple().verifyAndDecodeNotification(signed))
-  if(message.data?.signedTransactionInfo) await ingest(message.data.signedTransactionInfo,null,true)
+  if(message.data?.signedTransactionInfo) await ingest(message.data.signedTransactionInfo,null,true,{
+    signedRenewalInfo: message.data.signedRenewalInfo, status: message.data.status, observedAt: message.signedDate ?? NaN
+  })
   return {ok:true}
+}
+
+export async function reconcile(req: Request) {
+  const hash = (value: string) => createHash('sha256').update(value).digest()
+  if (!timingSafeEqual(hash(req.headers.get('x-reconcile-secret') ?? ''), hash(configured('APPLE_RECONCILE_SECRET'))))
+    throw new HttpError(401,'غير مصرح.')
+  const environment = configured('APPLE_STORE_ENV')
+  if (environment !== Environment.SANDBOX && environment !== Environment.PRODUCTION) throw new HttpError(503,'بيئة غير صالحة.')
+  const client = new AppStoreServerAPIClient(configured('APPLE_IAP_PRIVATE_KEY').replace(/\\n/g,'\n'),
+    configured('APPLE_IAP_KEY_ID'), configured('APPLE_IAP_ISSUER_ID'), bundle, environment)
+  const db = admin()
+  const { data, error } = await db.rpc('marriage_claim_apple_checks', { store_environment: environment })
+  if (error) throw new HttpError(503,'تعذّر تحميل الاشتراكات.')
+  const checks = await Promise.allSettled((data as string[]).map(async original => {
+    const observedAt = Date.now()
+    const result = await client.getAllSubscriptionStatuses(original)
+    const item = result.data?.flatMap(group => group.lastTransactions ?? []).find(t => t.originalTransactionId === original)
+    if (!item?.signedTransactionInfo || !item.signedRenewalInfo || item.status === undefined)
+      throw new Error('Missing Apple subscription status')
+    const owner = await ingest(item.signedTransactionInfo, null, true, { ...item, original, observedAt })
+    if (!owner) throw new Error('Unbound Apple subscription status')
+    const done = await db.rpc('marriage_finish_apple_check', { original })
+    if (done.error) throw done.error
+  }))
+  if (checks.some(check => check.status === 'rejected')) throw new HttpError(503,'لم تكتمل مزامنة الاشتراكات.')
+  return {checked: checks.length}
 }
 
 export async function readBody(req:Request):Promise<Record<string,unknown>>{

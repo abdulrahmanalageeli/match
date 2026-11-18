@@ -29,7 +29,7 @@ struct NativeGallery: View {
             if mode == "portrait" {
                 Slider(value: $blur, in: 0...100, step: 5) { Text("درجة التمويه") }
                 Text("التمويه: \(Int(blur))٪")
-                Picker("إظهار النسخة الواضحة", selection: $policy) { Text("لا أشاركها").tag("never"); Text("بعد القبول المتبادل").tag("matched"); Text("بعد اتفاق الجدية").tag("serious"); Text("عند التواصل العائلي").tag("family") }
+                Picker("إظهار النسخة الواضحة", selection: $policy) { Text("لا أشاركها").tag("never"); Text("بعد قبول طلب التعارف").tag("matched"); Text("عند مناقشة أساسيات الزواج").tag("serious"); Text("عند الاتفاق على التواصل مع الأهل").tag("family") }
             }
             if faceRequired && mode != "private" {
                 Toggle("أوافق على إرسال صورة الملف ولقطة وجهي إلى Authentica لمطابقة الوجه. اللقطة لا تظهر للأعضاء، وهذه المطابقة ليست توثيقًا للهوية الوطنية.", isOn: $faceConsent)

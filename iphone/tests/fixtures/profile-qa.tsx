@@ -13,7 +13,11 @@ window.fetch=async(input,init)=>{
  const b=JSON.parse(String(init?.body||'{}'));let result:any={...state};
  if(b.action==='notifications')result=[];
  if(b.action==='gallery_list')result=gallery;
- if(b.action==='gallery_url')result={url:'/demo/portraits/tester-shemagh.webp'};
+ if(url.includes('action=gallery_download')){
+   const image=await createImageBitmap(await (await originalFetch('/demo/portraits/tester-shemagh.webp')).blob());
+   const canvas=new OffscreenCanvas(image.width,image.height);canvas.getContext('2d')!.drawImage(image,0,0);image.close();
+   return new Response(await canvas.convertToBlob({type:'image/jpeg'}));
+ }
  if(b.action==='profile_visit')visits++;
  if(b.action==='profile'){saves++;state.profiles[actor]=b.payload.profile;state.profileRevision='v'+(saves+1);result={...state};}
  document.getElementById('qa-result')!.textContent=`اختبار محلي · زيارات الملف: ${visits} · حفظ: ${saves}`;

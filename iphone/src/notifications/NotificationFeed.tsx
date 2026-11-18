@@ -94,7 +94,7 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     finally { openingRef.current = false; setOpening(null); }
   }
   return <section className="cm-notification-feed" aria-label="الإشعارات والتحديثات">
-    {unread > 0 && <div className="nf-feed-summary" role="status"><span>لديك إشعارات جديدة</span><b>{new Intl.NumberFormat('ar').format(unread)} جديد</b></div>}
+    {unread > 0 && <div className="nf-feed-summary" role="status"><span>الإشعارات غير المقروءة</span><b>{new Intl.NumberFormat('ar').format(unread)}</b></div>}
     <div className="nf-feed-filters" role="group" aria-label="تصفية الإشعارات">{filters.map(option => <button key={option.id} aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}{option.id === 'unread' && unread > 0 && <span>{new Intl.NumberFormat('ar').format(unread)}</span>}</button>)}</div>
     {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => { setRetry(n => n + 1); onRetry?.(); }}>إعادة المحاولة</button></div>}
     {(loading || connectionsLoading) && !rows.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}

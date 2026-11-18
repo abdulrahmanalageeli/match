@@ -48,7 +48,8 @@ try{
  await page.getByRole('textbox',{name:'البحث بالاسم أو المهنة'}).fill('لا يوجد');await page.getByRole('button',{name:'مسح البحث والتصفية',exact:true}).click();await first.waitFor();
  await page.emulateMedia({reducedMotion:'reduce'});assert(await first.evaluate(n=>parseFloat(getComputedStyle(n).transitionDuration)<.001));
  assert(await page.locator('.dr-filter-shortcut').evaluate(n=>n.getBoundingClientRect().height>=44));assert(await first.locator('.dr-row-request').evaluate(n=>n.getBoundingClientRect().height>=44));
- const score=await first.locator('.dr-fit-visual').evaluate(n=>({border:getComputedStyle(n).borderTopWidth,flex:getComputedStyle(n.firstElementChild).flexDirection}));assert.deepEqual(score,{border:'1px',flex:'column'});
+ assert.equal(await first.locator('.dr-fit-visual').count(),0);
+ assert(await first.getByRole('button',{name:'قراءة التوافق مع سارة'}).isVisible());
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings');await page.getByRole('heading',{name:'الإعدادات',exact:true}).waitFor();await page.waitForTimeout(250);assert.equal(await page.locator('.st-verification-entry').count(),0);
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
  assert.deepEqual(errors,[]);console.log('PASS: phone/tablet layout, online labels, interest send/undo/failure, unused verification hidden, legacy access retained.');

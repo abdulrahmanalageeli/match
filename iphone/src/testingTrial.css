@@ -1,4 +1,4 @@
-.nf-testing-trial { width:min(100%,440px); margin:0 auto; padding:32px 24px max(32px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:20px; text-align:right; }
+.nf-testing-trial { width:min(100%,440px); margin:0 auto; padding:max(32px,env(safe-area-inset-top,0px)) 24px max(32px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:20px; text-align:right; }
 .nf-testing-trial h1 { font-size:28px; line-height:1.5; margin:0; }
 .nf-testing-trial p { line-height:1.8; color:#625b5e; margin:0; }
 .nf-testing-offer { padding:22px 0; border-block:1px solid #eee9eb; display:flex; flex-direction:column; gap:5px; }

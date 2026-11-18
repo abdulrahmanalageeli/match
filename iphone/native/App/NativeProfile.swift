@@ -2,6 +2,8 @@ import SwiftUI
 import WudaynCore
 
 enum NativeCatalog {
+    static let memberCopy = value["memberCopy"]
+    static func copy(_ key: String) -> String { memberCopy[key].string }
     static let value: JSONValue = {
         guard let url = Bundle.main.url(forResource: "native-catalog", withExtension: "json"), let data = try? Data(contentsOf: url), let value = try? JSONValue.decode(data) else { return .null }
         return value
@@ -67,7 +69,7 @@ struct NativeSignup: View {
                 Toggle("أؤكد أن عمري ١٨ عامًا أو أكثر", isOn: $consent.flag("adult")).accessibilityIdentifier("signup.adult")
                 Toggle("أوافق على شروط الاستخدام", isOn: $consent.flag("terms")).accessibilityIdentifier("signup.terms")
                 Toggle("اطلعت على سياسة الخصوصية وأوافق عليها", isOn: $consent.flag("privacy")).accessibilityIdentifier("signup.privacy")
-                Toggle("أوافق على التحقق بالجوال ومعرّف الجهاز", isOn: $smsConsent).accessibilityIdentifier("signup.smsConsent")
+                Toggle("أوافق على التحقق من رقم جوالي واستخدام معرّف الجهاز عند التسجيل.", isOn: $smsConsent).accessibilityIdentifier("signup.smsConsent")
             }.disabled(store.busy || created)
             if !verified {
                 NativeAction(title: "إرسال رمز التحقق") {
@@ -77,7 +79,7 @@ struct NativeSignup: View {
                     let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": .string(SignupValidation.normalizedEmail(email)), "phone": .string(normalized), "deviceId": .string(deviceID), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
                     guard revision == challengeRevision, smsConsent else { return }
                     guard SignupValidation.validProof(value["proof"].string) else { throw NativeProblem.invalidResponse }
-                    proof = value["proof"].string; code = ""; verified = value["verified"].bool; sentAt = Date()
+                    proof = value["proof"].string; code = ""; verified = false; sentAt = Date()
                 }.disabled(!smsConsent || !SignupValidation.validEmail(email) || !SignupValidation.validPassword(password) || created || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false)).accessibilityIdentifier("signup.sendSMS")
                 if !proof.isEmpty {
                     TextField("رمز التحقق", text: $code).textContentType(.oneTimeCode).keyboardType(.numberPad).focused($focusedField, equals: .code).disabled(store.busy).accessibilityIdentifier("signup.code")
@@ -123,9 +125,11 @@ struct NativeProfileEditor: View {
                 NativeChoice(title: "المدينة", value: $draft.text("city"), options: NativeOption.values(profileOptions["cityOptions"]))
                 NativeChoice(title: "المهنة", value: $draft.text("profession"), options: NativeOption.values(profileOptions["professionOptions"]))
                 NativeChoice(title: "التعليم", value: $draft.text("education"), options: NativeOption.values(profileOptions["educationOptions"]))
+                Text("يرى الطرف الآخر وسيلة التواصل الخاصة في الترشيح الخاص بعد موافقتكما معًا.").font(.footnote)
                 TextField("وسيلة التواصل الخاصة", text: $draft.text("contact")).textContentType(.telephoneNumber)
             }
             Section("حضور يعبّر عنك") {
+                Text("يرى الأعضاء الذين يظهر لهم ملفك هذه النبذة. تجنّب كتابة رقمك أو اسم عائلتك فيها إذا أردت إبقاءهما خاصين.").font(.footnote)
                 TextField("نبذة عني", text: $draft.text("bio"), axis: .vertical).lineLimit(3...6)
                 TextField("ما أبحث عنه", text: $draft.text("lookingFor"), axis: .vertical).lineLimit(2...4)
                 TextField("قيمي", text: $draft.text("valuesStatement"), axis: .vertical).lineLimit(2...4)
@@ -248,7 +252,7 @@ struct NativeAssessment: View {
         ForEach(NativeCatalog.value["catalog"]["dimensions"].array, id: \.["id"].string) { dimension in
             Section(dimension["title"].string) {
                 let personalWork = dimension["id"].string == "wife_work" && profile["gender"].string == "woman"
-                let workChoices = [NativeOption(id: "A", label: "أرغب في العمل ومواصلة طموحي"), NativeOption(id: "B", label: "أفضل عدم العمل بعد الزواج"), NativeOption(id: "C", label: "مرنة حسب ظروفي واتفاقنا")]
+                let workChoices = NativeOption.values(NativeCatalog.memberCopy["womanWork"])
                 NativeChoice(title: personalWork ? "هل ترغبين في العمل بعد الزواج؟" : dimension["selfPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["id"].string), options: personalWork ? workChoices : NativeOption.values(dimension["options"], label: "self"))
                 NativeChoice(title: dimension["partnerPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["partnerId"].string), options: NativeOption.values(dimension["options"], label: "partner"))
                 if dimension["hardAllowed"].bool { Toggle("أساسي عندي · الاختلاف يخفض الدرجة", isOn: $profile.contains("hardRequirements", dimension["id"].string)) }

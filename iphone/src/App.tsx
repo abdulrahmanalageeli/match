@@ -1,9 +1,7 @@
+import memberAr from './member-copy.ts';
 import { finalizeStagedPortrait } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
-import { withTestingDiscovery } from './community/testingDiscovery';
-import {TestingTrial} from './TestingTrial';
-import {membershipPriceLabel} from './membershipPricing';
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
@@ -59,6 +57,7 @@ import {
   completeMembership,
   currentMembership,
   getMembershipOffer,
+  type MembershipOffer,
   isIOSBilling,
   manageMembership,
   onMembershipUpdate,
@@ -218,18 +217,14 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const welcomeIntent = useRef(0);
   const welcomeFocus = useRef(".nf-join");
   const liveDraftOwner = useRef<string | null>(null);
-  const realProfileRef = useRef(live?.profile);
-  realProfileRef.current = live?.profile;
   const source = useMemo(
     () =>
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
-          ? live?.testingTrial?.enabled
-            ? withTestingDiscovery(cloudCommunity(token), () => realProfileRef.current ?? demoProfile)
-            : cloudCommunity(token)
+          ? cloudCommunity(token)
           : null,
-    [demo, token, sampleSession, pair, live?.testingTrial?.enabled],
+    [demo, token, sampleSession, pair],
   );
   const [policy, setPolicy] = useState(false);
   const supportSource = useMemo(() => cloud && token && !demo && !tester ? createSupportSource(cloud, token) : null, [token, demo, tester]);
@@ -240,7 +235,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [membershipOffer, setMembershipOffer] = useState<{ gender: Profile["gender"]; price: string; productId: string } | null>(null);
+  const [membershipOffer, setMembershipOffer] = useState<(MembershipOffer & { gender: Profile["gender"] }) | null>(null);
   const membershipGender = live?.profile?.gender;
   const checkoutOffer = membershipOffer?.gender === membershipGender ? membershipOffer : null;
   const [returnFromMembership, setReturnFromMembership] =
@@ -278,6 +273,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => discardClosedDrafts(source, new Set());
   }, [source, active]);
   const accepted = live?.user.applicationStatus === "approved";
+  const canSyncBilling = accepted || Boolean(live?.user.profileReviewPending);
   const ios = isIOSBilling();
 
   function remember(t: string | null, draftCleared = false) {
@@ -494,7 +490,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     };
   }, [token, demo, source]);
   useEffect(() => {
-    if (!ios || !token || !accepted || demo) return;
+    if (!ios || !token || !canSyncBilling || demo) return;
     let disposed = false;
     const processing = new Set<string>();
     const sync = async (jws: string) => {
@@ -529,9 +525,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       disposed = true;
       void cleanup.then((handle) => handle.remove()).catch(() => {});
     };
-  }, [token, accepted, demo, ios]);
+  }, [token, canSyncBilling, demo, ios]);
   useEffect(() => {
-    if (!ios || !accepted || demo || !membershipGender) return;
+    if (!ios || !canSyncBilling || demo || !membershipGender) return;
     let disposed = false;
     getMembershipOffer(membershipGender)
       .then((offer) => {
@@ -543,7 +539,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => {
       disposed = true;
     };
-  }, [ios, accepted, demo, view, membershipGender]);
+  }, [ios, canSyncBilling, demo, view, membershipGender]);
 
   function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
@@ -642,11 +638,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       if (restore) {
         jws = await restoreMembership();
       } else {
-        if (!checkoutOffer) throw new Error("تعذّر تحميل سعر العضوية من App Store. حدّث حالة العضوية وأعد المحاولة.");
+        if (!checkoutOffer?.period) throw new Error("تعذّر تحميل عرض العضوية من App Store. حدّث حالة العضوية وأعد المحاولة.");
         const latest = token ? await refresh(token) : null;
         if (!latest?.membership.canStart) throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
         if (latest.profile?.gender !== checkoutOffer.gender) throw new Error("تغيّر الملف. حدّث حالة العضوية وأعد المحاولة.");
-        jws = await purchaseMembership(latest.user.appAccountToken, checkoutOffer.gender, checkoutOffer.productId);
+        jws = await purchaseMembership(latest.user.appAccountToken, checkoutOffer.gender, checkoutOffer);
       }
       await update("/membership", "POST", { signedTransaction: jws });
       await completeMembership(jws);
@@ -773,7 +769,18 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       back={back}
       active={active}
       demo={demo}
-      price={demo ? membershipPriceLabel(sampleProfile.gender) : checkoutOffer?.price ?? null}
+      price={demo ? null : checkoutOffer?.price ?? null}
+      period={demo ? undefined : checkoutOffer?.period}
+      introduction={demo ? undefined : checkoutOffer?.introduction}
+      status={demo ? undefined : live?.membership.status}
+      trialEligible={!demo && Boolean(live?.testingTrial?.eligible)}
+      startTrial={()=>void run(async()=>{
+        const owner=tokenRef.current;
+        if (!owner) return;
+        await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
+        await refresh(owner);
+        if(tokenRef.current===owner) go('discover');
+      })}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -885,9 +892,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           chatUnread={chatUnread} onAccount={openAccount} />}
       </Settings>
     );
-  else if (view === 'membership' && live?.testingTrial?.expiresAt && !demo)
-    screen = <TestingTrial busy={busy} gender={live.profile?.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>{}}/>;
-  else if (view === "membership" && active)
+  else if (view === "membership" && (active || accepted || live?.user.profileReviewPending))
     screen = membership(() => go(returnFromMembership));
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
     screen = (
@@ -913,12 +918,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         includeCompatibility={demo || Boolean(cloud)}
       />
     );
-  else if (!demo && !active && live?.testingTrial?.enabled && live.profile && !live.user.profileReviewPending)
-    screen = <TestingTrial busy={busy} gender={live.profile.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>void run(async()=>{
-      const owner=tokenRef.current;if(!owner)return;
-      await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
-      await refresh(owner);if(tokenRef.current===owner)go('discover');
-    })}/>;
   else if (!demo && !accepted && !live?.user.profileReviewPending)
     screen = (
       <Pending
@@ -1077,7 +1076,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         >
           <p>
             {confirm === "delete"
-              ? "سيُحذف حسابك وملفك. إذا كان لديك اشتراك لدى Apple فألغِه من إعدادات الاشتراكات."
+              ? memberAr.deleteWarning
               : confirm === "pass"
                 ? "سيُغلق هذا الترشيح بعد تأكيد اعتذارك."
                 : confirm === "block"
@@ -1116,7 +1115,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
             }
           >
             {confirm === "delete"
-              ? "حذف الحساب نهائيًا"
+              ? memberAr.deleteAccount
               : confirm === "report"
                 ? "إرسال البلاغ"
                 : "تأكيد"}

@@ -1,3 +1,4 @@
+import memberAr from '../src/member-ar.json' with { type: 'json' };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -41,6 +42,7 @@ function mount(source) {
   const doc = { hidden: false, body: {}, activeElement: null, querySelector: selector => selector === 'dialog[open]' && env.dialog ? {} : null,
     addEventListener: (name, fn) => { if (!events.has(name)) events.set(name, new Set()); events.get(name).add(fn); }, removeEventListener: (name, fn) => events.get(name)?.delete(fn) };
   const exports = {}, require = name => {
+    if (name === '../member-copy.ts') return { default: memberAr };
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) };
     if (name === '../compatibility/changes') return { compatibilitySnapshot, compareCompatibility };

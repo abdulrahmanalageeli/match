@@ -10,6 +10,7 @@ export const liveApi: AdminApi = {
   member: id => call('marriage_admin_member', { member_id: id }),
   async review(id, action, revision, reason, requestId) { await call('marriage_admin_review', { member_id: id, action, expected_revision: revision, reason, request_id: requestId }); },
   async manage(id, action, changes, revision, reason, requestId) { await call('marriage_admin_manage', { member_id: id, action, changes, expected_revision: revision, reason, request_id: requestId }); },
+  reportExcerpt: id => call("marriage_report_excerpt", {target:id}),
   reports: (status, before) => call('marriage_admin_reports', { status_filter: status, before_id: before || null }),
   async reportAction(id, action, revision, reason, requestId) { await call('marriage_admin_report_action', { report_id: id, action, expected_revision: revision, reason, request_id: requestId }); },
   audit: before => call('marriage_admin_audit', { before_id: before || null }),

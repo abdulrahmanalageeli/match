@@ -24,6 +24,7 @@ targets:
         buildPhase: resources
       - ../ios/App/App/Assets.xcassets
       - ../ios/App/App/PrivateSessionPlugin.swift
+      - ../ios/App/App/MembershipStoreOffer.swift
       - ../ios/App/App/PrivatePhotoPlugin.swift
       - ../ios/App/App/NisfaynPushPlugin.swift
       - ../ios/App/App/NisfaynCallCenter.swift

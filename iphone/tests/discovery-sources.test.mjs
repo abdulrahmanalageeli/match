@@ -100,7 +100,7 @@ test('interactive simulated journey requires explicit user signature and support
   const source=demoCommunity(()=>profile,false,{interactiveJourney:true,random:()=>.2});
   const peer=(await source.discover({mode:'all'}))[0];
   const id=await source.request(peer.id);await source.demoAcceptOutgoing(id);
-  await assert.rejects(source.send(id,'قبل الاتفاق','early'),/ميثاق/);
+  await assert.rejects(source.send(id,'قبل الاتفاق','early'),/شروط التعارف ومدته/);
   assert.equal((await source.agreement(id)).status,'none');
   await source.simulation.step();
   const proposal=await source.agreement(id);

@@ -1,3 +1,4 @@
+import memberAr from '../src/member-ar.json' with { type: 'json' };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -20,6 +21,7 @@ function mount(name, initial) {
   const react={useId:()=> 'fixture',useRef:value=>{const at=cursor++;return hooks[at]??={current:value}},useState:value=>{const at=cursor++;if(!(at in hooks))hooks[at]=typeof value==='function'?value():value;return[hooks[at],next=>{const result=typeof next==='function'?next(hooks[at]):next;if(result!==hooks[at]){hooks[at]=result;changed=true}}]},useLayoutEffect:(fn,deps)=>{const at=cursor++,old=hooks[at];if(!old||deps.some((v,i)=>v!==old[i])){hooks[at]=deps;effects.push(fn)}}};
   const exports={},icons=new Proxy({},{get:()=>()=>null});
   const require=name=>{
+    if (name === '../member-copy.ts') return { default: memberAr };
     if(name==='react')return react;
     if(name==='react/jsx-runtime')return{jsx:(type,props,key)=>({type,props,key}),jsxs:(type,props,key)=>({type,props,key})};
     if(name==='../BrandIcons')return icons;

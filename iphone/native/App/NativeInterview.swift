@@ -117,7 +117,11 @@ struct NativeInterview: View {
         let field = item["fieldId"].string, side = item["side"].string
         switch item["kind"].string {
         case "personality": return zip(["A", "B", "C", "D", "E"], ["لا يشبهني إطلاقًا", "يشبهني قليلًا", "يشبهني أحيانًا", "يشبهني غالبًا", "يشبهني كثيرًا"]).map { NativeOption(id: $0, label: $1) }
-        case "preference": return NativeOption.values(NativeCatalog.value["catalog"]["dimensions"].array.first { $0["id"].string == field }?["options"] ?? .null, label: side == "partner" ? "partner" : "self")
+        case "preference":
+            if field == "wife_work", side == "self", (profileDraft?.wrappedValue ?? store.profile)["gender"].string == "woman" {
+                return NativeOption.values(NativeCatalog.memberCopy["womanWork"])
+            }
+            return NativeOption.values(NativeCatalog.value["catalog"]["dimensions"].array.first { $0["id"].string == field }?["options"] ?? .null, label: side == "partner" ? "partner" : "self")
         case "beena": if side == "importance" { return [NativeOption(id: "1", label: "مهم لي"), NativeOption(id: "2", label: "مهم جدًا لي")] }; return NativeOption.values(NativeCatalog.value["beena"]["beenaScenarios"].array.first { $0["id"].string == field }?["options"] ?? .null)
         default: return []
         }

@@ -191,10 +191,8 @@ test('session start does not call model; draft autosaves privately and answer us
   const first = await start(h);
   assert.equal(first.document.reviewSharing, false);
   assert.equal(first.document.currentQuestion.topic, 'intent');
-  assert.match(first.document.currentQuestion.text, /عرّفنا عن نفسك/);
-  assert.match(first.document.currentQuestion.text, /ما الذي تبحث عنه في شريك حياتك/);
-  assert.match(first.document.currentQuestion.text, /الزواج الجاد/);
-  assert.match(first.document.currentQuestion.text, /استعدادك.*التوقيت/);
+  assert.match(first.document.currentQuestion.text, /حياتك اليوم وتطلعاتك للزواج/);
+  assert.match(first.document.currentQuestion.text, /الطرف الآخر والتوقيت اللي يناسبك/);
   assert.deepEqual(first.document.currentQuestion.suggestions, []);
   assert.equal(h.modelCalls.length, 0);
   const draft = await h.service({ action: 'draft', revision: first.revision, answer }, headers);
@@ -759,7 +757,7 @@ test('loading a saved session sanitizes current quick replies',async()=>{
  const h=harness({initial:{document:initial,revision:1}});
  const loaded=await h.service({action:'load'},headers);
  assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);
- assert.match(loaded.document.currentQuestion.text,/عرّفنا عن نفسك/,'an untouched saved signup receives the richer opening too');
+ assert.match(loaded.document.currentQuestion.text,/حياتك اليوم وتطلعاتك للزواج/,'an untouched saved signup receives the richer opening too');
  assert.equal(h.modelCalls.length,0);
 });
 
@@ -897,9 +895,9 @@ test('an in-progress interview recognizes earlier scenario wording after copy ch
   const initial=initialInterviewDocument();
   initial.turns=[
     {id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false},
-    {id:randomUUID(),topic:'family',question:openingScenarios[0].legacyText,answer:'أدخل الأهل بعد شهرين.',skipped:false},
+    {id:randomUUID(),topic:'family',question:openingScenarios[0].priorWording[2],answer:'أدخل الأهل بعد شهرين.',skipped:false},
   ];
-  initial.currentQuestion={topic:'practical',text:openingScenarios[1].legacyText,suggestions:[]};
+  initial.currentQuestion={topic:'practical',text:openingScenarios[1].priorWording[2],suggestions:[]};
   const h=harness({initial:{document:initial,revision:2}});
   const result=await h.service({action:'answer',hybrid:true,revision:2,requestId:randomUUID(),answer:'أفضّل أن نخطط للمصاريف معًا.'},headers);
   assert.equal(result.document.currentQuestion.text,openingScenarios[2].text);
@@ -931,4 +929,18 @@ test('retry of a saved signup answer keeps the scenario route even if an older c
   const retried=await h.service({action:'retry',revision:2},headers);
   assert.equal(retried.document.currentQuestion.text,openingScenarios[0].text);
   assert.equal(retried.document.turns.length,1);
+});
+
+test('a brief ambiguous housing answer gets one specific clarification, also after reloading', async () => {
+  const h = harness();
+  let state = await start(h);
+  const reply = text => h.service({action:'answer', hybrid:true, revision:state.revision, requestId:randomUUID(), answer:text},headers);
+  state = await reply(answer);
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].text);
+  state = await reply('على حسب؟');
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
+  state = await h.service({action:'load'}, headers);
+  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
+  state = await reply('على حسب');
+  assert.equal(state.document.currentQuestion.text, openingScenarios[1].text);
 });

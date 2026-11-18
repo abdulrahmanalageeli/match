@@ -1,5 +1,7 @@
 import type { Connection, SeriousnessAgreement, StepProgress } from './data';
 
+import { durationLabel } from '../member-copy.ts';
+
 export type NextStepAssessment = { completed: number; total: number; label: string };
 export type NextStepChoice = {
   key: string;
@@ -41,33 +43,33 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
     const a = snapshot.agreements.get(c.id);
     const p = snapshot.progress.get(c.id);
     if (a?.extension && (a.status === 'accepted' || a.status === 'expired') && a.extension.actor !== a.actor) {
-      return conversation(c, 'agreement', 'اقتراح تمديد بانتظارك', `${c.person.alias} يقترح ${a.extension.days} أيام إضافية. لا تتغير المدة حتى توافق.`, 'مراجعة التمديد', true);
+      return conversation(c, 'agreement', 'اقتراح تمديد بانتظارك', `اقتراح من ${c.person.alias} لتمديد المدة. المدة الإضافية: ${durationLabel(a.extension.days)}. يبدأ التمديد بعد موافقتكما.`, 'مراجعة التمديد', true);
     }
     if (a?.status === 'expired' && !a.familyAgreed?.[a.actor]) {
       return conversation(c, 'agreement', 'راجعا اتجاه التعارف', `انتهت المدة مع ${c.person.alias}. اختارا التمديد أو التواصل العائلي أو الانسحاب بوضوح.`, 'مراجعة اتفاقنا', true);
     }
     if (a?.status === 'none' && a.actor === 'reham') {
-      return conversation(c, 'agreement', 'بداية واضحة قبل أول رسالة', `اختاري مدة التعارف مع ${c.person.alias} ووقّعي الميثاق، ثم يراجع الطرف الآخر اقتراحك.`, 'اقتراح مدة التعارف', true);
+      return conversation(c, 'agreement', 'بداية واضحة قبل أول رسالة', `اختاري مدة التعارف مع ${c.person.alias}. تبدأ المدة بعد موافقتكما على الشروط.`, 'اقتراح مدة التعارف', true);
     }
     if (a?.status === 'proposed' && a.actor === 'abdulrahman' && !a.manSignedAt) {
-      return conversation(c, 'agreement', 'اتفاقكما بانتظارك', `${c.person.alias} اقترحت مدة التعارف. راجع الميثاق والمدة قبل قبولها.`, 'مراجعة الميثاق', true);
+      return conversation(c, 'agreement', 'اتفاقكما بانتظارك', `${c.person.alias} اقترحت مدة التعارف. راجع الشروط والمدة المقترحة.`, 'مراجعة شروط التعارف', true);
     }
     if (a?.status === 'accepted' && a.familyAgreed?.[a.actor === 'reham' ? 'abdulrahman' : 'reham'] && !a.familyAgreed?.[a.actor]) {
-      return conversation(c, 'agreement', 'اقتراح للتواصل العائلي', `${c.person.alias} اقترح الانتقال للتواصل العائلي. القرار بموافقتكما معًا.`, 'مراجعة الاقتراح', true);
+      return conversation(c, 'agreement', 'اقتراح للتواصل العائلي', `اقتراح من ${c.person.alias} للتواصل مع الأهل. القرار بموافقتكما معًا.`, 'مراجعة الاقتراح', true);
     }
     if (p?.rewindPeer && !p.rewindMine) {
       return conversation(c, 'journey', 'مساحة لمراجعة الخطوة', `${c.person.alias} طلب العودة خطوة. راجعا ما يريحكما قبل أي تغيير.`, 'مراجعة مسارنا', true);
     }
     if (p && ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.stage < 2 && p.peer && !p.mine))) {
-      return conversation(c, 'journey', 'خطوتكما التالية بانتظارك', p.exclusive ? `${c.person.alias} يقترح خطوة تالية في مسار التعارف.` : `${c.person.alias} يقترح نقاشًا جادًا وحصريًا. اقرأ ما يترتب عليه قبل الموافقة.`, 'مراجعة مسارنا', true);
+      return conversation(c, 'journey', 'خطوتكما التالية بانتظارك', p.exclusive ? `${c.person.alias} يقترح خطوة تالية في مسار التعارف.` : `اقتراح تعارف حصري من ${c.person.alias}. يمكنك مراجعة أثر الحصرية قبل الرد.`, 'مراجعة مسارنا', true);
     }
   }
 
   if (!state.exclusive && state.acceptedCount < 2) {
     const incoming = snapshot.connections.find(c => c.status === 'pending' && c.direction === 'incoming');
     if (incoming) return {
-      key: `request:${incoming.id}`, kind: 'request', title: 'دعوة تستحقّ أن تقرأها',
-      detail: `${incoming.person.alias} يرغب بالتعارف معك. ابدأ بالملف، وخذ وقتك في القرار.`,
+      key: `request:${incoming.id}`, kind: 'request', title: 'طلب تعارف جديد',
+      detail: `طلب تعارف من ${incoming.person.alias}. يمكنك مراجعة الملف قبل الرد.`,
       action: 'الاطّلاع على الدعوة', target: 'request', connectionId: incoming.id, attention: true,
     };
   }
@@ -91,7 +93,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
     const a = snapshot.agreements.get(c.id);
     if (a?.status === 'none' || a?.status === 'proposed' || a?.status === 'expired') {
       return conversation(c, 'waiting', 'الخطوة التالية لدى الطرف الآخر',
-        a.status === 'none' ? `${c.person.alias} يختار مدة التعارف قبل توقيع الميثاق وبدء الحديث.` : `اقتراحك مع ${c.person.alias} بانتظار المراجعة. يمكنك الاطّلاع على اتفاقكما في المحادثة.`, 'عرض اتفاقنا');
+        a.status === 'none' ? `بانتظار اقتراح المدة من ${c.person.alias}. تبدأ المراسلة بعد موافقتكما على الشروط والمدة.` : `اقتراحك مع ${c.person.alias} بانتظار المراجعة. يمكنك الاطّلاع على اتفاقكما في المحادثة.`, 'عرض اتفاقنا');
     }
   }
   const fresh = accepted.find(c => !c.lastMessage && (!snapshot.requiresAgreement || ['accepted', 'family'].includes(snapshot.agreements.get(c.id)?.status ?? '')));

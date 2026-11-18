@@ -110,6 +110,11 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   if(viewOnce){revision++;cached=null;at=0;listeners.forEach(f=>f());}
   return URL.createObjectURL(blob);
  }
+ async function downloadPhoto(action:'gallery_download'|'portrait_download',id:string){
+   const response=await fetch(endpoint+'?action='+action,{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':'application/json'},body:JSON.stringify({session:account.session,payload:{id}}),cache:'no-store',signal:AbortSignal.timeout(12000)});
+   if(!response.ok){const error=await response.json().catch(()=>null);throw Error(error?.error||'الصورة غير متاحة.');}
+   const blob=await response.blob();if(blob.type!=='image/jpeg')throw Error('تعذّر تحميل الصورة.');return URL.createObjectURL(blob);
+ }
  const source:CommunitySource={...local,
   simulation:account.actor==='abdulrahman'?local.simulation:undefined,
   ...manualVerificationSource(account.session),
@@ -121,11 +126,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   readinessEligibleConnection: id => id === 'tester-pair',
   async readiness(action,payload={}){const result=await testRequest<import('../readiness/model').ReadinessResult>('passport',account.session,{...(action==='save'?normalizeReadinessDraft(payload):payload),action});if(action!=='get'&&action!=='view')listeners.forEach(f=>f());return result;},
   async portraitState(photo){const info=await testRequest<ProfilePortrait|null>('portrait_info',account.session,{id:photo.id,metadataOnly:true});if(!info||info.id!==photo.id)throw Error('الصورة غير متاحة.');return info;},
-  async portraitUrl(photo){
-   const response=await fetch(endpoint+'?action=portrait_download',{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':'application/json'},body:JSON.stringify({session:account.session,payload:{id:photo.id}}),cache:'no-store',signal:AbortSignal.timeout(12000)});
-   if(!response.ok){const error=await response.json().catch(()=>null);throw Error(error?.error||'الصورة غير متاحة.');}
-   const blob=await response.blob();if(blob.type!=='image/jpeg')throw Error('تعذّر تحميل الصورة.');return URL.createObjectURL(blob);
-  },
+  portraitUrl: photo=>downloadPhoto('portrait_download',photo.id),
   async setPortrait(file,blur,reveal){
    if(file.type!=='image/jpeg'||!file.size||file.size>3*1024*1024)throw Error('استخدم صورة JPEG بحجم لا يتجاوز ٣ ميغابايت.');
    if(!Number.isInteger(blur)||blur<0||blur>100)throw Error('اختر درجة تمويه من ٠ إلى ١٠٠.');
@@ -148,7 +149,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async dismissPerson(id){if(id!==peer)return local.dismissPerson!(id);await mutate('dismiss_person',{person:id});},
   async reportPerson(id,reason){if(id!==peer)return local.reportPerson!(id,reason);await mutate('report_person',{person:id,reason});},
   gallery: subject=>subject && ![peer,account.actor].includes(subject as Actor) ? Promise.resolve([]) : testRequest('gallery_list',account.session,{subject}),
-  async galleryUrl(photo){return (await testRequest<{url:string}>('gallery_url',account.session,{id:photo.id})).url;},
+  galleryUrl: photo=>downloadPhoto('gallery_download',photo.id),
   async addGallery(file){const response=await fetch(endpoint+'?action=gallery_upload',{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':'image/jpeg','x-test-session':account.session},body:file,signal:AbortSignal.timeout(45000)});const result=await response.json();if(!response.ok)throw Error(result.error||'تعذّر رفع الصورة.');listeners.forEach(f=>f());},
   async removeGallery(photo){await testRequest('gallery_remove',account.session,{id:photo.id});listeners.forEach(f=>f());},
   async rewindStep(id,stage,agree){return id==='tester-pair'?progress(await mutate('rewind',{stage,agree})):local.rewindStep!(id,stage,agree);},
@@ -195,7 +196,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async callPermission(id){if(id!=='tester-pair'){await available(id);return local.callPermission?local.callPermission(id):{status:'accepted'};}return permission(await state());},
   async requestCallPermission(id,action){if(id!=='tester-pair'){await available(id);if(!local.requestCallPermission)throw Error('المكالمات غير متاحة.');return local.requestCallPermission(id,action);}return permission(await mutate('permission_'+action));},
   async agreement(id){if(id!=='tester-pair'){await available(id);return local.agreement?local.agreement(id):{status:'accepted',actor:account.actor};}const s=await state();return {status:'none',...s.seriousness,actor:account.actor};},
-  async agree(id,action,payload={}){if(id!=='tester-pair'){await available(id);if(!local.agree)throw Error('الميثاق غير متاح.');return local.agree(id,action,payload);}const s=await mutate('agreement_'+action,payload);return {status:'none',...s.seriousness,actor:account.actor};},
+  async agree(id,action,payload={}){if(id!=='tester-pair'){await available(id);if(!local.agree)throw Error('شروط التعارف غير متاحة حاليًا.');return local.agree(id,action,payload);}const s=await mutate('agreement_'+action,payload);return {status:'none',...s.seriousness,actor:account.actor};},
   async markRead(id,through){if(id!=='tester-pair')return local.markRead(id,through);await mutate('read',{id:through});},
   async unreadCount(){const s=await state();await retireFictional(s);return unread(s)+await local.unreadCount();},
   async act(id,action,reason,allowRematch=false){if(id!=='tester-pair'){if(action==='accept')await available(id);return local.act(id,action,reason,allowRematch);}if(action==='accept'){if((await local.inbox()).filter(c=>c.status==='accepted').length>=2)throw Error('الحد الأقصى تعارفان متزامنان.');await mutate('rematch_accept');return;}if(action==='decline'){await mutate('rematch_decline');return;}if(['block','report','cancel'].includes(action))await mutate('close',action==='report'?{report:true,reason}:action==='block'?{block:true}:{allowRematch});},

@@ -1,3 +1,4 @@
+import memberAr from '../src/member-ar.json' with { type: 'json' };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -25,9 +26,10 @@ function mount(initialProgress = {}) {
   };
   const exports = {};
   vm.runInNewContext(code, { exports, document: { hidden: false }, require: name => {
+    if (name === '../member-copy.ts') return { default: memberAr };
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
-    if (name === '../notifications/ActivityAlerts') return { journeyStages: ['التعارف الأول', 'نقاش جاد حول الزواج', 'الخطوة الرسمية أو العائلية'] };
+    if (name === '../notifications/ActivityAlerts') return { journeyStages: ['التعارف الأول', 'مناقشة أساسيات الزواج', 'التواصل مع الأهل'] };
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= Object.defineProperty(() => null, 'name', { value: key }) }));
     return modules.get(name);
   } });
@@ -39,36 +41,36 @@ function mount(initialProgress = {}) {
 
 test('exclusivity is reviewed intentionally and cannot be approved before its explicit checkbox', async () => {
   const m = mount(); m.render(); await settle(); let tree = m.render();
-  assert(!text(tree).includes('تُغلق جميع طلبات التعارف'));
-  assert(button(tree, 'مراجعة الالتزام الحصري'));
+  assert(!text(tree).includes('تُغلق طلبات التعارف'));
+  assert(button(tree, 'مراجعة التعارف الحصري'));
   assert.equal(nodes(tree).filter(node => node.type === 'details' && node.props.className === 'nf-journey-option').length, 1);
-  button(tree, 'مراجعة الالتزام الحصري').props.onClick(); tree = m.render();
-  assert(text(tree).includes('تُغلق جميع طلبات التعارف والمحادثات الأخرى لكليكما'));
+  button(tree, 'مراجعة التعارف الحصري').props.onClick(); tree = m.render();
+  assert(text(tree).includes('تُغلق طلبات التعارف والمحادثات الأخرى لكليكما'));
   assert(text(tree).includes('المحادثات المغلقة لا تُفتح تلقائيًا'));
-  assert.equal(button(tree, 'اقتراح الالتزام الحصري').props.disabled, true);
+  assert.equal(button(tree, 'اقتراح التعارف الحصري').props.disabled, true);
   assert.equal(m.calls.length, 0);
   nodes(tree).find(node => node.type === 'input' && node.props.type === 'checkbox').props.onChange({ target: { checked: true } });
-  tree = m.render(); assert.equal(button(tree, 'اقتراح الالتزام الحصري').props.disabled, false);
-  button(tree, 'اقتراح الالتزام الحصري').props.onClick(); await settle();
+  tree = m.render(); assert.equal(button(tree, 'اقتراح التعارف الحصري').props.disabled, false);
+  button(tree, 'اقتراح التعارف الحصري').props.onClick(); await settle();
   assert.deepEqual(m.calls[0], ['next', 'match', 1, true, true]); m.close();
 });
 
 test('an incoming commitment request is visible immediately but still requires explicit consent', async () => {
   const m = mount({ consentPeer: true }); m.render(); await settle(); const tree = m.render();
   assert(text(tree).includes('لديك طلب التزام حصري'));
-  assert(text(tree).includes('تُغلق جميع طلبات التعارف'));
-  assert.equal(button(tree, 'أوافق وأفعّل الالتزام الحصري').props.disabled, true);
+  assert(text(tree).includes('تُغلق طلبات التعارف'));
+  assert.equal(button(tree, 'الموافقة وبدء التعارف الحصري').props.disabled, true);
   assert.equal(m.calls.length, 0); m.close();
 });
 
 test('rewind consequences precede a proposal and ending stays visible behind a separate confirmation', async () => {
   const m = mount({ stage: 1, exclusive: true }); m.render(); await settle(); let tree = m.render();
   assert(button(tree, 'إنهاء التعارف'));
-  assert(!text(tree).includes('وتُرفع علامة الحصرية'));
-  button(tree, 'اقتراح خطوة إلى الوراء').props.onClick(); tree = m.render();
-  assert(text(tree).includes('وتُرفع علامة الحصرية ويصبح استكشاف الآخرين متاحًا'));
+  assert(!text(tree).includes('تنتهي الحصرية'));
+  button(tree, 'اقتراح العودة إلى المرحلة السابقة').props.onClick(); tree = m.render();
+  assert(text(tree).includes('تعودان إلى التعارف الأول وتنتهي الحصرية'));
   assert.equal(m.calls.length, 0);
-  button(tree, 'إرسال اقتراح العودة إلى: التعارف الأول').props.onClick(); await settle();
+  button(tree, 'اقتراح العودة إلى التعارف الأول').props.onClick(); await settle();
   assert.deepEqual(m.calls[0], ['rewind', 'match', 1, true]);
   tree = m.render(); button(tree, 'إنهاء التعارف').props.onClick(); tree = m.render();
   assert(button(tree, 'تأكيد إنهاء التعارف'));

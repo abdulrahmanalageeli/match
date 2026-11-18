@@ -39,7 +39,7 @@ npm run admin -- close INTRODUCTION_ID
 
 Each party must hold an active verified subscription before an operator can introduce them. The service checks age preferences in both directions, city, opposite genders, open proposals, prior pairings, blocks and pauses. Only one open proposal is allowed per member. Passing, reporting, blocking, pausing or operator closure ends the proposal. The personal contact field becomes visible on acceptance by both participants. Expiry hides proposals and contacts. A moderator can close an open proposal if the other party's membership expires.
 
-Before offering a new subscription, the app uses the server's `membership.canStart` flag. An approved, unpaused applicant must have at least one other approved, unpaused candidate who passes those same reciprocal checks. Neither candidate needs to have paid yet. This anonymous signal can change and does not reserve a person or guarantee an introduction. A completed Apple transaction or restore is honored independently of current matching availability.
+Before offering a new subscription, the app uses the server's `membership.canStart` flag. It requires an eligible counterpart with active access or an existing renewable introduction. Availability can change. A completed Apple transaction or restore is honored independently of current matching availability.
 
 On the operator host, `ready` lists approved paying members with active searches and no open introduction. `candidates EMAIL` lists only currently eligible, paying counterparts for the selected member. Use the account emails in `introduce`; the lists omit profile details and private contact fields. Membership and availability are checked again when the introduction is created.
 

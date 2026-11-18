@@ -54,6 +54,8 @@ struct NativeSettings: View {
             Section("العضوية والخصوصية") {
                 NavigationLink("عضويتي", destination: NativeMembership())
                 Button(store.account["user"]["paused"].bool ? "استئناف الترشيحات" : "إيقاف الترشيحات مؤقتًا") { pause = true }
+                NavigationLink("السجل والإبلاغ عن تعارف سابق", destination: NativeHistory())
+                NavigationLink("تفضيل العمل المنشور", destination: NativeDirectoryWork())
                 NavigationLink("الحظر وعدم إعادة الترشيح", destination: NativeExclusions()).accessibilityIdentifier("settings.exclusions")
                 NavigationLink("قفل التطبيق والإشعارات", destination: NativeDeviceSettings())
                 NavigationLink("الخصوصية وشروط الاستخدام", destination: NativeLegal())
@@ -70,8 +72,8 @@ struct NativeSettings: View {
                 NativeAction(title: "تأكيد") { _ = try await store.client.rpc("marriage_pause", ["paused": .bool(!store.account["user"]["paused"].bool)]); try await store.refresh() }
             } message: { Text("تبقى المحادثات المقبولة متاحة مع صلاحية العضوية. إيقاف الترشيحات لا يلغي اشتراك Apple.") }
             .confirmationDialog("حذف الحساب وبياناته نهائيًا؟", isPresented: $delete, titleVisibility: .visible) {
-                NativeAction(title: "حذف حسابي نهائيًا") { _ = try await store.client.rpc("marriage_delete_account"); try await store.client.signOut(); NisfaynCallCenter.shared.clear(); store.owner = nil; store.account = .null }
-            } message: { Text("لا يمكن التراجع عن الحذف. اشتراك Apple يُلغى بشكل منفصل من إدارة الاشتراكات.") }
+                NativeAction(title: NativeCatalog.copy("deleteAccount")) { _ = try await store.client.rpc("marriage_delete_account"); try await store.client.signOut(); NisfaynCallCenter.shared.clear(); store.owner = nil; store.account = .null }
+            } message: { Text(NativeCatalog.copy("deleteWarning")) }
             .fileExporter(isPresented: $exporting, document: exported, contentType: .json, defaultFilename: "wudayn-data") { result in if case .failure(let error) = result { store.error = error.localizedDescription }; exported = nil }
     }
     private var publicProfile: JSONValue {
@@ -87,7 +89,34 @@ struct NativeDataDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
+struct NativeDirectoryWork: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var choice = ""
+    @State private var loaded = false
+    @State private var error: String?
+    var body: some View {
+        Form {
+            Text("يمكن للأعضاء البحث عن ملفك وفق اختيارك المنشور هنا. يمكنك سحبه في أي وقت.")
+            Picker("الموقف من عمل الزوجة", selection: $choice) {
+                Text("خاص · لا أنشر اختياري").tag("")
+                Text("تفضيل العمل").tag("A")
+                Text("تفضيل عدم العمل").tag("B")
+                Text("المرونة حسب الاتفاق").tag("C")
+            }
+            NativeAction(title: "حفظ") {
+                _ = try await store.client.rpc("marriage_directory_work", ["choice": choice.isEmpty ? .null : .string(choice), "writing": .bool(true)])
+                dismiss()
+            }.disabled(!loaded)
+        }.navigationTitle("تفضيل العمل المنشور").nativeError($error).task {
+            do { choice = try await store.client.rpc("marriage_directory_work").string; loaded = true }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
 struct NativeExclusions: View {
+    @State private var selected: MemberRow?
     @EnvironmentObject private var store: NativeStore
     @State private var rows: [MemberRow] = []
     @State private var loading = true
@@ -95,8 +124,8 @@ struct NativeExclusions: View {
     var body: some View { List {
         if loading { ProgressView() }
         else if rows.isEmpty { NativeEmpty(title: "لا يوجد أشخاص في هذه القائمة حاليًا.", icon: "person.crop.circle.badge.checkmark") }
-        ForEach(rows) { row in VStack(alignment: .leading, spacing: 6) { Text(row.value["alias"].string); Text(row.value["reason"].string == "blocked" ? "حظرته" : "عدم إعادة الترشيح").foregroundStyle(.secondary); Text(row.value["since"].string.prefix(10)).font(.caption).foregroundStyle(.secondary) } }
-    }.navigationTitle("الحظر وعدم إعادة الترشيح").nativeError($error).task { await load() }.refreshable { await load() } }
+        ForEach(rows) { row in VStack(alignment: .leading, spacing: 6) { Text(row.value["alias"].string); Text(row.value["reason"].string == "blocked" ? "حظرته" : "عدم إعادة الترشيح").foregroundStyle(.secondary); Text(NativeDates.display(row.value["since"].string)).font(.caption).foregroundStyle(.secondary); if row.value["reason"].string == "blocked" { Button("الإبلاغ عن واقعة") { selected = row } } } }
+    }.sheet(item: $selected) { row in NavigationStack { NativeIncidentReport(subjectID: row.id) } }.navigationTitle("الحظر وعدم إعادة الترشيح").nativeError($error).task { await load() }.refreshable { await load() } }
     private func load() async { loading = true; defer { loading = false }; do { rows = try await store.client.rpc("marriage_matching_exclusions").rows } catch { self.error = error.localizedDescription } }
 }
 
@@ -155,46 +184,110 @@ enum NativeMembershipProducts {
 
 struct NativeMembership: View {
     @EnvironmentObject private var store: NativeStore
-    @State private var product: Product?
+    @State private var offer: MembershipStoreOffer?
     @State private var error: String?
     @State private var loaded = false
+    @State private var agreed = false
+    @State private var restoreNotice: String?
+    private var membership: JSONValue { store.account["membership"] }
+    private var status: String { membership["status"].string }
+    private var heading: String {
+        switch status {
+        case "trial": return "تجربتك المجانية مفعّلة"
+        case "expired": return "انتهت صلاحية عضويتك"
+        case "paid": return "اشتراكك المدفوع فعّال"
+        default: return membership["active"].bool ? "عضويتك فعّالة" : "عضوية وُدَين"
+        }
+    }
     private var productIDs: [String] { NativeMembershipProducts.forGender(store.profile["gender"].string) }
     var body: some View { Form {
-        Section { Label(store.account["membership"]["active"].bool ? "عضويتك فعّالة" : "عضوية وُدَين", systemImage: "heart.circle"); Text("اشتراك شهري متجدد عبر Apple. يمكنك إدارة التجديد من إعدادات اشتراكاتك.") }
-        if let product {
-            NativeAction(title: "اشتراك · \(product.displayPrice)") {
+        Section {
+            Label(heading, systemImage: "heart.circle")
+            if status == "trial" { Text("تنتهي تجربة وُدَين دون خصم. يمكنك اختيار اشتراك Apple الذي يتجدد تلقائيًا حتى الإلغاء.") }
+            if membership["active"].bool, let end = NativeDates.parse(membership["expiresAt"].string) {
+                Text("الوصول متاح حتى \(end.formatted(date: .long, time: .omitted)).")
+            }
+            Text("ملخّص التوافق أثناء التصفح، والتفاصيل بعد قبول التعارف من الطرفين. تعارفان نشطان كحد أقصى. تبدأ المحادثة بعد قبول طلب التعارف وموافقتكما على الشروط والمدة.")
+        }
+        if store.account["testingTrial"]["eligible"].bool {
+            Section("تجربة مجانية لمدة سبعة أيام") {
+                Text("مرة واحدة لكل رقم جوال مؤكّد. تنتهي دون خصم أو تجديد تلقائي.")
+                Toggle("أوافق على بدء التجربة الآن", isOn: $agreed)
+                NativeAction(title: "ابدأ تجربتي المجانية") {
+                    _ = try await store.client.rpc("marriage_accept_testing_trial", ["offer_version": .string("testing-7d-12999-v1")])
+                    try await store.refresh()
+                }.disabled(!agreed)
+            }
+        }
+        if !membership["active"].bool || status == "trial" {
+          if let offer {
+            let product = offer.product
+            if let introduction = offer.introduction { Text(introduction) }
+            Text("يتجدد الاشتراك تلقائيًا مقابل \(product.displayPrice) لكل \(offer.period) حتى الإلغاء عبر Apple.")
+            NativeAction(title: offer.introduction == nil ? "اشترك مقابل \(product.displayPrice) لكل \(offer.period)" : "متابعة العرض عبر Apple") {
+                let owner = store.owner
+                try await store.refresh()
+                guard owner == store.owner, productIDs.contains(product.id), membership["canStart"].bool else { throw NativeProblem.message("تعذّر بدء الاشتراك. حدّث حالة العضوية.") }
+                await loadProduct()
+                guard let current = self.offer, current.product.id == product.id, current.product.displayPrice == product.displayPrice,
+                      current.period == offer.period, current.introduction == offer.introduction, owner == store.owner else {
+                    throw NativeProblem.message("تغيّر عرض Apple. راجع العرض المحدّث قبل الشراء.")
+                }
                 guard let token = UUID(uuidString: store.account["user"]["appAccountToken"].string) else { throw NativeProblem.signedOut }
-                switch try await product.purchase(options: [.appAccountToken(token)]) {
+                switch try await current.product.purchase(options: [.appAccountToken(token)]) {
                 case .success(let result): try await deliver(result)
                 case .pending: throw NativeProblem.message("بانتظار الموافقة على الشراء.")
                 case .userCancelled: break
                 @unknown default: throw NativeProblem.invalidResponse
                 }
-            }.disabled(!store.account["membership"]["canStart"].bool || store.account["membership"]["active"].bool)
-        } else if loaded {
+            }.disabled(!membership["canStart"].bool)
+          } else if loaded {
             Text("تعذّر تحميل سعر العضوية من App Store.")
             NativeAction(title: "إعادة تحميل السعر") { await loadProduct() }
-        } else { ProgressView("نحمّل سعر العضوية…") }
+          } else { ProgressView("نحمّل سعر العضوية…") }
+          if !membership["canStart"].bool {
+              Text("يتاح الشراء عند اعتماد ملفك وتوفر ترشيحات أو وجود تعارف قائم.")
+          }
+        }
         NativeAction(title: "استعادة المشتريات") {
             try await AppStore.sync()
+            var restored = false
             for await result in StoreKit.Transaction.currentEntitlements {
-                if case .verified(let transaction) = result, NativeMembershipProducts.supported.contains(transaction.productID) { try await deliver(result) }
+                if case .verified(let transaction) = result, NativeMembershipProducts.supported.contains(transaction.productID) {
+                    try await deliver(result)
+                    restored = true
+                }
             }
+            restoreNotice = restored ? "تم تحديث عضويتك." : "لا يوجد اشتراك فعّال لاستعادته."
         }
+        if let restoreNotice { Text(restoreNotice) }
         NativeAction(title: "إدارة الاشتراك") {
             guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
             try await AppStore.showManageSubscriptions(in: scene)
         }
         NavigationLink("الخصوصية والشروط", destination: NativeLegal())
-    }.navigationTitle("عضويتي").nativeError($error).task(id: productIDs) { await loadProduct() } }
+    }.navigationTitle("عضويتي").nativeError($error).task(id: productIDs) { await loadProduct() }
+        .task(id: membership["expiresAt"].string) {
+            guard membership["active"].bool, let end = NativeDates.parse(membership["expiresAt"].string) else { return }
+            do {
+                try await Task.sleep(for: .seconds(max(0, end.timeIntervalSinceNow)))
+                try Task.checkCancellation()
+                try await store.refresh()
+            } catch is CancellationError { } catch { self.error = error.localizedDescription }
+        }
+        .refreshable { await store.perform { try await store.refresh(); await loadProduct() } } }
     private func loadProduct() async {
         let ids = productIDs
-        product = nil
+        offer = nil
         loaded = false
         do {
             let products = try await Product.products(for: ids)
             guard !Task.isCancelled, ids == productIDs else { return }
-            product = ids.lazy.compactMap { id in products.first { $0.id == id } }.first
+            if let product = ids.lazy.compactMap({ id in products.first { $0.id == id } }).first {
+                let terms = await MembershipStoreOffer(product)
+                guard !Task.isCancelled, ids == productIDs else { return }
+                offer = terms
+            }
         } catch {
             guard !Task.isCancelled, ids == productIDs else { return }
             self.error = error.localizedDescription

@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 import { useState } from 'react';
 import { ArrowLeft, MessageCircle, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
@@ -65,7 +66,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             <div className="mo-request-action"><MotionPressButton className={`mo-action${incoming?' mo-action-incoming':''}`} onClick={()=>onProfile(row.id)}>{incoming?'مراجعة الطلب':'عرض الطلب'}<ArrowLeft size={14}/></MotionPressButton>{date && <time dateTime={date}>{dates.format(new Date(date))}</time>}</div>
           </MotionReveal>;
         })}</div>
-        {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':'ستظهر الطلبات الجديدة هنا.'}</p>}
+        {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':memberAr.requestsEmpty}</p>}
       </section>
     </>}
     <div className="mo-history"><RequestHistory source={source} title="التعارفات السابقة"/></div>

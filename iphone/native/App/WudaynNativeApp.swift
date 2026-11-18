@@ -78,7 +78,7 @@ struct NativeLogin: View {
     @State private var family = false
     var body: some View {
         Form {
-            Section { VStack(alignment: .leading, spacing: 12) { Text("وُدَين").font(.largeTitle.bold()); Text("بداية واعية لحياة مشتركة").foregroundStyle(.secondary) }.padding(.vertical, 20) }
+            Section { VStack(alignment: .leading, spacing: 12) { Text("وُدَين").font(.largeTitle.bold()); Text("تعارف بقصد الزواج").foregroundStyle(.secondary) }.padding(.vertical, 20) }
             NativeSocialLogin(family: family)
             Section { Toggle("دخول أفراد الأسرة", isOn: $family).disabled(store.busy) }
             Section {
@@ -98,7 +98,7 @@ struct NativeHome: View {
     @EnvironmentObject private var store: NativeStore
     var body: some View {
         List {
-            Section { Text("أهلًا، \(store.profile["displayName"].string)").font(.title2.bold()); Text("خطوة هادئة نحو شراكة واضحة.").foregroundStyle(.secondary) }
+            Section { Text("أهلًا، \(store.profile["displayName"].string)").font(.title2.bold()) }
             if store.profile.isNull || store.account["user"]["applicationStatus"].string == "draft" {
                 NavigationLink("أكمل ملفك", destination: NativeProfileEditor())
             } else if !store.approved { NativeEmpty(title: "ملفك قيد المراجعة. سنبلغك عند تحديث حالته.", icon: "clock") }

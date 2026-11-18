@@ -11,7 +11,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
  async function add(gender,work='A',hard=false){
   const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));answers.wife_work=work;
-  const payload={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندس',bio:'وصف للاختبار',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-06-assessment',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false},assessmentVersion:'marriage-v2',surveyAnswers:answers,hardRequirements:hard?['wife_work']:[],marriageBasics:{smoking:'never',maritalStatus:'never_married'}};
+  const payload={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندس',bio:'وصف للاختبار',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-06-assessment',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false},assessmentVersion:'marriage-v3',surveyAnswers:answers,hardRequirements:hard?['wife_work']:[],marriageBasics:{smoking:'never',maritalStatus:'never_married'}};
   const state=await call(u,'public.marriage_apply($1)',[payload]);
   await asService(db,()=>db.query("select public.marriage_review($1,'approve')",[u.id]));
   await asService(db,()=>db.query('select public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
@@ -20,7 +20,10 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
  try{
   const man=await add('man'),women=[];for(let i=0;i<7;i++)women.push(await add('woman'));
   const strict=await add('woman','A',true),opposed=await add('man','B');
-  assert(!(await call(strict,'public.marriage_browse()')).some(p=>p.id===opposed.id),'work essential preference excludes conflicting partner');
+  assert((await call(strict,'public.marriage_browse()')).some(p=>p.id===opposed.id),'a private work answer does not exclude a directory candidate');
+  assert(!(await call(strict,'public.marriage_browse($1)',[{work:'B'}])).some(p=>p.id===opposed.id));
+  await call(opposed,'public.marriage_directory_work($1,true)',['B']);
+  assert((await call(strict,'public.marriage_browse($1)',[{work:'B'}])).some(p=>p.id===opposed.id));
   const five=await call(man,'public.marriage_discover()');assert.equal(five.length,5);
   let all=await call(man,'public.marriage_browse()');assert.equal(all.length,8);assert(all.every(p=>p.fit.total===16&&p.fit.percentage===100));
   assert.equal((await call(man,'public.marriage_browse($1)',[{city:'جدة'}])).length,0);
@@ -34,6 +37,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   assert((await call(third,'public.marriage_browse()')).find(p=>p.id===man.id).atCapacity);
   assert(!(await call(third,'public.marriage_browse($1)',[{availableOnly:true}])).some(p=>p.id===man.id));
   await call(third,'public.marriage_note_profile_open($1)',[man.id]);assert((await call(man,'public.marriage_notifications()')).some(n=>n.person.id===third.id));
+  const galleryViewer=women.find(w=>![outsider.id,second.id,third.id].includes(w.id));
   const photos=[];for(let i=0;i<3;i++){
    const p=await call(man,"public.marriage_gallery('prepare')");photos.push(p);
    await storage(man,'object.upload','insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['nisfayn-profile-gallery',p.path,{mimetype:'image/jpeg',size:200}]);
@@ -43,16 +47,17 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
    await call(man,"public.marriage_gallery('commit',$1)",[p.id]);
   }
   await assert.rejects(call(man,"public.marriage_gallery('prepare')"),/ثلاث/);
-  await assert.rejects(call(third,"public.marriage_gallery('list',null,$1)",[man.id]),/متاح/);
+  await assert.rejects(call(galleryViewer,"public.marriage_gallery('list',null,$1)",[man.id]),/متاح/);
   await asService(db,()=>db.query("select public.marriage_review($1,'approve')",[man.id]));
-  assert.equal((await call(third,"public.marriage_gallery('list',null,$1)",[man.id])).length,3);
-  assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,1);
-  assert.equal((await storage(third,'object.sign','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
-  await call(third,"public.marriage_gallery('remove',$1)",[photos[0].id]);assert.equal((await call(man,"public.marriage_gallery('list')")).length,3);
+  await assert.rejects(call(third,"public.marriage_gallery('list',null,$1)",[man.id]),/متاح/);
+  assert.equal((await call(galleryViewer,"public.marriage_gallery('list',null,$1)",[man.id])).length,3);
+  assert.equal((await storage(galleryViewer,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,1);
+  assert.equal((await storage(galleryViewer,'object.sign','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
+  await call(galleryViewer,"public.marriage_gallery('remove',$1)",[photos[0].id]);assert.equal((await call(man,"public.marriage_gallery('list')")).length,3);
   await signCommunicationAgreement(call,outsider,man,ab);
   await call(man,'public.marriage_next_step($1,1,true,true)',[ab]);await call(outsider,'public.marriage_next_step($1,1,true,true)',[ab]);
   assert(!(await call(third,'public.marriage_browse()')).some(p=>p.id===man.id));
-  assert.equal((await storage(third,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
+  assert.equal((await storage(galleryViewer,'object.get_authenticated','select name from storage.objects where name=$1',[photos[0].path])).rows.length,0);
   await assert.rejects(call(third,'public.marriage_rewind_step($1,1,true)',[ab]));
   let p=await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);assert(p.rewindMine);assert(p.exclusive);assert.equal(p.stage,1);
   p=await call(man,'public.marriage_rewind_step($1,1,true)',[ab]);assert.equal(p.stage,1,'same person cannot approve twice');

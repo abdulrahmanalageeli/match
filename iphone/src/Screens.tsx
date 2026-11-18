@@ -20,7 +20,8 @@ import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
 import './auth/entry.css';
 import { KeyboardDismiss } from './mobile/KeyboardDismiss';
-import { membershipPriceLabel } from './membershipPricing';
+import { TestingTrial } from './TestingTrial';
+import type { AccountState } from './types';
 
 type Click = () => void;
 export function Frame({
@@ -147,9 +148,9 @@ export function Auth({
           <ul>
             <li><ShieldCheck size={18} aria-hidden="true"/><span><strong>مراجعة عضوية</strong><small>بعد اكتمال الملف</small></span></li>
             <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>وتعتمد تفسيرها بنفسك</small></span></li>
-            <li><Check size={18} aria-hidden="true"/><span><strong>٧ أيام بلا دفع</strong><small>لا نطلب بطاقة</small></span></li>
+            <li><Check size={18} aria-hidden="true"/><span><strong>الشراء باختيارك</strong><small>بعد اعتماد الملف</small></span></li>
           </ul>
-          <p className="nf-auth-price">بعد التجربة: {membershipPriceLabel()} شهريًا حسب نوع العضوية. أي شراء لاحق يحتاج موافقتك في Apple.</p>
+          <p className="nf-auth-price">يعرض App Store السعر ومدة الاشتراك قبل موافقتك على الشراء.</p>
         </section>}
       </section>
       <section className="nf-auth-panel">
@@ -283,6 +284,11 @@ export function Membership({
   active,
   demo,
   price,
+  period,
+  introduction,
+  status,
+  trialEligible,
+  startTrial,
   canStart,
   canBuy,
   busy,
@@ -297,6 +303,11 @@ export function Membership({
   active: boolean;
   demo: boolean;
   price: string | null;
+  period?: string;
+  introduction?: string;
+  status?: AccountState["membership"]["status"];
+  trialEligible?: boolean;
+  startTrial?: Click;
   canStart: boolean;
   canBuy: boolean;
   busy: boolean;
@@ -310,7 +321,9 @@ export function Membership({
   const until = expiry ? new Date(expiry) : null;
   return (
     <Frame title="العضوية" back={back}>
-      <h1>{active ? "عضويتك الحالية" : "عضوية وُدَين"}</h1>
+      <h1>{status === "trial" ? "تجربتك المجانية مفعّلة" : status === "expired" ? "انتهت صلاحية عضويتك" : status === "paid" ? "اشتراكك المدفوع فعّال" : active ? "عضويتك الحالية" : "عضوية وُدَين"}</h1>
+      {trialEligible && startTrial && <TestingTrial busy={busy} accept={startTrial}/>}
+      {status === "trial" && <p>تنتهي تجربة وُدَين دون خصم. يمكنك اختيار اشتراك Apple الذي يتجدد تلقائيًا حتى الإلغاء.</p>}
       <p className="flow-intro">
         {active || canStart
           ? "مساحتك الخاصة للترشيحات وطلبات التعارف."
@@ -324,20 +337,15 @@ export function Membership({
             <img src="/brand/wudayn-emblem-v2.png" alt="" width="29" height="30" />
           </span>
         </header>
+        {introduction && (!active || status === "trial") && <p>{introduction}، ثم يتجدد الاشتراك بالسعر التالي.</p>}
         <b className="nf-member-price">
-          {price ||
-            (demo
-              ? "سعر التجربة حسب الملف"
-              : active
-                ? "عضوية فعّالة"
-                : "السعر متاح عبر App Store")}
+          {demo ? "تجربة توضيحية" : active && status !== "trial" ? "عضوية فعّالة" : price || "السعر متاح عبر App Store"}
         </b>
-        <span className="nf-member-term">اشتراك شهري</span>
-        {demo && <small>سعر توضيحي للتجربة؛ السعر الفعلي يظهر من Apple قبل الشراء.</small>}
+        {period && (!active || status === "trial") && <span className="nf-member-term">لكل {period}</span>}
       </section>
       <ul className="nf-member-benefits">
-        <li><Check size={16} aria-hidden="true" /> توافق مُفسّر: ما يجمعكما وما يستحق النقاش</li>
-        <li><Check size={16} aria-hidden="true" /> اتفاق جدّية ومدة وخطوة تالية واضحة</li>
+        <li><Check size={16} aria-hidden="true" /> ملخّص التوافق أثناء التصفح، والتفاصيل بعد قبول التعارف من الطرفين.</li>
+        <li><Check size={16} aria-hidden="true" /> تعارفان نشطان كحد أقصى. تبدأ المحادثة بعد قبول طلب التعارف وموافقتكما على الشروط والمدة.</li>
         <li><Check size={16} aria-hidden="true" /> تعارف حصري بموافقتكما وجسر خاص للأهل</li>
       </ul>
       <WhyWudayn label="تعرّف على المنهج وراء عضويتك"/>
@@ -356,7 +364,7 @@ export function Membership({
         </p>
       ) : (
         <p className="flow-note">
-          اشتراك شهري يتجدد تلقائيًا حتى الإلغاء. يظهر السعر النهائي في نافذة
+          يتجدد الاشتراك تلقائيًا حتى الإلغاء. يظهر السعر النهائي في نافذة
           Apple قبل تأكيد الشراء.
         </p>
       )}
@@ -364,38 +372,25 @@ export function Membership({
         <button className="f-primary" onClick={back}>
           العودة للتجربة
         </button>
-      ) : active ? (
-        <button
-          className="f-secondary"
-          disabled={!canBuy || busy}
-          onClick={manage}
-        >
-          إدارة الاشتراك في Apple
-        </button>
-      ) : (
+      ) : (!active || status === "trial") && (
         <>
           <button
             className="f-primary"
-            disabled={!canStart || !canBuy || !price || busy}
+            disabled={!canStart || !canBuy || !price || !period || busy}
             onClick={buy}
           >
-            اشترك شهريًا
+            {introduction ? "متابعة العرض عبر Apple" : price && period ? `اشترك مقابل ${price} لكل ${period}` : "اشترك عبر Apple"}
           </button>
-          {(!canStart || !price) && (
-            <button
-              className="f-link centered"
-              disabled={busy}
-              onClick={refresh}
-            >
-              تحديث حالة العضوية
-            </button>
-          )}
+          <button className="f-link centered" disabled={busy} onClick={refresh}>تحديث حالة العضوية</button>
           {!canBuy && (
             <p className="flow-note">
               يتاح الاشتراك من تطبيق وُدَين على iPhone.
             </p>
           )}
         </>
+      )}
+      {!demo && (
+        <button className="f-secondary" disabled={!canBuy || busy} onClick={manage}>إدارة الاشتراك في Apple</button>
       )}
       {!demo && (
         <button

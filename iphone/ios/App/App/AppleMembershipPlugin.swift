@@ -63,11 +63,14 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func offer(_ call: CAPPluginCall) {
         Task { @MainActor in
             do {
-                guard let product = try await storeProduct(for: call.getString("gender")) else {
+                guard let product = try await storeProduct(for: call.getString("gender")),
+                      let offer = await MembershipStoreOffer(product) else {
                     call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
                     return
                 }
-                call.resolve(["price": product.displayPrice, "productId": product.id])
+                var terms = ["price": product.displayPrice, "productId": product.id, "period": offer.period]
+                terms["introduction"] = offer.introduction
+                call.resolve(terms)
             } catch {
                 call.reject("تعذّر تحميل سعر العضوية من App Store.", "STORE_ERROR", error)
             }
@@ -93,8 +96,13 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 guard let requestedID = call.getString("productId"),
                       let product = try await storeProduct(for: call.getString("gender")),
-                      product.id == requestedID else {
+                      product.id == requestedID, let offer = await MembershipStoreOffer(product) else {
                     call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
+                    return
+                }
+                if let price = call.getString("price"),
+                   price != product.displayPrice || call.getString("period") != offer.period || call.getString("introduction") != offer.introduction {
+                    call.reject("تغيّر عرض Apple. حدّث العرض وراجعه قبل الشراء.", "OFFER_CHANGED")
                     return
                 }
                 switch try await product.purchase(options: [.appAccountToken(token)]) {

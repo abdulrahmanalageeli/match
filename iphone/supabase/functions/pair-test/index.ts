@@ -5,7 +5,7 @@ import { parsePortraitUpload, portraitRequestLimit, portraitPolicies } from '../
 import { downloadChatMedia, viewOnceUpload, chatObjectPath } from '../_shared/chat-media.ts';
 import { projectPairState } from '../_shared/pair-privacy.ts';
 const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type,apikey,x-test-session,x-client-id,x-duration-ms,x-portrait-blur,x-portrait-reveal,x-profile-revision,x-view-once','Access-Control-Allow-Methods':'POST,OPTIONS'};
-const allowed=new Set(['portrait_info','portrait_remove','heartbeat','interest','uninterest','dismiss_person','report_person','rematch_request','rematch_accept','rematch_decline','match_seen','rewind','gallery_list','gallery_url','gallery_remove','notifications','notifications_read','profile_visit','state','send','read','delivered','profile','close','reset','step','logout','call_start','call_accept','call_decline','call_end','token','permission_invite','permission_accept','permission_decline','media_url','agreement_extend','agreement_extension_accept','agreement_propose','agreement_accept','agreement_family']);
+const allowed=new Set(['portrait_info','portrait_remove','heartbeat','interest','uninterest','dismiss_person','report_person','rematch_request','rematch_accept','rematch_decline','match_seen','rewind','gallery_list','gallery_remove','notifications','notifications_read','profile_visit','state','send','read','delivered','profile','close','reset','step','logout','call_start','call_accept','call_decline','call_end','token','permission_invite','permission_accept','permission_decline','agreement_extend','agreement_extension_accept','agreement_propose','agreement_accept','agreement_family']);
 const bucket='nisfayn-test-chat';
 allowed.add('portrait_policy');
 allowed.add('message_delete');
@@ -34,11 +34,6 @@ Deno.serve(async req=>{
     data.manualVerifications=claimError?{reham:[],abdulrahman:[]}:claims;
    }
    return projectPairState(data);
-  };
-  const liveRehamPortrait=async(session:string,id:string)=>{
-   const {data,error}=await client.rpc('nisfayn_test_live_reham_portrait',{test_token:session,photo_id:id});
-   if(error)throw Object.assign(Error(error.code==='42501'?'انتهت الجلسة أو الصورة غير متاحة.':error.message),{status:error.code==='42501'?403:400});
-   return data;
   };
   const galleryUpload=new URL(req.url).searchParams.get('action')==='gallery_upload';
   const portraitUpload=new URL(req.url).searchParams.get('action')==='portrait_upload';
@@ -125,11 +120,13 @@ Deno.serve(async req=>{
     return data;
    },headers);
   }
-  if(new URL(req.url).searchParams.get('action')==='portrait_download'){
+  const download=new URL(req.url).searchParams.get('action');
+  if(download==='portrait_download'||download==='gallery_download'){
+   const gallery=download==='gallery_download';
    if(!validSession(body.session)||!validId(body.payload?.id))return Response.json({error:'يرجى تسجيل الدخول.'},{status:401,headers});
-   const photo=await rpc('portrait_info',body.session,{id:body.payload.id})||await liveRehamPortrait(body.session,body.payload.id);
-   if(!photo?.path||photo.id!==body.payload.id)throw Error('الصورة غير متاحة.');
-   const {data:image,error}=await client.storage.from('nisfayn-profile-portraits').download(photo.path);
+   const photo=await rpc(gallery?'gallery_url':'portrait_info',body.session,{id:body.payload.id});
+   if(typeof photo?.path!=='string'||!/^test\/(reham|abdulrahman)\//.test(photo.path)||photo.id!==body.payload.id)throw Error('الصورة غير متاحة.');
+   const {data:image,error}=await client.storage.from(gallery?'nisfayn-profile-gallery':'nisfayn-profile-portraits').download(photo.path);
    if(error||!image)throw Error('تعذّر تحميل الصورة.');
    return new Response(image,{headers:{...headers,'Content-Type':'image/jpeg','Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff'}});
   }
@@ -143,7 +140,6 @@ Deno.serve(async req=>{
   }
   if(!allowed.has(body.action)||!validSession(body.session))return Response.json({error:'يرجى تسجيل الدخول.'},{status:401,headers});
   let data=await rpc(body.action,body.session,body.payload||{});
-  if(body.action==='portrait_info'&&!data&&validId(body.payload?.id))data=await liveRehamPortrait(body.session,body.payload.id);
   if(body.action==='message_delete'&&data){
    const path=data._deletedMediaPath;delete data._deletedMediaPath;
    if(typeof path==='string'&&chatObjectPath.test(path)){
@@ -155,16 +151,6 @@ Deno.serve(async req=>{
   }
   if(body.action==='token')data=mintVoiceToken(data,{appId:Deno.env.get('AGORA_APP_ID')!,certificate:Deno.env.get('AGORA_APP_CERTIFICATE')!});
   if(body.action==='gallery_remove'&&data.path)await client.storage.from('nisfayn-profile-gallery').remove([data.path]);
-  if(body.action==='portrait_info'&&data&&!data.revealed&&!body.payload?.metadataOnly){
-   const {data:link,error}=await client.storage.from('nisfayn-profile-portraits').createSignedUrl(data.path,120);
-   if(error||!link)throw Error('تعذّر فتح الصورة. حاول مجددًا.');
-   data={...data,url:link.signedUrl,expiresAt:new Date(Date.now()+120000).toISOString()};
-  }
-  if(body.action==='media_url'||body.action==='gallery_url'){
-   const {data:link,error}=await client.storage.from(body.action==='gallery_url'?'nisfayn-profile-gallery':bucket).createSignedUrl(data.path,120);
-   if(error||!link)throw Error('تعذّر فتح الملف. حاول مجددًا.');
-   data={url:link.signedUrl,expiresAt:new Date(Date.now()+120000).toISOString()};
-  }
   return Response.json(data,{headers});
  }catch(e){return Response.json({error:e instanceof Error&&/[\u0600-\u06ff]/.test(e.message)?e.message:'تعذّر إتمام العملية.'},{status:(e as {status?:number}).status||500,headers});}
 });

@@ -68,7 +68,7 @@ function harness(t,overrides={},admin=false){
 async function acceptFictional(source,id){
   const request=await source.request(id);await source.demoAcceptOutgoing(request);
   if(source.simulation&&(await source.agreement(request)).status==='none'){
-    await assert.rejects(source.send(request,'لا ترسل قبل الميثاق','blocked-before-consent'),/ميثاق الجدية/);
+    await assert.rejects(source.send(request,'لا ترسل قبل الميثاق','blocked-before-consent'),/شروط التعارف ومدته/);
     await source.agree(request,'propose',{days:7,signed:true});
     await source.simulation.step();
     assert.equal((await source.agreement(request)).status,'accepted');

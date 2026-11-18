@@ -192,7 +192,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
         social.set(person.id, 3);
       } else if (phase >= 2) {
         if(Date.now()-(lastVisits.get(person.id)??0)>90_000&&random()<.3) {
-          world.activity('profile_visit',person.id);lastVisits.set(person.id,Date.now());add('profile_visit',person.id,`${person.alias}: زار ملفك`);return;
+          world.activity('profile_visit',person.id);lastVisits.set(person.id,Date.now());add('profile_visit',person.id,`${person.alias}: زيارة لملفك`);return;
         }
         const online = !world.online.has(person.id);
         if (online) world.online.add(person.id); else world.online.delete(person.id);
@@ -202,7 +202,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
         world.activity(kind, person.id);
         if(kind==='profile_visit')lastVisits.set(person.id,Date.now());
         social.set(person.id, phase + 1);
-        add(kind, person.id, `${person.alias}: ${kind === 'interest' ? 'أبدى اهتمامه بملفك' : 'زار ملفك'}`);
+        add(kind, person.id, `${person.alias}: ${kind === 'interest' ? 'اهتمام بملفك' : 'زيارة لملفك'}`);
       }
     } finally {
       busy = false;

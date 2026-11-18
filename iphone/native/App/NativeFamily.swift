@@ -48,12 +48,12 @@ struct NativeFamily: View {
                     if state["role"].string == "member" {
                         NativeChoice(title: "صلة القرابة", value: $relationship, options: relationships)
                         NativeAction(title: "إنشاء رمز ربط") { invite = try await store.client.family("invite_link", ["relationship": .string(relationship)]); try await load() }
-                        if !invite["code"].string.isEmpty { Text(invite["code"].string).font(.title.monospaced()); ShareLink("مشاركة الرمز", item: invite["code"].string); Text("ينتهي: \(invite["expiresAt"].string.prefix(10))").font(.caption) }
+                        if !invite["code"].string.isEmpty { Text(invite["code"].string).font(.title.monospaced()); ShareLink("مشاركة الرمز", item: invite["code"].string); Text("ينتهي: \(NativeDates.display(invite["expiresAt"].string))").font(.caption) }
                     } else {
                         TextField("رمز الربط", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled()
                         NativeAction(title: "طلب الربط") { try await act("claim_link", ["code": .string(code.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "").uppercased())]); code = "" }.disabled(code.isEmpty)
                     }
-                    ForEach(state["invites"].rows) { row in NativeAction(title: "إلغاء الرمز المنتهي في \(row.value["expiresAt"].string.prefix(10))") { try await act("revoke_invite", ["inviteId": .string(row.id)]); invite = .null } }
+                    ForEach(state["invites"].rows) { row in NativeAction(title: "إلغاء الرمز المنتهي في \(NativeDates.display(row.value["expiresAt"].string))") { try await act("revoke_invite", ["inviteId": .string(row.id)]); invite = .null } }
                 }
                 if let connectionID {
                     Section("إشراك الأهل في هذا التعارف") {

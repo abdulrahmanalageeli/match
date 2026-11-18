@@ -7,6 +7,7 @@ import { Brand } from "../Brand";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import type { AccountState, Profile } from "../types";
 import { useDevicePreferences, useSystemReducedMotion } from "./preferences";
+import { RequestHistory } from '../community/RequestHistory';
 import { MatchingExclusions } from "./MatchingExclusions";
 import { MemberData } from "./MemberData";
 import { PhotoSettings } from "../photos/Photos";
@@ -52,6 +53,28 @@ type Props = {
   onBack?: () => void;
   children?: ReactNode;
 };
+
+function DirectoryWork({source}: {source: CommunitySource}) {
+  const [choice,setChoice] = useState<string | null>(null);
+  const [busy,setBusy] = useState(false), [status,setStatus] = useState('');
+  useEffect(()=>{
+    let current=true;
+    setChoice(null); setStatus('');
+    source.directoryWork?.().then(value=>{if(current)setChoice(value ?? '');},()=>{if(current)setStatus('تعذّر تحميل الاختيار.');});
+    return ()=>{current=false;};
+  },[source]);
+  async function save() {
+    if (!source.directoryWork || choice===null) return;
+    setBusy(true);
+    try { await source.directoryWork(choice || null); setStatus('حُفظ اختيارك.'); }
+    catch {setStatus('تعذّر الحفظ. أعد المحاولة.');}
+    finally {setBusy(false);}
+  }
+  return <details><summary>تفضيل العمل المنشور</summary><p>يمكن للأعضاء البحث عن ملفك وفق اختيارك المنشور هنا. يمكنك سحبه في أي وقت.</p>
+    <label>الموقف من عمل الزوجة<select value={choice ?? ''} disabled={busy || choice===null} onChange={e=>{setChoice(e.target.value);setStatus('');}}>
+      <option value="">خاص · لا أنشر اختياري</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option>
+    </select></label><button type="button" disabled={busy || choice===null} onClick={()=>void save()}>حفظ</button><p role="status">{status}</p></details>;
+}
 
 function SettingRow({ icon, title, detail, action, disabled, danger }: {
   icon: ReactNode; title: string; detail?: string; action: () => void; disabled?: boolean; danger?: boolean;
@@ -126,8 +149,9 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const member = demo ? demoMember : state?.profile;
   const firstLetter = Array.from(member?.displayName.trim() || "")[0];
   const canManageMatching = Boolean(demo || state?.membership.active);
-  const canSeeMembership = canManageMatching || state?.user.applicationStatus === "approved";
-  const membershipDetail = demo ? "تجربة مجانية" : state?.membership.active ? "عضوية فعّالة" :
+  const canSeeMembership = canManageMatching || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending;
+  const membershipDetail = demo ? "تجربة توضيحية" : state?.membership.status === "trial" ? "تجربتك المجانية مفعّلة" :
+    state?.membership.status === "expired" ? "انتهت صلاحية العضوية" : state?.membership.active ? "عضوية فعّالة" :
     state?.membership.canStart ? "متاحة للاشتراك" : "بانتظار توفر ترشيح مناسب";
   const location = member?.city || state?.user.email;
   if(showCompletion)return <JourneyCompletion paused={paused} busy={busy} demo={demo} canPause={canManageMatching}
@@ -176,6 +200,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
               title={paused ? "استئناف الترشيحات" : "إيقاف الترشيحات مؤقتًا"}
               detail={paused ? "استقبال الترشيحات متوقف" : "ملفك متاح للترشيحات"}
               action={() => paused ? onToggle() : setConfirm("pause")} disabled={busy} />}
+            {source?.requestHistory && <RequestHistory source={source} title="السجل والإبلاغ عن تعارف سابق"/>}
+            {source?.directoryWork && <DirectoryWork source={source}/>}
             {source?.matchingExclusions && <div className="st-exclusions-entry"><SettingRow icon={<ShieldCheck/>} title="الحظر وعدم إعادة الترشيح" detail="الأشخاص المحظورون والتعارفات المستبعدة" action={()=>openPanel('exclusions')} /></div>}
             <SettingRow icon={<ShieldCheck />} title="الخصوصية وشروط العضوية" action={onPrivacy} />
             {owner && <SettingRow icon={<Eye />} title="خصوصية بيانات الملف" action={() => setDataSheet({ mode: "visibility", owner })} />}

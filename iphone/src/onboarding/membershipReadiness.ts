@@ -1,3 +1,4 @@
+import memberAr from '../member-copy.ts';
 export const membershipAgreementVersion = 'wudayn-membership-v1';
 
 export const readinessScenarios = {
@@ -79,10 +80,10 @@ export function readinessBlueprint(answers: ReadinessAnswers, value: MembershipR
     if (!own || !partner) return [];
     const firm = answers.hardRequirements?.includes(dimension.id) ?? false;
     const priority = answers.priorityCategories?.includes(dimension.category) ?? false;
-    const femaleWork = ['أرغب في العمل ومواصلة طموحي', 'أفضل عدم العمل بعد الزواج', 'مرنة حسب ظروفي واتفاقنا'];
+    const femaleWork = memberAr.womanWork;
     return [{
       id: dimension.id, title: dimension.title, own: dimension.id === 'wife_work' && answers.gender === 'woman'
-        ? femaleWork[dimension.options.indexOf(own)] ?? own.self : own.self,
+        ? (femaleWork as Record<string,string>)[own.code] ?? own.self : own.self,
       partner: partner.partner, firm, priority,
     }];
   });

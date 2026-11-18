@@ -388,7 +388,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
   const incomplete = Boolean(snapshot.coverage && snapshot.coverage.answered < snapshot.coverage.required);
-  const scenarioIndex = openingScenarios.findIndex(item => [item.text,item.previousText,item.legacyText,item.earlierText].includes(doc?.currentQuestion?.text ?? ''));
+  const scenarioIndex = openingScenarios.findIndex(item => [item.text,item.clarification,...item.priorWording].includes(doc?.currentQuestion?.text ?? ''));
   const answerLimit = scenarioIndex >= 0 ? 700 : 900;
   const hybrid = Boolean(hybridEnabled && doc?.promptVersion === 'wudayn-interview-4' &&
     doc.status !== 'confirmed' && !fallbackReview && (hasOpening && doc.status === 'review'));
@@ -482,7 +482,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               </details>}
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
-                <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، ومتى تكون الخطوة الرسمية، وكيف تشركان الأهل.</p>
+                <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>
                 <p>تراجع ملخصك بنفسك، وتأكيده يكمل جلسة التوافق. طلب العضوية له مراجعته الخاصة.</p>
               </details>
               {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>ملخصك الخاص عن الخطوة القادمة <ChevronDown size={14}/></summary><p>يعكس ما ذكرتَه في الحوار، وقد تبقى بعض التفاصيل مفتوحة للنقاش.</p><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
@@ -539,7 +539,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {!responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}
           </div>
           <form className="wi-composer" data-opening={openingTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
-            {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يعنيه لك الزواج الجاد والخطوة الرسمية. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
+            {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يهمك في الزواج. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
             {openingTurn && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-help' : undefined} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>

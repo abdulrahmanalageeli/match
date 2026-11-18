@@ -42,6 +42,7 @@ actor NativeUITestTransport: HTTPTransport {
                 guard phoneVerified, body["consent"]["adult"].bool, body["consent"]["terms"].bool, body["consent"]["privacy"].bool, body["consent"]["sms"].bool, body["proof_hash"].string.count == 64, body["device_hash"].string.count == 64 else { return try response(.null, status: 400) }
                 onboardingRequired = false; value = .object(["required": .bool(false)])
             case "marriage_state": value = .object(["user": .object(["id": .string(Self.owner), "applicationStatus": .string("approved")]), "profile": .object(["displayName": .string("اختبار الواجهة"), "birthDate": .string("1995-01-01"), "city": .string("الرياض"), "gender": .string("man")]), "membership": .object(["active": .bool(true)])])
+            case "marriage_profile_visible": value = .bool(body["subject"].string == person["id"].string)
             case "marriage_browse": value = .array([person])
             case "signup-sms":
                 if body["action"].string == "verify" && body["otp"].string != "123456" { return try response(.object(["error": .string("رمز التحقق غير صحيح")]), status: 400) }

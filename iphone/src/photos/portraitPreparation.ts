@@ -34,9 +34,26 @@ export async function blurPortraitPixels(data: Uint8ClampedArray,width:number,he
   }
 }
 
-export async function preparePortrait(file: File, blur: number, revealPolicy: PortraitRevealPolicy = 'never'): Promise<PortraitDraft> {
+export type PortraitCrop = { x: number; y: number; zoom: number };
+export const initialPortraitCrop: PortraitCrop = { x: .5, y: .35, zoom: 1 };
+
+export function portraitCropRect(width: number, height: number, crop: PortraitCrop) {
+  const w = Math.min(width, height * .8) / crop.zoom;
+  const h = w / .8;
+  return { x: (width - w) * crop.x, y: (height - h) * crop.y, w, h };
+}
+
+export function validatePortraitFile(file: File) {
   if (!['image/jpeg','image/png','image/webp'].includes(file.type)) throw Error('اختاري صورة JPG أو PNG أو WebP.');
   if (file.size > 12 * 1024 * 1024) throw Error('اختاري صورة أصغر من ١٢ ميغابايت.');
+}
+
+export function validatePortraitDimensions(w: number, h: number) {
+  if (!w || !h || w*h>40_000_000 || Math.max(w,h)>12000) throw Error('اختر نسخة أصغر من الصورة.');
+}
+
+export async function preparePortrait(file: File, blur: number, revealPolicy: PortraitRevealPolicy = 'never', crop = initialPortraitCrop): Promise<PortraitDraft> {
+  validatePortraitFile(file);
   if (!Number.isInteger(blur) || blur < 0 || blur > 100) throw Error('راجعي درجة التمويه.');
   if (!['never','matched','serious','family'].includes(revealPolicy)) throw Error('اختاري موعدًا صحيحًا لإزالة التمويه.');
   // An already-clear public image needs no separately retained clear copy.
@@ -45,12 +62,12 @@ export async function preparePortrait(file: File, blur: number, revealPolicy: Po
   try {
     image.src = original; await image.decode();
     const w=image.naturalWidth,h=image.naturalHeight;
-    if (!w||!h||w*h>40_000_000||Math.max(w,h)>12000) throw Error('اختاري نسخة أصغر من الصورة.');
+    validatePortraitDimensions(w,h);
     const canvas=document.createElement('canvas');canvas.width=640;canvas.height=800;
     const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('تعذّر تجهيز الصورة.');
     ctx.fillStyle='#faf6ee';ctx.fillRect(0,0,640,800);
-    const cw=Math.min(w,h*.8),ch=cw/ .8;
-    ctx.drawImage(image,(w-cw)/2,(h-ch)*.35,cw,ch,0,0,640,800);
+    const rect = portraitCropRect(w,h,crop);
+    ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h,0,0,640,800);
     const encode = () => new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));
     const clearBlob = policy !== 'never' ? await encode() : undefined;
     if (policy !== 'never' && !clearBlob) throw Error('تعذّر تجهيز النسخة الواضحة. أعيدي اختيار الصورة.');

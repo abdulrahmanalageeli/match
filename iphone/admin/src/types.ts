@@ -15,8 +15,8 @@ export type PublicMarriageBasics = {
   dressFlexibility?: 'keep' | 'open_to_discussion' | 'open_to_change' | 'prefer_not_to_say';
 };
 export type PublicAvatar = { style: NonNullable<PublicMarriageBasics['dressStyle']>; skinTone: NonNullable<PublicMarriageBasics['skinTone']> };
-export type MemberDetail = MemberRow & { bio: string; lookingFor?: string; lifeTogether?: string; valuesStatement?: string; education?: string; marriageIntent?: string; beenaStory?: { scenarioId: string; text: string }; marriageBasics?: PublicMarriageBasics; publicAvatar?: PublicAvatar | null; interests: string[]; familyPreference: string; preferredMinAge: number; preferredMaxAge: number; consentVersion: string | null; consentedAt: string | null; assessmentVersion: string; answeredTopics: number };
-export type ReportRow = { isDummy?: boolean; reportId: string; reportedId: string; reportedName: string | null; reason: string; createdAt: string; resolvedAt: string | null; assignedTo: string | null; assignedName: string | null; revision: string };
+export type MemberDetail = MemberRow & { repeatReview?: boolean; bio: string; lookingFor?: string; lifeTogether?: string; valuesStatement?: string; education?: string; marriageIntent?: string; beenaStory?: { scenarioId: string; text: string }; marriageBasics?: PublicMarriageBasics; publicAvatar?: PublicAvatar | null; interests: string[]; familyPreference: string; preferredMinAge: number; preferredMaxAge: number; consentVersion: string | null; consentedAt: string | null; assessmentVersion: string; answeredTopics: number };
+export type ReportRow = { urgent?: boolean; hasEvidence?: boolean; isDummy?: boolean; reportId: string; reportedId: string; reportedName: string | null; reason: string; createdAt: string; resolvedAt: string | null; assignedTo: string | null; assignedName: string | null; revision: string };
 export type AuditRow = { id: string; actorId: string | null; actorName: string; actorRole: string; action: string; targetType: string; targetId: string; reason: string; createdAt: string };
 export type Overview = { counts: { pendingApplications: number; openReports: number; suspendedMembers: number; approvedMembers: number; totalMembers: number }; daily: { day: string; event: string; total: number }[]; cohorts: { offer_week: string; version: string; band: string; returned: number; opened: number; requested: number; accepted: number; formal: number }[] };
 export type ReviewAction = 'approve' | 'suspend' | 'restore' | 'return_pending' | 'pause' | 'resume';
@@ -45,6 +45,7 @@ export interface AdminApi {
   member(id: string): Promise<MemberDetail>;
   review(id: string, action: ReviewAction, revision: string, reason: string, requestId: string): Promise<void>;
   manage(id: string, action: ManageAction, changes: Record<string, unknown>, revision: string, reason: string, requestId: string): Promise<void>;
+  reportExcerpt?(id: string): Promise<{body: string|null; kind: string|null; expiresAt: string}|null>;
   reports(status: string, before?: string): Promise<ReportRow[]>;
   reportAction(id: string, action: ReportAction, revision: string, reason: string, requestId: string): Promise<void>;
   audit(before?: string): Promise<AuditRow[]>;

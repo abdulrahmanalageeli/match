@@ -16,7 +16,7 @@ struct NativeSocialOnboarding: View {
     var body: some View {
         Form {
             Section {
-                Text("تم تأكيد حسابك. بقي تأكيد الجوال والموافقات لبدء رحلتك.")
+                Text("اكتمل تسجيل الدخول. بقي تأكيد رقم جوالك ومراجعة الموافقات.")
                 TextField("رقم الجوال السعودي", text: $phone).keyboardType(.phonePad).textContentType(.telephoneNumber).focused($focused).accessibilityIdentifier("signup.phone")
             }.disabled(store.busy || !proof.isEmpty)
             Section("بوضوح وبإذنك") {
@@ -24,7 +24,7 @@ struct NativeSocialOnboarding: View {
                 Toggle("أؤكد أن عمري ١٨ عامًا أو أكثر", isOn: $consent.flag("adult")).accessibilityIdentifier("signup.adult")
                 Toggle("أوافق على شروط الاستخدام", isOn: $consent.flag("terms")).accessibilityIdentifier("signup.terms")
                 Toggle("اطلعت على سياسة الخصوصية وأوافق عليها", isOn: $consent.flag("privacy")).accessibilityIdentifier("signup.privacy")
-                Toggle("أوافق على التحقق بالجوال ومعرّف الجهاز", isOn: $consent.flag("sms")).accessibilityIdentifier("signup.smsConsent")
+                Toggle("أوافق على التحقق من رقم جوالي واستخدام معرّف الجهاز عند التسجيل.", isOn: $consent.flag("sms")).accessibilityIdentifier("signup.smsConsent")
             }.disabled(store.busy)
             if !verified {
                 NativeAction(title: "إرسال رمز التحقق") {
@@ -32,7 +32,7 @@ struct NativeSocialOnboarding: View {
                     let normalized = try NativeDevice.normalizePhone(phone)
                     let value = try await store.client.service(.signupSMS, body: .object(["action": .string("send"), "email": store.onboarding["email"], "phone": .string(normalized), "deviceId": .string(device), "consent": .bool(true), "consentVersion": .string("signup-sms-device-v1")]))
                     guard SignupValidation.validProof(value["proof"].string) else { throw NativeProblem.invalidResponse }
-                    proof = value["proof"].string; code = ""; verified = value["verified"].bool; sentAt = Date()
+                    proof = value["proof"].string; code = ""; verified = false; sentAt = Date()
                 }.disabled(!agreed || phone.isEmpty || (sentAt.map { now.timeIntervalSince($0) < 60 } ?? false)).accessibilityIdentifier("signup.sendSMS")
                 if !proof.isEmpty {
                     TextField("رمز التحقق", text: $code).keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused).disabled(store.busy).accessibilityIdentifier("signup.code")

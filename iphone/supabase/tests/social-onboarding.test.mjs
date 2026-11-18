@@ -26,10 +26,10 @@ test('social registration requires verified phone and consent without changing e
    if(verified) {const {lease}=await sms('claim',{proofHash,deviceHash});await sms('finish',{proofHash,lease,verified:true});}
    return {proofHash,deviceHash,phone};
   }
-  const legacy=await user(), google=await user('google'), apple=await user('apple');
+  const legacy=await user(), google=await user('google'), apple=await user('apple'), email=await user('email');
   assert.equal((await rpc(legacy,'marriage_social_onboarding_status')).required,false);
   assert.equal((await rpc(legacy,'marriage_state')).user.id,legacy.id);
-  for(const u of [google,apple]) {
+  for(const u of [google,apple,email]) {
    assert.deepEqual(await rpc(u,'marriage_social_onboarding_status'),{required:true,email:u.email});
    await assert.rejects(rpc(u,'marriage_state'),/تأكيد الجوال/);
   }

@@ -58,7 +58,7 @@ export type Proposal = {
 };
 
 export type AccountState = {
-  testingTrial?: {enabled:boolean;expiresAt:string|null};
+  testingTrial?: {enabled:boolean;eligible?:boolean;expiresAt:string|null};
   user: {
     id: string;
     email: string | null;
@@ -70,7 +70,7 @@ export type AccountState = {
     nextPublicProfileEditAt?: string | null;
   };
   profile: Profile | null;
-  membership: { active: boolean; expiresAt: string | null; canStart: boolean };
+  membership: { active: boolean; expiresAt: string | null; canStart: boolean; status?: 'free'|'expired'|'trial'|'paid'|'granted' };
   introduction: {
     fit?: MatchFit;
     id: string;

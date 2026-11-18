@@ -24,7 +24,7 @@ struct NativeOnboardingPortrait: View {
                 else if !stage["portrait"]["path"].string.isEmpty { NativeStoredImage(bucket: "nisfayn-profile-portraits", path: stage["portrait"]["path"].string).frame(height: 250) }
                 if stage.isNull {
                     PhotosPicker(selection: $selection, matching: .images) { Label("اختيار صورة", systemImage: "photo") }.disabled(!profile["signupConsents"]["photo"].bool)
-                    if profile["gender"].string == "woman" { Slider(value: $blur, in: 0...100, step: 5); Text("درجة التمويه: \(Int(blur))٪"); Picker("إظهار النسخة الواضحة", selection: $policy) { Text("لا أشاركها").tag("never"); Text("بعد القبول").tag("matched"); Text("بعد اتفاق الجدية").tag("serious"); Text("بعد الاتفاق العائلي").tag("family") } }
+                    if profile["gender"].string == "woman" { Slider(value: $blur, in: 0...100, step: 5); Text("درجة التمويه: \(Int(blur))٪"); Picker("إظهار النسخة الواضحة", selection: $policy) { Text("لا أشاركها").tag("never"); Text("بعد قبول طلب التعارف").tag("matched"); Text("عند مناقشة أساسيات الزواج").tag("serious"); Text("عند الاتفاق على التواصل مع الأهل").tag("family") } }
                     NativeAction(title: "رفع الصورة للتحقق") { try await upload() }.disabled(image == nil || !profile["signupConsents"]["photo"].bool || !["man", "woman"].contains(profile["gender"].string))
                 } else {
                     if ["verified", "approved", "ready"].contains(stage["status"].string) { Label("الصورة جاهزة لإرسال الملف", systemImage: "checkmark.shield") }

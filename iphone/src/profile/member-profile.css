@@ -61,3 +61,8 @@
 .mp-fact-group dd{font-size:13px;color:#60394a;line-height:1.85}
 @media(prefers-reduced-motion:no-preference){html:not([data-nf-motion=reduced]) .mp-fact-chevron{transition:transform .2s ease}html:not([data-nf-motion=reduced]) .mp-fact-group[open]>dl{animation:mp-reveal .2s ease both}}
 @media(max-width:350px){.mp-fact-group>summary{padding:13px 12px;gap:9px}.mp-fact-group dl>div{padding:12px}.mp-fact-heading strong{font-size:13px}.mp-fact-heading small{font-size:9px}.mp-fact-group dd{font-size:12px}}
+.mp-portrait-column { min-width: 0; }
+.mp-profile .mp-portrait-column .mp-portrait { height: auto; aspect-ratio: 4 / 5; }
+.mp-decision-copy { margin-block: 10px 16px; }
+.mp-personal-line { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; line-height: 1.75; }
+.mp-decision-context, .mp-decision-timeline { margin-block: 6px; font-size: .875rem; color: var(--muted); }

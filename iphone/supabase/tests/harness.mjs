@@ -57,6 +57,11 @@ export async function createDatabase({coreOnly=false, throughMigration, debug=0}
       `);
       sql=sql.replace('create extension if not exists pg_net with schema extensions;','');
     }
+    if(file.endsWith('_membership_lifecycle.sql')) {
+      // Scheduling is hosted; run the claim, replay and entitlement SQL against real PostgreSQL.
+      await db.exec('create schema cron; create function cron.schedule(text,text,text) returns bigint language sql as $$ select 1::bigint $$');
+      sql=sql.replace('create extension if not exists pg_cron;', '');
+    }
     try { await db.exec(sql); }
     catch(error) { throw new Error(file+' line '+sql.slice(0,Number(error.position||1)).split('\n').length+': '+error.message); }
   }

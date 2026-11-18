@@ -48,6 +48,7 @@ struct NativeChat: View {
             if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
             if let sendError { Text(sendError).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
             if messages.isEmpty && allowed && text.isEmpty {
+                Text("يقرأ الطرف الآخر ما ترسله. مشاركة رقمك اختيارية، ويمكنك إنهاء التعارف أو الحظر من الخيارات.").font(.footnote)
                 NativeAction(title: "اقتراح لبداية الحديث") {
                     let result = try await store.client.service(.ai, body: .object(["mode": .string("opener")]))
                     let suggestion = String(result["text"].string.prefix(1000))
@@ -56,7 +57,8 @@ struct NativeChat: View {
             }
             if let reply { HStack { Text("ردًا على: " + reply.value["body"].string).lineLimit(1); Spacer(); Button("إلغاء الرد") { self.reply = nil } }.font(.caption).padding() }
             if let photoDraft, let image = UIImage(data: photoDraft) {
-                HStack { Image(uiImage: image).resizable().scaledToFit().frame(height: 80); Toggle("مرة واحدة", isOn: $once); Button("إزالة", role: .destructive) { self.photoDraft = nil } }.padding().disabled(sending)
+                Text("يمكن للطرف الآخر الاحتفاظ بنسخة أو تصوير الشاشة بجهاز آخر، حتى مع العرض لمرة واحدة.").font(.footnote)
+                HStack { Image(uiImage: image).resizable().scaledToFit().frame(height: 80); Toggle("عرض لمرة واحدة", isOn: $once); Button("إزالة", role: .destructive) { self.photoDraft = nil } }.padding().disabled(sending)
             }
             if audio.recording { HStack { Text("تسجيل · \(Int(audio.seconds)) ثانية"); Button("إيقاف") { do { try audio.stop() } catch { self.error = error.localizedDescription } }; Button("إلغاء") { audio.discard() } }.padding() }
             if let draft = audio.draft { HStack { Button("معاينة التسجيل") { do { try audio.play(draft) } catch { self.error = error.localizedDescription } }; Text("\(Int(audio.seconds)) ثانية"); Button("حذف") { audio.discard() } }.padding().disabled(sending) }
@@ -144,6 +146,7 @@ struct NativeMessage: View {
     @State private var error: String?
     @StateObject private var audio = NativeVoiceNote()
     @State private var visible = false
+    @State private var showReport = false
     private var message: JSONValue { row.value }
     private var attachment: JSONValue { message["attachment"] }
     var body: some View {
@@ -165,6 +168,7 @@ struct NativeMessage: View {
                 }
             }.padding(12).background(message["senderIsMe"].bool ? NativeTheme.accent.opacity(0.10) : Color.gray.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 16))
                 .contextMenu {
+                    if !message["senderIsMe"].bool { Button("الإبلاغ عن هذه الرسالة", role: .destructive) { showReport = true } }
                     if message["deletedAt"].isNull {
                         if let reply { Button("رد", action: reply) }
                         ForEach(["❤️", "😂", "😮", "😢", "🙏", "👍"], id: \.self) { emoji in NativeAction(title: emoji) { _ = try await store.client.rpc("marriage_react_to_message", ["request_id": .string(requestID), "message_id": .string(row.id), "reaction": .string(emoji)]) } }
@@ -172,7 +176,8 @@ struct NativeMessage: View {
                     }
                 }
             if message["senderIsMe"].bool { Spacer(minLength: 36) }
-        }.fullScreenCover(item: $photo) { NativePhotoScreen(photo: $0) }.nativeError($error)
+        }.sheet(isPresented: $showReport) { NavigationStack { NativeIncidentReport(requestID: requestID, messageID: row.id) } }
+            .fullScreenCover(item: $photo) { NativePhotoScreen(photo: $0) }.nativeError($error)
             .onChange(of: message["deletedAt"]) { value in if !value.isNull { photo = nil; audio.discard() } }
             .onChange(of: attachment) { value in if value.isNull { photo = nil; audio.discard() } }
             .onChange(of: phase) { if $0 != .active { photo = nil; audio.discard() } }
@@ -206,28 +211,36 @@ struct NativeAgreement: View {
     @State private var signed = false
     @State private var days = 14
     var body: some View {
-        DisclosureGroup(agreement["status"].string == "family" ? "اتفقتما على التواصل العائلي" : "اتفاق الجدية") {
+        DisclosureGroup(agreement["status"].string == "family" ? "اتفقتما على التواصل مع الأهل" : NativeCatalog.copy("agreementTitle")) {
             Text("نتفق على مدة للتعارف الجاد، مع احترام الخصوصية وحق كل طرف في التوقف.").font(.footnote)
             if ["accepted", "expired"].contains(agreement["status"].string) {
-                Text("موعد المراجعة: \(agreement["deadline"].string.prefix(10))").font(.caption)
+                Text("موعد المراجعة: \(NativeDates.display(agreement["deadline"].string))").font(.caption)
                 if agreement["extension"].isNull { NativeAction(title: "اقتراح أسبوع إضافي") { try await act("extend", ["days": .number(7)]) } }
                 else if agreement["extension"]["actor"] != agreement["actor"] { NativeAction(title: "الموافقة على التمديد") { try await act("extension_accept", ["proposalId": agreement["extension"]["id"]]) } }
                 else { Text("التمديد بانتظار موافقة الطرف الآخر.") }
-                Toggle("أؤكد رغبتي في الانتقال للتواصل العائلي", isOn: $signed)
-                NativeAction(title: "أوافق على التواصل العائلي") { try await act("family", ["confirmed": .bool(true)]) }.disabled(!signed || agreement["familyAgreed"][agreement["actor"].string].bool)
+                Toggle("أؤكد رغبتي في التواصل مع الأهل", isOn: $signed)
+                NativeAction(title: NativeCatalog.copy("agreeFamily")) { try await act("family", ["confirmed": .bool(true)]) }.disabled(!signed || agreement["familyAgreed"][agreement["actor"].string].bool)
             } else if agreement["status"].string != "family" && !agreement.isNull {
                 if agreement["actor"].string == "reham" {
-                    Picker("المدة", selection: $days) { Text("٧ أيام").tag(7); Text("١٤ يومًا").tag(14); Text("٣٠ يومًا").tag(30) }
-                } else { Text(agreement["status"].string == "proposed" ? "المدة المقترحة: \(Int(agreement["days"].number)) يومًا" : "بانتظار اقتراح الطرف الآخر.") }
+                    Picker("المدة", selection: $days) { ForEach([7, 14, 30], id: \.self) { value in Text(NativeCatalog.memberCopy["days"][String(value)].string).tag(value) } }
+                } else { Text(agreement["status"].string == "proposed" ? "المدة المقترحة: \(NativeCatalog.memberCopy["days"][String(Int(agreement["days"].number))].string)" : "بانتظار اقتراح الطرف الآخر.") }
                 if agreement["actor"].string == "reham" || agreement["status"].string == "proposed" {
-                    Toggle("قرأت اتفاق الجدية وأوافق عليه وعلى مدته", isOn: $signed)
-                    NativeAction(title: "التوقيع على الاتفاق") {
-                        let propose = agreement["actor"].string == "reham"
+                    Toggle(NativeCatalog.copy("agreementConsent"), isOn: $signed)
+                    let propose = agreement["actor"].string == "reham"
+                    let action = propose ? (agreement["status"].string == "proposed" ? "updateDuration" : "proposeDuration") : "acceptDuration"
+                    NativeAction(title: NativeCatalog.copy(action)) {
                         try await act(propose ? "propose" : "accept", propose ? ["days": .number(Double(days)), "signed": .bool(true)] : ["proposalId": agreement["proposalId"], "signed": .bool(true)])
                     }.disabled(!signed)
                 }
             }
-        }.padding().background(NativeTheme.accent.opacity(0.04)).onChange(of: agreement["proposalId"].string) { _ in signed = false; if agreement["days"].number > 0 { days = Int(agreement["days"].number) } }
+        }.padding().background(NativeTheme.accent.opacity(0.04))
+            .onAppear { syncProposal() }
+            .onChange(of: agreement["proposalId"].string) { _ in syncProposal() }
+            .onChange(of: days) { _ in signed = false }
+    }
+    private func syncProposal() {
+        signed = false
+        if agreement["days"].number > 0 { days = Int(agreement["days"].number) }
     }
     private func act(_ action: String, _ payload: [String: JSONValue]) async throws { agreement = try await store.client.rpc("marriage_agreement", ["request_id": .string(requestID), "action": .string(action), "payload": .object(payload)]); signed = false }
 }
@@ -236,10 +249,9 @@ struct NativeConnectionOptions: View {
     @EnvironmentObject private var store: NativeStore
     @Environment(\.dismiss) private var dismiss
     let connection: JSONValue
-    @State private var allowRematch = true
+    @State private var allowRematch = false
     @State private var confirm = false
-    @State private var reason = ""
-    @State private var block = false
+    @State private var report = false
     var body: some View {
         Form {
             NavigationLink("الملف الشخصي", destination: NativePerson(person: connection["person"]))
@@ -249,16 +261,14 @@ struct NativeConnectionOptions: View {
             NavigationLink("مشاركة الصور الخاصة", destination: NativeSharedPhotos(connectionID: connection["id"].string))
             NavigationLink("البحث والمرفقات", destination: NativeChatLibrary(requestID: connection["id"].string))
             Section("إنهاء التعارف") {
-                Toggle("السماح بالترشيح مجددًا", isOn: $allowRematch)
+                Toggle("السماح بالتعارف مجددًا", isOn: $allowRematch)
                 Button("إنهاء التعارف", role: .destructive) { confirm = true }
-                TextField("سبب البلاغ", text: $reason)
-                Button("إبلاغ وحظر", role: .destructive) { block = true }.disabled(reason.trimmingCharacters(in: .whitespaces).count < 3)
+                NativeAction(title: NativeCatalog.copy("block")) { _ = try await store.client.rpc("marriage_act", ["request_id": connection["id"], "action": .string("block")]); dismiss() }
+                Button(NativeCatalog.copy("reportBlock"), role: .destructive) { report = true }
             }
         }.navigationTitle("خيارات التعارف").toolbar { Button("إغلاق") { dismiss() } }
             .confirmationDialog("إنهاء هذا التعارف؟", isPresented: $confirm, titleVisibility: .visible) {
-                NativeAction(title: "تأكيد الإنهاء") { _ = try await store.client.rpc("marriage_cancel", ["request_id": connection["id"], "allow_rematch": .bool(allowRematch)]); dismiss() }
-            }.confirmationDialog("إرسال البلاغ وحظر الشخص؟", isPresented: $block, titleVisibility: .visible) {
-                NativeAction(title: "تأكيد الحظر") { _ = try await store.client.rpc("marriage_act", ["request_id": connection["id"], "action": .string("report"), "reason": .string(reason)]); dismiss() }
-            }
+                NativeAction(title: "تأكيد إنهاء التعارف") { _ = try await store.client.rpc("marriage_cancel", ["request_id": connection["id"], "allow_rematch": .bool(allowRematch)]); dismiss() }
+            }.sheet(isPresented: $report) { NavigationStack { NativeIncidentReport(requestID: connection["id"].string) } }
     }
 }

@@ -1,0 +1,13 @@
+.portrait-crop { width: min(92vw, 390px); max-height: 90dvh; overflow: auto; box-sizing: border-box; padding: 20px; border: 0; border-radius: 16px; color: var(--ink); background: #fffaf6; }
+.portrait-crop::backdrop { background: #241c21a8; }
+.portrait-crop h2, .portrait-crop p { margin: 0 0 10px; }
+.portrait-crop-stage { width: min(100%, 200px, 37dvh); aspect-ratio: 4 / 5; margin: auto; cursor: grab; touch-action: none; }
+.portrait-crop-stage:active { cursor: grabbing; }
+.portrait-crop canvas { display: block; width: 100%; height: 100%; border-radius: 8px; }
+.portrait-crop-zoom, .portrait-crop-actions, .portrait-crop-previews { display: flex; align-items: center; gap: 12px; margin-block-start: 12px; }
+.portrait-crop-zoom input, .portrait-crop-actions button { flex: 1; min-width: 0; }
+.portrait-crop-previews { justify-content: center; align-items: end; }
+.portrait-crop-previews figure { width: 80px; margin: 0; text-align: center; }
+.portrait-crop-previews canvas { height: auto; aspect-ratio: 1 / 1.02; object-fit: cover; object-position: center 30%; }
+.portrait-crop-previews figure + figure canvas { aspect-ratio: 4 / 5; }
+.portrait-crop-previews figcaption { margin-top: 4px; font-size: .75rem; }

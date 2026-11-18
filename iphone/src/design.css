@@ -60,17 +60,23 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   content: "";
   position: fixed;
   inset: 0 0 auto;
-  height: calc(var(--nf-safe-top) + min(14px, var(--nf-safe-top)));
+  height: var(--nf-safe-top);
   z-index: 10;
-  background: var(--page-background);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 var(--nf-safe-top), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0, #000 var(--nf-safe-top), transparent 100%);
+  --nf-safe-light: calc(.06 + var(--nf-safe-scroll, 0) * .07);
+  background:
+    radial-gradient(ellipse at 0% 100%, rgb(174 119 134 / var(--nf-safe-light)), transparent 68%),
+    radial-gradient(ellipse at 100% 100%, rgb(221 187 160 / var(--nf-safe-light)), transparent 68%),
+    var(--nf-safe-surface, var(--page-background));
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 min(14px, var(--nf-safe-top)), #000 100%);
+  mask-image: linear-gradient(to top, transparent 0, #000 min(14px, var(--nf-safe-top)), #000 100%);
   pointer-events: none;
 }
-body:has(.phone-app > .nf-auth-frame)::before { background: #f8f6f5; }
+body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
 body:has(.phone-app > .wd-welcome)::before {
-  background: #fdfdfc url('/brand/welcome/shared-future.webp') 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
+  --nf-safe-surface: #fdfdfc url('/brand/welcome/shared-future.webp') 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
 }
+@media (prefers-reduced-motion: reduce) { body:has(.phone-app)::before { --nf-safe-light: .08; } }
+html[data-nf-motion="reduced"] body:has(.phone-app)::before { --nf-safe-light: .08; }
 h1, h2, h3 { font-weight: var(--font-weight-heading); letter-spacing: normal; }
 strong, b { font-weight: var(--font-weight-heading); }
 button, input, textarea, select { font: inherit; }

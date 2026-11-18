@@ -665,6 +665,11 @@ function Discovery({
   const needsRefresh = useRef(false);
   const actionPending = useRef(false);
   const pullStart = useRef<{ x: number; y: number } | null>(null);
+  const directorySurface = useRef<HTMLElement>(null);
+  const pullAmount = useRef(0);
+  const suppressPullClick = useRef(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
   const refresh = useCallback(
     async (reshuffle = true, pageCount?: number) => {
       const seq = ++sequence.current;
@@ -691,6 +696,29 @@ function Discovery({
     [source, filters, order],
   );
   useReadRecovery(recoverable, () => refresh(false), source);
+  useEffect(() => {
+    const surface = directorySurface.current;
+    if (!surface || order !== 'all') return;
+    function move(event: globalThis.TouchEvent) {
+      const start = pullStart.current;
+      if (!start) return;
+      const touch = event.touches[0];
+      const down = touch ? touch.clientY - start.y : 0;
+      if (event.touches.length !== 1 || window.scrollY > 2 || down < 0 || Math.abs(touch.clientX - start.x) > Math.max(12, down)) {
+        pullStart.current = null; pullAmount.current = 0; setPullDistance(0); return;
+      }
+      if (down < 6) return;
+      if (event.cancelable) event.preventDefault();
+      suppressPullClick.current = true;
+      pullAmount.current = Math.min(88, down * .48);
+      setPullDistance(pullAmount.current);
+    }
+    surface.addEventListener('touchmove', move, {passive:false});
+    return () => {
+      surface.removeEventListener('touchmove', move);
+      pullStart.current = null; pullAmount.current = 0; setPullDistance(0);
+    };
+  }, [order, selected]);
   useLayoutEffect(() => {
     const saved = restoreBrowse.current;
     if (!saved || loading || error || selected) return;
@@ -871,9 +899,16 @@ function Discovery({
     );
   const count = Object.entries(filters).filter(([key,value])=>!["sort","offset","afterId","mode","search"].includes(key)&&(Array.isArray(value)?value.length>0:Boolean(value))).length;
   const people = order === "recommended" ? [...list].sort((a,b)=>(compatibilityPercentage(b)??-1)-(compatibilityPercentage(a)??-1)).slice(0,5) : list;
-  const canRefreshDirectory = order === "all" && !loading && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
+  const canRefreshDirectory = order === "all" && !loading && !pullRefreshing && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
+  async function refreshDirectory() {
+    if (!canRefreshDirectory) return;
+    setPullRefreshing(true); setPullDistance(48);
+    try { await Promise.all([refresh(), new Promise(resolve => window.setTimeout(resolve, 450))]); }
+    finally { setPullRefreshing(false); setPullDistance(0); }
+  }
   function startDirectoryPull(event: TouchEvent<HTMLElement>) {
     pullStart.current = null;
+    suppressPullClick.current = false;
     if (!canRefreshDirectory || window.scrollY > 2 || event.touches.length !== 1) return;
     const touch = event.touches[0];
     pullStart.current = { x: touch.clientX, y: touch.clientY };
@@ -881,17 +916,19 @@ function Discovery({
   function endDirectoryPull(event: TouchEvent<HTMLElement>) {
     const start = pullStart.current;
     pullStart.current = null;
-    const touch = event.changedTouches[0];
-    if (!start || !touch || !canRefreshDirectory || window.scrollY > 2) return;
-    const down = touch.clientY - start.y;
-    if (down >= 64 && down > Math.abs(touch.clientX - start.x) * 1.5) void refresh();
+    const ready = start && event.changedTouches.length === 1 && pullAmount.current >= 52 && window.scrollY <= 2;
+    pullAmount.current = 0;
+    if (ready && canRefreshDirectory) void refreshDirectory();
+    else if (!pullRefreshing) setPullDistance(0);
   }
   return (
     <section
       className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}
+      ref={directorySurface}
       onTouchStart={startDirectoryPull}
       onTouchEnd={endDirectoryPull}
-      onTouchCancel={() => { pullStart.current = null; }}
+      onTouchCancel={() => { pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) setPullDistance(0); }}
+      onClickCapture={event => { if (suppressPullClick.current) { event.preventDefault(); event.stopPropagation(); suppressPullClick.current = false; } }}
     >
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header df-header">
@@ -904,7 +941,7 @@ function Discovery({
             aria-label="تحديث الملفات"
             aria-busy={loading || undefined}
             disabled={!canRefreshDirectory}
-            onClick={() => void refresh()}
+            onClick={() => void refreshDirectory()}
           ><RotateCcw size={15} aria-hidden="true" /></button>}
         </div>
       </header>
@@ -986,6 +1023,11 @@ function Discovery({
           }
         />
       )}
+      <div className="dr-pull-content" data-dragging={pullDistance > 0 && !pullRefreshing || undefined} style={{paddingTop:order === 'all' ? pullDistance : 0}}>
+      {order === 'all' && <div className="dr-pull-indicator" role="status" aria-live="polite" data-refreshing={pullRefreshing || undefined} style={{height:pullDistance,opacity:Math.min(1,pullDistance/24)}}>
+        <RotateCcw size={18} aria-hidden="true" style={!pullRefreshing ? {transform:`rotate(${pullDistance*3}deg)`} : undefined}/>
+        <span>{pullRefreshing?'جارٍ تحديث الملفات…':pullDistance>=52?'أفلت للتحديث':pullDistance>0?'اسحب للتحديث':''}</span>
+      </div>}
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
           order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
@@ -1002,6 +1044,7 @@ function Discovery({
         <p>{order === "all" ? "يمكنك تعديل التصفية لرؤية ملفات أخرى تناسب تفضيلاتك." : "اختر «جميع الملفات» لرؤية المزيد، أو عدّل التصفية لتوسيع بحثك."}</p>
         </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
+      </div>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
       {premium&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (

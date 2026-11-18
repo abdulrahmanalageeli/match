@@ -11,6 +11,7 @@ import './motion.css'
 import { initializeDevicePreferences } from './settings/preferences'
 import { AppBoundary, initializeFaultReporting } from './monitoring'
 import { initializeKeyboardViewport } from './mobile/keyboardViewport'
+import { initializeSafeAreaLight } from './mobile/safeAreaLight'
 import './mobile/keyboard.css'
 import './onboarding/arrivalJourney.css'
 import './onboarding/arrivalAssessments.css'
@@ -32,6 +33,8 @@ initializeDevicePreferences()
 initializeFaultReporting()
 const stopKeyboardViewport = initializeKeyboardViewport()
 if (import.meta.hot) import.meta.hot.dispose(stopKeyboardViewport)
+const stopSafeAreaLight = initializeSafeAreaLight()
+if (import.meta.hot) import.meta.hot.dispose(stopSafeAreaLight)
 const GuardianPortal = lazy(() => import('./family/GuardianPortal').then(module => ({ default: module.GuardianPortal })))
 const familyEntry = !recoveryLink && !signupReturn && entryUrl.searchParams.get('family') === '1'
 const testerEntry = !recoveryLink && !signupReturn && !familyEntry && entryUrl.searchParams.get('test') === '1'

@@ -389,3 +389,12 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 }
 html[data-nf-motion=reduced] .phone-app .cm-shell .dr-person-row,
 html[data-nf-motion=reduced] .phone-app .cm-shell .df-discovery .dr-row-actions button { transition: none; transform: none; }
+.dr-pull-content{position:relative;transition:padding-top 260ms cubic-bezier(.22,.7,.2,1)}
+.dr-pull-content[data-dragging]{transition:none}
+.dr-pull-indicator{position:absolute;inset:0 0 auto;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden;pointer-events:none;color:#754051;font-size:12px;transition:height 260ms cubic-bezier(.22,.7,.2,1),opacity 160ms}
+.dr-pull-content[data-dragging] .dr-pull-indicator{transition:none}
+.dr-pull-indicator svg{flex:none}
+.dr-pull-indicator[data-refreshing] svg{animation:dr-refresh-spin 850ms linear infinite}
+@media(prefers-reduced-motion:reduce){.dr-pull-content,.dr-pull-indicator{transition:none}.dr-pull-indicator[data-refreshing] svg{animation:none}}
+html[data-nf-motion=reduced] :is(.dr-pull-content,.dr-pull-indicator){transition:none}
+html[data-nf-motion=reduced] .dr-pull-indicator[data-refreshing] svg{animation:none}

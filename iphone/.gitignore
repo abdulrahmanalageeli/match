@@ -13,3 +13,7 @@ supabase/tests/.tmp-*
 
 .vercel
 .env*
+
+# Local copies of the retired SwiftUI candidate
+/native/
+/scripts/export-native-resources.mjs

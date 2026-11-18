@@ -1,8 +1,0 @@
-.build/
-Generated/
-*.xcodeproj/
-DerivedData/
-.swiftpm/
-*.xcresult/
-UIArtifacts/
-*.log

@@ -1,40 +1,4 @@
 workflows:
-  wudayn-swiftui-testflight:
-    name: Wudayn · SwiftUI iPhone
-    instance_type: mac_mini_m2
-    max_build_duration: 45
-    # Manual native candidate builds. Upload to App Store Connect for internal testing.
-    integrations:
-      app_store_connect: Nisfayn Codemagic
-    environment:
-      xcode: latest
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.blindmatch.marriage
-    scripts:
-      - name: Test native transport and generate project
-        script: |
-          set -euo pipefail
-          cd "$CM_BUILD_DIR/iphone/native"
-          swift test
-          brew install xcodegen
-          xcodegen generate
-          xcodebuild -resolvePackageDependencies -project WudaynNative.xcodeproj -scheme WudaynNative
-      - name: Sign and archive SwiftUI candidate
-        script: |
-          set -euo pipefail
-          cd "$CM_BUILD_DIR/iphone/native"
-          agvtool new-version -all "$((PROJECT_BUILD_NUMBER + 1))"
-          xcode-project use-profiles
-          xcode-project build-ipa --project WudaynNative.xcodeproj --scheme WudaynNative
-    artifacts:
-      - iphone/native/build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: false
-        submit_to_app_store: false
   nisfayn-testflight:
     name: Nisfayn · iPhone TestFlight
     instance_type: mac_mini_m2

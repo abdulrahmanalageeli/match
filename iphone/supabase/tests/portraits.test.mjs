@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -87,7 +88,7 @@ test('private portrait reads follow directory, block, pause and exclusive-match 
   await call(a,'public.marriage_apply($1)',[a.profile]);
   assert.equal((await db.query('select review_status from marriage.members where id=$1',[a.id])).rows[0].review_status,'approved');
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[match])).rows[0].status,'accepted','unchanged saves preserve the match');
-  await call(a,'public.marriage_next_step($1,1,true,true)',[match]);await call(b,'public.marriage_next_step($1,1,true,true)',[match]);
+  await decideJourney(call,a,match,'exclusive','propose',null);await decideJourney(call,b,match,'exclusive','accept',null);
   assert.equal(await read(b,p.path),1);assert.equal(await read(c,p.path),0);
   await assert.rejects(call(c,'public.marriage_portrait_info($1)',[a.id]),/غير متاحة/);
   const withdrawn=await call(a,'public.marriage_apply($1)',[{...a.profile,signupConsents:{...consents,photo:false}}]);

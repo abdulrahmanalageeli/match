@@ -1,3 +1,5 @@
+import {DemoDeepReading} from './DemoDeepReading';
+import {LunaSearch} from './LunaSearch';
 import {MemberBadge} from '../membership/MemberBadge';
 import {MembershipEntry} from '../membership/MembershipEntry';
 import {shuffleWithVisibility} from './visibilityOrder';
@@ -571,10 +573,10 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
-          <span>{premium?"إضافة":"بادر بالتعارف"}</span>
+          <span>{premium?"إضافة":"ترقية العضوية"}</span>
         </>}
       </button>
     </div>}
@@ -844,7 +846,7 @@ function Discovery({
   }
   async function sendRequest(target=person) {
     if (!target || actionPending.current) return;
-    if(!premium&&!(target.isDemo&&source.demoInteractions)){upgrade();return;}
+    if(!premium){upgrade();return;}
     const id = target.id;
     actionPending.current = true;
     setBusy(true);
@@ -889,7 +891,7 @@ function Discovery({
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium || (person.isDemo && source.demoInteractions) ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
@@ -959,6 +961,7 @@ function Discovery({
         {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
       </div>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
+      <LunaSearch source={source} open={person=>{setSelectedPerson(person);setSelected(person.id);}}/>
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (
@@ -1176,6 +1179,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     const stop = source.watch(read);
     return () => { active = false; stop(); };
   }, [source, connection.id, retry]);
+  useEffect(()=>{setExclusiveConsent(false);},[progress?.exclusiveId]);
   async function act(end: boolean) {
     if (busy) return;
     setBusy(true); setError("");
@@ -1190,6 +1194,15 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       }
     } catch (e) { setError(messageFor(e)); }
     finally { setBusy(false); }
+  }
+  async function decide(topic:'exclusive'|'step', action:'propose'|'accept'|'clear',stage?:number) {
+    if(!source.journeyChoice||busy||!progress)return;
+    setBusy(true);setError('');
+    try {
+      const next=await source.journeyChoice(connection.id,topic,action,topic==='exclusive'?progress.exclusiveId:progress.stepId,stage);
+      setProgress(next);setReviewCommitment(false);setExclusiveConsent(false);
+      setSavedStep({title:action==='clear'?'سُحب الاتفاق أو الطلب':action==='accept'?'سُجّلت موافقتكما':'أُرسل اقتراحك',detail:action==='propose'?'بانتظار موافقة الطرف الآخر.':'حُدّث مسار التعارف.',quiet:true});
+    } catch(e){setError(messageFor(e));}finally{setBusy(false);setRetry(n=>n+1);}
   }
   async function rewind(agree: boolean) {
     if(busy||!progress||!source.rewindStep)return;setBusy(true);setError("");
@@ -1216,22 +1229,26 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
         {otherConnections !== null && <details className="nf-journey-closure"><summary>ما سيُغلق في حسابك <span>{ar.format(otherConnections.length)}</span><ChevronLeft size={14}/></summary>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></details>}
         {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>أفهم أن موافقتنا معًا تُغلق علاقات التعارف الأخرى، وأوافق على الالتزام الحصري.</span></label>}
         <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستفعّل الالتزام وتغلق التعارف الآخر.' : 'لن تُغلق أي محادثة قبل موافقتكما معًا.'}</p>
-        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => void act(false)}>{progress.consentMine ? 'سحب طلب الالتزام' : progress.consentPeer ? 'أوافق وأفعّل الالتزام الحصري' : 'اقتراح الالتزام الحصري'}</MotionPressButton>
+        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void act(false)}>{progress.consentMine ? 'سحب طلب الالتزام' : progress.consentPeer ? 'أوافق وأفعّل الالتزام الحصري' : 'اقتراح الالتزام الحصري'}</MotionPressButton>
+         {source.journeyChoice&&progress.consentPeer&&!progress.consentMine&&<button type="button" className="btn-text" disabled={busy} onClick={()=>void decide('exclusive','clear')}>رفض طلب الحصرية</button>}
         {!progress.consentMine&&!progress.consentPeer&&<button type="button" className="btn-text" disabled={busy} onClick={()=>{setReviewCommitment(false);setExclusiveConsent(false);}}>ليس الآن</button>}
         </div>}
       </>}
+       {progress.exclusive && source.journeyChoice && <><p>يمكن لأي منكما سحب الحصرية. تبقى هذه المحادثة متاحة، ولا تُفتح المحادثات السابقة تلقائيًا.</p><button className="btn-secondary" disabled={busy} onClick={()=>void decide('exclusive','clear')}>سحب موافقتي على الحصرية</button></>}
+      {progress.stage===2 && source.journeyChoice && <button className="btn-secondary" disabled={busy} onClick={()=>void decide('step','clear',2)}>سحب الموافقة على المرحلة العائلية</button>}
       {progress.exclusive && progress.stage === 2 && <><h3>بداية الخطوة العائلية</h3><p className="nf-journey-next-note">اتفقا على التفاصيل بالوتيرة المناسبة لكما.</p>{onCompletion&&<MotionPressButton className="btn-primary" onClick={onCompletion}>نحو بداية جديدة<ChevronLeft size={16}/></MotionPressButton>}</>}
-      {progress.exclusive && progress.stage < 2 && <>
+      {(source.journeyChoice || progress.exclusive) && progress.stage < 2 && <>
         <h3>{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
         <p className="nf-journey-next-note">{progress.mine ? "تنتقلان للخطوة التالية بعد موافقة الطرف الآخر." : progress.peer ? "راجع الخطوة ووافق عندما تكون مستعدًا." : "يصل اقتراحك للطرف الآخر؛ لا تتغيّر المرحلة إلا باتفاقكما."}</p>
-        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => void act(false)}>{progress.mine ? "سحب طلبي" : (progress.peer ? "الموافقة على: " : "اقتراح: ") + stages[progress.stage + 1]}</MotionPressButton>
+        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void act(false)}>{progress.mine ? "سحب طلبي" : (progress.peer ? "الموافقة على: " : "اقتراح: ") + stages[progress.stage + 1]}</MotionPressButton>
+        {source.journeyChoice && progress.peer && !progress.mine && <button className="btn-text" disabled={busy} onClick={()=>void decide('step','clear',progress.stage+1)}>ليس الآن</button>}
       </>}
     </section>}
     {progress?.stage===2&&!progress.exclusive&&onCompletion&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={onCompletion}><Heart size={19}/><span><strong>نحو بداية جديدة</strong><small>خيارات الاستمرار خارج التطبيق وخصوصية الحساب</small></span><ChevronLeft size={15}/></MotionPressButton>}
     {openFamily&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={openFamily}><UsersRound size={19}/><span><strong>جسر الأهل</strong><small>راجعا الموافقات أولًا؛ لا تُرسل دعوة تلقائيًا.</small></span><ChevronLeft size={15}/></MotionPressButton>}
     {progress && progress.stage > 0 && source.rewindStep && <details className="nf-journey-option" open={rewindConfirm || Boolean(progress.rewindPeer || progress.rewindMine)} data-pending={progress.rewindPeer || undefined}>
       <summary><RotateCcw size={18}/><span><strong>مساحة لخطوة أهدأ</strong><small>{progress.rewindPeer ? "اقتراح عودة · بانتظار موافقتك" : progress.rewindMine ? "اقتراحك بانتظار الطرف الآخر" : "العودة مرحلة واحدة باتفاقكما"}</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
-      {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{progress.stage === 1 ? "بعد موافقتكما يعود التعارف الأولي، وتُرفع علامة الحصرية ويصبح استكشاف الآخرين متاحًا. تبقى محادثتكما واتفاق الجدية والمدة محفوظة؛ لا تُفتح التعارفات المغلقة سابقًا." : "تعودان إلى النقاش الجاد حول الزواج مع استمرار الحصرية. تبقى المحادثة واتفاق الجدية والمدة محفوظة."}</p>}
+      {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{progress.stage === 1 ? "بعد موافقتكما يعود التعارف الأولي. يمكنكما إدارة الحصرية بشكل مستقل." : "تعودان إلى النقاش الجاد حول الزواج. تبقى المحادثة واتفاق الجدية والمدة محفوظة."}</p>}
       {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>سحب اقتراح العودة</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{progress.rewindPeer ? "أوافق على العودة إلى: " : "إرسال اقتراح العودة إلى: "}{stages[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?"البقاء في المرحلة الحالية":"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>اقتراح خطوة إلى الوراء</button>}
     </div></details>}
     {error && <><Banner alert text={error}/><button className="btn-text" onClick={() => setRetry(n => n+1)}>إعادة المحاولة</button></>}
@@ -1569,8 +1586,10 @@ export function Chat({
               </div>}
             </div>;
           })}
-      {conversationAllowed && !thread.accessDenied && <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
-        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>}
+      {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.simulation
+        ? <DemoDeepReading key={connection.id} person={connection.person} open={deepOpen && !privateHidden} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setDeepOpen(false)}>{content}</Sheet>}/>
+        : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
+        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>)}
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
@@ -1692,6 +1711,7 @@ function Requests({
   onBrowse: () => void;
   onMatches?: () => void;
 }) {
+  const {premium,upgrade}=useMembershipAccess();
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
   const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean;analysis?:boolean}|null>(null);
   const [entry] = useState(initialRequest);
@@ -2037,6 +2057,7 @@ function Requests({
       };
       try {
         if (existing) { show(existing); return; }
+        if (!premium) { upgrade(); return; }
         const id = await source.request(visitPerson.id);
         feedback('success');
         await refresh();
@@ -2055,7 +2076,7 @@ function Requests({
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {!existing && <AddPersonMark/>}
-        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : 'إرسال طلب تعارف'}
+        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : premium ? 'إرسال طلب تعارف' : 'اشترك وابدأ التعارف'}
       </button>
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;

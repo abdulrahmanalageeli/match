@@ -5,7 +5,7 @@ import personalityCatalog from '../src/compatibility/personality-catalog.json' w
 import handler from '../api/deep-compatibility.mjs';
 const actor='11111111-1111-4111-8111-111111111111',connectionId='22222222-2222-4222-8222-222222222222',lease='33333333-3333-4333-8333-333333333333';
 const snapshot={a:{entries:[{key:'answer:closeness',question:'القرب',answer:'أحتاج مساحة'}]},b:{entries:[{key:'personality:reassurance',question:'الطمأنة',answer:'أقدّر التواصل'}]}};
-const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',text:`قراءة ${i+1}: قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.`,evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
+const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',title:`فكرة مستقلة ${i+1}`,text:`قراءة ${i+1}: قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.`,evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
 const completion=value=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
 const response=()=>({headers:{},setHeader(key,value){this.headers[key]=value},status(value){this.code=value;return this},json(value){this.body=value;return this},end(){return this}});
 test('native endpoint permits only narrow CORS preflight and disables caching',async()=>{
@@ -57,7 +57,7 @@ test('claimed generation uses server evidence, persists privately, returns no re
 });
 test('private previews receive only cited own evidence and reject missing or duplicate interpretations',()=>{
  const report={findings:findings()};
- const request=privateReviewRequest(snapshot,report,'a');assert.equal(request.model,'gpt-6-luna');assert.equal(request.reasoning_effort,'low');
+ const request=privateReviewRequest(snapshot,report,'a');assert.equal(request.model,'gpt-6.2-sol');assert.equal(request.reasoning_effort,'low');
  const items=JSON.parse(request.messages[1].content);
  assert(items.every(item=>item.evidence.every(e=>e.key==='answer:closeness')));
  assert.equal(request.messages[1].content.includes('أقدّر التواصل'),false);
@@ -77,25 +77,46 @@ test('report evidence is bilateral, real, complete and conservative about incomp
  for(const change of [f=>f.evidence.pop(),f=>f.evidence[0].key='made-up',f=>f.kind='incompatibility',f=>f.text='نسبة النجاح ٩٩٪',f=>f.section='made-up',f=>f.id='f0',f=>f.id='f00']){
   const rows=findings();change(rows[0]);assert.throws(()=>validateReport(completion({findings:rows}),snapshot));
  }
- const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6.1-sol');assert.equal(req.reasoning_effort,'medium');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
+ const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6.2-sol');assert.equal(req.reasoning_effort,'medium');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
 });
 
 test('personality coverage keys match the actual questionnaire',()=>{
  assert.deepEqual([...PERSONALITY_KEYS].sort(),personalityCatalog.map(item=>item.id).sort());
 });
 
-test('complete personalities require interpretations of both sets of 12 answers and four multi-trait patterns',()=>{
+test('complete personalities require real cross-trait evidence without forcing filler for every trait',()=>{
  const complete={};
  for(const side of ['a','b'])complete[side]={entries:PERSONALITY_KEYS.map(key=>({key:`personality:${key}`,question:key,answer:'يشبهني أحيانًا'}))};
- const rows=SECTIONS.filter(section=>section!=='patterns').map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',text:`قراءة مستقلة ${i+1}: إشارات محدودة تستحق توضيحًا بالحوار.`,evidence:[{side:'a',key:'personality:closeness'},{side:'b',key:'personality:reassurance'}]}));
- for(let i=0;i<4;i++)rows.push({id:`f${i+8}`,section:'patterns',kind:'manageable',text:`نمط مستقل ${i+1}: تفاعل عدة إشارات، مع بديل يحتاج إلى تحقق.`,evidence:PERSONALITY_KEYS.slice(i*3,i*3+3).flatMap(key=>['a','b'].map(side=>({side,key:`personality:${key}`})))});
+ const rows=SECTIONS.filter(section=>section!=='patterns').map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',title:`فكرة مستقلة ${i+1}`,text:`قراءة مستقلة ${i+1}: إشارات محدودة تستحق توضيحًا بالحوار.`,evidence:[{side:'a',key:'personality:closeness'},{side:'b',key:'personality:reassurance'}]}));
+ for(let i=0;i<4;i++)rows.push({id:`f${i+8}`,section:'patterns',kind:'manageable',title:`معنى مختلف ${i+1}`,text:`نمط مستقل ${i+1}: تفاعل عدة إشارات، مع بديل يحتاج إلى تحقق.`,evidence:PERSONALITY_KEYS.slice(i*3,i*3+3).flatMap(key=>['a','b'].map(side=>({side,key:`personality:${key}`})))});
  assert.equal(validateReport(completion({findings:rows}),complete).findings.length,11);
  // Literal profile summaries cannot pass by citing the same two questions repeatedly.
  const shallow=structuredClone(rows);for(const row of shallow)row.evidence=rows[0].evidence;
  assert.throws(()=>validateReport(completion({findings:shallow}),complete));
  const missing=structuredClone(rows);missing.at(-1).evidence=missing.at(-1).evidence.filter(e=>e.side!=='b'||e.key!=='personality:quiet_comfort');
- assert.throws(()=>validateReport(completion({findings:missing}),complete));
- const fewer=rows.filter(row=>row.id!=='f11');assert.throws(()=>validateReport(completion({findings:fewer}),complete));
+ assert.equal(validateReport(completion({findings:missing}),complete).findings.length,11);
+ const fewer=rows.filter(row=>row.id!=='f11');assert.equal(validateReport(completion({findings:fewer}),complete).findings.length,10);
  const repeated=structuredClone(rows);repeated[1].text=repeated[0].text;assert.throws(()=>validateReport(completion({findings:repeated}),complete));
  const duplicateEvidence=structuredClone(rows);duplicateEvidence[0].evidence.push(duplicateEvidence[0].evidence[0]);assert.throws(()=>validateReport(completion({findings:duplicateEvidence}),complete));
+});
+
+test('member demos reserve against authenticated membership before Sol and return no raw evidence',async()=>{
+ assert.throws(()=>parseDeepInput({demoPersonaId:'unknown'}));
+ assert.throws(()=>parseDeepInput({demoPersonaId:'p01',answers:{}}));
+ for(const allowed of [false,true]){
+  const calls=[];let invocations=0;
+  const service=createDeepAnalysisService({env:{OPENAI_API_KEY:'test'},fetcher:async(url,options)=>{
+   calls.push(url);assert.equal(options.headers.Authorization,'Bearer demo');
+   return {ok:allowed,status:allowed?200:403,json:async()=>allowed?snapshot.a:{code:'42501'}};
+  },clientFactory:()=>({chat:{completions:{create:async req=>{
+   invocations++;assert.equal(req.model,'gpt-6.2-sol');
+   const input=JSON.parse(req.messages[1].content);
+   assert.equal(input.b.entries.length,13);
+   return completion({findings:findings()});
+  }}}})});
+  const request=service({demoPersonaId:'p01'},{authorization:'Bearer demo'});
+  if(allowed){const result=await request;assert.equal(result.findings.length,8);assert.equal('evidence' in result.findings[0],false);assert.match(result.findings[0].text,/\n\n/);}
+  else await assert.rejects(request,error=>error.status===403);
+  assert.equal(invocations,allowed?1:0);assert.equal(calls.length,1);assert(calls[0].endsWith('/marriage_demo_deep_reserve'));
+ }
 });

@@ -134,7 +134,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     </div>}
     {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
       {hidden ? <p className="wd-deep-note"><LockKeyhole size={18}/> التقرير مخفي أثناء مغادرة التطبيق.</p> : <>
-        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>الصورة الكاملة، من إجاباتكما.</h3><p>قراءة من وُدَين لما يهمكما، وما تتوقعانه من شريك الحياة. بلا استبيان جديد.</p></div>
+        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3><p>يربط Sol 6.2 بين إجاباتكما ليشرح كيف قد يظهر الاتفاق أو الاختلاف في يوم عادي، ويقترح سؤالًا وتجربة صغيرة تخصّكما.</p></div>
         <ol className="wd-deep-steps" aria-label="مراحل التحليل">{['الموافقة', 'التحليل', 'المراجعة', 'تقريركما'].map((label, index) => <li key={label} data-current={index === step || undefined} data-done={index < step || undefined} aria-current={index === step ? 'step' : undefined}><span>{count.format(index + 1)}</span>{label}</li>)}</ol></>}
         {error && <div className="wd-deep-error" role="alert"><p>{error}</p><button className="btn-text" onClick={() => void refresh()} disabled={busy}>تحديث الحالة</button></div>}
         {!source && <p className="wd-deep-note">يُتاح طلب التحليل لأعضاء وسام الجدية في التوافقات الحقيقية. هذه المحادثة التجريبية لا ترسل أي إجابات للتحليل.</p>}

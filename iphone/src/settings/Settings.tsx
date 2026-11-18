@@ -128,8 +128,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const firstLetter = Array.from(member?.displayName.trim() || "")[0];
   const canManageMatching = Boolean(demo || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending);
   const canSeeMembership = canManageMatching || state?.membership.active;
-  const membershipDetail = demo ? "تجربة مجانية" : state?.membership.active ? "عضوية فعّالة" :
-    state?.membership.canStart ? "متاحة للاشتراك" : "بانتظار توفر ترشيح مناسب";
+  const tier = state?.membership.tier ?? (state?.membership.active ? 'premium' : 'free');
+  const membershipDetail = demo ? 'عضوية تجريبية' : {free:'العضوية المجانية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
   const location = member?.city || state?.user.email;
   if(showCompletion)return <JourneyCompletion paused={paused} busy={busy} demo={demo} canPause={canManageMatching}
     onBack={()=>{setShowCompletion(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.st-completion-entry button')?.focus());}}
@@ -140,7 +140,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
   if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel}/>;
-  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims,premium:state?.membership.active}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
+  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims,membershipTier:tier}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
   if(profilePanel==='photos'&&source)return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager"><header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header><span className="st-profile-kicker">حضور يعبّر عنك</span><h1>صور ملفي</h1><ProfileGallery source={source} editable onChanged={onProfileChanged}/></div></main>;
   return (
     <main className="app-screen st-screen" dir="rtl">
@@ -151,6 +151,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         </header>
         <h1 className="st-title">الإعدادات</h1>
         <p className="st-intro">ملفك، خصوصيتك، وتفضيلات حسابك.</p>
+        {state?.user.id&&<p className="flow-note">معرّف العضو <code dir="ltr" style={{overflowWrap:"anywhere",userSelect:"all"}}>{state.user.id}</code></p>}
         <section className="st-member-card" aria-label="ملفي الشخصي">
           <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>

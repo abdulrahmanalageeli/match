@@ -11,3 +11,9 @@ export async function signCommunicationAgreement(call, woman, man, request) {
   const proposal = await call(woman, 'public.marriage_agreement($1,$2,$3)', [request, 'propose', { days: 7, signed: true }]);
   await call(man, 'public.marriage_agreement($1,$2,$3)', [request, 'accept', { proposalId: proposal.proposalId, signed: true }]);
 }
+
+export async function decideJourney(call, user, id, topic, action, stage=null) {
+ const state=await call(user,'public.marriage_progress($1)',[id]);
+ const token=topic==='exclusive'?state.exclusiveId:state.stepId;
+ return call(user,'public.marriage_journey_choice($1,$2,$3,$4,$5)',[id,topic,action,token,stage]);
+}

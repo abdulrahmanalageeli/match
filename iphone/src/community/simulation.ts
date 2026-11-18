@@ -3,6 +3,7 @@ import type { Message, PublicPerson } from './data';
 export type DemoSimulationEvent = { id: string; at: string; kind: string; personId?: string; detail: string };
 export type DemoSimulationSnapshot = { running: boolean; busy: boolean; participants: string[]; eventCount: number; log: DemoSimulationEvent[] };
 export type DemoSimulationOptions = {
+  membershipTier?: () => 'free' | 'premium' | 'seriousness';
   storageKey?: string;
   externalAccepted?: () => number;
   canAct?: () => boolean;

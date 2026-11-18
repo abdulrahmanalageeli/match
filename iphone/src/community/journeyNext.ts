@@ -6,9 +6,9 @@ export function journeyNext(progress: StepProgress | null, name: string) {
   const agreed = `${stages[progress.stage] ?? stages[0]}${progress.exclusive ? ' · حصري' : ''}`;
   if (progress.rewindPeer || progress.rewindMine) return { title: 'مراجعة العودة خطوة', agreed,
     waiting: progress.rewindPeer && !progress.rewindMine ? 'بانتظار موافقتك' : `بانتظار ${name}`, yours: Boolean(progress.rewindPeer && !progress.rewindMine) };
-  if (!progress.exclusive) return { title: 'الالتزام الحصري للنقاش الجاد', agreed,
-    waiting: progress.consentMine ? `بانتظار ${name}` : progress.consentPeer ? 'بانتظار موافقتك' : 'عندما تكونان مستعدّين', yours: Boolean(progress.consentPeer && !progress.consentMine) };
+  if (!progress.exclusive && progress.consentPeer) return { title: 'مراجعة طلب الحصرية', agreed, waiting: 'بانتظار قرارك', yours: true };
+  if (!progress.exclusive && progress.consentMine) return { title: 'اقتراح الحصرية', agreed, waiting: `بانتظار ${name}`, yours: false };
   if (progress.stage >= 2) return { title: 'تنسيق الخطوة العائلية', agreed, waiting: 'باتفاقكما معًا', yours: false };
   return { title: stages[progress.stage + 1], agreed,
-    waiting: progress.mine ? `بانتظار ${name}` : progress.peer ? 'بانتظار موافقتك' : 'اقترحا الخطوة التالية', yours: progress.peer && !progress.mine };
+    waiting: progress.mine ? `بانتظار ${name}` : progress.peer ? 'بانتظار موافقتك' : 'عندما تكونان مستعدّين', yours: progress.peer && !progress.mine };
 }

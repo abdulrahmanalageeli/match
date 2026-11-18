@@ -6,6 +6,11 @@ export const deepMethodCopy = 'يربط التحليل إجاباتكما وتف
 export const deepResearchCopy = 'وجدت دراسة شملت ٤٣ مجموعة بيانات لأزواج أن التنبؤ بتغيّر جودة العلاقة من التقارير الذاتية محدود. هذا مرجع لفهم حدود القراءة، وليس اعتمادًا علميًا لتحليل وُدَين.';
 export const deepKindCopy = { strength: 'نقطة قوة', manageable: 'مساحة للنقاش', incompatibility: 'تعارض مع شرط أساسي', uncertain: 'يحتاج توضيحًا' };
 
+export function readingCopy(text: string) {
+  const [first, ...body] = text.trim().split(/\r?\n\s*\r?\n/);
+  return body.length && first.length <= 110 ? { title: first, body } : { title: '', body: [text] };
+}
+
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
 /** Only the fresh, participant-authorized shared projection may leave the app. */
@@ -15,7 +20,7 @@ export function deepReportDocument(value: DeepSnapshot, peerName: string, export
   const me = snapshot.requestedByMe ? 'أ' : 'ب', peer = snapshot.requestedByMe ? 'ب' : 'أ';
   const sections = Object.entries(deepSections).map(([key, label]) => {
     const findings = snapshot.findings.filter(item => item.section === key);
-    return findings.length ? `<section><h2>${label}</h2>${findings.map(item => `<article><small>${deepKindCopy[item.kind]}</small><p>${escape(item.text)}</p></article>`).join('')}</section>` : '';
+    return findings.length ? `<section><h2>${label}</h2>${findings.map(item => { const {title, body} = readingCopy(item.text); return `<article><small>${deepKindCopy[item.kind]}</small>${title ? `<h3>${escape(title)}</h3>` : ''}${body.map(p => `<p>${escape(p)}</p>`).join('')}</article>`; }).join('')}</section>` : '';
   }).join('');
   // No remote assets, scripts, tracking, identifiers, private reviews, or raw evidence.
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${deepReportTitle}</title><style>

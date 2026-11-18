@@ -1,3 +1,4 @@
+import type { LunaResults } from './lunaSearchClient';
 import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
 import type { PendingChatSends } from './pendingChatSends';
 import { cloud } from "../cloud";
@@ -109,7 +110,7 @@ export function sanitizeMessage(message: Message): Message {
   return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
-export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
+export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyProposalId?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
   language?: string;
@@ -146,10 +147,13 @@ export type RequestAction =
   | "block"
   | "report";
 export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
-export type StepProgress = { rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
+export type JourneyTopic = 'exclusive' | 'step';
+export type JourneyDecision = 'propose' | 'accept' | 'clear';
+export type StepProgress = { exclusiveId?:string; stepId?:string; rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
 export interface CommunitySource extends ManualVerificationSource {
   pendingSends?: PendingChatSends;
   committedSends?(requestId: string, clientIds: string[]): Promise<string[]>;
+  lunaSearch?(query:string):Promise<LunaResults>;
   deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
@@ -201,10 +205,11 @@ export interface CommunitySource extends ManualVerificationSource {
   callPermission?(requestId: string): Promise<CallPermissionState>;
   requestCallPermission?(requestId: string, action: "invite" | "accept" | "decline"): Promise<CallPermissionState>;
   agreement?(requestId:string):Promise<SeriousnessAgreement>;
-  agree?(requestId:string,action:'propose'|'accept'|'family'|'extend'|'extension_accept',payload?:{days?:number;signed?:boolean;proposalId?:string;confirmed?:boolean}):Promise<SeriousnessAgreement>;
+  agree?(requestId:string,action:'propose'|'accept'|'family'|'family_propose'|'family_accept'|'family_clear'|'extend'|'extension_accept',payload?:{days?:number;signed?:boolean;proposalId?:string;confirmed?:boolean}):Promise<SeriousnessAgreement>;
   unreadCount(): Promise<number>;
   markRead(requestId: string, throughId: string): Promise<void>;
   progress?(requestId: string): Promise<StepProgress>;
+  journeyChoice?(id:string,topic:JourneyTopic,action:JourneyDecision,expectedId?:string,stage?:number):Promise<StepProgress>;
   nextStep?(requestId: string, stage: number, agree: boolean, exclusiveConsent?: boolean): Promise<StepProgress>;
   watch: WatchUpdates;
 }
@@ -226,6 +231,10 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     committedSends: (request_id, client_ids) => timedRpc('marriage_committed_chat_sends', {request_id, client_ids}),
     async confirmMediaViewed(request_id, media_id) {
       await timedRpc('marriage_chat_media', { action: 'viewed', request_id, media_id });
+    },
+    async lunaSearch(query) {
+      const { searchWithLuna } = await import('./lunaSearchClient');
+      return searchWithLuna(userId, query);
     },
     deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
@@ -319,6 +328,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     readNotifications: ids => timedRpc('marriage_notifications_read', { notification_ids: ids }),
     unreadCount: () => timedRpc("marriage_unread_count", {}),
     progress: (id) => timedRpc("marriage_progress", { request_id: id }),
+    journeyChoice: (id,topic,action,expectedId,stage) => timedRpc("marriage_journey_choice",{request_id:id,topic,action,expected_id:expectedId??null,stage_number:stage??null}),
     nextStep: (id, stage, agree, consent = false) => timedRpc("marriage_next_step", { request_id: id, stage_number: stage, agree, exclusive_consent: consent }),
     async markRead(requestId, throughId) {
       await timedRpc("marriage_mark_thread_read", { request_id: requestId, through_id: throughId });
@@ -763,9 +773,18 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const journey=steps.get(record.id);
     if (journey?.rewindMine) {
       const stage=Math.max(0,journey.stage-1);
-      steps.set(record.id,{stage,mine:false,peer:false,exclusive:stage>0,updatedAt:now});
-      if(!stage)exclusiveId=null;
+      steps.set(record.id,{...journey,stage,mine:false,peer:false,stepId:undefined,rewindMine:false,rewindPeer:false,updatedAt:now});
       return `${person.alias}: وافق على العودة خطوة`;
+    }
+    if(journey?.exclusiveId && journey.consentMine && !journey.exclusive){
+      steps.set(record.id,{...journey,exclusive:true,consentPeer:true,updatedAt:now});
+      exclusiveId=record.id;records.filter(r=>r.id!==record.id).forEach(r=>{r.status='closed';});
+      return `${person.alias}: وافق على الحصرية`;
+    }
+    if(journey?.stepId && journey.mine && journey.stage<2){
+      const stage=journey.stage+1;
+      steps.set(record.id,{...journey,stage,mine:false,peer:false,stepId:stage===2?journey.stepId:undefined,updatedAt:now});
+      return `${person.alias}: وافق على المرحلة التالية`;
     }
     if (journey?.mine && journey.stage<2) {
       const stage=journey.stage+1;
@@ -872,9 +891,14 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       } else if(action==='extension_accept') {
         if(!value.extension||value.extension.actor===value.actor||payload.proposalId!==value.extension.id)throw Error('راجع الاقتراح الحالي.');
         agreements.set(id,{...value,status:'accepted',extension:undefined,deadline:new Date(Math.max(Date.now(),Date.parse(value.deadline!))+value.extension.days*86400000).toISOString()});
+      } else if(action==='family_clear') {
+        if(!value.familyProposalId || payload.proposalId!==value.familyProposalId)throw Error('تغيّر طلب التواصل العائلي.');
+        agreements.set(id,{...value,status:'accepted',familyAgreed:{},familyProposalId:undefined});
       } else {
+        if(action==='family_accept' && (!value.familyProposalId || value.familyProposalId!==payload.proposalId))throw Error('تغيّر طلب التواصل العائلي.');
+        if(action==='family_propose' && value.familyProposalId)throw Error('راجع طلب التواصل العائلي الحالي.');
         if(!payload.confirmed||!['accepted','expired','family'].includes(value.status))throw Error('أكّد رغبتك بالخطوة العائلية.');
-        agreements.set(id,{...value,familyAgreed:{...value.familyAgreed,[value.actor]:true}});
+        agreements.set(id,{...value,status:action==='family_accept'?'family':value.status,familyProposalId:value.familyProposalId??crypto.randomUUID(),familyAgreed:{...value.familyAgreed,[value.actor]:true}});
       }
       notify();simulation.wake();return agreement(id);
     },
@@ -891,9 +915,31 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     async removeGallery(photo) { const i=galleryPhotos.findIndex(p=>p.id===photo.id); if(i>=0){URL.revokeObjectURL(galleryPhotos[i].url);galleryPhotos.splice(i,1);}notify(); },
     async rewindStep(id, stage, agree) {
       const p=progress(id); if(p.stage!==stage||stage<1)throw Error("تغيّرت المرحلة.");
-      const next: StepProgress = agree && p.rewindPeer ? {stage: stage-1,mine:false,peer:false,exclusive:stage>1,rewindMine:false,rewindPeer:false} : {...p,rewindMine:agree,rewindPeer:agree ? p.rewindPeer : false};
-      if(next.stage===0)exclusiveId=null;
+      const next: StepProgress = agree && p.rewindPeer ? {...p,stage: stage-1,mine:false,peer:false,stepId:undefined,rewindMine:false,rewindPeer:false} : {...p,rewindMine:agree,rewindPeer:agree ? p.rewindPeer : false};
+
       next.updatedAt=new Date().toISOString();steps.set(id,next);notify();simulation.wake();return next;
+    },
+    async journeyChoice(id,topic,action,expectedId,stage) {
+      const current:StepProgress=progress(id);
+      const key=topic==='exclusive'?'exclusiveId':'stepId';
+      if((current[key]??null)!==(expectedId??null))throw Error('تغيّر الطلب. راجع الحالة الحالية.');
+      const next={...current,updatedAt:new Date().toISOString()};
+      if(topic==='exclusive'){
+        if(action==='accept' && !current.consentPeer)throw Error('لا يوجد طلب وارد.');
+        next.exclusive=action==='accept';
+        next.consentMine=action!=='clear'; next.consentPeer=next.exclusive;
+        next.exclusiveId=action==='clear'?undefined:expectedId??crypto.randomUUID();
+        if(next.exclusive){exclusiveId=id;records.filter(r=>r.id!==id).forEach(r=>{r.status='closed';});}
+        else if(exclusiveId===id)exclusiveId=null;
+      }else{
+        if(stage!==current.stage+1 && !(action==='clear'&&stage===2&&current.stage===2))throw Error('تغيّرت المرحلة.');
+        if(action==='accept' && !current.peer)throw Error('لا يوجد طلب وارد.');
+        if(action==='accept')next.stage=stage!;
+        if(action==='clear'&&current.stage===2)next.stage=1;
+        next.mine=action==='propose'; next.peer=false;
+        next.stepId=action==='propose'?crypto.randomUUID():next.stage===2?expectedId:undefined;
+      }
+      steps.set(id,next);notify();simulation.wake();return next;
     },
     async nextStep(id, stage, agree, consent = false) {
       const current = progress(id);
@@ -957,6 +1003,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return [...excluded.values()].sort((a, b) => (b.since ?? '').localeCompare(a.since ?? ''));
     },
     async request(memberId) {
+      if (simulationOptions.membershipTier?.() === 'free') throw Error('المبادرة بطلب تعارف تتطلب عضوية مميزة أو وسام الجدية.');
       if (exclusiveId) throw new Error('أنت في تعارف حصري.');
       if (blockedPeople.has(memberId)) throw new Error('هذا العضو غير متاح.');
       const prior = records.find((r) => r.peer === memberId);

@@ -1,3 +1,4 @@
+import {decideJourney} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -69,8 +70,8 @@ test('free members browse, accept and communicate; only premium can initiate and
   assert.ok(invite.token,'free members can invite family');
   await call(woman,'public.marriage_family($1,$2)',['consent',{connectionId:request,agree:true}]);
   await call(man,'public.marriage_family($1,$2)',['consent',{connectionId:request,agree:true}]);
-  await call(woman,'public.marriage_next_step($1,1,true,true)',[request]);
-  assert.equal((await call(man,'public.marriage_next_step($1,1,true,true)',[request])).exclusive,true);
+  await decideJourney(call,woman,request,'exclusive','propose',null);
+  assert.equal((await decideJourney(call,man,request,'exclusive','accept',null)).exclusive,true);
   await assert.rejects(call(other,'public.marriage_message($1,$2,$3)',[request,'intruder',randomUUID()]));
   await call(woman,'public.marriage_act($1,$2,$3)',[request,'block',null]);
   await assert.rejects(call(man,'public.marriage_message($1,$2,$3)',[request,'blocked',randomUUID()]));

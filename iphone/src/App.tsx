@@ -224,13 +224,16 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const liveDraftOwner = useRef<string | null>(null);
   const realProfileRef = useRef(live?.profile);
   realProfileRef.current = live?.profile;
+  const tier = demo ? 'premium' : live?.membership.tier ?? (live?.membership.active ? 'premium' : 'free');
+  const tierRef = useRef(tier);
+  tierRef.current = tier;
   const source = useMemo(
     () =>
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
           ? live?.demoDiscoveryEnabled
-            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined)
+            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current)
             : cloudCommunity(token, memberPendingSends(token))
           : null,
     [demo, token, sampleSession, pair, live?.demoDiscoveryEnabled, live?.demoInteractionsEnabled, live?.user.id],
@@ -247,7 +250,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [price, setPrice] = useState<{gender:'man'|'woman';price:string;currency:string;trialEligible:boolean}|null>(null);
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
-  const active = demo || Boolean(live?.membership.active);
+  const active = tier !== 'free';
   const memberAccess = demo || Boolean(live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
   const chatUnread = useUnreadCount(memberAccess ? source : null);
@@ -871,7 +874,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     <Membership
       back={back}
       active={active}
-      currentTier={live?.membership.tier}
+      currentTier={tier}
       gender={(demo?sampleProfile:live?.profile)?.gender}
       currency={demo?"SAR":price?.gender===live?.profile?.gender?price?.currency:undefined}
       trialEligible={price?.gender===live?.profile?.gender&&price?.trialEligible}
@@ -1113,7 +1116,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     );
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
-    <MembershipAccess.Provider value={{premium:active,tier:live?.membership.tier??(active?"premium":"free"),connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership}}>
+    <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership}}>
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>

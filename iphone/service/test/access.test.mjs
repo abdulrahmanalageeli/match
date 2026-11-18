@@ -97,10 +97,10 @@ test("paid access opens only for an available reciprocal pool and a purchase sur
   assert.equal(s.state(a.id).membership.canStart, false);
   s.apply(b.id, { ...b.profile, city: "جدة" });
   s.approve(b.id);
-  assert.equal(s.state(a.id).membership.canStart, false);
+  assert.equal(s.state(a.id).membership.canStart, true);
   s.apply(b.id, { ...b.profile, preferredMinAge: 40 });
   s.approve(b.id);
-  assert.equal(s.state(a.id).membership.canStart, false);
+  assert.equal(s.state(a.id).membership.canStart, true);
   s.apply(b.id, b.profile);
   s.approve(b.id);
   assert.equal(s.state(a.id).membership.canStart, true);
@@ -289,7 +289,7 @@ test("upgrade reopens profiles without evidence and preserves purchased subscrip
     rmdirSync(dir);
   }
 });
-test("adult approval and mutual age and city preferences are enforced; pause and delete withdraw access", async () => {
+test("adult approval, pause and deletion protect access across preference differences", async () => {
   const s = memory(),
     a = await applicant(s),
     b = await applicant(s, "man");
@@ -299,9 +299,7 @@ test("adult approval and mutual age and city preferences are enforced; pause and
   s.apply(a.id, { ...a.profile, preferredMinAge: 35 });
   admit(s, a);
   admit(s, b);
-  assert.throws(() => s.assign(a.id, b.id), { status: 409 });
-  const c = await applicant(s);
-  admit(s, c);
+  const c = a;
   const id = s.assign(c.id, b.id);
   s.pause(c.id, true);
   assert.equal(s.state(b.id).introduction, null);

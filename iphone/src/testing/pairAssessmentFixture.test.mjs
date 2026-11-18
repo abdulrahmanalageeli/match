@@ -9,7 +9,7 @@ import { conversationInsights } from '../compatibility/conversation-insights.ts'
 test('paired tester fixtures complete every assessment with known choices and no identity or consent writes', () => {
   for (const fixture of Object.values(pairAssessmentFixture)) {
     assert.deepEqual(Object.keys(fixture).sort(), ['assessmentVersion', 'beena', 'personalityAnswers', 'personalityVersion', 'priorityCategories', 'surveyAnswers'].sort());
-    assert.equal(fixture.assessmentVersion, 'marriage-v2');
+    assert.equal(fixture.assessmentVersion, 'marriage-v3');
     assert.equal(Object.keys(fixture.surveyAnswers).length, dimensions.length * 2);
     for (const dimension of dimensions) for (const key of [dimension.id, dimension.partnerId]) {
       assert(dimension.options.some(option => option.code === fixture.surveyAnswers[key]), key);
@@ -30,15 +30,16 @@ test('paired testers exercise mutual strengths, one-sided needs and differences 
   const { fit } = describeFit(first, second);
   assert.equal(fit.covered, 16);
   assert.deepEqual(fit.missing, []);
-  assert.equal(fit.percentage, 78);
+  assert.equal(fit.percentage, 60);
   assert.equal(fit.personality.percentage, 69);
   assert.equal(fit.beena.percentage, 74);
   assert.equal(fit.strengths.length, 11);
   assert.equal(fit.discussion.length, 5);
   const statuses = fit.preferenceEvidence.topics.map(item => item.status);
-  assert.equal(statuses.filter(status => status === 'one_sided').length, 4);
+  assert.equal(statuses.filter(status => status === 'one_sided').length, 3);
+  assert.equal(statuses.filter(status => status === 'conditional').length, 1);
   assert.equal(statuses.filter(status => status === 'different').length, 1);
-  assert(fit.strengths.includes('conversation_initiative_preference'), 'Complementary initiative counts as mutual alignment');
+  assert(fit.strengths.includes('mixed_gatherings'), 'Mutually accepted social behavior counts as mutual alignment');
   const insights = conversationInsights(fit);
   assert.equal(insights.source, 'evidenced');
   assert.equal(insights.prompts[0].kind, 'aligned');

@@ -5,7 +5,7 @@ import { conversationInsights } from './conversation-insights.ts';
 
 const answers = Object.fromEntries(dimensions.flatMap(dimension => [[dimension.id, 'A'], [dimension.partnerId, 'A']]));
 const first = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70,
-  assessmentVersion: 'marriage-v2', surveyAnswers: answers };
+  assessmentVersion: 'marriage-v3', surveyAnswers: answers };
 const second = { ...first, id: 'b', gender: 'man' };
 const fitOf = (a = first, b = second) => describeFit(a, b).fit;
 const change = (person, updates) => ({ ...person, surveyAnswers: { ...person.surveyAnswers, ...updates } });
@@ -29,7 +29,7 @@ test('each aligned catalogue topic has a tailored practical prompt with stable I
 });
 
 test('complementary answers use mutual alignment rather than requiring identical self answers', () => {
-  const dimension = dimensions.find(item => item.id === 'conversation_initiative_preference');
+  const dimension = dimensions.find(item => item.id === 'social_rhythm');
   const a = change(first, { [dimension.id]: 'A', [dimension.partnerId]: 'C' });
   const b = change(second, { [dimension.id]: 'C', [dimension.partnerId]: 'A' });
   assert(conversationInsights(fitOf(a, b)).prompts.some(item => item.id === `aligned:${dimension.id}`));

@@ -22,7 +22,7 @@ export type InterviewDocument = {
   version: 'interview-v1';
   consentVersion: 'wudayn-interview-v1';
   model: 'gpt-6-luna';
-  promptVersion: 'wudayn-interview-1' | 'wudayn-interview-2' | 'wudayn-interview-3';
+  promptVersion: 'wudayn-interview-1' | 'wudayn-interview-2' | 'wudayn-interview-3' | 'wudayn-interview-4';
   status: 'active' | 'review' | 'confirmed';
   turns: InterviewTurn[];
   currentQuestion: InterviewQuestion | null;

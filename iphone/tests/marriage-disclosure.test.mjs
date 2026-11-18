@@ -25,12 +25,12 @@ test('optional religious declarations validate only declared values',()=>{
   assert.equal(validMarriageBasics({religiousAffiliation:'guessed'}),false);
   assert.equal(validMarriageBasics({prayerPractice:'ranked_good'}),false);
 });
-test('existing marital-status requirement can explicitly exclude currently married candidates',()=>{
+test('an explicit marital-status mismatch lowers the score',()=>{
   assert.equal(validPartnerCriteria({maritalStatus:{mode:'require',values:['never_married','divorced','widowed']}}),true);
   assert.equal(validPartnerCriteria({maritalStatus:{mode:'prefer',values:['married']}}),true);
   const a={id:'a',gender:'woman',age:30,city:'الرياض',preferredMinAge:25,preferredMaxAge:40,partnerCriteria:{maritalStatus:{mode:'require',values:['never_married','divorced','widowed']}}};
   const b={id:'b',gender:'man',age:33,city:'الرياض',preferredMinAge:25,preferredMaxAge:40,marriageBasics:{maritalStatus:'married',currentWives:1}};
-  assert.equal(comparePreferences(a,b),null);
+  assert(comparePreferences(a,b));
 });
 test('religious identity and prayer practice do not become inferred compatibility scores',()=>{
   const a={id:'a',gender:'woman',age:30,city:'الرياض',preferredMinAge:25,preferredMaxAge:40};

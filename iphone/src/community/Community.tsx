@@ -395,7 +395,7 @@ function FilterSheet({
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
         <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
-        <label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠٪ فأعلى</option><option value={75}>٧٥٪ فأعلى</option><option value={90}>٩٠٪ فأعلى</option></select><small>تظهر النسبة عند اكتمال التقييمين فقط.</small></label>
+        <label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠ نقطة فأعلى</option><option value={75}>٧٥ نقطة فأعلى</option><option value={90}>٩٠ نقطة فأعلى</option></select><small>تظهر الدرجة من ١٠٠ عند اكتمال التقييمين.</small></label>
         <label className="dr-availability"><input type="checkbox" checked={!!extra.availableOnly} onChange={e=>setExtra({...extra,availableOnly:e.target.checked})}/> متاح لطلب تعارف جديد الآن</label>
         <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
         <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
@@ -448,8 +448,8 @@ function compatibilityPercentage(person: PublicPerson) {
 function CompatibilityPill({ person }: { person: PublicPerson }) {
   const percentage = compatibilityPercentage(person);
   return <span className={"df-compatibility" + (percentage === null ? " pending" : "")}
-    aria-label={percentage === null ? "توافق التفضيلات ينتظر اكتمال التقييمين" : `توافق التفضيلات ${ar.format(percentage)} بالمئة، بناءً على التقييمين`}>
-    {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <><strong>{ar.format(percentage)}<small>٪</small></strong><span>توافق التفضيلات</span></>}
+    aria-label={percentage === null ? "توافق التفضيلات ينتظر اكتمال التقييمين" : `توافق التفضيلات ${ar.format(percentage)} من ١٠٠، بناءً على التقييمين`}>
+    {percentage === null ? <span>التفضيلات قيد الاكتمال</span> : <><strong>{ar.format(percentage)}<small> من ١٠٠</small></strong><span>توافق التفضيلات</span></>}
   </span>;
 }
 
@@ -527,8 +527,8 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
         <span className="dr-row-identity"><span className="dr-row-name"><strong>{person.alias}</strong><VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}</span><span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}{person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>}</span></span>
       </button>
-      <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} بالمئة`}. عرض الشرح`}>
-        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small>٪</small></>}</strong><span className="dr-fit-caption">{preference===null?'غير مكتمل':'التفضيلات'}</span></span>
+      <button className="dr-fit-visual" onClick={explain} disabled={!person.fit} aria-label={`توافق التفضيلات مع ${person.alias}: ${preference===null?'غير مكتمل':`${ar.format(preference)} من ١٠٠`}. عرض الشرح`}>
+        <span className="dr-preference-inline"><strong>{preference===null?'—':<>{ar.format(preference)}<small> من ١٠٠</small></>}</strong><span className="dr-fit-caption">{preference===null?'غير مكتمل':'التفضيلات'}</span></span>
       </button>
     </div>
 

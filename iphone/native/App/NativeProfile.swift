@@ -206,7 +206,7 @@ struct NativeProfileEditor: View {
             if saved { Label("حُفظ ملفك وتفضيلاتك", systemImage: "checkmark.circle") }
         }.disabled(store.busy).navigationTitle("ملفي وتفضيلاتي").task {
             guard draft.isNull else { return }
-            draft = store.profile.isNull ? .object(["preferredMinAge": .number(18), "preferredMaxAge": .number(40), "interestIds": .array([]), "surveyAnswers": .object([:]), "assessmentVersion": .string("marriage-v2"), "personalityVersion": .string("personality-v1"), "appearanceVersion": .string("appearance-v1")]) : store.profile
+            draft = store.profile.isNull ? .object(["preferredMinAge": .number(18), "preferredMaxAge": .number(40), "interestIds": .array([]), "surveyAnswers": .object([:]), "assessmentVersion": .string("marriage-v3"), "personalityVersion": .string("personality-v1"), "appearanceVersion": .string("appearance-v1")]) : store.profile
             let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
             if let date = formatter.date(from: draft["birthDate"].string) { birthday = date }
         }
@@ -247,9 +247,11 @@ struct NativeAssessment: View {
         Section("أولوياتي · حتى أولويتين") { ForEach(NativeCatalog.value["catalog"]["categories"].rows) { row in Toggle(row.value["label"].string, isOn: $profile.contains("priorityCategories", row.id)).disabled(profile["priorityCategories"].array.count >= 2 && !profile["priorityCategories"].array.contains(.string(row.id))) } }
         ForEach(NativeCatalog.value["catalog"]["dimensions"].array, id: \.["id"].string) { dimension in
             Section(dimension["title"].string) {
-                NativeChoice(title: dimension["selfPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["id"].string), options: NativeOption.values(dimension["options"], label: "self"))
+                let personalWork = dimension["id"].string == "wife_work" && profile["gender"].string == "woman"
+                let workChoices = [NativeOption(id: "A", label: "أرغب في العمل ومواصلة طموحي"), NativeOption(id: "B", label: "أفضل عدم العمل بعد الزواج"), NativeOption(id: "C", label: "مرنة حسب ظروفي واتفاقنا")]
+                NativeChoice(title: personalWork ? "هل ترغبين في العمل بعد الزواج؟" : dimension["selfPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["id"].string), options: personalWork ? workChoices : NativeOption.values(dimension["options"], label: "self"))
                 NativeChoice(title: dimension["partnerPrompt"].string, value: $profile.field("surveyAnswers").text(dimension["partnerId"].string), options: NativeOption.values(dimension["options"], label: "partner"))
-                if dimension["hardAllowed"].bool { Toggle("شرط أساسي", isOn: $profile.contains("hardRequirements", dimension["id"].string)) }
+                if dimension["hardAllowed"].bool { Toggle("أساسي عندي · الاختلاف يخفض الدرجة", isOn: $profile.contains("hardRequirements", dimension["id"].string)) }
             }
         }
         Section("شخصيتي") {
@@ -257,7 +259,7 @@ struct NativeAssessment: View {
                 NativeChoice(title: item["prompt"].string, value: $profile.field("personalityAnswers").text(item["id"].string), options: [.init(id: "A", label: "لا يشبهني إطلاقًا"), .init(id: "B", label: "يشبهني قليلًا"), .init(id: "C", label: "يشبهني أحيانًا"), .init(id: "D", label: "يشبهني غالبًا"), .init(id: "E", label: "يشبهني كثيرًا")])
             }
         }
-    }.navigationTitle("التوافق والتفضيلات").onAppear { profile["assessmentVersion"] = .string("marriage-v2"); profile["personalityVersion"] = .string("personality-v1") } }
+    }.navigationTitle("التوافق والتفضيلات").onAppear { profile["assessmentVersion"] = .string("marriage-v3"); profile["personalityVersion"] = .string("personality-v1") } }
 }
 
 struct NativeBeena: View {

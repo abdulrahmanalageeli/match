@@ -128,12 +128,12 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   const selected = (keys: Array<keyof PartnerCriteria>) => { const count = keys.filter(key => value[key]?.mode && value[key]?.mode !== 'any').length; return count ? `${arabicNumber(count)} من التفضيلات محددة` : undefined; };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
-    <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
+    <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يخفض الدرجة أكثر إذا اختلفتما. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
     <Group title="لغة مشتركة" note="مساحة لحوار يفهمه الطرفان" icon={BookOpen} open={reveal === "لغة مشتركة" || (required && reveal === null)} summary={selected(['sharedLanguage'])}>
       <Mode title="أهمية وجود لغة مشتركة" value={value.sharedLanguage?.mode ?? (required ? undefined : "any")} onChange={mode => change({sharedLanguage:{mode}})}>
         <p>نبحث عن لغة واحدة على الأقل من اللغات التي تتحدثها.</p>
         {!basics?.spokenLanguages?.length && <p role="alert">أضف اللغات التي تتحدثها في تفاصيلك قبل حفظ هذا التفضيل.</p>}
-        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يستبعد من لا يشاركك لغة، وكذلك من لم يذكر لغاته.</small>
+        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يخفض الدرجة أكثر إذا لم تجمعكما لغة.</small>
       </Mode>
     </Group>
     <Group title="الدراسة والعمل" note="ما يناسب حياتك، دون ترتيب للمؤهلات أو المهن" icon={BookOpen} open={reveal === "الدراسة والعمل"} summary={selected(['education','profession'])}>

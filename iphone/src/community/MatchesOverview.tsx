@@ -44,7 +44,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             <div className="mo-current-copy">
               <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
-              {score !== null && <span className="mo-score" aria-label={`${number.format(score)} بالمئة توافق التفضيلات`}>{number.format(score)}<small>٪</small><span>توافقكم</span></span>}
+              {score !== null && <span className="mo-score" aria-label={`${number.format(score)} من ١٠٠ في توافق التفضيلات`}>{number.format(score)}<small> من ١٠٠</small><span>توافقكم</span></span>}
               <MotionPressButton className="mo-action" onClick={event=>onConversation(row.id,event.currentTarget.closest('.mo-current-card')?.querySelector('.mo-portrait')??null)}><MessageCircle size={15}/>المحادثة{Boolean(row.unreadCount) && <span className="mo-unread">{number.format(row.unreadCount!)}</span>}</MotionPressButton>
             </div>
           </MotionReveal>;

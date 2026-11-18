@@ -1,16 +1,16 @@
 import { useId, useState } from 'react';
 import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
 import { categories, dimensions, preferencePercentage, type MatchFit } from './model';
-import { readPreferenceEvidence, type PreferenceTopicStatus } from './preference-evidence';
+import { readPreferenceEvidence, reciprocalTopicAgreement, type PreferenceTopicStatus } from './preference-evidence';
 import { MotionReveal } from '../motion/Reanimated';
 import './preference-insights.css';
 
 const ar = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
 type View = 'all' | 'aligned' | 'discussion' | 'missing';
 type Topic = { id: string; status: PreferenceTopicStatus | 'discussion' };
-const isDiscussion = (topic: Topic) => ['one_sided', 'different', 'discussion'].includes(topic.status);
+const isDiscussion = (topic: Topic) => ['conditional', 'one_sided', 'different', 'discussion'].includes(topic.status);
 const statusNames: Record<Topic['status'], string> = {
-  aligned: 'احتياجات متوافقة', one_sided: 'تقارب في اتجاه واحد', different: 'احتياجات مختلفة',
+  aligned: 'احتياجات متوافقة', conditional: 'توافق مشروط أو قرار مفتوح', one_sided: 'تقارب في اتجاه واحد', different: 'احتياجات مختلفة',
   discussion: 'مساحة للنقاش', missing: 'بانتظار إجاباتكما',
 };
 
@@ -21,6 +21,7 @@ function TopicCard({ topic }: { topic: Topic }) {
   const missing = topic.status === 'missing';
   const Icon = aligned ? CheckCheck : missing ? ScanLine : MessageCircle;
   const explanation = aligned ? definition.reason
+    : topic.status === 'conditional' ? 'هناك مرونة أو قرار لم يُحسم أو توقيتان متقاربان. وضّحا الظروف التي تناسبكما.'
     : topic.status === 'one_sided' ? 'توافقت رغبة أحد الطرفين مع إجابة الآخر، بينما لم تتوافق الجهة الثانية. هذا موضوع لتوضيح ما يحتاجه كل منكما.'
     : topic.status === 'different' ? 'لم تتطابق رغبة أيٍّ منكما مع إجابة الآخر في هذا الموضوع. تحدثا عن احتياجاتكما ومساحة المرونة الممكنة.'
     : missing ? 'لم تكتمل الإجابات اللازمة للمقارنة في هذا الموضوع. لا نعتبر الصمت اتفاقًا أو اختلافًا.'
@@ -39,6 +40,7 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
   const topicsId = useId();
   const readout = readPreferenceEvidence(fit);
   const percentage = preferencePercentage(fit);
+  const agreement = reciprocalTopicAgreement(fit, readout);
   if (readout.source === 'unavailable') return <section className="nf-pref-unavailable" aria-labelledby={titleId}>
     <ScanLine size={21} strokeWidth={1.5} aria-hidden="true" /><div><h3 id={titleId}>تفاصيل التوافق غير متاحة</h3><p>تعذّر عرض أسباب هذه النتيجة الآن. أعد فتح الملف للمحاولة مجددًا.</p></div>
   </section>;
@@ -57,13 +59,13 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
   const criteria = readout.criteria;
 
   return <section className="nf-preference-insights" aria-labelledby={titleId}>
-    <header className="nf-pref-heading"><span><Compass size={15} strokeWidth={1.5} aria-hidden="true" /> من الإجابات إلى معنى</span><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3><p>{percentage === null ? 'هذه قراءة للمواضيع المتاحة. تظهر نسبة التفضيلات بعد اكتمال التقييم لدى الطرفين.' : 'نقارن ما يبحث عنه كل طرف بما أجاب عنه الآخر. الاتفاق هنا يعني أن الرغبتين متوافقتان مع الإجابتين.'}</p></header>
+    <header className="nf-pref-heading"><span><Compass size={15} strokeWidth={1.5} aria-hidden="true" /> من الإجابات إلى معنى</span><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3><p>{percentage === null ? 'هذه قراءة للمواضيع المتاحة. تظهر درجة التفضيلات بعد اكتمال التقييم لدى الطرفين.' : 'نقارن ما يبحث عنه كل طرف بما أجاب عنه الآخر. الاتفاق هنا يعني أن الرغبتين متوافقتان مع الإجابتين.'}</p></header>
     <div className="nf-pref-counts" role="group" aria-label="استعراض مواضيع التوافق">
       {groups.map(({ key, label, topics, icon: Icon }) => <button key={key} type="button" aria-pressed={view === key} aria-controls={topicsId} data-tone={key} onClick={() => setView(current => current === key ? 'all' : key)}>
         <Icon size={17} strokeWidth={1.5} aria-hidden="true" /><strong>{ar.format(topics.length)}</strong><span>{label}</span>
       </button>)}
     </div>
-    <p className="nf-pref-count-note">الأعداد تلخّص مواضيع الحوار؛ والنسبة تراعي تفضيلاتكما وأولوياتكما.</p>
+    <p className="nf-pref-count-note">{agreement ? <>تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</> : 'الأعداد تلخّص مواضيع الحوار.'}</p>
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
       {preview.length ? preview.map(topic => <TopicCard topic={topic} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
@@ -79,10 +81,15 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
       </div>)}
       <p>كل جزء يمثّل موضوعًا واحدًا، وليس نقطة مئوية أو وزنًا في النتيجة.</p>
     </div></details>
+    {fit.practicalConcerns?.includes('relocation') && <p>كل منكما يريد البقاء في مدينته، ومدينتاكما مختلفتان.</p>}
+    {fit.practicalConcerns?.includes('age_range') && <p>العمر خارج النطاق المفضّل لأحد الطرفين على الأقل.</p>}
+    {fit.practicalConcerns?.includes('children_intent') && <p>تختلف رغبتكما الشخصية في الإنجاب.</p>}
+    {fit.practicalConcerns?.includes('required_criterion') && <p>هناك اختلاف في تفضيل إضافي حدده أحدكما كأساسي.</p>}
+    {fit.practicalConcerns?.includes('location_unknown') && <p>نحتاج معرفة المدينتين لتقييم إمكانية السكن في مدينة مشتركة.</p>}
     {criteria && criteria.total > 0 && <details className="nf-pref-criteria"><summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true" /><span>تفضيلاتكما الإضافية<small>التفاصيل التي تهمّكما</small></span></summary><div><p>من {ar.format(criteria.total)} تفضيلًا إضافيًا عبر الاتجاهين: {ar.format(criteria.matched)} متوافق، و{ar.format(criteria.different)} غير متوافق، و{ar.format(criteria.missing)} لا تتوفر إجابته.</p><p>يشمل ذلك التفضيلات المحددة مثل الدراسة والعمل والتفاصيل الشخصية. لا نكشف اختيارات الشريك الخاصة أو ننسب هذه الأعداد إلى طرف بعينه.</p></div></details>}
     <details className="nf-pref-method"><summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true" /><span>كيف نقرأ توافقكما؟</span></summary><div>
-      <p>نقارن تفضيلات كل طرف بإجابات الآخر، مع مراعاة الأولويات التي تهمّكما. تعكس النسبة مدى التقارب من الجهتين، وتساعدكما على معرفة ما يجمعكما وما يستحق الحوار.</p>
-      <p>الشروط الأساسية تحدّد أهلية الترشيح، وتظهر النسبة بعد اكتمال التقييم لدى الطرفين. هي قراءة إرشادية من إجاباتكما، وليست احتمالًا لنجاح الزواج.</p>
+      <p>نقارن تفضيلات كل طرف بإجابات الآخر، مع مراعاة الأولويات التي تهمّكما. يتحقق الاتفاق المتبادل عندما يكون اختيار كل طرف ضمن ما يقبله الآخر.</p>
+      <p>درجة الترتيب من ١٠٠ تعطي وزنًا للأولويات، وتنخفض عند اختلافكما في موضوع أساسي. الأوزان يحدّدها التطبيق. نسبة المواضيع المتفق عليها تحسب كل موضوع مرة واحدة. احتمال نجاح الزواج لا يُقاس بهذا التقييم.</p>
     </div></details>
     {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> هذه النتيجة تدعم ملخّص المواضيع؛ التفصيل في اتجاهي المقارنة غير متاح لها حاليًا.</p>}
   </section>;

@@ -5,10 +5,10 @@ import type { Profile, Proposal } from "./types";
 const exhibition = [
   { id: "sample-1", man: ["راشد", "مهندس معماري"], woman: ["ريم", "مهندسة معمارية"], age: 31,
     bio: "أحب المشي في الصباح والبيوت القديمة. أتطلع إلى حياة قريبة من الأهل، فيها مساحة لكل واحد منّا.",
-    interestIds: ["walking", "reading"], planning: "A", repair: "B", timeline: "B" },
+    interestIds: ["walking", "reading"], housing: "A", repair: "B", timeline: "B" },
   { id: "sample-2", man: ["عمر", "مدير مشاريع"], woman: ["مها", "مديرة مشاريع"], age: 33,
     bio: "أستمتع بتجربة وصفة جديدة في عطلة الأسبوع وأجد راحتي في الجلسات العائلية.",
-    interestIds: ["cooking", "travel"], planning: "C", repair: "C", timeline: "A" },
+    interestIds: ["cooking", "travel"], housing: "C", repair: "C", timeline: "A" },
 ];
 export function demoProposals(viewer: Profile): Proposal[] {
   const gender = viewer.gender === "woman" ? "man" : "woman";
@@ -17,8 +17,8 @@ export function demoProposals(viewer: Profile): Proposal[] {
     surveyAnswers: {
       children_plan: "A", partner_children_plan: "A", residence_plan: "C", partner_residence_plan: "C",
       marriage_timeline: person.timeline, partner_marriage_timeline: person.timeline,
-      weekly_planning: person.planning, partner_weekly_planning: person.planning,
-      closeness_pace: "B", partner_closeness_pace: "B", shared_budget: "B", partner_shared_budget: "B",
+      weekly_housing: person.housing, partner_weekly_housing: person.housing,
+      closeness_pace: "B", partner_closeness_pace: "B", financial_provision: "B", partner_financial_provision: "B",
       repair_after_conflict: person.repair, partner_repair_after_conflict: person.repair,
       match_disagreement_style: "B", partner_match_disagreement_style: "B",
     },

@@ -18,11 +18,11 @@ struct NativePartnerCriteria: View {
     private var options: JSONValue { NativeCatalog.value["profile"] }
     var body: some View {
         Form {
-            Text("الشرط الأساسي يستبعد من لا يحققه. التفضيل يؤثر في التقارب دون استبعاد.").foregroundStyle(.secondary)
+            Text("التفضيل يؤثر في الترتيب، والاختلاف في شرط أساسي يخفض الدرجة أكثر.").foregroundStyle(.secondary)
             range("الطول", key: "height", lower: 120, upper: 230)
             range("الوزن", key: "weight", lower: 35, upper: 250)
             multiselect("الجنسية", key: "nationality", values: NativeOption.values(options["nationalityChoices"]))
-            Toggle("استبعاد الجنسيات المحددة", isOn: $profile.field("partnerCriteria").field("nationality").flag("exclude"))
+            Toggle("أفضّل جنسيات أخرى غير التي حددتها", isOn: $profile.field("partnerCriteria").field("nationality").flag("exclude"))
             multiselect("التعليم", key: "education", values: NativeOption.values(options["educationOptions"]))
             multiselect("المهنة", key: "profession", values: NativeOption.values(options["professionOptions"]))
             multiselect("الحالة الاجتماعية", key: "maritalStatus", values: NativeProfileOptions.marital)

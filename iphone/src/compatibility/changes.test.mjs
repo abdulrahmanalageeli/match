@@ -11,41 +11,41 @@ const fitOf = (a = first, b = second) => describeFit(a, b).fit;
 const changeAnswers = (person, updates) => ({ ...person, surveyAnswers: { ...person.surveyAnswers, ...updates } });
 const compareFits = (before, after) => compareCompatibility(compatibilitySnapshot(before), compatibilitySnapshot(after));
 
-test('a saved child preference change describes the 78 to 70 result without revealing answers or blaming an editor', () => {
+test('a saved child preference change describes the 60 to 55 result without revealing answers or blaming an editor', () => {
   const before = fitOf(), after = fitOf(first, changeAnswers(second, { children_plan: 'B', partner_children_plan: 'B' }));
   const result = compareFits(before, after);
-  assert.deepEqual(result.scoreChanges, [{ key: 'preferences', label: 'توافق التفضيلات', before: 78, after: 70 }]);
+  assert.deepEqual(result.scoreChanges, [{ key: 'preferences', label: 'توافق التفضيلات', before: 60, after: 55 }]);
   assert.deepEqual(result.reasons, ['الأطفال: أظهرت الإجابات احتياجات مختلفة.']);
   assert.deepEqual(compareFits(before, fitOf(changeAnswers(second, { children_plan: 'B', partner_children_plan: 'B' }), first)), result);
   assert(!JSON.stringify(result).includes('surveyAnswers'));
   assert(!result.reasons.join(' ').includes('رهام'));
   const restored = compareFits(after, before);
-  assert.equal(restored.scoreChanges[0].after, 78);
+  assert.equal(restored.scoreChanges[0].after, 60);
   assert.deepEqual(restored.reasons, ['الأطفال: أصبح التوافق متبادلًا.']);
 });
 
 test('changed explanations are meaningful even when the overall rounded percentage remains the same', () => {
   const before = fitOf();
   const after = fitOf(first, changeAnswers(second, {
-    marriage_timeline: 'B', partner_marriage_timeline: 'B',
-    match_disagreement_style: 'A', partner_match_disagreement_style: 'A',
+    family_authority: 'B', partner_family_authority: 'B',
+    financial_provision: 'A', partner_financial_provision: 'A',
   }));
   assert.equal(after.percentage, before.percentage);
   const result = compareFits(before, after);
   assert.deepEqual(result.scoreChanges, []);
   assert(result.reasons.length > 0);
-  assert(result.reasons.some(reason => reason.includes('موعد الخطوة الرسمية')));
+  assert(result.reasons.some(reason => reason.includes('دور الأهل في القرار')));
 });
 
 test('the compact summary explains its displayed score when another section changes only its explanations', () => {
   const nextFirst = structuredClone(first); nextFirst.personalityAnswers.directness = 'A';
   const nextSecond = changeAnswers(second, {
-    marriage_timeline: 'B', partner_marriage_timeline: 'B',
-    match_disagreement_style: 'A', partner_match_disagreement_style: 'A',
+    family_authority: 'B', partner_family_authority: 'B',
+    financial_provision: 'A', partner_financial_provision: 'A',
   });
   const result = compareFits(fitOf(), fitOf(nextFirst, nextSecond));
   assert.deepEqual(result.scoreChanges.map(score => score.key), ['personality']);
-  assert(result.reasons[0].startsWith('موعد الخطوة الرسمية:'));
+  assert(result.reasons[0].startsWith('دور الأهل في القرار:'));
   assert(result.summary.startsWith('وضوح الاحتياج:'));
   assert(result.reasons.includes(result.summary));
 });

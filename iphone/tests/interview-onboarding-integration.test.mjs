@@ -114,7 +114,7 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   const updated = compatibility.rankPreferences(changed, [a, b]);
   assert.equal(updated[0].person.id, b.id);
   assert.equal(updated[0].fit.percentage, 100);
-  assert.equal(updated[1].fit.percentage, 8, 'same-city residence remains aligned despite different residence answer codes');
+  assert.equal(updated[1].fit.percentage, 11, 'same-city residence aligns and attending selectively accepts a partner who abstains');
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
   assert.deepEqual(plain(updated[1].fit.strengths), ['residence_plan']);
   assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);

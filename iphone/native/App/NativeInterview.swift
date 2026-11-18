@@ -87,7 +87,8 @@ struct NativeInterview: View {
                         }
                         if !document["profileConfirmed"].array.isEmpty { NativeAction(title: "تطبيق اقتراحات الملف المؤكدة") {
                             let profile = NativeInterviewProfile.apply(document["profileConfirmed"].array, to: profileDraft?.wrappedValue ?? store.profile)
-                            if let profileDraft { profileDraft.wrappedValue = profile }
+                            profile["assessmentVersion"] = NativeCatalog.value["catalog"]["version"]
+        if let profileDraft { profileDraft.wrappedValue = profile }
                             else { _ = try await store.client.rpc("marriage_apply", ["payload": profile]); try await store.refresh() }
                         } }
                     }
@@ -115,7 +116,7 @@ struct NativeInterview: View {
     private func options(_ item: JSONValue) -> [NativeOption] {
         let field = item["fieldId"].string, side = item["side"].string
         switch item["kind"].string {
-        case "personality": return zip(["A", "B", "C", "D", "E"], ["لا يصفني إطلاقًا", "لا يصفني غالبًا", "أحيانًا", "يصفني غالبًا", "يصفني تمامًا"]).map { NativeOption(id: $0, label: $1) }
+        case "personality": return zip(["A", "B", "C", "D", "E"], ["لا يشبهني إطلاقًا", "يشبهني قليلًا", "يشبهني أحيانًا", "يشبهني غالبًا", "يشبهني كثيرًا"]).map { NativeOption(id: $0, label: $1) }
         case "preference": return NativeOption.values(NativeCatalog.value["catalog"]["dimensions"].array.first { $0["id"].string == field }?["options"] ?? .null, label: side == "partner" ? "partner" : "self")
         case "beena": if side == "importance" { return [NativeOption(id: "1", label: "مهم لي"), NativeOption(id: "2", label: "مهم جدًا لي")] }; return NativeOption.values(NativeCatalog.value["beena"]["beenaScenarios"].array.first { $0["id"].string == field }?["options"] ?? .null)
         default: return []

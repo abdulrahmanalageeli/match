@@ -123,7 +123,7 @@ test('an assessment change during the initial discovery load is caught up immedi
 
 test('the visible conversation topic stays selected as answers reclassify it, with fresh explanations and safe fallbacks', () => {
   const answers = Object.fromEntries(dimensions.flatMap(item => [[item.id, 'A'], [item.partnerId, 'A']]));
-  const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70, assessmentVersion: 'marriage-v2', surveyAnswers: answers };
+  const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70, assessmentVersion: 'marriage-v3', surveyAnswers: answers };
   const b = { ...a, id: 'b', gender: 'man' }; const topic = dimensions[3];
   let chosen; const props = { fit: describeFit(a, b).fit, name: 'رهام', disabled: false, hasDraft: false, choose: value => { chosen = value; } };
   const m = mount(insightsCode, 'ChatInsights', props); let tree = m.render();
@@ -134,9 +134,9 @@ test('the visible conversation topic stays selected as answers reclassify it, wi
   tree = m.render({ ...props, fit: describeFit(a, changed).fit });
   const card = named(tree, 'MotionReveal'); assert.equal(card.props['data-kind'], 'discussion');
   assert.equal(nodes(card).find(node => node.type === 'h4').props.children, topic.title);
-  assert(textOf(card).includes('اتجاه واحد')); named(tree, 'MotionPressButton').props.onClick(); assert.equal(chosen, topic.discussion);
+  assert(textOf(card).includes('يعتمد على الظروف')); named(tree, 'MotionPressButton').props.onClick(); assert.equal(chosen, topic.discussion);
   tree = m.render({ ...props, fit: undefined, hasDraft: true });
   assert.equal(named(tree, 'MotionReveal').props['data-kind'], 'explore');
   assert.equal(named(tree, 'MotionPressButton').props.disabled, true);
-  assert(!textOf(tree).includes('اتجاه واحد')); m.close();
+  assert(!textOf(tree).includes('يعتمد على الظروف')); m.close();
 });

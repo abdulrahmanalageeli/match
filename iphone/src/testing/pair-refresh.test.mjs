@@ -63,7 +63,7 @@ test('two independent clients refresh percentages, evidence and chat starters af
   const stopExtra=second.source.watch(()=>{});h.cleanup.push(stopA,stopB,stopExtra);
   await flush();assert.equal(h.activeTimers(),2,'One polling loop per source, shared by its subscribers');
   const original=(await first.source.inbox())[0].person.fit;
-  assert.deepEqual([original.percentage,original.personality.percentage,original.beena.percentage],[78,69,74]);
+  assert.deepEqual([original.percentage,original.personality.percentage,original.beena.percentage],[60,69,74]);
   const counts=[noticesA,noticesB],requests=h.calls.length;
   await h.tick();assert.deepEqual([noticesA,noticesB],counts,'Unchanged state does not trigger UI reloads');
   assert.equal(h.calls.length-requests,2,'Each client makes one state request, regardless of subscriber count');

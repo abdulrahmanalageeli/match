@@ -52,23 +52,40 @@ struct NativeCompatibility: View {
     let fit: JSONValue
     var body: some View {
         List {
-            Section("التقارب") {
-                if fit["assessmentComplete"].bool && !fit["provisional"].bool && !fit["percentage"].isNull { Text("\(Int(fit["percentage"].number))٪").font(.largeTitle.bold()) }
-                else { Text("لا تكفي الإجابات لعرض نسبة مكتملة.") }
-                Text("التقارب يساعد على بدء الحوار، ولا يضمن نجاح العلاقة.").foregroundStyle(.secondary)
+            Section("درجة توافق التفضيلات") {
+                if fit["assessmentComplete"].bool && !fit["provisional"].bool && !fit["percentage"].isNull {
+                    Text("\(Int(fit["percentage"].number)) من ١٠٠").font(.largeTitle.bold())
+                    let topics = fit["preferenceEvidence"]["topics"].array
+                    let catalogIDs = Set(NativeCatalog.value["catalog"]["dimensions"].array.map { $0["id"].string })
+                    let statuses = ["aligned", "one_sided", "different", "conditional"]
+                    if fit["version"].string == "marriage-v3", !topics.isEmpty, topics.count == catalogIDs.count,
+                       Set(topics.map { $0["id"].string }) == catalogIDs, topics.allSatisfy({ statuses.contains($0["status"].string) }) {
+                        let agreed = topics.filter { $0["status"].string == "aligned" }.count
+                        Text("تحقّق الاتفاق المتبادل في \(agreed) من \(topics.count) موضوعًا (\(Int((100.0 * Double(agreed) / Double(topics.count)).rounded()))٪).")
+                    }
+                } else { Text("لا تكفي الإجابات لعرض الدرجة.") }
+                ForEach(fit["practicalConcerns"].array.compactMap { ["relocation": "كل منكما يريد البقاء في مدينته.", "age_range": "العمر خارج النطاق المفضّل.", "children_intent": "تختلف رغبتكما في الإنجاب.", "location_unknown": "مدينتاكما غير محددتين للمقارنة.", "required_criterion": "يوجد اختلاف في تفضيل أساسي."][$0.string] }, id: \.self) { Text($0) }
+                Text("درجة الترتيب من ١٠٠ تراعي أولوياتكما بأوزان يحدّدها التطبيق. كل موضوع له نفس الوزن في نسبة الاتفاق. احتمال نجاح الزواج لا يُقاس هنا.").foregroundStyle(.secondary)
             }
             strings("نقاط تقارب", values: fit["strengths"])
             strings("مساحات للحوار", values: fit["discussion"])
             strings("إجابات ناقصة", values: fit["missing"])
-            Section("شخصيتكما") {
+            Section("تشابه الإجابات الشخصية") {
                 if fit["personality"]["complete"].bool && !fit["personality"]["percentage"].isNull { Text("\(Int(fit["personality"]["percentage"].number))٪") }
-                ForEach(fit["personality"]["similarities"].array.map(\.string), id: \.self) { Text($0) }
-                ForEach(fit["personality"]["differences"].array.map(\.string), id: \.self) { Text($0) }
+                topicTitles(fit["personality"]["similarities"], in: NativeCatalog.value["personality"])
+                topicTitles(fit["personality"]["differences"], in: NativeCatalog.value["personality"])
             }
             Section("بيننا · مواقف الحياة") { ForEach(Array(fit["beena"]["prompts"].array.enumerated()), id: \.offset) { _, item in Text(item["prompt"].string) } }
         }.navigationTitle("قراءة التوافق")
     }
-    private func strings(_ title: String, values: JSONValue) -> some View { Section(title) { ForEach(values.array.map(\.string), id: \.self) { Text($0) } } }
+    private func topicTitles(_ values: JSONValue, in catalog: JSONValue) -> some View {
+        ForEach(values.array.map(\.string), id: \.self) { id in
+            if let topic = catalog.array.first(where: { $0["id"].string == id }) { Text(topic["title"].string) }
+        }
+    }
+    private func strings(_ title: String, values: JSONValue) -> some View {
+        Section(title) { topicTitles(values, in: NativeCatalog.value["catalog"]["dimensions"]) }
+    }
 }
 
 struct NativeChatLibrary: View {

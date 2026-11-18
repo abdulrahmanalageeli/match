@@ -48,6 +48,7 @@ export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,rest
    <tbody>
     <tr className="wd-connection-counts"><th scope="row">التوافقات في نفس الوقت<BenefitInfo label="التوافقات في نفس الوقت">{benefitExplanations['التوافقات في نفس الوقت']}</BenefitInfo></th><td>١</td><td>٢</td><td>٣</td></tr>
     <tr><th scope="row">أولوية الظهور<BenefitInfo label="أولوية الظهور">فرصة ظهور أعلى ضمن التفضيلات وشروط الظهور المتبادلة، دون تغيير نسب التوافق أو ضمان عدد مشاهدات.</BenefitInfo></th><td><span aria-label="غير متاح">—</span></td><td><span aria-label="غير متاح">—</span></td><td><span role="img" aria-label="متاح"><Check size={15}/></span></td></tr>
+    <tr><th scope="row">البحث مع لونا<BenefitInfo label="البحث مع لونا">صف تفضيلاتك حتى ٦٠٠ حرف. تفهم لونا طلبك وتبحث في جميع الملفات المؤهلة للظهور، وترتبها حسب مطابقة الوصف والتوافق. حتى ٣٠ بحثًا يوميًا.</BenefitInfo></th><td>—</td><td>—</td><td><span role="img" aria-label="متاح"><Check size={15}/></span></td></tr>
     <tr><th scope="row">تحليل وُدَين المعمّق<BenefitInfo label="تحليل وُدَين المعمّق">طلب تقرير مشترك من إجاباتكما المحفوظة، دون استبيان إضافي. يبدأ بموافقة الطرفين، وتراجعان الإفصاحات قبل مشاركتها. استقبال الطلب وقراءة التقرير متاحان للطرف الآخر بأي عضوية.</BenefitInfo></th><td>—</td><td>—</td><td><span role="img" aria-label="متاح"><Check size={15}/></span></td></tr>
     {[
      ['إرسال طلبات التعارف',false],

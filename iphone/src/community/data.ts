@@ -1,3 +1,4 @@
+import type { LunaResults } from './lunaSearchClient';
 import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
 import { cloud } from "../cloud";
 import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession } from '../profile/profileOptions';
@@ -146,6 +147,7 @@ export type RequestAction =
 export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
 export type StepProgress = { rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
 export interface CommunitySource extends ManualVerificationSource {
+  lunaSearch?(query:string):Promise<LunaResults>;
   deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
@@ -217,6 +219,10 @@ export function cloudCommunity(userId: string): CommunitySource {
   }
   return {
     watch: privateUpdates(userId),
+    async lunaSearch(query) {
+      const { searchWithLuna } = await import('./lunaSearchClient');
+      return searchWithLuna(userId, query);
+    },
     deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
     mediaUrl: async (...args) => (await media()).mediaUrl!(...args),

@@ -228,11 +228,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
-          ? live?.testingTrial?.enabled
+          ? live?.demoDiscoveryEnabled
             ? withTestingDiscovery(cloudCommunity(token), () => realProfileRef.current ?? demoProfile)
             : cloudCommunity(token)
           : null,
-    [demo, token, sampleSession, pair, live?.testingTrial?.enabled],
+    [demo, token, sampleSession, pair, live?.demoDiscoveryEnabled],
   );
   const [policy, setPolicy] = useState(false);
   const supportSource = useMemo(() => cloud && token && !demo && !tester ? createSupportSource(cloud, token) : null, [token, demo, tester]);

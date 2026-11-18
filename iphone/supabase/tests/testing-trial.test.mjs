@@ -10,6 +10,13 @@ test('standalone trial cannot grant access to an approved member',async()=>{
   const user={id:randomUUID(),sessionId:randomUUID(),email:'trial@example.test'};
   await addUser(db,user);
   await seedCommunicationMember(db,user,'man');
+  const state = async () => (await db.query('select marriage.member_state($1) value',[user.id])).rows[0].value;
+  assert.equal((await state()).demoDiscoveryEnabled,true);
+  assert.equal((await state()).testingTrial.enabled,false);
+  await db.query('update marriage.testing_signup_config set demo_discovery_enabled=false');
+  assert.equal((await state()).demoDiscoveryEnabled,false);
+  assert.equal((await state()).testingTrial.enabled,false);
+  await db.query('update marriage.testing_signup_config set demo_discovery_enabled=true');
   await assert.rejects(asMember(db,user.id,user.sessionId,()=>db.query("select public.marriage_accept_testing_trial('testing-7d-12999-v1')")),/Apple/);
   assert.equal((await db.query('select enabled from marriage.testing_signup_config')).rows[0].enabled,false);
   assert.equal((await db.query('select count(*)::int n from marriage.testing_signup_trials')).rows[0].n,0);

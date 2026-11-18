@@ -51,7 +51,7 @@ struct NativeLifecycle: ViewModifier {
             }
     }
     private func deliver(_ result: VerificationResult<StoreKit.Transaction>, owner: String, token: UUID) async {
-        guard store.owner == owner, case .verified(let transaction) = result, transaction.productID == "com.blindmatch.marriage.monthly", transaction.appAccountToken == token else { return }
+        guard store.owner == owner, case .verified(let transaction) = result, NativeMembershipProducts.supported.contains(transaction.productID), transaction.appAccountToken == token else { return }
         do {
             _ = try await store.client.edge("verify-membership", .object(["signedTransaction": .string(result.jwsRepresentation)]))
             guard store.owner == owner else { return }

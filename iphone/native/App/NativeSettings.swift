@@ -138,11 +138,27 @@ struct NativeDeviceSettings: View {
     } }
 }
 
+enum NativeMembershipProducts {
+    static let legacy = "com.blindmatch.marriage.monthly"
+    static let men = [legacy + ".seriousness", legacy + ".men"]
+    static let women = [legacy + ".seriousness.women", legacy + ".women"]
+    static let supported = Set([legacy] + men + women)
+
+    static func forGender(_ gender: String) -> [String] {
+        switch gender {
+        case "man": return men
+        case "woman": return women
+        default: return []
+        }
+    }
+}
+
 struct NativeMembership: View {
     @EnvironmentObject private var store: NativeStore
     @State private var product: Product?
     @State private var error: String?
-    private let productID = "com.blindmatch.marriage.monthly"
+    @State private var loaded = false
+    private var productIDs: [String] { NativeMembershipProducts.forGender(store.profile["gender"].string) }
     var body: some View { Form {
         Section { Label(store.account["membership"]["active"].bool ? "عضويتك فعّالة" : "عضوية وُدَين", systemImage: "heart.circle"); Text("اشتراك شهري متجدد عبر Apple. يمكنك إدارة التجديد من إعدادات اشتراكاتك.") }
         if let product {
@@ -155,19 +171,38 @@ struct NativeMembership: View {
                 @unknown default: throw NativeProblem.invalidResponse
                 }
             }.disabled(!store.account["membership"]["canStart"].bool || store.account["membership"]["active"].bool)
+        } else if loaded {
+            Text("تعذّر تحميل سعر العضوية من App Store.")
+            NativeAction(title: "إعادة تحميل السعر") { await loadProduct() }
         } else { ProgressView("نحمّل سعر العضوية…") }
         NativeAction(title: "استعادة المشتريات") {
             try await AppStore.sync()
-            for await result in StoreKit.Transaction.currentEntitlements { if case .verified(let transaction) = result, transaction.productID == productID { try await deliver(result) } }
+            for await result in StoreKit.Transaction.currentEntitlements {
+                if case .verified(let transaction) = result, NativeMembershipProducts.supported.contains(transaction.productID) { try await deliver(result) }
+            }
         }
         NativeAction(title: "إدارة الاشتراك") {
             guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
             try await AppStore.showManageSubscriptions(in: scene)
         }
         NavigationLink("الخصوصية والشروط", destination: NativeLegal())
-    }.navigationTitle("عضويتي").nativeError($error).task { do { product = try await Product.products(for: [productID]).first } catch { self.error = error.localizedDescription } } }
+    }.navigationTitle("عضويتي").nativeError($error).task(id: productIDs) { await loadProduct() } }
+    private func loadProduct() async {
+        let ids = productIDs
+        product = nil
+        loaded = false
+        do {
+            let products = try await Product.products(for: ids)
+            guard !Task.isCancelled, ids == productIDs else { return }
+            product = ids.lazy.compactMap { id in products.first { $0.id == id } }.first
+        } catch {
+            guard !Task.isCancelled, ids == productIDs else { return }
+            self.error = error.localizedDescription
+        }
+        loaded = true
+    }
     private func deliver(_ result: VerificationResult<StoreKit.Transaction>) async throws {
-        guard case .verified(let transaction) = result, transaction.productID == productID else { throw NativeProblem.message("تعذّر التحقق من عملية الشراء.") }
+        guard case .verified(let transaction) = result, NativeMembershipProducts.supported.contains(transaction.productID) else { throw NativeProblem.message("تعذّر التحقق من عملية الشراء.") }
         _ = try await store.client.edge("verify-membership", .object(["signedTransaction": .string(result.jwsRepresentation)]))
         await transaction.finish(); try await store.refresh()
     }

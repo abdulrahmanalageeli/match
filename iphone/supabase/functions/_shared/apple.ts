@@ -4,6 +4,7 @@ import { Environment, SignedDataVerifier, VerificationStatus } from 'npm:@apple/
 
 const bundle = 'com.blindmatch.marriage'
 const product = 'com.blindmatch.marriage.monthly'
+const products = new Set([product, product + '.men', product + '.women', product + '.seriousness', product + '.seriousness.women'])
 let verifier: SignedDataVerifier | undefined
 
 export class HttpError extends Error {
@@ -70,8 +71,9 @@ async function verify<T>(work:()=>Promise<T>):Promise<T>{
 export async function ingest(jws: unknown, actor: string|null, notification: boolean) {
   const signed=validateJws(jws)
   const receipt=await verify(()=>apple().verifyAndDecodeTransaction(signed))
-  if(notification && (receipt.productId!==product || !receipt.appAccountToken))return null
-  if(receipt.bundleId!==bundle || receipt.productId!==product || !receipt.appAccountToken)
+  const supported = typeof receipt.productId === 'string' && products.has(receipt.productId)
+  if(notification && (!supported || !receipt.appAccountToken))return null
+  if(receipt.bundleId!==bundle || !supported || !receipt.appAccountToken)
     throw new HttpError(403,'الاشتراك لا يخص هذا التطبيق.')
   const {data,error}=await admin().rpc('marriage_record_receipt',{actor,receipt,notification})
   if(error)throw new HttpError(error.code==='42501'?403:error.code==='22023'?400:503,'تعذّر تسجيل اشتراك Apple.')

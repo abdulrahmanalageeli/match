@@ -240,7 +240,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [price, setPrice] = useState<string | null>(null);
+  const [membershipOffer, setMembershipOffer] = useState<{ gender: Profile["gender"]; price: string; productId: string } | null>(null);
+  const membershipGender = live?.profile?.gender;
+  const checkoutOffer = membershipOffer?.gender === membershipGender ? membershipOffer : null;
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
   const active = demo || Boolean(live?.membership.active);
@@ -529,19 +531,19 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     };
   }, [token, accepted, demo, ios]);
   useEffect(() => {
-    if (!ios || !accepted || demo) return;
+    if (!ios || !accepted || demo || !membershipGender) return;
     let disposed = false;
-    getMembershipOffer()
+    getMembershipOffer(membershipGender)
       .then((offer) => {
-        if (!disposed) setPrice(offer.price);
+        if (!disposed) setMembershipOffer({ ...offer, gender: membershipGender });
       })
       .catch(() => {
-        if (!disposed) setPrice(null);
+        if (!disposed) setMembershipOffer(null);
       });
     return () => {
       disposed = true;
     };
-  }, [ios, accepted, demo, view]);
+  }, [ios, accepted, demo, view, membershipGender]);
 
   function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
@@ -636,14 +638,16 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   function verifyPurchase(restore: boolean) {
     void run(async () => {
       if (!live || !ios) throw new Error("الشراء متاح عبر تطبيق iPhone.");
-      if (!restore && token) {
-        const latest = await refresh(token);
-        if (!latest?.membership.canStart)
-          throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
+      let jws: string;
+      if (restore) {
+        jws = await restoreMembership();
+      } else {
+        if (!checkoutOffer) throw new Error("تعذّر تحميل سعر العضوية من App Store. حدّث حالة العضوية وأعد المحاولة.");
+        const latest = token ? await refresh(token) : null;
+        if (!latest?.membership.canStart) throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
+        if (latest.profile?.gender !== checkoutOffer.gender) throw new Error("تغيّر الملف. حدّث حالة العضوية وأعد المحاولة.");
+        jws = await purchaseMembership(latest.user.appAccountToken, checkoutOffer.gender, checkoutOffer.productId);
       }
-      const jws = restore
-        ? await restoreMembership()
-        : await purchaseMembership(live.user.appAccountToken);
       await update("/membership", "POST", { signedTransaction: jws });
       await completeMembership(jws);
       go("main");
@@ -769,7 +773,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       back={back}
       active={active}
       demo={demo}
-      price={demo ? membershipPriceLabel(sampleProfile.gender) : price}
+      price={demo ? membershipPriceLabel(sampleProfile.gender) : checkoutOffer?.price ?? null}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -784,7 +788,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       refresh={() =>
         void run(async () => {
           if (token) await refresh(token);
-          if (ios) setPrice((await getMembershipOffer()).price);
+          if (ios && membershipGender) {
+            setMembershipOffer(null);
+            setMembershipOffer({ ...(await getMembershipOffer(membershipGender)), gender: membershipGender });
+          }
         })
       }
       onPolicy={() => setPolicy(true)}

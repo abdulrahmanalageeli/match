@@ -15,6 +15,7 @@ const derive = promisify(scrypt);
 const sessionLifetime = 30 * 24 * 60 * 60 * 1000;
 const digest = (token) => createHash("sha256").update(token).digest("hex");
 export const SKU = "com.blindmatch.marriage.monthly";
+const membershipProducts = new Set([SKU, SKU + ".men", SKU + ".women", SKU + ".seriousness", SKU + ".seriousness.women"]);
 export const BUNDLE = "com.blindmatch.marriage";
 export const CONSENT_VERSION = "2026-11-05";
 export class ApiError extends Error {
@@ -491,7 +492,7 @@ class Store {
     const u = this.user(id);
     requireThat(
       receipt.bundleId === BUNDLE &&
-        receipt.productId === SKU &&
+        membershipProducts.has(receipt.productId) &&
         receipt.appAccountToken?.toLowerCase() === u.account_token &&
         typeof receipt.transactionId === "string" &&
         receipt.transactionId.length > 0 &&
@@ -537,7 +538,7 @@ class Store {
     const owner = this.db
       .prepare("SELECT id FROM users WHERE account_token=?")
       .get(receipt.appAccountToken?.toLowerCase() ?? "");
-    if (owner && receipt.productId === SKU)
+    if (owner && membershipProducts.has(receipt.productId))
       this.recordReceipt(receipt, owner.id);
   }
 }

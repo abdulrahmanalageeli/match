@@ -14,7 +14,20 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manage", returnType: CAPPluginReturnPromise)
     ]
-    private let productID = "com.blindmatch.marriage.monthly"
+    private let legacyProductID = "com.blindmatch.marriage.monthly"
+    private var menProductIDs: [String] { [legacyProductID + ".seriousness", legacyProductID + ".men"] }
+    private var womenProductIDs: [String] { [legacyProductID + ".seriousness.women", legacyProductID + ".women"] }
+
+    private func storeProduct(for gender: String?) async throws -> Product? {
+        let ids: [String]
+        switch gender {
+        case "man": ids = menProductIDs
+        case "woman": ids = womenProductIDs
+        default: return nil
+        }
+        let products = try await Product.products(for: ids)
+        return ids.lazy.compactMap { id in products.first { $0.id == id } }.first
+    }
     private var updates: Task<Void, Never>?
     @MainActor private var purchaseInProgress = false
     @MainActor private var pendingDelivery: [String: Transaction] = [:]
@@ -33,7 +46,8 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     deinit { updates?.cancel() }
 
     @MainActor private func receipt(_ result: VerificationResult<Transaction>) -> String? {
-        guard case .verified(let transaction) = result, transaction.productID == productID else { return nil }
+        guard case .verified(let transaction) = result,
+              ([legacyProductID] + menProductIDs + womenProductIDs).contains(transaction.productID) else { return nil }
         let jws = result.jwsRepresentation
         pendingDelivery[jws] = transaction
         return jws
@@ -49,11 +63,11 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func offer(_ call: CAPPluginCall) {
         Task { @MainActor in
             do {
-                guard let product = try await Product.products(for: [productID]).first else {
+                guard let product = try await storeProduct(for: call.getString("gender")) else {
                     call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
                     return
                 }
-                call.resolve(["price": product.displayPrice])
+                call.resolve(["price": product.displayPrice, "productId": product.id])
             } catch {
                 call.reject("تعذّر تحميل سعر العضوية من App Store.", "STORE_ERROR", error)
             }
@@ -77,7 +91,9 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["jws": existing])
                     return
                 }
-                guard let product = try await Product.products(for: [productID]).first else {
+                guard let requestedID = call.getString("productId"),
+                      let product = try await storeProduct(for: call.getString("gender")),
+                      product.id == requestedID else {
                     call.reject("العضوية غير متاحة في متجر حسابك.", "UNAVAILABLE")
                     return
                 }

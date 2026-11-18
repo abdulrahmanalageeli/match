@@ -1,9 +1,11 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 
 type SignedTransaction = { jws: string };
+type MembershipGender = 'man' | 'woman';
+export type MembershipOffer = { price: string; productId: string };
 interface AppleMembershipPlugin {
-  offer(): Promise<{ price: string }>;
-  purchase(options: { accountToken: string }): Promise<SignedTransaction>;
+  offer(options: { gender: MembershipGender }): Promise<MembershipOffer>;
+  purchase(options: { accountToken: string; gender: MembershipGender; productId: string }): Promise<SignedTransaction>;
   restore(): Promise<SignedTransaction>;
   current(): Promise<{ jws: string | null }>;
   complete(options: SignedTransaction): Promise<void>;
@@ -18,14 +20,14 @@ function requireIOS() {
   if (!isIOSBilling()) throw new Error('الاشتراك المدفوع متاح من تطبيق iPhone.');
 }
 
-export function getMembershipOffer(): Promise<{ price: string }> {
+export function getMembershipOffer(gender: MembershipGender): Promise<MembershipOffer> {
   requireIOS();
-  return membership.offer();
+  return membership.offer({ gender });
 }
 
-export async function purchaseMembership(accountToken: string): Promise<string> {
+export async function purchaseMembership(accountToken: string, gender: MembershipGender, productId: string): Promise<string> {
   requireIOS();
-  return (await membership.purchase({ accountToken })).jws;
+  return (await membership.purchase({ accountToken, gender, productId })).jws;
 }
 
 export async function restoreMembership(): Promise<string> {

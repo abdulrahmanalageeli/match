@@ -52,7 +52,7 @@ try {
  `}));
  await page.goto('http://127.0.0.1:5286/tests/fixtures/settings-qa.html?member');
  await page.getByText('يظهر ملفك في الترشيحات بعد اعتماده',{exact:true}).waitFor();
- assert.equal(await page.locator('.st-screen').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(29, 25, 29)');
+ assert.equal(await page.locator('.st-screen').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(253, 253, 253)');
  const charge=await page.locator('.st-billing p').first().innerText();
  assert(charge.includes('تنتهي تجربتك المجانية'));assert(charge.includes(new Intl.NumberFormat('ar-SA',{style:'currency',currency:'SAR'}).format(99.99).trim()));
  assert.equal(await page.locator('.st-billing a').getAttribute('href'),'https://apps.apple.com/account/subscriptions');
@@ -65,5 +65,5 @@ try {
  await page.locator('.mp-back').click();await page.locator('.st-member-photos').click();
  await page.getByRole('button',{name:'إيقاف مشاركة الصورة مع عضو تجريبي'}).click();await page.getByText('لا توجد أذونات مشاركة سارية.').waitFor();
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
- console.log('PASS: Settings at 390px and 320px, Arabic large text, dark mode, focus restoration, notification previews, approved profile, trial pricing and photo revocation. Zero external requests.');
+ console.log('PASS: Settings at 390px and 320px, Arabic large text, light appearance with system dark mode, focus restoration, notification previews, approved profile, trial pricing and photo revocation. Zero external requests.');
 }finally{await browser.close();await server.close();}

@@ -80,6 +80,7 @@ type PairProfile = {
   priorityCategories?: readonly string[];
   assessmentVersion?: string;
   marriageBasics?: MarriageBasics;
+  relocationCities?: string[];
   partnerCriteria?: PartnerCriteria;
   personalityAnswers?: Readonly<Record<string, string>>;
   personalityVersion?: string;
@@ -194,8 +195,12 @@ function shareCity(first: PairProfile, second: PairProfile) {
 // Staying and joining a partner describe the same practical outcome when both
 // already live in the same city. Unknown answers still earn no compatibility.
 function answerFits(member: PairProfile, peer: PairProfile, dim: Dimension, wanted: string | undefined, observed: string | undefined) {
-  return wanted !== undefined && observed !== undefined
-    && (wanted === observed || (dim.id === 'residence_plan' && shareCity(member, peer)));
+  if (!wanted || !observed) return false;
+  if (dim.id === 'marriage_timeline') {
+    const windows=(code:string)=>code==='E'?'AB':code==='F'?'ABC':code;
+    return [...windows(wanted)].some(window=>windows(observed).includes(window));
+  }
+  return wanted === observed || (dim.id === 'residence_plan' && shareCity(member, peer));
 }
 
 function acceptsRequirements(member: PairProfile, peer: PairProfile) {
@@ -208,9 +213,14 @@ function acceptsRequirements(member: PairProfile, peer: PairProfile) {
 }
 
 function canShareCity(first: PairProfile, second: PairProfile) {
-  const plans = [first.surveyAnswers?.residence_plan, second.surveyAnswers?.residence_plan];
-  return plans.every(code => code === "A" || code === "B" || code === "C")
-    && plans.some(code => code === "B" || code === "C");
+  function cities(person:PairProfile, peer:PairProfile) {
+    const plan=person.surveyAnswers?.residence_plan;
+    if (!plan || !['A','B','C'].includes(plan)) return [];
+    const choices=[person.city,...(plan==='B'?[peer.city]:plan==='C'?person.relocationCities??[]:[])];
+    return choices.map(canonicalCity).filter(city=>city && !city.startsWith('مدينة أخرى'));
+  }
+  const allowed=cities(second,first);
+  return cities(first,second).some(city=>allowed.includes(city));
 }
 
 // Compare what the asker wants with what the other person actually reported. Missing
@@ -239,6 +249,10 @@ function directedFit(member: PairProfile, peer: PairProfile) {
 }
 
 export function comparePreferences(first: PairProfile, second: PairProfile) {
+  const woman=first.gender==='woman'?first:second;
+  const man=woman===first?second:first;
+  if(woman.marriageBasics?.polygynyPreference==='not_open' &&
+     (man.marriageBasics?.polygynyPreference!=='not_open' || !['never_married','divorced','widowed'].includes(man.marriageBasics?.maritalStatus??''))) return null;
   const sameCity = shareCity(first, second);
   if (
     first.id === second.id || first.gender === second.gender ||

@@ -138,7 +138,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
         {p.marriageBasics?.polygynyPreference && p.marriageBasics.polygynyPreference !== 'prefer_not_to_say' && <p>الموقف من التعدد: {p.gender === 'woman' ? ({not_open:'لا أقبل التعدد',open_to_discussion:'منفتحة على النقاش',open:'منفتحة على التعدد'})[p.marriageBasics.polygynyPreference] : polygynyLabels[p.marriageBasics.polygynyPreference]}</p>}
         {p.marriageBasics?.religiousAffiliation && p.marriageBasics.religiousAffiliation !== 'prefer_not_to_say' && <p>المذهب: {religiousAffiliationLabels[p.marriageBasics.religiousAffiliation]}</p>}
         {p.marriageBasics?.prayerPractice && p.marriageBasics.prayerPractice !== 'prefer_not_to_say' && <p>الصلاة في حياتي: {prayerPracticeLabels[p.marriageBasics.prayerPractice]}</p>}
-        {p.marriageBasics?.marriageTimeline && <p>توقيت الزواج: {marriageTimelineLabels[p.marriageBasics.marriageTimeline]}</p>}
+        {p.marriageBasics?.marriageTimeline && <p>توقيت إتمام الزواج: {marriageTimelineLabels[p.marriageBasics.marriageTimeline]}</p>}
         {p.marriageBasics?.meetingPreference && <p>تفضيل اللقاء: {meetingPreferenceLabels[p.marriageBasics.meetingPreference]}</p>}
         {p.marriageBasics?.childrenCount !== undefined && <p>عدد الأبناء: {arabicNumber(p.marriageBasics.childrenCount)}</p>}
         {p.marriageBasics?.smoking && <p>التدخين: {smokingLabels[p.marriageBasics.smoking]}</p>}

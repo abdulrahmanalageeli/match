@@ -59,7 +59,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const highlights = [
     {label:'العمل',value:person.occupation,icon:BriefcaseBusiness},
     {label:'التعليم',value:person.education,icon:GraduationCap},
-    {label:'توقيت الزواج',value:b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline],icon:CalendarHeart},
+    {label:'توقيت إتمام الزواج',value:b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline],icon:CalendarHeart},
   ].filter(item=>item.value);
   function selectSection(next:typeof section){
     if(next===section)return;
@@ -140,7 +140,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         ]}/>
         <Facts title="بداية الزواج" note="التوقيت، واللقاء، وإشراك الأهل" icon={Heart} items={[
           person.marriageIntent&&['النية من التعارف',person.marriageIntent],
-          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['التوقيت المرغوب للزواج',marriageTimelineLabels[b.marriageTimeline]],
+          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['التوقيت المرغوب لإتمام الزواج',marriageTimelineLabels[b.marriageTimeline]],
           b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['تفضيل اللقاء',meetingPreferenceLabels[b.meetingPreference]],
           person.familyPreference&&['إشراك الأهل',person.familyPreference],
         ]}/>
@@ -160,4 +160,3 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;
 }
-

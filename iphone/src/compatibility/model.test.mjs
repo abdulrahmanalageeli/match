@@ -45,7 +45,7 @@ test('other-city buckets require explicit relocation plans instead of implying a
   for (const city of ['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية']) {
     assert.equal(comparePreferences({ ...a, city }, { ...b, city }), null);
     assert.equal(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'A' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }), null);
-    assert(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'B' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }));
+    assert.equal(comparePreferences({ ...a, city, surveyAnswers: { residence_plan: 'B' } }, { ...b, city, surveyAnswers: { residence_plan: 'A' } }),null);
   }
 });
 
@@ -161,7 +161,7 @@ test("a hard preference requires an explicit counterpart answer; a shared city c
   assert.equal(comparePreferences(first, { ...peer, hardRequirements: ["marriage_timeline"] }), null);
   assert(comparePreferences({ ...first, hardRequirements: [] }, { ...peer, surveyAnswers: { residence_plan: "B" } }));
   const stays = { ...peer, interestIds: [], surveyAnswers: { children_plan: "A", residence_plan: "A" } };
-  const canMove = { ...first, interestIds: [] };
+  const canMove = { ...first, relocationCities:[stays.city], interestIds: [] };
   const reason = "يتوافق عمركما مع التفضيلات التي اخترتماها، وتتيح اختيارات السكن مدينة مشتركة.";
   assert.deepEqual(comparePreferences(canMove, stays).reasons, [reason]);
   assert.deepEqual(comparePreferences(stays, canMove).reasons, [reason]);

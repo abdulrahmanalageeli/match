@@ -11,6 +11,7 @@ const url = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
 const modelUrl = new URL('../src/compatibility/model.ts', import.meta.url).href;
 const beenaUrl = new URL('../src/beena/model.ts', import.meta.url).href;
 const dataUrl = url((await compile('../src/community/data.ts'))
+  .replace(/import.*from ['"]\.\/deepCompatibilityClient['"];?/, "const deepCompatibilitySource=()=>undefined;")
   .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/photos\/verifyPhoto["'];?/, "const captureForPhoto=async()=>{throw Error('offline')};const verifyUploadedPhoto=captureForPhoto;")
   .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
   .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))

@@ -26,7 +26,8 @@ import { journeyNext } from './journeyNext';
 import { NextStep } from './NextStep';
 import type { NextStepState } from './nextStepModel';
 import { readBrowseMemory, saveBrowseMemory } from './discoveryMemory';
-import { decisionContext } from '../profile/decisionContext';
+import { decisionContext, privateDiscoveryIntro } from '../profile/decisionContext';
+import { MutualAcceptance } from './MatchCelebration';
 import { canRetryRead } from './readRecovery';
 import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
@@ -487,6 +488,7 @@ function PersonCard({
 }) {
   const {personalLine, context} = decisionContext(person);
   const descriptionId = useId();
+  const privateCard = privateDiscoveryIntro(person);
   return <div className="df-recommendation">
     <MotionPressButton
       className={"cm-person df-person"+(compact?" dr-compact":"")}
@@ -494,14 +496,23 @@ function PersonCard({
       onClick={event => open(event.currentTarget)}
       data-weekly-person={person.id}
       aria-label={`عرض ملف ${person.alias}`}
-      aria-describedby={descriptionId}
+      aria-describedby={privateCard ? descriptionId+'-intro '+descriptionId : descriptionId}
     >
-      <div className="cm-person-top cm-weekly-identity df-card-portrait">
+      {privateCard ? <div id={descriptionId+'-intro'} className="df-private-introduction">
+        <div className="df-private-identity">
+          <span className="df-private-initial" aria-hidden="true">{Array.from(person.alias.trim())[0]}</span>
+          <div><strong><bdi>{person.alias}</bdi> <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/></strong>
+            <small>{[Number.isInteger(person.age) && person.age >= 18 && person.age <= 110 && ar.format(person.age) + ' عامًا', person.city].filter(Boolean).join(' · ')}</small></div>
+        </div>
+        <small>{person.isDemo ? 'حساب توضيحي' : <><LockKeyhole size={13}/> الصور تُشارك بخصوصية</>}</small>
+        {privateCard.line && <div className="df-private-line"><small>{privateCard.label}</small><p dir="auto">{privateCard.line}</p></div>}
+        {person.exclusive && <small>تعارف حصري</small>}
+      </div> : <div className="cm-person-top cm-weekly-identity df-card-portrait">
         <DiscoveryPortrait person={person} source={source} priority={priority} />
-      </div>
+      </div>}
       <div className="df-card-copy" id={descriptionId}>
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
-      {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
+      {!privateCard && personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
       {context && <p className="df-card-reason">{context}</p>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
@@ -514,6 +525,7 @@ function PersonCard({
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const {personalLine, context} = decisionContext(person);
   const sampleOnly=person.isDemo&&!source.simulation;
+  const previewLine = privateDiscoveryIntro(person)?.line ?? personalLine;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" aria-label={`ملف ${person.alias}`}>
@@ -530,7 +542,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
 
     <div className="dr-row-detail">
       <div className="dr-decision-copy">
-        {personalLine&&<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)}>{personalLine}</button>}
+        {previewLine&&<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)}>{previewLine}</button>}
         {context&&<p className="df-card-reason">{context}</p>}
       </div>
 
@@ -1723,7 +1735,7 @@ function Requests({
         await source.demoAcceptOutgoing(item.id);
       } else await source.act(item.id, action, reason || undefined, allowRematch);
       if (intent !== navigation.current) return;
-      feedback('success');
+      if (action !== "accept" && action !== "demoAccept") feedback('success');
       setConfirm(null);
       if (action === "accept" || action === "demoAccept") {
         setList(rows => rows.map(row => row.id === item.id ? { ...row, status: "accepted" } : row));
@@ -1775,9 +1787,7 @@ function Requests({
         {actionError && <Banner alert text={actionError} />}
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
-          <button className="btn-primary" data-chat-entry="" onClick={() => fromProfile(item.id, false)}>
-            <MessageCircle size={19} /> {memberAr.openChat} <ArrowLeft className="mp-action-arrow" size={17}/>
-          </button>
+          <MutualAcceptance key={item.id} source={source} requestId={item.id} name={item.person.alias} onContinue={() => fromProfile(item.id, false)}/>
         ) : item.direction === "incoming" ? (
           <>
             <p className="cm-help">
@@ -2000,7 +2010,7 @@ function Requests({
               <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.isDemo&&!source.simulation&&<span className="nf-demo-tag">توضيحي</span>} {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
-                  ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"
+                  ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "عرض التعارف"
                   : row.direction === "incoming"
                     ? "طلب تعارف وارد"
                     : "بانتظار الرد"}

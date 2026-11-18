@@ -27,6 +27,10 @@ function pick(value: RecordValue, keys: readonly string[]): RecordValue {
 function peerProfile(value: unknown, publishSensitive: boolean): RecordValue {
   if (!record(value)) return {};
   const result = pick(value, publicFields);
+  if (typeof value.discoveryLine === 'string' && value.discoveryLine && ['bio','lifeTogether','valuesStatement','lookingFor'].some(key =>
+    typeof result[key] === 'string' && (result[key] as string).match(/[^.!?؟…\r\n]+[.!?؟…]*/gu)?.some(line => line.trim() === value.discoveryLine))) {
+    result.discoveryLine = value.discoveryLine;
+  }
   if (record(value.marriageBasics)) result.marriageBasics = pick(value.marriageBasics,
     publishSensitive ? [...publicBasics, ...sensitiveBasics] : publicBasics);
   if (publishSensitive && record(value.publicAvatar)) result.publicAvatar = pick(value.publicAvatar, ['style', 'skinTone']);

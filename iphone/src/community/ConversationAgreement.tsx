@@ -4,6 +4,7 @@ import { CalendarDays, Check, Feather, Users, X } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement } from './data';
 import './conversation-agreement.css';
 import { HelpButton } from '../help/HelpCenter';
+import { feedback } from '../feedback/haptics';
 import { SuccessNotice } from './SuccessNotice';
 export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean}){
  const [agreement,setAgreement]=useState<SeriousnessAgreement|null>(null),[days,setDays]=useState(14),[signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);
@@ -12,7 +13,16 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  useEffect(()=>{if(openDetails)setExpanded(true);},[openDetails]);
  useEffect(()=>{setSigned(false);if(agreement?.days)setDays(agreement.days);},[agreement?.proposalId,agreement?.days]);
  async function submit(action:'propose'|'accept'|'family'|'extend'|'extension_accept'){
-  if(!source.agree||busy)return;setBusy(true);setError('');try{const next=await source.agree(requestId,action,action==='extend'?{days:7}:action==='extension_accept'?{proposalId:agreement?.extension?.id}:action==='propose'?{days,signed}:action==='accept'?{proposalId:agreement?.proposalId,signed}:{confirmed:true});setAgreement(next);onAllowed(next.status==='accepted'||next.status==='family');}catch(e){setError(e instanceof Error?e.message:'تعذّر حفظ الاتفاق.');}finally{setBusy(false);}
+  if (!source.agree || busy) return;
+  setBusy(true); setError('');
+  try {
+   const payload = action === 'extend' ? {days:7} : action === 'extension_accept' ? {proposalId:agreement?.extension?.id}
+    : action === 'propose' ? {days,signed} : action === 'accept' ? {proposalId:agreement?.proposalId,signed} : {confirmed:true};
+   const next = await source.agree(requestId, action, payload);
+   setAgreement(next); onAllowed(next.status === 'accepted' || next.status === 'family');
+   if (action === 'accept' && next.status === 'accepted') feedback('success');
+  } catch (e) { setError(e instanceof Error ? e.message : 'تعذّر حفظ الاتفاق.'); }
+  finally { setBusy(false); }
  }
  if(!source.agreement)return null;
  if(loadError)return <div className="cm-agreement-loading"><p role="alert">تعذّر تحميل اتفاقكما. أعد المحاولة لاستئناف الحديث.</p><button className="btn-secondary" onClick={()=>{setLoadError(false);setRetry(n=>n+1);}}>إعادة تحميل الاتفاق</button></div>;

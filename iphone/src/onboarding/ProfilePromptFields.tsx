@@ -1,11 +1,11 @@
 import { useEffect, useId, useState } from 'react';
 import { Check, Feather, Sparkles } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
-import { profilePrompts, answeredProfilePrompts, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
+import { profilePrompts, answeredProfilePrompts, discoveryLines, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';
 
 export function ProfilePromptFields({ answers, update, invalidField, required = false, rephrase }: {
-  answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; rephrase?: (key:ProfilePromptKey)=>void;
+  answers: ProfilePromptAnswers & { bio?: string; discoveryLine?: string }; update: (value: ProfilePromptAnswers & { discoveryLine?: string }) => void; invalidField?: string; required?: boolean; rephrase?: (key:ProfilePromptKey)=>void;
 }) {
   const [selected, setSelected] = useState<ProfilePromptKey>(() => profilePrompts.find(prompt => !answers[prompt.key]?.trim())?.key ?? 'lookingFor');
   const id = useId();
@@ -13,6 +13,7 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
   const prompt = profilePrompts.find(item => item.key === selected)!;
   const value = answers[selected] ?? '';
   const answeredCount=answeredProfilePrompts(answers).length;
+  const lines = discoveryLines(answers);
   return <section className="nf-prompt-editor" aria-label="أسئلة تضيف لحكايتك">
     <header><span><Feather size={17} aria-hidden="true"/><strong>تفاصيل تشبهك</strong></span><span className="nf-prompt-progress" aria-label={`${new Intl.NumberFormat('ar-SA').format(answeredCount)} من ٣ مكتملة`}>{profilePrompts.map((item,index)=><i key={item.key} data-done={index<answeredCount||undefined}/>)}<b>{new Intl.NumberFormat('ar-SA').format(answeredCount)} / ٣</b></span></header>
     <p className="nf-prompt-note">{required ? 'ثلاث لمحات عنك. جملة أو اثنتان لكل منها تكفي.' : 'اختياري · أجب عن سؤال يعبّر عنك، بجملة أو اثنتين.'} تظهر إجاباتك في ملفك.</p>
@@ -26,5 +27,14 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
       <small className="nf-prompt-counter">{new Intl.NumberFormat('ar-SA').format(value.length)} / ٦٠٠ · {required ? 'بكلماتك، دون إجابة مثالية' : 'يمكنك تركها فارغة أو تعديلها لاحقًا'}</small>
     </MotionReveal>
     <small className="nf-prompt-privacy">شارك ما ترتاح لظهوره؛ تجنّب أرقام التواصل والتفاصيل التي تفضّل إبقاءها خاصة.</small>
+    <label className="nf-discovery-line-choice">
+      <strong>أحب أن تعرف عنّي</strong>
+      <span>اختَر جملة من ملفك لتظهر في بطاقة الاستكشاف عندما لا تعرض صورة.</span>
+      <select value={lines.includes(answers.discoveryLine ?? '') ? answers.discoveryLine : ''} onChange={event => update({ discoveryLine: event.target.value })}>
+        <option value="">عرض معلومة من ملفي</option>
+        {lines.map(line => <option key={line} value={line}>{line}</option>)}
+      </select>
+      {answers.discoveryLine && lines.includes(answers.discoveryLine) && <span dir="auto">{answers.discoveryLine}</span>}
+    </label>
   </section>;
 }

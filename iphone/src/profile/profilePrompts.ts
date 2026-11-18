@@ -9,6 +9,18 @@ export const profilePrompts = [
 export type ProfilePromptKey = typeof profilePrompts[number]['key'];
 export type ProfilePromptAnswers = Partial<Record<ProfilePromptKey, string>>;
 
+type PublicStory = ProfilePromptAnswers & { bio?: string; discoveryLine?: string };
+
+export function discoveryLines(story: PublicStory): string[] {
+  const fields = [story.bio, story.lifeTogether, story.valuesStatement, story.lookingFor];
+  const lines = fields.flatMap(field => (field?.match(/[^.!?؟…\r\n]+[.!?؟…]*/gu) ?? []).map(line => line.trim()).filter(Boolean));
+  return [...new Set(lines)];
+}
+
+export function selectedDiscoveryLine(story: PublicStory) {
+  return story.discoveryLine && discoveryLines(story).includes(story.discoveryLine) ? story.discoveryLine : '';
+}
+
 export function answeredProfilePrompts(answers: ProfilePromptAnswers) {
   return profilePrompts.flatMap(prompt => {
     const answer = answers[prompt.key]?.trim();

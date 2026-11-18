@@ -67,6 +67,29 @@ test('continued conversations retain payment, block, suspension and session boun
  } finally {await db.close();}
 });
 
+test('a selected discovery sentence follows the approved story through review and clearing', async () => {
+ const db = await createDatabase();
+ try {
+  const {call, approve, member, apply, connect} = fixture(db);
+  const owner = await member(), peer = await member('man');
+  await connect(owner, peer);
+  const card = async () => (await call(peer,'public.marriage_inbox()'))[0].person;
+  const line = 'أستمتع بالمشي مساءً.';
+  const bio = 'أحب القهوة. ' + line;
+  await assert.rejects(apply(owner, {bio, discoveryLine:'نص لم أكتبه في ملفي'}), /اختر جملة/);
+  const saved = await apply(owner, {bio, discoveryLine:line});
+  assert.equal(saved.profile.discoveryLine, line);
+  assert.equal((await card()).discoveryLine, undefined);
+  await approve(owner);
+  assert.equal((await card()).discoveryLine, line);
+  await db.query("update marriage.members set last_public_profile_edit_at=null where id=$1",[owner.id]);
+  await apply(owner, {bio, discoveryLine:''});
+  assert.equal((await card()).discoveryLine, line);
+  await approve(owner);
+  assert.equal((await card()).discoveryLine, undefined);
+ } finally {await db.close();}
+});
+
 test('public edits enter review, preserve approved text and accepted chat, and enforce rolling thirty days atomically',async()=>{
  const db=await createDatabase();try {
   const {call,approve,member,apply,state,connect,send}=fixture(db),a=await member(),b=await member('man');const id=await connect(a,b);

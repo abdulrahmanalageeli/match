@@ -175,3 +175,7 @@
 .nf-match[data-milestone] .nf-match-eyebrow{letter-spacing:0;font-size:.7rem}
 .nf-match[data-milestone] h2{font-size:clamp(1.85rem,8vw,2.3rem)}
 .nf-match[data-milestone] .nf-match-copy p{font-size:.9rem}
+.nf-match-names { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: .35em; margin: 2rem 0 1rem; font-size: 1.25rem; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; }
+.nf-match-names span { font-weight: 400; color: var(--muted); }
+.nf-accepted-summary { display: grid; gap: .35rem; text-align: start; }
+.nf-accepted-summary p { margin: 0 0 .4rem; color: var(--muted); }

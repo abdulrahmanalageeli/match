@@ -1,4 +1,5 @@
 import { ageFromBirthday } from "../profile/birthday";
+import { selectedDiscoveryLine } from '../profile/profilePrompts';
 import type { Profile } from "../types";
 import { assessmentVersion, dimensions } from "../compatibility/model";
 import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
@@ -62,6 +63,7 @@ export function profileBaseline(p: Profile | null) {
   if (p.portrait?.revealPolicy) values.push(['portraitReveal',p.portrait.revealPolicy,p.portrait.hasClear===true]);
   if (p.birthDate) values.push(["birthDate",p.birthDate]);
   if (p.beena !== undefined) values.push(['beena',p.beena]);
+  if (p.discoveryLine) values.push(['discoveryLine', p.discoveryLine]);
   return JSON.stringify(values);
 }
 
@@ -180,6 +182,7 @@ export function toProfile(p: Answers): Profile {
     ...(p.partnerCriteria?.nationality?.values ? { partnerCriteria: { ...p.partnerCriteria, nationality: { ...p.partnerCriteria.nationality, values: [...new Set(p.partnerCriteria.nationality.values.map(canonicalNationality))] } } } : {}),
     lookingFor: p.lookingFor?.trim() ?? "", lifeTogether: p.lifeTogether?.trim() ?? "",
     valuesStatement: p.valuesStatement?.trim() ?? "",
+    ...(p.discoveryLine !== undefined ? { discoveryLine: selectedDiscoveryLine(p) } : {}),
     education: p.education?.trim() ?? "", marriageIntent: p.marriageIntent?.trim() ?? "",
   };
 }

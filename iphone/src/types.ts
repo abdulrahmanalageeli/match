@@ -16,6 +16,7 @@ export type Profile = {
   city: string;
   profession: string;
   bio: string;
+  discoveryLine?: string;
   lookingFor?: string;
   valuesStatement?: string;
   lifeTogether?: string;

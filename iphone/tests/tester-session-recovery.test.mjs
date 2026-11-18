@@ -62,13 +62,30 @@ test('named shortcuts select the requested account and never restore another sav
    const f=mount(true,{initialActor,savedActor}); f.render(); const tree=f.render();
    assert.equal(f.requests.length,0);
    assert.notEqual(tree.type,'AuthenticatedApp');
-   const selected=nodes(tree).find(node=>node.type==='button'&&node.props['aria-pressed']===true);
-   assert(text(selected).includes(name));
+   assert(text(nodes(tree).find(node=>node.type==='h1')).includes(name));
+   assert.equal(nodes(tree).some(node=>node.props['aria-pressed']!==undefined),false);
    const password=nodes(tree).find(node=>node.type==='input'&&node.props.id==='tester-password');
    if(initialActor==='abdulrahman') { assert(password); assert.equal(password.props.required,true); }
    else assert.equal(password,undefined);
    f.close();
   }
+ }
+});
+
+test('fresh host sign-in opens the simulator account only after a matching login response', async () => {
+ for(const actor of ['reham','abdulrahman']) {
+  const f=mount(true,{initialActor:'abdulrahman',savedActor:null});
+  const password=nodes(f.render()).find(node=>node.props.id==='tester-password');
+  password.props.onChange({target:{value:'test-input'}});
+  const form=nodes(f.render()).find(node=>node.type==='form');
+  const submitted=form.props.onSubmit({preventDefault(){}});
+  assert.equal(f.requests[0].action,'login');
+  assert.notEqual(f.render().type,'AuthenticatedApp');
+  f.requests[0].resolve({actor,session:'new-token',profiles:{[actor]:{displayName:'Member'}}});
+  await submitted;
+  assert.equal(f.render().type==='AuthenticatedApp',actor==='abdulrahman');
+  assert.equal(f.storage.has('saved-session'),actor==='abdulrahman');
+  f.close();
  }
 });
 

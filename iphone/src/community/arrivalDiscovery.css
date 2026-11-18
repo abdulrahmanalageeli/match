@@ -394,3 +394,11 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 }
 html[data-nf-motion=reduced] .phone-app .cm-shell .dr-person-row,
 html[data-nf-motion=reduced] .phone-app .cm-shell .df-discovery .dr-row-actions button { transition: none; transform: none; }
+.df-private-introduction { display: grid; gap: .7rem; padding: 20px 20px 0; text-align: start; }
+.df-private-identity { display: flex; align-items: center; gap: .75rem; }
+.df-private-identity strong, .df-private-identity small { display: block; }
+.df-private-introduction small { color: var(--muted); font-size: var(--text-caption); }
+.df-private-introduction > small { display: flex; align-items: center; gap: .35rem; }
+.df-private-initial { display: grid; place-items: center; flex: 0 0 2.75rem; min-height: 2.75rem; border-radius: var(--radius-control); background: var(--blush); color: var(--accent); font-size: 1.4rem; }
+.df-private-line { padding-block-start: .8rem; border-block-start: 1px solid var(--line); }
+.df-private-line p { margin: .25rem 0 0; color: var(--ink); font-size: 1.3rem; line-height: 1.65; overflow-wrap: anywhere; }

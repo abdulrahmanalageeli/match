@@ -9,6 +9,7 @@ import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, withFamilyDefaults, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { selectedDiscoveryLine } from '../profile/profilePrompts';
 import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
 import { SheetChoiceSelect as ChoiceSelect } from '../ui/SheetChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
@@ -70,7 +71,7 @@ type Props = {
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, readiness: ShieldCheck, review: CheckCheck };
 const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
 const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
-  identity:['displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
+  identity:['displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether','discoveryLine'],
   details:['marriageBasics'], avatar:['publicAvatar','portrait'], criteria:['partnerCriteria'],
   compatibility:['interestIds','surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
   beena:['beena'],
@@ -168,6 +169,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
         {p.lookingFor && <><strong>ما أبحث عنه</strong><p className="nf-review-bio" dir="auto">{p.lookingFor}</p></>}
         {p.valuesStatement && <><strong>ما أقدّره ولا أستغني عنه</strong><p className="nf-review-bio" dir="auto">{p.valuesStatement}</p></>}
         {p.lifeTogether && <><strong>الحياة التي أتخيلها</strong><p className="nf-review-bio" dir="auto">{p.lifeTogether}</p></>}
+        {selectedDiscoveryLine(p) && <><strong>أحب أن تعرف عنّي</strong><p dir="auto">{p.discoveryLine}</p></>}
       </ReviewGroup>
       {withCompatibility && <ReviewGroup title="التوافق" edit={() => edit("compatibility")} {...groupProps('compatibility')}>
         {chosen.length > 0 && <ul className="nf-review-interests">{chosen.map(item => <li key={item.id}>{item.label}</li>)}</ul>}

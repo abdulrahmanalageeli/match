@@ -20,6 +20,7 @@ async function entry(href, mode = 'production') {
     'react-dom/client': { createRoot: () => ({ render(value) { events.push(['render']); rendered = value; } }) },
     react: { lazy: () => 'GuardianPortal', Suspense: 'Suspense' },
     './App': { default: 'App' },
+    './testing/TesterGate': { TesterGate: 'TesterGate' },
     './auth/passwordRecovery': { readRecoveryLink, cleanRecoveryUrl },
     './auth/signupReturn': { readSignupReturn },
     './community/ConnectionNotice': { ConnectionNotice: 'ConnectionNotice' },
@@ -73,16 +74,22 @@ test('the public homepage uses real member auth and legacy test links open membe
   }
 });
 
-test('legacy host links cannot select an account without member authentication', async () => {
-  for(const actor of ['reham','abdulrahman']) {
-    const shortcut=await entry(`https://app.example/?test=1&actor=${actor}`);
-    assert.equal(shortcut.screen.type,'App');
-    assert.equal(shortcut.screen.props.openLogin,true);
-    assert.equal(shortcut.href,'https://app.example/');
-    const ordinary=await entry(`https://app.example/?actor=${actor}`);
-    assert.equal(ordinary.screen.type,'App');
-    assert.equal(ordinary.screen.props.tester,undefined);
-  }
+test('the named host link opens the password gate and survives a reload', async () => {
+  const host = await entry('https://app.example/?test=1&actor=abdulrahman');
+  assert.equal(host.screen.type, 'TesterGate');
+  assert.equal(host.screen.props.initialActor, 'abdulrahman');
+  assert.equal((await entry(host.href)).screen.type, 'TesterGate');
+  assert.equal((await entry('https://app.example/?actor=abdulrahman')).screen.type, 'App');
+});
+
+test('other legacy tester links open regular member login', async () => {
+  const shortcut=await entry('https://app.example/?test=1&actor=reham');
+  assert.equal(shortcut.screen.type,'App');
+  assert.equal(shortcut.screen.props.openLogin,true);
+  assert.equal(shortcut.href,'https://app.example/');
+  const ordinary=await entry('https://app.example/?actor=reham');
+  assert.equal(ordinary.screen.type,'App');
+  assert.equal(ordinary.screen.props.tester,undefined);
   const invalid=await entry('https://app.example/?test=1&actor=owner');
   assert.equal(invalid.screen.type,'App');
   assert.equal(invalid.screen.props.openLogin,true);

@@ -17,3 +17,9 @@
 .fb-dialog>div { flex-wrap:wrap; }
 @media(max-width:370px) { .fb-links>article.fb-linked-person { grid-template-columns:29px minmax(0,1fr); } .fb-links .fb-link-actions { grid-column:2; flex-direction:row; flex-wrap:wrap; } .fb-hero { padding:22px 18px; } }
 @media(max-width:370px) { .fb-invite-controls { grid-template-columns:1fr; } }
+.fb-audience-title { margin: 1rem 0 .35rem; font-size: var(--text-secondary); }
+.fb-audience-preview { margin-block: .75rem; text-align: start; }
+.fb-audience-preview p { margin: 0; color: var(--ink); font-size: var(--text-secondary); }
+.fb-audience-preview summary { align-content: center; min-height: 44px; cursor: pointer; color: var(--accent); }
+.fb-audience-preview small { color: var(--muted); }
+.fb-audience-preview blockquote { margin: .25rem 0; padding-inline-start: .75rem; border-inline-start: 2px solid var(--line); }

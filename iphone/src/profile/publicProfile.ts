@@ -10,6 +10,7 @@ export function publicProfile(profile: Profile, id: string, demoPhoto?: string):
   return {
     id, alias: profile.displayName, age: profile.age, city: profile.city,
     occupation: profile.profession, bio: profile.bio, lookingFor: profile.lookingFor,
+    discoveryLine: profile.discoveryLine,
     valuesStatement: profile.valuesStatement, lifeTogether: profile.lifeTogether,
     education: profile.education, marriageIntent: profile.marriageIntent,
     beenaStory: sharedBeenaStory(profile.beena),

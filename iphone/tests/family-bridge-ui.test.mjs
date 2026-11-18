@@ -17,6 +17,9 @@ test('room approval displays the exact roster and never exposes messages or an o
   const html = render({ ...room, needsApproval: true });
   assert.match(html, /عضو تجريبي/); assert.match(html, /والد تجريبي/); assert.match(html, /أوافق على المشاركين/);
   assert.match(html, /موافقتك تخص هذه المساحة وهؤلاء المشاركين فقط/);
+  assert(html.indexOf('والد تجريبي') < html.indexOf('ما سيظهر لهم'));
+  assert(html.indexOf('ما سيظهر لهم') < html.indexOf('أوافق على المشاركين'));
+  assert.match(html, /مثال توضيحي/); assert.match(html, /وصورهما خاصة بهما/);
   assert.doesNotMatch(html, /فتح المحادثة|رسائل غير مقروءة/);
 });
 test('guardian invitation requires acceptance with clear separate-room scope', () => {

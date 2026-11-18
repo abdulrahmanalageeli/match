@@ -33,3 +33,6 @@
 .pe-prompt-invite strong { font-size: .83rem; }.pe-prompt-invite small { font-size: .69rem; line-height: 1.8; color: #93717b; }
 .nf-prompt-editor :is(button,textarea):focus-visible,.mp-prompts-toggle:focus-visible,.pe-prompt-invite:focus-visible { outline: 2px solid #a46983; outline-offset: 3px; }
 @media(max-width:350px) { .nf-prompt-editor { padding: 16px 12px; }.nf-prompt-choices button { font-size: .68rem; padding-inline: 8px; }.phone-app .mp-prompt-card { padding: 17px 16px; } }
+.nf-discovery-line-choice { display: grid; gap: .3rem; min-width: 0; margin-block-start: 1rem; }
+.nf-discovery-line-choice span { color: var(--muted); font-size: var(--text-secondary); }
+.nf-discovery-line-choice select { width: 100%; min-width: 0; min-height: 44px; padding-inline: .5rem; font: inherit; }

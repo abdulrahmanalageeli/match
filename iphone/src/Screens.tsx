@@ -218,6 +218,7 @@ export function Auth({
         </div>
       )}
       {login && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
+      {login && <a className="f-link centered" href="?test=1&actor=abdulrahman" aria-disabled={locked} onClick={event => { if (locked) event.preventDefault(); }}>دخول تجربة عبدالرحمن</a>}
       {ready && (
         <>
         {phoneOtpEnabled && login && <button className="f-secondary" disabled={locked} type="button" onClick={() => setPhoneMode(mode => !mode)}>

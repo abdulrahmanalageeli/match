@@ -40,7 +40,7 @@ import { demoProfile, demoCommunity, cloudCommunity } from "./community/data";
 import { discardClosedDrafts } from "./community/chatOutbox";
 import { useUnreadCount } from "./community/useUnreadCount";
 import { useMutualMatches } from "./community/useMutualMatches";
-import { MatchCelebration } from "./community/MatchCelebration";
+import { MatchCelebration, MutualAcceptance } from "./community/MatchCelebration";
 import { initializeMatchSound } from "./community/matchSound";
 import { usePushNotifications, setPushBadge } from "./notifications/push";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
@@ -1041,8 +1041,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       {source && active && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
-      {mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
-        <MatchCelebration key={mutual.match.id} name={mutual.match.person.alias}
+      {source && mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
+        <MutualAcceptance key={mutual.match.id} source={source} requestId={mutual.match.id} name={mutual.match.person.alias}
+          ownName={demo ? sampleProfile.displayName : live?.profile?.displayName || 'أنت'}
           onClose={() => mutual.dismiss(mutual.match!.id)}
           onContinue={() => {
             if (!source || !mutual.match) return;

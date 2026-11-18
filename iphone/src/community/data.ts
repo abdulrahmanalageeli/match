@@ -29,6 +29,7 @@ export type PublicPerson = {
   city: string;
   occupation: string;
   bio: string;
+  discoveryLine?: string;
   lookingFor?: string;
   valuesStatement?: string;
   lifeTogether?: string;

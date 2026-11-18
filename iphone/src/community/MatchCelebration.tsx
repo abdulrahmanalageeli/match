@@ -1,9 +1,11 @@
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, Check, Volume2, VolumeX, X } from "../BrandIcons";
 import { getDevicePreferences, useDevicePreferences } from "../settings/preferences";
 import { playMatchSound, prepareMatchSound, stopMatchSound } from "./matchSound";
 import "./matchCelebration.css";
 import type { MilestoneKind } from './milestones';
+import type { CommunitySource, SeriousnessAgreement } from './data';
+import { durationLabel } from '../member-copy';
 
 type MatchCelebrationProps = {
   name: string;
@@ -11,10 +13,57 @@ type MatchCelebrationProps = {
   onClose: () => void;
   continueLabel?: string;
   milestone?: MilestoneKind;
+  agreementSummary?: { ownName: string; detail: string };
 };
 
+export function MutualAcceptance({ source, requestId, ownName, name, onContinue, onClose }: {
+  source: CommunitySource; requestId: string; ownName?: string; name: string; onContinue: () => void; onClose?: () => void;
+}) {
+  const [agreement, setAgreement] = useState<SeriousnessAgreement | null>(null);
+  useEffect(() => {
+    let revision = 0;
+    async function refresh() {
+      const ticket = ++revision;
+      if (!source.agreement || document.hidden) { setAgreement(null); return; }
+      try {
+        const next = await source.agreement(requestId);
+        if (ticket === revision) setAgreement(next);
+      } catch { if (ticket === revision) setAgreement(null); }
+    }
+    void refresh();
+    const stop = source.watch(refresh);
+    const timer = window.setInterval(refresh, 15000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { revision++; stop(); clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [source, requestId]);
+
+  const ready = agreement?.status === 'family' || (agreement?.status === 'accepted' &&
+    (!agreement.deadline || Date.parse(agreement.deadline) > Date.now()));
+  let detail = 'الخطوة التالية مراجعة شروط التعارف ومدته قبل أول رسالة.';
+  if (agreement?.status === 'family') detail = 'اتفقتما على التواصل مع الأهل. المحادثة متاحة لكما.';
+  else if (ready && agreement.deadline) {
+    const end = new Intl.DateTimeFormat('ar-SA', { dateStyle: 'long', calendar: 'gregory', timeZone: 'Asia/Riyadh' }).format(new Date(agreement.deadline));
+    detail = `مدة التعارف المتفق عليها حتى ${end}.`;
+  } else if (ready) detail = agreement.days ? `اتفقتما على مدة التعارف · ${durationLabel(agreement.days)}.` : 'المحادثة متاحة لكما الآن.';
+  else if (!source.agreement) detail = 'يمكنكما الآن فتح مساحة التعارف.';
+  else if (agreement?.status === 'none') detail = agreement.actor === 'reham'
+    ? 'راجعي الشروط واقترحي مدة التعارف.' : 'بانتظار اقتراح مدة التعارف من الطرف الآخر.';
+  else if (agreement?.status === 'expired' || agreement?.status === 'accepted') detail = 'انتهت المدة المتفق عليها. راجعا اتفاقكما لاختيار الخطوة التالية.';
+  else if (agreement?.status === 'proposed') detail = agreement.actor === 'reham'
+    ? 'أرسلتِ المدة المقترحة. بانتظار موافقة الطرف الآخر.' : 'لديك مدة مقترحة. راجع شروط التعارف والمدة قبل الموافقة.';
+  const mine = agreement?.mineName || ownName || 'أنت';
+  const peer = agreement?.peerName || name;
+  const label = ready ? 'ابدأ المحادثة' : source.agreement ? 'مراجعة اتفاق التعارف' : 'عرض التعارف';
+  if (!onClose) return <section className="nf-accepted-summary" aria-label="اتفاق التعارف">
+    <strong>قبِلتما التعارف</strong><span><bdi>{mine}</bdi> و<bdi>{peer}</bdi></span>
+    <p aria-live="polite">{detail}</p><button type="button" className="btn-primary" data-chat-entry="" onClick={onContinue}>{label}<ArrowLeft size={17}/></button>
+  </section>;
+  return <MatchCelebration name={peer} agreementSummary={{ ownName: mine, detail }}
+    continueLabel={label} onContinue={onContinue} onClose={onClose}/>;
+}
+
 // The caller mounts this only after the server confirms mutual acceptance.
-export function MatchCelebration({ name, onContinue, onClose, continueLabel = "ابدأ المحادثة", milestone }: MatchCelebrationProps) {
+export function MatchCelebration({ name, onContinue, onClose, continueLabel = "عرض التعارف", milestone, agreementSummary }: MatchCelebrationProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
@@ -23,6 +72,7 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
   const [soundBlocked, setSoundBlocked] = useState(false);
   const mounted = useRef(false);
   const soundIntent = useRef(0);
+  const isAgreement = Boolean(agreementSummary);
 
   useLayoutEffect(() => { if (!value.matchSound) stopMatchSound(); }, [value.matchSound]);
 
@@ -71,7 +121,8 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
         setSoundBlocked(!playMatchSound(settled ? .06 : .84));
       }
     };
-    void logo.decode().then(ready, () => { if (active) { settle(); ready(); } });
+    if (isAgreement) { settle(); ready(); }
+    else void logo.decode().then(ready, () => { if (active) { settle(); ready(); } });
     return () => {
       active = false;
       mounted.current = false;
@@ -86,7 +137,7 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
         origin.focus({ preventScroll: true });
       }
     };
-  }, []);
+  }, [isAgreement]);
 
   return (
     <dialog ref={dialog} className="nf-match" dir="rtl" data-motion="waiting" data-milestone={milestone}
@@ -100,7 +151,7 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
         aria-label={soundBlocked ? "تشغيل نغمة التوافق" : value.matchSound ? "كتم صوت التوافق" : "تفعيل صوت التوافق"}>
         {value.matchSound && !soundBlocked ? <Volume2 size={19} aria-hidden="true" /> : <VolumeX size={19} aria-hidden="true" />}
       </button>
-      <div className="nf-match-art" aria-hidden="true">
+      {agreementSummary ? <div className="nf-match-names"><bdi>{agreementSummary.ownName || 'أنت'}</bdi><span> و </span><bdi>{name}</bdi></div> : <div className="nf-match-art" aria-hidden="true">
         <span className="nf-match-halo" />
         <span className="nf-match-orbit" />
         <span className="nf-match-ripple" />
@@ -113,10 +164,10 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "�
           <img className="nf-match-whole" src="/brand/wudayn-heart-v2.png" alt="" draggable="false" />
         </div>
         <span className="nf-match-seal"><Check size={16} strokeWidth={1.8} /></span>
-      </div>
+      </div>}
       <div className="nf-match-copy">
-        <h2 ref={title} id={titleId} tabIndex={-1}>{milestone === 'family' ? 'اتفقتما على التواصل مع الأهل' : milestone === 'exclusive' ? 'بدأ التعارف الحصري' : 'قُبل طلب التعارف'}</h2>
-        <p id={detailId}>{milestone === 'family' ? <>أنت و<bdi>{name}</bdi> وافقتما على التواصل مع الأهل.<br/>اتفقا الآن على الشخص والوسيلة والموعد. لا تُرسل رسائل إلى العائلة تلقائيًا.</> : milestone === 'exclusive' ? <>بدأ تعارفك الحصري مع <bdi>{name}</bdi>.<br/>أُغلقت التعارفات الأخرى، وتبقى هذه المساحة لكما. يمكنكما مراجعة المرحلة من مسار التعارف.</> : <>أنت و<bdi>{name}</bdi> اخترتما التعارف.<br />يمكنكما الآن مراجعة شروط التعارف ومدته.</>}</p>
+        <h2 ref={title} id={titleId} tabIndex={-1}>{agreementSummary ? 'قبِلتما التعارف' : milestone === 'family' ? 'اتفقتما على التواصل مع الأهل' : milestone === 'exclusive' ? 'بدأ التعارف الحصري' : 'قُبل طلب التعارف'}</h2>
+        <p id={detailId} aria-live={agreementSummary ? 'polite' : undefined}>{agreementSummary ? agreementSummary.detail : milestone === 'family' ? <>أنت و<bdi>{name}</bdi> وافقتما على التواصل مع الأهل.<br/>اتفقا الآن على الشخص والوسيلة والموعد. لا تُرسل رسائل إلى العائلة تلقائيًا.</> : milestone === 'exclusive' ? <>بدأ تعارفك الحصري مع <bdi>{name}</bdi>.<br/>أُغلقت التعارفات الأخرى، وتبقى هذه المساحة لكما. يمكنكما مراجعة المرحلة من مسار التعارف.</> : <>أنت و<bdi>{name}</bdi> اخترتما التعارف.<br />يمكنكما الآن مراجعة شروط التعارف ومدته.</>}</p>
         <span className="nf-match-rule" aria-hidden="true" />
       </div>
       <div className="nf-match-actions">

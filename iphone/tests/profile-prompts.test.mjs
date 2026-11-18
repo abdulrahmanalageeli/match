@@ -2,14 +2,23 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-let loader, answeredProfilePrompts, initialDraft, toProfile, profileBaseline, validateStep, publicProfile;
+let loader, answeredProfilePrompts, discoveryLines, initialDraft, toProfile, profileBaseline, validateStep, publicProfile;
 before(async () => {
   loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
-  ({ answeredProfilePrompts } = await loader.ssrLoadModule('/src/profile/profilePrompts.ts'));
+  ({ answeredProfilePrompts, discoveryLines } = await loader.ssrLoadModule('/src/profile/profilePrompts.ts'));
   ({ initialDraft, toProfile, profileBaseline, validateStep } = await loader.ssrLoadModule('/src/onboarding/draft.ts'));
   ({ publicProfile } = await loader.ssrLoadModule('/src/profile/publicProfile.ts'));
 });
 after(() => loader?.close());
+
+test('discovery offers unique public sentences and clears a selection edited out of the story', () => {
+  const draft = initialDraft('owner', null).answers;
+  const story = { ...draft, gender:'woman', bio:'أحب القراءة.\nمتى نتمشى؟', lifeTogether:'أحب القراءة.',
+    contact:'خاص', discoveryLine:'متى نتمشى؟' };
+  assert.deepEqual(discoveryLines(story), ['أحب القراءة.', 'متى نتمشى؟']);
+  assert.equal(publicProfile(toProfile(story), 'owner').discoveryLine, 'متى نتمشى؟');
+  assert.equal(toProfile({...story, bio:'جملة جديدة.'}).discoveryLine, '');
+});
 
 test('optional prompts survive the existing edit/save/public-preview roundtrip and can be cleared', () => {
   const profile = { displayName: 'نور', age: 29, gender: 'woman', city: 'الرياض', profession: 'التصميم والفنون', bio: 'نبذة', contact: 'private', preferredMinAge: 25, preferredMaxAge: 40, familyPreference: '',

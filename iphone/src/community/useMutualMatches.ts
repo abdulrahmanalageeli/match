@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommunitySource, Connection } from "./data";
 import { denied } from "./chatOutbox";
+import { feedback } from '../feedback/haptics';
 
 // Session-only: never persist peer identities or replay historic accepted chats.
 export function useMutualMatches(source: CommunitySource | null) {
@@ -24,6 +25,7 @@ export function useMutualMatches(source: CommunitySource | null) {
     const announce = (connection: Connection) => {
       if (!active || connection.status !== "accepted" || shown.has(eventKey(connection))) return;
       shown.add(eventKey(connection));
+      feedback('success');
       previous.set(connection.id, "accepted");
       const queued = queue.findIndex(row=>row.id===connection.id);
       if(queued>=0) queue[queued]=connection; else queue.push(connection);

@@ -3,9 +3,7 @@ import { finalizeStagedPortrait } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
-import {TestingTrial} from './TestingTrial';
 import {membershipPriceLabel} from './membershipPricing';
-import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
@@ -952,8 +950,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           chatUnread={chatUnread} onAccount={openAccount} />}
       </Settings>
     );
-  else if (view === 'membership' && live?.testingTrial?.expiresAt && !demo)
-    screen = <TestingTrial busy={busy} gender={live.profile?.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>{}}/>;
   else if (view === "membership" && active)
     screen = membership(() => go(returnFromMembership));
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
@@ -980,12 +976,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         includeCompatibility={demo || Boolean(cloud)}
       />
     );
-  else if (!demo && !active && live?.testingTrial?.enabled && live.profile && !live.user.profileReviewPending)
-    screen = <TestingTrial busy={busy} gender={live.profile.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>void run(async()=>{
-      const owner=tokenRef.current;if(!owner)return;
-      await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
-      await refresh(owner);if(tokenRef.current===owner)go('discover');
-    })}/>;
   else if (!demo && !accepted && !live?.user.profileReviewPending)
     screen = (
       <Pending

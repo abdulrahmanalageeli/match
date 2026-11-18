@@ -48,11 +48,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content={viewportContent} />
-        <title>BlindMatch - لقاءات ذكية للتوافق</title>
-        <meta name="description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات بناءً على الشخصية والاهتمامات" />
-        <meta name="theme-color" content={isTheRoom ? "#f3f0e9" : isCohost ? "#06090f" : "#0891b2"} />
-        <meta property="og:title" content="BlindMatch - لقاءات ذكية للتوافق" />
-        <meta property="og:description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات" />
+        <title>BlindMatch — تعرّف على الشخص قبل الصورة</title>
+        <meta name="description" content="تجربة اجتماعية تبدأ بتعارف جماعي ولقاءات فردية منتقاة، مع اختيارات سرية وقرار تواصل متبادل." />
+        <meta name="theme-color" content={isTheRoom ? "#f3f0e9" : isCohost ? "#06090f" : "#080610"} />
+        <meta property="og:title" content="BlindMatch — تعرّف على الشخص قبل الصورة" />
+        <meta property="og:description" content="لقاءات واقعية، اختيارات سرية، وقرار تواصل لا يُكشف إلا إذا كان متبادلاً." />
         <meta property="og:image" content="/Lg.png" />
         <meta property="og:type" content="website" />
         <Meta />

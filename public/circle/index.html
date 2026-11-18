@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#281c16"><title>وش الديل بريكر عندك؟ — The Circle</title>
+<meta name="description" content="مساحة للكلام الصريح. شارك الديل بريكر عندك بدون اسم مع The Circle.">
+<link rel="preload" href="./assets/tajawal-arabic-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="./assets/tajawal-arabic-700.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="./guest.css"><script src="./anonymous-modal.js" defer></script>
+</head>
+<body><div class="guest-shell anonymous-landing">
+<header class="brand"><span class="wordmark" dir="ltr">THE CIRCLE</span><span class="brand-tag">مساحة للكلام الصريح</span></header>
+<main class="landing-main">
+<div class="landing-mark" aria-hidden="true"><span></span></div>
+<p class="eyebrow">بدون أسماء. بدون أحكام.</p>
+<h1>وش الديل بريكر<br><em>عندك؟</em></h1>
+<p class="landing-copy">وش الشيء اللي يصعب عليك<br>تتقبّله في العلاقة؟</p>
+<button id="open-anonymous" class="anonymous-trigger" type="button" aria-haspopup="dialog" aria-controls="anonymous-dialog"><span><strong>اكتب الديل بريكر</strong><small id="anonymous-trigger-note">شاركنا بصراحة، بدون اسم</small></span><span class="anonymous-trigger-plus" aria-hidden="true">←</span></button>
+<p id="landing-success" class="landing-success" role="status" hidden>✓ وصلت مشاركتك بدون اسم.</p>
+<p class="landing-privacy">مشاركتك توصل للمنظّم وتُعرض في اللقاء بدون اسم.<br>ما تحتاج حساب أو تسجيل دخول.</p>
+</main>
+<footer class="landing-footer"><span>لكل واحد حدوده. ولكل حدّ حكاية.</span></footer>
+<noscript><p class="notice">فعّل JavaScript في المتصفح عشان تشارك معنا.</p></noscript>
+</div>
+<dialog id="anonymous-dialog" class="anonymous-dialog" aria-labelledby="anonymous-title" aria-describedby="anonymous-description">
+  <div class="anonymous-modal-top"><span class="anonymous-eyebrow">مساحة لكلامك، بدون اسم</span><button id="close-anonymous" class="anonymous-close" type="button" aria-label="إغلاق والرجوع للفعالية">×</button></div>
+  <h2 id="anonymous-title" tabindex="-1">وش الديل بريكر عندك؟</h2>
+  <p id="anonymous-description" class="anonymous-description">مشاركتك توصل للمنظّم وتُعرض في اللقاء بدون اسم.</p>
+  <form id="anonymous-form" novalidate>
+    <label for="anonymous-text">مشاركتك</label>
+    <textarea id="anonymous-text" name="text" rows="4" maxlength="600" minlength="3" required placeholder="شيء ما تقدر تتعايش معه في العلاقة…" aria-describedby="anonymous-hint anonymous-counter anonymous-error"></textarea>
+    <div class="anonymous-field-details"><span id="anonymous-hint">اكتب الفكرة بدون أسماء أو تفاصيل تعرّف بأحد.</span><bdi id="anonymous-counter" dir="ltr">٠ / ٦٠٠</bdi></div>
+    <div class="anonymous-honeypot" aria-hidden="true"><label for="anonymous-website">Website</label><input id="anonymous-website" name="website" autocomplete="off" tabindex="-1"></div>
+    <p id="anonymous-offline" class="anonymous-notice" role="status" hidden>أنت بدون اتصال. تقدر تكتب مشاركتك وترسلها لما يرجع الإنترنت.</p>
+    <p id="anonymous-error" class="error" role="alert" hidden></p>
+    <button id="anonymous-submit" class="primary" type="submit"><span id="anonymous-submit-label">أرسل بدون اسم</span><span class="anonymous-arrow" aria-hidden="true">←</span></button>
+  </form>
+  <div id="anonymous-success" class="anonymous-success" hidden>
+    <div class="anonymous-check" aria-hidden="true">✓</div><p>شكرًا على صراحتك.<br>تقدر تضيف مشاركة ثانية وقت ما تحب.</p>
+    <button id="anonymous-return" class="primary" type="button">رجوع للفعالية <span aria-hidden="true">←</span></button>
+    <button id="anonymous-another" class="secondary" type="button">أضف مشاركة ثانية</button>
+  </div>
+</dialog>
+</body></html>

@@ -270,7 +270,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'The v12 formula is shown first; component cards below are diagnostics rather than additive weights' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
+                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'The current formula is shown first; component cards below are diagnostics rather than additive weights' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
                 {isBalancedModel && aiChemistry && <div className="mb-4 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-400/[0.04] p-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Archetype base</p><p className="font-mono text-lg font-black text-cyan-200">{round(aiChemistry.baseScore)}%</p></div><span className="text-slate-600">+</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">AI chemistry</p><p className={`font-mono text-lg font-black ${aiChemistry.adjustment > 0 ? 'text-emerald-300' : aiChemistry.adjustment < 0 ? 'text-rose-300' : 'text-slate-300'}`}>{aiChemistry.ready ? `${aiChemistry.adjustment >= 0 ? '+' : ''}${aiChemistry.adjustment}` : 'Pending'}</p></div><span className="text-slate-600">=</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Final</p><p className="font-mono text-lg font-black text-white">{round(aiChemistry.finalScore)}%</p></div></div>}
                 {categories.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
                   {categories.map(category => {
@@ -939,7 +939,7 @@ export default function AdminPage() {
   const [currentEventId, setCurrentEventId] = useState(1)
   const [maxEventId, setMaxEventId] = useState(1)
   const [currentEventFormat, setCurrentEventFormat] = useState<AdminEventFormat>('classic')
-  const [newEventFormat, setNewEventFormat] = useState<AdminEventFormat>('mutual_choice_six_rounds')
+  const [newEventFormat, setNewEventFormat] = useState<AdminEventFormat>('classic')
   const [switchingEvent, setSwitchingEvent] = useState(false)
   const mutualChoiceEvent = currentEventFormat === 'mutual_choice_six_rounds'
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
@@ -1385,17 +1385,17 @@ export default function AdminPage() {
       normalDeadlineMin: whatsappConfig?.normalDeadlineMin ?? 24 * 60,
       semiUrgentDeadlineMin: whatsappConfig?.semiUrgentDeadlineMin ?? 120,
       urgentDeadlineMin: whatsappConfig?.urgentDeadlineMin ?? 60,
-      earlyPrice: whatsappConfig?.earlyPrice ?? 60,
-      latePrice: whatsappConfig?.latePrice ?? 75,
-      latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'Friday 28 Nov 3:00pm (Riyadh time)',
-      eventDateText: whatsappConfig?.eventDateText ?? 'الأحد 16 نوفمبر 2025',
-      eventTimeText: whatsappConfig?.eventTimeText ?? '8:15 مساءً',
-      arrivalTimeText: whatsappConfig?.arrivalTimeText ?? '8:05 مساءً',
-      locationName: whatsappConfig?.locationName ?? 'كوفي بلانيت - الدور الثاني',
-      mapUrl: whatsappConfig?.mapUrl ?? 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
-      stcPay: whatsappConfig?.stcPay ?? '0560899666',
-      bankName: whatsappConfig?.bankName ?? 'مصرف الراجحي: عبدالرحمن عبدالملك',
-      iban: whatsappConfig?.iban ?? 'SA2480000588608016007502',
+      earlyPrice: whatsappConfig?.earlyPrice ?? 'غير محدد',
+      latePrice: whatsappConfig?.latePrice ?? 'غير محدد',
+      latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'موعد إغلاق السعر المبكر المحدد للفعالية',
+      eventDateText: whatsappConfig?.eventDateText ?? 'يرجى تأكيد التاريخ مع المنظم',
+      eventTimeText: whatsappConfig?.eventTimeText ?? 'يرجى تأكيد الوقت مع المنظم',
+      arrivalTimeText: whatsappConfig?.arrivalTimeText ?? 'يرجى تأكيد وقت الحضور مع المنظم',
+      locationName: whatsappConfig?.locationName ?? 'يرجى تأكيد الموقع مع المنظم',
+      mapUrl: whatsappConfig?.mapUrl || 'غير محدد',
+      stcPay: whatsappConfig?.stcPay || 'غير محدد',
+      bankName: whatsappConfig?.bankName || 'غير محدد',
+      iban: whatsappConfig?.iban || 'غير محدد',
     }
 
     if (templateType === 'early-match') {
@@ -1405,7 +1405,7 @@ export default function AdminPage() {
 
 نسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم من بين المشاركين.
 
-📅 *لديكم حتى يوم الجمعة لتأكيد المشاركة*
+📅 *آخر موعد للتأكيد: ${d.latePriceSwitchLabel}*
 
 💳 *رسوم المشاركة:* ${d.earlyPrice} ريال سعودي
 
@@ -1439,7 +1439,7 @@ ${d.mapUrl}
 
 📅 التاريخ: ${d.eventDateText}
 🕰️ الوقت: ${d.eventTimeText}
-⏱️ المدة: 60 دقيقة
+⏱️ المدة: حسب تفاصيل الفعالية
 
 *يرجى الحضور قبل الموعد بـ 10 دقائق*
 
@@ -1452,7 +1452,7 @@ https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم وتمنى لكم تجربة ممتعة.
 
-📞 *للاستفسار: 0560899666*
+📞 *للاستفسار: يرجى الرد على هذه الرسالة*
 
 فريق التوافق الأعمى`;
     } else if (templateType === 'payment-reminder') {
@@ -1479,7 +1479,7 @@ https://blindmatch.app/welcome?token=${secureToken}
 ✦ المقاعد محدودة وقد تُعطى لآخرين
 ✦ لضمان مشاركتك في الفعالية
 ✦ لتجنب خسارة هذه الفرصة الفريدة
-✦ توفير ${Math.max(d.latePrice - d.earlyPrice, 0)} ريال بالتأكيد قبل ${d.latePriceSwitchLabel}
+${typeof d.earlyPrice === 'number' && typeof d.latePrice === 'number' ? `✦ توفير ${Math.max(d.latePrice - d.earlyPrice, 0)} ريال بالتأكيد قبل ${d.latePriceSwitchLabel}` : ''}
 
 *طرق الدفع السريعة:*
 ✦ STC Pay: ${d.stcPay}
@@ -1515,11 +1515,11 @@ https://blindmatch.app/welcome?token=${secureToken}
 
 🔥 لا تفوت هذه الفرصة!
 
-📞 *للاستفسار: 0560899666*
+📞 *للاستفسار: يرجى الرد على هذه الرسالة*
 
 فريق التوافق الأعمى`;
     } else if (templateType === 'survey-completion') {
-      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://blindmatch.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://blindmatch.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\n📞 *للاستفسار: 0560899666*\n\nفريق التوافق الأعمى`;
+      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://blindmatch.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://blindmatch.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\n📞 *للاستفسار: يرجى الرد على هذه الرسالة*\n\nفريق التوافق الأعمى`;
     } else if (templateType === 'reminder') {
       return `*التوافق الأعمى* 🔔
 
@@ -1551,19 +1551,18 @@ https://blindmatch.app/event3
 🔗 *رابط حسابك:*
 https://blindmatch.app/welcome?token=${secureToken}
 
-📞 *للاستفسار: 0560899666*
+📞 *للاستفسار: يرجى الرد على هذه الرسالة*
 
 فريق التوافق الأعمى`;
     }
 
-    return `*التوافق الأعمى 5.0: اختيارك واختيارنا* ✨
+    return `*التوافق الأعمى: اختيارك واختيارنا* ✨
 
 السلام عليكم *${name}*،
 
 نسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم!
 
-📋 *تفاصيل الفعالية كاملة:*
-https://meetu.ps/e/Q9zQM/Lh7Kd/i
+📋 *تفاصيل الفعالية:* يرجى مراجعة التاريخ والوقت والموقع أدناه
 
 ⚡ *الأولوية للمبكرين في الدفع — المقاعد محدودة وقد تفقدون فرصتكم بالتأخير*
 
@@ -1600,7 +1599,7 @@ https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم!
 
-📞 *للاستفسار: 0560899666*
+📞 *للاستفسار: يرجى الرد على هذه الرسالة*
 
 فريق التوافق الأعمى`;
   }
@@ -1661,17 +1660,11 @@ https://blindmatch.app/welcome?token=${secureToken}
       link.click();
       document.body.removeChild(link);
       
-      // Mark selected participants as "message sent" (PAID = true)
-      await markParticipantsAsMessageSent(Array.from(selectedParticipants));
-      
       const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 
                             exportTemplateType === 'early-match' ? 'إشعار مبكر' : 
                             exportTemplateType === 'reminder' ? 'تذكير الفعالية' :
                             exportTemplateType === 'survey-completion' ? 'إكمال الاستبيان' : 'إشعار المطابقة';
-      toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
-      
-      // Refresh participants list to show updated status
-      fetchParticipants();
+      toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}). لم تُغيّر حالة التواصل.`);
       
     } catch (error) {
       console.error('Export error:', error);
@@ -1696,11 +1689,14 @@ https://blindmatch.app/welcome?token=${secureToken}
       const data = await response.json();
       if (!response.ok) {
         console.error("Error marking messages as sent:", data.error);
+        return false
       } else {
         console.log(`✅ Marked ${participantNumbers.length} participants as message sent`);
+        return true
       }
     } catch (error) {
       console.error("Error marking messages as sent:", error);
+      return false
     }
   }
 
@@ -1949,14 +1945,15 @@ https://blindmatch.app/welcome?token=${secureToken}
   }
 
   // Function to load available sessions
-const loadAvailableSessions = async () => {
+const loadAvailableSessions = async (eventIdOverride?: number) => {
+  const targetEventId = eventIdOverride ?? currentEventId
   try {
     const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         action: "get-admin-results",
-        eventId: currentEventId,
+        eventId: targetEventId,
         includeInactive: false
       }),
     })
@@ -1971,14 +1968,15 @@ const loadAvailableSessions = async () => {
 }
 
 // Function to load latest results automatically
-const loadLatestResults = async (matchType: "individual" | "group") => {
+const loadLatestResults = async (matchType: "individual" | "group", eventIdOverride?: number) => {
+  const targetEventId = eventIdOverride ?? currentEventId
   try {
     const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         action: "get-latest-admin-results",
-        eventId: currentEventId,
+        eventId: targetEventId,
         matchType: matchType
       }),
     })
@@ -2164,7 +2162,7 @@ const approveDeltaCacheParticipant = async (participant: any) => {
     const data = await res.json()
     if (data.refresh_required) {
       await fetchDeltaCacheParticipants()
-      toast.info('This profile changed again. Delta review refreshed.')
+      toast('This profile changed again. Delta review refreshed.', { icon: 'ℹ️' })
       return
     }
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to approve delta review')
@@ -2270,11 +2268,24 @@ const savePersonalityFitReview = useCallback(async (input: {
   }
 }, [isCohost, personalityFitReviewParticipant])
 
-const fetchParticipants = async () => {
+const fetchParticipants = async (eventIdOverride?: number) => {
   if (fetchingParticipantsRef.current) return
   fetchingParticipantsRef.current = true
   setLoading(true)
   try {
+    let fetchedEventId = eventIdOverride ?? currentEventId
+    if (eventIdOverride == null) {
+      const currentEventRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-current-event-id" }),
+      })
+      const currentEventData = await currentEventRes.json()
+      if (currentEventData.current_event_id) fetchedEventId = Number(currentEventData.current_event_id)
+      setCurrentEventFormat(normalizeAdminEventFormat(currentEventData.event_format))
+    }
+    setCurrentEventId(fetchedEventId)
+
     const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2296,7 +2307,7 @@ const fetchParticipants = async () => {
     // STEP 2: Calculate current values
     const currentTotal = fetchedParticipants.length
     const currentEligible = fetchedParticipants.filter((p: any) => 
-      p.event_id === currentEventId || 
+      p.event_id === fetchedEventId ||
       p.signup_for_next_event === true ||
       p.auto_signup_next_event === true
     ).length
@@ -2400,7 +2411,7 @@ const fetchParticipants = async () => {
         const pairsRes = await fetch("/api/admin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get-match-results-for-export", event_id: currentEventId }),
+          body: JSON.stringify({ action: "get-match-results-for-export", event_id: fetchedEventId }),
         })
         if (pairsRes.ok) {
           const pairsData = await pairsRes.json()
@@ -2428,19 +2439,6 @@ const fetchParticipants = async () => {
         setMaxEventId(eventData.max_event_id)
       }
 
-      // Fetch current event ID
-      const currentEventRes = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-current-event-id" }),
-      })
-      const currentEventData = await currentEventRes.json()
-      setCurrentEventFormat(normalizeAdminEventFormat(currentEventData.event_format))
-      const fetchedEventId = currentEventData.current_event_id || 1
-      if (currentEventData.current_event_id) {
-        setCurrentEventId(currentEventData.current_event_id)
-      }
-      
       // Fetch registration enabled state
       const regRes = await fetch("/api/admin", {
         method: "POST",
@@ -2476,15 +2474,15 @@ const fetchParticipants = async () => {
       }
       
       // Auto-load available sessions and latest results (only on initial load)
-      if (availableSessions.length === 0) {
-        await loadAvailableSessions()
+      if (eventIdOverride != null || availableSessions.length === 0) {
+        await loadAvailableSessions(fetchedEventId)
         
         // Try to auto-load latest individual results if none are currently loaded
         if (!showResultsModal && participantResults.length === 0) {
-          const hasIndividualResults = await loadLatestResults("individual")
+          const hasIndividualResults = await loadLatestResults("individual", fetchedEventId)
           if (!hasIndividualResults) {
             // If no individual results, try group results
-            await loadLatestResults("group")
+            await loadLatestResults("group", fetchedEventId)
           }
         }
       }
@@ -2679,16 +2677,14 @@ const fetchParticipants = async () => {
         setCurrentEventId(newEventId)
         setCurrentEventFormat(normalizeAdminEventFormat(result.event_format))
         setMaxEventId(Math.max(maxEventId, newEventId))
+        setAvailableSessions([])
+        setParticipantResults([])
+        setMatchPairs([])
+        setCurrentSessionId(null)
+        setCurrentSessionInfo(null)
+        setShowResultsModal(false)
+        await fetchParticipants(newEventId)
         toast.success(result.event_created ? `Created Event ${newEventId} · ${eventFormatLabels[normalizeAdminEventFormat(result.event_format)]}` : `Switched to Event ${newEventId} and refreshed its organizer data`)
-        
-        // Refresh event finished state for the new event
-        const eventFinishedRes = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get-event-finished", event_id: newEventId }),
-        })
-        const eventFinishedData = await eventFinishedRes.json()
-        setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) for new events
       } else {
         toast.error(`Failed to update current event ID: ${result.error || 'Unknown error'}`)
       }
@@ -3017,14 +3013,14 @@ const fetchParticipants = async () => {
 
       // Scoring criteria reference
       const scoringCriteria = [
-        ['Stage', 'Range', 'Role in v12', 'Scoring Logic'],
-        ['Model scope', 'v12', 'Current model', 'Historical pair rows retain the score and provenance produced by their own model period'],
+        ['Stage', 'Range', 'Role in current model', 'Scoring Logic'],
+        ['Model scope', 'Current', 'Current model', 'Historical pair rows retain the score and provenance produced by their own model period'],
         ['Directional archetype predictions', '0–100 each', 'Questionnaire model', 'Each participant receives a personalized prediction using their assigned archetype and the pair’s individual survey-answer features'],
         ['Archetype base', '0–100', 'Base score', 'Geometric mean of A→B and B→A directional predictions'],
         ['AI chemistry', '-8, 0, or +12', 'Required correction', '50% current-curiosity semantic fit + 50% hobbies fit; below 55% = -8, 55–74.99% = 0, at least 75% = +12'],
         ['Final formula', '0–100', 'Displayed and ranked score', 'Clamp(archetype base + AI chemistry correction, 0, 100)'],
-        ['Music and friend-description AI axes', 'Diagnostic', 'No direct correction', 'Preserved for explanations and future validation; they do not change the v12 final percentage'],
-        ['Component cards', 'Diagnostic', 'No additive weights', 'Interaction, lifestyle, humor, communication, values, attachment and related cards explain pair traits but are not summed into the v12 total'],
+        ['Music and friend-description AI axes', 'Diagnostic', 'No direct correction', 'Preserved for explanations and future validation; they do not change the current final percentage'],
+        ['Component cards', 'Diagnostic', 'No additive weights', 'Interaction, lifestyle, humor, communication, values, attachment and related cards explain pair traits but are not summed into the current total'],
         ['Eligibility gates', 'Unscored', 'Applied separately', 'Gender, nationality, age, intent, history, and other active hard gates control eligibility before score ranking'],
       ]
 
@@ -3600,24 +3596,43 @@ const fetchParticipants = async () => {
   }, [lastAttemptTime]);
 
   const updatePhase = async (phase: string) => {
+    if (phase === safeCurrentPhase) return
+    const phaseLabels: Record<string, string> = {
+      registration: "Registration",
+      form: "Form",
+      waiting: "Waiting",
+      round_1: "Round 1",
+      waiting_2: "Waiting 2",
+      round_2: "Round 2",
+      group_phase: "Group Phase",
+    }
+    const targetLabel = phaseLabels[phase] || phase
+    if (!confirm(`Move every participant from ${currentPhaseConfig.label} to ${targetLabel}?\n\nThis changes their screen immediately. Confirm the event is ready before continuing.`)) return
     console.log(`🔄 Admin: Updating phase to ${phase}`);
-    const res = await fetch("/api/admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "set-phase",
-        match_id: "00000000-0000-0000-0000-000000000000",
-        phase,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      console.error(`❌ Admin: Failed to update phase to ${phase}:`, data.error);
-      toast.error("Error: " + data.error)
-    } else {
-      console.log(`✅ Admin: Successfully updated phase to ${phase}`);
-      setCurrentPhase(phase)
-      toast.success("Phase updated to " + phase + ". All players will instantly transition from ANY state they're in!")
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set-phase",
+          match_id: "00000000-0000-0000-0000-000000000000",
+          phase,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error(`❌ Admin: Failed to update phase to ${phase}:`, data.error);
+        toast.error("Error: " + data.error)
+      } else {
+        console.log(`✅ Admin: Successfully updated phase to ${phase}`);
+        setCurrentPhase(phase)
+        toast.success(`Phase updated to ${targetLabel}`)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update phase")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -4477,11 +4492,13 @@ const fetchParticipants = async () => {
     ])
   ), [participants])
 
+  // Reset pagination as a side effect, never while React is rendering the filtered list.
+  useEffect(() => {
+    setVisibleCount(BATCH_SIZE)
+  }, [BATCH_SIZE, participants.length, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, ageFilter, eventFilter, contactFilter, exclusionFilter, arrivalFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, personalityFitFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, showDuplicatePhones])
+
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
-    // Reset visible count when filters change to show first batch
-    setVisibleCount(BATCH_SIZE);
-    
     const filtered = participants.filter(p => {
       // Search term filter - using debounced search for better performance
       const s = (debouncedSearch || "").trim();
@@ -6580,7 +6597,7 @@ Proceed?`
       )}
 
       {/* Phase Control */}
-      <div className="relative z-30 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
+      <div id="admin-live-status" className="relative z-30 scroll-mt-24 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${currentPhaseConfig.bg} border border-white/20`}>
@@ -6595,6 +6612,7 @@ Proceed?`
                          <select
                value={safeCurrentPhase}
                onChange={(e) => updatePhase(e.target.value)}
+               disabled={loading}
                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                style={{
                  color: 'white',
@@ -6822,9 +6840,29 @@ Proceed?`
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 p-6 max-w-7xl mx-auto">
+      <div className="relative z-10 mx-auto max-w-[1500px] p-3 sm:p-5 lg:p-6">
+        <nav aria-label="Organizer workspace shortcuts" className="sticky top-2 z-40 mb-4 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-white/15 bg-slate-950/90 p-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl">
+          <a href="#admin-live-status" className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Live status</a>
+          <a href="#admin-operations" className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Operations</a>
+          <a href="#admin-filters" className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Filters</a>
+          <a href="#admin-participants" className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/15">
+            Participants · {filteredParticipants.length}
+          </a>
+          {selectedParticipants.size > 0 && (
+            <span className="shrink-0 rounded-lg border border-purple-400/25 bg-purple-500/10 px-2.5 py-1.5 text-[11px] font-bold text-purple-200">{selectedParticipants.size} selected</span>
+          )}
+          <button
+            type="button"
+            onClick={() => fetchParticipants()}
+            disabled={loading}
+            className="ml-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-50"
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </button>
+        </nav>
+
         {/* Action Bar */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+        <div id="admin-operations" className="scroll-mt-20 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-3 sm:p-6 mb-6">
           {!isCohost && <div className="mb-4"><AiQueueStatus eventId={currentEventId} /></div>}
           {!isCohost && mutualChoiceEvent && (
             <button
@@ -6838,13 +6876,13 @@ Proceed?`
             </button>
           )}
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="relative">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:gap-4">
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder={searchByPhone ? "Search by name, number, phone... (p1234 = phone last digits)" : "Search by name, number, gender..."}
-                  className="pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300 sm:w-80"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -8526,6 +8564,7 @@ Proceed?`
                   <select
                     value={safeCurrentPhase}
                     onChange={(e) => updatePhase(e.target.value)}
+                    disabled={loading}
                     className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400/50 transition-all duration-300"
                     style={{
                       color: 'white',
@@ -8569,23 +8608,20 @@ Proceed?`
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3 rounded-xl border border-teal-400/20 bg-slate-950/40 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-slate-400">Current event format</span><span className="text-xs font-semibold text-teal-200">{eventFormatLabels[currentEventFormat]}</span></div>
                   <a href="/admin3" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-teal-300 hover:text-teal-100">Open event controls and format settings <ChevronRight size={14} /></a>
-                  <label className="block text-xs text-slate-300">Format for the next new event<select value={newEventFormat} onChange={event => setNewEventFormat(event.target.value as AdminEventFormat)} disabled={switchingEvent} className="mt-2 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"><option value="mutual_choice_six_rounds">Mutual choice · 6 rounds (default)</option><option value="choice_only_three_groups">3 groups · 3 choice sessions</option><option value="classic">Classic</option></select></label>
+                  <label className="block text-xs text-slate-300">Format for the next new event<select value={newEventFormat} onChange={event => setNewEventFormat(event.target.value as AdminEventFormat)} disabled={switchingEvent} className="mt-2 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"><option value="classic">Classic · 2 groups, choice + algorithm (default)</option><option value="choice_only_three_groups">3 groups · 3 choice sessions</option><option value="mutual_choice_six_rounds">Mutual choice · 6 rounds</option></select></label>
                   <p className="text-[11px] leading-5 text-slate-500">Applied when creating a new event number. Switching to an existing event keeps its saved format.</p>
                 </div>
-
+                
                 <div className="text-slate-400 text-xs bg-slate-800/50 rounded-lg p-2">
                   <div className="flex items-center gap-1 mb-1">
                     <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                     <span>New participants → Event {currentEventId}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span>Previous events keep their participants and saved format</span>
-                  </div>
+                  <div className="flex items-center gap-1"><div className="w-2 h-2 bg-green-400 rounded-full"></div><span>Previous events keep their participants and saved format</span></div>
                 </div>
 
                 <div className="flex items-center justify-between" style={{ display: mutualChoiceEvent ? 'none' : undefined }}>
@@ -8628,7 +8664,12 @@ Proceed?`
               
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setManualNumber(null)}
+                  onClick={async () => {
+                    setManualNumber(null)
+                    await Promise.all([fetchParticipants(), fetchAttendanceRequests(), fetchReceiptReviewQueue()])
+                    toast.success("Organizer data refreshed")
+                  }}
+                  disabled={loading}
                   className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg transition-all duration-300 text-sm"
                 >
                   <RefreshCcw className="w-4 h-4" />
@@ -8646,7 +8687,7 @@ Proceed?`
                 <button
                   style={{ display: mutualChoiceEvent ? 'none' : undefined }}
                   onClick={async () => {
-                    let confirmMessage = "Generate matches using complete v12 archetype + AI chemistry scores?"
+                    let confirmMessage = "Generate matches using the current archetype scores without new AI chemistry calls?"
                     if (excludedParticipants.length > 0) {
                       confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                     }
@@ -8655,7 +8696,7 @@ Proceed?`
                     const res = await fetch("/api/admin/trigger-match", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ skipAI: false }),
+                      body: JSON.stringify({ skipAI: true, eventId: currentEventId }),
                     })
                     const data = await res.json()
                     if (res.ok) {
@@ -9063,7 +9104,7 @@ Proceed?`
         )}
 
         {/* Filter Controls */}
-        <div className={`${isCohost ? 'hidden md:block ' : ''}bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4`}>
+        <div id="admin-filters" className={`${isCohost ? 'hidden md:block ' : ''}scroll-mt-20 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4`}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -9601,6 +9642,20 @@ Proceed?`
                   <Send className="w-4 h-4" />
                   WhatsApp Bulk ({selectedParticipants.size})
                 </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const participantNumbers = Array.from(selectedParticipants)
+                    if (!confirm(`Mark ${participantNumbers.length} selected participant(s) as contacted? Only do this after the messages were actually sent.`)) return
+                    const updated = await markParticipantsAsMessageSent(participantNumbers)
+                    if (!updated) { toast.error("Failed to update contact status"); return }
+                    toast.success(`${participantNumbers.length} participant(s) marked as contacted`)
+                    await fetchParticipants()
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-cyan-400/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/20"
+                >
+                  <CheckCircle className="h-4 w-4" /> Mark contacted
+                </button>
               </>
             )}
           </div>
@@ -9610,6 +9665,7 @@ Proceed?`
       {surveyHistoryModal && <SurveyHistoryModal modal={surveyHistoryModal} onClose={() => setSurveyHistoryModal(null)} />}
 
       {/* Participants Grid */}
+      <div id="admin-participants" className="scroll-mt-20" />
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center space-y-4">
@@ -9619,6 +9675,24 @@ Proceed?`
           </div>
         ) : (
           <>
+          {filteredParticipants.length === 0 && (
+            <div className="mb-4 rounded-2xl border border-white/15 bg-white/5 px-6 py-10 text-center">
+              <Users className="mx-auto mb-3 h-8 w-8 text-slate-500" />
+              <p className="font-semibold text-white">
+                {participants.length === 0 ? "No participants are available for this event." : "No participants match the current filters."}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                {participants.length === 0 ? "Refresh to check for recent registrations." : "Clear the filters to return to the full participant list."}
+              </p>
+              <button
+                type="button"
+                onClick={participants.length === 0 ? () => fetchParticipants() : resetParticipantFilters}
+                className="mt-4 rounded-xl border border-cyan-400/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/20"
+              >
+                {participants.length === 0 ? "Refresh participants" : "Clear filters"}
+              </button>
+            </div>
+          )}
           <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${isCohost ? 'gap-6 md:gap-4' : 'gap-4'}`}>
             {visibleParticipants.map((p) => {
               // Determine color-coded border based on status - PRIORITY SYSTEM
@@ -9722,7 +9796,9 @@ Proceed?`
                 )}
                 {/* Cohost hanging LATE tag overlay — visible within card bounds (no negative offset) */}
                 {isCohost && p.next_event_signup_timestamp && (() => {
-                  const cutoffDate = new Date('2026-01-17T15:00:00+03:00')
+                  if (!whatsappConfig?.paymentCutoffLocal) return null
+                  const cutoffDate = new Date(whatsappConfig.paymentCutoffLocal)
+                  if (!Number.isFinite(cutoffDate.getTime())) return null
                   const signedAt = new Date(p.next_event_signup_timestamp)
                   const diffMs = signedAt.getTime() - cutoffDate.getTime()
                   const isLate = diffMs > 0
@@ -10141,9 +10217,8 @@ Proceed?`
                     {/* Registration Time (created_at) */}
                     {!isCohost && p.created_at && (() => {
                       const createdAt = new Date(p.created_at);
-                      // Cutoff: Jan 17, 2026 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2026-01-17T15:00:00+03:00');
-                      const isLate = createdAt.getTime() > cutoffDate.getTime();
+                      const configuredCutoff = whatsappConfig?.paymentCutoffLocal ? new Date(whatsappConfig.paymentCutoffLocal) : null;
+                      const isLate = configuredCutoff != null && Number.isFinite(configuredCutoff.getTime()) && createdAt.getTime() > configuredCutoff.getTime();
 
                       const dateTimeStr = createdAt.toLocaleString('en-GB', {
                         day: '2-digit',
@@ -10171,9 +10246,8 @@ Proceed?`
                     {/* Next Event Signup Time */}
                     {!isCohost && p.next_event_signup_timestamp && (() => {
                       const signedAt = new Date(p.next_event_signup_timestamp);
-                      // Cutoff: Jan 17, 2026 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2026-01-17T15:00:00+03:00');
-                      const isLate = signedAt.getTime() > cutoffDate.getTime();
+                      const configuredCutoff = whatsappConfig?.paymentCutoffLocal ? new Date(whatsappConfig.paymentCutoffLocal) : null;
+                      const isLate = configuredCutoff != null && Number.isFinite(configuredCutoff.getTime()) && signedAt.getTime() > configuredCutoff.getTime();
 
                       const dateTimeStr = signedAt.toLocaleString('en-GB', {
                         day: '2-digit',

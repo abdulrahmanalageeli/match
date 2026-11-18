@@ -1,0 +1,5 @@
+.env*
+.vercel/
+database.sql
+README.md
+*.test.mjs

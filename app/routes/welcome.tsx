@@ -790,8 +790,6 @@ export default function WelcomePage() {
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
-  const [welcomeText, setWelcomeText] = useState("")
-  const [welcomeTyping, setWelcomeTyping] = useState(false)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
   const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
   const [pendingMatchRound, setPendingMatchRound] = useState<number | null>(null)
@@ -931,6 +929,10 @@ export default function WelcomePage() {
       console.error('Failed to load the public Event3 format:', error)
     }
   }, [])
+
+  useEffect(() => {
+    if (!token) setShowRegistrationContent(true)
+  }, [token])
 
   useEffect(() => {
     void loadUpcomingEvent()
@@ -2401,33 +2403,6 @@ export default function WelcomePage() {
 
 
 
-  // Typewriter effect for welcome message
-  useEffect(() => {
-    if (step !== -1 || !assignedNumber) {
-      setWelcomeText("")
-      setWelcomeTyping(false)
-      return
-    }
-
-    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nستبدأ بنشاط جماعي وفق جدول الفعالية، ثم تنتقل إلى لقاءات فردية لتبادل وجهات النظر المختلفة.`
-    
-    setWelcomeTyping(true)
-    setWelcomeText("")
-    
-    let index = 0
-    const typeInterval = setInterval(() => {
-      if (index < fullText.length) {
-        setWelcomeText(fullText.substring(0, index + 1))
-        index++
-      } else {
-        clearInterval(typeInterval)
-        setWelcomeTyping(false)
-      }
-    }, 50) // Speed of typing
-
-    return () => clearInterval(typeInterval)
-  }, [step, assignedNumber])
-
   useEffect(() => {
     const resolveToken = async () => {
       if (!token) {
@@ -3676,7 +3651,7 @@ export default function WelcomePage() {
   // Reusable Logo Component for non-saved users
   const LogoHeader = () => {
     // Hide logo during loading screen and if NavigationBar is showing
-    if (!token && !showRegistrationContent) {
+    if (!token) {
       return null;
     }
     
@@ -3732,7 +3707,7 @@ export default function WelcomePage() {
     const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
     
     // Hide if user has token or saved tokens (NavigationBar will show contact button instead)
-    if (token || !showRegistrationContent || assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
+    if (!token || !showRegistrationContent || assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
       return null;
     }
     
@@ -4813,16 +4788,8 @@ export default function WelcomePage() {
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
       
-      // Show new user type popup for users without saved credentials
-      // Show new user type popup for users without tokens (but not if URL has token parameter)
-      if (!token && step === 0 && !window.location.search.includes('token=')) {
-        console.log('🆕 New user detected, showing user type popup...');
-        setTimeout(() => {
-          setShowNewUserTypePopup(true);
-        }, 1000); // Small delay to let page load
-      } else {
-        console.log('❌ Skipping new user type popup since URL has token parameter or user is not on main page');
-      }
+      // The public page now introduces the experience first. Access options are
+      // opened deliberately from the hero instead of interrupting new visitors.
       
       setTokenValidationCompleted(true);
     }
@@ -4901,9 +4868,7 @@ export default function WelcomePage() {
       .then(r => r.json())
       .then(d => {
         console.log('[pending-feedbacks] API response:', d)
-        if (d.pending && d.pending.length > 0) {
-          setPendingFeedbacks(d.pending)
-        }
+        setPendingFeedbacks(Array.isArray(d.pending) ? d.pending : [])
       })
       .catch(e => console.error("[pending-feedbacks] Fetch error:", e))
   }, [resultToken, returningPlayerToken])
@@ -5915,21 +5880,6 @@ export default function WelcomePage() {
     }
   }, [modalStep, assignedNumber]);
 
-  // AI Animation Effect for Registration
-  useEffect(() => {
-    if (!token) {
-      const handleShowContent = () => {
-        setShowRegistrationContent(true)
-      }
-      
-      document.addEventListener('showRegistrationContent', handleShowContent)
-      
-      return () => {
-        document.removeEventListener('showRegistrationContent', handleShowContent)
-      }
-    }
-  }, [token])
-
   // Unified timer management system (DISABLED - using global timer instead)
   /*
   useEffect(() => {
@@ -6771,66 +6721,90 @@ export default function WelcomePage() {
   if (!token) {
     return (
       <>
-        {/* New User Type Popup */}
-        {showNewUserTypePopup && (
-          <motion.div
-            data-welcome-dialog
-            role="dialog"
-            aria-modal="true"
-            aria-label="اختيار نوع المشاركة"
-            tabIndex={-1}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 sm:p-6"
-          >
+        {/* Premium access sheet */}
+        <AnimatePresence>
+          {showNewUserTypePopup && (
             <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(5px)" }}
-              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-              transition={{ type: "spring", stiffness: 320, damping: 30, mass: 0.72 }}
-              className="welcome-event-card relative w-full max-w-lg overflow-hidden rounded-[2rem] border p-5 sm:p-7"
-              dir="rtl"
+              data-welcome-dialog
+              role="dialog"
+              aria-modal="true"
+              aria-label="ابدأ تجربة بلايند ماتش"
+              tabIndex={-1}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-6"
             >
-              <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-24 -left-20 h-52 w-52 rounded-full bg-violet-500/10 blur-3xl" />
+              <motion.div
+                initial={{ opacity: 0, y: 22, scale: 0.975, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: 12, scale: 0.985 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.75 }}
+                className="welcome-access-card welcome-event-card relative w-full max-w-xl overflow-hidden rounded-[2rem] border p-5 sm:p-7"
+                dir="rtl"
+              >
+                <button
+                  data-dialog-close
+                  type="button"
+                  onClick={() => setShowNewUserTypePopup(false)}
+                  aria-label="إغلاق"
+                  className="welcome-icon-action absolute left-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-xl text-slate-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
 
-              <div className="relative">
-                <div className="mb-7 flex items-center justify-between gap-3 border-b border-white/[0.14] pb-4">
-                  <button
-                    onClick={() => setShowFAQPopup(true)}
-                    className="welcome-soft-action inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-slate-100"
-                    title="الأسئلة الشائعة"
-                  >
-                    <HelpCircle className="h-4 w-4" />
-                    <span>أسئلة شائعة</span>
-                  </button>
-                  <button
-                    onClick={() => setShowInfoPopup(true)}
-                    className="welcome-soft-action inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-slate-100"
-                    title="اضغط لمعرفة المزيد عن الفعالية"
-                  >
-                    <Info className="h-4 w-4 text-cyan-300" />
-                    <span>شرح الفعالية</span>
-                  </button>
-                </div>
+                <div className="pointer-events-none absolute -right-28 -top-28 h-64 w-64 rounded-full bg-violet-500/[0.13] blur-[70px]" />
+                <div className="pointer-events-none absolute -bottom-28 -left-24 h-64 w-64 rounded-full bg-cyan-400/[0.08] blur-[80px]" />
 
-                <div className="mb-7 text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] shadow-[0_12px_35px_-14px_rgba(34,211,238,0.9)]">
-                    <UserPlus className="h-6 w-6 text-cyan-200" />
+                <div className="relative">
+                  <div className="mb-6 pr-1 text-right sm:mb-7">
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-300/[0.07] px-3 py-1.5 text-[11px] font-bold text-violet-100">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      دخول خاص وآمن
+                    </div>
+                    <h2 className="max-w-md text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl">
+                      احجز مكانك في التجربة
+                    </h2>
+                    <p className="mt-2 max-w-md text-sm font-medium leading-6 text-slate-400">
+                      ننشئ لك دخولاً خاصاً خلال لحظة، ثم تبدأ استبيان التوافق بهدوء.
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">أهلاً بك في بلايند ماتش</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">التوافق الأعمى (BlindMatch)</p>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-5">
+                  <button
+                    type="button"
+                    onClick={handleNewUserDirect}
+                    disabled={loading}
+                    className="welcome-primary-action welcome-access-option group flex min-h-[5.25rem] w-full items-center gap-4 rounded-[1.35rem] px-4 text-right sm:px-5"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-violet-200/15 bg-violet-300/[0.09] text-violet-100 shadow-[0_12px_32px_-16px_rgba(167,139,250,0.9)]">
+                      {loading ? <RotateCcw className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-black text-white sm:text-lg">
+                        {loading ? "جاري تجهيز دخولك..." : "أنا مشارك جديد"}
+                      </span>
+                      <span className="mt-1 block text-xs font-medium leading-5 text-slate-400">
+                        ابدأ التسجيل واستلم رمزك الخاص
+                      </span>
+                    </span>
+                    <ChevronLeft className="h-5 w-5 text-violet-200 transition-transform duration-300 group-hover:-translate-x-1" />
+                  </button>
+
+                  <div className="my-5 flex items-center gap-3" aria-hidden="true">
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                    <span className="text-[10px] font-bold tracking-[0.12em] text-slate-600">مشارك سابق</span>
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                  </div>
+
+                  <div className="rounded-[1.35rem] border border-white/[0.075] bg-black/[0.16] p-4 sm:p-5">
                     <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
-                        <RotateCcw className="h-5 w-5" />
-                      </div>
-                      <div className="text-right">
-                        <h3 className="text-base font-bold text-white">لدي رمز دخول</h3>
-                        <p className="mt-0.5 text-xs font-medium text-slate-300">استعد بياناتك وواصل من حيث توقفت</p>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-300/[0.07] text-cyan-200 ring-1 ring-cyan-200/15">
+                        <LockKeyhole className="h-4.5 w-4.5" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">لدي رمز دخول</h3>
+                        <p className="mt-0.5 text-xs leading-5 text-slate-500">ارجع إلى رحلتك وبياناتك المحفوظة</p>
                       </div>
                     </div>
 
@@ -6839,62 +6813,64 @@ export default function WelcomePage() {
                         type="text"
                         value={newUserTokenInput}
                         onChange={(e) => setNewUserTokenInput(e.target.value)}
-                        placeholder="أدخل الرمز المميز"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && newUserTokenInput.trim() && !newUserTokenLoading) {
+                            handleReturningUserToken()
+                          }
+                        }}
+                        placeholder="أدخل رمز الدخول"
                         aria-label="رمز الدخول المميز"
-                        className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-black/35 px-4 text-sm text-white outline-none placeholder:font-medium placeholder:text-slate-400 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-400/15"
+                        className="welcome-access-input min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.11] bg-black/30 px-4 text-center font-mono text-sm tracking-wide text-white outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-600 focus:border-violet-300/50 focus:ring-4 focus:ring-violet-400/10 sm:text-right"
                         dir="ltr"
                       />
                       <button
+                        type="button"
                         onClick={handleReturningUserToken}
                         disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                        className="welcome-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold sm:w-auto"
+                        className="welcome-soft-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold text-white sm:w-auto"
                       >
                         {newUserTokenLoading ? (
                           <>
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-slate-900" />
-                            <span>جاري التحقق...</span>
+                            <RotateCcw className="h-4 w-4 animate-spin" />
+                            <span>نتحقق...</span>
                           </>
                         ) : (
                           <>
-                            <CheckCircle className="h-4 w-4" />
-                            <span>دخول</span>
+                            <span>متابعة</span>
+                            <ChevronLeft className="h-4 w-4" />
                           </>
                         )}
                       </button>
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => { setForgotOrigin('recovery'); setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
-                      className="mt-3 text-xs font-medium text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
+                      className="mt-3 text-xs font-medium text-cyan-300/80 transition-colors hover:text-cyan-200"
                     >
-                      نسيت الرمز؟ استرجعه عبر الرسائل القصيرة
+                      نسيت الرمز؟ استرجعه برسالة نصية
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 px-1" aria-hidden="true">
-                    <div className="h-px flex-1 bg-white/[0.18]" />
-                    <span className="text-[11px] font-semibold text-slate-300">أو</span>
-                    <div className="h-px flex-1 bg-white/[0.18]" />
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/[0.07] pt-4 text-xs">
+                    <button type="button" onClick={() => { setShowNewUserTypePopup(false); setShowInfoPopup(true); }} className="inline-flex items-center gap-1.5 font-medium text-slate-400 transition-colors hover:text-white">
+                      <Info className="h-3.5 w-3.5" />
+                      كيف تعمل التجربة؟
+                    </button>
+                    <button type="button" onClick={() => { setShowNewUserTypePopup(false); setShowFAQPopup(true); }} className="inline-flex items-center gap-1.5 font-medium text-slate-400 transition-colors hover:text-white">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      أسئلة شائعة
+                    </button>
+                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                      <Shield className="h-3.5 w-3.5" />
+                      اختياراتك تبقى سرية
+                    </span>
                   </div>
-
-                  <button
-                    onClick={handleNewUserDirect}
-                    className="welcome-primary-action group flex min-h-16 w-full items-center gap-3 rounded-2xl px-4 text-right text-white"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-300/15 bg-purple-300/[0.08] text-purple-100">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-black">أنا مشارك جديد</h3>
-                      <p className="mt-0.5 text-xs font-semibold text-gray-400">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
-                    </div>
-                    <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
-                  </button>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )}
+        </AnimatePresence>
 
         {/* Forgot-token recovery is available on the public landing page. */}
         {participantOtpModal}
@@ -7793,7 +7769,7 @@ export default function WelcomePage() {
 
         {/* Main Content */}
         <div className="welcome-scroll relative z-10 flex min-h-[100dvh] items-start justify-center px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4">
-          <div className="max-w-4xl w-full">
+          <div className="w-full max-w-5xl">
             {/* Initial Loading Animation */}
             <AnimatePresence mode="wait" initial={false}>
             {!showRegistrationContent && (
@@ -7828,8 +7804,159 @@ export default function WelcomePage() {
                 className="welcome-dashboard"
               >
                 <h1 className="sr-only">بلايند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
-                {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
-                <div className="h-20 sm:h-24" aria-hidden="true" />
+
+                {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <motion.section
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: { opacity: 0 },
+                      visible: { opacity: 1, transition: { staggerChildren: 0.075, delayChildren: 0.08 } },
+                    }}
+                    className="welcome-intro relative mx-auto mb-5 mt-3 overflow-hidden rounded-[2rem] border border-white/[0.09] px-4 pb-5 pt-4 sm:mb-7 sm:mt-5 sm:rounded-[2.4rem] sm:px-7 sm:pb-7 sm:pt-5 lg:px-9"
+                    aria-labelledby="welcome-intro-title"
+                  >
+                    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+                      <div className="welcome-intro-halo welcome-intro-halo--violet" />
+                      <div className="welcome-intro-halo welcome-intro-halo--cyan" />
+                      <div className="welcome-intro-grain" />
+                    </div>
+
+                    <motion.header
+                      variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                      className="relative z-10 mb-4 flex items-center justify-between gap-3 border-b border-white/[0.07] pb-4 sm:mb-6"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04]">
+                          <img src="/blindmatch-imprint.png" alt="" className="h-9 w-9 scale-[1.28] object-contain" />
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-black tracking-tight text-white">بلايند ماتش</div>
+                          <div className="text-[9px] font-bold tracking-[0.16em] text-slate-500" dir="ltr">BLINDMATCH</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowInfoPopup(true)}
+                          className="welcome-intro-nav inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-300"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">عن التجربة</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewUserTypePopup(true)}
+                          className="welcome-intro-nav inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-violet-100"
+                        >
+                          <LockKeyhole className="h-3.5 w-3.5" />
+                          <span>دخول</span>
+                        </button>
+                      </div>
+                    </motion.header>
+
+                    <div className="relative z-10 grid items-center gap-3 lg:grid-cols-[1.08fr_.92fr] lg:gap-10">
+                      <div className="order-2 text-center lg:order-1 lg:text-right">
+                        <motion.div
+                          variants={{ hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } }}
+                          className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-300/[0.16] bg-violet-300/[0.07] px-3 py-1.5 text-[11px] font-bold text-violet-100"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.8)]" />
+                          تجربة اجتماعية ذكية في الرياض
+                        </motion.div>
+
+                        <motion.h2
+                          id="welcome-intro-title"
+                          variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}
+                          className="welcome-intro-title mx-auto max-w-2xl text-[2.35rem] font-black leading-[1.12] tracking-[-0.035em] text-white sm:text-5xl lg:mx-0 lg:text-[3.35rem]"
+                        >
+                          تعرّف على الشخص،
+                          <span className="welcome-intro-title-accent block">قبل الصورة.</span>
+                        </motion.h2>
+
+                        <motion.p
+                          variants={{ hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } }}
+                          className="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-slate-300 sm:text-base sm:leading-8 lg:mx-0"
+                        >
+                          لقاءات واقعية تبدأ بنشاط جماعي، ثم محادثات فردية منتقاة، وقرار تواصل لا يُكشف إلا إذا كان متبادلاً.
+                        </motion.p>
+
+                        <motion.div
+                          variants={{ hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } }}
+                          className="mx-auto mt-6 flex max-w-md flex-col gap-2.5 sm:flex-row lg:mx-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setShowNewUserTypePopup(true)}
+                            className="welcome-primary-action welcome-intro-cta group flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black sm:text-base"
+                          >
+                            <span>ابدأ تجربتك</span>
+                            <ChevronLeft className="h-4.5 w-4.5 transition-transform duration-300 group-hover:-translate-x-1" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewUserTypePopup(true)}
+                            className="welcome-soft-action flex min-h-14 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold text-slate-200"
+                          >
+                            <LockKeyhole className="h-4 w-4 text-cyan-200" />
+                            لدي رمز دخول
+                          </button>
+                        </motion.div>
+
+                        <motion.div
+                          variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+                          className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-medium text-slate-500 lg:justify-start"
+                        >
+                          <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5 text-violet-300" /> اختياراتك سرية</span>
+                          <span className="inline-flex items-center gap-1.5"><Handshake className="h-3.5 w-3.5 text-cyan-300" /> التواصل متبادل</span>
+                          <span className="inline-flex items-center gap-1.5"><EyeOff className="h-3.5 w-3.5 text-slate-400" /> بدون صور مسبقة</span>
+                        </motion.div>
+                      </div>
+
+                      <motion.div
+                        variants={{ hidden: { opacity: 0, scale: 0.92, y: 12 }, visible: { opacity: 1, scale: 1, y: 0 } }}
+                        transition={{ type: "spring", stiffness: 170, damping: 24 }}
+                        className="welcome-intro-visual order-1 mx-auto flex min-h-[14.5rem] w-full max-w-sm items-center justify-center lg:order-2 lg:min-h-[24rem]"
+                        aria-hidden="true"
+                      >
+                        <div className="welcome-intro-orbit welcome-intro-orbit--outer" />
+                        <div className="welcome-intro-orbit welcome-intro-orbit--inner" />
+                        <div className="welcome-intro-signal welcome-intro-signal--one" />
+                        <div className="welcome-intro-signal welcome-intro-signal--two" />
+                        <AnimatedBlindMatchLogo />
+                        <div className="welcome-intro-float welcome-intro-float--top">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-200" />
+                          توافق أعمق
+                        </div>
+                        <div className="welcome-intro-float welcome-intro-float--bottom">
+                          <Shield className="h-3.5 w-3.5 text-cyan-200" />
+                          قرار خاص
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    <motion.div
+                      variants={{ hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } }}
+                      className="welcome-intro-timeline relative z-10 mt-5 grid gap-2 sm:grid-cols-3 lg:mt-1"
+                    >
+                      {[
+                        { number: '01', Icon: Users, title: 'نشاط جماعي', body: 'تعارف طبيعي بلا ضغط' },
+                        { number: '02', Icon: MessageSquare, title: 'لقاءات مختارة', body: 'محادثات فردية هادفة' },
+                        { number: '03', Icon: Heart, title: 'قرار متبادل', body: 'لا كشف إلا عند الموافقة' },
+                      ].map(({ number, Icon, title, body }) => (
+                        <div key={number} className="welcome-intro-step flex items-center gap-3 rounded-2xl border border-white/[0.07] px-3.5 py-3 text-right">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-200 ring-1 ring-white/[0.07]">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2"><span className="text-[9px] font-black tracking-[0.16em] text-slate-600">{number}</span><span className="text-xs font-black text-white sm:text-sm">{title}</span></span>
+                            <span className="mt-0.5 block text-[10px] font-medium text-slate-500 sm:text-[11px]">{body}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </motion.div>
+                  </motion.section>
+                )}
 
                 {/* Upcoming event — intentionally kept as a slim companion to the existing boxes. */}
                 {(upcomingEventLoading || upcomingEvent) && (
@@ -8770,16 +8897,6 @@ export default function WelcomePage() {
           </div>
         </div>
 
-        {/* Animation Trigger */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              setTimeout(() => {
-                document.dispatchEvent(new CustomEvent('showRegistrationContent'));
-              }, 4800);
-            `,
-          }}
-        />
       </div>
       </MotionConfig>
 
@@ -9097,7 +9214,7 @@ export default function WelcomePage() {
       </AnimatePresence>
       <MotionConfig reducedMotion="user">
       <div
-        className={`welcome-shell welcome-stage min-h-[100dvh] px-4 py-4 flex items-start justify-center relative overflow-hidden ${
+        className={`welcome-shell welcome-stage ${dark ? "dark" : ""} min-h-[100dvh] px-4 py-4 flex items-start justify-center relative overflow-hidden ${
           dark
             ? step === 4 && currentRound === 1
               ? currentQuestions[currentQuestionIndex].level === 0
@@ -9254,96 +9371,111 @@ export default function WelcomePage() {
       }}></div>
 
 
-      <div className="welcome-scroll w-full max-w-md space-y-7 pb-[max(1rem,env(safe-area-inset-bottom))] text-center animate-fade-in relative z-10">
+      <div className={`welcome-scroll w-full ${step === 2 && showSurvey ? "max-w-3xl" : "max-w-md"} space-y-7 pb-[max(1rem,env(safe-area-inset-bottom))] text-center animate-fade-in relative z-10`}>
 
         {/* Welcome Landing Page */}
         {step === -1 && (
-          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-            <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
-                dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
-              }`}></div>
-              <div className={`welcome-event-card relative rounded-3xl border p-7 sm:p-8 ${
-                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
-              }`}>
-                <div className="flex justify-center mb-6">
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+            className="space-y-4"
+          >
+            <div className="welcome-event-card relative overflow-hidden rounded-[2rem] border px-5 pb-6 pt-7 sm:px-7 sm:pb-7">
+              <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-violet-500/[0.11] blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -left-20 h-48 w-48 rounded-full bg-cyan-400/[0.07] blur-3xl" />
+
+              <div className="relative">
+                <div className="mx-auto mb-5 flex w-fit items-center justify-center rounded-[1.65rem] border border-violet-200/15 bg-violet-300/[0.06] p-2 shadow-[0_20px_55px_-28px_rgba(139,92,246,0.9)]">
                   <ParticipantBadge size="large" />
                 </div>
-                
-                <div className="text-center space-y-4">
-                  <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
-                    dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
-                  }`}>
-                    نظام الصداقة الذكي
-                  </h1>
-                  
-                  <div className={`min-h-[6rem] text-right leading-relaxed ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>
-                    {welcomeText.split('\n').map((line, index) => (
-                      <p key={index} className="mb-2">
-                        {line}
-                        {index === welcomeText.split('\n').length - 1 && welcomeTyping && (
-                          <span className="animate-pulse">|</span>
-                        )}
-                      </p>
-                    ))}
-                  </div>
+
+                <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-[11px] font-bold text-slate-400">
+                  <Shield className="h-3.5 w-3.5 text-violet-300" />
+                  مساحتك الخاصة
                 </div>
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                  {participantName ? `أهلاً ${participantName}` : 'أهلاً بك في بلايند ماتش'}
+                </h1>
+                <p className="mx-auto mt-3 max-w-sm text-sm font-medium leading-7 text-slate-300">
+                  هنا تبدأ رحلتك من لقاءات واقعية، اختيارات سرية، وتوافق لا يعتمد على الانطباع السريع وحده.
+                </p>
+
+                <div className="mt-6 grid grid-cols-3 gap-2 border-y border-white/[0.06] py-4">
+                  {[
+                    { Icon: Users, label: 'تعارف طبيعي' },
+                    { Icon: Brain, label: 'توافق أذكى' },
+                    { Icon: LockKeyhole, label: 'قرار خاص' },
+                  ].map(({ Icon, label }) => (
+                    <div key={label} className="flex flex-col items-center gap-2 rounded-xl px-1 py-2 text-[10px] font-bold text-slate-400 sm:text-xs">
+                      <Icon className="h-4 w-4 text-violet-200" />
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setStep(0)}
+                  className="welcome-primary-action group mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black"
+                >
+                  <span>متابعة الرحلة</span>
+                  <ChevronLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" />
+                </button>
               </div>
             </div>
-            
-            {!welcomeTyping && (
-              <div className="flex justify-center">
-                <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
-              </div>
-            )}
-          </section>
+          </motion.section>
         )}
 
         {/* خطوة 0 */}
         {step === 0 && (
-          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-            <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
-                dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
-              }`}></div>
-              <div className={`welcome-event-card relative rounded-3xl border p-7 sm:p-8 ${
-                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
-              }`}>
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <Brain className={`w-16 h-16 animate-pulse ${
-                      dark ? "text-slate-400" : "text-gray-600"
-                    }`} />
-                    <Sparkles className={`w-6 h-6 absolute -top-2 -right-2 animate-bounce ${
-                      dark ? "text-slate-300" : "text-gray-500"
-                    }`} />
-                  </div>
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+            className="space-y-4"
+          >
+            <div className="welcome-event-card relative overflow-hidden rounded-[2rem] border p-5 sm:p-7">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-violet-500/[0.1] blur-3xl" />
+              <div className="relative">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] border border-violet-200/15 bg-violet-300/[0.07] text-violet-100 shadow-[0_18px_44px_-24px_rgba(139,92,246,0.9)]">
+                  <Brain className="h-7 w-7" />
+                </div>
+                <div className="mt-5 text-[10px] font-black tracking-[0.16em] text-violet-300/70">كيف تسير التجربة</div>
+                <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">التجربة تبدأ من الواقع</h1>
+                <p className="mx-auto mt-3 max-w-sm text-sm font-medium leading-7 text-slate-400">
+                  تبدأ بتعارف جماعي مريح، ثم تنتقل إلى محادثات فردية منتقاة. بعد كل لقاء تسجّل قرارك بسرية تامة.
+                </p>
+
+                <div className="mt-6 space-y-2 text-right">
+                  {[
+                    { number: '01', Icon: Users, title: 'تعارف جماعي', body: 'اكسر الحاجز الأول في مساحة طبيعية.' },
+                    { number: '02', Icon: MessageSquare, title: 'لقاءات فردية', body: 'حوارات منتقاة تساعدك ترى ما وراء الانطباع.' },
+                    { number: '03', Icon: Heart, title: 'قرار سري', body: 'لا نشارك رغبتك إلا عند الموافقة المتبادلة.' },
+                  ].map(({ number, Icon, title, body }) => (
+                    <div key={number} className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-300/[0.07] text-violet-200 ring-1 ring-violet-200/10">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2"><span className="text-[9px] font-black tracking-[0.14em] text-slate-600">{number}</span><span className="text-sm font-black text-white">{title}</span></span>
+                        <span className="mt-0.5 block text-xs font-medium leading-5 text-slate-500">{body}</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
-                <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
-                  dark ? "bg-gradient-to-r from-slate-300 to-slate-400" : "bg-gradient-to-r from-gray-700 to-gray-800"
-                }`}>
-                  نظام الصداقة الذكي
-                </h1>
-                <p className={`text-sm sm:text-base leading-relaxed ${
-                  dark ? "text-slate-300" : "text-gray-600"
-                }`}>
-                  ستبدأ بنشاط جماعي وفق جدول الفعالية، ثم تنتقل إلى لقاءات فردية.
-                  بعد كل حوار، قرر إذا كان
-                  <span className={`font-semibold ${
-                    dark ? "text-slate-200" : "text-gray-800"
-                  }`}> شخص متوافق </span>
-                  أو
-                  <span className="font-semibold text-red-500"> غير متوافق معك</span>.
-                </p>
+                <button
+                  type="button"
+                  onClick={next}
+                  className="welcome-primary-action group mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black"
+                >
+                  <span>ابدأ الرحلة</span>
+                  <ChevronLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" />
+                </button>
               </div>
             </div>
-            <div className="flex justify-center">
-              <FancyNextButton onClick={next} label="ابدأ الرحلة" />
-            </div>
-          </section>
+          </motion.section>
         )}
 
         {/* Too Late Message */}
@@ -9419,59 +9551,31 @@ export default function WelcomePage() {
 
         {/* خطوة 2 */}
         {step === 2 && (
-          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`welcome-event-card rounded-3xl border ${showSurvey ? 'p-2 sm:p-4' : 'p-6 sm:p-8'} ${
+          <section className="space-y-6 animate-in fade-in duration-500">
+            <div className={`welcome-event-card overflow-hidden rounded-[2rem] border ${showSurvey ? 'p-1 sm:p-3' : 'p-6 sm:p-8'} ${
               dark ? "bg-white/0 border-white/20 hover:bg-white/0" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
-              {!showSurvey && <div className="flex flex-col items-center gap-4 mb-6">
-                <div className="relative">
-                  <div className={`relative w-24 h-24 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
-                    dark 
-                      ? "bg-white/0" 
-                      : "bg-gradient-to-br from-gray-100 via-white to-gray-200 border-gray-400/50 shadow-gray-500/20"
-                  }`}>
-                    {/* Animated background glow */}
-                    <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400/20 to-blue-500/20 animate-pulse`}></div>
-                    
-                    {/* Number display */}
-                    <span className={`relative z-10 text-3xl font-bold tracking-wider ${
-                      dark ? "text-white" : "text-gray-800"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </span>
-                    
-                    {/* Corner accent */}
-
-                    
-                    {/* Subtle corner lines */}
-                    <div className={`absolute top-2 left-2 w-2 h-2 border-l-2 border-t-2 rounded-tl ${
-                      dark ? "border-cyan-400/60" : "border-blue-500/60"
-                    }`}></div>
-                    <div className={`absolute bottom-2 right-2 w-2 h-2 border-r-2 border-b-2 rounded-br ${
-                      dark ? "border-cyan-400/60" : "border-blue-500/60"
-                    }`}></div>
-                  </div>
-
-                  {/* Floating particles around the icon */}
-                  <div className="absolute -top-2 -left-2 w-2 h-2 bg-cyan-400/60 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
-                  <div className="absolute -top-1 -right-3 w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
-                  <div className="absolute -bottom-1 -left-3 w-1 h-1 bg-purple-400/60 rounded-full animate-ping" style={{ animationDelay: '1s' }}></div>
+              {!showSurvey && <div className="mb-6 flex flex-col items-center text-center">
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-[1.6rem] border border-violet-200/15 bg-violet-300/[0.07] shadow-[0_22px_60px_-32px_rgba(139,92,246,0.95)]">
+                  <span className="text-2xl font-black tabular-nums text-white">#{assignedNumber ?? "—"}</span>
+                  <span className="absolute -bottom-2 -left-2 flex h-7 w-7 items-center justify-center rounded-xl border border-emerald-200/15 bg-emerald-300/[0.1] text-emerald-200 shadow-lg backdrop-blur-xl">
+                    <Shield className="h-3.5 w-3.5" />
+                  </span>
                 </div>
-                <h2 className={`text-xl font-bold text-center ${
-                  dark ? "text-slate-200" : "text-gray-800"
-                }`}>استبيان التوافق الشامل</h2>
-                <p className={`text-sm text-center ${
-                  dark ? "text-slate-300" : "text-gray-600"
-                }`}>أجب على الأسئلة التالية لتحليل شخصيتك بدقة</p>
+                <div className="mt-5 text-[10px] font-black tracking-[0.16em] text-violet-300/70">الخطوة الأولى</div>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-white">دعنا نتعرّف عليك</h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-7 text-slate-400">
+                  أسئلة مدروسة تساعدنا نفهم قيمك، أسلوبك، وما يجعلك ترتاح في الحوار.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-medium text-slate-500">
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5">ينحفظ تلقائياً</span>
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5">بياناتك محمية</span>
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5">لا توجد إجابة مثالية</span>
+                </div>
               </div>}
 
               {!showSurvey ? (
-                <div className="text-center space-y-4">
-                  <p className={`text-sm ${
-                    dark ? "text-slate-300" : "text-gray-600"
-                  }`}>
-                    سيتم جمع بياناتك وفقاً لمعايير حماية البيانات السعودية
-                  </p>
+                <div className="space-y-4 text-center">
                   <button
                     onClick={async () => {
                       console.log("🔘 ابدأ الاستبيان button clicked")
@@ -9518,19 +9622,26 @@ export default function WelcomePage() {
                         setIsEditingSurvey(true);
                       }, 100)
                     }}
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                    className="welcome-primary-action group inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black text-white"
                   >
-                    ابدأ الاستبيان
+                    <span>ابدأ الاستبيان</span>
+                    <ChevronLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" />
                   </button>
+                  <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
+                    <Shield className="h-3.5 w-3.5 text-violet-300" />
+                    نعالج بياناتك وفق إشعار الخصوصية ومعايير الحماية السعودية
+                  </p>
                 </div>
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
                   <Suspense fallback={
-                    <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center justify-center py-14">
                       <div className="text-center">
-                        <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className={`text-lg ${dark ? 'text-slate-200' : 'text-gray-800'}`}>جاري تحميل الاستبيان...</p>
+                        <div className="mx-auto mb-4 h-14 w-14 rounded-2xl border border-violet-300/20 bg-violet-300/[0.07] p-3 shadow-[0_18px_45px_-25px_rgba(139,92,246,0.9)]">
+                          <div className="h-full w-full animate-spin rounded-full border-2 border-violet-200/20 border-t-violet-200" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-300">جاري تجهيز أسئلتك...</p>
                       </div>
                     </div>
                   }>

@@ -21,13 +21,14 @@ type Props = {
   eventId: number
   testMode: boolean
   focusNumber: number | null
+  focusName: string | null
   disabled: boolean
   disabledReason: string
   request: (action: string, body?: Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<any>
   onApplied: () => Promise<void>
 }
 
-export default function SeatingAlternatives({ eventId, testMode, focusNumber, disabled, disabledReason, request, onApplied }: Props) {
+export default function SeatingAlternatives({ eventId, testMode, focusNumber, focusName, disabled, disabledReason, request, onApplied }: Props) {
   const panelId = useId()
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<Preview | null>(null)
@@ -127,7 +128,7 @@ export default function SeatingAlternatives({ eventId, testMode, focusNumber, di
           {focusNumber != null && <label className="flex min-h-10 items-center gap-2 text-sm text-purple-200">
             <input type="checkbox" checked={focusEnabled} disabled={disabled || busy !== null}
               onChange={event => { setFocusEnabled(event.target.checked); setShowAllTables(false); void load(event.target.checked) }} className="h-4 w-4 accent-purple-500" />
-            تركيز البدائل على لوكا (#{focusNumber})
+            تركيز البدائل على {focusName || "المشارك"} (#{focusNumber})
           </label>}
           <div className="flex flex-wrap items-center gap-2">
             {plans.map((_, index) => (
@@ -143,7 +144,7 @@ export default function SeatingAlternatives({ eventId, testMode, focusNumber, di
           {preview?.alternatives.length === 0 && <p role="status" className="text-sm text-amber-200">لم نجد بديلاً مناسباً ضمن القيود الحالية. لم تتغيّر الجلسات.</p>}
           {plan && <>
             {plan.focus && <div className="rounded-xl border border-purple-700/50 bg-purple-950/30 p-3 space-y-2">
-              <p className="text-sm font-semibold text-purple-100">طاولتا {people.get(plan.focus.number)?.name || "لوكا"} · #{plan.focus.number}</p>
+              <p className="text-sm font-semibold text-purple-100">طاولتا {people.get(plan.focus.number)?.name || focusName || "المشارك"} · #{plan.focus.number}</p>
               <p className="text-xs leading-6 text-gray-300">وجوه مختلفة عن التوزيع الحالي: {plan.focus.new_companions[0].length} في الجولة الأولى · {plan.focus.new_companions[1].length} في الثانية · أشخاص يتكرر لقاؤهم: {plan.focus.repeated_partners}</p>
               <p className="text-xs text-gray-400">توافقه المحفوظ بين الجنسين: {plan.focus.compatibility?.toFixed(1) ?? "—"} / 100 · متاح لـ {plan.focus.scored_pairs} من {plan.focus.mixed_pairs} لقاء</p>
               <label className="flex min-h-10 items-center gap-2 text-xs text-purple-200"><input type="checkbox" checked={showAllTables} onChange={event => setShowAllTables(event.target.checked)} className="h-4 w-4 accent-purple-500" />عرض كل الطاولات</label>
@@ -168,8 +169,9 @@ export default function SeatingAlternatives({ eventId, testMode, focusNumber, di
                       const focusedTable = members.some(person => person.number === previewFocus)
                       const women = members.filter(person => person.gender === "female").length
                       const men = members.filter(person => person.gender === "male").length
+                      const focusedParticipantName = members.find(person => person.number === previewFocus)?.name || focusName || "المشارك"
                       return <div key={table} className={`min-w-0 rounded-xl border ${focusedTable ? "border-purple-500/60 bg-purple-950/20" : "border-gray-800 bg-gray-900/70"} p-3`}>
-                        <div className="flex flex-wrap justify-between gap-2 text-xs mb-2"><span className="font-bold text-white">طاولة {table} {focusedTable && <span className="text-purple-300">· لوكا</span>} <span className="text-gray-500">· {members.length}</span></span><span className="text-gray-400">{women} نساء · {men} رجال{members.length > women + men ? ` · ${members.length - women - men} غير محدد` : ""}</span></div>
+                        <div className="flex flex-wrap justify-between gap-2 text-xs mb-2"><span className="font-bold text-white">طاولة {table} {focusedTable && <span className="text-purple-300">· {focusedParticipantName}</span>} <span className="text-gray-500">· {members.length}</span></span><span className="text-gray-400">{women} نساء · {men} رجال{members.length > women + men ? ` · ${members.length - women - men} غير محدد` : ""}</span></div>
                         <ul className="space-y-1">
                           {members.map(person => {
                             const from = original.get(`${round}:${person.number}`)

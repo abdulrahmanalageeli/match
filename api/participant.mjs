@@ -6178,26 +6178,45 @@ Please respond in JSON format:
           message: "تعذّر التحقق من التقييمات غير المكتملة مؤقتاً. حاول مجدداً.",
         })
         console.log(`[pending-feedbacks] Found ${allMatches?.length || 0} match rows for participant #${myNumber}`)
-        const pending = []
+        let pending = []
         const formatEntries = await Promise.all([...new Set((allMatches || []).map(match => Number(match.event_id)))].map(async eventId => [
           eventId,
           await loadEvent3Format(supabase, E3_MATCH_ID, eventId),
         ]))
         const pendingFormatByEvent = new Map(formatEntries)
         for (const m of allMatches || []) {
+          const pendingEventFormat = pendingFormatByEvent.get(Number(m.event_id)) || "classic"
           const isCurrentEdition = Number(m.event_id) === Number(currentEventId)
           const firstMatchIsVisible = !isCurrentEdition || EVENT3_FIRST_MATCH_REVEAL_PHASES.has(activeEvent3Phase)
           const secondMatchIsVisible = !isCurrentEdition || EVENT3_SECOND_MATCH_REVEAL_PHASES.has(activeEvent3Phase)
           const thirdMatchIsVisible = !isCurrentEdition || EVENT3_THIRD_MATCH_REVEAL_PHASES.has(activeEvent3Phase)
           if (firstMatchIsVisible && m.phase2_partner && !m.phase2_feedback) {
-            pending.push({ event_id: m.event_id, event_format: pendingFormatByEvent.get(Number(m.event_id)) || "classic", phase: "phase2", partner_number: m.phase2_partner })
+            pending.push({ event_id: m.event_id, event_format: pendingEventFormat, phase: "phase2", partner_number: m.phase2_partner })
           }
           if (secondMatchIsVisible && m.phase3_partner && !m.phase3_feedback) {
-            pending.push({ event_id: m.event_id, event_format: pendingFormatByEvent.get(Number(m.event_id)) || "classic", phase: "phase3", partner_number: m.phase3_partner })
+            pending.push({ event_id: m.event_id, event_format: pendingEventFormat, phase: "phase3", partner_number: m.phase3_partner })
           }
-          if (thirdMatchIsVisible && pendingFormatByEvent.get(Number(m.event_id)) === "choice_only_three_groups" && m.phase4_partner && !m.phase4_feedback) {
+          if (thirdMatchIsVisible && pendingEventFormat === "choice_only_three_groups" && m.phase4_partner && !m.phase4_feedback) {
             pending.push({ event_id: m.event_id, event_format: "choice_only_three_groups", phase: "phase4", partner_number: m.phase4_partner })
           }
+        }
+        const choicePending = pending.filter(item => isChoiceOnlyEvent3(item.event_format))
+        if (choicePending.length > 0) {
+          const choiceEventIds = [...new Set(choicePending.map(item => Number(item.event_id)))]
+          const choicePartnerNumbers = [...new Set(choicePending.map(item => Number(item.partner_number)))]
+          const { data: rankedChoices, error: rankedChoicesError } = await supabase.from("participant_rankings")
+            .select("event_id,ranked_number")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("ranker_number", myNumber)
+            .in("event_id", choiceEventIds)
+            .in("ranked_number", choicePartnerNumbers)
+          if (rankedChoicesError) return event3DependencyFailure(res, "Event3 pending feedback choice lookup", rankedChoicesError, {
+            code: "EVENT3_PENDING_FEEDBACK_UNAVAILABLE",
+            message: "تعذّر التحقق من اختياراتك السابقة مؤقتاً. حاول مجدداً.",
+          })
+          const rankedChoiceKeys = new Set((rankedChoices || []).map(row => `${Number(row.event_id)}:${Number(row.ranked_number)}`))
+          pending = pending.filter(item => !isChoiceOnlyEvent3(item.event_format)
+            || rankedChoiceKeys.has(`${Number(item.event_id)}:${Number(item.partner_number)}`))
         }
         console.log(`[pending-feedbacks] Found ${pending.length} pending feedbacks for participant #${myNumber}`)
         if (pending.length === 0) return res.status(200).json({ pending: [] })

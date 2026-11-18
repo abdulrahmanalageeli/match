@@ -9,3 +9,9 @@
 .env.local
 
 .vercel
+
+# Local ML training exports and Python caches
+__pycache__/
+*.py[cod]
+/.tmp-*-personalization.json
+/.tmp-personalized-*-candidate*.json

@@ -135,7 +135,11 @@ type Event3ReplayOption = {
   replay_ready: boolean
 }
 const CHOICE_ONLY_MIN_PARTICIPANTS = 6
+const CLASSIC_MIN_PARTICIPANTS = 6
 const CHOICE_ONLY_MAX_PARTICIPANTS = 46
+
+type Admin3Tab = "control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance" | "aiwelcome"
+const ADMIN3_TAB_IDS: Admin3Tab[] = ["control", "seating", "ranking", "participants", "overview", "feedback", "attendance", "aiwelcome"]
 const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
   && Number(count) <= CHOICE_ONLY_MAX_PARTICIPANTS
   && Number(count) % 2 === 0
@@ -420,11 +424,11 @@ const seatingWarningLabels: Record<string, string> = {
   missing_curiosity_mix: "مزيج الفضول ضعيف",
   role_trio_missing: "ثلاثية الأدوار غير مكتملة",
   missing_role_trio: "ثلاثية الأدوار غير مكتملة",
+  missing_age_data: "بيانات العمر غير مكتملة",
   curiosity_flow_missing: "تدفق الفضول غير مكتمل",
   missing_curiosity_flow: "تدفق الفضول غير مكتمل",
   humor_clash: "تعارض ملحوظ في أسلوب المزاح",
   age_spread: "فارق أعمار واسع",
-  missing_age_data: "بيانات العمر غير مكتملة",
   wide_age_range: "فارق أعمار واسع",
   incomplete_compatibility_coverage: "بيانات التوافق غير مكتملة",
   incomplete_age_coverage: "بيانات العمر غير مكتملة",
@@ -1553,7 +1557,7 @@ export default function Admin3Page() {
   const [replayConfirmOpen, setReplayConfirmOpen] = useState(false)
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
   const [migrationErrors, setMigrationErrors] = useState<string[] | null>(null)
-  const [diagnostics, setDiagnostics] = useState<{ healthy: boolean; checks: any[] } | null>(null)
+  const [diagnostics, setDiagnostics] = useState<{ healthy: boolean; checks: any[]; error?: string } | null>(null)
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false)
   const [report, setReport] = useState<any | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
@@ -1633,10 +1637,14 @@ export default function Admin3Page() {
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance" | "aiwelcome">("control")
+  const [activeTab, setActiveTabState] = useState<Admin3Tab>("control")
+  const setActiveTab = useCallback((tab: Admin3Tab) => {
+    setActiveTabState(tab)
+    if (typeof window !== "undefined") window.localStorage.setItem("admin3-active-tab", tab)
+  }, [])
   useEffect(() => {
     if (mutualChoice && !["control", "seating", "attendance"].includes(activeTab)) setActiveTab("control")
-  }, [mutualChoice, activeTab])
+  }, [mutualChoice, activeTab, setActiveTab])
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
@@ -1692,6 +1700,7 @@ export default function Admin3Page() {
   }, [choiceOnly, mapRound])
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
+  const [seatingFocusNumber, setSeatingFocusNumber] = useState<number | null>(null)
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
   const [pairDetail, setPairDetail] = useState<any | null>(null)
@@ -1700,6 +1709,8 @@ export default function Admin3Page() {
   const [overviewSearch, setOverviewSearch] = useState("")
   const [overviewFilter, setOverviewFilter] = useState("all")
   const [participantSort, setParticipantSort] = useState<"number" | "name" | "voted">("number")
+  const [participantViewSearch, setParticipantViewSearch] = useState("")
+  const [participantViewFilter, setParticipantViewFilter] = useState<"all" | "not_ranked" | "not_seated" | "unmatched" | "absent">("all")
   const [feedbackData, setFeedbackData] = useState<any>(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [feedbackPolling, setFeedbackPolling] = useState(false)
@@ -1743,12 +1754,19 @@ export default function Admin3Page() {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const storedTab = window.localStorage.getItem("admin3-active-tab") as Admin3Tab | null
+    if (storedTab && ADMIN3_TAB_IDS.includes(storedTab)) setActiveTabState(storedTab)
+  }, [])
+
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
   const [attendanceData, setAttendanceData] = useState<any[]>([])
   const [attendanceLoading, setAttendanceLoading] = useState(false)
   const [attendanceToggling, setAttendanceToggling] = useState<Record<number, boolean>>({})
   const [attendanceSearch, setAttendanceSearch] = useState("")
+  const [attendanceFilter, setAttendanceFilter] = useState<"all" | "present" | "absent">("all")
   const [testMode, setTestMode] = useState(false)
   const [testModeLoading, setTestModeLoading] = useState(false)
   const [testModeData, setTestModeData] = useState<any>(null)
@@ -1855,9 +1873,16 @@ export default function Admin3Page() {
 
   const runDiagnostics = useCallback(async () => {
     setDiagnosticsLoading(true)
-    const data = await api("e3-run-diagnostics")
-    setDiagnostics(data)
-    setDiagnosticsLoading(false)
+    try {
+      const data = await api("e3-run-diagnostics")
+      if (data.error || !Array.isArray(data.checks)) {
+        setDiagnostics({ healthy: false, checks: [], error: data.error || "تعذّر قراءة نتيجة الفحص" })
+      } else {
+        setDiagnostics(data)
+      }
+    } finally {
+      setDiagnosticsLoading(false)
+    }
   }, [])
 
   const generateReport = useCallback(async () => {
@@ -2004,12 +2029,16 @@ export default function Admin3Page() {
   }, [])
 
   const handleEditFeedback = useCallback(async (participantNumber: number, phase: string, newFb: any, expectedPartner: number) => {
+    if (previewEventId != null) {
+      toast.error("لا يمكن تعديل التقييمات في وضع المعاينة")
+      return false
+    }
     const d = await api("e3-edit-feedback", { participant_number: participantNumber, expected_partner: expectedPartner, phase, feedback: newFb })
     if (d.error) { toast.error(d.error); return false }
     toast.success("تم تعديل التقييم")
     fetchFeedback()
     return true
-  }, [fetchFeedback])
+  }, [fetchFeedback, previewEventId])
 
   const handleEditFeedbackRef = useRef(handleEditFeedback)
   handleEditFeedbackRef.current = handleEditFeedback
@@ -2081,12 +2110,17 @@ export default function Admin3Page() {
   const toggleAttendance = useCallback(async (p: any) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الحضور في وضع المعاينة"); return }
     setAttendanceToggling(prev => ({ ...prev, [p.number]: true }))
-    const data = await api("e3-set-attendance", { participant_number: p.number, attended: !p.attended })
-    if (data.success) {
-      setAttendanceData(prev => prev.map((x: any) => x.number === p.number ? { ...x, attended: data.attended } : x))
+    try {
+      const data = await api("e3-set-attendance", { participant_number: p.number, attended: !p.attended })
+      if (data.success) {
+        setAttendanceData(prev => prev.map((x: any) => x.number === p.number ? { ...x, attended: data.attended } : x))
+      } else {
+        toast.error(data.error || "تعذّر تحديث الحضور")
+      }
+    } finally {
+      setAttendanceToggling(prev => { const c = { ...prev }; delete c[p.number]; return c })
     }
-    setAttendanceToggling(prev => { const c = { ...prev }; delete c[p.number]; return c })
-  }, [])
+  }, [previewEventId])
 
   const sendNotification = useCallback(async () => {
     if (previewEventId != null) { toast.error("لا يمكن إرسال الإشعارات في وضع المعاينة"); return }
@@ -2127,7 +2161,9 @@ export default function Admin3Page() {
   }
 
   const fetchSOS = useCallback(async () => {
+    if (getPreviewEventId() != null) return
     const data = await api("e3-get-sos")
+    if (getPreviewEventId() != null) return
     if (!data.requests) return
     const newRequests: any[] = data.requests
     const newPending = newRequests.filter(r => r.status === 'pending' && !knownSosIds.current.has(r.id))
@@ -2152,18 +2188,29 @@ export default function Admin3Page() {
   }, [])
 
   const handleSOSAction = async (id: string, reply: string | null, newStatus: string) => {
-    await api("e3-sos-reply", { id, reply, status: newStatus })
-    if (newStatus === 'resolved') {
-      knownSosIds.current.delete(id)
-      setSosRequests(prev => prev.filter(r => r.id !== id))
-      setSelectedSosId(null)
-    } else {
-      setReplyText("")
-      fetchSOS()
+    if (previewEventId != null) { toast.error("لا يمكن إدارة طلبات المساعدة في وضع المعاينة"); return }
+    if (replyingId === id) return
+    setReplyingId(id)
+    try {
+      const data = await api("e3-sos-reply", { id, reply, status: newStatus })
+      if (data.error || data.success === false) {
+        toast.error(data.error || "تعذّر تحديث الطلب")
+        return
+      }
+      if (newStatus === 'resolved') {
+        setSosRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'resolved' } : r))
+        setSelectedSosId(null)
+      } else {
+        setReplyText("")
+        await fetchSOS()
+      }
+    } finally {
+      setReplyingId(null)
     }
   }
 
   const initiateChat = async () => {
+    if (previewEventId != null) { toast.error("لا يمكن إرسال الرسائل في وضع المعاينة"); return }
     if (!initiateChatText.trim() || !initiateChatTarget) return
     setInitiateSending(true)
     const d = await api("e3-sos-initiate", {
@@ -2242,12 +2289,12 @@ export default function Admin3Page() {
 
   // Visibility-aware polling for state (3s) and SOS (5s)
   useVisibilityPoll(fetchState, 3000, authenticated)
-  useVisibilityPoll(fetchSOS, 5000, authenticated)
+  useVisibilityPoll(fetchSOS, 5000, authenticated && previewEventId == null)
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus(); fetchAttendance() }
     if (authenticated && activeTab === "ranking") { fetchRankStatus(); fetchSeating() }
-    if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
+    if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches(); fetchAttendance() }
     if (authenticated && activeTab === "overview") fetchOverview()
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications(); fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "attendance") fetchAttendance()
@@ -2396,7 +2443,31 @@ export default function Admin3Page() {
     const phaseLabel = phases.find(item => item.id === phase)?.label || phase
     const currentPhaseIndex = phases.findIndex(item => item.id === String(state?.phase || "setup"))
     const targetPhaseIndex = phases.findIndex(item => item.id === phase)
-    if (targetPhaseIndex !== currentPhaseIndex + 1 && !confirmNonSequentialPhaseChange(phaseLabel)) return
+    const requiresSeating = ["round1", "ranking1", "round2", "ranking2", "round3", "ranking3", "phase2_processing", "break", "phase2_reveal", "phase3_processing", "phase3_reveal", "phase4_processing", "phase4_reveal", "final_reveal"].includes(phase)
+    if (requiresSeating && !state?.seating_generated) {
+      toast.error("ولّد خطة الجلسات وتأكد من اكتمال الطاولات قبل الانتقال إلى هذه المرحلة")
+      setActiveTab("control")
+      return
+    }
+    if (phase === "phase3_reveal" && phase3MissingCount > 0) {
+      toast.error(`لا يمكن الكشف: ${phase3MissingCount} مشارك بلا طاولة مكتملة`)
+      setActiveTab("seating")
+      return
+    }
+    if (phase === "phase4_reveal" && phase4MissingCount > 0) {
+      toast.error(`لا يمكن الكشف: ${phase4MissingCount} مشارك بلا طاولة مكتملة`)
+      setActiveTab("seating")
+      return
+    }
+    if (targetPhaseIndex !== currentPhaseIndex + 1) {
+      if (!confirmNonSequentialPhaseChange(phaseLabel)) return
+    } else {
+      const pendingRankings = Math.max(0, Number(state?.participants_selected || 0) - Number(state?.rankings_submitted || 0))
+      const rankingWarning = phase.includes("phase2") && pendingRankings > 0
+        ? `\n\nتنبيه: ما زال ${pendingRankings} مشاركاً لم يرسلوا تصنيفهم.`
+        : ""
+      if (!window.confirm(`الانتقال الآن إلى «${phaseLabel}»؟\nسيتغيّر ما يراه جميع المشاركين${duration > 0 ? " ويبدأ مؤقت المرحلة" : ""}.${rankingWarning}`)) return
+    }
     setPhaseJumpLoading(phase)
     try {
       const data = await api("e3-set-phase", duration > 0
@@ -2456,6 +2527,7 @@ export default function Admin3Page() {
 
   const randomizeRanking = (ranker: { number: number; name?: string; submitted?: boolean }) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
+    if (!testMode) { toast.error("الترتيب العشوائي متاح في وضع الاختبار فقط"); return }
     const action = ranker.submitted ? "استبدال تصنيفه الحالي" : "إنشاء تصنيف له"
     if (!confirm(`${action} بترتيب عشوائي؟\n${ranker.name || `#${ranker.number}`} لن يكون هو من اختار هذا الترتيب.`)) return
     run(`rand-${ranker.number}`, () => api("e3-randomize-ranking-single", { participant_number: ranker.number }).then(d => {
@@ -2466,6 +2538,7 @@ export default function Admin3Page() {
 
   const randomizeAllRankings = () => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
+    if (!testMode) { toast.error("الترتيب العشوائي متاح في وضع الاختبار فقط"); return }
     if (!confirm("استبدال تصنيفات جميع المشاركين بترتيبات عشوائية؟\nهذا إجراء تجريبي يمحو اختياراتهم الحالية ولا يمكن التراجع عنه.")) return
     run("randomize", () => api("e3-randomize-rankings").then(d => {
       if (!d.error) fetchRankStatus()
@@ -2734,7 +2807,7 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
-    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد إحدى الخطط الثلاث" : "إنشاء خطة أساسية وبديلين للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel >= 6 }
+    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد إحدى الخطط الثلاث" : "إنشاء خطة أساسية وبديلين للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel >= CLASSIC_MIN_PARTICIPANTS }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
@@ -2949,8 +3022,14 @@ export default function Admin3Page() {
     })
   }
 
-  const saveParticipants = () => { if (mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode)) { toast.error("قائمة المشاركين مقفلة أثناء الجولات"); return } if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
-    const minimumParticipants = 4
+  const saveParticipants = () => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return }
+    if (state?.phase !== "setup" || state?.seating_generated) {
+      toast.error("لا يمكن استبدال قائمة المشاركين بعد توليد الجلسات أو بدء الفعالية")
+      return
+    }
+    run("save-participants", async () => {
+    const minimumParticipants = CLASSIC_MIN_PARTICIPANTS
     if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
       return { error: `يجب اختيار عدد زوجي من 6 إلى 46 مشاركاً (تم اختيار ${selectedNumbers.size})` }
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
@@ -2962,7 +3041,8 @@ export default function Admin3Page() {
       fetchParticipants()
     }
     return data
-  }) }
+    })
+  }
 
   const triggerPhase2 = (confirmedOutOfSequence = false) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
@@ -3155,7 +3235,6 @@ export default function Admin3Page() {
   }
 
   const toggleParticipant = (num: number) => {
-    if (mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode)) return
     if (choiceOnly && !selectedNumbers.has(num) && selectedNumbers.size >= CHOICE_ONLY_MAX_PARTICIPANTS) {
       toast.error(`الحد الأقصى لهذه الفعالية ${CHOICE_ONLY_MAX_PARTICIPANTS} مشاركاً`)
       return
@@ -3279,7 +3358,7 @@ export default function Admin3Page() {
   const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
   const participantAccessLocked = state?.event3_participant_access_locked === true
   const canEditEventFormat = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
-  const mutualRosterLocked = mutualChoice && (state?.phase !== "setup" || state?.seating_generated || testMode || !!loading)
+  const canEditRoster = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
   const selectedReplayEvent = replayEvents.find(option => option.event_id === Number(replaySourceEventId)) || null
 
   return (
@@ -3313,6 +3392,8 @@ export default function Admin3Page() {
               setSosRequests(prev => prev.map(r => r.status === 'pending' ? { ...r, status: 'seen' } : r))
             }
           }}
+            aria-label="طلبات المساعدة والرسائل"
+            title="طلبات المساعدة والرسائل"
             className="relative p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
             <MessageSquare size={18} />
             {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
@@ -3321,7 +3402,7 @@ export default function Admin3Page() {
               </span>
             )}
           </button>
-          <button onClick={logout} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
+          <button onClick={logout} aria-label="تسجيل الخروج" title="تسجيل الخروج" className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
             <LogOut size={18} />
           </button>
         </div>
@@ -3368,9 +3449,13 @@ export default function Admin3Page() {
                 if (val === realCurrentEventId) {
                   setPreviewEventId(null)
                   setPreviewEventIdState(null)
+                  knownSosIds.current.clear()
+                  void fetchSOS()
                 } else {
                   setPreviewEventId(val)
                   setPreviewEventIdState(val)
+                  setSosRequests([])
+                  setSosModalOpen(false)
                 }
                 // Refetch all data for the selected event
                 fetchState()
@@ -3435,6 +3520,51 @@ export default function Admin3Page() {
           </div>
         )}
 
+        {/* Primary workspace navigation stays reachable throughout long live-operation views. */}
+        <div role="tablist" aria-label="أقسام لوحة الفعالية" className="sticky top-0 z-30 -mx-1 flex gap-1 overflow-x-auto border-b border-gray-800 bg-gray-950/95 px-1 pt-1 shadow-lg shadow-black/20 backdrop-blur-md scrollbar-thin sm:gap-2">
+          {[
+            { id: "control",      label: "التحكم",     icon: Play },
+            { id: "seating",      label: "خريطة الجلسات", icon: Table2 },
+            { id: "participants", label: "المشاركون",  icon: Users },
+            { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
+            { id: "overview",     label: "نظرة شاملة", icon: Layers },
+            { id: "feedback",     label: "التقييمات",   icon: Star },
+            { id: "attendance",   label: "الحضور",      icon: CheckCircle },
+            { id: "aiwelcome",    label: "ترحيب AI",     icon: Sparkles },
+          ].filter(tab => !mutualChoice || ["control", "seating", "attendance"].includes(tab.id)).map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id as Admin3Tab)}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "border-purple-500 text-purple-400"
+                  : "border-transparent text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              <tab.icon size={14} />{tab.label}
+              {tab.id === "ranking" && state && Math.max(0, Number(state.participants_selected || 0) - Number(state.rankings_submitted || 0)) > 0 && (
+                <span className="rounded-full bg-amber-500/20 px-1.5 text-[9px] font-bold text-amber-300">{Math.max(0, Number(state.participants_selected || 0) - Number(state.rankings_submitted || 0))}</span>
+              )}
+              {tab.id === "seating" && phase3MissingCount + phase4MissingCount > 0 && (
+                <span className="rounded-full bg-red-500/20 px-1.5 text-[9px] font-bold text-red-300">{phase3MissingCount + phase4MissingCount}</span>
+              )}
+              {tab.id === "feedback" && sosRequests.filter(request => request.status !== "resolved").length > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 text-[9px] font-bold text-white">{sosRequests.filter(request => request.status !== "resolved").length}</span>
+              )}
+            </button>
+          ))}
+          {!mutualChoice && state?.timer_active && previewEventId == null && (
+            <span className={`mr-auto hidden shrink-0 items-center gap-1.5 self-center rounded-lg border px-2 py-1 font-mono text-[10px] font-bold md:flex ${timerRemaining < 120 ? "border-red-700/50 bg-red-950/50 text-red-300" : "border-blue-700/50 bg-blue-950/40 text-blue-300"}`}>
+              <Clock size={11} /> {formatTime(timerRemaining)}
+            </span>
+          )}
+        </div>
+
+        {activeTab === "control" && <>
+
         {/* Event format — stored per edition and locked once seating exists. */}
         {state && (
           <div className="rounded-xl border border-gray-800 bg-gray-900 p-3 sm:p-4">
@@ -3457,8 +3587,8 @@ export default function Admin3Page() {
               </div>
               <div className="flex flex-wrap rounded-xl border border-gray-700 bg-gray-950/60 p-1">
                 {([
+                  { id: "classic", label: "مجموعتان · اختيار + خوارزمية" },
                   { id: "mutual_choice_six_rounds", label: "6 جولات · اختيار متبادل" },
-                  { id: "classic", label: "النظام الكلاسيكي" },
                   { id: "choice_only_three_groups", label: "3 مجموعات · 3 اختيارات فردية" },
                 ] as Array<{ id: Event3Format; label: string }>).map(option => (
                   <button
@@ -3475,7 +3605,7 @@ export default function Admin3Page() {
                 ))}
               </div>
             </div>
-            <p className="mt-2 text-[10px] leading-5 text-teal-300/70">الاختيار المتبادل هو النظام الافتراضي للفعاليات الجديدة. تحتفظ كل فعالية سابقة بنظامها المحفوظ.</p>
+            <p className="mt-2 text-[10px] leading-5 text-teal-300/70">النظام الكلاسيكي هو الافتراضي للفعاليات الجديدة: جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة بخوارزمية التوافق الحالية. تحتفظ كل فعالية سابقة بنظامها المحفوظ.</p>
             {!canEditEventFormat && (
               <p className="mt-2 text-[9px] text-amber-500/70">
                 {previewEventId != null ? "المعاينة للقراءة فقط." : testMode ? "أنهِ وضع الاختبار لتغيير النظام." : "يمكن تغيير النظام أثناء الإعداد وقبل توليد خطة الجلسات فقط."}
@@ -3484,11 +3614,11 @@ export default function Admin3Page() {
           </div>
         )}
 
-        {mutualChoice && activeTab === "control" && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-800/35 bg-amber-950/20 p-4"><div><p className="text-xs font-bold text-amber-200">{testMode ? "اختبار منفصل عن الفعالية الأصلية" : "تجربة الجولات قبل الفعالية"}</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">{testMode ? "عند الانتهاء تُستعاد بيانات الفعالية الأصلية." : "جهّز قائمة تجريبية، ثم جرّب الجولات الست من لوحة التشغيل أدناه."}</p></div><button type="button" onClick={testMode ? endTestMode : startTestMode} disabled={!!loading || testModeLoading || (!testMode && state?.phase !== "setup")} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-700/40 bg-amber-900/30 px-4 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900/50 disabled:opacity-40">{testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}{testMode ? "إنهاء الاختبار واستعادة الفعالية" : "بدء وضع الاختبار"}</button></div>}
+        {mutualChoice && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-800/35 bg-amber-950/20 p-4"><div><p className="text-xs font-bold text-amber-200">{testMode ? "اختبار منفصل عن الفعالية الأصلية" : "تجربة الجولات قبل الفعالية"}</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">{testMode ? "عند الانتهاء تُستعاد بيانات الفعالية الأصلية." : "جهّز قائمة تجريبية، ثم جرّب الجولات الست من لوحة التشغيل أدناه."}</p></div><button type="button" onClick={testMode ? endTestMode : startTestMode} disabled={!!loading || testModeLoading || (!testMode && state?.phase !== "setup")} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-700/40 bg-amber-900/30 px-4 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900/50 disabled:opacity-40">{testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}{testMode ? "إنهاء الاختبار واستعادة الفعالية" : "بدء وضع الاختبار"}</button></div>}
 
-        {mutualChoice && activeTab === "control" && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4"><div><p className="text-xs font-bold text-gray-200">دخول المشاركين: {participantAccessLocked ? "مغلق" : "مفتوح"}</p><p className="mt-1 text-[10px] text-gray-500">افتح الدخول عندما تكون مستعداً لاستقبال المشاركين.</p></div><button type="button" onClick={toggleParticipantAccessLock} disabled={participantAccessLoading || !!loading} aria-pressed={participantAccessLocked} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-teal-700/40 bg-teal-900/20 px-4 py-2 text-xs font-bold text-teal-200 disabled:opacity-40">{participantAccessLoading ? <Loader2 size={14} className="animate-spin" /> : participantAccessLocked ? <Eye size={14} /> : <EyeOff size={14} />}{participantAccessLocked ? "فتح دخول المشاركين" : "إغلاق دخول المشاركين"}</button></div>}
+        {mutualChoice && previewEventId == null && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4"><div><p className="text-xs font-bold text-gray-200">دخول المشاركين: {participantAccessLocked ? "مغلق" : "مفتوح"}</p><p className="mt-1 text-[10px] text-gray-500">افتح الدخول عندما تكون مستعداً لاستقبال المشاركين.</p></div><button type="button" onClick={toggleParticipantAccessLock} disabled={participantAccessLoading || !!loading} aria-pressed={participantAccessLocked} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-teal-700/40 bg-teal-900/20 px-4 py-2 text-xs font-bold text-teal-200 disabled:opacity-40">{participantAccessLoading ? <Loader2 size={14} className="animate-spin" /> : participantAccessLocked ? <Eye size={14} /> : <EyeOff size={14} />}{participantAccessLocked ? "فتح دخول المشاركين" : "إغلاق دخول المشاركين"}</button></div>}
 
-        {mutualChoice && activeTab === "control" && <MutualChoiceAdmin
+        {mutualChoice && <MutualChoiceAdmin
           key={`mutual-${state?.event_id}-${state?.test_session_key}-${previewEventId}`}
           api={api}
           eventId={Number(state?.current_event_id ?? state?.event_id)}
@@ -3543,20 +3673,26 @@ export default function Admin3Page() {
         {state && (
           <div className={`grid grid-cols-2 sm:grid-cols-3 ${choiceOnly ? "md:grid-cols-6" : "md:grid-cols-5"} gap-2 sm:gap-3`}>
             {[
-              { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: choiceOnly ? choiceOnlyRosterReady(state.participants_selected) : (state.participants_selected || 0) >= 6 },
-              { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
-              { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
-              { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
-              { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: choiceOnly ? Heart : Brain, ok: state.phase3_matches_done },
-              ...(choiceOnly ? [{ label: "مطابقات الاختيار الثالث", value: state.phase4_matches_done ? "جاهزة ✓" : "—", icon: Sparkles, ok: state.phase4_matches_done }] : []),
+              { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: choiceOnly ? choiceOnlyRosterReady(state.participants_selected) : (state.participants_selected || 0) >= CLASSIC_MIN_PARTICIPANTS, tab: "participants" },
+              { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated, tab: "seating" },
+              { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1), tab: "ranking" },
+              { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done, tab: "overview" },
+              { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: choiceOnly ? Heart : Brain, ok: state.phase3_matches_done, tab: "overview" },
+              ...(choiceOnly ? [{ label: "مطابقات الاختيار الثالث", value: state.phase4_matches_done ? "جاهزة ✓" : "—", icon: Sparkles, ok: state.phase4_matches_done, tab: "overview" }] : []),
             ].map(stat => (
-              <div key={stat.label} className={`bg-gray-900 border rounded-xl p-3 sm:p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
+              <button
+                key={stat.label}
+                type="button"
+                onClick={() => setActiveTab(stat.tab as Admin3Tab)}
+                className={`bg-gray-900 border rounded-xl p-3 sm:p-4 text-right transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${stat.ok ? "border-green-800" : "border-gray-800"}`}
+                aria-label={`${stat.label}: ${stat.value}. عرض التفاصيل`}
+              >
                 <div className="flex items-center justify-between mb-1">
                   <stat.icon size={14} className={stat.ok ? "text-green-400" : "text-gray-500"} />
                   <span className={`text-base sm:text-lg font-bold ${stat.ok ? "text-green-400" : "text-white"}`}>{stat.value}</span>
                 </div>
                 <p className="text-[10px] sm:text-xs text-gray-500">{stat.label}</p>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -3858,6 +3994,9 @@ export default function Admin3Page() {
                 {diagnostics.healthy ? <Check size={16} /> : <AlertTriangle size={16} />}
                 {diagnostics.healthy ? "جاهز للبدء" : "هناك مشاكل تحتاج المعالجة"}
               </div>
+              {diagnostics.error && (
+                <p role="alert" className="rounded-lg border border-red-800/40 bg-red-950/30 p-3 text-xs text-red-300">{diagnostics.error}</p>
+              )}
               <div className="space-y-1">
                 {diagnostics.checks.map((check, i) => (
                   <div key={i} className={`flex items-start gap-2 text-xs p-2 rounded-lg ${check.status === "ok" ? "bg-green-950/30 text-green-300" : check.status === "warn" ? "bg-yellow-950/30 text-yellow-300" : "bg-red-950/30 text-red-300"}`}>
@@ -4063,34 +4202,9 @@ export default function Admin3Page() {
             </div>
           </div>
         )}
-
         </>}
 
-        {/* Tabs */}
-        <div className="flex gap-1 sm:gap-2 border-b border-gray-800 overflow-x-auto scrollbar-thin">
-          {[
-            { id: "control",      label: "التحكم",     icon: Play },
-            { id: "seating",      label: "خريطة الجلسات", icon: Table2 },
-            { id: "participants", label: "المشاركون",  icon: Users },
-            { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
-            { id: "overview",     label: "نظرة شاملة", icon: Layers },
-            { id: "feedback",     label: "التقييمات",   icon: Star },
-            { id: "attendance",   label: "الحضور",      icon: CheckCircle },
-            { id: "aiwelcome",    label: "ترحيب AI",     icon: Sparkles },
-          ].filter(tab => !mutualChoice || ["control", "seating", "attendance"].includes(tab.id)).map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "border-purple-500 text-purple-400"
-                  : "border-transparent text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              <tab.icon size={14} />{tab.label}
-            </button>
-          ))}
-        </div>
+        </>}
 
         {/* TAB: CONTROL ─────────────────────────────────────────────────────── */}
         {activeTab === "control" && (
@@ -4138,7 +4252,7 @@ export default function Admin3Page() {
                   <Users size={16} className="text-purple-400" /> اختيار المشاركين
                 </h3>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size >= 6) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size >= CLASSIC_MIN_PARTICIPANTS) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
                     {selectedNumbers.size} مختار
                   </span>
                   {selectedNumbers.size > 0 && (() => {
@@ -4159,7 +4273,8 @@ export default function Admin3Page() {
                   })()}
                   <button
                     onClick={saveParticipants}
-                    disabled={(choiceOnly ? !choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size < 6) || !!loading || previewEventId != null || mutualRosterLocked}
+                    disabled={(choiceOnly ? !choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size < CLASSIC_MIN_PARTICIPANTS) || !canEditRoster}
+                    title={!canEditRoster ? "تعديل القائمة متاح أثناء الإعداد وقبل توليد الجلسات فقط" : undefined}
                     className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1"
                   >
                     {loading === "save-participants" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -4196,7 +4311,7 @@ export default function Admin3Page() {
                 </select>
                 <button
                   onClick={selectAllPaid}
-                  disabled={previewEventId != null || mutualRosterLocked}
+                  disabled={!canEditRoster}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1.5 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <CheckCircle size={14} />
@@ -4209,7 +4324,7 @@ export default function Admin3Page() {
                   <button
                     key={p.number}
                     onClick={() => toggleParticipant(p.number)}
-                    disabled={previewEventId != null || mutualRosterLocked}
+                    disabled={!canEditRoster}
                     className={`flex items-center gap-2 p-2 rounded-lg border text-right text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                       selectedNumbers.has(p.number)
                         ? "border-purple-500 bg-purple-900/30 text-white"
@@ -4231,6 +4346,11 @@ export default function Admin3Page() {
                   </button>
                 ))}
               </div>
+              {!canEditRoster && (
+                <p className="mt-3 flex items-center gap-1.5 text-[11px] text-amber-400/80">
+                  <Shield size={12} /> {mutualChoice ? "قائمة المشاركين مقفلة أثناء الجولات؛ أعد التشغيل إلى الإعداد قبل تغييرها." : "قائمة المشاركين مقفلة بعد توليد الجلسات أو بدء الفعالية؛ استخدم إجراءات الاستبدال المخصصة لتفادي كسر الطاولات والمطابقات."}
+                </p>
+              )}
             </div>
 
             {!mutualChoice && <>
@@ -4280,11 +4400,11 @@ export default function Admin3Page() {
             {choiceOnly && !choiceSeatingPreview && approvedChoiceSeatingReport?.report && approvedChoiceSeatingCandidate && (() => {
               const approvedLabel = choiceCandidateLabels[Number(approvedChoiceSeatingCandidate.rank)] || choiceCandidateLabels[1]
               const approvedSummary = approvedChoiceSeatingReport.report.summary || {}
+              const approvedMetricKeys = choiceReportMetricKeys(approvedChoiceSeatingReport.report)
               const createdAt = Date.parse(String(approvedChoiceSeatingReport.created_at || approvedChoiceSeatingReport.report.generated_at || ""))
               const seatingMatchKnown = typeof approvedChoiceSeatingReport.matches_current_seating === "boolean"
               const seatingMatchesApproval = approvedChoiceSeatingReport.matches_current_seating === true
               const seatingChangedAfterApproval = approvedChoiceSeatingReport.matches_current_seating === false
-              const approvedMetricKeys = choiceReportMetricKeys(approvedChoiceSeatingReport.report)
               return (
                 <section className={`overflow-hidden rounded-2xl border ${seatingChangedAfterApproval ? "border-amber-700/50 bg-amber-950/15" : "border-emerald-800/40 bg-emerald-950/15"}`}>
                   <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -4338,7 +4458,7 @@ export default function Admin3Page() {
                     action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: state?.phase === "setup" && state?.seating_generated !== true && (choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6),
+                    enabled: state?.phase === "setup" && state?.seating_generated !== true && (choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= CLASSIC_MIN_PARTICIPANTS),
                     loadKey: "seating",
                   },
                   {
@@ -4919,16 +5039,32 @@ export default function Admin3Page() {
                 خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة تستهدف 6 أشخاص وتقليل تكرار اللقاءات. تُوزّع الأعداد الإضافية على الطاولات بالتساوي؛ مثلاً 20 مشاركاً يصبحون 7، 7، 6.
               </div>
             ) : (
-              <SeatingAlternatives
-                key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
-                eventId={Number(realCurrentEventId)}
-                testMode={testMode}
-                focusNumber={participants.some(p => p.number === 7 && p.selected) ? 7 : null}
-                request={api}
-                disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
-                disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}
-                onApplied={async () => { setSwapA(null); setMoveA(null); await Promise.all([fetchSeating(), fetchState()]) }}
-              />
+              <div className="space-y-2 rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+                <label className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                  <span className="font-semibold text-gray-300">تركيز البدائل على:</span>
+                  <select
+                    value={seatingFocusNumber ?? ""}
+                    onChange={event => setSeatingFocusNumber(event.target.value ? Number(event.target.value) : null)}
+                    className="min-h-9 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 text-xs text-white outline-none focus:border-purple-500 sm:max-w-xs"
+                  >
+                    <option value="">التوزيع العام — بدون مشارك محدد</option>
+                    {participants.filter(participant => participant.selected).sort((a, b) => a.number - b.number).map(participant => (
+                      <option key={participant.number} value={participant.number}>#{participant.number} · {participant.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <SeatingAlternatives
+                  key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
+                  eventId={Number(realCurrentEventId)}
+                  testMode={testMode}
+                  focusNumber={seatingFocusNumber}
+                  focusName={participants.find(participant => participant.number === seatingFocusNumber)?.name || null}
+                  request={api}
+                  disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
+                  disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}
+                  onApplied={async () => { setSwapA(null); setMoveA(null); await Promise.all([fetchSeating(), fetchState()]) }}
+                />
+              </div>
             )}
 
             {/* Swap mode banner */}
@@ -5401,6 +5537,7 @@ export default function Admin3Page() {
           const selected = participants.filter(p => p.selected)
           const getPairFor = (pairs: any[], num: number) => pairs.find((mp: any) => mp.a === num || mp.b === num)
           const getMatchFor = (num: number) => getPairFor(matchPairs, num)
+          const attendanceByNumber = new Map(attendanceData.map((entry: any) => [Number(entry.number), Boolean(entry.attended)]))
           const getPopularity = (num: number) => {
             let count = 0
             for (const r of allRankings) {
@@ -5410,7 +5547,17 @@ export default function Admin3Page() {
             }
             return count
           }
-          const sortedPts = [...selected].sort((a, b) => {
+          const visibleSelected = selected.filter(participant => {
+            const query = participantViewSearch.trim().toLowerCase()
+            if (query && !String(participant.name || "").toLowerCase().includes(query) && !String(participant.number).includes(query)) return false
+            const tables = getParticipantTables(participant.number)
+            if (participantViewFilter === "not_ranked" && allRankings.find(ranking => ranking.number === participant.number)?.submitted) return false
+            if (participantViewFilter === "not_seated" && groupRounds.every(round => tables[round] != null)) return false
+            if (participantViewFilter === "unmatched" && getMatchFor(participant.number)) return false
+            if (participantViewFilter === "absent" && attendanceByNumber.get(Number(participant.number)) !== false) return false
+            return true
+          })
+          const sortedPts = [...visibleSelected].sort((a, b) => {
             if (participantSort === "name") return (a.name || '').localeCompare(b.name || '')
             if (participantSort === "voted") {
               const av = allRankings.find(r => r.number === a.number)?.submitted ? 1 : 0
@@ -5426,7 +5573,28 @@ export default function Admin3Page() {
                 <h3 className="font-semibold text-gray-300">نظرة شاملة على المشاركين</h3>
                 <p className="text-xs text-gray-600 mt-0.5">{selected.length} مشارك مختار · اضغط لعرض التفاصيل</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <div className="relative min-w-44 flex-1 sm:flex-none">
+                  <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600" />
+                  <input
+                    value={participantViewSearch}
+                    onChange={event => setParticipantViewSearch(event.target.value)}
+                    placeholder="بحث بالاسم أو الرقم..."
+                    className="min-h-9 w-full rounded-lg border border-gray-700 bg-gray-800 py-1.5 pr-8 pl-2 text-xs text-white outline-none focus:border-purple-500 sm:w-52"
+                  />
+                </div>
+                <select
+                  value={participantViewFilter}
+                  onChange={event => setParticipantViewFilter(event.target.value as typeof participantViewFilter)}
+                  aria-label="تصفية المشاركين"
+                  className="min-h-9 rounded-lg border border-gray-700 bg-gray-800 px-2 text-xs text-white"
+                >
+                  <option value="all">كل الحالات</option>
+                  <option value="not_ranked">لم يصنّفوا</option>
+                  <option value="not_seated">طاولاتهم ناقصة</option>
+                  <option value="unmatched">بلا مطابقة</option>
+                  <option value="absent">غير حاضرين</option>
+                </select>
                 <select
                   value={participantSort}
                   onChange={e => setParticipantSort(e.target.value as any)}
@@ -5447,6 +5615,11 @@ export default function Admin3Page() {
                 <Users size={32} className="mx-auto mb-3 opacity-30" />
                 <p>لم يُختَر مشاركون بعد</p>
               </div>
+            ) : sortedPts.length === 0 ? (
+              <div className="rounded-xl border border-gray-800 bg-gray-900/40 py-12 text-center text-sm text-gray-500">
+                لا يوجد مشاركون يطابقون البحث أو الفلتر
+                <button type="button" onClick={() => { setParticipantViewSearch(""); setParticipantViewFilter("all") }} className="mx-auto mt-3 block rounded-lg bg-gray-800 px-3 py-2 text-xs text-purple-300 hover:bg-gray-700">مسح الفلاتر</button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {sortedPts.map(p => {
@@ -5461,6 +5634,10 @@ export default function Admin3Page() {
                   const secondChoiceName = secondChoiceMatch ? (secondChoiceMatch.a === p.number ? secondChoiceMatch.bName : secondChoiceMatch.aName) : null
                   const thirdChoiceName = thirdChoiceMatch ? (thirdChoiceMatch.a === p.number ? thirdChoiceMatch.bName : thirdChoiceMatch.aName) : null
                   const popularity = getPopularity(p.number)
+                  const profileMbti = p.mbti_personality_type || p.mbti
+                  const profileAttachment = p.attachment_style || p.attachment
+                  const attendanceKnown = attendanceByNumber.has(Number(p.number))
+                  const attended = attendanceByNumber.get(Number(p.number)) === true
                   return (
                     <button key={p.number}
                       onClick={() => { setSelectedParticipantNum(p.number); setParticipantPanelOpen(true) }}
@@ -5479,11 +5656,11 @@ export default function Admin3Page() {
                             {p.age && <span className="text-[10px] text-gray-600">· {p.age}</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {p.mbti_personality_type && <span className="text-[10px] text-purple-400">{p.mbti_personality_type}</span>}
-                            {p.attachment_style && (
+                            {profileMbti && <span className="text-[10px] text-purple-400">{profileMbti}</span>}
+                            {profileAttachment && (
                               <span className="flex items-center gap-1 text-[10px] text-teal-400">
-                                <span className={`w-1.5 h-1.5 rounded-full ${p.attachment_style === 'Secure' || p.attachment_style === 'SECURE' ? 'bg-emerald-400' : p.attachment_style === 'Anxious' || p.attachment_style === 'ANXIOUS' ? 'bg-yellow-400' : p.attachment_style === 'Avoidant' || p.attachment_style === 'AVOIDANT' ? 'bg-red-400' : p.attachment_style === 'Fearful' || p.attachment_style === 'FEARFUL' ? 'bg-orange-400' : 'bg-gray-600'}`} />
-                                {attachmentLabels[p.attachment_style] || p.attachment_style}
+                                <span className={`w-1.5 h-1.5 rounded-full ${profileAttachment === 'Secure' || profileAttachment === 'SECURE' ? 'bg-emerald-400' : profileAttachment === 'Anxious' || profileAttachment === 'ANXIOUS' ? 'bg-yellow-400' : profileAttachment === 'Avoidant' || profileAttachment === 'AVOIDANT' ? 'bg-red-400' : profileAttachment === 'Fearful' || profileAttachment === 'FEARFUL' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+                                {attachmentLabels[profileAttachment] || profileAttachment}
                               </span>
                             )}
                             {popularity > 0 && <span className="text-[10px] text-pink-400">♥ {popularity}</span>}
@@ -5494,6 +5671,11 @@ export default function Admin3Page() {
                             ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
                             : <span className="text-[10px] text-gray-700">—</span>
                           }
+                          {attendanceKnown && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${attended ? "border-purple-800/40 bg-purple-900/30 text-purple-300" : "border-amber-800/40 bg-amber-900/20 text-amber-300"}`}>
+                              {attended ? "حاضر" : "غائب"}
+                            </span>
+                          )}
                           {match && matchScore != null && (
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
                               matchScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
@@ -5690,7 +5872,8 @@ export default function Admin3Page() {
                     <button
                       type="button"
                       onClick={randomizeAllRankings}
-                      disabled={!!loading || !allRankings.length || previewEventId != null}
+                      disabled={!!loading || !allRankings.length || previewEventId != null || !testMode}
+                      title={!testMode ? "متاح في وضع الاختبار فقط" : undefined}
                       className="min-h-14 rounded-xl border border-violet-800/40 bg-violet-950/25 px-3 py-2 text-right transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <span className="flex items-center gap-1.5 text-xs font-bold text-violet-300">{loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />} عشوائي للجميع</span>
@@ -5959,7 +6142,8 @@ export default function Admin3Page() {
                                   <button
                                     type="button"
                                     onClick={() => randomizeRanking(r)}
-                                    disabled={!!loading || previewEventId != null}
+                                    disabled={!!loading || previewEventId != null || !testMode}
+                                    title={!testMode ? "متاح في وضع الاختبار فقط" : undefined}
                                     className="rounded-lg border border-violet-900/50 bg-violet-950/20 px-3 py-2 text-right text-[10px] text-violet-300 transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     <span className="flex items-center gap-1.5 font-bold">{loading === `rand-${r.number}` ? <RefreshCw size={11} className="animate-spin" /> : <Shuffle size={11} />} استبدال بعشوائي</span>
@@ -6048,7 +6232,8 @@ export default function Admin3Page() {
                                   <button
                                     type="button"
                                     onClick={() => randomizeRanking(r)}
-                                    disabled={!!loading || previewEventId != null}
+                                    disabled={!!loading || previewEventId != null || !testMode}
+                                    title={!testMode ? "متاح في وضع الاختبار فقط" : undefined}
                                     className="w-full rounded-lg border border-violet-900/50 bg-violet-950/20 px-3 py-2 text-right text-[10px] text-violet-300 transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     <span className="flex items-center gap-1.5 font-bold">{loading === `rand-${r.number}` ? <RefreshCw size={11} className="animate-spin" /> : <Shuffle size={11} />} إنشاء ترتيب عشوائي</span>
@@ -6417,6 +6602,10 @@ export default function Admin3Page() {
           .filter(Boolean)
           .sort((a: any, b: any) => a.rank - b.rank)
         if (!p) return null
+        const profileMbti = p.mbti_personality_type || p.mbti
+        const profileCommunication = p.communication_style || p.communication
+        const profileAttachment = p.attachment_style || p.attachment
+        const participantGenderLabel = p.gender === 'female' ? 'أنثى' : p.gender === 'male' ? 'ذكر' : 'غير محدد'
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setParticipantPanelOpen(false)} />
@@ -6425,13 +6614,13 @@ export default function Admin3Page() {
               <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900/95 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center gap-3">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-xl flex-shrink-0 ${
-                    p.gender === 'female' ? 'bg-pink-900/50 border border-pink-700/50 text-pink-300' : 'bg-blue-900/50 border border-blue-700/50 text-blue-300'
+                    p.gender === 'female' ? 'bg-pink-900/50 border border-pink-700/50 text-pink-300' : p.gender === 'male' ? 'bg-blue-900/50 border border-blue-700/50 text-blue-300' : 'bg-gray-800 border border-gray-700 text-gray-300'
                   }`}>
                     {(p.name || '?').charAt(0)}
                   </div>
                   <div>
                     <h3 className="font-bold text-white text-base leading-tight">{p.name}</h3>
-                    <p className="text-[11px] text-gray-500">#{p.number} · {p.gender === 'female' ? 'أنثى' : 'ذكر'}{p.age ? ` · ${p.age} سنة` : ''}</p>
+                    <p className="text-[11px] text-gray-500">#{p.number} · {participantGenderLabel}{p.age ? ` · ${p.age} سنة` : ''}</p>
                   </div>
                 </div>
                 <button onClick={() => setParticipantPanelOpen(false)} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors flex-shrink-0">✕</button>
@@ -6439,16 +6628,16 @@ export default function Admin3Page() {
 
               <div className="p-4 space-y-4 flex-1">
                 {/* Profile tags */}
-                {(p.mbti_personality_type || p.communication_style || p.attachment_style) && (
+                {(profileMbti || profileCommunication || profileAttachment) && (
                   <div className="flex flex-wrap gap-2">
-                    {p.mbti_personality_type && (
-                      <span className="bg-purple-900/40 border border-purple-700/40 text-purple-300 text-xs px-2.5 py-1 rounded-lg font-medium">{p.mbti_personality_type}</span>
+                    {profileMbti && (
+                      <span className="bg-purple-900/40 border border-purple-700/40 text-purple-300 text-xs px-2.5 py-1 rounded-lg font-medium">{profileMbti}</span>
                     )}
-                    {p.communication_style && (
-                      <span className="bg-blue-900/40 border border-blue-700/40 text-blue-300 text-xs px-2.5 py-1 rounded-lg">{communicationLabels[p.communication_style] || p.communication_style}</span>
+                    {profileCommunication && (
+                      <span className="bg-blue-900/40 border border-blue-700/40 text-blue-300 text-xs px-2.5 py-1 rounded-lg">{communicationLabels[profileCommunication] || profileCommunication}</span>
                     )}
-                    {p.attachment_style && (
-                      <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{attachmentLabels[p.attachment_style] || p.attachment_style}</span>
+                    {profileAttachment && (
+                      <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{attachmentLabels[profileAttachment] || profileAttachment}</span>
                     )}
                   </div>
                 )}
@@ -8523,7 +8712,8 @@ export default function Admin3Page() {
           const order: Record<string, number> = { pending: 0, seen: 1, replied: 2, resolved: 3 }
           return (order[a.status] ?? 9) - (order[b.status] ?? 9)
         })
-        const selected = sorted.find(r => r.id === selectedSosId) || null
+        const visibleRequests = sorted.filter(request => sosFilter === 'all' ? true : sosFilter === 'resolved' ? request.status === 'resolved' : request.status !== 'resolved')
+        const selected = visibleRequests.find(r => r.id === selectedSosId) || null
         const selId = selected?.id || null
         const chatHistory: { from: string; text: string; timestamp: string }[] = Array.isArray(selected?.chat_history) ? selected.chat_history : []
         const isOrganizerNeeded = selected?.request_type === 'organizer_needed'
@@ -8569,6 +8759,7 @@ export default function Admin3Page() {
                   {[
                     { id: 'all', label: 'الكل' },
                     { id: 'active', label: 'نشط' },
+                    { id: 'resolved', label: 'تم الحل' },
                   ].map(tab => (
                     <button key={tab.id} onClick={() => setSosFilter(tab.id as any)}
                       className={`flex-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
@@ -8579,7 +8770,7 @@ export default function Admin3Page() {
                   ))}
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                  {sorted.length === 0 && (
+                  {visibleRequests.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-600 gap-2">
                       <div className="w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center">
                         <AlertCircle size={18} className="text-gray-700" />
@@ -8587,9 +8778,7 @@ export default function Admin3Page() {
                       <p className="text-xs">لا توجد طلبات</p>
                     </div>
                   )}
-                  {sorted
-                    .filter(r => sosFilter === 'all' ? true : r.status !== 'resolved')
-                    .map(req => {
+                  {visibleRequests.map(req => {
                     const isSel = req.id === selId
                     const isFlashing = flashIds.has(req.id)
                     const tableMatch = req.table_info?.match(/طاولة\s*(\d+)/)
@@ -8676,9 +8865,10 @@ export default function Admin3Page() {
                         </div>
                       </div>
                       <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
-                        className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center flex-shrink-0"
+                        disabled={replyingId === selId}
+                        className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center flex-shrink-0 disabled:cursor-wait disabled:opacity-40"
                         title="تم الحل">
-                        <CheckCircle size={15} />
+                        {replyingId === selId ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
                       </button>
                     </div>
 
@@ -8713,7 +8903,8 @@ export default function Admin3Page() {
                           <textarea
                             value={replyText}
                             onChange={e => setReplyText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') } }}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (replyText.trim() && replyingId !== selId) handleSOSAction(selId!, replyText, 'replied') } }}
+                            disabled={replyingId === selId}
                             placeholder="اكتب ردك..."
                             rows={1}
                             aria-label="الرد على طلب المساعدة"
@@ -8722,11 +8913,11 @@ export default function Admin3Page() {
                           />
                           <button
                             onClick={() => { if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') }}
-                            disabled={!replyText.trim()}
+                            disabled={!replyText.trim() || replyingId === selId}
                             aria-label="إرسال الرد"
                             className="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-colors flex-shrink-0"
                           >
-                            <Send size={15} />
+                            {replyingId === selId ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                           </button>
                         </div>
                       </div>
@@ -9085,6 +9276,8 @@ export default function Admin3Page() {
       {activeTab === "attendance" && (() => {
         const attended = attendanceData.filter((p: any) => p.attended).length
         const filtered = attendanceData.filter((p: any) => {
+          if (attendanceFilter === "present" && !p.attended) return false
+          if (attendanceFilter === "absent" && p.attended) return false
           if (!attendanceSearch.trim()) return true
           const q = attendanceSearch.trim().toLowerCase()
           return (p.name || "").toLowerCase().includes(q) || String(p.number).includes(q)
@@ -9125,15 +9318,27 @@ export default function Admin3Page() {
                 />
               </div>
               {/* Search */}
-              <div className="mt-3 relative">
-                <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                <input
-                  type="text"
-                  value={attendanceSearch}
-                  onChange={e => setAttendanceSearch(e.target.value)}
-                  placeholder="بحث بالاسم أو الرقم..."
-                  className="w-full bg-gray-950/80 border border-gray-800 focus:border-purple-600/40 rounded-lg py-2 pr-9 pl-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
-                />
+              <div className="mt-3 flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                  <input
+                    type="text"
+                    value={attendanceSearch}
+                    onChange={e => setAttendanceSearch(e.target.value)}
+                    placeholder="بحث بالاسم أو الرقم..."
+                    className="w-full bg-gray-950/80 border border-gray-800 focus:border-purple-600/40 rounded-lg py-2 pr-9 pl-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                  />
+                </div>
+                <select
+                  value={attendanceFilter}
+                  onChange={event => setAttendanceFilter(event.target.value as typeof attendanceFilter)}
+                  aria-label="تصفية الحضور"
+                  className="rounded-lg border border-gray-800 bg-gray-950/80 px-3 text-xs text-white outline-none focus:border-purple-600/40"
+                >
+                  <option value="all">الجميع</option>
+                  <option value="present">حاضر</option>
+                  <option value="absent">غائب</option>
+                </select>
               </div>
             </div>
 
@@ -9154,7 +9359,8 @@ export default function Admin3Page() {
                     <button
                       key={p.number}
                       onClick={() => toggleAttendance(p)}
-                      disabled={attendanceToggling[p.number]}
+                      disabled={attendanceToggling[p.number] || previewEventId != null}
+                      title={previewEventId != null ? "الحضور للقراءة فقط أثناء معاينة فعالية محفوظة" : undefined}
                       className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl border transition-all text-right ${
                         p.attended
                           ? "bg-purple-900/20 border-purple-700/30 hover:bg-purple-900/30"
@@ -9230,10 +9436,12 @@ export default function Admin3Page() {
           })
         }
 
-        const generateBatch = async (regenerate: boolean = false) => {
+        const generateBatch = async (regenerate: boolean = false, explicitNumbers?: number[]) => {
+          if (previewEventId != null) { toast.error("لا يمكن توليد الرسائل في وضع المعاينة"); return }
+          const requestedNumbers = explicitNumbers || Array.from(aiWelcomeSelected)
           const nums = regenerate
-            ? Array.from(aiWelcomeSelected)
-            : Array.from(aiWelcomeSelected).filter(n => !aiWelcomeData.find(p => p.number === n)?.has_welcome)
+            ? requestedNumbers
+            : requestedNumbers.filter(n => !aiWelcomeData.find(p => p.number === n)?.has_welcome)
           if (nums.length === 0) {
             toast.error(regenerate ? "اختر مشاركين لإعادة التوليد" : "لا يوجد مشاركين جدد — استخدم إعادة التوليد")
             return
@@ -9272,6 +9480,7 @@ export default function Admin3Page() {
         }
 
         const generateAll = async (regenerate: boolean = false) => {
+          if (previewEventId != null) { toast.error("لا يمكن توليد الرسائل في وضع المعاينة"); return }
           const nums = regenerate
             ? aiWelcomeData.map(p => p.number)
             : aiWelcomeData.filter(p => !p.has_welcome).map(p => p.number)
@@ -9311,10 +9520,14 @@ export default function Admin3Page() {
         }
 
         const deleteWelcome = async (num: number) => {
+          if (previewEventId != null) { toast.error("لا يمكن حذف الرسائل في وضع المعاينة"); return }
+          if (!confirm("حذف رسالة الترحيب لهذا المشارك؟")) return
           const data = await api("e3-ai-welcome-delete", { participant_number: num })
           if (data.success) {
             setAiWelcomeData(prev => prev.map(p => p.number === num ? { ...p, has_welcome: false, welcome: null } : p))
             toast.success("تم حذف الرسالة")
+          } else {
+            toast.error(data.error || "تعذّر حذف الرسالة")
           }
         }
 
@@ -9341,7 +9554,7 @@ export default function Admin3Page() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => generateAll(false)}
-                  disabled={aiWelcomeGenerating || missing === 0}
+                  disabled={aiWelcomeGenerating || missing === 0 || previewEventId != null}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                 >
                   <Sparkles size={16} />
@@ -9349,7 +9562,7 @@ export default function Admin3Page() {
                 </button>
                 <button
                   onClick={() => generateAll(true)}
-                  disabled={aiWelcomeGenerating || aiWelcomeData.length === 0}
+                  disabled={aiWelcomeGenerating || aiWelcomeData.length === 0 || previewEventId != null}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                 >
                   <RefreshCw size={16} />
@@ -9359,7 +9572,7 @@ export default function Admin3Page() {
                   <>
                     <button
                       onClick={() => generateBatch(false)}
-                      disabled={aiWelcomeGenerating}
+                      disabled={aiWelcomeGenerating || previewEventId != null}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                     >
                       <Sparkles size={16} />
@@ -9367,7 +9580,7 @@ export default function Admin3Page() {
                     </button>
                     <button
                       onClick={() => generateBatch(true)}
-                      disabled={aiWelcomeGenerating}
+                      disabled={aiWelcomeGenerating || previewEventId != null}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                     >
                       <RefreshCw size={16} />
@@ -9512,17 +9725,17 @@ export default function Admin3Page() {
                         </button>
                       )}
                       <button
-                        onClick={() => generateBatch(false)}
-                        disabled={aiWelcomeGenerating || (p.has_welcome && !aiWelcomeSelected.has(p.number))}
+                        onClick={() => generateBatch(Boolean(p.has_welcome), [p.number])}
+                        disabled={aiWelcomeGenerating || previewEventId != null}
                         className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors disabled:opacity-30"
-                        title="توليد"
-                        onClickCapture={() => { if (!aiWelcomeSelected.has(p.number)) toggleSelect(p.number) }}
+                        title={p.has_welcome ? "إعادة توليد الرسالة" : "توليد الرسالة"}
                       >
-                        <Sparkles size={14} />
+                        {p.has_welcome ? <RefreshCw size={14} /> : <Sparkles size={14} />}
                       </button>
                       {p.has_welcome && (
                         <button
                           onClick={() => deleteWelcome(p.number)}
+                          disabled={previewEventId != null}
                           className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-red-400 transition-colors"
                           title="حذف"
                         >
@@ -9576,6 +9789,7 @@ export default function Admin3Page() {
                 <>
                   <button
                     onClick={async () => {
+                      if (previewEventId != null) { toast.error("لا يمكن تعديل الرسائل في وضع المعاينة"); return }
                       setAiWelcomeEditSaving(true)
                       try {
                         const data = await api("e3-ai-welcome-edit", { participant_number: aiWelcomePreview.number, welcome_message: aiWelcomeEditText })
@@ -9590,7 +9804,7 @@ export default function Admin3Page() {
                       } catch { toast.error("فشل الحفظ") }
                       setAiWelcomeEditSaving(false)
                     }}
-                    disabled={aiWelcomeEditSaving || !aiWelcomeEditText.trim()}
+                    disabled={aiWelcomeEditSaving || !aiWelcomeEditText.trim() || previewEventId != null}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
                   >
                     {aiWelcomeEditSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} حفظ
@@ -9611,13 +9825,15 @@ export default function Admin3Page() {
                     <Copy size={14} /> نسخ
                   </button>
                   <button
-                    onClick={() => { setAiWelcomeEditing(true); setAiWelcomeEditText(aiWelcomePreview.welcome) }}
+                    onClick={() => { if (previewEventId != null) return; setAiWelcomeEditing(true); setAiWelcomeEditText(aiWelcomePreview.welcome) }}
+                    disabled={previewEventId != null}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors"
                   >
                     <Pencil size={14} /> تعديل
                   </button>
                   <button
                     onClick={async () => {
+                      if (previewEventId != null) { toast.error("لا يمكن إعادة التوليد في وضع المعاينة"); return }
                       setAiWelcomePreview(null)
                       setAiWelcomeSelected(new Set([aiWelcomePreview.number]))
                       // Trigger regenerate for this single participant
@@ -9638,7 +9854,7 @@ export default function Admin3Page() {
                       setAiWelcomeProgress(null)
                       setAiWelcomeSelected(new Set())
                     }}
-                    disabled={aiWelcomeGenerating}
+                    disabled={aiWelcomeGenerating || previewEventId != null}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
                   >
                     <RefreshCw size={14} /> إعادة توليد

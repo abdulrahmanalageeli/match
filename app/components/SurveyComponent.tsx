@@ -2326,7 +2326,7 @@ const SurveyComponent = memo(function SurveyComponent({
   )
 
   return (
-    <div className="bg-white/0">
+    <div className="survey-premium bg-transparent">
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -2366,7 +2366,7 @@ const SurveyComponent = memo(function SurveyComponent({
                 ما فيه إجابة صح أو خطأ — وإجاباتك تنحفظ تلقائيًا.
               </p>
             </div>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/90 text-white shadow-sm shadow-violet-500/25 ring-1 ring-violet-200/20">
               <Sparkles className="h-5 w-5" />
             </div>
           </div>
@@ -2378,7 +2378,7 @@ const SurveyComponent = memo(function SurveyComponent({
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div
-                className="h-full rounded-full bg-linear-to-l from-cyan-400 to-blue-600 transition-[width] duration-500 ease-out"
+                className="h-full rounded-full bg-linear-to-l from-cyan-300 via-violet-400 to-violet-600 transition-[width] duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -2704,7 +2704,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   handleSubmitWithData(surveyData);
                 }}
                 disabled={loading || !surveyData.termsAccepted || !surveyData.dataConsent}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
+                className="welcome-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -2723,7 +2723,7 @@ const SurveyComponent = memo(function SurveyComponent({
             <Button
               onClick={nextPage}
               disabled={loading || checkingPhone}
-              className="min-h-11 flex-1 items-center gap-2 rounded-xl bg-cyan-500 px-6 text-sm font-extrabold text-slate-950 shadow-sm shadow-cyan-500/20 transition-colors hover:bg-cyan-400 disabled:opacity-50 sm:flex-none sm:min-w-40"
+              className="welcome-primary-action min-h-12 flex-1 items-center gap-2 rounded-xl px-6 text-sm font-extrabold text-white disabled:opacity-50 sm:flex-none sm:min-w-40"
             >
               {checkingPhone ? (
                 <>

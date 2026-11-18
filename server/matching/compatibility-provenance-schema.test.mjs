@@ -182,6 +182,72 @@ test('v12 AI chemistry migration executes and rejects a total that bypasses its 
   assert.equal(freshness.rows[0].version, version)
 })
 
+test('v13 retrained-model activation advances provenance and preserves the AI formula', async t => {
+  const sql = await read('supabase/migrations/20260911120000_activate_v13_events26_27_model.sql')
+  const version = '2026-09-11-v13-events26-27-archetype-ai-chemistry-100'
+
+  assert.match(sql, new RegExp(version))
+  assert.match(sql, /v13_ai_chemistry_score_valid/)
+  assert.match(sql, /compatibility_cache_v13_ai_chemistry_consistent/)
+  assert.match(sql, /event3_matches_phase4_v13_ai_chemistry_consistent/)
+  assert.match(sql, /2026-09-03-v12-event26-archetype-ai-chemistry-100/)
+  assert.doesNotMatch(sql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+
+  const db = new PGlite()
+  t.after(() => db.close())
+  await db.exec(`
+    create role anon;
+    create role authenticated;
+    create role service_role;
+    create table public.compatibility_cache (score_model_version text, score_breakdown jsonb, vibe_axes jsonb, total_compatibility_score numeric);
+    create table public.match_results (score_model_version text, score_snapshot jsonb, compatibility_score numeric);
+    create table public.event3_matches (
+      phase2_score_model_version text, phase2_score_snapshot jsonb, phase2_score numeric,
+      phase3_score_model_version text, phase3_score_snapshot jsonb, phase3_score numeric
+    );
+    create table public.event3_test_match_results (score_model_version text, score_snapshot jsonb, compatibility_score numeric);
+    create function public.current_score_model() returns text language sql immutable
+      as $$ select '2026-09-03-v12-event26-archetype-ai-chemistry-100'::text $$;
+    create view public.v_cache_freshness with (security_invoker = true) as
+      select '2026-09-03-v12-event26-archetype-ai-chemistry-100'::text as score_model_version;
+  `)
+  await db.exec(sql)
+  await db.exec(sql)
+
+  const personalized = { scoreModelVersion: version, totalScore: 80, aToB: { score: 80 }, bToA: { score: 80 } }
+  const vibeAxes = {
+    current_curiosity: { score: 5, confidence: 1 },
+    hobbies: { score: 3, confidence: 1 },
+  }
+  const breakdown = {
+    personalized,
+    personalizedBase: 80,
+    aiChemistryScore: 1,
+    aiChemistryAdjustment: 12,
+    aiChemistryBand: 'high',
+    aiChemistryReady: true,
+    finalScore: 92,
+  }
+  const validity = await db.query(
+    'select public.v13_ai_chemistry_score_valid($1::jsonb, $2::jsonb, 92) as valid',
+    [JSON.stringify(breakdown), JSON.stringify(vibeAxes)],
+  )
+  assert.equal(validity.rows[0].valid, true)
+  await db.query(`
+    insert into public.compatibility_cache (score_model_version, score_breakdown, vibe_axes, total_compatibility_score)
+    values ($1, $2::jsonb, $3::jsonb, 92)
+  `, [version, JSON.stringify(breakdown), JSON.stringify(vibeAxes)])
+  await assert.rejects(() => db.query(`
+    insert into public.compatibility_cache (score_model_version, score_breakdown, vibe_axes, total_compatibility_score)
+    values ($1, $2::jsonb, $3::jsonb, 80)
+  `, [version, JSON.stringify(breakdown), JSON.stringify(vibeAxes)]))
+
+  const routine = await db.query('select public.current_score_model() as version')
+  const freshness = await db.query('select score_model_version as version from public.v_cache_freshness')
+  assert.equal(routine.rows[0].version, version)
+  assert.equal(freshness.rows[0].version, version)
+})
+
 test('feedback-evidence model migration advances database provenance guards without rewriting historical scores', async () => {
   const sql = await read('supabase/migrations/20260902160000_advance_algorithm_feedback_score_model.sql')
   assert.match(sql, /2026-09-02-v9-feedback-evidence-100/)

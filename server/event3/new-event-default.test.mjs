@@ -19,6 +19,7 @@ before(async () => {
     insert into event_state(match_id,current_event_id) values('${MAIN}',29),('${EVENT3}',29);
     insert into event3_event_settings values('${EVENT3}',28,'choice_only_three_groups');`)
   await db.exec(await readFile(new URL("../../supabase/migrations/20260919070805_event3_mutual_default_for_new_events.sql", import.meta.url), "utf8"))
+  await db.exec(await readFile(new URL("../../supabase/migrations/20261111093745_restore_classic_event3_default.sql", import.meta.url), "utf8"))
 })
 after(async () => db?.close())
 beforeEach(async () => {
@@ -37,12 +38,12 @@ test("rollout records the boundary and leaves current and historical formats unc
   assert.equal(await scalar("select count(*)::integer result from event3_event_settings"), 1)
 })
 
-test("new editions default to mutual choice and atomically update both pointers", async () => {
+test("new editions default to classic and atomically update both pointers", async () => {
   const result = await switchEvent(30)
   assert.equal(result.event_created, true)
-  assert.equal(result.event_format, "mutual_choice_six_rounds")
+  assert.equal(result.event_format, "classic")
   assert.equal(result.event3_reset, true)
-  assert.equal(await setting(30), "mutual_choice_six_rounds")
+  assert.equal(await setting(30), "classic")
   assert.equal(await scalar("select count(*)::integer result from event_state where current_event_id=30"), 2)
 })
 
@@ -65,13 +66,13 @@ test("switching old editions never retroactively creates a format setting", asyn
 
 test("older clients and direct pointer writes get the same default", async () => {
   const result = await scalar("select set_current_event_with_event3_sync(30) result")
-  assert.equal(result.event_format, "mutual_choice_six_rounds")
+  assert.equal(result.event_format, "classic")
   await db.query("update event_state set current_event_id=31 where match_id=$1", [EVENT3])
-  assert.equal(await setting(31), "mutual_choice_six_rounds")
+  assert.equal(await setting(31), "classic")
 })
 
 test("reopening the current edition preserves its active phase and explicit settings", async () => {
-  await switchEvent(30)
+  await switchEvent(30, "mutual_choice_six_rounds")
   await db.query("update event_state set phase='round1' where match_id=$1", [EVENT3])
   const result = await switchEvent(30, "classic")
   assert.equal(result.event_created, false)

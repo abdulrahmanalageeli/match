@@ -313,7 +313,7 @@ export function calculatePersonalizedCompatibility(participantA, participantB) {
     priorityScore: totalScore,
     aToB,
     bToA,
-    calibration: 'event26-archetype-ranking-percentile',
+    calibration: modelConfig.calibrationLabel || 'event26-archetype-ranking-percentile',
     mutualFormula: 'geometric_mean',
   })
 }

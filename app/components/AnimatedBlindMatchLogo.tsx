@@ -3,7 +3,7 @@ export function AnimatedBlindMatchLogo() {
     <div
       className="bm-loading-logo relative mx-auto aspect-square w-[7.5rem] sm:w-[9rem]"
       role="img"
-      aria-label="شعار التوافق الأعمى المتحرك"
+      aria-label="شعار بلايند ماتش"
     >
       <style>{`
         .bm-loading-logo {
@@ -18,14 +18,14 @@ export function AnimatedBlindMatchLogo() {
           background: conic-gradient(from 0deg, transparent 0 16%, rgba(192, 88, 255, .78) 27%, transparent 42% 58%, rgba(34, 211, 238, .85) 72%, transparent 88%);
           filter: blur(1px);
           opacity: .86;
-          animation: bm-loading-ring 1.15s linear infinite;
+          animation: bm-loading-ring 14s linear infinite;
           -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
           mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
         }
         .bm-loading-logo-ring-two {
           inset: 6%;
           opacity: .28;
-          animation-duration: 2.1s;
+          animation-duration: 21s;
           animation-direction: reverse;
         }
         .bm-loading-logo-glow {
@@ -35,7 +35,7 @@ export function AnimatedBlindMatchLogo() {
           border-radius: 9999px;
           background: linear-gradient(135deg, rgba(168, 85, 247, .32), rgba(34, 211, 238, .3));
           filter: blur(28px);
-          animation: bm-loading-glow 1.7s ease-in-out infinite;
+          animation: bm-loading-glow 5.8s ease-in-out infinite;
         }
         .bm-loading-logo-image {
           display: block;
@@ -43,8 +43,8 @@ export function AnimatedBlindMatchLogo() {
           height: 100%;
           object-fit: contain;
           border-radius: 9999px;
-          animation: bm-loading-mark 3s linear infinite;
-          will-change: transform, filter;
+          animation: bm-loading-mark 6.4s ease-in-out infinite;
+          will-change: filter;
         }
         @keyframes bm-loading-ring {
           to { transform: rotate(360deg); }
@@ -54,9 +54,8 @@ export function AnimatedBlindMatchLogo() {
           50% { opacity: .82; transform: scale(1.03); }
         }
         @keyframes bm-loading-mark {
-          from { transform: rotate(0deg); filter: brightness(.96); }
-          50% { filter: brightness(1.1); }
-          to { transform: rotate(360deg); filter: brightness(.96); }
+          0%, 100% { filter: brightness(.98) saturate(.96); }
+          50% { filter: brightness(1.06) saturate(1.05); }
         }
         @media (prefers-reduced-motion: reduce) {
           .bm-loading-logo-ring,

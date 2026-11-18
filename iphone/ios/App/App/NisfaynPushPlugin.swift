@@ -10,10 +10,21 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     var token: String?
     var pending: [[String:String]] = []
     var pendingOpen: [String:String]? { pending.first }
+    var scope: String? { UserDefaults.standard.string(forKey: "nisfayn.push.scope") }
+
+    func switchOwner(to next: String?) {
+        guard next == nil || next != scope else { return }
+        UIApplication.shared.unregisterForRemoteNotifications()
+        pending.removeAll()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        UserDefaults.standard.set(next, forKey: "nisfayn.push.scope")
+    }
+
     func setupActions() {
         let reply = UNTextInputNotificationAction(identifier:"NISFAYN_REPLY",title:"رد",options:[.foreground,.authenticationRequired],textInputButtonTitle:"إرسال",textInputPlaceholder:"رسالتك…")
         let read = UNNotificationAction(identifier:"NISFAYN_READ",title:"تحديد كمقروء",options:[.foreground,.authenticationRequired])
-        let category = UNNotificationCategory(identifier:"NISFAYN_MESSAGE",actions:[reply,read],intentIdentifiers:[],hiddenPreviewsBodyPlaceholder:"رسالة جديدة",options:[])
+        let category = UNNotificationCategory(identifier:"NISFAYN_MESSAGE",actions:[reply,read],intentIdentifiers:[],hiddenPreviewsBodyPlaceholder:"لديك تحديث جديد.",options:[])
         UNUserNotificationCenter.current().setNotificationCategories([category])
     }
     let installation: String = {
@@ -38,9 +49,10 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family"].contains(kind) {
+           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family", "analysis"].contains(kind) {
             DispatchQueue.main.async {
-                var payload = ["requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
+                guard let scope = info["scope"] as? String, scope == self.scope else { completionHandler(); return }
+                var payload = ["scope":scope,"requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
                 if let messageId = info["messageId"] as? String,UUID(uuidString:messageId) != nil { payload["messageId"] = messageId }
                 if let roomId = info["roomId"] as? String,UUID(uuidString:roomId) != nil { payload["roomId"] = roomId }
                 if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
@@ -63,6 +75,8 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "NisfaynPushPlugin"
     let jsName = "NisfaynPush"
     let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "clearDelivered", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setOwner", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unregister", returnType: CAPPluginReturnPromise),
@@ -117,7 +131,24 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func badge(_ call:CAPPluginCall) {
         DispatchQueue.main.async {
+            guard let scope = call.getString("scope"), scope == NisfaynPushCenter.shared.scope else { call.resolve(); return }
             UIApplication.shared.applicationIconBadgeNumber = min(999,max(0,call.getInt("count") ?? 0));call.resolve()
+        }
+    }
+    @objc func clearDelivered(_ call: CAPPluginCall) {
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        call.resolve()
+    }
+    @objc func setOwner(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let next = call.getString("scope")
+            if next == nil || next != NisfaynPushCenter.shared.scope {
+                self.timeout?.cancel()
+                self.registration?.reject("تغيّر الحساب.", "PUSH_OWNER")
+                self.registration = nil
+            }
+            NisfaynPushCenter.shared.switchOwner(to: next)
+            call.resolve()
         }
     }
     @objc func status(_ call: CAPPluginCall) {
@@ -129,10 +160,12 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func register(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            guard NisfaynPushCenter.shared.scope != nil else { call.reject("سجّل الدخول مجددًا.", "PUSH_OWNER"); return }
             guard self.registration == nil else { call.reject("التسجيل قيد التنفيذ.", "PUSH_BUSY"); return }
             self.registration = call
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
                 DispatchQueue.main.async {
+                    guard self.registration === call else { return }
                     guard granted else { self.registration?.reject("يمكنك السماح بالإشعارات من إعدادات iPhone.", "PUSH_DENIED"); self.registration = nil; return }
                     let expiry = DispatchWorkItem { [weak self] in self?.registrationFailed() }
                     self.timeout = expiry
@@ -144,8 +177,7 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func unregister(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            UIApplication.shared.unregisterForRemoteNotifications();UIApplication.shared.applicationIconBadgeNumber = 0
-            NisfaynPushCenter.shared.pending = [];UNUserNotificationCenter.current().removeAllDeliveredNotifications();call.resolve()
+            NisfaynPushCenter.shared.switchOwner(to: nil);call.resolve()
         }
     }
     @objc func openSettings(_ call: CAPPluginCall) {

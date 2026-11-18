@@ -47,6 +47,11 @@ export async function createDatabase({coreOnly=false, throughMigration}={}) {
       await db.exec(`
         create schema extensions;
         create function extensions.gen_random_bytes(n integer) returns bytea language sql as $$ select decode(repeat('ab',n),'hex') $$;
+        -- Stand-in for pgcrypto in WASM. Tests exercise claim equality and access,
+        -- while hosted Postgres computes the actual keyed HMAC with its Vault key.
+        create function extensions.hmac(value text, secret text, algorithm text) returns bytea language sql strict as $$
+          select sha256(convert_to(secret || ':' || value, 'UTF8')) where algorithm = 'sha256'
+        $$;
         create schema vault;
         create table vault.secrets(name text, decrypted_secret text);
         create view vault.decrypted_secrets as select * from vault.secrets;

@@ -41,9 +41,20 @@ export async function requestPortraitModeration(draft: PortraitDraft): Promise<P
   if (!draft.staged) throw Error('اختر صورتك مجددًا.');
   return { ...draft, staged: await stageAction(draft.staged.id, 'moderation') as PortraitStage };
 }
+export async function finalizePortraitStage(id: string): Promise<ProfilePortrait | null> {
+  return await stageAction(id, 'finalize') as ProfilePortrait | null;
+}
+
+export async function pendingPortraitStage(): Promise<string | null> {
+  if (!cloud) return null;
+  const { data, error } = await cloud.rpc('marriage_portrait_stage_resume');
+  if (error) throw error;
+  return data && ['verified', 'ready', 'approved'].includes(data.status) ? data.id : null;
+}
+
 export async function finalizeStagedPortrait(draft: PortraitDraft): Promise<ProfilePortrait | null> {
   if (!draft.staged) throw Error('أكمل تجهيز الصورة أولًا.');
-  return await stageAction(draft.staged.id, 'finalize') as ProfilePortrait | null;
+  return finalizePortraitStage(draft.staged.id);
 }
 export async function discardStagedPortrait(draft: PortraitDraft | null | undefined): Promise<void> {
   if (draft?.staged && cloud) await cloud.rpc('marriage_photo_discard', { photo: draft.staged.id, photo_kind: 'portrait' });

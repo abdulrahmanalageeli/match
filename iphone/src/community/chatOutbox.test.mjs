@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { discardClosedDrafts, outboxFor } from "./chatOutbox.ts";
+import { discardClosedDrafts, outboxFor, releaseChatSource, sendNotificationReply } from "./chatOutbox.ts";
 import { mergeMessages } from "./timeline.ts";
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -81,4 +81,61 @@ test("closing an accepted request clears its draft and queued messages, includin
   discardClosedDrafts(source, new Set(["other"])); finish("server-id"); await settle();
   assert.deepEqual(box.read(), { draft: "", outgoing: [] });
   assert.deepEqual(outboxFor(source, "closed").read(), { draft: "", outgoing: [] });
+});
+
+test('iPhone outbox persists before sending and restores an uncertain reply without copying quoted text or sending again', async () => {
+  const {createPendingChatSends} = await import('./pendingChatSends.ts');
+  const keys = new Map(), attempts = [];
+  const store = {read:async k=>keys.get(k), write:async(k,v)=>keys.set(k,v), remove:async k=>keys.delete(k)};
+  const makeSource = () => ({
+    pendingSends: createPendingChatSends(store, 'first'),
+    async send(_room, _body, id) {
+      assert([...keys.values()][0].includes(id)); attempts.push(id); throw Error('lost response');
+    },
+  });
+  const firstSource = makeSource(), original = outboxFor(firstSource, 'room');
+  original.replyTo({id:'quote', senderIsMe:false, body:'private quote'});
+  const id = original.enqueue('رسالة'); await settle();
+  assert(![...keys.values()][0].includes('private quote'));
+  assert.deepEqual(await createPendingChatSends(store, 'other').list('room'), []);
+  releaseChatSource(firstSource);
+  const restarted = outboxFor(makeSource(), 'room');
+  await restarted.restore();
+  assert.equal(restarted.read().outgoing[0].reply.id,'quote');
+  assert.equal(restarted.read().outgoing[0].status,'failed');
+  assert.deepEqual(attempts,[id]);
+  restarted.retry(id); await settle(); assert.deepEqual(attempts,[id,id]);
+  restarted.reconcile([{id:'server',clientId:id,senderIsMe:true}]); await settle();
+  assert.equal(keys.size,0);
+});
+
+test('a locked Keychain prevents dispatch and closing a conversation cancels queued writes',async()=>{
+  let attempts = 0, unlock;
+  const box=outboxFor({pendingSends:{put:()=>Promise.reject(Error('locked')),clearThread:async()=>{}},send:async()=>{attempts++;}},'room');
+  box.enqueue('hello');await settle();assert.equal(attempts,0);assert.equal(box.read().outgoing[0].status,'failed');
+  const closing=outboxFor({pendingSends:{put:()=>new Promise(resolve=>{unlock=resolve}),clearThread:async()=>{}},send:async()=>{attempts++;}},'other');
+  closing.enqueue('hello');closing.clear();unlock();await settle();assert.equal(attempts,0);
+});
+
+test('a notification reply losing its response is restored under the native action ID', async()=>{
+  const {createPendingChatSends}=await import('./pendingChatSends.ts');
+  const keys=new Map();
+  const journal=createPendingChatSends({read:async k=>keys.get(k),write:async(k,v)=>keys.set(k,v),remove:async k=>keys.delete(k)},'user');
+  const source={pendingSends:journal,send:async()=>{throw Error('timeout');}};
+  await assert.rejects(sendNotificationReply(source,'room','reply','action-id'));
+  const box=outboxFor(source,'room');await box.restore();
+  assert.equal(box.read().outgoing[0].clientId,'action-id');
+  await sendNotificationReply({...source,send:async(_room,_body,id)=>{assert.equal(id,'action-id');return 'server';}},'room','reply','action-id');
+  assert.deepEqual(await journal.list('room'),[]);
+});
+
+test('a commit outside the newest page clears the recovered send without retransmission',async()=>{
+  let removed;
+  const box=outboxFor({
+    pendingSends:{list:async()=>[{requestId:'room',clientId:'old',body:'hi',createdAt:'2026-01-01'}],remove:async ids=>{removed=[...ids];}},
+    committedSends:async(room,ids)=>{assert.equal(room,'room');assert.deepEqual(ids,['old']);return ids;},
+    send:()=>assert.fail('must not transmit'),
+  },'room');
+  await box.restore([{id:'newer',senderIsMe:false}]);
+  assert.equal(box.read().outgoing.length,0);assert.deepEqual(removed,['old']);
 });

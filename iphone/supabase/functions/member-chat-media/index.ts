@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.3';
-import { testMediaLimit, validateTestMedia } from '../_shared/test-media.ts';
+import { testMediaLimit, validateTestMedia, validateOncePhoto } from '../_shared/test-media.ts';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const bucket='nisfayn-member-chat';
@@ -61,9 +61,15 @@ Deno.serve(async req=>{
   if(action==='download'){
    let input;try{input=JSON.parse(new TextDecoder().decode(await readBody(req,2048)));}catch{throw new MediaError(400,'طلب الملف غير صالح.');}
    if(!input||!uuid.test(input.requestId)||!uuid.test(input.mediaId)||typeof input.viewOnce!=='boolean')throw new MediaError(400,'طلب الملف غير صالح.');
-   const grant=await rpc(input.viewOnce?'open':'access',input.requestId,input.mediaId);
+   const grant=await rpc(input.viewOnce?'inspect':'access',input.requestId,input.mediaId);
    const {data,error}=await storage.download(grant.path);
-   if(error||!data)throw new MediaError(404,'تعذّر فتح الملف.');
+   if(error||!data)throw new MediaError(503,'تعذّر تحميل الملف. حاول مجددًا.');
+   if(input.viewOnce){
+    try { await validateOncePhoto(data,grant.mime,grant.size); }
+    catch { throw new MediaError(503,'تعذّر تحميل الصورة كاملة. حاول مجددًا.'); }
+    if(req.signal.aborted)throw new MediaError(408,'توقّف تحميل الصورة. حاول مجددًا.');
+    await rpc('open',input.requestId,input.mediaId);
+   }
    return new Response(data,{headers:{...headers,'Content-Type':grant.mime,'Content-Disposition':'inline'}});
   }
   throw new MediaError(400,'إجراء غير صالح.');

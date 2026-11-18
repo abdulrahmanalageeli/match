@@ -8,6 +8,9 @@ import { refreshHistoricalMessages } from '../src/community/messageRefresh.ts';
 const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const dataUrl=url((await compile('../src/community/data.ts'))
+ .replace(/import .* from '\.\.\/photos\/verifyPhoto';/, '')
+ .replace(/import .* from '\.\/deepCompatibilityClient';/, 'const deepCompatibilitySource=()=>undefined;')
+ .replace(/import .* from "\.\.\/compatibility\/appearance";/, '')
  .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
@@ -26,6 +29,7 @@ const {pairSource,testProfile}=await import(url((await compile('../src/testing/p
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
  .replace("'../family/model'",JSON.stringify(new URL('../src/family/model.ts',import.meta.url).href))
  .replace("'../readiness/model'",JSON.stringify(new URL('../src/readiness/model.ts',import.meta.url).href))
+ .replace(/import .* from '\.\.\/voice\/nativeCalls';/, '')
  .replace("'../community/data'",JSON.stringify(dataUrl))
  .replace("'../compatibility/model'",JSON.stringify(new URL('../src/compatibility/model.ts',import.meta.url).href))
  .replace("'../beena/model'",JSON.stringify(new URL('../src/beena/model.ts',import.meta.url).href))
@@ -42,7 +46,7 @@ test('real chat deletion and historical refresh keep the authenticated RPC bound
  assert.deepEqual(calls.map(([name,payload,user])=>[name,payload,user]),[
   ['marriage_delete_message',{request_id:'room',message_id:'message'},'member'],
   ['marriage_message_changes',{request_id:'room',message_ids:['older']},'member']]);
- assert.equal(source.sendMedia,undefined,'unimplemented real media does not gain a misleading upload control');
+ assert.equal(typeof source.sendMedia,'function');
 });
 
 test('live discovery forwards every filter in both modes and keeps request dates authoritative',async t=>{
@@ -57,7 +61,7 @@ test('live discovery forwards every filter in both modes and keeps request dates
  assert.deepEqual(await source.inbox(),[request]);
  await source.requestHistory();assert.deepEqual(calls.at(-1),['marriage_request_history',{},'member']);
  assert.equal(source.callPermission,undefined,'ordinary live calls use the recipient answer flow');
- assert.equal(source.sendMedia,undefined,'test-only attachments stay absent in live capabilities');
+ assert.equal(typeof source.confirmMediaViewed,'function');
 });
 
 test('pair sends explicit once metadata, downloads binary without caching and never retries a consumed request',async t=>{

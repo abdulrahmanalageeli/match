@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 
+// These fixtures exercise the November 7 registration contract, including old clients
+// that registered before mandatory publication and the 44-answer receipt. Current
+// signup and subsequent publication withdrawal are covered in required-assessment.
+const consentSchema = { throughMigration: '20261107093912_separate_sensitive_publication.sql' };
 const version='2026-11-07-privacy';
 const essential={version,adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:false,photo:false};
 const all={...essential,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:true};
@@ -23,7 +27,7 @@ function setup(db){
 }
 
 test('current marriage and voluntary religious disclosures persist without scoring or public non-disclosure labels',async()=>{
- const db=await createDatabase();try{
+ const db=await createDatabase(consentSchema);try{
   const{rpc,member,save}=setup(db),man=await member();
   const basics={maritalStatus:'married',currentWives:2,polygynyPreference:'not_open',religiousAffiliation:'sunni',prayerPractice:'regular'};
   const saved=await save(man,{marriageBasics:basics,signupConsents:all});
@@ -42,8 +46,8 @@ test('current marriage and voluntary religious disclosures persist without scori
  }finally{await db.close();}
 });
 
-test('new registrations require separate declarations and explicit purpose choices',async()=>{
- const db=await createDatabase();try{
+test('legacy registrations require separate declarations and explicit purpose choices',async()=>{
+ const db=await createDatabase(consentSchema);try{
   const{rpc,member,save}=setup(db),u=await member();
   await assert.rejects(save(u,{signupConsents:undefined}),/إقرارات التسجيل/);
   for(const field of ['adult','terms','privacy'])await assert.rejects(save(u,{signupConsents:{...essential,[field]:false}}),/إقرار الأهلية/);
@@ -66,7 +70,7 @@ test('new registrations require separate declarations and explicit purpose choic
 });
 
 test('purpose withdrawals append history, clear selected data and cannot be bypassed by older payloads',async()=>{
- const db=await createDatabase();try{
+ const db=await createDatabase(consentSchema);try{
   const{rpc,call,member,save}=setup(db),u=await member();
   await save(u,{signupConsents:all,marriageBasics:{skinTone:'tone_3',religiousAffiliation:'shia'},surveyAnswers:{conversation_initiative_preference:'A'},personalityAnswers:{social_energy:'B'}});
   await assert.rejects(save(u,{signupConsents:essential,marriageBasics:{religiousAffiliation:'shia'}}),/التفاصيل الحساسة/);
@@ -85,7 +89,7 @@ test('purpose withdrawals append history, clear selected data and cannot be bypa
 });
 
 test('legacy profile edits preserve existing disclosures without inventing purpose consent',async()=>{
- const db=await createDatabase();try{
+ const db=await createDatabase(consentSchema);try{
   const{rpc,member,save}=setup(db),u=await member();
   const marriageBasics={religiousAffiliation:'sunni',prayerPractice:'regular',polygynyPreference:'open_to_discussion'};
   await save(u,{signupConsents:all,marriageBasics});
@@ -119,7 +123,7 @@ test('pair testing uses the same choices and validates status without exposing c
 });
 
 test('sensitive publication requires a new explicit receipt and never changes private matching inputs',async()=>{
- const db=await createDatabase();try{
+ const db=await createDatabase(consentSchema);try{
   const{rpc,call,member,save}=setup(db),a=await member(),b=await member('woman');
   const details={marriageBasics:{heightCm:170,skinTone:'tone_3',tribalBackground:'tribal',tribeName:'مثال',religiousAffiliation:'sunni',prayerPractice:'regular'},
    partnerCriteria:{skinTone:{mode:'prefer',values:['tone_3']},tribalBackground:{mode:'prefer',target:'same_tribe'}},

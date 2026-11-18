@@ -17,7 +17,7 @@ function browser({ permission = 'default', account = 'member-a', previousOwner, 
   localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) },
   sessionStorage: { getItem: key => pending.get(key) ?? null, setItem: (key, value) => pending.set(key, value), removeItem: key => pending.delete(key) },
   location: { href: 'https://example.test/' }, history: { state: null, replaceState() {} },
-  require: name => { assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
+  require: name => { if(name==='./scope')return {notificationScope:async owner=>owner+'-scope'};assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
  };
  const source = readFileSync(new URL('../src/notifications/webPush.ts', import.meta.url), 'utf8')
   .replace('import.meta.env.VITE_MARRIAGE_WEB_PUSH_PUBLIC_KEY', JSON.stringify('B'.repeat(87)))
@@ -52,13 +52,15 @@ test('iPhone Safari explains home-screen requirement and disable revokes server 
 
 test('notification tap survives session restoration and is consumed only for the signed-in account', async () => {
  const { api, listeners, pending } = browser();
- const event = { requestId: '11111111-1111-1111-1111-111111111111', kind: 'message' };
+ const event = { scope:'member-a-scope',requestId: '11111111-1111-1111-1111-111111111111', kind: 'message' };
  listeners.get('message')({ data: { type: 'nisfayn-push-open', notification: event } });
  assert.equal(pending.size, 1);
  const opened = [];
  const stop = api.monitorWebPush('member-a', value => opened.push(value.requestId));
  await new Promise(resolve => setTimeout(resolve, 0));
  assert.deepEqual(opened, [event.requestId]); assert.equal(pending.size, 0);
+ listeners.get('message')({data:{type:'nisfayn-push-open',notification:{...event,scope:'other-account'}}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(opened.length,1);
  stop();
 });
 

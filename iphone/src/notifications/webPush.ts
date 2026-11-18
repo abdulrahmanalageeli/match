@@ -1,4 +1,5 @@
 import { callRpc, cloudSessionId } from '../cloud';
+import { notificationScope } from './scope';
 import type { PushOpen } from './push';
 
 const installationKey = 'nisfayn.web-push.installation';
@@ -72,13 +73,15 @@ export async function disableWebPush(owner: string) {
 // Can be called before/after sign-out. Server session binding independently
 // prevents future deliveries, and this removes the browser's subscription too.
 export async function detachWebPush() {
-  if (!('serviceWorker' in navigator)) return;
-  const registration = await navigator.serviceWorker.getRegistration('/');
-  await (await registration?.pushManager.getSubscription())?.unsubscribe();
-  const notifications = await registration?.getNotifications();
-  notifications?.forEach(notification => notification.close());
   localStorage.removeItem(ownerKey);
   try { sessionStorage.removeItem(pendingKey); } catch { /* Restricted storage. */ }
+  if (!('serviceWorker' in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration('/');
+  if (!registration) return;
+  await Promise.allSettled([
+    registration.pushManager.getSubscription().then(s => s?.unsubscribe()),
+    registration.getNotifications().then(alerts => alerts.forEach(alert => alert.close())),
+  ]);
 }
 
 function routeIds(value: {messageId?:unknown;roomId?:unknown}) {
@@ -90,14 +93,14 @@ function routeIds(value: {messageId?:unknown;roomId?:unknown}) {
 
 function validOpen(value: unknown): value is PushOpen {
   const event = value as PushOpen | undefined;
-  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family'].includes(event.kind));
+  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis'].includes(event.kind));
 }
 
 // A click can arrive while Auth is restoring the session or at the sign-in
 // screen. Keep only its opaque routing intent until the signed-in hook mounts.
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
   if (event.data?.type !== 'nisfayn-push-open' || !validOpen(event.data.notification)) return;
-  try { sessionStorage.setItem(pendingKey, JSON.stringify({ requestId: event.data.notification.requestId, kind: event.data.notification.kind, ...routeIds(event.data.notification) })); } catch { /* Active listener still handles it. */ }
+  try { sessionStorage.setItem(pendingKey, JSON.stringify({ scope:event.data.notification.scope, requestId: event.data.notification.requestId, kind: event.data.notification.kind, ...routeIds(event.data.notification) })); } catch { /* Active listener still handles it. */ }
 });
 
 export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void) {
@@ -105,7 +108,7 @@ export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void)
   const open = async (value: unknown) => {
     if (active && validOpen(value) && (await cloudSessionId()) === owner) {
       try { sessionStorage.removeItem(pendingKey); } catch { /* Restricted storage. */ }
-      onOpen(value);
+      if (value.scope === await notificationScope(owner,installationId()) && active) onOpen(value);
     }
   };
   const message = (event: MessageEvent) => { if (event.data?.type === 'nisfayn-push-open') void open(event.data.notification).catch(() => {}); };
@@ -115,9 +118,9 @@ export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void)
     try {
       if (localStorage.getItem(ownerKey) && localStorage.getItem(ownerKey) !== owner) await detachWebPush();
       const url = new URL(location.href);
-      const pending = { requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind'), ...routeIds({messageId:url.searchParams.get('messageId'),roomId:url.searchParams.get('roomId')}) };
+      const pending = { scope:url.searchParams.get('scope'), requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind'), ...routeIds({messageId:url.searchParams.get('messageId'),roomId:url.searchParams.get('roomId')}) };
       if (validOpen(pending)) {
-        url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind'); url.searchParams.delete('messageId'); url.searchParams.delete('roomId');
+        url.searchParams.delete('scope'); url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind'); url.searchParams.delete('messageId'); url.searchParams.delete('roomId');
         history.replaceState(history.state, '', url);
         await open(pending);
       } else {

@@ -3,28 +3,23 @@ self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
 function validEvent(value) {
-  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family'].includes(value.kind);
+  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis'].includes(value.kind);
 }
 
 function routeIds(value) {
-  return Object.fromEntries(['messageId', 'roomId'].filter(key => /^[0-9a-f-]{36}$/i.test(value[key] || '')).map(key => [key, value[key]]));
+  const scope = /^[a-f0-9]{64}$/.test(value.scope || '') ? {scope:value.scope} : {};
+  return {...scope, ...Object.fromEntries(['messageId', 'roomId'].filter(key => /^[0-9a-f-]{36}$/i.test(value[key] || '')).map(key => [key, value[key]]))};
 }
 
 self.addEventListener('push', event => {
   let value;
   try { value = event.data?.json(); } catch { return; }
   if (!validEvent(value)) return;
-  const body = {
-    request: 'لديك طلب تعارف جديد. افتح وُدَين للاطلاع عليه.',
-    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في وُدَين.',
-    message: 'لديك رسالة جديدة في وُدَين.',
-    reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',
-    family: 'لديك رسالة جديدة في جسر الأهل.',
-  }[value.kind];
+  const body = 'لديك تحديث جديد.';
   event.waitUntil(self.registration.showNotification('وُدَين', {
     body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon-v2.png',
     tag: value.kind + ':' + value.requestId,
-    silent: value.kind === 'reminder',
+    silent: value.kind === 'reminder' || value.silent === true,
     data: { requestId: value.requestId, kind: value.kind, ...routeIds(value) },
   }));
 });

@@ -15,3 +15,11 @@ export function validateTestMedia(bytes: Uint8Array, supplied: string, durationM
  if(duration!==undefined&&(!Number.isFinite(duration)||duration<0||duration>60))throw Error('مدة الرسالة الصوتية القصوى دقيقة واحدة.');
  return {mime,size:bytes.length,...(mime.startsWith('audio/')&&duration!==undefined?{duration}:{})};
 }
+
+// Validate the complete private object before committing a one-time claim.
+export async function validateOncePhoto(blob: Blob, mime: string, size: number) {
+ if (!mime.startsWith('image/') || blob.type.split(';')[0] !== mime || blob.size !== size || size > testMediaLimit) {
+  throw Error('تعذّر تحميل الصورة كاملة. حاول مجددًا.');
+ }
+ validateTestMedia(new Uint8Array(await blob.arrayBuffer()), mime);
+}

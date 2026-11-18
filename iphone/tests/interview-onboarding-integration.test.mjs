@@ -46,7 +46,7 @@ function confirmed(proposals, ids = proposals.map(value => value.id)) {
 function newDraft() {
   const result = draft.initialDraft(owner, null);
   result.answers = { ...result.answers, displayName: 'اختبار', gender: 'woman', birthDate: '1995-04-15', age: '31',
-    city: 'الرياض', profession: 'مهندسة', bio: 'ملف افتراضي لاختبار التسجيل', contact: 'synthetic@example.test' };
+    city: 'الرياض', preferredMinAge:'24', preferredMaxAge:'45', familyPreference:'من البداية', profession: 'مهندسة', bio: 'ملف افتراضي لاختبار التسجيل', contact: 'synthetic@example.test' };
   result.permissions = { version: '2026-11-07-privacy', sensitiveProfile: false, assessment: true };
   return result;
 }
@@ -114,9 +114,13 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   const updated = compatibility.rankPreferences(changed, [a, b]);
   assert.equal(updated[0].person.id, b.id);
   assert.equal(updated[0].fit.percentage, 100);
-  assert.equal(updated[1].fit.percentage, 0);
+  // Both candidates live in Riyadh; different residence letters can describe
+  // the same city. Compare the mapped answers to the ordinary form route.
+  const manual = { ...first, surveyAnswers:Object.fromEntries(compatibility.dimensions.flatMap(d => [[d.id,'B'],[d.partnerId,'B']])) };
+  assert.deepEqual(plain(updated.map(item => item.fit)),plain(compatibility.rankPreferences(manual,[a,b]).map(item => item.fit)));
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
-  assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length);
+  assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);
+  assert.deepEqual(plain(updated[1].fit.strengths),['residence_plan']);
   assert.equal(first.surveyAnswers.children_plan, 'A', 'the original draft is not mutated');
 });
 

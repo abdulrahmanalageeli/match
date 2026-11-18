@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { useEffect, useRef } from 'react';
 import { callRpc, cloudSessionId } from '../cloud';
+import { notificationScope } from './scope';
 import { testRequest } from '../testing/pair';
 const testerRequestId = '00000000-0000-4000-8000-000000000001';
 const isTester = (owner: string) => owner.startsWith('tester:');
@@ -10,17 +11,19 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family';actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
   status(): Promise<Permission>;
+  clearDelivered(): Promise<void>;
+  setOwner(options: {scope: string | null}): Promise<void>;
   register(): Promise<Device>;
   unregister(): Promise<void>;
   openSettings(): Promise<void>;
   consumeOpen(): Promise<{ notification: PushOpen | null }>;
   acknowledgeOpen(options:{actionId:string}):Promise<void>;
-  badge(options:{count:number}):Promise<void>;
+  badge(options:{count:number;scope:string}):Promise<void>;
   addListener(event: 'registration', listener: (device: Device) => void): Promise<PluginListenerHandle>;
   addListener(event: 'opened', listener: (event: PushOpen) => void): Promise<PluginListenerHandle>;
 }
@@ -31,18 +34,67 @@ export const pushSupported = () => nativePush || webPushSupported();
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');
-export type PushPreview='private'|'name'|'content';
-export const pushPrivacy=(owner:string,preview_mode?:PushPreview)=>pushRpc<{preview:PushPreview}>(owner,'privacy',{preview_mode:preview_mode??null});
-export const setPushBadge=(count:number)=>nativePush?native.badge({count:Math.max(0,Math.floor(count))}).catch(()=>{}):Promise.resolve();
+export type PushPreview='private'|'event'|'name'|'content';
+export async function pushPrivacy(owner:string,preview_mode?:PushPreview) {
+  const saved = await pushRpc<{preview:PushPreview}>(owner,'privacy',{preview_mode:preview_mode??null});
+  if (nativePush && preview_mode) await native.clearDelivered();
+  return saved;
+}
+export async function setPushBadge(count:number,owner:string|null) {
+  if (nativePush && owner) {
+    const scope=await notificationScope(owner,(await native.status()).installationId);
+    await native.badge({count:Math.max(0,Math.floor(count)),scope});
+  }
+}
+
+export const defaultPushControls = {
+  message:true, connections:true, family:true, reminder:true, analysis:false, sound:true,
+  quiet:false, start:22, end:7, zone:'Asia/Riyadh',
+};
+export type PushControls = typeof defaultPushControls;
+export async function pushControls(owner:string, patch:Partial<PushControls> = {}) {
+  const updated = {...defaultPushControls, ...await pushRpc<Partial<PushControls>>(owner,'controls',{patch})};
+  if (Object.keys(patch).length) window.dispatchEvent(new Event('wudayn:push-controls'));
+  return updated;
+}
+
+let ownerRevision = 0;
+let bindingOwner:string|null=null;
+let pendingOwnerSync:Promise<string|null>|null = null;
+export function syncNativePushOwner(owner: string | null):Promise<string|null> {
+  if (!nativePush) return Promise.resolve(null);
+  if (bindingOwner===owner && pendingOwnerSync) return pendingOwnerSync;
+  bindingOwner=owner;
+  const revision = ++ownerRevision;
+  pendingOwnerSync=(async()=>{
+    const scope = owner ? await notificationScope(owner,(await native.status()).installationId) : null;
+    if (revision !== ownerRevision) return null;
+    await native.setOwner({scope});
+    return revision === ownerRevision ? scope : null;
+  })().finally(()=>{if(revision===ownerRevision) pendingOwnerSync=null;});
+  return pendingOwnerSync;
+}
+
+export async function detachNotifications(owner?: string | null) {
+  if (!nativePush) return (await import('./webPush')).detachWebPush();
+  await syncNativePushOwner(null);
+  if (owner) {
+    const {installationId} = await native.status();
+    await pushRpc(owner,'unregister',{installation:installationId}).catch(()=>{});
+  }
+}
 
 async function bind(owner: string, device: Device) {
-  if (!await currentOwner(owner)) return;
+  if (!await currentOwner(owner) || bindingOwner!==owner) return;
   await pushRpc(owner, 'register', { device_token: device.token, device_environment: device.environment, installation: device.installationId });
 }
 export async function enablePush(owner: string) {
   if (!nativePush) return enableWebPush(owner);
   if (!nativePush || !pushConfigured) throw new Error('لم تُفعّل خدمة الإشعارات بعد.');
+  const scope = await syncNativePushOwner(owner);
+  if (!scope) throw new Error('سجّل الدخول مجددًا لتفعيل الإشعارات.');
   const device = await native.register();
+  if (bindingOwner!==owner) throw new Error('تغيّر الحساب.');
   await bind(owner, device);
   return pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: true });
 }
@@ -57,14 +109,15 @@ export async function disablePush(owner: string) {
 
 // No permission prompt on launch. Only rebind already authorized, opted-in devices.
 export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>) {
-  const callback = useRef(onOpen);
-  callback.current = onOpen;
+  const callback = useRef({owner,onOpen});
+  callback.current = {owner,onOpen};
   useEffect(() => {
     if (!owner || !pushConfigured || (isTester(owner) && !nativePush)) return;
     if (!nativePush) {
       if (!webPushSupported()) return;
-      return monitorWebPush(owner, event => callback.current(event.requestId, event.kind));
+      return monitorWebPush(owner, event => { if (callback.current.owner === owner) void callback.current.onOpen(event.requestId, event.kind,event); });
     }
+    const binding = syncNativePushOwner(owner).catch(() => null);
     let active = true, refreshing = false, opening=false, reopen=false, failures=0;
     let retry:ReturnType<typeof setTimeout>|undefined;
     const listeners: PluginListenerHandle[] = [];
@@ -73,13 +126,15 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if(opening){reopen=true;return;}
       opening=true;let acknowledged=false;
       try {
+      const scope = await binding;
+      if (!active || !scope) return;
       const { notification } = await native.consumeOpen();
-      if (!active || !notification || !await currentOwner(owner)) return;
-      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family'].includes(notification.kind)) {
-        if (isTester(owner) !== (notification.requestId === testerRequestId)) {
+      if (!notification || !await currentOwner(owner) || !active || callback.current.owner !== owner) return;
+      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis'].includes(notification.kind)) {
+        if (scope !== notification.scope || isTester(owner) !== (notification.requestId === testerRequestId)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }
-        await callback.current(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
+        await callback.current.onOpen(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
         if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}
         failures=0;
       }
@@ -100,7 +155,10 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       try {
         const preference = await getPushPreference(owner);
         const permission = await native.status();
-        if (active && preference.enabled && permission.permission === 'granted') await bind(owner, await native.register());
+        if (active && bindingOwner===owner && preference.enabled && permission.permission === 'granted' && await binding) {
+          const device = await native.register();
+          if (active) await bind(owner,device);
+        }
         if (active) await open();
       } catch { /* Keep chat available when notification delivery is unavailable. */ }
       finally { refreshing = false; }

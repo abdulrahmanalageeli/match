@@ -4,7 +4,7 @@ import type { CommunitySource, SeriousnessAgreement } from './data';
 import './conversation-agreement.css';
 import { HelpButton } from '../help/HelpCenter';
 import { SuccessNotice } from './SuccessNotice';
-export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean}){
+export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails,hasHistory}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean;hasHistory?:boolean}){
  const [agreement,setAgreement]=useState<SeriousnessAgreement|null>(null),[days,setDays]=useState(14),[signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);
  const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
  useEffect(()=>{if(!source.agreement){onAllowed(true);return;}let active=true,fetching=false;const refresh=async()=>{if(fetching||document.hidden)return;fetching=true;try{const next=await source.agreement!(requestId);if(active){setAgreement(next);setLoadError(false);onAllowed(next.status==='accepted'||next.status==='family');}}catch{if(active){setLoadError(true);onAllowed(false);}}finally{fetching=false;}};void refresh();const stop=source.watch(()=>void refresh());const timer=setInterval(()=>void refresh(),15000);return()=>{active=false;stop();clearInterval(timer);};},[source,requestId,onAllowed,retry]);
@@ -43,7 +43,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
     <HelpButton topic="journey" label="ما الذي يحدث بعد ذلك؟"/>
   </AgreementDetails>}
  </div>;
- return <section className="cm-agreement" aria-labelledby="seriousness-title">
+ const form = <section className="cm-agreement" aria-labelledby="seriousness-title">
   <span className="cm-agreement-mark"><Feather size={27}/></span><p className="cm-agreement-kicker">بداية واضحة، ونية جادّة</p>
   <h2 id="seriousness-title">{agreement.status==='expired'?'حان وقت الخطوة التالية':'ميثاق التعارف'}</h2>
   <p className="cm-agreement-intro">{agreement.status==='expired'?`انتهت المدة المتفق عليها في ${date}. اتفقا على التواصل العائلي أو أنهيا التعارف باحترام.`:'قبل أول رسالة، اتفقا على نية واضحة ووقت يحترمكما.'}</p>
@@ -55,6 +55,11 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    <div className="cm-agreement-signatures"><span className={agreement.womanSignedAt?'signed':''}>{womanName} {agreement.womanSignedAt?'· وقّعت':'· بانتظار التوقيع'}</span><span>{manName} · بانتظار التوقيع</span></div>
   </>}{error&&<p role="alert" className="form-error">{error}</p>}
  </section>;
+ if (!hasHistory) return form;
+ return <div className="cm-agreement-summary">
+  <button type="button" aria-haspopup="dialog" onClick={()=>setExpanded(true)}><CalendarDays size={15}/>{agreement.status==='expired'?'تجديد ميثاق التعارف':'مراجعة ميثاق التعارف'}</button>
+  {expanded && <AgreementDetails close={()=>setExpanded(false)}>{form}</AgreementDetails>}
+ </div>;
 }
 
 function AgreementDetails({close,children}:{close:()=>void;children:ReactNode}) {

@@ -4,6 +4,7 @@ import type { ActivityNotification, CommunitySource, PublicPerson, StepProgress 
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { playActivitySound } from '../community/matchSound';
 import { useVoiceCalls } from '../voice/VoiceCalls';
+import { pushConfigured, pushControls, type PushControls } from './push';
 import './activity.css';
 import { confirmedMilestone, type MilestoneKind } from '../community/milestones';
 import { MatchCelebration } from '../community/MatchCelebration';
@@ -15,7 +16,7 @@ type Activity = { key: string; id: string; title: string; detail: string; kind: 
 type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
 export const journeyStages = ['التعارف الأول', 'نقاش جاد حول الزواج', 'الخطوة الرسمية أو العائلية'];
 
-export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBlocked = false }: { source: CommunitySource; onOpen: (id: string) => void; onNotifications: () => void; celebrationsBlocked?: boolean }) {
+export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, celebrationsBlocked = false }: { source: CommunitySource; pushOwner?:string|null; onOpen: (id: string) => void; onNotifications: () => void; celebrationsBlocked?: boolean }) {
   const [toast, setToast] = useState<Activity | null>(null);
   const [milestone,setMilestone]=useState<{id:string;name:string;kind:MilestoneKind}|null>(null);
   const [celebrationReady,setCelebrationReady]=useState(false);
@@ -25,6 +26,19 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
   const open = useRef(onOpen); open.current = onOpen;
   const inbox = useRef(onNotifications); inbox.current = onNotifications;
   const voice = useVoiceCalls();
+  const controls = useRef<PushControls | null>(null);
+  useEffect(()=>{
+    controls.current=null;
+    if(!pushOwner || !pushConfigured)return;
+    let revision=0;
+    const refresh=()=>{
+      const current=++revision;
+      void pushControls(pushOwner).then(value=>{if(current===revision)controls.current=value;}).catch(()=>{});
+    };
+    refresh();
+    window.addEventListener('wudayn:push-controls',refresh);
+    return ()=>{revision++;window.removeEventListener('wudayn:push-controls',refresh);};
+  },[pushOwner]);
   const occupied = useRef(false); occupied.current = Boolean(voice?.occupied);
   useEffect(() => {
     if (!source.heartbeat) return;
@@ -116,7 +130,13 @@ export function ActivityAlerts({ source, onOpen, onNotifications, celebrationsBl
         }
         // Replace retained alerts with current metadata after deletions/read receipts.
         setToast(current => newest || next.find(item => item.key === current?.key) || null);
-        if (newest && !occupied.current) playActivitySound();
+        if (newest && newest.kind!=='visit' && !occupied.current) {
+          const prefs=controls.current;
+          const hour=prefs?.quiet ? Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:prefs.zone}).format(new Date())) : -1;
+          const quiet=prefs?.quiet && (prefs.start<prefs.end ? hour>=prefs.start && hour<prefs.end : hour>=prefs.start || hour<prefs.end);
+          const category=newest.kind==='message'?'message':'connections';
+          if(!quiet && prefs?.sound!==false && prefs?.[category]!==false) playActivitySound();
+        }
       } catch { /* Existing inbox error handling owns connection failures. */ }
       finally { fetching = false; if (dirty && active) { dirty = false; void refresh(); } }
     }

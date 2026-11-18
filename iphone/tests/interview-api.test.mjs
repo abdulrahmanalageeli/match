@@ -71,7 +71,7 @@ test('Luna choice help is authorized, question-scoped, and never changes the int
   const options = { memberGender: 'woman' };
   const h = harness(options), first = await start(h);
   const fieldId = 'preference:wife_work:self';
-  await assert.rejects(h.service({ action: 'choiceHelp', revision: first.revision, fieldId }, headers), { status: 400 });
+  await assert.rejects(h.service({ action: 'choiceHelp', revision: first.revision + 1, fieldId }, headers), { status: 409 });
   const analyzed = await send(h, first.revision);
   const state = h.state;
   const request = payload => h.service({ action: 'choiceHelp', revision: analyzed.revision, fieldId, ...payload }, headers);
@@ -102,6 +102,29 @@ test('Luna choice help is authorized, question-scoped, and never changes the int
   options.limited = true;
   await assert.rejects(request({ answer: 'أبي أستمر بشغلي.' }), { status: 429 });
   assert.deepEqual(h.state, state);
+});
+
+test('direct onboarding validates exactly the same catalog, with no AI calls, before attesting', async () => {
+  const h = harness({checkFingerprint:true}), first = await start(h), choices = structuredChoices();
+  const confirm = answers => h.service({action:'directConfirm',revision:first.revision,choices:answers},headers);
+  for (const invalid of [choices.slice(1), [...choices.slice(1),choices[1]], [{...choices[0],values:['Z']},...choices.slice(1)]]) {
+    await assert.rejects(confirm(invalid), { status:400 });
+  }
+  const saved = await confirm(choices);
+  assert.equal(saved.structuredConfirmation,true);
+  assert.deepEqual(saved.coverage,{answered:44,required:44});
+  assert.deepEqual(saved.document.turns,[]);
+  assert.deepEqual(saved.document.confirmed.map(({id,values})=>({id,values})),choices);
+  assert.equal((await h.service({action:'load'},headers)).document.status,'confirmed');
+  assert.equal(h.modelCalls.length,0);
+});
+
+test('the new guided route offers cards after one introduction', async () => {
+  const h=harness(), first=await start(h);
+  const review=await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true,cardsAfterReply:true},headers);
+  assert.equal(review.document.status,'review');
+  assert.equal(review.document.currentQuestion,null);
+  assert.equal(h.modelCalls.length,1);
 });
 
 test('structured confirmation retains the attested conversation and persists all choices without inference', async () => {
@@ -191,10 +214,7 @@ test('session start does not call model; draft autosaves privately and answer us
   const first = await start(h);
   assert.equal(first.document.reviewSharing, false);
   assert.equal(first.document.currentQuestion.topic, 'intent');
-  assert.match(first.document.currentQuestion.text, /عرّفنا عن نفسك/);
-  assert.match(first.document.currentQuestion.text, /ما الذي تبحث عنه في شريك حياتك/);
-  assert.match(first.document.currentQuestion.text, /الزواج الجاد/);
-  assert.match(first.document.currentQuestion.text, /استعدادك.*التوقيت/);
+  assert.match(first.document.currentQuestion.text, /وش أهم شيء.*جملة واحدة تكفي/);
   assert.deepEqual(first.document.currentQuestion.suggestions, []);
   assert.equal(h.modelCalls.length, 0);
   const draft = await h.service({ action: 'draft', revision: first.revision, answer }, headers);
@@ -771,7 +791,7 @@ test('loading a saved session sanitizes current quick replies',async()=>{
  const h=harness({initial:{document:initial,revision:1}});
  const loaded=await h.service({action:'load'},headers);
  assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);
- assert.match(loaded.document.currentQuestion.text,/عرّفنا عن نفسك/,'an untouched saved signup receives the richer opening too');
+ assert.match(loaded.document.currentQuestion.text,/جملة واحدة تكفي/,'an untouched saved signup receives the shorter opening too');
  assert.equal(h.modelCalls.length,0);
 });
 

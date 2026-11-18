@@ -85,10 +85,10 @@ test('invalid purpose/version/baseline/documents cannot overwrite the last valid
   await assert.rejects(call(u, 'save', document(u)), /الحساب غير متاح/);
 });
 
-test('seven-day expiry blocks reads, cleanup purges expired rows, and account deletion cascades', async () => {
+test('thirty-day expiry blocks reads, cleanup purges expired rows, and account deletion cascades', async () => {
   const a = await member(), b = await member(), c = await member();
   for (const u of [a, b, c]) await call(u, 'save', document(u));
-  assert.equal(await rpc("(select expires_at-updated_at=interval '7 days' from marriage.onboarding_drafts where member_id=$1)", [a.id]), true);
+  assert.equal(await rpc("(select expires_at-updated_at=interval '30 days' from marriage.onboarding_drafts where member_id=$1)", [a.id]), true);
   await db.query("update marriage.onboarding_drafts set expires_at=now()-interval '1 second' where member_id=$1", [a.id]);
   assert.equal(await call(a, 'load'), null);
   assert.equal(await rpc('(select count(*)::int from marriage.onboarding_drafts where member_id=$1)', [a.id]), 0);

@@ -39,7 +39,7 @@ function Choices<T extends string>({ title, value, labels, onChange, required = 
   </div></fieldset>;
 }
 
-export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAllowed = true, required = false, activeSection, skinRequired = false }: { activeSection?: string; skinRequired?: boolean; required?: boolean; value?: MarriageBasics; gender?: string; onChange: (value: MarriageBasics) => void; sensitiveAllowed?: boolean }) {
+export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAllowed = true, required = false, activeSection, skinRequired = false, eligibilityOnly = false }: { eligibilityOnly?: boolean; activeSection?: string; skinRequired?: boolean; required?: boolean; value?: MarriageBasics; gender?: string; onChange: (value: MarriageBasics) => void; sensitiveAllowed?: boolean }) {
   const [reveal, setReveal] = useState<string | null>(null);
   function revealMissing(event: FocusEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
@@ -93,8 +93,8 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
     <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
       <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined, ...(maritalStatus==='never_married'&&value.childrenCount===undefined?{childrenCount:0}:{}) })} />
       {gender === "man" && value.maritalStatus === "married" && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
-      <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
-      <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small>
+      {!eligibilityOnly && <><Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
+      <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small></>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
       <ChoiceSelect label="عدد الأبناء" value={value.childrenCount === undefined ? '' : String(value.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />
@@ -122,6 +122,7 @@ function Range({ title, options, value, onChange, required = false }: { required
 }
 
 export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, sensitiveAllowed = true, required = false }: { required?: boolean; value?: PartnerCriteria; basics?: MarriageBasics; gender?: string; onChange: (value: PartnerCriteria) => void; sensitiveAllowed?: boolean }) {
+  const remaining = (['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'] as const).filter(key => !value[key]?.mode);
   const [reveal, setReveal] = useState<string | null>(null);
   function revealMissing(event: FocusEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
@@ -136,7 +137,12 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   const selected = (keys: Array<keyof PartnerCriteria>) => { const count = keys.filter(key => value[key]?.mode && value[key]?.mode !== 'any').length; return count ? `${arabicNumber(count)} من التفضيلات محددة` : undefined; };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
-    <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
+    <p className="nf-intake-note">«أفضل» يغيّر ترتيب الترشيحات. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكره. اختر «لا يهمني» حين تكون مرنًا.</p>
+    {required && remaining.length > 0 && <button type="button" className="f-link" onClick={() => {
+      const next = { ...value };
+      for (const key of remaining) next[key] = { mode: 'any' };
+      onChange(next);
+    }}>لا تفضيل لديّ في المعايير المتبقية ({arabicNumber(remaining.length)})</button>}
     <Group title="لغة مشتركة" note="مساحة لحوار يفهمه الطرفان" icon={BookOpen} open={reveal === "لغة مشتركة" || (required && reveal === null)} summary={selected(['sharedLanguage'])}>
       <Mode title="أهمية وجود لغة مشتركة" value={value.sharedLanguage?.mode ?? (required ? undefined : "any")} onChange={mode => change({sharedLanguage:{mode}})}>
         <p>نبحث عن لغة واحدة على الأقل من اللغات التي تتحدثها.</p>

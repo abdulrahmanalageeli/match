@@ -26,7 +26,7 @@ function mount(initial = [message()], online = true) {
     useSyncExternalStore(_subscribe, read) { cursor++; return read(); },
   };
   const local = { outgoing: [], draft: 'Unfinished draft', reply: { id: 'earlier', body: 'Reply target' } };
-  const outbox = { subscribe: noop, read: () => local, reconcile: noop, clear: () => { local.draft = ''; local.outgoing = []; } };
+  const outbox = { restore: async () => {}, subscribe: noop, read: () => local, reconcile: noop, clear: () => { local.draft = ''; local.outgoing = []; } };
   const result = deferred();
   const source = {
     thread: () => { reads++; return threadImpl ? threadImpl() : Promise.resolve(snapshot); },
@@ -73,7 +73,7 @@ test('reaction appears immediately, prevents duplicate writes, preserves draft/r
   thread = f.render(); assert.equal(thread.pendingReactionIds.size, 0); assert.equal(thread.rows[0].reactions[0].count, 2); f.close();
 });
 
-test('network retries back off, preserve the draft and stop after three attempts until manual recovery', async () => {
+test('network retries back off, preserve the draft and resume on the next normal service update after three timed attempts', async () => {
   const f = mount(); f.render(); await tick(); f.render();
   f.threadImpl = async () => { throw Error('network timeout'); };
   f.wake(); await tick();
@@ -83,8 +83,7 @@ test('network retries back off, preserve the draft and stop after three attempts
   f.wake(); await tick(); assert.equal(f.reads, initialReads, 'broadcasts respect backoff');
   for (const delay of [2000, 5000, 10000]) { assert.equal(f.runRetry(), delay); await tick(); f.render(); }
   assert.equal(f.render().connectionState, 'unavailable'); assert.equal(f.timers.size, 0);
-  f.wake(); await tick(); assert.equal(f.reads, initialReads + 3);
-  f.threadImpl = undefined; f.render().refresh(); await tick();
+  f.threadImpl = undefined; f.wake(); await tick(); assert.equal(f.reads, initialReads + 4);
   assert.equal(f.render().connectionState, 'online'); assert.equal(f.render().error, '');
   assert.equal(f.render().draft, 'Unfinished draft'); f.close();
 });

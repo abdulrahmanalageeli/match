@@ -130,7 +130,7 @@ type CommunityProps = {
   onMutual: (connection: Connection) => void;
   openConversation?: string;
   openMessage?: string;
-  openRoom?:string;openAgreement?:boolean;
+  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;
   openRequest?: string;
   onConversationOpened: () => void;
   profileSaved?: boolean;
@@ -1252,9 +1252,9 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, onReported, onCompletion, initialMessage, initialRoom, initialAgreement,
+  source, connection, back, close, backLabel, onReported, onCompletion, initialMessage, initialRoom, initialAgreement, initialAnalysis,
 }: {
-  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
+  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean;initialAnalysis?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   onReported?: () => void;
   onCompletion?: () => void;
 }) {
@@ -1269,7 +1269,8 @@ export function Chat({
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
-  const [deepOpen, setDeepOpen] = useState(false);
+  const [deepOpen, setDeepOpen] = useState(Boolean(initialAnalysis));
+  useEffect(() => { if(initialAnalysis) setDeepOpen(true); },[initialAnalysis]);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -1292,7 +1293,8 @@ export function Chat({
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [replyNotice, setReplyNotice] = useState('');
   const [conversationAllowed, setConversationAllowed] = useState(!source.agreement);
-  const chatReady = thread.ready && conversationAllowed;
+  const canDraft = thread.ready && !thread.accessDenied;
+  const canSend = canDraft && conversationAllowed && thread.connectionState === 'online';
   const screen = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -1304,18 +1306,18 @@ export function Chat({
   const lastReactions = lastRow?.reactions?.map(reaction => `${reaction.emoji}:${reaction.count}:${reaction.mine}`).join('|');
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
-  const reading = useChatReading(source, connection.id, log, atBottom, thread, conversationAllowed && !profileOpen && !familyOpen);
-  const typing = useTyping(source, connection.id, chatReady && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
+  const reading = useChatReading(source, connection.id, log, atBottom, thread, canDraft && !profileOpen && !familyOpen);
+  const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
   const profileIdentity = useRef<HTMLElement>(null);
   const profileFlight = useWeeklyCardTransition();
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && conversationAllowed && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !privateHidden && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
     const saved = !status || status.status === 'saved';
     return { status, deleted,
-      canReply: chatReady && !deleted && saved,
-      canReact: Boolean(source.reactToMessage) && chatReady && !deleted && saved,
+      canReply: canDraft && !deleted && saved,
+      canReact: Boolean(source.reactToMessage) && canSend && !deleted && saved,
       canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
     };
   }
@@ -1375,7 +1377,7 @@ export function Chat({
     if (!element) return;
     element.style.height = "0px";
     element.style.height = Math.min(element.scrollHeight, 110) + "px";
-  }, [thread.draft, conversationAllowed, profileOpen]);
+  }, [thread.draft, canDraft, profileOpen]);
   useLayoutEffect(() => {
     if (!screen.current) return;
     return lockChatViewport(screen.current, () => {
@@ -1402,7 +1404,7 @@ export function Chat({
   function submit(e: FormEvent) {
     e.preventDefault();
     const body = thread.outbox.read().draft.trim();
-    if (!chatReady || !body || body.length > 1000) return;
+    if (!canSend || !body || body.length > 1000) return;
     typing.stop();
     atBottom.current = true;
     composedId.current = thread.outbox.enqueue(body);
@@ -1410,14 +1412,14 @@ export function Chat({
   }
   function chooseConversationPrompt(text: string) {
     const current = thread.outbox.read();
-    if (!chatReady || recording || current.draft || current.reply || !text.trim() || text.length > 1000) return;
+    if (!canSend || recording || current.draft || current.reply || !text.trim() || text.length > 1000) return;
     thread.outbox.write(text);
     setInsightsOpen(false);
     setGuide(false);
     requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
   }
   function chooseReply(msg: Message) {
-    if (!chatReady || msg.deletedAt || deletedIds.has(msg.id) || ('status' in msg && msg.status !== 'saved')) return;
+    if (!canDraft || msg.deletedAt || deletedIds.has(msg.id) || ('status' in msg && msg.status !== 'saved')) return;
     thread.outbox.replyTo({ id: msg.id, senderIsMe: msg.senderIsMe,
       body: msg.attachment ? (msg.attachment.kind === 'photo' ? msg.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية') : msg.body.slice(0,240) });
     setReplyNotice('');
@@ -1496,16 +1498,16 @@ export function Chat({
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
           <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
-        {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !chatReady || recording} onCall={() => voice.start(connection)}/>}
+        {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
-      <div className="cm-chat-plan" data-ready={conversationAllowed || undefined}>
+      <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        <ConversationAgreement openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        <ConversationAgreement hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
 
-      {conversationAllowed && <div className="cm-chat-stage">
+      {(conversationAllowed || thread.rows.length > 0 || thread.error) && <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div
           ref={log} className="cm-chat-log" role="log" tabIndex={0} aria-label="رسائل المحادثة" aria-live="polite" aria-relevant="additions"
@@ -1529,13 +1531,14 @@ export function Chat({
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
-            <button type="button" className="cm-first-starter" disabled={!chatReady} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button>
+            <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button>
           </div>}
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
             const { status, deleted, canReply, canDelete, canReact } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
+            const read = msg.readByPeer || Boolean(msg.readAt);
             return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
@@ -1552,9 +1555,9 @@ export function Chat({
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
                     <span aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
-                    status?.status !== "failed" && <span data-receipt={msg.readAt ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
-                      {msg.readAt || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
-                      <span className="cm-receipt-label">{msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
+                    status?.status !== "failed" && <span data-receipt={read ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
+                      {read || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
+                      <span className="cm-receipt-label">{read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
                 </div>
               </div>
               {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={connection.person.alias}
@@ -1562,7 +1565,7 @@ export function Chat({
                 open={() => openMessageActions(msg)} />}
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
-                <span>{status.error}</span><button onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
+                <span>{status.error}</span><button disabled={!canSend} onClick={() => thread.outbox.retry(status.clientId)}><RotateCcw size={13} /> إعادة الإرسال</button>
               </div>}
             </div>;
           })}
@@ -1571,17 +1574,17 @@ export function Chat({
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
-      {conversationAllowed && <div className="cm-chat-compose">
+      {canDraft && <div className="cm-chat-compose">
 
        {replyDraft && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
          <strong>رد على {replyDraft.senderIsMe ? 'رسالتك' : connection.person.alias}</strong><span dir="auto">{replyDraft.body}</span>
        </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => thread.outbox.replyTo()}><X size={18}/></button></div>}
        <div className="cm-composer-surface">
-        <ChatMediaComposer source={source} requestId={connection.id} disabled={!chatReady || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
+        <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
         <form onSubmit={submit}>
           <textarea
             ref={composer} aria-label="رسالتك" rows={1} maxLength={1000} dir="rtl"
-            value={thread.draft} disabled={!chatReady} placeholder={replyDraft ? "اكتب ردك…" : "رسالتك…"}
+            value={thread.draft} placeholder={!conversationAllowed ? "مسودة حتى تفعيل الميثاق…" : replyDraft ? "اكتب ردك…" : "رسالتك…"}
             onChange={(e) => { thread.outbox.write(e.target.value); if (e.target.value.trim()) typing.touch(); else typing.stop(); }}
             onBlur={typing.stop}
             onKeyDown={(e) => {
@@ -1590,7 +1593,7 @@ export function Chat({
               }
             }}
           />
-          <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!thread.draft.trim() || !chatReady}><Send size={19} /></MotionPressButton>
+          <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!thread.draft.trim() || !canSend}><Send size={19} /></MotionPressButton>
         </form>
        </div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
@@ -1605,7 +1608,7 @@ export function Chat({
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
       </MessageFocus>}
-      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!chatReady || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
+      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {libraryOpen && <ChatLibrary source={source} requestId={connection.id} name={connection.person.alias} onClose={() => setLibraryOpen(false)} onJump={id => { setLibraryOpen(false); atBottom.current = false; setJumpToId(id); }} />}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>
@@ -1616,7 +1619,7 @@ export function Chat({
       {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
         <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
         <div className="cm-chat-tools">
-          {source.searchMessages && <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}
+          {source.searchMessages && <button disabled={!canDraft} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}
           <button disabled={!conversationAllowed || thread.accessDenied} onClick={() => { setToolsOpen(false); typing.stop(); setDeepOpen(true); }}><img className="wd-deep-menu-mark" src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/><span><strong>تحليل وُدَين المعمّق</strong><small>طلب تحليل شخصيتكما أو متابعة تحليل سابق</small></span><ChevronLeft size={16}/></button>
           <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
@@ -1639,7 +1642,7 @@ export function Chat({
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setSafetyError(""); } }}/>}
-      {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !chatReady || recording} onCompletion={onCompletion}
+      {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
         close={() => setGuide(false)} closed={() => { thread.outbox.clear(); close(); }}
@@ -1662,7 +1665,7 @@ function Requests({
   onMutual,
   openConversation,
   openMessage,
-  openRoom,openAgreement,
+  openRoom,openAgreement,openAnalysis,
   openRequest,
   onConversationOpened,
   conversations = false,
@@ -1678,7 +1681,7 @@ function Requests({
   onMutual: (connection: Connection) => void;
   openConversation?: string;
   openMessage?: string;
-  openRoom?:string;openAgreement?:boolean;
+  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;
   openRequest?: string;
   onConversationOpened: () => void;
   conversations?: boolean;
@@ -1690,7 +1693,7 @@ function Requests({
   onMatches?: () => void;
 }) {
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
-  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean}|null>(null);
+  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean;analysis?:boolean}|null>(null);
   const [entry] = useState(initialRequest);
   const initialRequestId = entry?.id;
   const [list, setList] = useState<Connection[]>([]);
@@ -1735,6 +1738,7 @@ function Requests({
   const focusedInitial = useRef<string | null>(null);
   const pendingRead = useRef<Promise<void> | null>(null);
   const loadedRows = useRef<Connection[]>([]);
+  const inboxReadSucceeded = useRef(false);
   const dirty = useRef(false);
   const refresh = useCallback(() => {
     if (pendingRead.current) { dirty.current = true; return pendingRead.current; }
@@ -1746,6 +1750,7 @@ function Requests({
           const received = await source.inbox();
           const rows = discoveryUnavailable ? received.filter(row => row.status === 'accepted') : received;
           if (seq !== sequence.current) return;
+          inboxReadSucceeded.current = true;
           loadedRows.current = rows;
           discardClosedDrafts(source, new Set(rows.filter((row) => row.status === "accepted").map((row) => row.id)));
           setList(rows);
@@ -1756,6 +1761,7 @@ function Requests({
           if (seq !== sequence.current) return;
           setError(messageFor(e));
           setRecoverable(canRetryRead(e));
+          inboxReadSucceeded.current = false;
           if (denied(e)) {
             discardClosedDrafts(source, new Set());
             loadedRows.current = [];
@@ -1805,18 +1811,21 @@ function Requests({
     void refresh().then(() => {
       if (!active) return;
       if (intent !== navigation.current) { onConversationOpened(); return; }
+      if (!inboxReadSucceeded.current) { onConversationOpened(); return; }
       const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : ["pending", "accepted"].includes(row.status)));
       if (target) {
-        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement});
+        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement,analysis:openAnalysis});
         setSelected(target.id);
         setChat(Boolean(openConversation));
         setActionError("");
         window.scrollTo(0, 0);
+      } else {
+        setActionError('لم يعد هذا النشاط متاحًا.');
       }
       onConversationOpened();
     });
     return () => { active = false; };
-  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, refresh, onConversationOpened]);
+  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, openAnalysis, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
   }, [inChat]);
@@ -1916,6 +1925,7 @@ function Requests({
       <Chat
         key={item.id}
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
+        initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
         initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
         source={item.person.isDemo?source.demoInteractions??source:source}
@@ -2234,7 +2244,7 @@ export function Community(props: CommunityProps) {
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
-          openRoom={props.openRoom} openAgreement={props.openAgreement}
+          openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis}
           openMessage={props.openMessage}
           openRequest={props.openRequest}
           onConversationOpened={()=>{setConversationToOpen(undefined);props.onConversationOpened();}}

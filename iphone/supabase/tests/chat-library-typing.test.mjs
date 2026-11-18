@@ -1,3 +1,4 @@
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -9,12 +10,12 @@ test('member search/read anchors and private typing respect connection gates, pa
   const call=(u,expression,args)=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
   async function member(gender){
    const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
-   const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
-   await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
-   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
+   const token=await seedCommunicationMember(db,u,gender);
+   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:token,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
   }
   const a=await member('woman'),b=await member('man'),other=await member('man');
   const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);
+  await signCommunicationAgreement(call,a,b,request);
   const ids=[];
   for(let i=0;i<56;i++){const id=randomUUID();ids.push(id);await db.query('insert into marriage.thread_messages(id,request_id,sender_id,body,created_at,client_id) values($1,$2,$3,$4,$5,$6)',[id,request,b.id,i===55?'literal 100%':'family '+i,new Date(Date.now()-60000+i*100).toISOString(),randomUUID()]);}
   const search=(u,q='',before=null,kind=null)=>call(u,'public.marriage_search_messages($1,$2,$3,$4)',[request,q,before,kind]);
@@ -23,7 +24,14 @@ test('member search/read anchors and private typing respect connection gates, pa
   assert.equal((await search(a,'%'))[0].id,ids[55],'percent is a literal, not a wildcard');
   assert.deepEqual(await search(a),[],'text-only messages do not appear in the media library');
   assert.deepEqual(await call(a,'public.marriage_thread_read_state($1)',[request]),{firstUnreadId:ids[0],unreadCount:56});
+  const receipts=u=>call(u,'public.marriage_message_changes($1,$2)',[request,[ids[15],ids[16]]]);
+  assert((await receipts(b)).every(row=>!row.readByPeer && !row.deliveredAt));
+  await assert.rejects(call(other,'public.marriage_mark_thread_read($1,$2)',[request,ids[16]]));
   await call(a,'public.marriage_mark_thread_read($1,$2)',[request,ids[15]]);
+  assert.deepEqual((await receipts(b)).map(row=>row.readByPeer),[true,false]);
+  assert((await receipts(a)).every(row=>!row.readByPeer));
+  assert.equal(await call(a,'public.marriage_mark_thread_read($1,$2)',[request,ids[14]]),false);
+  assert((await db.query("select 1 from realtime.messages where topic=$1 and event='changed'",['marriage:member:'+b.id])).rows.length>0);
   await call(b,'public.marriage_delete_message($1,$2)',[request,ids[16]]);
   assert.deepEqual(await call(a,'public.marriage_thread_read_state($1)',[request]),{firstUnreadId:ids[17],unreadCount:39});
   assert(!(await search(a,'family')).some(row=>row.id===ids[16]));

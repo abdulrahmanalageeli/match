@@ -10,14 +10,13 @@ import { MarriageBasicsFields } from './MarriageFields';
 import { ConsentChoice, ConsentGate } from '../legal/ConsentChoices';
 import type { SignupConsents } from '../legal/consent';
 import { arabicNumber, unresolvedDetailSlides, type Answers, type Chapter } from './draft';
-import { generatedPublicProfileDraft, missingPublicProfileDraft, type PublicProfileDraft } from './profileDraftFallback';
+import { generatedBio } from './profileDraftFallback';
 import './signup-slides.css';
 
 export type SignupSlidesHandle = { advance: () => boolean; back: () => boolean };
 const details = ['المظهر واللباس','اللغات والتواصل','الخلفية والعائلة','بداية تناسبك','الزواج والتعدد','الأبناء والعادات','الدين في حياتي','خطط الحياة الزوجية'];
 const identityTitles = ['أهلًا بك. نبدأ باسمك.','متى يوم ميلادك؟','وين تقيم حاليًا؟','هل يناسبك مسار وُدَين؟'];
 const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.','ثلاث لمحات تشبهك.','خطوتك القادمة.'];
-const reviewedStoryTitles = ['راجع عملك ودراستك.','راجع نبذتك.','راجع اللمحات التي تظهر في ملفك.','راجع هدفك من الزواج.'];
 const slideSubtitles = {
   identity: ['الاسم الذي سيظهر في ملفك.', 'نستخدمه لحساب العمر فقط؛ يبقى التاريخ خاصًا.', 'نقرّب لك الخيارات من المكان الذي تعيش فيه.', 'نتأكد من الأهلية قبل بدء جلسة التوافق.'],
   story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'جملة صادقة تكفي لبداية جميلة.', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'اختيارك يوضح أن التعارف هنا بقصد الزواج.'],
@@ -35,7 +34,7 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
     const b=p.marriageBasics??{};
     if(b.maritalStatus==='married'&&p.gender!=='man')return 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.';
     if(b.currentWives===4)return 'لا يدعم وُدَين البحث عن زواج إضافي مع وجود أربع زوجات حاليًا.';
-    return !b.maritalStatus||!b.polygynyPreference||(b.maritalStatus==='married'&&!b.currentWives)?'أكمل وضعك الحالي وموقفك من التعدد.':null;
+    return !b.maritalStatus||(b.maritalStatus==='married'&&!b.currentWives)?'أكمل حالتك الاجتماعية الحالية.':null;
   }
   if(chapter==='story') {
     if(index===0)return !p.profession.trim()?'اختر مجال عملك أو وضعك المهني.':required&&!p.education?.trim()?'اختر مؤهلك الدراسي.':null;
@@ -62,8 +61,8 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   return null;
 }
 
-type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; aiDraftsReady?:boolean };
-export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required,aiDraftsReady=false},ref){
+type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean };
+export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required},ref){
   const total=signupSlideCount(chapter);
   const [detailSlides,setDetailSlides]=useState(()=>[0,...unresolvedDetailSlides(p,consents.sensitiveProfile)]);
   const slides=chapter==='details'?detailSlides:Array.from({length:total},(_,i)=>i);
@@ -85,18 +84,18 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const fallback=missingPublicProfileDraft(p);if(Object.keys(fallback).length){update(fallback);setGeneratedDraft(true);}}if(last)return false;move(index+1);return true;},
+    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;move(index+1);return true;},
     back(){if(index===0)return false;move(index-1);return true;},
   }));
   useEffect(()=>{if(error&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication))setError(null);},[p,consents.sensitiveProfile,consents.sensitivePublication,error,chapter,visibleIndex,required]);
-  useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;const fallback=missingPublicProfileDraft(p);if(!Object.keys(fallback).length)return;update(fallback);setGeneratedDraft(true);},[chapter]);
+  useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;if(p.bio.trim())return;const bio=generatedBio(p);if(bio){update({bio});setGeneratedDraft(true);}},[chapter]);
   useLayoutEffect(()=>{if(previous.current===index)return;previous.current=index;heading.current?.focus({preventScroll:true});container.current?.scrollIntoView({block:'start',behavior:'instant'});},[index]);
-  const draftReady=aiDraftsReady||generatedDraft;
-  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?reviewedStoryTitles[visibleIndex]:storyTitles[visibleIndex]):visibleIndex===0?'تفاصيل واضحة من البداية.':details[visibleIndex-1];
+  const draftReady=generatedDraft && visibleIndex === 1;
+  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):visibleIndex===0?'تفاصيل واضحة من البداية.':details[visibleIndex-1];
   const count=slides.length;
   const basics=p.marriageBasics??{};
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
-  const rephrase=(field:keyof PublicProfileDraft)=>{rewriteVersion.current+=1;answer({[field]:generatedPublicProfileDraft(p,rewriteVersion.current)[field]});setGeneratedDraft(true);};
+  const rephraseBio=()=>{rewriteVersion.current+=1;answer({bio:generatedBio(p,rewriteVersion.current)});setGeneratedDraft(true);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,visibleIndex-1) : visibleIndex];
@@ -111,11 +110,11 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       {chapter==='identity'&&visibleIndex===0&&<><label>الاسم المعروض<input data-field="displayName" autoComplete="nickname" value={p.displayName} maxLength={60} placeholder="اسمك الأول" required onChange={e=>answer({displayName:e.target.value})}/></label><fieldset className="nf-gender-segment"><legend>كيف نعرّفك؟</legend><div className="choice-row">{(['woman','man']as const).map(value=><button type="button" key={value} aria-pressed={p.gender===value} onClick={()=>{setError(null);setInteracted(true);gender(value);}}>{value==='woman'?'امرأة':'رجل'}{p.gender===value&&<Check size={16}/>}</button>)}</div></fieldset></>}
       {chapter==='identity'&&visibleIndex===1&&<><label>تاريخ الميلاد · ميلادي<input data-field="birthDate" type="date" dir="ltr" autoComplete="bday" value={p.birthDate??''} min="1900-01-01" max={latestAdultBirthday()} required onChange={e=>{const birthDate=e.target.value,age=ageFromBirthday(birthDate);answer({birthDate,age:age===null?'':String(age)});}}/></label>{p.birthDate&&ageFromBirthday(p.birthDate)!>=18&&<p className="wd-slide-detail">يظهر في ملفك: {arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا</p>}</>}
       {chapter==='identity'&&visibleIndex===2&&<><p className="wd-slide-description">نقرّب لك الخيارات التي تناسب مكان حياتك.</p><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/></>}
-      {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">سؤالان واضحان قبل جلسة التوافق، حتى لا نأخذ من وقتك إذا لم يكن المسار مناسبًا.</p><MarriageBasicsFields activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
+      {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">نبدأ بالحالة الاجتماعية للتأكد من الأهلية. يمكنك تحديد تفضيلاتك للزواج لاحقًا في تفاصيل ملفك.</p><MarriageBasicsFields eligibilityOnly activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
       {chapter==='story'&&visibleIndex===0&&<><SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/><SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/></>}
-      {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p><button type="button" className="wd-slide-rephrase" onClick={()=>rephrase('bio')}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
-      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required} rephrase={rephrase}/>}
-      {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
+      {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
+      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
+      {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>تُراجع كل صياغة قبل أن تظهر.</strong><span>جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.</span></div></div></>}
       {chapter==='details'&&visibleIndex===0&&<><ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">{required?'هاتان الموافقتان مطلوبتان لإنشاء ملفك. تبقى إدارة خصوصيتك متاحة من الإعدادات.':'الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.'}</p></>}
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>

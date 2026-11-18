@@ -1,7 +1,7 @@
 import { accessError, hashGuardianValue } from './guardian-access.ts';
 
 export const memberSignupKind = 'member_self_claimed_email';
-export const memberSignupUnavailable = 'تعذّر إنشاء الحساب بهذه البيانات. جرّب تسجيل الدخول أو استخدم بريدًا آخر.';
+export const memberSignupUnavailable = 'تعذّر إنشاء الحساب بهذه البيانات. جرّب تسجيل الدخول إلى حسابك أو تواصل مع الدعم.';
 const consentVersion = '2026-11-07-privacy';
 export type MemberSignupInput = { email: string; password: string; phoneProof: string; deviceId: string; consent: { version: string; adult: true; terms: true; privacy: true } };
 type ServiceError = { status?: number; code?: string };

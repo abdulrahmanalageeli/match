@@ -47,7 +47,7 @@ export function useThread(source: CommunitySource, requestId: string) {
     let fetching = false;
     let dirty = false;
     let retries = 0;
-    let exhausted = false;
+    let accessRevoked = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const clearRetry = () => { clearTimeout(retryTimer); retryTimer = undefined; };
     async function refresh() {
@@ -55,7 +55,7 @@ export function useThread(source: CommunitySource, requestId: string) {
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         clearRetry(); setConnectionState('offline'); setLoading(false); return;
       }
-      if (retryTimer !== undefined || exhausted) return;
+      if (retryTimer !== undefined || accessRevoked) return;
       if (fetching) { dirty = true; return; }
       fetching = true;
       try {
@@ -76,6 +76,9 @@ export function useThread(source: CommunitySource, requestId: string) {
           }
         }
         if (!active || generation !== epoch.current) return;
+        // Restore only after this session has successfully read the authorized thread.
+        await outbox.restore(page).catch(error => { if (denied(error)) throw error; });
+        if (!active || generation !== epoch.current) return;
         newest.current = page.at(-1)?.id ?? null;
         const checkedIds = new Set(snapshot.map(row => row.id));
         const retainedIds = new Set([...history, ...page].map(row => row.id));
@@ -90,12 +93,12 @@ export function useThread(source: CommunitySource, requestId: string) {
       } catch (err) {
         if (!active) return;
         dirty = false;
-        if (denied(err)) { revoke(); exhausted = true; setAccessDenied(true); setConnectionState('unavailable'); }
+        if (denied(err)) { revoke(); accessRevoked = true; setAccessDenied(true); setConnectionState('unavailable'); }
         else if (typeof navigator !== 'undefined' && navigator.onLine === false) setConnectionState('offline');
         else if (retries < 3) {
           setConnectionState('reconnecting');
           retryTimer = setTimeout(() => { retryTimer = undefined; void refresh(); }, [2000, 5000, 10000][retries++]);
-        } else { exhausted = true; setConnectionState('unavailable'); }
+        } else { setConnectionState('unavailable'); }
         setError(chatError(err));
       } finally {
         fetching = false;
@@ -107,7 +110,7 @@ export function useThread(source: CommunitySource, requestId: string) {
     }
     function recover() {
       if (document.hidden) return;
-      clearRetry(); retries = 0; exhausted = false;
+      clearRetry(); retries = 0; accessRevoked = false;
       setConnectionState(previous => typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : previous === 'online' ? 'online' : 'reconnecting');
       void refresh();
     }

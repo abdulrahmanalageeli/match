@@ -15,7 +15,7 @@ after(() => loader?.close());
 function answers() {
   return { ...initialDraft("11111111-1111-4111-8111-111111111111", null).answers,
     displayName: "نور", gender: "woman", age: "28", city: "الرياض", profession: "مهندسة",
-    bio: "نبذة تجريبية", contact: "sample@example.invalid" };
+    preferredMinAge:"24", preferredMaxAge:"40", familyPreference:"من البداية", bio: "نبذة تجريبية", contact: "sample@example.invalid" };
 }
 
 test('saving uses canonical matching labels and keeps legacy free-text descriptions', () => {
@@ -235,4 +235,13 @@ test('new smoking types survive profile validation and out-of-range measurements
     assert.equal(toProfile(p).marriageBasics.smoking,smoking);
   }
   assert.ok(unresolvedDetailSlides({...answers(),marriageBasics:{heightCm:0,weightKg:500}},false).includes(1));
+});
+
+test('new applicants explicitly choose family timing and age bounds; existing profiles retain theirs', () => {
+  const empty=initialDraft('new',null).answers;
+  assert.deepEqual([empty.preferredMinAge,empty.preferredMaxAge,empty.familyPreference],['','','']);
+  const chosen=answers();
+  assert.equal(validateStep('preferences',{...chosen,familyPreference:''},true,true)?.field,'familyPreference');
+  const restored=initialDraft('existing',toProfile(chosen)).answers;
+  assert.deepEqual([restored.preferredMinAge,restored.preferredMaxAge,restored.familyPreference],['24','40','من البداية']);
 });

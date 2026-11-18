@@ -1,4 +1,5 @@
 import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
+import type { PendingChatSends } from './pendingChatSends';
 import { cloud } from "../cloud";
 import { canonicalCity, canonicalNationality, canonicalEducation, canonicalProfession } from '../profile/profileOptions';
 import { requestAi } from '../ai/client';
@@ -87,11 +88,12 @@ export type Message = {
   attachment?: ChatAttachment | null;
   deliveredAt?: string | null;
   readAt?: string | null;
+  readByPeer?: boolean;
   reply?: MessageReply | null;
   deletedAt?: string | null;
   reactions?: MessageReaction[];
 };
-export type ChatAttachment = { id: string; kind: "photo" | "audio"; mime: string; size: number; duration?: number; viewOnce?: boolean; openedAt?: string | null };
+export type ChatAttachment = { id: string; kind: "photo" | "audio"; mime: string; size: number; duration?: number; viewOnce?: boolean; openedAt?: string | null; viewedAt?: string | null };
 export type ThreadReadState = { firstUnreadId: string | null; unreadCount: number };
 export function searchMessageRows(rows: readonly Message[], query: string, beforeId?: string, kind?: ChatAttachment['kind']): Message[] {
   const needle = query.trim().toLocaleLowerCase('ar');
@@ -146,6 +148,8 @@ export type RequestAction =
 export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
 export type StepProgress = { rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
 export interface CommunitySource extends ManualVerificationSource {
+  pendingSends?: PendingChatSends;
+  committedSends?(requestId: string, clientIds: string[]): Promise<string[]>;
   deepAnalysis?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
@@ -192,6 +196,7 @@ export interface CommunitySource extends ManualVerificationSource {
   reactToMessage?(requestId: string, messageId: string, reaction: ReactionEmoji | null): Promise<MessageReaction[]>;
   sendMedia?(requestId: string, file: Blob, kind: ChatAttachment["kind"], clientId: string, duration?: number, viewOnce?: boolean): Promise<string>;
   mediaUrl?(requestId: string, attachmentId: string): Promise<string>;
+  confirmMediaViewed?(requestId: string, attachmentId: string): Promise<void>;
   openMedia?(requestId: string, attachmentId: string): Promise<string>;
   callPermission?(requestId: string): Promise<CallPermissionState>;
   requestCallPermission?(requestId: string, action: "invite" | "accept" | "decline"): Promise<CallPermissionState>;
@@ -204,7 +209,7 @@ export interface CommunitySource extends ManualVerificationSource {
   watch: WatchUpdates;
 }
 
-export function cloudCommunity(userId: string): CommunitySource {
+export function cloudCommunity(userId: string, pendingSends?: PendingChatSends): CommunitySource {
   const media = () => import('./memberChatMedia').then(module => module.memberChatMediaSource(userId));
   async function timedRpc<T>(name: string, params: Record<string, unknown>): Promise<T> {
     const controller = new AbortController();
@@ -217,6 +222,11 @@ export function cloudCommunity(userId: string): CommunitySource {
   }
   return {
     watch: privateUpdates(userId),
+    pendingSends,
+    committedSends: (request_id, client_ids) => timedRpc('marriage_committed_chat_sends', {request_id, client_ids}),
+    async confirmMediaViewed(request_id, media_id) {
+      await timedRpc('marriage_chat_media', { action: 'viewed', request_id, media_id });
+    },
     deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
     mediaUrl: async (...args) => (await media()).mediaUrl!(...args),
@@ -1052,6 +1062,13 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       const message = mediaMessage(id, attachmentId);
       if (message.attachment?.viewOnce) throw Error('افتح الصورة من زر العرض لمرة واحدة.');
       return URL.createObjectURL(mediaFiles.get(attachmentId)!);
+    },
+    async confirmMediaViewed(id, attachmentId) {
+      const message = threadRows(id).find(row => row.attachment?.id === attachmentId);
+      if (message?.attachment?.openedAt && !message.senderIsMe && !message.deletedAt) {
+        message.attachment.viewedAt ??= new Date().toISOString();
+        notify();
+      }
     },
     async openMedia(id, attachmentId) {
       const message = mediaMessage(id, attachmentId);

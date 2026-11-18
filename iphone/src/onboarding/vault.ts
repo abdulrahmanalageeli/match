@@ -6,10 +6,16 @@ type Storage = {
   remove: (key: string) => Promise<void>;
 };
 export const draftTTL = 30 * 24 * 60 * 60 * 1000;
-const memberId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const draftMemberId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const keyFor = (owner: string) => "nisfayn.intake.v1." + owner;
 
 type Decode = (text: string, owner: string, baseline: string, now: number) => ApplicationDraft | null;
+
+function payload(draft: ApplicationDraft) {
+  const { portrait: _portrait, signupConsents: _signupConsents, ...answers } = draft.answers;
+  const { owner, baseline, step, returnToReview, permissions } = draft;
+  return { version: 1, owner, baseline, answers, step, returnToReview, ...(permissions ? { permissions } : {}) };
+}
 
 export function createDraftVault(getStorage: () => Storage | null, decode: Decode, now = Date.now) {
   const pending = new Map<string, Promise<void>>();
@@ -23,7 +29,7 @@ export function createDraftVault(getStorage: () => Storage | null, decode: Decod
     void tail.then(() => { if (pending.get(owner) === tail) pending.delete(owner); });
     return task;
   }
-  const available = (owner: string) => memberId.test(owner) && Boolean(getStorage());
+  const available = (owner: string) => draftMemberId.test(owner) && Boolean(getStorage());
   function current(owner: string, lease: number) {
     return lease === revision(owner) && !clearing.has(owner);
   }
@@ -36,7 +42,7 @@ export function createDraftVault(getStorage: () => Storage | null, decode: Decod
     },
     load(owner: string, baseline: string, lease: number) {
       return queue(owner, async () => {
-        const storage = memberId.test(owner) ? getStorage() : null;
+        const storage = draftMemberId.test(owner) ? getStorage() : null;
         if (!storage || !current(owner, lease)) return null;
         const text = await storage.read(keyFor(owner), baseline);
         if (text === null || !current(owner, lease)) return null;
@@ -47,18 +53,28 @@ export function createDraftVault(getStorage: () => Storage | null, decode: Decod
     },
     save(draft: ApplicationDraft, lease: number) {
       return queue(draft.owner, async () => {
-        const storage = memberId.test(draft.owner) ? getStorage() : null;
+        const storage = draftMemberId.test(draft.owner) ? getStorage() : null;
         if (!storage || !current(draft.owner, lease)) return false;
-        const { owner, baseline, step, returnToReview } = draft;
-        // Server-owned photo metadata and consent receipts are never device draft answers.
-        const { portrait: _portrait, signupConsents: _signupConsents, ...answers } = draft.answers;
-        await storage.write(keyFor(owner), JSON.stringify({ version: 1, savedAt: now(), owner, baseline, answers, step, returnToReview,
-          ...(draft.permissions ? { permissions: draft.permissions } : {}) }));
+        const { owner } = draft;
+        await storage.write(keyFor(owner), JSON.stringify({ ...payload(draft), savedAt: now() }));
         return current(owner, lease);
       });
     },
+    acknowledge(draft: ApplicationDraft, lease: number) {
+      // An older network response must never clear a newer offline edit.
+      return queue(draft.owner, async () => {
+        const storage = getStorage();
+        if (!storage || !current(draft.owner, lease)) return;
+        const key = keyFor(draft.owner);
+        const saved = await storage.read(key, draft.baseline);
+        if (!saved) return;
+        const stored = decode(saved, draft.owner, draft.baseline, now());
+        const submitted = decode(JSON.stringify({ ...payload(draft), savedAt: now() }), draft.owner, draft.baseline, now());
+        if (stored && submitted && JSON.stringify(stored) === JSON.stringify(submitted)) await storage.remove(key);
+      });
+    },
     clear(owner: string) {
-      if (!memberId.test(owner) || !getStorage()) return Promise.resolve();
+      if (!draftMemberId.test(owner) || !getStorage()) return Promise.resolve();
       const next = revision(owner) + 1;
       revisions.set(owner, next);
       clearing.add(owner);

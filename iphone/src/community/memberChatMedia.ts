@@ -18,8 +18,17 @@ export function memberChatMediaSource(owner: string): Pick<CommunitySource, 'sen
     return response;
   }
   async function download(requestId: string, mediaId: string, viewOnce: boolean) {
-    const response = await request('download', JSON.stringify({ requestId, mediaId, viewOnce }), {'Content-Type':'application/json'});
-    return URL.createObjectURL(await response.blob());
+    try {
+      const response = await request('download', JSON.stringify({ requestId, mediaId, viewOnce }), {'Content-Type':'application/json'});
+      const file = await response.blob();
+      if (!file.size) throw new TypeError('Incomplete response');
+      return URL.createObjectURL(file);
+    } catch (error) {
+      if (viewOnce && (error instanceof TypeError || error instanceof DOMException)) {
+        throw Error('انقطع تحميل الصورة. لم يتأكّد عرضها. تحقّق من حالتها عند عودة الاتصال.');
+      }
+      throw error;
+    }
   }
   return {
     async sendMedia(requestId, file, kind, clientId, duration, viewOnce = false) {

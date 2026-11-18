@@ -1,3 +1,4 @@
+import { interviewWritingDrafts } from '../interview/writingDraft';
 import { privateDraftKeychain } from "../session";
 import { assessmentVersion, categories, dimensions, interests, maxInterests, maxPriorities } from "../compatibility/model";
 import { chapters, type Answers, type ApplicationDraft } from "./draft";
@@ -78,8 +79,11 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
 const accountStorage = createAccountDraftStorage(callRpc);
 export const accountDraftsAvailable = () => Boolean(cloud);
 export const intakeVault = createDraftVault(() => cloud ? accountStorage : privateDraftKeychain(), decodeDraft);
-export const clearSavedIntake = (owner: string) => intakeVault.clear(owner);
+export const pendingIntake = createDraftVault(() => cloud ? privateDraftKeychain() : null, decodeDraft);
+export const clearSavedIntake = (owner: string) => Promise.all([intakeVault.clear(owner), pendingIntake.clear(owner), interviewWritingDrafts.clear(owner)]);
+export const releaseIntake = (owner: string) => Promise.all([intakeVault.release(owner), pendingIntake.release(owner)]);
 export async function discardLocalIntake(owner: string) {
-  await intakeVault.release(owner);
+  await releaseIntake(owner);
+  await interviewWritingDrafts.clear(owner);
   await privateDraftKeychain()?.remove('nisfayn.intake.v1.' + owner);
 }

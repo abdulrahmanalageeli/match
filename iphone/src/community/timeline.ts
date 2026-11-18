@@ -11,7 +11,15 @@ export function mergeMessages(previous: Message[], incoming: Message[]) {
   incoming.forEach((m) => {
     const old = rows.get(m.id);
     // Delayed responses cannot resurrect content or an already consumed photo.
-    rows.set(m.id, old?.deletedAt ? old : old?.attachment?.openedAt && m.attachment ? { ...m, attachment: { ...m.attachment, openedAt: old.attachment.openedAt } } : m);
+    if (old?.deletedAt) return;
+    let next = m;
+    if (old?.attachment?.openedAt && m.attachment) {
+      next = { ...m, attachment: { ...m.attachment, openedAt: old.attachment.openedAt, viewedAt: m.attachment.viewedAt ?? old.attachment.viewedAt } };
+    }
+    if (old?.readByPeer || old?.readAt || old?.deliveredAt) {
+      next = { ...next, readByPeer: m.readByPeer || old.readByPeer, readAt: m.readAt ?? old.readAt, deliveredAt: m.deliveredAt ?? old.deliveredAt };
+    }
+    rows.set(m.id, next);
   });
   return [...rows.values()].map(message => {
     if (message.deletedAt) return { ...message, body: 'تم حذف هذه الرسالة', attachment: null, reply: null, reactions: [] };

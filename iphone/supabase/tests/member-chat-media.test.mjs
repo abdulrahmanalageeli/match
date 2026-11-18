@@ -51,7 +51,16 @@ test('member photo/audio uploads enforce consent, ownership, metadata, privacy a
   const once=randomUUID(),onceReserved=await media(a,'prepare',once,{...photo,viewOnce:true});await store(onceReserved.path,{size:100,mimetype:'image/jpeg'});await media(a,'commit',once);
   await assert.rejects(media(b,'access',once),/لمرة واحدة/);
   assert.equal((await media(a,'access',once)).path,onceReserved.path);
+  for(const who of [a,outside])await assert.rejects(media(who,'inspect',once));
+  await assert.rejects(media(b,'viewed',once));
+  assert.deepEqual(await media(b,'inspect',once),{path:onceReserved.path,mime:'image/jpeg',size:100});
+  assert.equal((await media(b,'inspect',once)).path,onceReserved.path);
   assert.equal((await media(b,'open',once)).path,onceReserved.path);
+  await assert.rejects(media(b,'inspect',once));await assert.rejects(media(a,'viewed',once));
+  const onceState=async()=>(await call(a,'public.marriage_message_changes($1,$2)',[request,[once]]))[0].attachment;
+  assert((await onceState()).openedAt);assert.equal((await onceState()).viewedAt,null);
+  await media(b,'viewed',once);const confirmed=(await onceState()).viewedAt;assert(confirmed);
+  await media(b,'viewed',once);assert.equal((await onceState()).viewedAt,confirmed);
   await assert.rejects(media(b,'open',once),/لمرة واحدة/);
   assert.ok((await call(a,'public.marriage_message_changes($1,$2)',[request,[once]]))[0].attachment.openedAt);
   assert.equal((await call(b,"public.marriage_search_messages($1,'',null,'photo')",[request])).length,1);

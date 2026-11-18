@@ -1,3 +1,4 @@
+import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
 import { SignupBasicsSlides, type SignupSlidesHandle } from './SignupBasicsSlides';
 import { MensPhotoChoice } from './MensPhotoChoice';
@@ -13,7 +14,7 @@ import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, valid
 import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
 import { SheetChoiceSelect as ChoiceSelect } from '../ui/SheetChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
-import { intakeVault, accountDraftsAvailable } from "./persistence";
+import { intakeVault, pendingIntake, accountDraftsAvailable } from "./persistence";
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
 import { personalityQuestions } from "../compatibility/personality";
@@ -200,6 +201,11 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
 
 export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
+  const [directInterview, setDirectInterview] = useState(false);
+  function openInterview(direct = false) {
+    setDirectInterview(direct);
+    setInterviewOpen(true);
+  }
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
   const [aiComplete, setAiComplete] = useState(false);
@@ -228,7 +234,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:draft.permissions?.sensitivePublication??(initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true),assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
   const consentRef = useRef(consents);
   consentRef.current = consents;
-  const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'error'>('idle');
+  const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'local'|'error'>('idle');
   const savedSnapshot = useRef('');
   const loadFailed = useRef(false);
   const [portraitChange,setPortraitChange]=useState<PortraitDraft|null|undefined>();
@@ -243,6 +249,12 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   latestInitial.current = initial;
   const touched = useRef(false);
   const lease = useRef(intakeVault.revision(draftOwner));
+  const checkpointLease = useRef(pendingIntake.revision(draftOwner));
+  const hasCheckpoint = !demo && pendingIntake.available(draftOwner);
+  const checkpointFingerprint = useRef('');
+  const [recoveryChoice, setRecoveryChoice] = useState<'device'|'account'>();
+  const [chooseRecovery, setChooseRecovery] = useState(false);
+  const retryRecovery = useRef(false);
   const mounted = useRef(true);
   const savingLater = useRef(false);
   const [leaving, setLeaving] = useState(false);
@@ -303,7 +315,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,sensitivePublication:next.sensitivePublication,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
+    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
   }
 
@@ -313,7 +325,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(previous => ({ ...previous, adult: previous.adult || recorded.adult, terms: previous.terms || recorded.terms, privacy: previous.privacy || recorded.privacy }));
   }, [accountAgreements, initial?.signupConsents]);
   useEffect(() => {
-    if (editing || checkingDevice || !interviewAuth || !consentRef.current.assessment) return;
+    if (editing || checkingDevice || chooseRecovery || !interviewAuth || !consentRef.current.assessment) return;
     let active = true;
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
@@ -333,7 +345,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       }
     }).catch(() => { /* The session itself offers a retry; a network error is not a bypass. */ });
     return () => { active = false; };
-  }, [checkingDevice, consents.assessment, editing, interviewAuth?.token, interviewAuth?.testSession]);
+  }, [checkingDevice, chooseRecovery, consents.assessment, editing, interviewAuth?.token, interviewAuth?.testSession]);
   useEffect(() => {
     if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
       const fresh = withDefaultContact(initialDraft(draftOwner, latestInitial.current), defaultContact);
@@ -352,8 +364,31 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     let active = true;
     loadFailed.current = false;
     setCheckingDevice(true);
-    void intakeVault.load(draftOwner, baseline, lease.current).then(restored => {
-      if (!active || touched.current || !restored || !intakeVault.current(draftOwner, lease.current)) return;
+    async function readDraft() {
+      const local = hasCheckpoint ? await pendingIntake.load(draftOwner, baseline, checkpointLease.current) : null;
+      let remote: ApplicationDraft | null;
+      try { remote = await intakeVault.load(draftOwner, baseline, lease.current); }
+      catch (cause) {
+        if (!active) return null;
+        if (!local) throw cause;
+        retryRecovery.current = true;
+        if (recoveryChoice === 'account') { setChooseRecovery(true); return null; }
+        setChooseRecovery(false);
+        return local;
+      }
+      if (!active) return null;
+      retryRecovery.current = false;
+      if (local && remote && !recoveryChoice) { setChooseRecovery(true); return null; }
+      setChooseRecovery(false);
+      if (local && recoveryChoice === 'account') {
+        await pendingIntake.acknowledge(local, checkpointLease.current);
+        return remote;
+      }
+      if (local) touched.current = true;
+      return local ?? remote;
+    }
+    void readDraft().then(restored => {
+      if (!active || !restored || !intakeVault.current(draftOwner, lease.current)) return;
       if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
       restored=withDefaultContact(restored,defaultContact);
       if(!latestInitial.current)restored.answers=withFamilyDefaults(restored.answers);
@@ -362,11 +397,17 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!latestInitial.current && restored.step !== 'identity' && validateStep('identity', restored.answers, true, true, includeCompatibility)) restored.step='identity';
 
       current.current = restored;
-      if (restored.permissions) {
-        const choices = {...consentRef.current, sensitiveProfile:restored.permissions.sensitiveProfile, sensitivePublication:restored.permissions.sensitivePublication===true, assessment:restored.permissions.assessment};
-        consentRef.current = choices;
-        setConsents(choices);
-      }
+      const permissions = restored.permissions;
+      const recorded = latestInitial.current?.signupConsents;
+      const choices = {
+        ...consentRef.current,
+        sensitiveProfile: permissions?.sensitiveProfile ?? (recorded?.sensitiveProfile === true),
+        sensitivePublication: permissions ? permissions.sensitivePublication === true :
+          recorded?.version === '2026-11-07-privacy' && recorded.sensitiveProfile === true && recorded.sensitivePublication === true,
+        assessment: permissions?.assessment ?? (recorded?.assessment === true),
+      };
+      consentRef.current = choices;
+      setConsents(choices);
       if (draftRef) draftRef.current = restored;
       setDraft(restored);
       if(dimensions.some(d => d.options.some(o => o.code === restored.answers.surveyAnswers?.[d.id] || o.code === restored.answers.surveyAnswers?.[d.partnerId])))setAssessmentPath('questions');
@@ -375,7 +416,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     }).catch(() => { if (active && !touched.current) { loadFailed.current = true; setStorageState("loadError"); } })
       .finally(() => { if (active) setCheckingDevice(false); });
     return () => { active = false; };
-  }, [baseline, defaultContact, deviceDraft, draftOwner, draftRef, includeCompatibility, restoreAttempt, startAt]);
+  }, [baseline, defaultContact, deviceDraft, draftOwner, draftRef, hasCheckpoint, includeCompatibility, recoveryChoice, restoreAttempt, startAt]);
   function privateSnapshot():ApplicationDraft {
     const choices=consentRef.current;
     let answers=choices.sensitiveProfile?current.current.answers:withoutSensitive(current.current.answers);
@@ -383,30 +424,55 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     return {...current.current,answers,consent:false,permissions:{...current.current.permissions,version:choices.version,sensitiveProfile:choices.sensitiveProfile,sensitivePublication:choices.sensitivePublication,assessment:choices.assessment}};
   }
   async function saveProgressNow() {
-    if (!deviceDraft || !touched.current || checkingDevice || loadFailed.current || busy || savingLater.current) return;
+    if (!deviceDraft || !touched.current || checkingDevice || chooseRecovery || retryRecovery.current || loadFailed.current || busy || savingLater.current) return;
     const snapshot=privateSnapshot(), fingerprint=JSON.stringify(snapshot);
     if (fingerprint===savedSnapshot.current) { setSaveProgress('saved');return; }
     setSaveProgress('saving');
     try {
       const saved=await intakeVault.save(snapshot,lease.current);
+      if(saved && hasCheckpoint) await pendingIntake.acknowledge(snapshot,checkpointLease.current);
       if(saved&&mounted.current){savedSnapshot.current=fingerprint;setSaveProgress(JSON.stringify(privateSnapshot())===fingerprint?'saved':'pending');}
-    } catch { if(mounted.current)setSaveProgress('error'); }
+    } catch {
+      const protectedCopy = checkpointFingerprint.current === fingerprint;
+      if (protectedCopy) retryRecovery.current = true;
+      if (mounted.current) setSaveProgress(protectedCopy ? 'local' : 'error');
+    }
   }
   useEffect(()=>{
     if(!deviceDraft||!touched.current||checkingDevice||busy||loadFailed.current)return;
+    if(chooseRecovery)return;
+    if(hasCheckpoint) {
+      const snapshot=privateSnapshot(), fingerprint=JSON.stringify(snapshot);
+      void pendingIntake.save(snapshot,checkpointLease.current).then(saved=>{
+        if(saved && mounted.current) {
+          checkpointFingerprint.current=fingerprint;
+          if (retryRecovery.current || !navigator.onLine) setSaveProgress('local');
+        }
+      }).catch(()=>{ /* The account save still runs if Keychain is locked. */ });
+    }
     setSaveProgress('pending');
     const timer=window.setTimeout(()=>void saveProgressNow(),600);
     return()=>window.clearTimeout(timer);
-  },[draft,consents,deviceDraft,checkingDevice,busy]);
+  },[draft,consents,deviceDraft,hasCheckpoint,chooseRecovery,checkingDevice,busy]);
+  function reconnect() {
+    if (retryRecovery.current) {
+      // Reconcile with the account copy before replaying offline edits.
+      touched.current = false;
+      if (draftRef) draftRef.current = null;
+      setRecoveryChoice(undefined);
+      setRestoreAttempt(value => value + 1);
+    } else void saveProgressNow();
+  }
   useEffect(()=>{
     if(!deviceDraft)return;
     const flush=()=>{if(document.visibilityState==='hidden')void saveProgressNow();};
     const warn=(event:BeforeUnloadEvent)=>{
       if(touched.current&&JSON.stringify(privateSnapshot())!==savedSnapshot.current){event.preventDefault();event.returnValue='';}
     };
+    window.addEventListener('online',reconnect);
     document.addEventListener('visibilitychange',flush);window.addEventListener('beforeunload',warn);
-    return()=>{document.removeEventListener('visibilitychange',flush);window.removeEventListener('beforeunload',warn);};
-  },[deviceDraft,checkingDevice,busy]);
+    return()=>{window.removeEventListener('online',reconnect);document.removeEventListener('visibilitychange',flush);window.removeEventListener('beforeunload',warn);};
+  },[deviceDraft,checkingDevice,chooseRecovery,hasCheckpoint,busy]);
   useLayoutEffect(() => {
     if (editorHome) return;
     previousStep.current = draft.step;
@@ -462,6 +528,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (step !== chapter.key) feedback('selection');
   }
   function goBack() {
+    if (chooseRecovery) { back(); return; }
     if (usesBasicSlides && basicSlides.current?.back()) return;
     if (editorHome) { void leaveForLater(); return; }
     if (draft.returnToReview) { move("review"); return; }
@@ -471,6 +538,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }
   async function leaveForLater(photoLossAcknowledged=false) {
     if (busy || savingLater.current || (checkingDevice && !touched.current)) return;
+    if (chooseRecovery) { back(); return; }
     if (!photoLossAcknowledged && ((portraitChange!==undefined&&!portraitChange?.staged) || (portraitPolicy!==undefined&&portraitPolicy!==portraitChange?.revealPolicy))) { setConfirmPhotoDraftLoss(true); return; }
     if (storageState === "loadError" && !touched.current) { back(); return; }
     const snapshot = privateSnapshot();
@@ -479,7 +547,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     savingLater.current = true;
     setLeaving(true);
     try {
-      if (await intakeVault.save(snapshot, lease.current) && mounted.current) { savedSnapshot.current=JSON.stringify(snapshot);back(); }
+      const localSaved = hasCheckpoint && await pendingIntake.save(snapshot,checkpointLease.current).catch(()=>false);
+      try {
+        if(retryRecovery.current) { if(localSaved){back();return;} throw Error(); }
+        if (!await intakeVault.save(snapshot, lease.current)) return;
+        if (localSaved) await pendingIntake.acknowledge(snapshot,checkpointLease.current);
+      } catch (cause) { if (!localSaved) throw cause; }
+      if (mounted.current) back();
     } catch {
       if (mounted.current) setStorageState("saveError");
     } finally {
@@ -553,10 +627,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
         <div className="nf-intake-brand"><Brand compact /></div>
-        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
+        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
-          {storageState === "restored" && <p role="status" className="nf-intake-note">{accountDraft?'استعدنا مسودتك الخاصة من حسابك.':'استعدنا مسودتك المحفوظة على جهازك.'} راجع موافقات النشر والإقرار قبل الإرسال.</p>}
+          {chooseRecovery && <section className="nf-intake-note" role="group" aria-label="اختيار المسودة"><strong>وجدنا تعديلات محفوظة على هذا الجهاز ونسخة في حسابك.</strong><p>بأي نسخة تود المتابعة؟</p><button type="button" className="f-secondary" onClick={()=>setRecoveryChoice('device')}>متابعة تعديلات هذا الجهاز</button><button type="button" className="f-link" onClick={()=>setRecoveryChoice('account')}>متابعة نسخة الحساب</button></section>}
+          {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك الخاصة. راجع موافقات النشر والإقرار قبل الإرسال.</p>}
           {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك. <button type="button" className="nf-intake-policy" onClick={() => { touched.current=false;setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
@@ -568,7 +643,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         </div>
         {assessmentStep&&<WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
-          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={240} data-dir={direction.current} inert={busy || leaving || checkingDevice || storageState==='loadError'}>
+          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={240} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
             <div className="nf-intake-title">
               <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
@@ -578,7 +653,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility} aiDraftsReady={chapter.key==='story'&&interviewApplied}/>}
+              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -626,11 +701,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {aiComplete && savedCompatibilityCount===dimensions.length*2 && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
-                    {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
+                    {interviewAuth && <InterviewEntry available open={()=>openInterview()} direct={()=>openInterview(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
-                    <p className="nf-intake-note">{demo||preview?'معاينة الأسئلة. في التسجيل الفعلي نبدأ بالحوار.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
+                    <p className="nf-intake-note">{demo||preview?'معاينة الأسئلة. عند التسجيل، تختار بين البطاقات والحوار مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
                     <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
                     {savedCompatibilityCount===dimensions.length*2 && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
                   </div>}
@@ -641,7 +716,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
-                <fieldset className="nf-family-choice"><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
+                <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
                 <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
@@ -669,8 +744,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-            <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
-            {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
+            <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
+            {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='local'?<>حُفظت تعديلاتك على هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={reconnect}>مزامنة مع الحساب</button></>:saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
             <div className="nf-intake-action-meta">
               {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
               {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "تُحفظ إجاباتك تلقائيًا في مسودة خاصة بحسابك لمدة ثلاثين يومًا من آخر حفظ. يمكنك تسجيل الدخول والمتابعة من جهاز آخر. لا تظهر للأعضاء قبل إرسال الملف ومراجعته، ولا تُعد موافقة على نشره." : deviceDraft ? "تُحفظ إجاباتك تلقائيًا على هذا الجهاز لثلاثين يومًا." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصورة التي أكملت رفعها محفوظة بخصوصية مع حالة التحقق. أما اختيار صورة لم يكتمل رفعها أو تعديل إعداداتها، فيحتاج إلى إكماله قبل المغادرة.</p></details>}
@@ -682,7 +757,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       </div>
       {interviewAuth && consents.assessment && <InterviewPanel
         key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
-        open={interviewOpen} auth={interviewAuth} onboarding={!editing}
+        open={interviewOpen} direct={directInterview} auth={interviewAuth} onboarding={!editing}
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)}

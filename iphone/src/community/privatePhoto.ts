@@ -2,7 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const viewer = registerPlugin<{
   available(): Promise<{ available: boolean }>;
-  show(options: { data: string }): Promise<void>;
+  show(options: { data: string }): Promise<{ displayed?: boolean } | undefined>;
   close(): Promise<void>;
 }>('PrivatePhoto');
 
@@ -19,15 +19,15 @@ export async function preparePrivatePhoto() {
 export async function showPrivatePhoto(url: string, stillValid: () => boolean) {
   const response = await fetch(url);
   const blob = await response.blob();
-  if (!response.ok || blob.type !== 'image/jpeg' || blob.size > 8 * 1024 * 1024) throw Error('تعذّر فتح الصورة.');
+  if (!response.ok || !['image/jpeg','image/png','image/webp'].includes(blob.type) || blob.size > 8 * 1024 * 1024) throw Error('تعذّر فتح الصورة.');
   const data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(Error('تعذّر فتح الصورة.'));
     reader.onload = () => resolve(String(reader.result).split(',')[1]);
     reader.readAsDataURL(blob);
   });
-  if (document.hidden || !stillValid()) return;
-  await viewer.show({ data });
+  if (document.hidden || !stillValid()) return false;
+  return (await viewer.show({ data }))?.displayed === true;
 }
 
 export function closePrivatePhoto() {

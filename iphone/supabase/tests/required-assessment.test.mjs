@@ -2,7 +2,7 @@ import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
-import {initialInterviewDocument} from '../../api/_lib/interview.mjs';
+import {createInterviewService,initialInterviewDocument} from '../../api/_lib/interview.mjs';
 import preferences from '../../src/compatibility/catalog.json' with {type:'json'};
 import personality from '../../src/compatibility/personality-catalog.json' with {type:'json'};
 let db;before(async()=>{db=await createDatabase();});after(async()=>{await db?.close();});
@@ -15,7 +15,7 @@ const save=(u,s,document)=>call(u,'save',{expectedRevision:s.revision,document})
 const turn={id:randomUUID(),topic:'intent',question:'ما الذي يناسبك؟',answer:'هذه إجابة تجريبية صريحة محفوظة للتأكد من حماية الجلسة.',skipped:false};
 const proposals=preferences.dimensions.flatMap(d=>['self','partner'].map(side=>({id:`preference:${d.id}:${side}`,kind:'preference',fieldId:d.id,side,values:[d.options[0].code]}))).concat(personality.map(p=>({id:`personality:${p.id}:self`,kind:'personality',fieldId:p.id,side:'self',values:['C']}))).map(p=>({...p,summary:'إجابة واضحة.',needsClarification:false,evidence:[{turnId:turn.id,quote:turn.answer}]}));
 const review=()=>({...initialInterviewDocument(true),status:'review',currentQuestion:null,turns:[turn],proposals,lastMode:'luna'});
-const profile=u=>({displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
+const profile=u=>({displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,skinTone:'tone_4',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
 const apply=(u,p)=>asMember(db,u.id,u.sessionId,()=>q('public.marriage_apply($1)',[p]));
 
 test('required coverage rejects omissions, missing consent and Beena; existing versions remain readable',async()=>{
@@ -72,4 +72,49 @@ test('draft reload preserves only explicit boolean interview consent without gra
  for(const bad of ['true',1,null])await assert.rejects(draftCall('save',{...draft,permissions:{...draft.permissions,interview:bad}}),/خصوصية/);
  await draftCall('save',{...draft,permissions:{...draft.permissions,interview:false}});assert.equal((await draftCall('load')).permissions.interview,false);
  const legacy=structuredClone(draft);delete legacy.permissions.interview;await draftCall('save',legacy);assert.equal((await draftCall('load')).permissions.interview,undefined);
+});
+
+test('direct card confirmation earns an ordinary completion receipt and stores the member’s exact scores',async()=>{
+ const u=await user();
+ const headers={authorization:'Bearer fixture.'+Buffer.from(JSON.stringify({sub:u.id})).toString('base64url')+'.fixture'};
+ const service=createInterviewService({
+   env:{SUPABASE_SERVICE_ROLE_KEY:'local-test'},
+   fetcher:async(url,options)=>{
+     const body=JSON.parse(options.body);
+     if(url.endsWith('/marriage_interview_attest')){
+       assert.equal(body.member_id,u.id);
+       return Response.json(await attest(u,{revision:body.expected_revision},body.event));
+     }
+     assert(url.endsWith('/marriage_interview'));
+     return Response.json(await call(u,body.command,body.payload));
+   },
+   clientFactory:()=>assert.fail('direct answers do not need model inference')
+ });
+ const initial=await service({action:'start',consentVersion:'wudayn-interview-v1'},headers);
+ const choices=proposals.map(({id,values})=>({id,values}));
+ const result=await service({action:'directConfirm',revision:initial.revision,choices},headers);
+ assert.equal(result.document.status,'confirmed');
+ assert.equal(result.fallbackAvailable,false);
+ assert.equal((await service({action:'load'},headers)).document.confirmed.length,44);
+ const form=profile(u);
+ for(const field of ['sensitiveProfile','sensitivePublication']){
+   const missing=structuredClone(form);
+   missing.signupConsents[field]=false;
+   await assert.rejects(apply(u,missing),/معالجة التفاصيل الحساسة وعرضها/);
+ }
+ const noTone=structuredClone(form);
+ delete noTone.marriageBasics.skinTone;
+ await assert.rejects(apply(u,noTone),/درجة البشرة/);
+ const saved=await apply(u,form);
+ assert.deepEqual(saved.profile.surveyAnswers,form.surveyAnswers);
+ assert.deepEqual(saved.profile.personalityAnswers,form.personalityAnswers);
+ assert.equal(await q('marriage.sensitive_publication_allowed($1)',[u.id]),true);
+ const publicCard=()=>q('marriage.member_card($1,$1)',[u.id]);
+ assert.equal((await publicCard()).marriageBasics.skinTone,'tone_4');
+ form.signupConsents.sensitivePublication=false;
+ const withdrawn=await apply(u,form);
+ assert.equal(withdrawn.profile.marriageBasics.skinTone,'tone_4');
+ assert.deepEqual(withdrawn.profile.surveyAnswers,saved.profile.surveyAnswers);
+ assert.equal((await publicCard()).marriageBasics.skinTone,undefined);
+ assert.equal(await q('marriage.sensitive_publication_allowed($1)',[u.id]),false);
 });

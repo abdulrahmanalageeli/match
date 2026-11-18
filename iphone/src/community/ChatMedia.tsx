@@ -116,6 +116,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   const [url, setUrl] = useState(''), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [viewer, setViewer] = useState(''), [opening, setOpening] = useState(false), [spent, setSpent] = useState(false);
   const alive = useRef(true), generation = useRef(0), displayed = useRef('');
+  const [viewed, setViewed] = useState(false);
   const once = attachment.viewOnce === true;
   function closeViewer() {
     generation.current++;
@@ -179,9 +180,13 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
       if (!alive.current || ticket !== generation.current || document.hidden) { if (value.startsWith('blob:')) URL.revokeObjectURL(value); return; }
       displayed.current = value; setSpent(true);
       try {
-        await showPrivatePhoto(value, () => alive.current && ticket === generation.current);
+        const didDisplay = await showPrivatePhoto(value, () => alive.current && ticket === generation.current);
+        if (didDisplay) {
+          if (alive.current) setViewed(true);
+          await source.confirmMediaViewed?.(requestId, attachment.id).catch(() => {});
+        }
       } catch {
-        if (alive.current && ticket === generation.current) setError('تعذّر عرض الصورة بعد تسجيل فتحها. اطلب إرسالها مجددًا.');
+        if (alive.current && ticket === generation.current) setError('توقّف العرض بعد استخدام الفرصة. يمكنك طلب الصورة مجددًا.');
       } finally {
         if (displayed.current === value) closeViewer();
       }
@@ -190,9 +195,11 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   }
   if (once) {
     const opened = spent || Boolean(attachment.openedAt);
-    return <><button type="button" className="cm-once-photo" disabled={senderIsMe || opened || opening} onClick={() => void openPhoto()} aria-label={opened ? 'تم فتح الصورة لمرة واحدة' : senderIsMe ? 'صورة لمرة واحدة أرسلتها' : 'فتح الصورة لمرة واحدة'}>
-      <span className="cm-once-mark">{opening ? <LoaderCircle className="cm-spin" size={24}/> : opened ? <CheckCheck size={24}/> : <CircleDashed size={25}/>}</span>
-      <span><strong>{opened ? 'تم فتح الصورة' : 'صورة لمرة واحدة'}</strong><small>{opening ? 'جارٍ الفتح…' : opened ? 'لا يمكن عرضها مجددًا' : senderIsMe ? 'يمكن للطرف الآخر فتحها مرة واحدة' : 'اضغط للعرض · تختفي عند الإغلاق'}</small></span>
+    const confirmed = viewed || Boolean(attachment.viewedAt);
+    const label = confirmed ? 'عُرضت الصورة' : opened ? 'استُخدمت فرصة العرض' : 'صورة لمرة واحدة';
+    return <><button type="button" className="cm-once-photo" disabled={senderIsMe || opened || opening} onClick={() => void openPhoto()} aria-label={opened ? label : senderIsMe ? 'صورة لمرة واحدة أرسلتها' : 'فتح الصورة لمرة واحدة'}>
+      <span className="cm-once-mark">{opening ? <LoaderCircle className="cm-spin" size={24}/> : confirmed ? <CheckCheck size={24}/> : <CircleDashed size={25}/>}</span>
+      <span><strong>{label}</strong><small>{opening ? 'جارٍ الفتح…' : confirmed ? 'لا يمكن عرضها مجددًا' : opened ? 'لم يصل تأكيد عرض الصورة' : senderIsMe ? 'يمكن للطرف الآخر فتحها مرة واحدة' : 'اضغط للعرض · تختفي عند الإغلاق'}</small></span>
       {!senderIsMe && !opened && !opening && <Eye size={17}/>}</button>
       {error && <p className="cm-once-error" role="alert">{error}</p>}</>;
   }

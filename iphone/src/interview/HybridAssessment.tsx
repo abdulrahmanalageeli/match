@@ -49,6 +49,11 @@ const workLabels: Record<string, string> = {
   B: 'أفضل عدم العمل بعد الزواج',
   C: 'مرنة حسب ظروفي واتفاقنا',
 };
+const helpScenarios: Record<string, string> = {
+  'preference:shared_budget:self': 'لو زادت مصاريف البيت هذا الشهر، كيف تحبّ أن ترتّبا الميزانية؟',
+  'preference:family_boundaries:self': 'لو اقترح أحد الأهل تغيير قرار يخصّ بيتكما، كيف تحبّ أن تتعاملا معه؟',
+  'preference:repair_after_conflict:self': 'بعد اختلاف بسيط بينكما، ما الذي يساعدك على العودة إلى الحديث؟',
+};
 const number = new Intl.NumberFormat('ar-SA');
 
 function makeThemeCards(gender?: Gender) {
@@ -190,6 +195,7 @@ function ChoiceHelp({ field, request, onChoose, disabled }: {
         <strong>لونا</strong>
         {!explanation && <button type="button" className="wi-link" onClick={() => void ask('explain')} disabled={disabled || Boolean(busy)}>اشرحي الخيارات</button>}
       </div>
+      {!explanation && !proposal && helpScenarios[field.id] && <p>{helpScenarios[field.id]}</p>}
       {explanation && <div className="wi-choice-explanations">
         <dl>{field.options.map(item => <div key={item.code}><dt>{item.label}</dt><dd>{explanation.explanations[item.code]}</dd></div>)}</dl>
       </div>}
@@ -483,7 +489,7 @@ export function HybridAssessment({
         disabled={disabled || (card ? !canAdvance : available > 0 || completingUnavailable)}
         onClick={card ? advance : () => onComplete(allSelected)}
       >{card ? 'متابعة' : 'اعتماد إجاباتي'}{card ? <ArrowLeft size={17} aria-hidden="true"/> : <Check size={17} aria-hidden="true"/>}</MotionPressButton>
-      {completingUnavailable && !card && <p className="wi-small" role="status">يمكنك مراجعة الإجابات ريثما يكتمل تحليل كلامك.</p>}
+      {completingUnavailable && !card && <p className="wi-small" role="status">يمكنك مراجعة الإجابات إلى أن تصبح الجلسة جاهزة للاعتماد.</p>}
       <div className="wi-hybrid-secondary">
         {history.length > 0 && <button type="button" className="wi-link" onClick={goBack} disabled={disabled}><ArrowRight size={15} aria-hidden="true"/> السابق</button>}
         {onClarify && <button type="button" className="wi-link" onClick={onClarify} disabled={disabled}>أبي أوضّح إجابتي</button>}

@@ -1,5 +1,5 @@
 import {MembershipAccess} from './membership/access';
-import { finalizeStagedPortrait } from './photos/stagedPortrait';
+import { finalizeStagedPortrait, finalizePortraitStage, pendingPortraitStage } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
@@ -30,6 +30,7 @@ import {
   Welcome,
 } from "./Screens";
 import { request, ServiceError, serviceReady } from "./api";
+import { memberPendingSends } from "./community/nativePendingSends";
 import { clearSession, readSession, saveSession } from "./session";
 import {
   cloud,
@@ -40,12 +41,12 @@ import {
   CloudError,
 } from "./cloud";
 import { demoProfile, demoCommunity, cloudCommunity } from "./community/data";
-import { discardClosedDrafts } from "./community/chatOutbox";
+import { releaseChatSource, sendNotificationReply } from "./community/chatOutbox";
 import { useUnreadCount } from "./community/useUnreadCount";
 import { useMutualMatches } from "./community/useMutualMatches";
 import { MatchCelebration } from "./community/MatchCelebration";
 import { initializeMatchSound } from "./community/matchSound";
-import { usePushNotifications, setPushBadge } from "./notifications/push";
+import { usePushNotifications, setPushBadge, detachNotifications, syncNativePushOwner } from "./notifications/push";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
@@ -55,7 +56,7 @@ import type { ProfileAnswerProvenance } from './interview/profileProvenance';
 import type { MembershipReadiness } from './onboarding/membershipReadiness';
 import type { Chapter } from "./onboarding/draft";
 import { beenaProgress } from './beena/model';
-import { clearSavedIntake, discardLocalIntake } from "./onboarding/persistence";
+import { clearSavedIntake, discardLocalIntake, releaseIntake } from "./onboarding/persistence";
 import {
   completeMembership,
   currentMembership,
@@ -229,8 +230,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
           ? live?.demoDiscoveryEnabled
-            ? withTestingDiscovery(cloudCommunity(token), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined)
-            : cloudCommunity(token)
+            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined)
+            : cloudCommunity(token, memberPendingSends(token))
           : null,
     [demo, token, sampleSession, pair, live?.demoDiscoveryEnabled, live?.demoInteractionsEnabled, live?.user.id],
   );
@@ -251,24 +252,29 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
   const chatUnread = useUnreadCount(memberAccess ? source : null);
   const mutual = useMutualMatches(memberAccess && !paused ? source : null);
-  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean } | null>(null);
+  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
   useEffect(()=>{
     if(!source||!memberAccess||(demo&&!tester))return;
     let alive=true;let timeout:ReturnType<typeof setTimeout>|undefined;
-    const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count);}).catch(()=>{});},400);};
+    const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count,tester ? 'tester:'+tester.session : token).catch(()=>{});}).catch(()=>{});},400);};
     refresh();const stop=source.watch(refresh);return()=>{alive=false;clearTimeout(timeout);stop();};
-  },[source,memberAccess,demo,!!tester]);
+  },[source,memberAccess,demo,tester?.session,token]);
   usePushNotifications(tester ? `tester:${tester.session}` : !demo && memberAccess ? token : null, async (id, kind,event) => {
     if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
-    setConversationIntent({ source, id, requestOnly: kind === "request", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder' });
+    if (event?.action && !(await source.inbox()).some(row => row.id === id && row.status === 'accepted')) {
+      setNotice('لم يعد هذا النشاط متاحًا.');
+      go('chats');
+      return;
+    }
+    setConversationIntent({ source, id, requestOnly: kind === "request", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder',analysis:kind==='analysis' });
     go(kind === "request" ? "inbox" : "chats");
     try{
       if(event?.action==='reply'&&event.text?.trim()&&event.actionId){
-        await source.send(id,event.text.trim().slice(0,1000),event.actionId);
+        await sendNotificationReply(source,id,event.text.trim().slice(0,1000),event.actionId);
       }
       if(event?.messageId&&['read','reply'].includes(event.action||''))await source.markRead(id,event.messageId);
     }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح وُدَين.');throw cause;}
@@ -277,15 +283,16 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
   useEffect(() => {
     if (!source || !memberAccess) return;
-    return () => discardClosedDrafts(source, new Set());
+    return () => releaseChatSource(source);
   }, [source, memberAccess]);
   const accepted = live?.user.applicationStatus === "approved";
   const ios = isIOSBilling();
 
   function remember(t: string | null, draftCleared = false) {
     if (tokenRef.current !== t) {
+      void syncNativePushOwner(t).catch(()=>{});
       if (liveDraftOwner.current && !draftCleared) {
-        void discardLocalIntake(liveDraftOwner.current).catch(() => {
+        void (cloudSelected ? releaseIntake(liveDraftOwner.current) : discardLocalIntake(liveDraftOwner.current)).catch(() => {
           setNotice("تعذّر مسح المسودة من هذا الجهاز. افتح قفل الجهاز وحاول مجددًا.");
         });
       }
@@ -389,7 +396,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     go("discover");
   }
   function exitDemo() {
-    if(tester){onTesterExit?.();return;}
+    if(tester){void detachNotifications('tester:'+tester.session).catch(()=>{}).finally(()=>onTesterExit?.());return;}
     intakeDraft.current = null;
     sampleProfileRef.current = demoProfile;
     setSampleProfile(demoProfile);
@@ -450,7 +457,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     async function init() {
       try {
         const t = await (cloudSelected ? cloudSessionId() : readSession());
-        if (disposed || !t) return;
+        if (disposed) return;
+        if (!t) { await syncNativePushOwner(null); return; }
+        await syncNativePushOwner(t).catch(()=>{});
+        if (disposed) return;
         if (cloudSelected) {
           const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, t);
           if (disposed) return;
@@ -623,6 +633,37 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     acceptLive(s, t, seq);
     if (tokenRef.current === t && version.current === seq) return s;
   }
+  const [portraitRetry, setPortraitRetry] = useState<{ owner: string; id: string; previousId?: string } | null>(null);
+  const recoverPortrait = !demo && cloud && token && live?.profile && !live.profile.portrait
+    && live.profile.signupConsents?.photo && live.user.applicationStatus !== 'draft' && view !== 'application';
+  useEffect(() => {
+    if (!recoverPortrait || !token) return;
+    let active = true;
+    void pendingPortraitStage().then(id => {
+      if (active && id && tokenRef.current === token) setPortraitRetry({ owner: token, id });
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [recoverPortrait, token]);
+  function retryPortrait() {
+    const retry = portraitRetry;
+    if (!retry || tokenRef.current !== retry.owner) return;
+    void run(async () => {
+      const latest = await refresh(retry.owner);
+      if (!latest || tokenRef.current !== retry.owner) return;
+      if (!latest.profile?.signupConsents?.photo || (latest.profile.portrait?.id !== retry.previousId && latest.profile.portrait?.id !== retry.id)) {
+        setPortraitRetry(null);
+        return;
+      }
+      if (latest.profile.portrait?.id !== retry.id) {
+        await finalizePortraitStage(retry.id);
+        await refresh(retry.owner);
+      }
+      if (tokenRef.current === retry.owner) {
+        setPortraitRetry(null);
+        setNotice('اكتمل حفظ خطوة الصورة.');
+      }
+    });
+  }
   function saveApplication(p: Profile, portraitChange?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:MembershipReadiness) {
     const editingExisting = demo ? !newDemoIntake : Boolean(live?.profile) && live?.user.applicationStatus !== 'draft';
     if (tester) p = { ...p, gender: tester.actor === 'reham' ? 'woman' : 'man' };
@@ -647,7 +688,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           else if(portraitChange===null){await source?.removePortrait?.();p={...p,portrait:null};}
           else if(p.portrait&&portraitPolicy!==undefined){if(!source?.setPortraitPolicy)throw Error('إعداد كشف الصورة غير متاح.');p={...p,portrait:await source.setPortraitPolicy(p.portrait,portraitPolicy)};}
           if(!demo&&token)await refresh(token);
-        } catch(e){throw Error('حُفظت بيانات الملف، لكن لم يُحفظ تغيير الصورة. '+(e instanceof Error?e.message:'حاول مجددًا.'));}
+        } catch(e){
+          if (!demo && owner && portraitChange?.staged) {
+            if (tokenRef.current === owner) setPortraitRetry({ owner, id: portraitChange.staged.id, previousId: live?.profile?.portrait?.id });
+          } else throw Error('حُفظت بيانات الملف، لكن لم يُحفظ تغيير الصورة. '+(e instanceof Error?e.message:'حاول مجددًا.'));
+        }
       }
       // Clearing the signed-in member's device draft is ordered by the vault.
       // Once the server has saved the profile, the next screen needn't wait for Keychain I/O.
@@ -1007,6 +1052,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onMutual={mutual.announce}
         openConversation={conversationIntent?.source === source && !conversationIntent.requestOnly ? conversationIntent.id : undefined}
         openRoom={conversationIntent?.source===source?conversationIntent.roomId:undefined}
+        openAnalysis={conversationIntent?.source===source&&conversationIntent.analysis}
         openAgreement={conversationIntent?.source===source&&conversationIntent.agreement}
         openMessage={conversationIntent?.source === source ? conversationIntent.messageId : undefined}
         openRequest={conversationIntent?.source === source && conversationIntent.requestOnly ? conversationIntent.id : undefined}
@@ -1081,6 +1127,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       </details>}
       {demo && !tester && !onboardingPreview && <DemoNotice onExit={exitDemo} gender={sampleProfile.gender}
         onGenderChange={view === "application" ? undefined : changeDemoPool} />}
+      {portraitRetry && portraitRetry.owner === token && !demo && <div className="feedback" role="status">
+        <span>حُفظ ملفك. بقي إكمال خطوة الصورة.</span>
+        <button type="button" onClick={retryPortrait} disabled={busy}>إعادة محاولة حفظ الصورة</button>
+      </div>}
       {error && (
         <div className="feedback error" role="alert">
           {error}
@@ -1098,7 +1148,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </div>
       )}
       <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
-      {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
+      {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
       {mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (

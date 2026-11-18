@@ -15,8 +15,7 @@ export function chatError(error: unknown) {
     ? error.message : "تعذّر الاتصال. تحقّق من اتصالك وحاول مجددًا.";
 }
 
-// Kept in memory for this signed-in source only. Navigating away preserves a draft
-// or uncertain send; signing out drops the source and all of its private drafts.
+// Drafts stay in memory. Real iPhone sends are journaled before the first RPC.
 class Outbox {
   private state: Snapshot = { draft: "", outgoing: [] };
   private listeners = new Set<() => void>();
@@ -26,6 +25,42 @@ class Outbox {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   };
+  private restored = false;
+  private generation = 0;
+  async restore(page: Message[] = []) {
+    const journal = this.source.pendingSends;
+    if (!journal || this.restored) return;
+    const generation = this.generation;
+    const rows = await journal.list(this.requestId);
+    const confirmed = new Set(page.flatMap(row => row.senderIsMe && row.clientId ? [row.clientId] : []));
+    const missing = rows.filter(row => !confirmed.has(row.clientId)).map(row => row.clientId);
+    let checked = true;
+    if (this.source.committedSends && missing.length) {
+      try {
+        for (let i = 0; i < missing.length; i += 100) {
+          const ids = await this.source.committedSends(this.requestId, missing.slice(i, i + 100));
+          for (const id of ids) confirmed.add(id);
+        }
+      } catch (error) {
+        if (denied(error)) throw error;
+        checked = false;
+      }
+    }
+    if (generation !== this.generation) return;
+    this.restored = checked;
+    const settled = new Set(rows.filter(row => confirmed.has(row.clientId)).map(row => row.clientId));
+    if (settled.size) {
+      void journal.remove(settled).catch(() => {});
+      this.update({...this.state, outgoing: this.state.outgoing.filter(row => !settled.has(row.clientId))});
+    }
+    const known = new Set(this.state.outgoing.map(row => row.clientId));
+    const recovered: Outgoing[] = rows.filter(row => !known.has(row.clientId) && !confirmed.has(row.clientId)).map(row => ({
+      id: row.clientId, clientId: row.clientId, createdAt: row.createdAt, body: row.body, senderIsMe: true,
+      status: 'failed', error: 'لم يتأكّد الإرسال. يمكنك المحاولة مجددًا.',
+      ...(row.reply ? {reply: {...row.reply, body: 'رسالة سابقة'}} : {}),
+    }));
+    if (recovered.length) this.update({...this.state, outgoing: [...recovered, ...this.state.outgoing]});
+  }
   private source: CommunitySource;
   private requestId: string;
   constructor(source: CommunitySource, requestId: string) {
@@ -38,7 +73,12 @@ class Outbox {
   }
   write(draft: string) { this.update({ ...this.state, draft }); }
   replyTo(reply?: MessageReply) { this.update({ ...this.state, reply }); }
-  clear() { this.update({ draft: "", outgoing: [] }); }
+  clear(forgetPending = true) {
+    this.generation++;
+    this.restored = false;
+    if (forgetPending) void this.source.pendingSends?.clearThread(this.requestId).catch(() => {});
+    this.update({ draft: "", outgoing: [] });
+  }
   enqueue(body: string) {
     const clientId = crypto.randomUUID();
     const item: Outgoing = { clientId, id: clientId, body, senderIsMe: true, createdAt: new Date().toISOString(), status: "sending", ...(this.state.reply ? { reply: { ...this.state.reply } } : {}) };
@@ -56,12 +96,22 @@ class Outbox {
     this.update({ ...this.state, outgoing: this.state.outgoing.map((item) => item.clientId === clientId ? { ...item, ...patch } : item) });
   }
   private dispatch(clientId: string) {
+    const pending = this.state.outgoing.find(row => row.clientId === clientId);
+    if (!pending) return;
+    // Start the durable write immediately, even while an earlier send is in flight.
+    const stored = this.source.pendingSends?.put({
+      requestId: this.requestId, clientId, body: pending.body, createdAt: pending.createdAt,
+      ...(pending.reply ? {reply: {id: pending.reply.id, senderIsMe: pending.reply.senderIsMe}} : {}),
+    }).then(() => true, () => false);
     this.queue = this.queue.then(async () => {
+      const durable = await stored;
       const item = this.state.outgoing.find((m) => m.clientId === clientId);
       if (!item) return;
       try {
+        if (durable === false) throw Error('تعذّر حفظ محاولة الإرسال على جهازك. حاول مجددًا.');
         const id = await this.source.send(this.requestId, item.body, clientId, item.reply?.id);
         this.replace(clientId, { id, status: "saved" });
+        void this.source.pendingSends?.remove(new Set([clientId])).catch(() => {});
       } catch (error) {
         this.replace(clientId, { status: "failed", error: chatError(error) });
       }
@@ -71,7 +121,11 @@ class Outbox {
     const ids = new Set(remote.map((m) => m.id));
     const clients = new Set(remote.filter((m) => m.senderIsMe && m.clientId).map((m) => m.clientId));
     const outgoing = this.state.outgoing.filter((m) => !ids.has(m.id) && !clients.has(m.clientId));
-    if (outgoing.length !== this.state.outgoing.length) this.update({ ...this.state, outgoing });
+    if (outgoing.length !== this.state.outgoing.length) {
+      const settled = this.state.outgoing.filter(row => ids.has(row.id) || clients.has(row.clientId));
+      void this.source.pendingSends?.remove(new Set(settled.map(row => row.clientId))).catch(() => {});
+      this.update({ ...this.state, outgoing });
+    }
   }
 }
 const sessions = new WeakMap<CommunitySource, Map<string, Outbox>>();
@@ -82,7 +136,21 @@ export function outboxFor(source: CommunitySource, requestId: string) {
   if (!box) { box = new Outbox(source, requestId); session.set(requestId, box); }
   return box;
 }
+// Rebuilding a signed-in source is not evidence that any relationship closed.
+export function releaseChatSource(source: CommunitySource) {
+  for (const box of sessions.get(source)?.values() ?? []) box.clear(false);
+  sessions.delete(source);
+}
+
+export async function sendNotificationReply(source: CommunitySource, requestId: string, body: string, clientId: string) {
+  const journal = source.pendingSends;
+  await journal?.put({requestId, clientId, body, createdAt: new Date().toISOString()});
+  await source.send(requestId, body, clientId);
+  await journal?.remove(new Set([clientId])).catch(() => {});
+}
+
 export function discardClosedDrafts(source: CommunitySource, openIds: Set<string>) {
+  void source.pendingSends?.retain(openIds).catch(() => {});
   const session = sessions.get(source);
   for (const [id, box] of session ?? []) {
     if (!openIds.has(id)) { box.clear(); session!.delete(id); }

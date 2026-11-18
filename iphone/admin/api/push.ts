@@ -42,29 +42,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!cronAuthorized && !await rpc<boolean>('nisfayn_push_wake_authorized', { candidate: wakeToken })) return res.status(401).json({ error: 'unauthorized' });
     if (cronAuthorized) await rpc('nisfayn_enqueue_deadline_reminders',{});
     const deadline = Date.now() + 40000;
-    const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
-    if (nativeEnabled) {
-      const config: ApnsConfig = { teamId: env.APNS_TEAM_ID!, keyId: env.APNS_KEY_ID!, privateKey: env.APNS_PRIVATE_KEY_BASE64!, topic: env.APNS_TOPIC!, environment: env.APNS_ENVIRONMENT as ApnsConfig['environment'] };
-      jobs.push(...await rpc<PushJob[]>('marriage_push_claim', { delivery_environment: config.environment, batch_size: webEnabled ? 10 : 20 }));
-      const testerJobs = await rpc<PushJob[]>('nisfayn_test_push_claim', { delivery_environment: config.environment, batch_size: 10 });
-      jobs.push(...testerJobs.map(job => ({ ...job, tester: true })));
-      if (jobs.length) transport = openApns(config);
-    }
-    if (webEnabled) jobs.push(...await rpc<WebPushJob[]>('marriage_push_claim', { delivery_environment: 'web', batch_size: nativeEnabled ? 10 : 20 }));
-    count.claimed = jobs.length;
-    for (let start = 0; start < jobs.length; start += 5) {
-      // Unstarted leases expire normally; do not begin work beyond the host's
-      // execution budget and risk acknowledging an incomplete delivery.
-      if (Date.now() >= deadline) break;
-      const batch = await Promise.allSettled(jobs.slice(start, start + 5).map(async job => {
-        const details = await rpc<PushDetails|null>('nisfayn_push_content',{job_id:job.id,lease:job.leaseId,tester:!!job.tester});
-        const live = details !== null;
-        if(details)job.details=details;
-        const result = !live ? 'revoked' : job.environment === 'web' ? await webTransport!.send(job) : await transport!.send(job);
-        await rpc(job.tester ? 'nisfayn_test_push_finish' : 'marriage_push_finish', { job_id: job.id, lease: job.leaseId, result, device_token: job.token });
-        count[result]++;
-      }));
-      if (batch.some(result => result.status === 'rejected')) throw new Error('push_batch_incomplete');
+    // Refill the batch while this invocation still has time for another delivery.
+    while (Date.now() + 8000 < deadline) {
+      const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
+      if (nativeEnabled) {
+        const config: ApnsConfig = { teamId: env.APNS_TEAM_ID!, keyId: env.APNS_KEY_ID!, privateKey: env.APNS_PRIVATE_KEY_BASE64!, topic: env.APNS_TOPIC!, environment: env.APNS_ENVIRONMENT as ApnsConfig['environment'] };
+        jobs.push(...await rpc<PushJob[]>('marriage_push_claim', { delivery_environment: config.environment, batch_size: webEnabled ? 10 : 20 }));
+        const testerJobs = await rpc<PushJob[]>('nisfayn_test_push_claim', { delivery_environment: config.environment, batch_size: 10 });
+        jobs.push(...testerJobs.map(job => ({ ...job, tester: true })));
+        if (jobs.some(job => job.environment !== 'web')) transport ??= openApns(config);
+      }
+      if (webEnabled) jobs.push(...await rpc<WebPushJob[]>('marriage_push_claim', { delivery_environment: 'web', batch_size: nativeEnabled ? 10 : 20 }));
+      if (!jobs.length) break;
+      count.claimed += jobs.length;
+      for (let start = 0; start < jobs.length; start += 5) {
+        // Unstarted leases expire normally; do not begin work beyond the host's
+        // execution budget and risk acknowledging an incomplete delivery.
+        if (Date.now() >= deadline) break;
+        const batch = await Promise.allSettled(jobs.slice(start, start + 5).map(async job => {
+          const details = await rpc<PushDetails|{retry:true}|null>('nisfayn_push_delivery',{
+            job_id:job.id,lease:job.leaseId,tester:!!job.tester,claimed_token:job.token,
+          });
+          let result: 'revoked' | 'retry' | 'sent' | 'failed' | 'invalid';
+          if (!details) result='revoked';
+          else if ('retry' in details) result='retry';
+          else {
+            job.details=details;
+            result=job.environment === 'web' ? await webTransport!.send(job) : await transport!.send(job);
+          }
+          const finish = () => rpc(job.tester ? 'nisfayn_test_push_finish' : 'marriage_push_finish', {
+            job_id: job.id, lease: job.leaseId, result, device_token: job.token,
+          });
+          // If the acknowledgment was lost, retry the idempotent database write only.
+          await finish().catch(finish);
+          count[result]++;
+        }));
+        if (batch.some(result => result.status === 'rejected')) throw new Error('push_batch_incomplete');
+      }
     }
     console.info(JSON.stringify({ event: 'push_batch', ...count }));
     return res.status(200).json(count);

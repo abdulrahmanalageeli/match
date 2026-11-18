@@ -40,9 +40,21 @@ try {
  await page.locator('.cm-message-row').last().getByRole('button',{name:'تشغيل التسجيل الصوتي'}).click();await page.waitForTimeout(300);
  await page.getByRole('button',{name:'إذن المكالمات',exact:true}).click();await page.getByRole('button',{name:'إرسال دعوة للمكالمات'}).click();await page.getByRole('heading',{name:'الدعوة وصلت'}).waitFor();await page.screenshot({path:resolve(output,'call-request.png')});await page.getByRole('button',{name:'إغلاق',exact:true}).click();
  await input.focus();await page.setViewportSize({width:390,height:480});await page.waitForTimeout(150);
- assert.equal(await page.locator('.cm-chat-plan').isVisible(),false);assert((await input.boundingBox()).y<480);await page.screenshot({path:resolve(output,'keyboard-simulation.png')});
+ assert(await page.locator('html[data-nf-chat-keyboard]').count(), 'keyboard geometry is active');
+ const composerBounds=await input.boundingBox(), logBounds=await page.getByRole('log').boundingBox();
+ assert(composerBounds.y+composerBounds.height<=481 && logBounds.height>0 && logBounds.y+logBounds.height<=composerBounds.y+1, 'history and composer fit above the keyboard');await page.screenshot({path:resolve(output,'keyboard-simulation.png')});
  await page.setViewportSize({width:320,height:667});await input.blur();await page.waitForTimeout(150);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:resolve(output,'small-phone.png')});
  for(const mode of ['os','app']){await page.emulateMedia({reducedMotion:mode==='os'?'reduce':'no-preference'});if(mode==='app')await page.evaluate(()=>document.documentElement.dataset.nfMotion='reduced');await input.fill('فحص تقليل الحركة '+mode);await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();assert.equal(await page.locator('.cm-bubble[data-composed]').evaluate(e=>getComputedStyle(e).animationName),'none');await page.waitForTimeout(900);}
+ await page.goto('http://127.0.0.1:5283/tests/fixtures/chat-privacy-qa.html?actor=abdulrahman&renew&case='+Date.now());
+ await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
+ await page.getByRole('button',{name:'تجديد ميثاق التعارف'}).click();
+ await page.getByRole('dialog').getByRole('heading',{name:'حان وقت الخطوة التالية'}).waitFor();
+ await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
+ await page.locator('[data-server-id="hello"]').waitFor();
+ await input.fill('مسودة محفوظة أثناء التجديد');
+ assert(await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).isDisabled());
+ await input.press('Control+Enter');assert.equal(await input.inputValue(),'مسودة محفوظة أثناء التجديد');
+ await page.screenshot({path:resolve(output,'agreement-renewal.png')});
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
  console.log('PASS: accepted entry, compact media controls, optimistic text/focus, sent/delivered/read, real hold/reaction/reply/delete, photo upload, fake microphone recording/playback, call request, keyboard geometry, 320px overflow, OS/app reduced motion; zero external requests.');
 }catch(error){await page?.screenshot({path:resolve(output,'failure.png')}).catch(()=>{});console.error({errors,external});throw error;}finally{await browser?.close();await server.close();}

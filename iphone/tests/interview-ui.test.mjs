@@ -56,6 +56,9 @@ function mount(initial, intercept = () => null) {
     if (name === '../BrandIcons') return icons;
     if (name === '../motion/Reanimated') return { MotionReveal: 'motion-section', MotionPressButton: 'motion-button' };
     if (name === '../feedback/haptics') return { feedback: noop };
+    if (name === './writingDraft') return { interviewWritingDrafts: {
+      restore: async () => null, save: async () => null, clear: async () => null,
+    } };
     if (name === './api') return { requestInterview, InterviewError: class extends Error {} };
     if (name === './HybridAssessment') return { HybridAssessment: 'hybrid-assessment' };
     if (name === './model') return {
@@ -112,11 +115,11 @@ test('the first turn invites one rich introduction before switching to compact g
   const input=nodes(tree).find(node=>node.type==='textarea');
   assert.equal(form.props['data-opening'],true);
   assert.equal(input.props.rows,4);
-  assert.match(input.props.placeholder,/عرّفنا عن نفسك/);
+  assert.match(input.props.placeholder,/أهم شيء عندي/);
   assert.match(textOf(tree),/عنّك.*حياتك اليوم.*الشريك الذي تبحث عنه.*استعدادك للزواج/);
-  assert.match(textOf(tree),/فقرة قصيرة.*تكتب نبذة ملفك لاحقًا/);
+  assert.match(textOf(tree),/بعد رسالتك الأولى ننتقل للاختيارات.*تكتب نبذة ملفك لاحقًا/);
   find(tree,'كيف أبدأ؟').props.onClick();tree=ui.render();
-  assert.match(textOf(tree),/ما يعنيه لك الزواج الجاد والخطوة الرسمية/);
+  assert.match(textOf(tree),/اختر شيئًا واحدًا يهمّك/);
   ui.unmount();
 
   const later=mount({document:{...baseDocument(),turns:[{id:'t1',topic:'intent',question:'عرّفنا عن نفسك',answer:'أنا جاد في الزواج',skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور دور الأهل؟',suggestions:[]}},revision:2});

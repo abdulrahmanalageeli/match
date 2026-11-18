@@ -2,12 +2,13 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 
-let loader, createDraftVault, draftTTL, decodeDraft, initialDraft, personalityQuestions, personalityVersion;
+let loader, createWritingDrafts, createDraftVault, draftTTL, decodeDraft, initialDraft, personalityQuestions, personalityVersion;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     plugins:[{name:'isolate-account-cloud',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/src/cloud.ts'))return 'export const cloud=null; export async function callRpc(){throw Error("Unexpected live RPC in draft test")}';}}],
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
   ({ createDraftVault, draftTTL } = await loader.ssrLoadModule("/src/onboarding/vault.ts"));
+  ({ createWritingDrafts } = await loader.ssrLoadModule("/src/interview/writingDraft.ts"));
   ({ decodeDraft } = await loader.ssrLoadModule("/src/onboarding/persistence.ts"));
   ({ initialDraft } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
@@ -214,4 +215,37 @@ test("Keychain failures propagate and can retry; browser and demo have no storag
   assert.equal(web.available(a), false); assert.equal(await web.save(f.draft, 0), false);
   assert.equal(vault.available("demo-1"), false);
   assert.equal(await vault.save({ ...f.draft, owner: "demo-1" }, 0), false);
+});
+
+test('a delayed account acknowledgement cannot erase newer protected edits; a new session can resume them', async () => {
+  const f=fixture(), checkpoint=f.vault(), lease=checkpoint.revision(a);
+  const first=f.draft, latest={...first, answers:{...first.answers,displayName:'اختيار أحدث'}};
+  await checkpoint.save(first,lease);
+  await checkpoint.save(latest,lease);
+  await checkpoint.acknowledge(first,lease);
+  await checkpoint.release(a);
+  assert.equal((await f.vault().load(a,latest.baseline,0)).answers.displayName,'اختيار أحدث');
+  await checkpoint.acknowledge(latest,lease);
+  assert.equal(f.rows.size,1);
+  await checkpoint.acknowledge(latest,checkpoint.revision(a));
+  assert.equal(f.rows.size,0);
+});
+
+test('unsent interview text resumes only for the same member, answer and revision', async () => {
+  const { storage, rows } = fixture();
+  const drafts = () => createWritingDrafts(() => storage);
+  const snapshot = { revision: 2, document: { status: 'active', draftAnswer: '', lastRequestId: null, currentQuestion: { text: 'سؤالك' } } };
+  await drafts().save(a, snapshot, 'إجابة خاصة');
+  assert.equal(await drafts().restore(b, snapshot), null);
+  assert.equal(await drafts().restore(a, snapshot), 'إجابة خاصة');
+  assert.equal(await drafts().restore(a, { ...snapshot, revision: 3 }), null);
+  assert.equal(rows.size, 0);
+  await drafts().save(a, snapshot, 'نص أحدث', 'أول تعديل');
+  assert.equal(await drafts().restore(a, {
+    revision: 3, document: { ...snapshot.document, draftAnswer: 'أول تعديل' },
+  }), 'نص أحدث');
+  await drafts().save(a, snapshot, 'تم التعديل');
+  await drafts().clear(a);
+  assert.equal(await drafts().restore(a, snapshot), null);
+  assert.equal(await createWritingDrafts(() => null).save(a, snapshot, 'خاص'), null);
 });

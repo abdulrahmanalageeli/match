@@ -69,11 +69,11 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
   const answers: Answers = {
     displayName: "", gender: "", city: "", profession: "", bio: "", contact: "",
     lookingFor: "", lifeTogether: "", education: "", marriageIntent: "", valuesStatement: "",
-    familyPreference: "بعد التعارف الأول", ...initial,
+    familyPreference: "", ...initial,
     birthDate: initial?.birthDate ?? (initial ? undefined : ""),
     age: initial ? String(initial.birthDate ? ageFromBirthday(initial.birthDate) ?? initial.age : initial.age) : "",
-    preferredMinAge: String(initial?.preferredMinAge ?? 18),
-    preferredMaxAge: String(initial?.preferredMaxAge ?? 65),
+    preferredMinAge: initial ? String(initial.preferredMinAge) : "",
+    preferredMaxAge: initial ? String(initial.preferredMaxAge) : "",
     interestIds: initial?.interestIds ?? [], surveyAnswers: initial?.surveyAnswers ?? {},
     assessmentVersion, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
     personalityVersion, personalityAnswers: initial?.personalityAnswers ?? {},
@@ -127,7 +127,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. وُدَين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
       if (!validAge(p.birthDate ? String(ageFromBirthday(p.birthDate ?? '')) : p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
       if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
-      if (requireAssessment && (!p.marriageBasics?.maritalStatus || !p.marriageBasics.polygynyPreference || (p.marriageBasics.maritalStatus === 'married' && !p.marriageBasics.currentWives))) return { field: 'marriageBasics', text: 'أكمل وضعك الحالي وموقفك من التعدد قبل جلسة التوافق.' };
+      if (requireAssessment && (!p.marriageBasics?.maritalStatus || (p.marriageBasics.maritalStatus === 'married' && !p.marriageBasics.currentWives))) return { field: 'marriageBasics', text: 'أكمل حالتك الاجتماعية الحالية قبل جلسة التوافق.' };
       if (requireAssessment && p.marriageBasics?.maritalStatus === 'married' && p.gender !== 'man') return { field: 'marriageBasics', text: 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.' };
       if (requireAssessment && p.marriageBasics?.currentWives === 4) return { field: 'marriageBasics', text: 'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.' };
       return null;
@@ -145,6 +145,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (Number(p.preferredMinAge) > Number(p.preferredMaxAge)) {
         return { field: "preferredMaxAge", text: "يجب أن يكون الحد الأعلى مساويًا للحد الأدنى أو أكبر منه." };
       }
+      if (requireBirthday && !p.familyPreference?.trim()) return { field: "familyPreference", text: "اختر متى تفضّل إشراك الأهل." };
       if (!p.contact.trim()) return { field: "contact", text: "أدخل وسيلة تواصل لاستخدامها بعد الموافقة المتبادلة." };
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact.trim()) && !/^\+?\d{8,15}$/.test(latinDigits(p.contact).replace(/[\s()-]/g, ""))) return { field: "contact", text: "أدخل بريدًا إلكترونيًا صحيحًا أو رقم جوال مع رمز الدولة." };
       return null;

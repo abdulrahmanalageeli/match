@@ -1,5 +1,7 @@
+import { validateOncePhoto } from './test-media.ts';
+
 type MediaRequest = { session?: unknown; payload?: { id?: unknown; viewOnce?: unknown } };
-type MediaReference = { path?: string; mime?: string };
+type MediaReference = { path?: string; mime?: string; size?: number };
 type MediaRpc = (action: string, session: string, payload: { id: string }) => Promise<MediaReference>;
 const sessionPattern = /^[0-9a-f]{64}$/;
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,12 +22,16 @@ export async function downloadChatMedia(body: MediaRequest, rpc: MediaRpc, downl
       || (payload.viewOnce !== undefined && typeof payload.viewOnce !== 'boolean')) {
     return Response.json({ error: 'طلب الملف غير صالح.' }, { status: 400, headers });
   }
-  const photo = await rpc(payload.viewOnce ? 'media_open' : 'media_url', session, { id: payload.id });
+  const photo = await rpc(payload.viewOnce ? 'media_inspect' : 'media_url', session, { id: payload.id });
   if (!photo.path || !chatObjectPath.test(photo.path)) throw Error('الملف غير متاح.');
   const blob = await download(photo.path);
   const mime = photo.mime || blob.type;
   if (!/^(image\/(jpeg|png|webp)|audio\/(webm|mp4|ogg|wav))$/.test(mime)
       || (payload.viewOnce && !mime.startsWith('image/'))) throw Error('نوع الملف غير متاح.');
+  if (payload.viewOnce) {
+    await validateOncePhoto(blob, mime, photo.size ?? 0);
+    await rpc('media_open', session, {id: payload.id});
+  }
   return new Response(blob, { headers: { ...headers, 'Content-Type': mime, 'Cache-Control': 'private, no-store, max-age=0',
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
 }

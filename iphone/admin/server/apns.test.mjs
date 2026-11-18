@@ -18,6 +18,13 @@ test('APNs provider token is signed ES256 P1363 and payload contains only generi
  assert.deepEqual(Object.keys(payload).sort(),['aps','kind','requestId']);
  assert(!JSON.stringify(payload).includes('PRIVATE'));
  assert.equal(payload.aps.sound,'default');
+ for (const kind of ['request','mutual','message','reminder','family','analysis']) {
+   const alert = pushPayload({...job,kind,details:{preview:'private',sender:'سارة',body:'سر',badge:1}});
+   assert.deepEqual(alert.aps.alert,{title:'وُدَين',body:'لديك تحديث جديد.'});
+   assert.equal(alert.aps.category,undefined);
+ }
+ const quiet=pushPayload({...job,details:{preview:'event',passive:true,badge:0}});
+ assert.equal(quiet.aps.sound,undefined);assert.equal(quiet.aps['interruption-level'],'passive');
  assert.equal(classifyApns(410,'Unregistered'),'invalid');assert.equal(classifyApns(429),'retry');assert.equal(classifyApns(503),'retry');assert.equal(classifyApns(403),'failed');
 });
 test('APNs transport sends correct fixed endpoint and headers without network',async()=>{
@@ -42,7 +49,7 @@ test('APNs transport sends correct fixed endpoint and headers without network',a
 
 test('notification payload honors privacy, groups messages and bounds content',()=>{
  const details={preview:'private',sender:'Hidden',body:'Hidden message',badge:3,messageId:randomUUID()};
- let payload=pushPayload({...job,details});assert.equal(payload.aps.alert.title,'نصفين');assert(!JSON.stringify(payload).includes('Hidden'));
+ let payload=pushPayload({...job,details});assert.equal(payload.aps.alert.title,'وُدَين');assert(!JSON.stringify(payload).includes('Hidden'));
  payload=pushPayload({...job,details:{...details,preview:'name'}});assert.equal(payload.aps.alert.title,'Hidden');assert(!payload.aps.alert.body.includes('Hidden message'));
  payload=pushPayload({...job,details:{...details,preview:'content',body:'x'.repeat(1000)}});
  assert.equal(payload.aps.alert.body.length,160);assert.equal(payload.aps.badge,3);assert.equal(payload.aps['thread-id'],job.requestId);assert.equal(payload.aps.category,'NISFAYN_MESSAGE');
@@ -51,5 +58,5 @@ test('notification payload honors privacy, groups messages and bounds content',(
 test('reminders stay silent and family alerts navigate without private chat actions',()=>{
  const reminder=pushPayload({...job,kind:'reminder'});assert.equal(reminder.aps.sound,undefined);assert.equal(reminder.aps.category,undefined);
  const roomId=randomUUID(),messageId=randomUUID();const family=pushPayload({...job,kind:'family',details:{preview:'private',roomId,messageId,badge:2}});
- assert.equal(family.roomId,roomId);assert.equal(family.messageId,messageId);assert.equal(family.aps.category,undefined);assert.equal(family.aps.alert.title,'نصفين');
+ assert.equal(family.roomId,roomId);assert.equal(family.messageId,messageId);assert.equal(family.aps.category,undefined);assert.equal(family.aps.alert.title,'وُدَين');
 });

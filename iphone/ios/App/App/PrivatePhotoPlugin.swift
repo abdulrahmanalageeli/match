@@ -48,7 +48,7 @@ final class PrivatePhotoPlugin: CAPPlugin, CAPBridgedPlugin {
             let controller = PrivatePhotoController(image: image)
             controller.loadViewIfNeeded()
             guard controller.protected else { call.reject("عرض الصور المحمية غير متاح على هذا الإصدار."); return }
-            controller.finished = { [weak self] in self?.photo = nil; call.resolve() }
+            controller.finished = { [weak self] displayed in self?.photo = nil; call.resolve(["displayed": displayed]) }
             self.photo = controller
             parent.present(controller, animated: false)
         }
@@ -64,7 +64,8 @@ private final class PrivatePhotoController: UIViewController {
     private var observers: [NSObjectProtocol] = []
     private var ended = false
     private(set) var protected = false
-    var finished: (() -> Void)?
+    private var displayed = false
+    var finished: ((Bool) -> Void)?
     init(image: UIImage) {
         self.image = image
         super.init(nibName: nil, bundle: nil)
@@ -99,13 +100,16 @@ private final class PrivatePhotoController: UIViewController {
     }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if !NisfaynPrivacy.shared.mayOpen || view.window?.screen.isCaptured != false { finish() }
+        guard !ended, protected, NisfaynPrivacy.shared.mayOpen, view.window?.screen.isCaptured == false, picture.image != nil else { finish(); return }
+        displayed = true
     }
     @objc func finish() {
         guard !ended else { return }; ended = true
         // Clear synchronously before dismissal, background snapshots or recording.
         picture.image = nil; image = nil; picture.isHidden = true
-        dismiss(animated: false) { [weak self] in self?.finished?(); self?.finished = nil }
+        let completion = finished, wasDisplayed = displayed
+        finished = nil
+        dismiss(animated: false) { completion?(wasDisplayed) }
     }
     deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
 }

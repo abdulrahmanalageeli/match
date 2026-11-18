@@ -20,7 +20,6 @@ import { ConsentChoice } from "./legal/ConsentChoices";
 import { SupportContact } from "./help/SupportContact";
 import './auth/entry.css';
 import { KeyboardDismiss } from './mobile/KeyboardDismiss';
-import { membershipPriceLabel } from './membershipPricing';
 import { Capacitor } from '@capacitor/core';
 
 type Click = () => void;
@@ -151,10 +150,10 @@ export function Auth({
           <p><strong>المسار واضح من البداية</strong><span>لا قبول ولا دفع بمجرد إنشاء الحساب.</span></p>
           <ul>
             <li><ShieldCheck size={18} aria-hidden="true"/><span><strong>مراجعة عضوية</strong><small>بعد اكتمال الملف</small></span></li>
-            <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>وتعتمد تفسيرها بنفسك</small></span></li>
-            <li><Check size={18} aria-hidden="true"/><span><strong>٧ أيام بلا دفع</strong><small>لا نطلب بطاقة</small></span></li>
+            <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>تراجع إجاباتك بنفسك</small></span></li>
+            <li><Check size={18} aria-hidden="true"/><span><strong>استكشاف مجاني</strong><small>بعد اعتماد الملف</small></span></li>
           </ul>
-          <p className="nf-auth-price">بعد التجربة: {membershipPriceLabel()} شهريًا حسب نوع العضوية. أي شراء لاحق يحتاج موافقتك في Apple.</p>
+          <p className="nf-auth-price">يمكنك متابعة الاستكشاف مجانًا. الاشتراك اختياري، وسترى السعر وأي تجربة متاحة لك قبل تأكيد الشراء في Apple.</p>
         </section>}
       </section>
       <section className="nf-auth-panel">

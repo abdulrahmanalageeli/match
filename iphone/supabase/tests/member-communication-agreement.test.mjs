@@ -62,6 +62,15 @@ test('real member communication requires mutual agreement; history and cleanup r
   await call(a,'public.marriage_delete_message($1,$2)',[id,message]);
   await db.query("update marriage.conversation_agreements set data='{\"status\":\"family\"}' where request_id=$1",[id]);
   await send(b);assert.equal(await voiceAllowed(),true);
+  const uncertain=randomUUID(), args=[id,'رسالة قبل الحظر',uncertain];
+  const committed=await call(a,'public.marriage_message($1,$2,$3)',args);
+  assert.equal(await call(a,'public.marriage_message($1,$2,$3)',args),committed);
+  const committedKeys=u=>call(u,'public.marriage_committed_chat_sends($1,$2)',[id,[uncertain]]);
+  assert.deepEqual(await committedKeys(a),[uncertain]);assert.deepEqual(await committedKeys(b),[]);await assert.rejects(committedKeys(outsider));
+  await call(b,"public.marriage_act($1,'block')",[id]);
+  await assert.rejects(call(a,'public.marriage_message($1,$2,$3)',args));
+  await assert.rejects(send(a));await assert.rejects(committedKeys(a));await assert.rejects(call(a,'public.marriage_thread_page($1)',[id]));
+  assert.equal((await db.query('select count(*)::int n from marriage.thread_messages where client_id=$1',[uncertain])).rows[0].n,1);
   await assert.rejects(call(a,'marriage.agreement_allows_communication($1)',[id]),/permission denied/);
  } finally {await db.close();}
 });

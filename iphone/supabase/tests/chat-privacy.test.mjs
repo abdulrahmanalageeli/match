@@ -1,10 +1,10 @@
+import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 
 const deleted='تم حذف هذه الرسالة';
-const consents={version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true};
 async function pair(db){
  const a='a'.repeat(64),b='b'.repeat(64);
  const rpc=(action,session='',payload={})=>asService(db,async()=>(await db.query('select public.nisfayn_test_rpc($1,$2,$3) value',[action,session,payload])).rows[0].value);
@@ -27,11 +27,17 @@ test('view-once photos have atomic recipient-only redemption, persistent opened 
   await assert.rejects(rpc('media_url',b,{id:p.id}),/مرة واحدة/);
   await assert.rejects(rpc('media_open',a,{id:p.id}),/مرة أخرى/);
   await assert.rejects(rpc('media_open','bad',{id:p.id}),/جلسة/);
+  const receipt=(action,session)=>asService(db,async()=>(await db.query('select public.nisfayn_test_media_receipt($1,$2,$3) value',[action,session,{id:p.id}])).rows[0].value);
+  assert.equal((await receipt('media_inspect',b)).size,100);
+  await assert.rejects(receipt('media_inspect',a));await assert.rejects(receipt('media_viewed',b));
   const results=await asService(db,()=>Promise.allSettled([0,1].map(()=>db.query("select public.nisfayn_test_rpc('media_open',$1,$2) value",[b,{id:p.id}]))));
   assert.equal(results.filter(r=>r.status==='fulfilled').length,1,JSON.stringify(results.map(r=>r.reason?.message)));
   assert.equal(results.filter(r=>r.status==='rejected').length,1);
   assert.deepEqual(results.find(r=>r.status==='fulfilled').value.rows[0].value,{path:p.path,mime:'image/jpeg'});
   const opened=(await rpc('state',a)).messages.find(m=>m.id===p.id).attachment.openedAt;
+  assert.equal((await rpc('state',a)).messages.find(m=>m.id===p.id).attachment.viewedAt,null);
+  await receipt('media_viewed',b);assert((await rpc('state',a)).messages.find(m=>m.id===p.id).attachment.viewedAt);
+  await assert.rejects(receipt('media_inspect',b));
   assert(opened);assert.equal((await rpc('state',b)).messages.find(m=>m.id===p.id).attachment.openedAt,opened);
   await assert.rejects(rpc('media_open',b,{id:p.id}),/مرة أخرى/);
   assert.equal((await db.query('select ready from nisfayn_test.media where id=$1',[p.id])).rows[0].ready,true);
@@ -116,11 +122,11 @@ test('real messages redact body, exports, inbox and historical reply changes; se
   const call=(u,expression,args)=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
   async function add(gender){
    const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
-   const s=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:consents}]);
-   await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
-   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:s.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
+   const token=await seedCommunicationMember(db,u,gender);
+   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:token,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));return u;
   }
   const a=await add('woman'),b=await add('man'),outsider=await add('man');const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);
+  await signCommunicationAgreement(call,a,b,request);
   const original=await call(a,'public.marriage_message($1,$2,$3)',[request,'secret original',randomUUID()]);
   const answer=await call(b,'public.marriage_reply($1,$2,$3,$4)',[request,'reply',randomUUID(),original]);
   await assert.rejects(call(b,'public.marriage_delete_message($1,$2)',[request,original]),/رسائلك/);

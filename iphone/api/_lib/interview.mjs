@@ -100,12 +100,13 @@ export function parseInterviewInput(body) {
   if (!record(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw invalid();
   const allowed = {
     load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
-    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
+    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'],
     clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed'],
     choiceHelp: ['action', 'revision', 'fieldId', 'answer', 'priorAnswer', 'gender'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
-    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'], resume: ['action', 'revision'], delete: ['action', 'revision'],
+    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
+    directConfirm: ['action', 'revision', 'choices'],
     structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
     profileConfirm: ['action', 'revision', 'profileChoices'],
   };
@@ -133,7 +134,8 @@ export function parseInterviewInput(body) {
   if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
   if (['answer', 'clarify'].includes(body.action) && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
     || !bounded(body.answer, 900, body.skip === true))) throw invalid();
-  if (['confirm', 'structuredConfirm'].includes(body.action)) {
+  if (body.cardsAfterReply !== undefined && (body.hybrid !== true || typeof body.cardsAfterReply !== 'boolean')) throw invalid();
+  if (['confirm', 'structuredConfirm', 'directConfirm'].includes(body.action)) {
     if (!Array.isArray(body.choices) || body.choices.length > MAX_PROPOSALS || (body.shareReview !== undefined && typeof body.shareReview !== 'boolean')) throw invalid();
     const ids = new Set();
     for (const choice of body.choices) {
@@ -141,7 +143,7 @@ export function parseInterviewInput(body) {
         || choice.values.length < 1 || choice.values.length > 4 || !choice.values.every(value => bounded(value, 2))) throw invalid();
       ids.add(choice.id);
     }
-    if (body.action === 'structuredConfirm' && validateAssessmentContext(body.choices).length !== requiredFields.length) throw invalid();
+    if (['directConfirm', 'structuredConfirm'].includes(body.action) && validateAssessmentContext(body.choices).length !== requiredFields.length) throw invalid();
   }
   return body;
 }
@@ -166,7 +168,9 @@ export function initialInterviewDocument(required = false) {
   };
 }
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
-const REQUIRED_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
+const LEGACY_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
+const REQUIRED_OPENING_QUESTION = 'وش أهم شيء تبحث عنه في حياتك مع شريكك؟ جملة واحدة تكفي.';
+const isOpeningQuestion = text => text === REQUIRED_OPENING_QUESTION || text === LEGACY_OPENING_QUESTION;
 function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
 function scenarioQuestion(scenario) {
   return scenario ? { topic: scenario.topic, text: scenario.text, suggestions: scenario.suggestions } : null;
@@ -174,7 +178,7 @@ function scenarioQuestion(scenario) {
 function unfinishedOpeningScenario(document) {
   if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
   const turns = document.turns ?? [];
-  if (turns.length < 1 || turns.length > openingScenarios.length || turns[0].question !== REQUIRED_OPENING_QUESTION) return null;
+  if (turns.length < 1 || turns.length > openingScenarios.length || !isOpeningQuestion(turns[0].question)) return null;
   const visited = new Set(turns.map(turn => turn.question));
   return scenarioQuestion(openingScenarios.find(item => !visited.has(item.text) && !visited.has(item.legacyText)));
 }
@@ -792,7 +796,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   }
   // Three fixed, brief situations after the private introduction. All extraction
   // remains evidence-backed; unanswered assessment fields stay for the quick form.
-  const openingFlow = hybrid && (last?.question === REQUIRED_OPENING_QUESTION || openingScenarios.some(item => [item.text,item.legacyText].includes(last?.question)));
+  const openingFlow = hybrid && (isOpeningQuestion(last?.question) || openingScenarios.some(item => [item.text,item.legacyText].includes(last?.question)));
   const completedScenarios = new Set(document.turns.map(turn => turn.question));
   const nextScenario = openingFlow ? openingScenarios.find(item => !completedScenarios.has(item.text) && !completedScenarios.has(item.legacyText)) : undefined;
   return { ...document, model: INTERVIEW_MODEL,
@@ -830,8 +834,9 @@ function isStructuredConfirmation(document) {
     && document.confirmed.every(item => item.summary === structuredSelectionSummary);
 }
 
-function confirmStructuredChoices(document, savedProposals, choices, shareReview) {
-  if (!hasAnalyzedIntroduction(document)) {
+function confirmStructuredChoices(document, savedProposals, choices, shareReview, direct = false) {
+  if (!requiredInterview(document)) throw invalid();
+  if (!direct && !hasAnalyzedIntroduction(document)) {
     throw new InterviewError(409, 'introduction_pending', 'أكمل تعريفك أولًا وانتظر تحليل لونا قبل اعتماد الإجابات.');
   }
   const context = new Map(document.assessmentContext.map(item => [item.id, item]));
@@ -841,7 +846,7 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
     const selection = selections.get(id);
     // Keep any earlier context cited by the attested model proposals. If the
     // member edited that value, confirmed.values records the new selection.
-    const evidence = context.get(id) ?? selection;
+    const evidence = direct ? selection : context.get(id) ?? selection;
     context.set(id, evidence);
     return { id, kind, fieldId, side, values: selection.values, summary: structuredSelectionSummary,
       evidence: [{ turnId: `context:${id}`, quote: JSON.stringify(evidence.values) }], needsClarification: false };
@@ -849,7 +854,7 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
   // The existing database receipt verifies the original turns and proposals.
   // Use their exact stored representation, since read normalization can add
   // proposed partner defaults or remove unusable model output.
-  return { ...document, proposals: savedProposals, assessmentContext: [...context.values()], currentQuestion: null,
+  return { ...document, proposals: direct ? confirmed : savedProposals, ...(direct ? { lastMode: 'guided', pendingAnalysis: false } : {}), assessmentContext: [...context.values()], currentQuestion: null,
     status: 'confirmed', confirmed, reviewSharing: shareReview === true, confirmedAt: new Date().toISOString(), draftAnswer: '' };
 }
 
@@ -949,7 +954,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (['answer', 'clarify'].includes(input.action) && document.lastRequestId === input.requestId) return decorate(snapshot);
     if (snapshot.revision !== input.revision) throw conflict();
     if (input.action === 'choiceHelp') {
-      if (!requiredInterview(document) || !document.turns.some(turn => !turn.skipped) || document.status === 'confirmed') throw invalid();
+      if (!requiredInterview(document) || document.status === 'confirmed') throw invalid();
       if (!env.OPENAI_API_KEY) throw unavailable();
       const reserve = await rpc('reserve', { expectedRevision: snapshot.revision });
       if (reserve.status !== 'allowed') throw new InterviewError(429, 'capacity', 'وصلت للمساعدة المتاحة الآن. تقدر تتابع باختيار إجابتك مباشرة.');
@@ -982,12 +987,19 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       if (!activeDraft && !clarificationDraft) throw invalid();
       return save({ ...snapshot.document, draftAnswer: input.answer });
     }
-    if (input.action === 'structuredConfirm' || (input.action === 'confirm' && isStructuredConfirmation(document))) {
+    const direct = input.action === 'directConfirm' || (['confirm','structuredConfirm'].includes(input.action)
+      && document.lastMode === 'guided' && isStructuredConfirmation(document));
+    if (direct || input.action === 'structuredConfirm' || (input.action === 'confirm' && isStructuredConfirmation(document))) {
       const original = snapshot.document;
-      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.shareReview);
+      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.action === 'directConfirm' ? document.reviewSharing : input.shareReview, direct);
       if (input.profileChoices) confirmed = confirmProfileChoices(confirmed, input.profileChoices);
       const saved = await save(confirmed);
-      try { await attest('complete', saved); }
+      try {
+        // The receipt binds the exact stored proposals. Direct submissions carry
+        // catalog-validated member selections as their evidence, without an AI turn.
+        if (direct) await attest('analyzed', saved);
+        await attest('complete', saved);
+      }
       catch (error) {
         if (error.code !== 'conflict') await save(original);
         throw error;
@@ -1055,6 +1067,9 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       // validated extraction as context so it can preserve or correct it.
       const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
       analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid });
+      if (input.cardsAfterReply && requiredInterview(analyzed)) {
+        analyzed = { ...analyzed, status: 'review', currentQuestion: null };
+      }
       // Retrying analysis must not change the question beneath an unsent draft.
       if (input.action === 'retry' && document.status === 'active' && document.draftAnswer.trim()) {
         analyzed = { ...analyzed, status: 'active', currentQuestion: document.currentQuestion, draftAnswer: document.draftAnswer };

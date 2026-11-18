@@ -98,7 +98,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
  const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt}:null,senderIsMe:m.sender===account.actor,deliveredAt:m.sender===account.actor&&s.delivered?.[peer]&&s.delivered[peer]!>=m.createdAt?s.delivered[peer]:null,readAt:m.sender===account.actor&&s.read[peer]&&s.read[peer]!>=m.createdAt?s.read[peer]:null}));
  const permission=(s:State)=>({status:s.callPermission?.status||'none' as const,direction:s.callPermission?.invitedBy?(s.callPermission.invitedBy===account.actor?'outgoing' as const:'incoming' as const):undefined});
  const unread=(s:State)=>s.messages.filter(m=>!m.deletedAt&&m.sender!==account.actor&&(!s.read[account.actor]||m.createdAt>s.read[account.actor]!)).length;
- function requirePairChat(s:State){if(!s.matched||!s.seriousness||!['accepted','family'].includes(s.seriousness.status)||s.seriousness.status==='accepted'&&(!s.seriousness.deadline||Date.parse(s.seriousness.deadline)<=Date.now()))throw Object.assign(Error('المحادثة غير متاحة.'),{status:403});}
+ function requirePairHistory(s:State){if(!s.matched)throw Object.assign(Error('المحادثة غير متاحة.'),{status:403});}
  const progress=(s:State)=>({rewindMine:s.rewind?.actor===account.actor,rewindPeer:s.rewind?.actor===peer,updatedAt:s.journeyUpdatedAt,stage:s.stage,exclusive:!!s.exclusive,consentMine:!!s.exclusiveConsent?.[account.actor],consentPeer:!!s.exclusiveConsent?.[peer],mine:s.stage===0?!!s.exclusiveConsent?.[account.actor]:!!s.agree[account.actor],peer:s.stage===0?!!s.exclusiveConsent?.[peer]:!!s.agree[peer]});
  const call=(s:State):VoiceCall|null=>s.call?{...s.call,direction:s.call.caller===account.actor?'outgoing':'incoming',person:testPerson(peer,s.profiles[peer])}:null;
  const person=(s:State):PublicPerson=>({...testPerson(peer,s.profiles[peer]),manualVerifications:s.manualVerifications?.[peer],online:s.onlineActors?.[peer]===true,interested:s.interests?.[account.actor]===true,
@@ -108,7 +108,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   const response=await fetch(endpoint+'?action=media_download',{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':'application/json'},body:JSON.stringify({session:account.session,payload:{id:attachmentId,viewOnce}}),cache:'no-store',signal:AbortSignal.timeout(20000)});
   if(!response.ok){const error=await response.json().catch(()=>null);throw Error(error?.error||(viewOnce?'تعذّر فتح الصورة. إذا استُهلكت محاولة العرض، اطلب إرسالها مجددًا.':'الملف غير متاح.'));}
   const blob=await response.blob();
-  if(!blob.size||!(blob.type==='image/jpeg'||!viewOnce&&blob.type.startsWith('audio/')))throw Error('الملف غير متاح.');
+  if(!blob.size||!(['image/jpeg','image/png','image/webp'].includes(blob.type)||!viewOnce&&blob.type.startsWith('audio/')))throw Error('الملف غير متاح.');
   if(viewOnce){revision++;cached=null;at=0;listeners.forEach(f=>f());}
   return URL.createObjectURL(blob);
  }
@@ -178,8 +178,8 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async inbox(){const s=await state();await retireFictional(s);const fictional=(await local.inbox()).filter(c=>c.id!=='demo-mutual'&&c.id!=='demo-incoming');return [...(s.matched||s.rematchRequestedBy?[{id:'tester-pair',celebrationKey:s.matched&&s.matchCelebration!==s.celebrationSeen?.[account.actor]?s.matchCelebration:undefined,createdAt:s.matchedAt,updatedAt:s.matchedAt,status:s.matched?'accepted' as const:'pending' as const,direction:s.rematchRequestedBy===account.actor?'outgoing' as const:'incoming' as const,person:{...person(s),exclusive:s.exclusive},lastMessage:messages(s).at(-1)||null,unreadCount:unread(s)}]:[]),...fictional];},
   async thread(id,before){if(id!=='tester-pair'){await available(id);return local.thread(id,before);}const s=await state();if(!s.matched)throw Object.assign(Error('التعارف مغلق.'),{status:403});const list=messages(s),end=before?list.findIndex(m=>m.id===before):list.length;return list.slice(Math.max(0,end-50),end);},
   async messageChanges(id,messageIds){if(id!=='tester-pair'){await available(id);return local.messageChanges!(id,messageIds);}const s=await state();if(!s.matched)throw Object.assign(Error('التعارف مغلق.'),{status:403});const ids=new Set(messageIds);return messages(s).filter(m=>ids.has(m.id));},
-  async searchMessages(id,query,beforeId,kind){if(id!=='tester-pair'){await available(id);return local.searchMessages!(id,query,beforeId,kind);}const s=await state(true);requirePairChat(s);return searchMessageRows(messages(s),query,beforeId,kind);},
-  async readState(id){if(id!=='tester-pair'){await available(id);return local.readState!(id);}const s=await state(true);requirePairChat(s);const rows=s.messages.filter(m=>!m.deletedAt&&m.sender!==account.actor&&(!s.read[account.actor]||m.createdAt>s.read[account.actor]!));return {firstUnreadId:rows[0]?.id??null,unreadCount:rows.length};},
+  async searchMessages(id,query,beforeId,kind){if(id!=='tester-pair'){await available(id);return local.searchMessages!(id,query,beforeId,kind);}const s=await state(true);requirePairHistory(s);return searchMessageRows(messages(s),query,beforeId,kind);},
+  async readState(id){if(id!=='tester-pair'){await available(id);return local.readState!(id);}const s=await state(true);requirePairHistory(s);const rows=s.messages.filter(m=>!m.deletedAt&&m.sender!==account.actor&&(!s.read[account.actor]||m.createdAt>s.read[account.actor]!));return {firstUnreadId:rows[0]?.id??null,unreadCount:rows.length};},
   async setTyping(id,active){if(id!=='tester-pair'){await available(id);return local.setTyping!(id,active);}await testRequest('typing_set',account.session,{active});},
   async typingState(id){if(id!=='tester-pair'){await available(id);return local.typingState!(id);}return testRequest<boolean>('typing_state',account.session);},
   async deleteMessage(id,messageId){if(id!=='tester-pair'){await available(id);return local.deleteMessage!(id,messageId);}revision++;const saved=await testRequest<State|{ok:true}>('message_delete',account.session,{id:messageId});revision++;cached='messages' in saved?saved:null;at=cached?Date.now():0;listeners.forEach(f=>f());},
@@ -193,6 +193,11 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const data=await response.json();if(!response.ok)throw Error(data.error||'تعذّر إرسال الملف.');revision++;cached=data;at=Date.now();listeners.forEach(f=>f());return clientId;
   },
   async mediaUrl(id,attachmentId){if(id!=='tester-pair'){await available(id);return local.mediaUrl!(id,attachmentId);}return mediaDownload(id,attachmentId,false);},
+  async confirmMediaViewed(id,attachmentId){
+   if(id!=='tester-pair'){await available(id);return local.confirmMediaViewed?.(id,attachmentId);}
+   await testRequest('media_viewed',account.session,{id:attachmentId});
+   revision++;cached=null;at=0;listeners.forEach(f=>f());
+  },
   async openMedia(id,attachmentId){if(id!=='tester-pair'){await available(id);return local.openMedia!(id,attachmentId);}return mediaDownload(id,attachmentId,true);},
   async callPermission(id){if(id!=='tester-pair'){await available(id);return local.callPermission?local.callPermission(id):{status:'accepted'};}return permission(await state());},
   async requestCallPermission(id,action){if(id!=='tester-pair'){await available(id);if(!local.requestCallPermission)throw Error('المكالمات غير متاحة.');return local.requestCallPermission(id,action);}return permission(await mutate('permission_'+action));},

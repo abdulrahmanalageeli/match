@@ -40,6 +40,7 @@ test('Web Push shares opt-in queue, isolates devices, rejects unsafe endpoints a
   await call(b, 'public.marriage_web_push_register($1,$2)', [sub, b.installation]);
   await call(b, "public.marriage_act($1,'accept')", [request]);
   await signCommunicationAgreement(call,a,b,request);
+  await call(a,'public.marriage_message($1,$2,$3)',[request,'قبل تحديث الجهاز',randomUUID()]);
   const mutual = await service("public.marriage_push_claim('web',20)"); assert.equal(mutual.length, 1);
   const rotated = { ...sub, keys: { ...sub.keys, auth: 'C'.repeat(22) } };
   await call(b, 'public.marriage_web_push_register($1,$2)', [rotated, b.installation]);

@@ -35,7 +35,7 @@ const fixture = `
       void fetch('/__hybrid-draft').then(response => response.json()).then(setChoices);
     }, []);
     if (!choices) return null;
-    return <InterviewPanel open auth={{ testSession: 'isolated-browser-fixture' }} onboarding
+    return <InterviewPanel open auth={{ testSession: 'isolated-browser-fixture' }} onboarding direct={location.hash === '#direct'}
       assessmentContext={Object.entries(choices).map(([id, values]) => ({ id, values }))}
       onStructuredDraftChange={next => {
         setChoices(next);
@@ -128,6 +128,7 @@ try {
           ],
         } };
         break;
+      case 'directConfirm':
       case 'structuredConfirm':
         assert.deepEqual(payload.choices.map(({ id }) => id).sort(), expectedIds);
         assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], 'B');
@@ -221,16 +222,14 @@ try {
   const actionsBeforeCards = calls.length;
   let scaleChecked = false;
   for (let index = 0; index <= 16 && await card.count(); index++) {
-    const groups = card.locator('fieldset');
+    const groups = card.locator('fieldset').filter({hasNot:page.locator('fieldset')});
     for (let at = 0; at < await groups.count(); at++) {
       const group = groups.nth(at);
-      const scale = group.getByRole('slider');
-      if (await scale.count()) {
-        if (!scaleChecked) assert.equal(await scale.getAttribute('aria-valuetext'), 'لم تحدد إجابتك بعد');
-        await scale.focus();
-        await page.keyboard.press('Home');
-        await page.keyboard.press('Enter');
-        assert.equal(await scale.getAttribute('aria-valuetext'), 'لا يشبهني إطلاقًا');
+      const radios = group.getByRole('radio');
+      if (await radios.count()) {
+        if (!scaleChecked) assert.equal(await group.locator('input:checked').count(), 0);
+        await radios.first().check();
+        assert.equal(await radios.first().isChecked(), true);
         if (!scaleChecked) {
           await page.screenshot({ path: resolve(output, 'personality-scale-390.png') });
           scaleChecked = true;
@@ -279,6 +278,22 @@ try {
   await portrait.locator(':scope > summary').click();
   await portrait.getByText('التواصل والتعارف', { exact: true }).click();
   assert.equal(await personalityAnswer.inputValue(), 'C');
+  const guidedChoices = calls.find(call => call.action === 'structuredConfirm').choices;
+  draft = Object.fromEntries(guidedChoices.map(({ id, values }) => [id, values]));
+  delete draft[firstId];
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+  const directStart = calls.length;
+  await page.goto(url + '#direct');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await card.waitFor();
+  assert.equal(await page.locator('#wi-answer').count(), 0);
+  await manual.click();
+  await page.getByRole('button', { name: 'متابعة', exact: true }).click();
+  assert.equal(await confirmation.isEnabled(), true);
+  await confirmation.click();
+  await page.locator('.wi-complete').waitFor();
+  assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'directConfirm']);
+  assert.equal(await page.evaluate(() => window.applied[0]?.length), 44);
   assert.deepEqual(errors, []);
   console.log('PASS: mobile 320–390px, late Luna response, saved draft, opt-in defaults, and one 44-field confirmation');
 } finally {

@@ -7,6 +7,7 @@ import { VerificationAdmin } from './Verification';
 import { SupportAdmin } from './Support';
 import { InterviewReview } from './InterviewReview';
 import { PortraitReview } from './PortraitReview';
+import { DeletedPhoneBlock } from './DeletedPhoneBlock';
 import { AdminError, friendly, mode } from './client';
 import type { Access, AdminApi, AuditRow, MemberDetail, MemberRow, Operations, Overview, ReportAction, ReportRow, ReviewAction, StaffRole } from './types';
 
@@ -15,6 +16,7 @@ const titles: Record<Page, string> = { overview: 'نظرة عامة', applicatio
 const roleNames: Record<string, string> = { owner: 'مالك مساحة الإدارة', reviewer: 'مراجع العضوية', moderator: 'مشرف السلامة', database: 'إدارة قاعدة البيانات', invitation: 'تفعيل حساب الفريق' };
 const actionNames: Record<string, string> = { approve: 'اعتماد العضوية', suspend: 'تعليق الحساب', restore: 'رفع التعليق', return_pending: 'إعادة للمراجعة', pause: 'إيقاف الظهور', resume: 'استئناف الظهور', edit_profile: 'تعديل الملف', grant_access: 'منح وصول مجاني', revoke_access: 'إلغاء الوصول المجاني', set_dummy: 'تغيير تصنيف الحساب', assign_self: 'استلام البلاغ', resolve: 'إغلاق البلاغ', reopen: 'إعادة فتح البلاغ', member_viewed: 'مراجعة الملف', staff_granted: 'تفعيل صلاحية', staff_changed: 'تعديل صلاحية', staff_removed: 'إزالة صلاحية', staff_invited: 'حجز صلاحية', staff_invitation_claimed: 'تفعيل الحجز', staff_invitation_changed: 'تحديث حجز الصلاحية', staff_invitation_removed: 'إزالة حجز الصلاحية' };
 Object.assign(actionNames, { family_link_approved: 'اعتماد ربط الأهل', family_link_rejected: 'رفض طلب ربط الأهل', family_link_revoked: 'سحب اعتماد ربط الأهل' });
+actionNames.release_phone_block = 'رفع حظر رقم حساب محذوف';
 Object.assign(actionNames, { verification_approve: 'اعتماد تحقق يدوي', verification_reject: 'رفض طلب التحقق', verification_request_changes: 'طلب استكمال التحقق', verification_revoke: 'سحب شارة التحقق', verification_evidence_viewed: 'فتح مستند تحقق خاص', verification_evidence_access: 'فتح مستند تحقق خاص' });
 const number = new Intl.NumberFormat('ar-SA');
 const date = (value: string | null) => value ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—';
@@ -220,6 +222,7 @@ export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: 
       </section>}
       {page === 'audit' && <section className="panel queue-panel"><div className="panel-heading"><span className="panel-icon"><FileClock size={21} /></span><div><h2>أثر كل قرار</h2><p>الفاعل والسبب والتوقيت، دون نسخ المحادثات أو الإجابات الخاصة.</p></div></div>{!audit.length ? loading ? <Loading /> : !error && <Empty title="لا توجد إجراءات لعرضها">تظهر هنا المراجعات والقرارات بعد تسجيلها.</Empty> : <ol className="audit-list">{audit.map(row => <li key={row.id}><span className="audit-dot"><Check size={12} /></span><div><strong>{actionNames[row.action] || 'إجراء إداري'}</strong><p>{row.reason}</p><small>{row.actorName} · {roleNames[row.actorRole] || row.actorRole} · <bdi>{row.targetId.slice(0, 8)}</bdi></small></div><time>{date(row.createdAt)}</time></li>)}</ol>}</section>}
       {page === 'operations' && <OperationsPanel api={api} role={role} demo={demo} onError={onError} />}
+      {page === 'applications' && filter === 'suspended' && role !== 'reviewer' && !demo && <DeletedPhoneBlock />}
       {page === 'family' && <FamilyBridgeAdmin api={api} role={role} refresh={revision} onError={onError}/>}
       {page === 'verification' && <><PortraitReview refresh={revision} onError={onError}/><VerificationAdmin api={api} role={role} refresh={revision} onError={onError}/></>}
       {page === 'support' && role !== 'reviewer' && <SupportAdmin api={api} refresh={revision} onError={onError}/>}

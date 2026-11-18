@@ -32,7 +32,7 @@ export function classifyWebPush(status: number): DeliveryResult {
 export function webPushPayload(job: Pick<WebPushJob, 'requestId' | 'kind' | 'details'>) {
   const payload = pushPayload({ ...job, details: job.details ? { ...job.details, preview: 'private' } : undefined });
   // No profile names, message previews, photographs, member IDs or auth tokens.
-  return { title: payload.aps.alert.title, body: payload.aps.alert.body, requestId: payload.requestId, kind: payload.kind, ...(payload.messageId ? { messageId: payload.messageId } : {}), ...(payload.roomId ? { roomId: payload.roomId } : {}) };
+  return { title: payload.aps.alert.title, body: payload.aps.alert.body, requestId: payload.requestId, kind: payload.kind, ...(payload.scope ? {scope:payload.scope} : {}), ...(job.details?.passive || job.details?.sound === false ? {silent:true} : {}), ...(payload.messageId ? { messageId: payload.messageId } : {}), ...(payload.roomId ? { roomId: payload.roomId } : {}) };
 }
 
 export function openWebPush(config: WebPushConfig, send: typeof webPush.sendNotification = webPush.sendNotification) {
@@ -43,7 +43,7 @@ export function openWebPush(config: WebPushConfig, send: typeof webPush.sendNoti
       if (!Number.isFinite(ttl) || ttl <= 0) return 'failed';
       try {
         const result = await send(job.subscription, JSON.stringify(webPushPayload(job)), {
-          vapidDetails: config, TTL: ttl, timeout: 8000, contentEncoding: 'aes128gcm', urgency: job.kind === 'reminder' ? 'low' : 'high',
+          vapidDetails: config, TTL: ttl, timeout: 8000, contentEncoding: 'aes128gcm', urgency: job.kind === 'reminder' || job.details?.passive ? 'low' : 'high',
           topic: createHash('sha256').update(job.kind + ':' + job.requestId).digest('base64url').slice(0, 32),
         });
         return classifyWebPush(result.statusCode);

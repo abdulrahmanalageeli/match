@@ -121,6 +121,9 @@ export async function callRpc<T>(
 }
 export async function cloudLogout() {
   if (!cloud) return;
+  const owner = await cloudSessionId().catch(() => null);
+  if (owner) await import('./community/nativePendingSends').then(m => m.clearMemberPendingSends(owner)).catch(() => {});
+  await import('./notifications/push').then(module => module.detachNotifications(owner)).catch(() => {});
   const { error } = await cloud.auth.signOut({ scope: "local" });
   if (
     error &&
@@ -129,7 +132,6 @@ export async function cloudLogout() {
     error.status !== 404
   )
     authFailure(error);
-  await import('./notifications/webPush').then(module => module.detachWebPush()).catch(() => {});
 }
 export async function cloudRequest(
   path: string,

@@ -42,8 +42,8 @@ function ConnectionArtwork({ section }: { section: DeepSection }) {
   </div>;
 }
 
-export function DeepReport({ snapshot, peerName, save, saving }: {
-  snapshot: DeepSnapshot; peerName: string; save(): void; saving: boolean;
+export function DeepReport({ snapshot, peerName, save, saving, sample = false }: {
+  snapshot: Pick<DeepSnapshot, 'requestedByMe' | 'findings'>; peerName: string; save?(): void; saving?: boolean; sample?: boolean;
 }) {
   const [selected, setSelected] = useState<string>();
   const [view, setView] = useState<'reading' | 'contents' | 'method'>('reading');
@@ -57,7 +57,7 @@ export function DeepReport({ snapshot, peerName, save, saving }: {
   useEffect(() => { scroller.current?.scrollTo({top:0}); }, [active?.id, view]);
   function go(next: number) { if (findings[next]) { setSelected(findings[next].id); setView('reading'); } }
   return <div className="wd-deep-experience">
-    <div className="wd-deep-toolbar"><span><LockKeyhole size={12}/> خاص بكما</span><button type="button" disabled={saving || !findings.length} onClick={save}><Download size={16}/>{saving ? 'جارٍ الحفظ…' : 'حفظ نسخة'}</button></div>
+    <div className="wd-deep-toolbar"><span><LockKeyhole size={12}/> {sample ? 'قراءة تجريبية' : 'خاص بكما'}</span>{save && <button type="button" disabled={saving || !findings.length} onClick={save}><Download size={16}/>{saving ? 'جارٍ الحفظ…' : 'حفظ نسخة'}</button>}</div>
     <div className="wd-deep-story-scroll" ref={scroller}>
       {view === 'reading' && active ? <div className="wd-deep-story" key={active.id}>
         <div className="wd-deep-couple"><span><b>أنت</b><small>الطرف {snapshot.requestedByMe ? 'أ' : 'ب'}</small></span><i aria-hidden="true"/><span><b>{peerName}</b><small>الطرف {snapshot.requestedByMe ? 'ب' : 'أ'}</small></span></div>
@@ -72,7 +72,8 @@ export function DeepReport({ snapshot, peerName, save, saving }: {
           <p>{active.text}</p>
           {active.kind === 'incompatibility' && <small className="wd-deep-condition">تعارض مع شرط أساسي · يستحق نقاشًا واضحًا بينكما</small>}
         </div>
-      </div> : view === 'contents' ? <div className="wd-deep-index"><span className="wd-deep-story-kicker">اكتشفا الصورة كاملة</span><h3>محاور تحليلكما</h3>{sections.map(([section,label], position) => <button key={section} type="button" onClick={() => go(findings.findIndex(item => item.section===section))}><span>{count.format(position+1).padStart(2,'٠')}</span><b>{label}</b><ArrowLeft size={17}/></button>)}<p>تظهر فقط النقاط التي وافقتما على مشاركتها.</p></div>
+      </div> : view === 'contents' ? <div className="wd-deep-index"><span className="wd-deep-story-kicker">اكتشفا الصورة كاملة</span><h3>محاور تحليلكما</h3>{sections.map(([section,label], position) => <button key={section} type="button" onClick={() => go(findings.findIndex(item => item.section===section))}><span>{count.format(position+1).padStart(2,'٠')}</span><b>{label}</b><ArrowLeft size={17}/></button>)}{!sample && <p>تظهر فقط النقاط التي وافقتما على مشاركتها.</p>}</div>
+      : view === 'method' && sample ? <p className="wd-deep-note">تعتمد هذه القراءة على مقارنة إجاباتك ببيانات الملف التجريبي. لا تُرسل الإجابات إلى لونا.</p>
       : view === 'method' ? <div className="wd-deep-method"><span className="wd-deep-story-kicker">شفافية وُدَين</span><h3>كيف نقرأ إجاباتكما؟</h3><p>{deepMethodCopy}</p><h4>المرجع البحثي وحدوده</h4><p>{deepResearchCopy}</p><a href={deepResearchUrl} target="_blank" rel="noreferrer">Joel وآخرون · PNAS · 2020</a><h4>مشاركتكما، باختياركما</h4><p>لا يظهر إلا ما وافقتما على مشاركته. أسئلة الحوار اختيارية. النسخة المحفوظة تبقى خارج التطبيق حتى بعد سحب المشاركة.</p></div>
       : <p className="wd-deep-note">لم تتفقا على مشاركة نقاط. بقيت الإجابات خاصة بكل طرف.</p>}
     </div>

@@ -17,5 +17,5 @@ export function membershipPriceLabel(gender?: 'man' | 'woman'): string {
 }
 
 export function seriousnessPriceLabel(gender?: 'man'|'woman'):string {
-  return gender ? `${amount.format(SERIOUSNESS_MEMBERSHIP_SAR[gender])} ر.س` : 'السعر من Apple';
+  return gender ? `${amount.format(SERIOUSNESS_MEMBERSHIP_SAR[gender])} ر.س` : `${amount.format(SERIOUSNESS_MEMBERSHIP_SAR.man)} ر.س للرجال · ${amount.format(SERIOUSNESS_MEMBERSHIP_SAR.woman)} ر.س للنساء`;
 }

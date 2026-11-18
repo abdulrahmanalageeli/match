@@ -128,8 +128,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const firstLetter = Array.from(member?.displayName.trim() || "")[0];
   const canManageMatching = Boolean(demo || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending);
   const canSeeMembership = canManageMatching || state?.membership.active;
-  const membershipDetail = demo ? "تجربة مجانية" : state?.membership.active ? "عضوية فعّالة" :
-    state?.membership.canStart ? "متاحة للاشتراك" : "بانتظار توفر ترشيح مناسب";
+  const tier = state?.membership.tier ?? (state?.membership.active ? 'premium' : 'free');
+  const membershipDetail = demo ? 'عضوية تجريبية' : {free:'العضوية المجانية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
   const location = member?.city || state?.user.email;
   if(showCompletion)return <JourneyCompletion paused={paused} busy={busy} demo={demo} canPause={canManageMatching}
     onBack={()=>{setShowCompletion(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.st-completion-entry button')?.focus());}}
@@ -140,7 +140,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
   if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel}/>;
-  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims,premium:state?.membership.active}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
+  if(profilePanel==='preview'&&member)return <main className="app-screen st-profile-view" dir="rtl"><MemberProfile key={owner} person={{...publicProfile(member,owner??'self',previewPhoto),manualVerifications:ownClaims,membershipTier:tier}} source={source} preview back={closePanel} backText="الإعدادات"/></main>;
   if(profilePanel==='photos'&&source)return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager"><header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header><span className="st-profile-kicker">حضور يعبّر عنك</span><h1>صور ملفي</h1><ProfileGallery source={source} editable onChanged={onProfileChanged}/></div></main>;
   return (
     <main className="app-screen st-screen" dir="rtl">

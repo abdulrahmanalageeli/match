@@ -1,5 +1,5 @@
 import {createContext,useContext} from 'react';
-export const MembershipAccess = createContext<{premium:boolean;tier?:'free'|'premium'|'seriousness';connectionLimit?:number;upgrade:()=>void}>({premium:false,upgrade:()=>{}});
+export const MembershipAccess = createContext<{premium:boolean;demo?:boolean;tier?:'free'|'premium'|'seriousness';connectionLimit?:number;upgrade:()=>void}>({premium:false,upgrade:()=>{}});
 export const useMembershipAccess=()=>useContext(MembershipAccess);
 
 export function MembershipPrompt({detail='بادر بطلب تعارف، واكتشف تفاصيل التوافق مع العضوية المميزة.'}:{detail?:string}) {

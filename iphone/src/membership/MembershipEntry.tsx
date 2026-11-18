@@ -9,8 +9,8 @@ export function MembershipEntry(){
  const serious=current==='seriousness';
  return <button type="button" className="wd-membership-entry" data-tier={current} onClick={upgrade}
   aria-label={`${serious?'وسام الجدية':current==='premium'?'عضويتك المميزة':'عضويتك المجانية'} · ${serious?'إدارة العضوية':'اكتشاف الاشتراكات وترقية العضوية'}`}>
-  <span className="wd-entry-insignia"><MembershipMark serious={serious}/></span>
-  <span className="wd-entry-copy"><strong>{serious?'وسام الجدية':current==='premium'?'العضوية المميزة':'اكتشف العضوية'}</strong></span>
+   {current!=='free'&&<span className="wd-entry-insignia"><MembershipMark serious={serious}/></span>}
+  <span className="wd-entry-copy"><strong>{serious?'وسام الجدية':current==='premium'?'العضوية المميزة':'العضوية المجانية'}</strong></span>
   <ChevronLeft size={13}/>
  </button>;
 }

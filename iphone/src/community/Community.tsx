@@ -1,3 +1,4 @@
+import {DemoDeepReading} from './DemoDeepReading';
 import {LunaSearch} from './LunaSearch';
 import {MemberBadge} from '../membership/MemberBadge';
 import {MembershipEntry} from '../membership/MembershipEntry';
@@ -572,10 +573,10 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {person.bio?<button className="dr-bio-peek" onClick={event=>open(event.currentTarget)} title="عرض النبذة كاملة" aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>:<span/>}
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}`:`إضافة ${person.alias}، إرسال طلب تعارف`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?'المحادثة':'عرض الطلب':'طلب تعارف'}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
-          <span>{premium?"إضافة":"بادر بالتعارف"}</span>
+          <span>{premium?"إضافة":"ترقية العضوية"}</span>
         </>}
       </button>
     </div>}
@@ -845,7 +846,7 @@ function Discovery({
   }
   async function sendRequest(target=person) {
     if (!target || actionPending.current) return;
-    if(!premium&&!(target.isDemo&&source.demoInteractions)){upgrade();return;}
+    if(!premium){upgrade();return;}
     const id = target.id;
     actionPending.current = true;
     setBusy(true);
@@ -890,7 +891,7 @@ function Discovery({
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
-            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium || (person.isDemo && source.demoInteractions) ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
+            <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? "متابعة المحادثة" : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? "طلب التعارف" : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
           {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
           {error&&<Banner alert text={error}/>}
@@ -1568,8 +1569,10 @@ export function Chat({
               </div>}
             </div>;
           })}
-      {conversationAllowed && !thread.accessDenied && <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
-        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>}
+      {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.simulation
+        ? deepOpen && !privateHidden && <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setDeepOpen(false)}><DemoDeepReading person={connection.person}/></Sheet>
+        : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
+        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>)}
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
@@ -1691,6 +1694,7 @@ function Requests({
   onBrowse: () => void;
   onMatches?: () => void;
 }) {
+  const {premium,upgrade}=useMembershipAccess();
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
   const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean}|null>(null);
   const [entry] = useState(initialRequest);
@@ -2029,6 +2033,7 @@ function Requests({
       };
       try {
         if (existing) { show(existing); return; }
+        if (!premium) { upgrade(); return; }
         const id = await source.request(visitPerson.id);
         feedback('success');
         await refresh();
@@ -2047,7 +2052,7 @@ function Requests({
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {!existing && <AddPersonMark/>}
-        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : 'إرسال طلب تعارف'}
+        {busy ? 'جارٍ فتح الطلب…' : existing?.status === 'accepted' ? 'متابعة المحادثة' : existing ? 'عرض طلب التعارف' : unavailable ? 'طلب التعارف غير متاح حاليًا' : premium ? 'إرسال طلب تعارف' : 'اشترك وابدأ التعارف'}
       </button>
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;

@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import {getMembershipOffer,type MembershipOffer} from '../billing';
-import {seriousnessPriceLabel,type MembershipPlan} from '../membershipPricing';
+import {membershipPriceLabel,seriousnessPriceLabel,type MembershipPlan} from '../membershipPricing';
 import {Check} from '../BrandIcons';
 import {Frame} from '../Screens';
 import './membership.css';
@@ -40,9 +40,11 @@ export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,rest
  const [offerError,setOfferError]=useState(false);
  useEffect(()=>{if(!seriousness||!canBuy||demo)return;let cancelled=false;setSeriousOffer(null);setOfferError(false);loadOffer(gender,'seriousness').then(offer=>{if(!cancelled)setSeriousOffer(offer)}).catch(()=>{if(!cancelled)setOfferError(true)});return()=>{cancelled=true}},[seriousness,canBuy,demo,gender,loadOffer]);
  const selectedPrice=seriousness?(demo?seriousnessPriceLabel(gender):seriousOffer?.price??null):price;
+ const displayPrice=selectedPrice??(seriousness?seriousnessPriceLabel(gender):membershipPriceLabel(gender));
  const trial=!seriousness&&!active&&!demo&&Boolean(price)&&trialEligible;
  const until=expiry?new Date(expiry):null;
  return <Frame title="عضوية وُدَين" back={back} className="wd-paywall" headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
+  <p className="wd-billing-note">عضويتك الحالية: {currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</p>
   <table className="wd-tier-comparison" aria-label="مقارنة العضوية المجانية والمميزة ووسام الجدية">
    <thead><tr><th scope="col">مزايا عضويتك</th><th scope="col">مجانية</th><th scope="col">مميزة</th><th scope="col" className="wd-seriousness-heading">وسام الجدية</th></tr></thead>
    <tbody>
@@ -70,15 +72,16 @@ export function Membership({back,active,demo,price,canStart,canBuy,busy,buy,rest
 
    </tbody>
   </table>
-  {(!active||currentTier==='premium')&&<div className="wd-plan-choice" role="group" aria-label="اختر عضويتك"><button type="button" aria-pressed={!seriousness} onClick={()=>setPlan('premium')}><img src="/brand/wudayn-member-seal.png" alt=""/><span>المميزة<small>{price??'السعر من Apple'}</small></span></button><button type="button" aria-pressed={seriousness} onClick={()=>setPlan('seriousness')}><img src="/brand/wudayn-seriousness-seal.png" alt=""/><span>وسام الجدية<small>{seriousnessPriceLabel(gender)}</small></span></button></div>}
+  {(!active||currentTier==='premium')&&<div className="wd-plan-choice" role="group" aria-label="اختر عضويتك"><button type="button" aria-pressed={!seriousness} onClick={()=>setPlan('premium')}><img src="/brand/wudayn-member-seal.png" alt=""/><span>المميزة<small>{price??membershipPriceLabel(gender)}</small></span></button><button type="button" aria-pressed={seriousness} onClick={()=>setPlan('seriousness')}><img src="/brand/wudayn-seriousness-seal.png" alt=""/><span>وسام الجدية<small>{seriousOffer?.price??seriousnessPriceLabel(gender)}</small></span></button></div>}
   <section className="wd-membership-card" aria-label="تفاصيل العضوية والسعر">
    {trial&&<div className="wd-trial-highlight"><strong>٧ أيام مجانًا</strong><span className="wd-trial-limit"><span>عرض إطلاق محدود</span><b><span>لأول ٥٠ امرأة</span><span>و٥٠ رجلًا</span></b></span></div>}
    <span className="wd-price-spark" aria-hidden="true"/>
    {Array.from({length:24},(_,index)=><span key={index} className="wd-price-spark-tail" aria-hidden="true" style={{animationDelay:`${-9+(index+1)*.01875}s`,opacity:Math.pow(1-index/24,1.7)*.65,color:`hsl(${36-index*61/23} ${60-index*20/23}% ${85-index*25/23}%)`}}/>)}
    <svg className="wd-price-orbit" width="100%" height="100%" aria-hidden="true" focusable="false"><rect className="wd-price-orbit-trail" x="1" y="1" rx="18" pathLength="100"/><rect className="wd-price-orbit-glow" x="1" y="1" rx="18" pathLength="100"/><rect className="wd-price-orbit-tip" x="1" y="1" rx="18" pathLength="100"/></svg>
    <div className="wd-plan-top"><strong>{seriousness?'وسام الجدية':'وُدَين المميزة'}</strong>{!active&&!seriousness&&<span>{gender==='woman'?'سعر خاص للنساء':'عرض الإطلاق'}</span>}</div>
-   <div className="wd-price-row"><strong>{managing?'عضوية فعّالة':selectedPrice??'السعر من App Store'}</strong>{!managing&&selectedPrice&&<small>/ شهريًا</small>}
+   <div className="wd-price-row"><strong>{managing?'عضوية فعّالة':displayPrice}</strong>{!managing&&<small>/ شهريًا</small>}
    </div>
+   {!managing&&!selectedPrice&&<p className="wd-price-context">سعر الباقة في السعودية. يظهر سعر متجرك عند الشراء.</p>}
    {active&&<p className="wd-price-context">راجع سعر التجديد وموعده في اشتراكات Apple.</p>}
   </section>
   {active&&until&&!isNaN(until.getTime())&&<p className="wd-billing-note">عضويتك سارية حتى {until.toLocaleDateString('ar-SA',{calendar:'gregory',dateStyle:'long'})}.</p>}

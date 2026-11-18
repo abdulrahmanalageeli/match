@@ -63,6 +63,7 @@ test('failed or obsolete higher-tier offers cannot enable purchase',async()=>{
  const view=mount({loadOffer:()=>new Promise((resolve,reject)=>{resolvers.push(resolve);rejectOffer=reject})});
  nodes(view.tree).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();void view.tree;
  rejectOffer(Error('offline'));const failed=await view.settle();
+ assert.match(text(nodes(failed).find(n=>n.props.className==='wd-price-row')),new RegExp(pricing.seriousnessPriceLabel('man')));
  assert.match(text(failed),/تعذّر تحميل وسام الجدية/);assert.equal(button(failed,'wd-purchase').props.disabled,true);
  nodes(failed).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();void view.tree;
  nodes(view.tree).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();void view.tree;

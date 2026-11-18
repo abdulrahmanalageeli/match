@@ -953,6 +953,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       return [...excluded.values()].sort((a, b) => (b.since ?? '').localeCompare(a.since ?? ''));
     },
     async request(memberId) {
+      if (simulationOptions.membershipTier?.() === 'free') throw Error('المبادرة بطلب تعارف تتطلب عضوية مميزة أو وسام الجدية.');
       if (exclusiveId) throw new Error('أنت في تعارف حصري.');
       if (blockedPeople.has(memberId)) throw new Error('هذا العضو غير متاح.');
       const prior = records.find((r) => r.peer === memberId);

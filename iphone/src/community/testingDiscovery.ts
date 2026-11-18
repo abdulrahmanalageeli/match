@@ -2,8 +2,8 @@ import {demoCommunity,type CommunitySource,type PublicPerson} from './data';
 import type {Profile} from '../types';
 
 // Sample cards remain local fixtures, never fabricated member accounts.
-export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, testingOwnerId?:string):CommunitySource {
-  const samples=demoCommunity(viewer,false,{canAct:()=>Boolean(testingOwnerId),storageKey:testingOwnerId?`wudayn-owner-demo-${testingOwnerId}`:undefined});
+export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, testingOwnerId?:string, tier:()=> 'free'|'premium'|'seriousness'=()=> 'free'):CommunitySource {
+  const samples=demoCommunity(viewer,false,{membershipTier:tier,canAct:()=>Boolean(testingOwnerId),storageKey:testingOwnerId?`wudayn-owner-demo-${testingOwnerId}`:undefined});
   const localConnection=async(id:string)=>Boolean(testingOwnerId)&&(await samples.inbox()).some(row=>row.id===id);
   let watchers=0;
   const sampleIds=new Set<string>();

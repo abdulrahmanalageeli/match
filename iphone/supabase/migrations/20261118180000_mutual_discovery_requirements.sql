@@ -39,9 +39,9 @@ insert into marriage.question_options select q,code,label,pos from
 update marriage.assessment_versions set catalog=jsonb_set(catalog,'{dimensions}',(
  select jsonb_agg(case when d->>'id'='marriage_timeline' then d||jsonb_build_object(
  'partnerPrompt','ما توقيت أول خطوة رسمية الذي يناسبك لدى الطرف الآخر؟',
- 'partnerDefault',d->'partnerDefault'||'{"E":"E","F":"F"}'::jsonb,'options',d->'options'||
+ 'options',d->'options'||
  '[{"code":"E","self":"أي وقت خلال السنة الأولى","partner":"أي وقت خلال السنة الأولى"},{"code":"F","self":"يناسبني أي موعد محدد","partner":"يناسبني أي موعد محدد"}]'::jsonb) else d end order by n)
- from jsonb_array_elements(catalog->'dimensions') with ordinality t(d,n))) where id='marriage-v2';
+ from jsonb_array_elements(catalog->'dimensions') with ordinality t(d,n))) where id in('marriage-v2','marriage-v3');
 create function marriage.formal_windows(answer text) returns text[] language sql immutable strict set search_path='' as $$
  select case answer when 'E' then array['A','B'] when 'F' then array['A','B','C'] else array[answer] end
 $$;
@@ -114,25 +114,18 @@ do $migration$
 declare change record; definition text;
 begin
  for change in select * from (values
-  ('marriage.compatible_before_basics(uuid,uuid)', $old$(p.age between yp.min_age and yp.max_age and q.age between xp.min_age and xp.max_age
-     and (exists(select 1 from marriage.cities city_a cross join marriage.cities city_b
-    where city_a.id=p.city_id and city_b.id=q.city_id
-     and marriage.city_filter_key(city_a.label) not in('مدينه اخري داخل السعوديه','مدينه اخري خارج السعوديه')
-     and marriage.city_filter_key(city_a.label)=marriage.city_filter_key(city_b.label)) or marriage.common_city_possible(a,b))
-     and not exists (
-       select 1 from marriage.fit_hard_requirements h join marriage.fit_dimensions d on d.code=h.dimension
-       left join marriage.member_answers want on want.member_id=h.member_id and want.question_code=d.partner_code
-       left join marriage.member_answers peer on peer.member_id=case when h.member_id=a then b else a end and peer.question_code=d.code
-       where h.member_id in(a,b) and (marriage.preference_answer_fit(d.code,h.member_id,case when h.member_id=a then b else a end,want.option_code,peer.option_code) is not true)
-     )
-   )$old$, $new$marriage.new_pair_requirements(a,b)$new$),
-  ('marriage.compatible_before_exclusivity(uuid,uuid)', $old$select marriage.compatible_before_basics(a,b) and (
-  exists(select 1 from marriage.member_requests r where least(r.requester_id,r.recipient_id)=least(a,b)
-   and greatest(r.requester_id,r.recipient_id)=greatest(a,b) and r.status='accepted')
+  ('marriage.compatible_before_basics(uuid,uuid)', $old$and p.age between 18 and 110 and q.age between 18 and 110)$old$, $new$and p.age between 18 and 110 and q.age between 18 and 110
+ and (marriage.new_pair_requirements(a,b)
+  or exists(select 1 from marriage.member_requests r where least(r.requester_id,r.recipient_id)=least(a,b)
+     and greatest(r.requester_id,r.recipient_id)=greatest(a,b) and r.status='accepted')
   or exists(select 1 from marriage.introductions i join marriage.introduction_decisions da on da.introduction_id=i.id and da.member_id=a
-   join marriage.introduction_decisions db on db.introduction_id=i.id and db.member_id=b where i.member_a=least(a,b) and i.member_b=greatest(a,b) and i.closed_at is null)
-  or marriage.criteria_accepted(a,b))$old$, $new$select marriage.compatible_before_basics(a,b)$new$),
-  ('marriage.preference_answer_fit(text,uuid,uuid,text,text)', $old$when dimension='residence_plan'$old$, $new$when dimension='marriage_timeline' then marriage.formal_windows(wanted) && marriage.formal_windows(observed)
+     join marriage.introduction_decisions db on db.introduction_id=i.id and db.member_id=b where i.member_a=least(a,b)
+     and i.member_b=greatest(a,b) and i.closed_at is null)))$new$),
+  ('marriage.assessment_fields_v3()', $old$"preference:marriage_timeline:self":["A","B","C","D"],"preference:marriage_timeline:partner":["A","B","C","D"]$old$, $new$"preference:marriage_timeline:self":["A","B","C","D","E","F"],"preference:marriage_timeline:partner":["A","B","C","D","E","F"]$new$),
+  ('marriage.expectation_credit(text,uuid,uuid,text,text)', $old$dimension='marriage_timeline' and abs(ascii(wanted)-ascii(observed))=1$old$, $new$dimension='marriage_timeline' and wanted in('A','B','C') and observed in('A','B','C') and abs(ascii(wanted)-ascii(observed))=1$new$),
+  ('marriage.preference_answer_fit(text,uuid,uuid,text,text)', $old$when dimension='residence_plan'$old$, $new$when dimension='public_event_attendance' then observed<>'D' and (wanted='D' or wanted=observed or (wanted='B' and observed='A') or (wanted='C' and observed='B'))
+  when dimension='wife_work' and wanted='C' or dimension in('domestic_labor','financial_provision','housing_arrangement') and wanted='D' then true
+  when dimension='marriage_timeline' then marriage.formal_windows(wanted) && marriage.formal_windows(observed)
   when dimension='residence_plan'$new$),
   ('marriage.interview_document_valid_before_partner_defaults(jsonb)', $old$preference:marriage_timeline:self","values":["A","B","C","D"]$old$, $new$preference:marriage_timeline:self","values":["A","B","C","D","E","F"]$new$),
   ('marriage.interview_document_valid_before_partner_defaults(jsonb)', $old$preference:marriage_timeline:partner","values":["A","B","C","D"]$old$, $new$preference:marriage_timeline:partner","values":["A","B","C","D","E","F"]$new$),

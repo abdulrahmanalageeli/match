@@ -5,7 +5,7 @@ import { readPreferenceEvidence, validatedPreferenceEvidence } from './preferenc
 
 const answers = Object.fromEntries(dimensions.flatMap(dimension => [[dimension.id, 'A'], [dimension.partnerId, 'A']]));
 const first = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70,
-  assessmentVersion: 'marriage-v2', surveyAnswers: answers };
+  assessmentVersion: 'marriage-v3', surveyAnswers: answers };
 const second = { ...first, id: 'b', gender: 'man' };
 const fitOf = (a = first, b = second) => describeFit(a, b).fit;
 const withAnswers = (person, updates) => ({ ...person, surveyAnswers: { ...person.surveyAnswers, ...updates } });
@@ -25,7 +25,7 @@ test('complete reciprocal comparisons produce a validated, answer-free explanati
 });
 
 test('complementary answers count as agreement only when both expectations fit', () => {
-  const dimension = dimensions.find(item => item.id === 'conversation_initiative_preference');
+  const dimension = dimensions.find(item => item.id === 'social_rhythm');
   const a = withAnswers(first, { [dimension.id]: 'A', [dimension.partnerId]: 'C' });
   const b = withAnswers(second, { [dimension.id]: 'C', [dimension.partnerId]: 'A' });
   const fit = fitOf(a, b);
@@ -63,7 +63,7 @@ test('any missing or invalid self/partner answer prevents an agreement or disagr
   }
 });
 
-test('criteria evidence aggregates both directions, keeps unknowns separate and omits non-scoring requirements', () => {
+test('criteria evidence aggregates both directions, keeps unknowns separate and includes explicit requirements', () => {
   const a = { ...first, marriageBasics: { heightCm: 160, nationality: 'سعودي' }, partnerCriteria: {
     education: { mode: 'prefer', values: ['بكالوريوس'] },
     profession: { mode: 'prefer', values: ['الهندسة والعمارة'] },
@@ -74,9 +74,9 @@ test('criteria evidence aggregates both directions, keeps unknowns separate and 
     height: { mode: 'prefer', min: 170 }, nationality: { mode: 'prefer', values: ['سعودي'] },
   } };
   const fit = fitOf(a, b);
-  assert.deepEqual(fit.preferenceEvidence.criteria, { matched: 2, different: 1, missing: 1, total: 4 });
-  assert.deepEqual(fit.criteria, { covered: 3, total: 4 });
-  assert.equal(fit.percentage, 95); // sqrt((80% + 20%) * (80% + 10%))
+  assert.deepEqual(fit.preferenceEvidence.criteria, { matched: 3, different: 1, missing: 1, total: 5 });
+  assert.deepEqual(fit.criteria, { covered: 4, total: 5 });
+  assert.equal(fit.percentage, null);
   assert.equal(readPreferenceEvidence(fit).source, 'evidenced');
   assert.deepEqual(fit.preferenceEvidence, fitOf(b, a).preferenceEvidence);
   assert(!JSON.stringify(fit.preferenceEvidence).includes('بكالوريوس'));
@@ -88,8 +88,8 @@ test('topic counts stay separate from category/priority-weighted percentages', (
   const peer = withAnswers(second, valueChanges);
   const ordinary = fitOf(first, peer);
   const prioritized = fitOf({ ...first, priorityCategories: ['values'] }, peer);
-  assert.equal(ordinary.percentage, 87); // sqrt(75% * 100%)
-  assert.equal(prioritized.percentage, 77); // doubled 25-point category: sqrt(60% * 100%)
+  assert.equal(ordinary.percentage, Math.round(75 * Math.sqrt(0.70)));
+  assert.equal(prioritized.percentage, Math.round(75 * Math.sqrt(70 / 130)));
   assert.deepEqual(ordinary.preferenceEvidence, prioritized.preferenceEvidence);
   assert.notEqual(Math.round(100 * ordinary.strengths.length / ordinary.total), ordinary.percentage);
   assert(ordinary.preferenceEvidence.categories.every(category => !Object.hasOwn(category, 'percentage')));

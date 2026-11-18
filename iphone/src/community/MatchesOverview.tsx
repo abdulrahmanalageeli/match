@@ -54,7 +54,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
               <button className="mo-remove-match" disabled={busy} onClick={()=>onRemove(row.id)} aria-label={`إنهاء التعارف مع ${row.person.alias}`}>إنهاء التعارف</button>
             </div>
             <div className="mo-current-actions">
-            {score !== null && <span className="mo-compatibility-copy" role="img" aria-label={`توافق محتمل ${number.format(score)}٪`}>
+            {score !== null && <span className="mo-compatibility-copy" role="img" aria-label={`توافق التفضيلات ${number.format(score)} من ١٠٠`}>
               <span className="mo-logo-progress" aria-hidden="true">
                 <img className="mo-logo-track" src="/brand/wudayn-emblem-v2.png" alt="" width="48" height="48"/>
                 <svg className="mo-logo-liquid" width="48" height="48" viewBox="0 0 48 48" focusable="false">
@@ -72,7 +72,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
                   </g>}
                 </svg>
               </span>
-              <span className="nf-score-tile mo-compatibility-caption"><span className="nf-score-tile-copy"><span>توافق محتمل</span><strong><bdi>{number.format(score)}٪</bdi></strong></span></span>
+              <span className="nf-score-tile mo-compatibility-caption"><span className="nf-score-tile-copy"><span>توافق التفضيلات</span><strong><bdi>{number.format(score)} من ١٠٠</bdi></strong></span></span>
             </span>}
             {score !== null && <span className="mo-action-divider" aria-hidden="true"/>}
             <MotionPressButton

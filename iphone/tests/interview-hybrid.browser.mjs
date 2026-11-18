@@ -123,7 +123,6 @@ try {
           ...snapshot.document, status: 'review', currentQuestion: null, pendingAnalysis: false, draftAnswer: '',
           turns: [{ id: 'intro', topic: 'intent', question: snapshot.document.currentQuestion.text, answer: opening, skipped: false }],
           lastMode: 'luna', lastRequestId: payload.requestId, proposals: [
-            proposal,
             { ...proposal, id: 'personality:depth:self', kind: 'personality', fieldId: 'depth', values: ['E'] },
           ],
         } };
@@ -131,7 +130,7 @@ try {
       case 'structuredConfirm':
         assert.deepEqual(payload.choices.map(({ id }) => id).sort(), expectedIds);
         assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], 'B');
-        assert.equal(payload.choices.find(({ id }) => id === firstPartnerId).values[0], preferences.dimensions[0].partnerDefault.B);
+        assert.equal(payload.choices.find(({ id }) => id === firstPartnerId).values[0], 'A');
         snapshot = { revision: snapshot.revision + 1, coverage: { answered: 44, required: 44 }, structuredConfirmation: true,
           document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => {
             const [kind, fieldId, side] = choice.id.split(':');
@@ -161,6 +160,8 @@ try {
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name: 'إرسال الرسالة', exact: true }).click();
   const card = page.locator('.wi-hybrid-card');
+  assert.equal(await card.count(), 0);
+  releaseOpening();
   await card.waitFor();
   const self = card.locator('fieldset').first();
   const manual = self.locator('button').nth(1);
@@ -179,10 +180,6 @@ try {
   await mirror.selectOption('B');
   await portrait.locator(':scope > summary').click();
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
-  assert.equal(await page.locator('.wi-coverage-note').filter({ hasText: 'لونا تقرأ رسالتك' }).count(), 1);
-  releaseOpening();
-  await page.locator('.wi-coverage-note').filter({ hasText: 'لونا تقرأ رسالتك' }).waitFor({ state: 'hidden' });
-  assert.equal(await manual.getAttribute('aria-pressed'), 'true', 'Late AI response preserved the newer selection');
   assert.deepEqual(draft[firstId], ['B']);
   const help = self.getByRole('button',{name:'مو عارف وش أختار؟'});
   await help.click();
@@ -216,7 +213,7 @@ try {
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.wi-hybrid').waitFor();
-  // Reload can skip a finished card awaiting only a proposed partner answer.
+  // Reload preserves the self answer and leaves the partner choice open.
   assert.deepEqual(draft[firstId], ['B']);
   const actionsBeforeCards = calls.length;
   let scaleChecked = false;
@@ -242,16 +239,11 @@ try {
   assert.equal(await card.count(), 0);
   assert.equal(scaleChecked, true);
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
-  const batch = page.locator('.wi-hybrid-batch');
-  assert.equal(await batch.locator('select').count(), 0);
-  assert(await batch.getByRole('button', { name: 'تعديل', exact: true }).count() > 0);
-  assert.equal(await page.locator('.wi-hybrid-progress small').innerText(), 'بقيت المراجعة');
-  assert.equal(await page.getByRole('button', { name: 'اعتماد إجاباتي', exact: true }).isDisabled(), true);
+  assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
-  await batch.getByRole('button', { name: /من المقترحات/u }).click();
   const confirmation = page.getByRole('button', { name: 'اعتماد إجاباتي', exact: true });
   assert.equal(await confirmation.isDisabled(), false);
-  assert.equal(calls.length, actionsBeforeCards, 'Accepting the visible proposals only updates the draft');
+  assert.equal(calls.length, actionsBeforeCards, 'Reviewing the choices stays local');
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
@@ -261,12 +253,11 @@ try {
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name:'إرسال الرسالة', exact:true }).click();
-  // A sufficient opening answer plus its catalog partner suggestion allows
-  // this untouched card to be skipped once analysis has completed.
-  await page.locator('.wi-hybrid-stage h1').filter({hasText:'مدينة السكن'}).waitFor();
+  // The member still chooses their own response and their partner preference.
+  await page.locator('.wi-hybrid-stage h1').filter({hasText:'الأطفال'}).waitFor();
   const callsBeforeEdit = calls.length;
   await portrait.locator(':scope > summary').click();
-  await portrait.getByText('التواصل والتعارف', { exact: true }).click();
+  await portrait.getByText('حياتكم اليومية', { exact: true }).click();
   const personalityAnswer = portrait.getByRole('combobox', { name: 'عمق الحوار، عن شخصيتي' });
   assert.equal(await personalityAnswer.inputValue(), 'E');
   assert.match(await personalityAnswer.locator('..').innerText(), /من لونا/);
@@ -277,10 +268,10 @@ try {
   assert.equal(calls.length, callsBeforeEdit, 'Editing from the portrait only updates the existing draft');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await portrait.locator(':scope > summary').click();
-  await portrait.getByText('التواصل والتعارف', { exact: true }).click();
+  await portrait.getByText('حياتكم اليومية', { exact: true }).click();
   assert.equal(await personalityAnswer.inputValue(), 'C');
   assert.deepEqual(errors, []);
-  console.log('PASS: mobile 320–390px, late Luna response, saved draft, opt-in defaults, and one 44-field confirmation');
+  console.log('PASS: mobile 320–390px, reviewed Luna response, saved draft, explicit partner choices, and one 44-field confirmation');
 } finally {
   releaseOpening();
   await browser?.close();

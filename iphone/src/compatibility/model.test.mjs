@@ -8,8 +8,8 @@ const a = {
   preferredMinAge: 29, preferredMaxAge: 38,
   interestIds: ["travel", "reading"],
   surveyAnswers: {
-    conversation_initiative_preference: "C",
-    partner_conversation_initiative_preference: "A",
+    social_rhythm: "C",
+    partner_social_rhythm: "A",
     match_disagreement_style: "B",
     partner_match_disagreement_style: "B",
   },
@@ -19,8 +19,8 @@ const b = {
   preferredMinAge: 27, preferredMaxAge: 33,
   interestIds: ["reading"],
   surveyAnswers: {
-    conversation_initiative_preference: "A",
-    partner_conversation_initiative_preference: "C",
+    social_rhythm: "A",
+    partner_social_rhythm: "C",
     match_disagreement_style: "B",
     partner_match_disagreement_style: "B",
   },
@@ -51,9 +51,9 @@ test('other-city buckets require explicit relocation plans instead of implying a
 
 test('residence compatibility compares the shared city outcome instead of only answer letters', () => {
   const all = Object.fromEntries(dimensions.flatMap(dim => [[dim.id, 'A'], [dim.partnerId, 'A']]));
-  const mine = { ...a, assessmentVersion: 'marriage-v2', hardRequirements: ['residence_plan'],
+  const mine = { ...a, assessmentVersion: 'marriage-v3', hardRequirements: ['residence_plan'],
     surveyAnswers: { ...all, residence_plan: 'A', partner_residence_plan: 'B' } };
-  const peer = { ...b, city: 'Riyadh', assessmentVersion: 'marriage-v2', hardRequirements: ['residence_plan'],
+  const peer = { ...b, city: 'Riyadh', assessmentVersion: 'marriage-v3', hardRequirements: ['residence_plan'],
     surveyAnswers: { ...all, residence_plan: 'A', partner_residence_plan: 'B' } };
   const shared = comparePreferences(mine, peer);
   assert(shared, 'Two people staying in Riyadh meet the same residence goal');
@@ -74,8 +74,8 @@ test('residence compatibility compares the shared city outcome instead of only a
 
 test('education and profession only affect ranking when explicitly preferred', () => {
   const all = Object.fromEntries(dimensions.flatMap(dim => [[dim.id, 'A'], [dim.partnerId, 'A']]));
-  const mine = { ...a, assessmentVersion: 'marriage-v2', surveyAnswers: all };
-  const peer = { ...b, assessmentVersion: 'marriage-v2', surveyAnswers: all, education: 'بكالوريوس', profession: 'الهندسة والعمارة' };
+  const mine = { ...a, assessmentVersion: 'marriage-v3', surveyAnswers: all };
+  const peer = { ...b, assessmentVersion: 'marriage-v3', surveyAnswers: all, education: 'بكالوريوس', profession: 'الهندسة والعمارة' };
   const other = { ...peer, education: 'ماجستير', profession: 'الطب والرعاية الصحية' };
   assert.equal(comparePreferences(mine, peer).fit.percentage, comparePreferences(mine, other).fit.percentage);
   const wants = { ...mine, partnerCriteria: {
@@ -90,7 +90,7 @@ test('education and profession only affect ranking when explicitly preferred', (
   assert.deepEqual(match.fit.personality, different.fit.personality);
   assert.equal(comparePreferences(wants, { ...peer, education: 'بكالوريوس هندسة', profession: 'مهندس' }).fit.percentage, match.fit.percentage);
   const unknown = comparePreferences(wants, { ...peer, education: 'إجابة قديمة غير محددة', profession: undefined });
-  assert.equal(unknown.fit.percentage, comparePreferences(mine, peer).fit.percentage);
+  assert.equal(unknown.fit.percentage, null);
   assert.deepEqual(unknown.fit.criteria, { covered: 0, total: 2 });
   const indifferent = comparePreferences({ ...mine, partnerCriteria: { education: { mode: 'any' }, profession: { mode: 'any' } } }, other);
   assert.equal(indifferent.fit.percentage, comparePreferences(mine, peer).fit.percentage);
@@ -126,7 +126,7 @@ test("directional preferences recognize complementary initiative and common disa
   assert.equal(ab.reasons.length, 3);
   const unilateral = comparePreferences(a, {
     ...b,
-    surveyAnswers: { ...b.surveyAnswers, partner_conversation_initiative_preference: "B" },
+    surveyAnswers: { ...b.surveyAnswers, partner_social_rhythm: "B" },
   });
   assert.equal(unilateral.reciprocalSignals, 1);
   assert(!unilateral.reasons.some(reason => reason.includes("بدء الحديث")));
@@ -137,7 +137,7 @@ test("sparse profiles remain eligible without speculative positive reasons", () 
     { ...b, surveyAnswers: {}, interestIds: undefined });
   assert.equal(sparse.reciprocalSignals, 0);
   assert.deepEqual(sparse.sharedInterests, []);
-  assert.deepEqual(sparse.reasons, ["تتوافق مدينتكما والفئة العمرية التي اختارها كلٌّ منكما."]);
+  assert.deepEqual(sparse.reasons, ["يمكنكما مناقشة التفضيلات الظاهرة في تفاصيل المقارنة."]);
 });
 
 test("bilateral signals precede shared hobbies, stable ties ignore input and display order", () => {
@@ -162,7 +162,7 @@ test("a hard preference requires an explicit counterpart answer; a shared city c
   assert(comparePreferences({ ...first, hardRequirements: [] }, { ...peer, surveyAnswers: { residence_plan: "B" } }));
   const stays = { ...peer, interestIds: [], surveyAnswers: { children_plan: "A", residence_plan: "A" } };
   const canMove = { ...first, relocationCities:[stays.city], interestIds: [] };
-  const reason = "يتوافق عمركما مع التفضيلات التي اخترتماها، وتتيح اختيارات السكن مدينة مشتركة.";
+  const reason = "يمكنكما مناقشة التفضيلات الظاهرة في تفاصيل المقارنة.";
   assert.deepEqual(comparePreferences(canMove, stays).reasons, [reason]);
   assert.deepEqual(comparePreferences(stays, canMove).reasons, [reason]);
   assert.equal(comparePreferences({...canMove, surveyAnswers:{...canMove.surveyAnswers, residence_plan:"A"}}, stays), null);
@@ -171,16 +171,16 @@ test("a hard preference requires an explicit counterpart answer; a shared city c
 test("fit bands require evidence across categories, and priorities change ranking without inventing a strength", () => {
   const all = Object.fromEntries(dimensions.flatMap(dim => [[dim.id, "A"], [dim.partnerId, "A"]]));
   const mine = { ...a, surveyAnswers: all };
-  const peer = { ...b, surveyAnswers: { ...all, shared_budget: "B", household_roles: "B", family_boundaries: "B" } };
+  const peer = { ...b, surveyAnswers: { ...all, financial_provision: "B", domestic_labor: "B", family_authority: "B" } };
   const ordinary = comparePreferences(mine, peer);
   const withPriority = comparePreferences({ ...mine, priorityCategories: ["values"] }, peer);
   assert.equal(ordinary.fit.total, dimensions.length);
   assert.equal(ordinary.fit.covered, dimensions.length);
   assert.equal(ordinary.fit.provisional, false);
-  assert.equal(ordinary.fit.band, "strong");
-  assert.deepEqual(ordinary.fit.discussion, ["family_boundaries", "shared_budget", "household_roles"]);
+  assert.equal(ordinary.fit.band, "mixed");
+  assert.deepEqual(ordinary.fit.discussion, ["family_authority", "financial_provision", "domestic_labor"]);
   assert(withPriority.rankValue < ordinary.rankValue);
-  assert.deepEqual(Object.keys(ordinary.fit).sort(), ["assessmentComplete","band","beena","covered","criteria","discussion","missing","percentage","personality","preferenceEvidence","provisional","strengths","total","version"]);
+  assert.deepEqual(Object.keys(ordinary.fit).sort(), ["assessmentComplete","band","beena","covered","criteria","discussion","missing","percentage","personality","practicalConcerns","preferenceEvidence","provisional","strengths","total","version"]);
   assert.equal(ordinary.fit.percentage, null); // No current assessment version was declared.
   assert.equal(ordinary.fit.personality.percentage, null);
   assert.deepEqual(ordinary.fit.criteria, { covered: 0, total: 0 });

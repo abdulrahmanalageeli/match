@@ -4,7 +4,7 @@ import { recommendationReason } from '../src/community/recommendationReason.ts';
 import { describeFit, dimensions } from '../src/compatibility/model.ts';
 
 const answers = Object.fromEntries(dimensions.flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']]));
-const first = {id:'a',gender:'woman',age:29,city:'الرياض',preferredMinAge:18,preferredMaxAge:70,assessmentVersion:'marriage-v2',surveyAnswers:answers};
+const first = {id:'a',gender:'woman',age:29,city:'الرياض',preferredMinAge:18,preferredMaxAge:70,assessmentVersion:'marriage-v3',surveyAnswers:answers};
 
 test('recommendation reason names only validated shared topics without exposing answers',()=>{
   const fit = describeFit(first,{...first,id:'b',gender:'man'}).fit;

@@ -137,12 +137,12 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   const selected = (keys: Array<keyof PartnerCriteria>) => { const count = keys.filter(key => value[key]?.mode && value[key]?.mode !== 'any').length; return count ? `${arabicNumber(count)} من التفضيلات محددة` : undefined; };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
-    <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكر المعلومة. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
+    <details className="nf-criteria-guide"><summary>كيف تؤثر اختياراتي؟</summary><p>«أفضل» تؤثر في الترتيب. «شرط أساسي» يتطلب إجابة مطابقة قبل ظهور الملف. «لا يهمني» لا يرفع النتيجة ولا يخفضها.</p></details>
     <Group title="لغة مشتركة" note="مساحة لحوار يفهمه الطرفان" icon={BookOpen} open={reveal === "لغة مشتركة" || (required && reveal === null)} summary={selected(['sharedLanguage'])}>
       <Mode title="أهمية وجود لغة مشتركة" value={value.sharedLanguage?.mode ?? (required ? undefined : "any")} onChange={mode => change({sharedLanguage:{mode}})}>
         <p>نبحث عن لغة واحدة على الأقل من اللغات التي تتحدثها.</p>
         {!basics?.spokenLanguages?.length && <p role="alert">أضف اللغات التي تتحدثها في تفاصيلك قبل حفظ هذا التفضيل.</p>}
-        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يستبعد من لا يشاركك لغة، وكذلك من لم يذكر لغاته.</small>
+        <small>«أفضل» تؤثر في ترتيب التوافق. «شرط أساسي» يتطلب لغة مشتركة صرّح بها كلاكما.</small>
       </Mode>
     </Group>
     <Group title="الدراسة والعمل" note="ما يناسب حياتك، دون ترتيب للمؤهلات أو المهن" icon={BookOpen} open={reveal === "الدراسة والعمل"} summary={selected(['education','profession'])}>
@@ -170,7 +170,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
     <Group title="الحياة السابقة والعادات" note="حدودك ومساحة تقبّلك" icon={Heart} open={reveal === "الحياة السابقة والعادات"} summary={selected(['maritalStatus','children','smoking'])}>
       <Mode title="الحالة الاجتماعية" value={value.maritalStatus?.mode ?? (required ? undefined : "any")} onChange={mode => change({ maritalStatus: mode === "any" ? { mode } : { values: ["never_married"], ...value.maritalStatus, mode } })}>
         <p>اختر الحالات التي تناسبك:</p><div className="nf-criterion-checks">{(Object.keys(maritalLabels) as Array<keyof typeof maritalLabels>).filter(status=>status !== 'married' || gender === 'woman').map(status => <label key={status}><input type="checkbox" checked={value.maritalStatus?.values?.includes(status) ?? false} onChange={e => change({ maritalStatus: { mode: value.maritalStatus?.mode ?? "prefer", values: e.target.checked ? [...(value.maritalStatus?.values ?? []), status] : value.maritalStatus?.values?.filter(v => v !== status) } })} />{maritalLabels[status]}</label>)}</div>
-        {gender === 'woman' && <small>إذا كنتِ لا تقبلين متزوجًا حاليًا، اختاري الحالات الأخرى واجعليها «شرطًا أساسيًا». الموقف من التعدد مستقبلًا يحتاج إلى حديث واضح بينكما.</small>}
+        {gender === 'woman' && <small>يسري اختيار «لا أقبل التعدد» تلقائيًا على الترشيحات الجديدة حتى إذا تركتِ الحالة الاجتماعية مفتوحة.</small>}
       </Mode>
       <Mode title="وجود أبناء" value={value.children?.mode ?? (required ? undefined : "any")} onChange={mode => change({ children: mode === "any" ? { mode } : { target: "none", ...value.children, mode } })}><p>أفضل أن يكون الطرف الآخر دون أبناء.</p><small>اختر «لا يهمني» إذا كنت منفتحًا على الحالتين.</small></Mode>
       <Mode title="التدخين" value={value.smoking?.mode ?? (required ? undefined : "any")} onChange={mode => change({ smoking: mode === "any" ? { mode } : { target: "never", mode } })}><p>أفضل شريكًا لا يدخّن.</p></Mode>

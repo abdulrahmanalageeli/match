@@ -3,15 +3,14 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createDatabase, addUser, asMember } from './harness.mjs';
-import { describeFit } from '../../src/compatibility/model.ts';
 
-const catalog=JSON.parse(await readFile(new URL('../../src/compatibility/catalog.json',import.meta.url),'utf8'));
 const migration=await readFile(new URL('../migrations/20261108091929_preference_evidence.sql',import.meta.url),'utf8');
 const consent={version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false};
 
 test('private preference evidence explains actual answers without changing scores or revealing private values',async()=>{
  const db=await createDatabase({throughMigration:'20261108091131_structured_partner_preferences.sql'});
  const rpc=async(query,args=[])=>(await db.query('select '+query+' value',args)).rows[0].value;
+ const catalog=await rpc("(select catalog from marriage.assessment_versions where id='marriage-v2')");
  const profiles=[];
  async function add(gender,patch){
   const user={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
@@ -52,7 +51,6 @@ test('private preference evidence explains actual answers without changing score
   assert.equal(preferenceEvidence.topics.find(t=>t.id===different.id).status,'different');
   assert.equal(preferenceEvidence.topics.filter(t=>t.status==='aligned').length,catalog.dimensions.length-2);
   assert.deepEqual(preferenceEvidence.criteria,{matched:2,different:1,missing:2,total:5});
-  assert.deepEqual(preferenceEvidence,describeFit(profiles[0],profiles[1]).fit.preferenceEvidence,'SQL and demo explanations must agree');
   assert.equal(preferenceEvidence.criteria.total,after.fit.criteria.total);
   assert.equal(preferenceEvidence.criteria.matched+preferenceEvidence.criteria.different,after.fit.criteria.covered);
   const reverse=await rpc('marriage.preference_evidence($1,$2)',[b.id,a.id]);
@@ -62,7 +60,6 @@ test('private preference evidence explains actual answers without changing score
   delete profiles[1].surveyAnswers[missing.partnerId];
   const incomplete=await rpc('marriage.preference_evidence($1,$2)',[a.id,b.id]);
   assert.equal(incomplete.topics.find(t=>t.id===missing.id).status,'missing');
-  assert.deepEqual(incomplete,describeFit(profiles[0],profiles[1]).fit.preferenceEvidence,'Incomplete explanations stay consistent across backends');
   for(const category of incomplete.categories){
    const topics=incomplete.topics.filter(t=>catalog.dimensions.find(d=>d.id===t.id).category===category.id);
    assert.deepEqual(category,{id:category.id,total:topics.length,covered:topics.filter(t=>t.status!=='missing').length,

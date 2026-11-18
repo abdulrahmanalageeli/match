@@ -132,7 +132,7 @@ test('structured confirmation retains the attested conversation and persists all
   const confirm = revision => h.service({action:'structuredConfirm',revision,choices},headers);
   await assert.rejects(confirm(first.revision), error => error.code === 'introduction_pending');
   const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
-  assert.match(h.modelCalls[0].request.messages[0].content, /مراجعة نهائية/);
+  assert(h.modelCalls[0].request.response_format.json_schema.schema.required.includes('replyEvidence'));
   const attested = h.state.document;
   for (const invalidChoices of [choices.slice(1), [...choices.slice(1), choices[1]], [{...choices[0],values:['Z']},...choices.slice(1)]]) {
     await assert.rejects(h.service({action:'structuredConfirm',revision:analyzed.revision,choices:invalidChoices},headers),error => error.status === 400);
@@ -965,4 +965,52 @@ test('a brief ambiguous housing answer gets one specific clarification, also aft
   assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
   state = await reply('على حسب');
   assert.equal(state.document.currentQuestion.text, openingScenarios[1].text);
+});
+
+test('Luna responds to the introduction, keeps one useful question on resume, and stops after a clear answer', async () => {
+  const introduction = 'دوامي يتغير كل أسبوع وأبي وقتنا مع بعض يكون واضح.';
+  const firstReply = 'مع تغيّر دوامك، يهمك تتفقون على وقت يجمعكم.';
+  const question = 'لو اختلفتوا على ترتيب الوقت، وش يساعدكم توصلون لاتفاق؟';
+  const lastAnswer = 'أفضل نتكلم ونختار سوا.';
+  const lastReply = 'يناسبك تسمعون رأي بعض وتختارون سوا.';
+  const h = harness({response: turns => turns.length === 1
+    ? {reply:firstReply, replyEvidence:'دوامي يتغير كل أسبوع', question, questionTopic:'communication', questionFields:['preference:match_disagreement_style:self']}
+    : {reply:lastReply, replyEvidence:'نتكلم ونختار سوا', question:'وش يناسبك لمصاريف البيت؟', questionTopic:'practical', questionFields:['preference:financial_provision:self']}});
+  let state = await start(h);
+  const answerOpening = (revision, text, requestId) => h.service({action:'answer', hybrid:true, cardsAfterReply:true, revision, requestId, answer:text}, headers);
+  const requestId = randomUUID(), revision = state.revision;
+  state = await answerOpening(revision, introduction, requestId);
+  assert.equal(state.document.status, 'review', 'assessment cards stay available while the follow-up is optional');
+  const displayed = state.document.currentQuestion.text;
+  assert.deepEqual(displayed.split('\u2029'), [firstReply, question]);
+  assert(h.modelCalls[0].request.response_format.json_schema.schema.required.includes('replyEvidence'));
+  assert.doesNotMatch(h.modelCalls[0].request.messages[0].content, /هذه مراجعة استخراج فقط/);
+  assert.equal((await answerOpening(revision, introduction, requestId)).document.turns.length, 1);
+  assert.equal((await h.service({action:'load'}, headers)).document.currentQuestion.text, displayed);
+  await assert.rejects(answerOpening(state.revision, 'س'.repeat(701), randomUUID()), e => e.code === 'answer_too_long');
+  state = await answerOpening(state.revision, lastAnswer, randomUUID());
+  assert.equal(state.document.turns.at(-1).question, displayed);
+  assert.equal(state.document.status, 'review');
+  assert.equal((await h.service({action:'load'}, headers)).document.currentQuestion.text, lastReply);
+});
+
+test('a clear housing preference rules out a redundant follow-up from the first answer', async () => {
+  const answer = 'أبي بيت مستقل بس قريب من أهلي.';
+  const reply = 'يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.';
+  const h = harness({proposals: turns => [{...candidate, fieldId:'housing_arrangement', summary:'تفضّل بيتًا مستقلًا',
+    evidence:[{turnId:turns[0].id, quote:'أبي بيت مستقل'}]}], response: () => ({reply, replyEvidence:'بيت مستقل بس قريب من أهلي',
+    followUp:true, question:'هل يناسبك بيت مستقل؟', questionTopic:'family', questionFields:['preference:housing_arrangement:self']})});
+  const startState = await start(h);
+  const state = await h.service({action:'answer', hybrid:true, revision:startState.revision, requestId:randomUUID(), answer}, headers);
+  assert.equal(state.document.status, 'review');
+  assert.equal(state.document.currentQuestion.text, reply);
+  assert(state.document.proposals.some(p => p.fieldId === 'housing_arrangement'));
+});
+
+test('an invented quote cannot support a personal reflection', async () => {
+  const h = harness({response: () => ({reply:'تحب السكن مع الأهل.', replyEvidence:'أحب السكن مع أهلي', question:'', questionTopic:'', questionFields:[]})});
+  const s = await start(h);
+  const state = await h.service({action:'answer', hybrid:true, revision:s.revision, requestId:randomUUID(), answer}, headers);
+  assert.equal(state.document.status, 'review');
+  assert.equal(state.document.currentQuestion, null);
 });

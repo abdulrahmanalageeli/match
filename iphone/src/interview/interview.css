@@ -228,6 +228,11 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-current-question { width:100%; max-width:none; padding:19px 20px 21px; border:1px solid #f0e8ec; border-radius:20px; background:#fffdfd; color:#3e2b35; box-shadow:0 5px 20px #4d263b04; font-size:1rem; line-height:1.85; animation:wi-turn-in .24s cubic-bezier(.2,.7,.3,1) both; }
 .wi-current-question .wi-speaker { display:flex; align-items:center; gap:7px; font-weight:500; color:#865d70; font-size:0.6875rem; margin-bottom:11px; }
 .wi-current-question .wi-speaker img { object-fit:contain; }
+.wi-bubble-guide .wi-reflection { border-inline-start:2px solid #bc91a4; padding-inline-start:.8em; color:#614552; }
+.wi-bubble-guide .wi-next-question { margin-block-start:.8em; font-weight:600; }
+.wi-closing { margin-block:0 1rem; padding:1rem; }
+.wi-closing .wi-speaker { display:flex; align-items:center; gap:.4rem; color:#795368; }
+.wi-closing .wi-link { margin-block-start:.5rem; }
 .wi-current-question[data-settled] { box-shadow:none; }
 .wi-new-answer { animation:wi-turn-in .18s ease-out both; }
 .wi-new-answer small { display:block; margin-top:6px; color:#967886; font-size:0.625rem; }

@@ -282,6 +282,18 @@ try {
   await portrait.locator(':scope > summary').click();
   await portrait.getByText('حياتكم اليومية', { exact: true }).click();
   assert.equal(await personalityAnswer.inputValue(), 'C');
+  const reflection = 'يهمّك إنكم ترتّبون أموركم سوا من البداية.';
+  const followUp = 'في مصاريف البيت، وش تحبّون تتفقون عليه من بدري؟';
+  snapshot.document = { ...snapshot.document, status:'review', lastMode:'luna', currentQuestion:{topic:'practical', text:reflection+'\u2029'+followUp,suggestions:[]} };
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByText(reflection, {exact:true}).waitFor();
+  assert.equal(await page.locator('.wi-closing .wi-next-question').innerText(), followUp);
+  assert(await card.isVisible(), 'the optional question leaves the assessment available');
+  await page.screenshot({path:resolve(output,'luna-opening-reply.png')});
+  await page.getByRole('button',{name:'أردّ على لونا'}).click();
+  assert.equal(await page.locator('#wi-clarification').getAttribute('maxlength'),'700');
+  await page.getByRole('button',{name:'إلغاء التوضيح'}).click();
+  assert.equal(await page.locator('#wi-clarification').count(),0);
   snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:44}};
   snapshot.document.currentQuestion.text = scenarios[0].clarification;
   await page.reload({waitUntil:'domcontentloaded'});

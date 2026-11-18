@@ -33,8 +33,16 @@ html[data-nf-text="large"] { font-size: max(112.5%, var(--nf-system-text, 0px));
 .phone-app .cm-chat .cm-media-preview-content > img {
   max-height: min(160px, calc(var(--chat-available-height, 100dvh) * .18));
 }
+/* Choosing media can blur the field before the visual viewport regains its height. */
+html[data-nf-chat-compact] .phone-app .cm-shell .cm-chat[data-conversation-id]:has(.cm-media-composer:is([data-draft], [data-capturing])) .cm-chat-plan[data-ready] {
+  display: none;
+}
+html[data-nf-chat-compact] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person-copy small { display: none; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble p,
 .phone-app .cm-shell .cm-chat[data-conversation-id] textarea { font-size: 1rem; overflow-wrap: anywhere; }
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea {
+  padding-block: 6px; line-height: 1.5; min-height: max(44px, calc(1.5em + 12px));
+}
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy { min-width: 0; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy strong { font-size: 1rem; overflow-wrap: anywhere; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy small { font-size: .75rem; }

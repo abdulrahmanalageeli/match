@@ -17,6 +17,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     const keyboard = Boolean(focused && height < restingHeight - 80);
     const inset = keyboard ? 0 : Math.min(height, chrome?.getBoundingClientRect().height ?? 0);
     root.toggleAttribute('data-nf-chat-keyboard', keyboard);
+    root.toggleAttribute('data-nf-chat-compact', height - inset < 480);
     root.style.setProperty('--chat-viewport-height', height + 'px');
     element.style.setProperty('--chat-viewport-top', Math.round((viewport?.offsetTop ?? 0) + inset) + 'px');
     element.style.setProperty('--chat-available-height', Math.max(0, Math.round(height - inset)) + 'px');
@@ -48,6 +49,7 @@ export function lockChatViewport(element: HTMLElement, onResize: () => void) {
     element.removeEventListener('focusout', schedule);
     root.removeAttribute('data-nf-chat-viewport');
     root.removeAttribute('data-nf-chat-keyboard');
+    root.removeAttribute('data-nf-chat-compact');
     root.style.removeProperty('--chat-viewport-height');
     element.style.removeProperty('--chat-viewport-top');
     element.style.removeProperty('--chat-available-height');

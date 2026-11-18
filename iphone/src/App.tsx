@@ -1,6 +1,8 @@
 import { finalizeStagedPortrait } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
+import { withTestingDiscovery } from './community/testingDiscovery';
+import {TestingTrial} from './TestingTrial';
 import {membershipPriceLabel} from './membershipPricing';
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -216,14 +218,18 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const welcomeIntent = useRef(0);
   const welcomeFocus = useRef(".nf-join");
   const liveDraftOwner = useRef<string | null>(null);
+  const realProfileRef = useRef(live?.profile);
+  realProfileRef.current = live?.profile;
   const source = useMemo(
     () =>
       pair ? pair.source : demo
         ? demoCommunity(() => sampleProfileRef.current)
         : token && cloud
-          ? cloudCommunity(token)
+          ? live?.testingTrial?.enabled
+            ? withTestingDiscovery(cloudCommunity(token), () => realProfileRef.current ?? demoProfile)
+            : cloudCommunity(token)
           : null,
-    [demo, token, sampleSession, pair],
+    [demo, token, sampleSession, pair, live?.testingTrial?.enabled],
   );
   const [policy, setPolicy] = useState(false);
   const supportSource = useMemo(() => cloud && token && !demo && !tester ? createSupportSource(cloud, token) : null, [token, demo, tester]);
@@ -234,7 +240,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [membershipOffer, setMembershipOffer] = useState<{ gender: Profile["gender"]; price: string; period: string; productId: string } | null>(null);
+  const [membershipOffer, setMembershipOffer] = useState<{ gender: Profile["gender"]; price: string; productId: string } | null>(null);
   const membershipGender = live?.profile?.gender;
   const checkoutOffer = membershipOffer?.gender === membershipGender ? membershipOffer : null;
   const [returnFromMembership, setReturnFromMembership] =
@@ -768,16 +774,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       active={active}
       demo={demo}
       price={demo ? membershipPriceLabel(sampleProfile.gender) : checkoutOffer?.price ?? null}
-      period={demo ? "شهر" : checkoutOffer?.period}
-      status={live?.membership.status}
-      trialEligible={!demo && Boolean(live?.testingTrial?.eligible)}
-      startTrial={()=>void run(async()=>{
-        const owner=tokenRef.current;
-        if (!owner) return;
-        await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
-        await refresh(owner);
-        if(tokenRef.current===owner) go('discover');
-      })}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       canBuy={ios}
@@ -889,7 +885,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           chatUnread={chatUnread} onAccount={openAccount} />}
       </Settings>
     );
-  else if (view === "membership" && (active || accepted || live?.user.profileReviewPending))
+  else if (view === 'membership' && live?.testingTrial?.expiresAt && !demo)
+    screen = <TestingTrial busy={busy} gender={live.profile?.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>{}}/>;
+  else if (view === "membership" && active)
     screen = membership(() => go(returnFromMembership));
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
     screen = (
@@ -915,6 +913,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         includeCompatibility={demo || Boolean(cloud)}
       />
     );
+  else if (!demo && !active && live?.testingTrial?.enabled && live.profile && !live.user.profileReviewPending)
+    screen = <TestingTrial busy={busy} gender={live.profile.gender} expiresAt={live.testingTrial.expiresAt} back={openAccount} accept={()=>void run(async()=>{
+      const owner=tokenRef.current;if(!owner)return;
+      await callRpc('marriage_accept_testing_trial',{offer_version:'testing-7d-12999-v1'},owner);
+      await refresh(owner);if(tokenRef.current===owner)go('discover');
+    })}/>;
   else if (!demo && !accepted && !live?.user.profileReviewPending)
     screen = (
       <Pending

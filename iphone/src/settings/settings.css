@@ -195,3 +195,5 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .phone-app .st-fold > .st-group { border:0; border-top:1px solid var(--line); border-radius:0 0 15px 15px; }
 .st-lock-preview { margin:6px 14px 14px; padding:12px 14px; background:var(--blush); color:var(--ink); border-radius:12px; line-height:1.5; }
 .st-lock-preview small { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+
+.st-screen .cm-request-history > summary { min-height: 44px; align-content: center; }

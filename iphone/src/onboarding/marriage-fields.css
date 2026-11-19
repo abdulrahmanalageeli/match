@@ -27,7 +27,7 @@
 .nf-detail-choices button[aria-pressed="true"], .nf-personality-options button[aria-pressed="true"] { color: var(--accent); background: var(--blush); border-color: var(--rose); }
 .nf-detail-choices button[aria-pressed="true"] i, .nf-personality-options button[aria-pressed="true"] i { background: var(--accent-fill); color: var(--accent-ink); border-color: var(--accent-fill); }
 .nf-criteria-guide { margin: -4px 0 3px; font-size: .83rem; color: var(--accent); }
-.nf-criteria-guide summary { cursor: pointer; padding: 8px 1px; }
+.nf-criteria-guide summary { cursor: pointer; min-height: 44px; align-content: center; padding: 8px 1px; }
 .nf-criteria-guide p { margin: 3px 0 6px; color: var(--muted); line-height: 1.85; }
 .nf-criterion { min-width: 0; border: 0; padding: 0; margin: 0; }
 .nf-criterion + .nf-criterion { border-top: 1px solid var(--line); padding-top: 18px; }

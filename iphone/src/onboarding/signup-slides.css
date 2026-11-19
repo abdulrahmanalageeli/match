@@ -74,3 +74,5 @@
     transition: background-color var(--nf-motion-press,140ms), border-color var(--nf-motion-press,140ms);
   }
 }
+
+.wd-slide-content input[type="date"] { box-sizing: border-box; width: 100%; min-width: 0; }

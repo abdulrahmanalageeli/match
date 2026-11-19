@@ -1,6 +1,6 @@
 /* Member surfaces: people, readable facts, and quiet rules. */
 .df-first-week { margin:0 0 18px; padding:12px 15px; border:1px solid var(--line); border-radius:12px; background: var(--surface); color: var(--supporting-ink, #53454b); font-size:14px; line-height:1.8; }
-.df-first-week summary { min-height:24px; cursor:pointer; color: var(--accent); font-weight:600; }
+.df-first-week summary { min-height:44px; align-content:center; cursor:pointer; color: var(--accent); font-weight:600; }
 .df-first-week ol { padding-inline-start:20px; margin:12px 0; }
 .df-first-week li + li { margin-top:8px; }
 .df-first-week p { margin:0; }

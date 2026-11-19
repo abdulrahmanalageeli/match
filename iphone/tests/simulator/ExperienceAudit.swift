@@ -23,7 +23,7 @@ final class ExperienceAudit: XCTestCase {
     func testWelcomeAndKeyboard() throws {
         try visit("welcome")
         capture("welcome")
-        let join = app.buttons.containing(NSPredicate(format:"label CONTAINS %@", "ابدأ رحلتك")).firstMatch
+        let join = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "ابدأ رحلتك")).firstMatch
         XCTAssertTrue(join.waitForExistence(timeout: 10))
         join.tap()
         capture("signup")
@@ -39,26 +39,37 @@ final class ExperienceAudit: XCTestCase {
         }
     }
     func testGuidedScreens() throws {
-        for page in ["criteria","photo","readiness","profile","settings","luna"] {
+        for page in ["criteria","birthday","photo","readiness","profile","settings","luna"] {
             try visit(page)
             capture(page + "-open")
             app.swipeUp()
             capture(page + "-scroll")
             app.swipeDown()
             if page == "settings" {
-                let membership = app.buttons.containing(NSPredicate(format:"label CONTAINS %@", "العضوية")).firstMatch
+                let membership = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "عضويتي")).firstMatch
                 if membership.exists { membership.tap(); capture("settings-membership") }
             }
             if page == "luna" {
-                let review = app.descendants(matching:.any).matching(NSPredicate(format:"label CONTAINS %@", "الاقتراحات")).firstMatch
+                let review = app.descendants(matching:.any).matching(NSPredicate(format:"label CONTAINS %@", "هذا ما فهمته منك")).firstMatch
                 if review.exists && review.isHittable { review.tap(); capture("luna-review") }
             }
             app.terminate()
         }
     }
+    func testPairedControls() throws {
+        for version in ["before-", ""] {
+            for page in ["criteria", "birthday", "settings", "profile"] {
+                try visit(version + page)
+                if page == "profile" { Thread.sleep(forTimeInterval: 3) }
+                capture(version + page + "-comparison")
+                if page == "settings" || page == "profile" { app.swipeUp(); capture(version + page + "-comparison-scroll") }
+                app.terminate()
+            }
+        }
+    }
     func testChat() throws {
         try visit("messages")
-        let open = app.buttons.containing(NSPredicate(format:"label CONTAINS %@", "فتح المحادثة")).firstMatch
+        let open = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "فتح المحادثة")).firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 8))
         open.tap()
         capture("chat-open")

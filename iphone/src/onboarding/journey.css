@@ -25,7 +25,7 @@
 }
 .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
 .nf-intake.nf-intake--new .nisfayn-brand-name { width: 66px; height: auto; }
-.nf-intake.nf-intake--new .nf-intake-later { min-height: 44px; padding: 0 3px; font-size: .75rem; font-weight: 600; color: #69525e; }
+.nf-intake.nf-intake--new .nf-intake-later { min-width: 44px; min-height: 44px; padding: 0 3px; font-size: .75rem; font-weight: 600; color: #69525e; }
 .nf-intake.nf-intake--new .nf-intake-main { padding: 6px var(--intake-pad) 0; min-width: 0; }
 .nf-intake.nf-intake--new .nf-intake-progress { padding: 0 0 24px; margin: 0; }
 .nf-intake.nf-intake--new .nf-intake-kicker { font-size: .75rem; padding: 0 0 9px; line-height: 1.6; color: var(--journey-muted); }

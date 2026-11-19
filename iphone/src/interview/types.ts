@@ -41,12 +41,14 @@ export type InterviewDocument = {
   profileConfirmed?: ProfileProposal[];
 };
 export type InterviewSnapshot = {
+  carryForwardIds?: string[];
   document: InterviewDocument | null;
   revision: number;
   updatedAt?: string | null;
   expiresAt?: string | null;
   fallbackAvailable?: boolean;
   structuredConfirmation?: boolean;
+  inferredPartnerIds?: string[];
   coverage?: { answered: number; required: number };
   choiceHelp?: InterviewChoiceHelp;
 };

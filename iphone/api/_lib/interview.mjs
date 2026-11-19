@@ -1,8 +1,10 @@
 import memberAr from '../../src/member-ar.json' with { type: 'json' };
 import OpenAI from 'openai';
+import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, genericEvidence, groundHybridChoices, personalityOptions } from './interview-grounding.mjs';
 import { randomUUID } from 'node:crypto';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
 import topics from '../../src/interview/catalog.json' with { type: 'json' };
+import partnerDefaults from '../../src/interview/partner-defaults.json' with { type: 'json' };
 import preferences from '../../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../../src/beena/catalog.json' with { type: 'json' };
 import personality from '../../src/compatibility/personality-catalog.json' with { type: 'json' };
@@ -38,10 +40,6 @@ const topicById = new Map(topics.map(topic => [topic.id, topic]));
 const preferenceById = new Map(preferences.dimensions.map(dimension => [dimension.id, dimension]));
 const scenarioById = new Map(scenarios.map(scenario => [scenario.id, scenario]));
 const personalityById = new Map(personality.map(item => [item.id, item]));
-const personalityOptions = [
-  { code: 'A', label: 'لا يشبهني إطلاقًا' }, { code: 'B', label: 'يشبهني قليلًا' },
-  { code: 'C', label: 'يشبهني أحيانًا' }, { code: 'D', label: 'يشبهني غالبًا' }, { code: 'E', label: 'يشبهني كثيرًا' },
-];
 const personalityThemes = {
   intent: { ids: ['initiative', 'depth'], question: 'في بداية التعارف، من يبدأ المواضيع عادة؟ وبالنسبة لك، الحوار الأقرب لك يتعمّق في موضوع واحد أو يتنقّل بين مواضيع؟' },
   communication: { ids: ['conflict_pace', 'directness'], question: 'وقت الاختلاف، عادةً تحب تتكلم فورًا أو بعد ما تهدأ؟ وكيف توضّح ما تحتاجه وما يزعجك؟' },
@@ -84,13 +82,13 @@ export function parseInterviewInput(body) {
   const allowed = {
     load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
     answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'],
-    clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed'],
+    clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed', 'verifyChoices'],
     choiceHelp: ['action', 'revision', 'fieldId', 'answer', 'priorAnswer', 'gender'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
     retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
     directConfirm: ['action', 'revision', 'choices'],
-    structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
+    structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices', 'inferredPartnerIds'],
     profileConfirm: ['action', 'revision', 'profileChoices'],
   };
   if (!Object.hasOwn(allowed, body.action) || !keysOnly(body, allowed[body.action])) throw invalid();
@@ -117,6 +115,7 @@ export function parseInterviewInput(body) {
   if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
   if (['answer', 'clarify'].includes(body.action) && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
     || !bounded(body.answer, 900, body.skip === true))) throw invalid();
+  if (body.verifyChoices !== undefined && typeof body.verifyChoices !== 'boolean') throw invalid();
   if (body.cardsAfterReply !== undefined && (body.hybrid !== true || typeof body.cardsAfterReply !== 'boolean')) throw invalid();
   if (['confirm', 'structuredConfirm', 'directConfirm'].includes(body.action)) {
     if (!Array.isArray(body.choices) || body.choices.length > MAX_PROPOSALS || (body.shareReview !== undefined && typeof body.shareReview !== 'boolean')) throw invalid();
@@ -125,6 +124,18 @@ export function parseInterviewInput(body) {
       if (!keysOnly(choice, ['id', 'values']) || !bounded(choice.id, 100) || ids.has(choice.id) || !Array.isArray(choice.values)
         || choice.values.length < 1 || choice.values.length > 4 || !choice.values.every(value => bounded(value, 2))) throw invalid();
       ids.add(choice.id);
+    }
+    if (body.inferredPartnerIds !== undefined) {
+      const ids = body.inferredPartnerIds;
+      if (!Array.isArray(ids) || ids.length > 16 || new Set(ids).size !== ids.length) throw invalid();
+      const selected = new Map(body.choices.map(choice => [choice.id, choice.values[0]]));
+      for (const id of ids) {
+        if (typeof id !== 'string') throw invalid();
+        const [kind, dimension, side] = id.split(':');
+        const self = selected.get(`preference:${dimension}:self`);
+        if (kind !== 'preference' || side !== 'partner' || !selected.has(id) ||
+          !Object.hasOwn(partnerDefaults, dimension) || partnerDefaults[dimension][self] !== selected.get(id)) throw invalid();
+      }
     }
     if (['directConfirm', 'structuredConfirm'].includes(body.action) && validateAssessmentContext(body.choices).length !== requiredFields.length) throw invalid();
   }
@@ -236,6 +247,7 @@ export function validateProposal(value, turns, assessmentContext = [], allowCont
     || (value.source !== undefined && value.source !== 'self_default')
     || (value.source === 'self_default' && (value.kind !== 'beena' || value.side !== 'partner'))) return null;
   const evidence = evidenceFor(value.evidence, turns, assessmentContext);
+  if (!allowContextEdit && evidence?.every(e => genericEvidence(e.quote))) return null;
   if (!evidence || evidence.every(item => { const turn=turns.find(turn => turn.id===item.turnId); return turn ? unclearConfirmation(turn) : false; })) return null;
   const contextIds = value.source === 'self_default'
     ? new Set([`context:${value.kind}:${value.fieldId}:self`, `context:${value.kind}:${value.fieldId}:partner`])
@@ -679,7 +691,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   };
 }
 
-export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false, finishOpening = false } = {}) {
+export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false, finishOpening = false, pendingGrounding = false } = {}) {
   const choice = completion?.choices?.[0];
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
@@ -694,7 +706,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     || (result.invalidatedProposals !== undefined && (!Array.isArray(result.invalidatedProposals) || result.invalidatedProposals.length > MAX_PROPOSALS))
     || (result.questionFields !== undefined && (!Array.isArray(result.questionFields) || result.questionFields.length > 3))) throw unavailable();
   const last = document.turns.at(-1);
-  const needsClarification = !finalReview && (result.answerDisposition !== 'answered' || (last && unclearConfirmation(last)));
+  const needsClarification = (hybrid || !finalReview) && (result.answerDisposition !== 'answered' || (last && unclearConfirmation(last)));
   const previous = withContextProposals(document,previousProposals.map(value => validateProposal(value, document.turns,document.assessmentContext)).filter(Boolean));
   const evidencePosition = evidence => Math.max(...evidence.map(item => document.turns.findIndex(turn => turn.id === item.turnId)));
   const invalidated = new Map();
@@ -714,17 +726,18 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     if (!proposal || (requiredInterview(document) && proposal.kind === 'beena')) continue;
     const correctionPosition = invalidated.get(proposal.id);
     if (correctionPosition !== undefined && evidencePosition(proposal.evidence) < correctionPosition) continue;
-    if (needsClarification && proposal.evidence.some(item => item.turnId === last?.id)) {
+    // Hybrid ambiguity is resolved per field by the catalog check below.
+    if (needsClarification && !(hybrid && result.answerDisposition === 'clarify' && last && !unclearConfirmation(last)) && proposal.evidence.some(item => item.turnId === last?.id)) {
       const prior = previous.find(item => item.id === proposal.id && JSON.stringify(item.values) === JSON.stringify(proposal.values));
       if (correctionPosition === undefined) {
         if (!prior) continue;
         proposal = prior;
-      }
+      } else if (hybrid) continue;
     }
     const duplicate = fresh.get(proposal.id);
     if (!duplicate || evidencePosition(proposal.evidence) > evidencePosition(duplicate.evidence)) fresh.set(proposal.id, proposal);
     else if (evidencePosition(proposal.evidence) === evidencePosition(duplicate.evidence)
-      && JSON.stringify(proposal.values) !== JSON.stringify(duplicate.values)) fresh.set(proposal.id, { ...duplicate, needsClarification: true });
+      && (proposal.needsClarification || JSON.stringify(proposal.values) !== JSON.stringify(duplicate.values))) fresh.set(proposal.id, { ...duplicate, needsClarification: true });
   }
   // Signup extraction is cumulative. Omitting an unaffected earlier answer is
   // not a retraction; only a grounded correction can withdraw or replace it.
@@ -818,7 +831,8 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   const opening = openingFlow && !finalReview && !finishOpening ? nextOpeningQuestion(document.turns, proposals, result, groundedReply) : null;
   const closing = groundedReply && !opening ? { topic: last.topic, text: groundedReply, suggestions: [] } : null;
   return { ...document, model: INTERVIEW_MODEL,
-    proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
+    proposals: hybrid && !pendingGrounding ? proposals.filter(p => p.needsClarification || directCarryForward(p, document.turns) || p.evidence.every(e => e.turnId.startsWith('context:'))) : proposals,
+    profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
     currentQuestion: openingFlow ? opening ?? closing : question,
     status: openingFlow ? (opening ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
@@ -847,12 +861,14 @@ const structuredSelectionSummary = 'اختيارك من بطاقات التوا�
 const hasAnalyzedIntroduction = document => requiredInterview(document) && document.lastMode === 'luna'
   && !document.pendingAnalysis && document.turns.some(turn => !turn.skipped);
 
+// The attested v4 receipt permits a summary but forbids custom source keys.
+const inferredSelectionSummary = 'اقتراح توافق من إجابتك عن نفسك، راجعته ضمن الاعتماد النهائي';
 function isStructuredConfirmation(document) {
   return document.status === 'confirmed' && document.confirmed.length === requiredFields.length
-    && document.confirmed.every(item => item.summary === structuredSelectionSummary);
+    && document.confirmed.every(item => item.summary === structuredSelectionSummary || item.summary === inferredSelectionSummary);
 }
 
-function confirmStructuredChoices(document, savedProposals, choices, shareReview, direct = false) {
+function confirmStructuredChoices(document, savedProposals, choices, shareReview, direct = false, inferredPartnerIds) {
   if (!requiredInterview(document)) throw invalid();
   if (!direct && !hasAnalyzedIntroduction(document)) {
     throw new InterviewError(409, 'introduction_pending', 'أكمل تعريفك أولًا وانتظر تحليل لونا قبل اعتماد الإجابات.');
@@ -860,13 +876,17 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
   const context = new Map(document.assessmentContext.map(item => [item.id, item]));
   const selections = new Map(validateAssessmentContext(choices, true).map(item => [item.id, item]));
   if (selections.size !== requiredFields.length) throw invalid();
+  const inferred = new Set(inferredPartnerIds ?? document.confirmed.filter(item =>
+    item.summary === inferredSelectionSummary && item.values[0] === selections.get(item.id)?.values[0] &&
+    partnerDefaults[item.fieldId]?.[selections.get(`preference:${item.fieldId}:self`)?.values[0]] === item.values[0]
+  ).map(item => item.id));
   const confirmed = requiredFields.map(({ id, kind, fieldId, side }) => {
     const selection = selections.get(id);
     // Keep any earlier context cited by the attested model proposals. If the
     // member edited that value, confirmed.values records the new selection.
     const evidence = direct ? selection : context.get(id) ?? selection;
     context.set(id, evidence);
-    return { id, kind, fieldId, side, values: selection.values, summary: structuredSelectionSummary,
+    return { id, kind, fieldId, side, values: selection.values, summary: inferred.has(id) ? inferredSelectionSummary : structuredSelectionSummary,
       evidence: [{ turnId: `context:${id}`, quote: JSON.stringify(evidence.values) }], needsClarification: false };
   });
   // The existing database receipt verifies the original turns and proposals.
@@ -878,6 +898,7 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
 
 export function createInterviewService({ env = process.env, fetcher = fetch, clientFactory = options => new OpenAI(options) } = {}) {
   return async (body, headers = {}) => {
+    const startedAt = Date.now();
     const input = parseInterviewInput(body);
     const identity = identityHeaders(headers);
     const withAccountPolicy = document => {
@@ -888,12 +909,12 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     };
     if (env.SUPABASE_URL && env.SUPABASE_URL.replace(/\/$/, '') !== PROJECT_URL) throw unavailable();
     let memberGender = null;
-    const rpc = async (command, payload = {}) => {
+    const rpc = async (command, payload = {}, timeout = 8000) => {
       let response, value;
       try {
         response = await fetcher(`${PROJECT_URL}/rest/v1/rpc/marriage_interview`, {
           method: 'POST', headers: { apikey: PUBLISHABLE_KEY, 'Content-Type': 'application/json', ...(identity.token ? { Authorization: `Bearer ${identity.token}` } : {}) },
-          body: JSON.stringify({ command, payload, test_token: identity.testToken }), signal: AbortSignal.timeout(8000),
+          body: JSON.stringify({ command, payload, test_token: identity.testToken }), signal: AbortSignal.timeout(timeout),
         });
         value = await response.json();
       } catch { throw unavailable(); }
@@ -932,7 +953,8 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const structuredConfirmation = isStructuredConfirmation(document);
       if (structuredConfirmation) document.proposals = document.confirmed;
       return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
-        ...(structuredConfirmation ? { structuredConfirmation } : {}) };
+        carryForwardIds:document.proposals.filter(p => eligibleCarryForward(p, document.turns)).map(p => p.id),
+        ...(structuredConfirmation ? { structuredConfirmation, inferredPartnerIds: document.confirmed.filter(item => item.summary === inferredSelectionSummary).map(item => item.id) } : {}) };
     }
     async function fail(document, reason) {
       const saved = await save({ ...document, lastMode: 'guided', pendingAnalysis: true });
@@ -1009,7 +1031,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       && document.lastMode === 'guided' && isStructuredConfirmation(document));
     if (direct || input.action === 'structuredConfirm' || (input.action === 'confirm' && isStructuredConfirmation(document))) {
       const original = snapshot.document;
-      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.action === 'directConfirm' ? document.reviewSharing : input.shareReview, direct);
+      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.action === 'directConfirm' ? document.reviewSharing : input.shareReview, direct, input.inferredPartnerIds);
       if (input.profileChoices) confirmed = confirmProfileChoices(confirmed, input.profileChoices);
       const saved = await save(confirmed);
       try {
@@ -1087,7 +1109,21 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
       const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
-      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, finishOpening: input.cardsAfterReply && next.turns.length > 1 });
+      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, pendingGrounding: hybrid, finishOpening: input.cardsAfterReply && next.turns.length > 1 });
+      if (hybrid && (input.cardsAfterReply || input.verifyChoices)) {
+        const turns = providerDocument(next, input.sensitiveProfileAllowed === true).turns.filter(t => !t.skipped);
+        analyzed.proposals = await groundHybridChoices(analyzed.proposals, turns, memberGender, async data => {
+          try {
+            // Leave time for the existing save and attestation before the client deadline.
+            const budget = () => 36000 - (Date.now() - startedAt);
+            if (budget() < 1000) return [];
+            const quota = await rpc('reserve', {expectedRevision:snapshot.revision}, Math.min(1500,budget()));
+            if (quota.status !== 'allowed') return [];
+            const timeout = Math.min(6000,budget());
+            return timeout > 0 ? await checkCatalogAnswers(openai, INTERVIEW_MODEL, data, timeout) : [];
+          } catch { return []; } // Verification is optional. The ordinary question remains available.
+        });
+      }
       if (input.cardsAfterReply && requiredInterview(analyzed)) {
         const message = analyzed.currentQuestion;
         const display = message && (message.text.includes('\u2029') || (analyzed.status === 'review' && !/[؟?]/u.test(message.text)));

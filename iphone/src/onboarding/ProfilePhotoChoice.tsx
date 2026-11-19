@@ -38,6 +38,9 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
     <div className="nf-photo-mode" role="group" aria-label="طريقة ظهورك"><button type="button" aria-pressed={mode==='photo'} onClick={()=>setMode('photo')}><Camera size={18}/> صورة بتمويه اختياري</button><button type="button" aria-pressed={mode==='avatar'} onClick={()=>setMode('avatar')}><Sparkles size={18}/> صورة رمزية</button></div>
     {mode==='photo'?<>
       <p className="nf-photo-intro">لمحة أقرب لكِ، بالقدر الذي ترتاحين له. يمكنكِ إظهار انطباع عن حضورك مع اختيار درجة التمويه، أو الاكتفاء بصورة رمزية.</p>
+      <details className="nf-photo-privacy"><summary><LockKeyhole size={16} aria-hidden="true"/> كيف تُحفظ صورتي ومن يراها؟</summary>
+        <p>يرى الأعضاء المؤهلون الصورة بدرجة التمويه التي تختارينها. نحتفظ بنسخة واضحة خاصة فقط إذا اخترتِ إزالة التمويه تلقائيًا. نزيل بيانات الموقع من الصور.</p>
+      </details>
       <div className="nf-photo-stage">{change?<img src={change.url} alt="صورتك كما ستظهر للأعضاء"/>:showingExisting?<PortraitPhoto portrait={existing!} source={source} alt="صورة ملفك الحالية"/>:<div><Camera size={34}/><span>صورتك، باختيارك</span></div>}{preparing&&<span className="nf-photo-processing" role="status">تجهيز التمويه…</span>}</div>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{setPendingFile(e.target.files?.[0]??null);e.target.value='';}}/>
       {pendingFile&&<PortraitCropDialog file={pendingFile} cancel={()=>setPendingFile(null)} apply={value=>{setError('');setCrop(value);setFile(pendingFile);setPendingFile(null);}}/>}
@@ -55,7 +58,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
       {error&&<p role="alert" className="nf-intake-error">{error}</p>}
       {immediateVerification&&change?.staged?.status==='ready'&&<p className="nf-photo-result" role="status"><Check size={17}/> صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.</p>}
       {immediateVerification&&error&&change&&consented&&!preparing&&<button type="button" className="btn-secondary" onClick={()=>void upload(change)}>إعادة رفع الصورة</button>}
-      <p className="nf-photo-safety"><LockKeyhole size={16}/><span>نجهّز النسخة المعروضة الآن وننشرها بعد حفظ ملفك، ونسخة واضحة خاصة فقط عند اختيار الإزالة التلقائية. نزيل بيانات الموقع من الصور. التمويه يقلّل التفاصيل ولا يضمن إخفاء الهوية أو منع حفظ الصورة.</span></p>
+      <p className="nf-photo-safety"><LockKeyhole size={16}/><span>التمويه يقلّل التفاصيل ولا يضمن إخفاء الهوية أو منع حفظ الصورة.</span></p>
     </>:<>
       {sensitiveAllowed?<AvatarPicker value={avatar===undefined?inferred:avatar} onChange={v=>{onAvatar(v);if(v)removePhoto();}}/>:<div className="nf-photo-avatar-gate"><Sparkles size={26}/><h3>بديل بلا صورة شخصية</h3><p>يمكننا اقتراح رسم حسب اللباس ودرجة البشرة اللذين تختارينهما بنفسك. تخصيص هذه التفاصيل اختياري ويحتاج موافقتك.</p><button className="btn-secondary" type="button" onClick={onSensitiveConsent}>مراجعة اختيار التفاصيل الحساسة</button></div>}
       {sensitiveAllowed&&avatar===undefined&&<p className="nf-photo-safety"><Check size={16}/> اقتُرح الرسم من اختياراتك عن اللباس والبشرة. يمكنك تغييره أو المتابعة دون صورة.</p>}

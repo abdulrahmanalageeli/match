@@ -215,6 +215,40 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
 }
 
 /* Shared type scale for section controls and the review step. */
+.nf-intake--new .nf-intake-reviews {
+  gap: 0;
+  padding-inline: clamp(12px, 4vw, 20px);
+  background: #fff;
+  border: 1px solid var(--journey-line);
+  border-radius: 17px;
+}
+.phone-app .nf-intake--new .nf-intake-reviews .nf-intake-review-group {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.phone-app .nf-intake--new .nf-intake-review-group + .nf-intake-review-group {
+  border-block-start: 1px solid var(--journey-line);
+}
+.nf-intake--new .nf-intake-reviews .nf-intake-review-group > summary { padding-inline: 0; }
+.nf-intake--new .nf-intake-reviews .nf-review-group-content { padding-inline: 0; }
+.phone-app .nf-intake--new .nf-studio-finish {
+  margin-block: 8px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.nf-intake--new .nf-studio-finish strong { font-size: 1.2rem; }
+.nf-intake--new .nf-readiness-card:not(.nf-readiness-agreement) {
+  padding: 6px 0 12px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.nf-intake--new .nf-readiness-card fieldset button { padding: 11px 14px; }
+.nf-intake--new .nf-readiness-card fieldset button[aria-pressed=true] { border-inline-start: 3px solid var(--accent); }
 .phone-app .nf-intake.nf-intake--new :is(.nf-intake-review-group > summary, .nf-story-more > summary) { font-size: 18px; font-weight: 600; line-height: 1.6; }
 .phone-app .nf-intake.nf-intake--new :is(.nf-intake-note, .nf-intake-wordcount, .nf-intake-action-meta > small, .nf-intake-draft-help) { font-weight: 400; letter-spacing: 0; }
 .phone-app .nf-intake.nf-intake--new :is(.nf-review-edit, .nf-intake-policy) { font-size: 14px; font-weight: 500; }

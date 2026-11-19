@@ -727,7 +727,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {chapter.key === "review" && <>
                 {!editing && includeCompatibility && p.membershipReadiness?.family && p.membershipReadiness?.nextStep && <ReadinessResult value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline} answers={p} edit={() => move('readiness', true)}/>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
-                {!editing && <div className="nf-studio-finish"><HeartHandshake size={24}/><div><strong>خطوتك القادمة، تعارف له معنى.</strong><p>{preview || demo ? 'راجع تفاصيلك وخيارات الخصوصية، ثم أكمل إعداد ملفك.' : 'أرسل ملفك للمراجعة. بعد اعتماده، يمكنك استكشاف خيارات العضوية وبدء التعارف.'}</p></div></div>}
+                {!editing && <div className="nf-studio-finish"><div><strong>مراجعة تفاصيل ملفك</strong><p>{preview || demo ? 'افتح أي قسم لمراجعة إجاباتك أو تعديلها.' : 'افتح أي قسم للتعديل قبل الإرسال. بعد اعتماد ملفك، يمكنك استكشاف خيارات العضوية.'}</p></div></div>}
                 <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
                 {includeCompatibility && <details className="nf-intake-audience" aria-label="ما يراه الآخرون">
                   <summary><ShieldCheck size={17} aria-hidden="true" /> ما يراه الآخرون وما يبقى خاصًا<ChevronLeft size={16}/></summary>
@@ -760,7 +760,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         open={interviewOpen} direct={directInterview} auth={interviewAuth} onboarding={!editing}
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
-        assessmentContext={assessmentContextFromAnswers(p)}
+        assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}
         onStructuredDraftChange={choices => update(answersFromAssessmentContext(choices))}
         onProfileApply={applyCapturedProfile}
         sensitiveProfileAllowed={consents.sensitiveProfile}

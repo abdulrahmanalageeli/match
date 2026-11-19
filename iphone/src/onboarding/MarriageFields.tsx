@@ -137,7 +137,13 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   const change = (patch: Partial<PartnerCriteria>) => onChange({ ...value, ...patch });
   function addNationality(nationality:string) { if(!nationalityChoices.some(option=>option.value===nationality)||value.nationality?.values?.some(v=>normalizeNationality(v)===normalizeNationality(nationality))||(value.nationality?.values?.length??0)>=30)return; change({nationality:{...value.nationality,mode:value.nationality?.mode??'prefer',values:[...(value.nationality?.values??[]),nationality]}}); }
 
-  const selected = (keys: Array<keyof PartnerCriteria>) => { const count = keys.filter(key => value[key]?.mode && value[key]?.mode !== 'any').length; return count ? `${arabicNumber(count)} من التفضيلات محددة` : undefined; };
+  const selected = (keys: Array<keyof PartnerCriteria>) => {
+    const answered = keys.filter(key => value[key]?.mode);
+    if (!answered.length) return undefined;
+    const priorities = answered.filter(key => value[key]?.mode !== 'any').length;
+    if (priorities) return `${arabicNumber(priorities)} من التفضيلات محددة`;
+    return `لا يهمني · ${arabicNumber(answered.length)}`;
+  };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
     <p className="nf-intake-note">«أفضل» يغيّر ترتيب الترشيحات. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكره. اختر «لا يهمني» حين تكون مرنًا.</p>

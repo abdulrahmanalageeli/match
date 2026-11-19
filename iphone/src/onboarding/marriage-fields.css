@@ -110,3 +110,37 @@
 .phone-app .nf-intake .wd-number-field > span small { color: var(--nf-muted, #746e71); font-size: 12px; font-weight: 400; }
 .phone-app .nf-intake .wd-number-field input { font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 500; text-align: center; direction: ltr; min-height: 60px; }
 .phone-app .nf-intake .wd-number-field input::placeholder { font-size: 13px; font-weight: 400; }
+
+/* The rule follows the chosen level of importance. Its width matches the grid
+   columns above (the third label has a wider cell in Arabic). */
+.nf-criterion-modes[data-mode] { position: relative; --criterion-gap: 5px; --slot: calc((100% - var(--criterion-gap) - var(--criterion-gap)) / 3.35); }
+.nf-criterion-modes[data-mode]::before {
+  content: ""; position: absolute; inset: auto 4px 3px; height: 2px;
+  pointer-events: none; background: var(--accent);
+
+  clip-path: inset(0 var(--start) 0 var(--end) round 2px);
+}
+.nf-criterion-modes[data-mode="any"] { --start: 0%; --end: calc(100% - var(--slot)); }
+.nf-criterion-modes[data-mode="prefer"] { --start: calc(var(--slot) + var(--criterion-gap)); --end: calc(100% - var(--slot) - var(--slot) - var(--criterion-gap)); }
+.nf-criterion-modes[data-mode="require"] { --start: calc(var(--slot) + var(--slot) + var(--criterion-gap) + var(--criterion-gap)); --end: 0%; }
+.nf-criterion-modes:dir(ltr)::before { clip-path: inset(0 var(--end) 0 var(--start) round 2px); }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .nf-criterion-modes[data-mode]::before {
+    transition: clip-path var(--nf-motion-press,140ms) var(--nf-ease-settle,ease-out);
+  }
+  html:not([data-nf-motion=reduced]) .nf-criterion-target { animation: nf-criterion-open 160ms var(--nf-ease-settle,ease-out); }
+}
+@keyframes nf-criterion-open { from { opacity: .8; transform: translateY(-3px); } }
+
+.nf-intake--new .nf-criterion-target {
+  min-inline-size: 0;
+  margin-block-start: 7px;
+  border-inline-start: 2px solid var(--journey-line, var(--line));
+  padding-inline-start: 12px;
+}
+.nf-intake--new .nf-criterion-modes button { overflow-wrap: anywhere; }
+.nf-intake--new .nf-criterion-modes button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.phone-app .nf-intake.nf-intake--new .nf-criterion-modes[data-mode=require] button[aria-pressed=true] {
+  background: var(--accent);
+  color: #fff;
+}

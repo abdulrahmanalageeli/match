@@ -47,6 +47,10 @@ function harness(options = {}) {
       assert.equal(config.maxRetries, 0);
       return { chat: { completions: { create: async (request, runtime) => {
         modelCalls.push({ request, runtime, config });
+        if (request.response_format.json_schema.name === 'wudayn_check_choices') {
+          const data = JSON.parse(request.messages[1].content);
+          return completion({answers:options.checkChoices?.(data) ?? []});
+        }
         if (options.failure) throw new Error('PRIVATE PROVIDER ERROR');
         if (request.response_format.json_schema.name === 'wudayn_choice_help') return {
           choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(options.choiceResult) } }],
@@ -150,6 +154,22 @@ test('structured confirmation retains the attested conversation and persists all
   const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
   assert.equal(shared.document.reviewSharing, true);
   assert.equal(h.modelCalls.length, 1);
+});
+
+test('a reviewed relocation suggestion retains its inferred origin on reload and sharing', async () => {
+  const h = harness({checkFingerprint:true}), first = await start(h);
+  const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
+  const choices = structuredChoices(), id = 'preference:residence_plan:partner';
+  const request = inferredPartnerIds => h.service({action:'structuredConfirm', revision:analyzed.revision,choices,inferredPartnerIds},headers);
+  for (const invalid of [[id,id],['preference:social_rhythm:partner'],['preference:residence_plan:self']])
+    await assert.rejects(request(invalid), err => err.status === 400);
+  const result = await request([id]);
+  assert.deepEqual(result.inferredPartnerIds,[id]);
+  const loaded = await h.service({action:'load'},headers);
+  assert.deepEqual(loaded.inferredPartnerIds,[id]);
+  const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
+  assert.deepEqual(shared.inferredPartnerIds,[id]);
+  assert.equal(shared.document.confirmed.length,44);
 });
 
 test('a failed structured receipt is retryable without repeating Luna analysis', async () => {
@@ -1013,4 +1033,61 @@ test('an invented quote cannot support a personal reflection', async () => {
   const state = await h.service({action:'answer', hybrid:true, revision:s.revision, requestId:randomUUID(), answer}, headers);
   assert.equal(state.document.status, 'review');
   assert.equal(state.document.currentQuestion, null);
+});
+
+async function checkIntroduction(answer, claims, checkChoices, disposition = 'answered') {
+  const h = harness({
+    proposals:([source]) => claims.map(([id, code, quote]) => {
+      const [kind, fieldId, side] = id.split(':');
+      return {kind,fieldId,side,values:[code],summary:'اقتراح',needsClarification:false,evidence:[{turnId:source.id,quote}]};
+    }),
+    response:() => ({answerDisposition:disposition}), checkChoices,
+  });
+  const first = await start(h);
+  const snapshot = await h.service({action:'answer',hybrid:true,cardsAfterReply:true,revision:first.revision,requestId:randomUUID(),answer},headers);
+  assert.deepEqual((await h.service({action:'load'},headers)).carryForwardIds,snapshot.carryForwardIds);
+  return {snapshot,calls:h.modelCalls.length};
+}
+
+test('general intent and wrong subject or polarity cannot fill a personality or partner answer', async () => {
+  const self = 'preference:children_plan:self', partner = 'preference:children_plan:partner';
+  const trait = 'personality:depth:self';
+  assert.equal(validateProposal({...candidate,kind:'personality',fieldId:'depth',values:['E'],evidence:[{turnId:turn.id,quote:'بناء أسرة'}]},[{...turn,answer:'بناء أسرة'}]),null);
+  for (const [answer, claims, expected] of [
+    ['بناء أسرة',[[trait,'E','بناء أسرة']],[]],
+    ['لا أرغب في الإنجاب',[[self,'A','أرغب في الإنجاب'],[partner,'B','لا أرغب في الإنجاب']],[]],
+    ['أرغب في الإنجاب',[[partner,'A','أرغب في الإنجاب'],[self,'A','أرغب في الإنجاب']],[self]],
+    ['أفضل شريكًا يرغب في الإنجاب',[[partner,'A','أفضل شريكًا يرغب في الإنجاب']],[partner]],
+  ]) {
+    const {snapshot,calls} = await checkIntroduction(answer,claims);
+    assert.deepEqual(snapshot.carryForwardIds,expected);
+    assert.equal(calls,1);
+  }
+});
+
+test('blind catalog agreement permits paraphrases, preserves clear clauses, and abstains on disagreement', async () => {
+  const kids='preference:children_plan:self', partner='preference:children_plan:partner', place='preference:residence_plan:self';
+  const mine='ودي أصير أب', theirs='وأبي زوجة ودها تصير أم', stay='أبي أبقى في مدينتي', move='بس أحيانًا أفكر أروح مدينتها';
+  const answer='أنا شمري. '+[mine,theirs,stay,move].join('، ');
+  const {snapshot,calls}=await checkIntroduction(answer,[[kids,'A',mine],[partner,'A',theirs],[place,'A',stay],[place,'B',move]],data=>{
+    assert.ok(!JSON.stringify(data).includes('شمري'));
+    assert.deepEqual(data.fields.map(f=>f.id),[kids,partner]);
+    assert.ok(data.fields.every(f=>f.options.length===3 && !('values' in f) && !('evidence' in f)));
+    return [[kids,mine],[partner,theirs]].map(([id,quote])=>({id,quote,code:'A',turnId:data.turns[0].id}));
+  },'clarify');
+  assert.deepEqual(snapshot.carryForwardIds,[kids,partner]);
+  assert.ok(snapshot.document.proposals.find(p=>p.id===place)?.needsClarification);
+  assert.equal(calls,2);
+
+  for (const mode of ['wrong option','wrong subject','unrelated quote','no answer','inconsistent reviewer','unavailable']) {
+    const checked=await checkIntroduction(answer,[[kids,'A',mine]],({turns})=>{
+      const row={id:kids,code:'A',quote:mine,turnId:turns[0].id};
+      if(mode==='unavailable') throw Error('simulated timeout');
+      if(mode==='no answer') return [];
+      if(mode==='inconsistent reviewer') return [row,{...row,code:'B'}];
+      return [{...row,...(mode==='wrong option'?{code:'B'}:mode==='wrong subject'?{id:partner}:{quote:move})}];
+    });
+    assert.deepEqual(checked.snapshot.carryForwardIds,[],mode);
+    assert.equal(checked.snapshot.document.status,'review',mode);
+  }
 });

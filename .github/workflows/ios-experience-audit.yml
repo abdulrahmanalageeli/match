@@ -1,0 +1,69 @@
+name: Wudayn native interaction audit
+on:
+  push:
+    branches: [codex/wudayn-native-experience-audit]
+permissions:
+  contents: read
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ["iPhone-SE-3rd-generation", "iPhone-17", "iPhone-17-Pro-Max"]
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: iphone
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Boot selected iPhone
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,os,sys;print(next(i["identifier"] for i in json.load(sys.stdin)["devicetypes"] if i["identifier"].replace("(","").replace(")","").endswith("."+os.environ["MODEL"])))')
+          udid=$(xcrun simctl create Audit "$type")
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          mkdir -p "$RUNNER_TEMP/evidence"
+      - name: Bundle offline fixtures and configure native UI tests
+        run: |
+          npm ci --no-audit
+          npm run build
+          node tests/simulator/audit-fixtures.mjs
+          npx --no-install cap sync ios
+          gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
+          ruby tests/simulator/add-ui-target.rb
+      - name: Drive native gestures and capture evidence
+        run: |
+          xcrun simctl bootstatus "$UDID" -b
+          dest="platform=iOS Simulator,id=$UDID"
+          project=ios/App/App.xcodeproj
+          xcodebuild build-for-testing -project "$project" -scheme App -destination "$dest" -derivedDataPath "$RUNNER_TEMP/build" > "$RUNNER_TEMP/evidence/build.log"
+          status=0
+          for variant in normal enlarged; do
+            if [[ "$variant" == enlarged ]]; then
+              xcrun simctl ui "$UDID" content_size accessibility-large
+              xcrun simctl spawn "$UDID" defaults write com.apple.Accessibility ReduceMotionEnabled -bool YES
+              xcrun simctl spawn "$UDID" notifyutil -p com.apple.accessibility.cache.reduce.motion || true
+            fi
+            out="$RUNNER_TEMP/evidence/$variant"
+            mkdir -p "$out"
+            xcrun simctl io "$UDID" recordVideo --codec=h264 "$out/interactions.mp4" & recorder=$!
+            xcodebuild test-without-building -project "$project" -scheme App -destination "$dest" -derivedDataPath "$RUNNER_TEMP/build" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/$variant.xcresult" > "$out/test.log" || status=1
+            kill -INT "$recorder" || true
+            wait "$recorder" || true
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$variant.xcresult" --output-path "$out/attachments" || true
+          done
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-${{ matrix.model }}
+          path: ${{ runner.temp }}/evidence
+          retention-days: 7

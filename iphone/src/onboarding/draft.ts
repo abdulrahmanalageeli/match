@@ -1,3 +1,4 @@
+import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
 import { assessmentVersion, dimensions } from "../compatibility/model";
@@ -72,8 +73,8 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
     familyPreference: "", ...initial,
     birthDate: initial?.birthDate ?? (initial ? undefined : ""),
     age: initial ? String(initial.birthDate ? ageFromBirthday(initial.birthDate) ?? initial.age : initial.age) : "",
-    preferredMinAge: initial ? String(initial.preferredMinAge) : "",
-    preferredMaxAge: initial ? String(initial.preferredMaxAge) : "",
+    preferredMinAge: String(initial?.preferredMinAge ?? 18),
+    preferredMaxAge: String(initial?.preferredMaxAge ?? 110),
     interestIds: initial?.interestIds ?? [], surveyAnswers: Object.fromEntries(dimensions.flatMap(d => [d.id, d.partnerId]).filter(id => initial?.surveyAnswers?.[id]).map(id => [id, initial!.surveyAnswers![id]])),
     assessmentVersion, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
     personalityVersion, personalityAnswers: initial?.personalityAnswers ?? {},
@@ -86,9 +87,9 @@ export function latinDigits(value: string) {
   return value.replace(/[٠-٩]/g, char => String(char.charCodeAt(0) - 0x660))
     .replace(/[۰-۹]/g, char => String(char.charCodeAt(0) - 0x6f0));
 }
-/** An editable convenience default, never an override of a declared answer. */
+/** Effective values for review and submission. Keep provisional values out of the raw draft and Luna context. */
 export function withFamilyDefaults(p: Answers): Answers {
-  return p.marriageBasics?.maritalStatus==='never_married'&&p.marriageBasics.childrenCount===undefined
+  return familyContext(p.gender,p.marriageBasics).suggestNoChildren
     ? {...p,marriageBasics:{...p.marriageBasics,childrenCount:0}} : p;
 }
 function validAge(value: string) {
@@ -105,8 +106,8 @@ export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[]
     2: Boolean(b.spokenLanguages?.length&&b.preferredLanguage&&b.languageOpenness),
     3: Boolean(b.nationality&&b.originCity)&&(!sensitive||Boolean(b.tribalBackground)),
     4: Boolean(b.marriageTimeline&&b.meetingPreference),
-    5: Boolean(b.maritalStatus&&b.polygynyPreference&&(b.maritalStatus!=='married'||b.currentWives)),
-    6: b.childrenCount!==undefined&&Boolean(b.smoking),
+    5: Boolean(b.maritalStatus&&b.polygynyPreference&&(!familyContext(p.gender,b).askWifeCount||b.currentWives)),
+    6: familyContext(p.gender,b).childrenCount!==undefined&&Boolean(b.smoking),
     7: !sensitive||Boolean(b.religiousAffiliation&&b.prayerPractice),
     8: Boolean(b.weddingStyle&&b.housingPlan&&b.expenseSharing&&(b.childrenTiming||p.surveyAnswers?.children_plan==='B')),
   };
@@ -114,6 +115,7 @@ export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[]
 }
 
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {
+  p = applicableFamilyAnswers(p);
   switch (step) {
     case 'compatibility':
       if (requireAssessment && dimensions.some(d => [d.id, d.partnerId].some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
@@ -127,7 +129,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. وُدَين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
       if (!validAge(p.birthDate ? String(ageFromBirthday(p.birthDate ?? '')) : p.age)) return { field: "age", text: "أدخل عمرًا صحيحًا بين ١٨ و١١٠ أعوام." };
       if (!p.city.trim()) return { field: "city", text: "اختر المدينة التي تقيم فيها." };
-      if (requireAssessment && (!p.marriageBasics?.maritalStatus || (p.marriageBasics.maritalStatus === 'married' && !p.marriageBasics.currentWives))) return { field: 'marriageBasics', text: 'أكمل حالتك الاجتماعية الحالية قبل جلسة التوافق.' };
+      if (requireAssessment && (!p.marriageBasics?.maritalStatus || (familyContext(p.gender,p.marriageBasics).askWifeCount && !p.marriageBasics.currentWives))) return { field: 'marriageBasics', text: 'أكمل حالتك الاجتماعية الحالية قبل جلسة التوافق.' };
       if (requireAssessment && p.marriageBasics?.maritalStatus === 'married' && p.gender !== 'man') return { field: 'marriageBasics', text: 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.' };
       if (requireAssessment && p.marriageBasics?.currentWives === 4) return { field: 'marriageBasics', text: 'لا يدعم وُدَين بدء تعارف لزواج إضافي مع وجود أربع زوجات حاليًا.' };
       return null;
@@ -140,6 +142,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       }
       return null;
     case "preferences":
+      if (requireAssessment && !p.familyPreference.trim()) return { field: "familyPreference", text: "حدّد متى تفضّل إشراك الأهل." };
       if (!validAge(p.preferredMinAge)) return { field: "preferredMinAge", text: "أدخل حدًا أدنى بين ١٨ و١١٠ أعوام." };
       if (!validAge(p.preferredMaxAge)) return { field: "preferredMaxAge", text: "أدخل حدًا أعلى بين ١٨ و١١٠ أعوام." };
       if (Number(p.preferredMinAge) > Number(p.preferredMaxAge)) {
@@ -150,6 +153,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact.trim()) && !/^\+?\d{8,15}$/.test(latinDigits(p.contact).replace(/[\s()-]/g, ""))) return { field: "contact", text: "أدخل بريدًا إلكترونيًا صحيحًا أو رقم جوال مع رمز الدولة." };
       return null;
     case "details":
+      p = withFamilyDefaults(p);
       if (requireSkinTone && !p.marriageBasics?.skinTone) return { field: "marriageBasics", text: "اختر درجة البشرة الأقرب لك لإكمال تفاصيلك." };
       if (requireAssessment && (['heightCm','weightKg','preferredLanguage','languageOpenness','nationality','maritalStatus','polygynyPreference','childrenCount','smoking','marriageTimeline','meetingPreference'] as const).some(key => p.marriageBasics?.[key] === undefined || p.marriageBasics?.[key] === '') || requireAssessment && !p.marriageBasics?.spokenLanguages?.length) return { field: 'marriageBasics', text: 'أكمل تفاصيلك الأساسية في كل مجموعة، بما فيها اللغات.' };
       if(p.marriageBasics?.maritalStatus==='married'&&p.gender!=='man')return{field:'marriageBasics',text:'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.'};
@@ -172,6 +176,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
 }
 
 export function toProfile(p: Answers): Profile {
+  p = withFamilyDefaults(applicableFamilyAnswers(p));
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
     ...publicApplicationAnswers(p), assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],

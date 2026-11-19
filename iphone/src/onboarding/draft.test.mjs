@@ -213,7 +213,7 @@ test('new onboarding requires public details and explicit preference modes witho
   assert.ok(validateStep('details',p,true,false,true));
   p.marriageBasics={heightCm:165,weightKg:65,spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'};
   assert.equal(validateStep('details',p,true,false,true),null);
-  for(const key of Object.keys(p.marriageBasics)){const marriageBasics={...p.marriageBasics};delete marriageBasics[key];assert.ok(validateStep('details',{...p,marriageBasics},true,false,true),key);}
+  for(const key of Object.keys(p.marriageBasics)){const marriageBasics={...p.marriageBasics};delete marriageBasics[key];const issue=validateStep('details',{...p,marriageBasics},true,false,true);if(key==='childrenCount')assert.equal(issue,null);else assert.ok(issue,key);}
   assert.ok(validateStep('criteria',p,true,false,true));
   p.partnerCriteria=Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(key=>[key,{mode:'any'}]));
   assert.equal(validateStep('criteria',p,true,false,true),null);
@@ -237,11 +237,33 @@ test('new smoking types survive profile validation and out-of-range measurements
   assert.ok(unresolvedDetailSlides({...answers(),marriageBasics:{heightCm:0,weightKg:500}},false).includes(1));
 });
 
-test('new applicants explicitly choose family timing and age bounds; existing profiles retain theirs', () => {
-  const empty=initialDraft('new',null).answers;
-  assert.deepEqual([empty.preferredMinAge,empty.preferredMaxAge,empty.familyPreference],['','','']);
-  const chosen=answers();
-  assert.equal(validateStep('preferences',{...chosen,familyPreference:''},true,true)?.field,'familyPreference');
-  const restored=initialDraft('existing',toProfile(chosen)).answers;
-  assert.deepEqual([restored.preferredMinAge,restored.preferredMaxAge,restored.familyPreference],['24','40','من البداية']);
+test('family dependencies survive resume, edit and final review without becoming interview facts', async () => {
+  const { familyContext, applicableFamilyAnswers } = await loader.ssrLoadModule('/src/onboarding/familyContext.ts');
+  const { profileContextFromAnswers } = await loader.ssrLoadModule('/src/interview/profileCapture.ts');
+  for (const [gender,status,count,wives] of [
+    ['woman','never_married',undefined],['man','never_married',undefined],
+    ['woman','divorced',2],['man','divorced',0],['woman','widowed',1],['man','married',2,3],
+  ]) {
+    const p={...answers(),gender,marriageBasics:{maritalStatus:status,polygynyPreference:'open',childrenCount:count,currentWives:wives}};
+    const restored=applicableFamilyAnswers(JSON.parse(JSON.stringify(p)));
+    const ctx=familyContext(gender,restored.marriageBasics);
+    assert.equal(ctx.suggestNoChildren,count===undefined);
+    assert.equal(ctx.askWifeCount,wives!==undefined);
+    assert.equal(profileContextFromAnswers(restored).some(f=>f.fieldId==='marriageBasics.childrenCount'),count!==undefined);
+    assert.equal(toProfile(restored).marriageBasics.childrenCount,count??0);
+    assert.equal(toProfile(restored).marriageBasics.currentWives,wives);
+    assert.equal(familyContext(gender,{...restored.marriageBasics,maritalStatus:'divorced'}).childrenCount,count);
+    assert.equal(familyContext(gender,{...restored.marriageBasics,childrenCount:4}).childrenCount,4);
+    assert.equal(toProfile({...restored,marriageBasics:{...restored.marriageBasics,maritalStatus:'divorced'}}).marriageBasics.currentWives,undefined);
+  }
+});
+test('full adult age range is visible for new applications and previous ranges survive edits', () => {
+  const p=answers();
+  assert.deepEqual([p.preferredMinAge,p.preferredMaxAge],['18','110']);
+  const existing=toProfile({...p,preferredMinAge:'32',preferredMaxAge:'43'});
+  const restored=initialDraft('profile',existing).answers;
+  assert.deepEqual([restored.preferredMinAge,restored.preferredMaxAge],['32','43']);
+  assert.equal(toProfile({...restored,preferredMaxAge:'47'}).preferredMaxAge,47);
+  assert.equal(validateStep('preferences',{...restored,preferredMinAge:'50'},true)?.field,'preferredMaxAge');
+  assert.equal(validateStep('preferences',p,true,true,true)?.field,'familyPreference');
 });

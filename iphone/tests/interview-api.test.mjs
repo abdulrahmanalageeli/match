@@ -156,12 +156,13 @@ test('structured confirmation retains the attested conversation and persists all
   assert.equal(h.modelCalls.length, 1);
 });
 
-test('a reviewed relocation suggestion retains its inferred origin on reload and sharing', async () => {
+test('a reviewed housing suggestion retains its inferred origin on reload and sharing', async () => {
   const h = harness({checkFingerprint:true}), first = await start(h);
   const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
-  const choices = structuredChoices(), id = 'preference:residence_plan:partner';
+  const choices = structuredChoices(), id = 'preference:housing_arrangement:partner';
+  choices.find(choice => choice.id === id).values = ['A'];
   const request = inferredPartnerIds => h.service({action:'structuredConfirm', revision:analyzed.revision,choices,inferredPartnerIds},headers);
-  for (const invalid of [[id,id],['preference:social_rhythm:partner'],['preference:residence_plan:self']])
+  for (const invalid of [[id,id],['preference:residence_plan:partner'],['preference:social_rhythm:partner'],['preference:residence_plan:self']])
     await assert.rejects(request(invalid), err => err.status === 400);
   const result = await request([id]);
   assert.deepEqual(result.inferredPartnerIds,[id]);
@@ -170,6 +171,21 @@ test('a reviewed relocation suggestion retains its inferred origin on reload and
   const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
   assert.deepEqual(shared.inferredPartnerIds,[id]);
   assert.equal(shared.document.confirmed.length,44);
+});
+
+test('resharing a historical relocation suggestion preserves its origin after the rule is retired', async () => {
+  const h=harness(), first=await start(h);
+  const analyzed=await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
+  const choices=structuredChoices();
+  await h.service({action:'structuredConfirm',revision:analyzed.revision,choices},headers);
+  const legacy=h.state;
+  const id='preference:residence_plan:partner';
+  legacy.document.confirmed.find(item=>item.id===id).summary='اقتراح توافق من إجابتك عن نفسك، راجعته ضمن الاعتماد النهائي';
+  const historical=harness({initial:legacy});
+  const loaded=await historical.service({action:'load'},headers);
+  assert.deepEqual(loaded.inferredPartnerIds,[id]);
+  const shared=await historical.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
+  assert.deepEqual(shared.inferredPartnerIds,[id]);
 });
 
 test('a failed structured receipt is retryable without repeating Luna analysis', async () => {

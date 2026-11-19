@@ -1,3 +1,4 @@
+import { familyContext } from './familyContext';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type FocusEvent } from "react";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, Sparkles, Users, type LucideIcon } from "../BrandIcons";
 import { languageOptions, languageOpennessLabels, criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
@@ -48,14 +49,15 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       ['اللغات والتواصل',Boolean(value.spokenLanguages?.length && value.preferredLanguage && value.languageOpenness)],
       ['الخلفية والعائلة',Boolean(value.nationality)],
       ['بداية تناسبك',Boolean(value.marriageTimeline && value.meetingPreference)],
-      ['الزواج والتعدد',Boolean(value.maritalStatus && value.polygynyPreference && (value.maritalStatus !== 'married' || value.currentWives))],
-      ['الأبناء والعادات',value.childrenCount !== undefined && Boolean(value.smoking)],
+      ['الزواج والتعدد',Boolean(value.maritalStatus && value.polygynyPreference && (!family.askWifeCount || value.currentWives))],
+      ['الأبناء والعادات',family.childrenCount !== undefined && Boolean(value.smoking)],
     ];
     const title = groups.find(([, complete]) => !complete)?.[0] ?? groups[0][0];
     const root = event.currentTarget; setReveal(title);
     requestAnimationFrame(() => root.querySelector<HTMLElement>(`[data-section="${title}"] > summary`)?.focus());
   }
   const change = (patch: Partial<MarriageBasics>) => onChange({ ...value, ...patch });
+  const family = familyContext(gender, value);
   const selfMaritalLabels = gender === "man" ? maritalLabels : { never_married: "لم يسبق لي الزواج", divorced: "مطلّقة", widowed: "أرملة" };
   const pluralMarriageLabels = gender === "woman" ? { not_open: "لا أقبل التعدد", open_to_discussion: "منفتحة على النقاش", open: "منفتحة على التعدد", prefer_not_to_say: "أفضل مناقشته لاحقًا" } : polygynyLabels;
   return <div className="nf-marriage-fields" data-slideshow={Boolean(activeSection) || undefined} data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
@@ -91,8 +93,8 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       <small>يظهر تفضيل اللقاء في ملفك، وهو بداية للحوار وليس موافقة على لقاء بعينه. تبقى التفاصيل باتفاق الطرفين.</small>
     </Group>
     <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
-      <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined, ...(maritalStatus==='never_married'&&value.childrenCount===undefined?{childrenCount:0}:{}) })} />
-      {gender === "man" && value.maritalStatus === "married" && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
+      <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined })} />
+      {family.askWifeCount && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
       {!eligibilityOnly && <>
       <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />
       {gender==='woman' && value.polygynyPreference==='not_open' && <small>ستقتصر الترشيحات الجديدة على رجل غير متزوج صرّح بأنه لا يرغب في التعدد مستقبلًا.</small>}
@@ -100,8 +102,8 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       </>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
-      <ChoiceSelect label="عدد الأبناء" value={value.childrenCount === undefined ? '' : String(value.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />
-      {value.maritalStatus==='never_married'&&value.childrenCount===0&&<small>حددنا «دون أبناء» مبدئيًا. يمكنك تغييره إذا احتجت.</small>}
+      <ChoiceSelect label="عدد الأبناء" value={family.childrenCount === undefined ? '' : String(family.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />
+      {family.suggestNoChildren&&<small>حددنا «دون أبناء» مبدئيًا. يمكنك تغييره إذا احتجت.</small>}
       <Choices title="التدخين · ما الذي تستخدمه غالبًا؟" required={required} value={value.smoking} labels={{never:smokingLabels.never,cigarettes:smokingLabels.cigarettes,vape:smokingLabels.vape,shisha:smokingLabels.shisha,...(value.smoking==='yes'||value.smoking==='sometimes'?{[value.smoking]:smokingLabels[value.smoking]}:{})}} onChange={smoking => change({ smoking })} />
     </Group>
     {sensitiveAllowed ? <Group activeSection={activeSection} title="الدين في حياتي" note="معلومات حساسة، تختار مشاركتها أو تركها" icon={BookOpen} open={reveal === "الدين في حياتي"} summary={[value.religiousAffiliation && value.religiousAffiliation !== 'prefer_not_to_say' && religiousAffiliationLabels[value.religiousAffiliation], value.prayerPractice && value.prayerPractice !== 'prefer_not_to_say' && 'موقفك من الصلاة محدد'].filter(Boolean).join(' · ')}>

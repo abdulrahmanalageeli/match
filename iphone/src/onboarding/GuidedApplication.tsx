@@ -1,5 +1,6 @@
 import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
+import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { SignupBasicsSlides, type SignupSlidesHandle } from './SignupBasicsSlides';
 import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
@@ -10,7 +11,7 @@ import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { categories, dimensions, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
-import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, withFamilyDefaults, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
+import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
 import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
 import { SheetChoiceSelect as ChoiceSelect } from '../ui/SheetChoiceSelect';
 import { ageOptions, cityOptions, educationOptions, professionOptions } from '../profile/profileOptions';
@@ -89,6 +90,7 @@ const registrationMilestones = [
 ] as const satisfies ReadonlyArray<{ key: string; label: string; chapters: readonly Chapter[] }>;
 
 function withDefaultContact(draft: ApplicationDraft, value?: string): ApplicationDraft {
+  draft = { ...draft, answers: applicableFamilyAnswers(draft.answers) };
   const contact = value?.trim();
   if (!contact || draft.baseline !== 'new' || draft.answers.contact.trim()) return draft;
   return { ...draft, answers: { ...draft.answers, contact } };
@@ -391,7 +393,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!active || !restored || !intakeVault.current(draftOwner, lease.current)) return;
       if(startAt){restored.step=startAt;restored.returnToReview=Boolean(latestInitial.current);}
       restored=withDefaultContact(restored,defaultContact);
-      if(!latestInitial.current)restored.answers=withFamilyDefaults(restored.answers);
       if(!latestInitial.current && ['personality','beena'].includes(restored.step)) restored.step='compatibility';
       if (!includeCompatibility && ["compatibility", "criteria", "personality", "beena"].includes(restored.step)) restored.step = "preferences";
       if (!latestInitial.current && restored.step !== 'identity' && validateStep('identity', restored.answers, true, true, includeCompatibility)) restored.step='identity';
@@ -499,7 +500,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function update(values: Partial<Answers>) {
     if (error && error.field in values) setError(null);
     const previous = current.current.answers;
-    const next = editing ? { ...previous, ...values } : withFamilyDefaults({ ...previous, ...values });
+    const next = applicableFamilyAnswers({ ...previous, ...values });
     if (next.membershipReadiness && (previous.familyPreference !== next.familyPreference ||
       previous.surveyAnswers?.marriage_timeline !== next.surveyAnswers?.marriage_timeline)) {
       next.membershipReadiness = { ...next.membershipReadiness, clarifications: {} };
@@ -653,7 +654,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {usesBasicSlides && <SignupBasicsSlides reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -712,7 +713,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div>}
               </>}
               {chapter.key === "preferences" && <>
-                <fieldset><legend>العمر المناسب للطرف الآخر</legend><div className="field-pair">
+                <fieldset><legend>العمر المناسب للطرف الآخر</legend><small>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' ? 'النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.' : 'هذا نطاق العمر المفضّل في ملفك. يمكنك تعديله.'}</small><div className="field-pair">
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
@@ -725,6 +726,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   onChange={membershipReadiness => update({ membershipReadiness })}/>
               </div>}
               {chapter.key === "review" && <>
+                {familyContext(p.gender, p.marriageBasics).suggestNoChildren && <p className="nf-intake-private">عدد الأبناء المقترح: صفر. بإرسال الملف تعتمد هذا العدد. <button type="button" className="nf-intake-policy" onClick={() => move('details', true)}>تعديل عدد الأبناء</button></p>}
                 {!editing && includeCompatibility && p.membershipReadiness?.family && p.membershipReadiness?.nextStep && <ReadinessResult value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline} answers={p} edit={() => move('readiness', true)}/>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
                 {!editing && <div className="nf-studio-finish"><div><strong>مراجعة تفاصيل ملفك</strong><p>{preview || demo ? 'افتح أي قسم لمراجعة إجاباتك أو تعديلها.' : 'افتح أي قسم للتعديل قبل الإرسال. بعد اعتماد ملفك، يمكنك استكشاف خيارات العضوية.'}</p></div></div>}

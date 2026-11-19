@@ -1,3 +1,4 @@
+import { familyContext } from './familyContext';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Check, ChevronRight, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -34,7 +35,7 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
     const b=p.marriageBasics??{};
     if(b.maritalStatus==='married'&&p.gender!=='man')return 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.';
     if(b.currentWives===4)return 'لا يدعم وُدَين البحث عن زواج إضافي مع وجود أربع زوجات حاليًا.';
-    return !b.maritalStatus||(b.maritalStatus==='married'&&!b.currentWives)?'أكمل حالتك الاجتماعية الحالية.':null;
+    return !b.maritalStatus||(familyContext(p.gender,b).askWifeCount&&!b.currentWives)?'أكمل حالتك الاجتماعية الحالية.':null;
   }
   if(chapter==='story') {
     if(index===0)return !p.profession.trim()?'اختر مجال عملك أو وضعك المهني.':required&&!p.education?.trim()?'اختر مؤهلك الدراسي.':null;
@@ -56,14 +57,17 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   if(index===2&&(!b.spokenLanguages?.length||!b.preferredLanguage||!b.languageOpenness))return 'حدّد لغاتك وطريقة التواصل التي تناسبك.';
   if(index===3&&!b.nationality)return 'اختر جنسيتك.';
   if(index===4&&(!b.marriageTimeline||!b.meetingPreference))return 'اختر توقيت الزواج والخطوة الرسمية.';
-  if(index===5&&(!b.maritalStatus||!b.polygynyPreference||(b.maritalStatus==='married'&&!b.currentWives)))return 'أكمل وضعك الحالي وموقفك من التعدد.';
-  if(index===6&&(b.childrenCount===undefined||!b.smoking))return 'اختر عدد الأبناء وما يصف عاداتك.';
+  if(index===5&&(!b.maritalStatus||!b.polygynyPreference||(familyContext(p.gender,b).askWifeCount&&!b.currentWives)))return 'أكمل وضعك الحالي وموقفك من التعدد.';
+  if(index===6&&(familyContext(p.gender,b).childrenCount===undefined||!b.smoking))return 'اختر عدد الأبناء وما يصف عاداتك.';
   return null;
 }
 
-type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean };
-export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required},ref){
+type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
+export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
   const total=signupSlideCount(chapter);
+  const [knownIdentity] = useState(() => chapter === 'identity' && !reviewing
+    ? [0,1,2,3].filter(i => !signupSlideError('identity',i,p,required,consents.sensitiveProfile,consents.sensitivePublication))
+    : []);
   const [detailSlides,setDetailSlides]=useState(()=>[0,...unresolvedDetailSlides(p,consents.sensitiveProfile)]);
   const slides=chapter==='details'?detailSlides:Array.from({length:total},(_,i)=>i);
   const [index,setIndex]=useState(()=>{
@@ -84,7 +88,10 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;move(index+1);return true;},
+    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;
+      const next = slides.findIndex((slide, at) => at > index && (!knownIdentity.includes(slide) || signupSlideError(chapter,slide,p,required,consents.sensitiveProfile,consents.sensitivePublication)));
+      if(next < 0)return false;
+      move(next);return true;},
     back(){if(index===0)return false;move(index-1);return true;},
   }));
   useEffect(()=>{if(error&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication))setError(null);},[p,consents.sensitiveProfile,consents.sensitivePublication,error,chapter,visibleIndex,required]);

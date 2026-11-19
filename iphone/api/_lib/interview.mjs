@@ -4,6 +4,7 @@ import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, genericE
 import { randomUUID } from 'node:crypto';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
 import topics from '../../src/interview/catalog.json' with { type: 'json' };
+import partnerDefaults from '../../src/interview/partner-defaults.json' with { type: 'json' };
 import preferences from '../../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../../src/beena/catalog.json' with { type: 'json' };
 import personality from '../../src/compatibility/personality-catalog.json' with { type: 'json' };
@@ -86,7 +87,7 @@ export function parseInterviewInput(body) {
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
     retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
-    structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
+    structuredConfirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices', 'inferredPartnerIds'],
     profileConfirm: ['action', 'revision', 'profileChoices'],
   };
   if (!Object.hasOwn(allowed, body.action) || !keysOnly(body, allowed[body.action])) throw invalid();
@@ -120,6 +121,18 @@ export function parseInterviewInput(body) {
       if (!keysOnly(choice, ['id', 'values']) || !bounded(choice.id, 100) || ids.has(choice.id) || !Array.isArray(choice.values)
         || choice.values.length < 1 || choice.values.length > 4 || !choice.values.every(value => bounded(value, 2))) throw invalid();
       ids.add(choice.id);
+    }
+    if (body.inferredPartnerIds !== undefined) {
+      const ids = body.inferredPartnerIds;
+      if (!Array.isArray(ids) || ids.length > 16 || new Set(ids).size !== ids.length) throw invalid();
+      const selected = new Map(body.choices.map(choice => [choice.id, choice.values[0]]));
+      for (const id of ids) {
+        if (typeof id !== 'string') throw invalid();
+        const [kind, dimension, side] = id.split(':');
+        const self = selected.get(`preference:${dimension}:self`);
+        if (kind !== 'preference' || side !== 'partner' || !selected.has(id) ||
+          !Object.hasOwn(partnerDefaults, dimension) || partnerDefaults[dimension][self] !== selected.get(id)) throw invalid();
+      }
     }
     if (body.action === 'structuredConfirm' && validateAssessmentContext(body.choices).length !== requiredFields.length) throw invalid();
   }
@@ -807,25 +820,31 @@ const structuredSelectionSummary = 'اختيارك من بطاقات التوا�
 const hasAnalyzedIntroduction = document => requiredInterview(document) && document.lastMode === 'luna'
   && !document.pendingAnalysis && document.turns.some(turn => !turn.skipped);
 
+// The attested v4 receipt permits a summary but forbids custom source keys.
+const inferredSelectionSummary = 'اقتراح توافق من إجابتك عن نفسك، راجعته ضمن الاعتماد النهائي';
 function isStructuredConfirmation(document) {
   return document.status === 'confirmed' && document.confirmed.length === requiredFields.length
-    && document.confirmed.every(item => item.summary === structuredSelectionSummary);
+    && document.confirmed.every(item => item.summary === structuredSelectionSummary || item.summary === inferredSelectionSummary);
 }
 
-function confirmStructuredChoices(document, savedProposals, choices, shareReview) {
+function confirmStructuredChoices(document, savedProposals, choices, shareReview, inferredPartnerIds) {
   if (!hasAnalyzedIntroduction(document)) {
     throw new InterviewError(409, 'introduction_pending', 'أكمل تعريفك أولًا وانتظر تحليل لونا قبل اعتماد الإجابات.');
   }
   const context = new Map(document.assessmentContext.map(item => [item.id, item]));
   const selections = new Map(validateAssessmentContext(choices, true).map(item => [item.id, item]));
   if (selections.size !== requiredFields.length) throw invalid();
+  const inferred = new Set(inferredPartnerIds ?? document.confirmed.filter(item =>
+    item.summary === inferredSelectionSummary && item.values[0] === selections.get(item.id)?.values[0] &&
+    partnerDefaults[item.fieldId]?.[selections.get(`preference:${item.fieldId}:self`)?.values[0]] === item.values[0]
+  ).map(item => item.id));
   const confirmed = requiredFields.map(({ id, kind, fieldId, side }) => {
     const selection = selections.get(id);
     // Keep any earlier context cited by the attested model proposals. If the
     // member edited that value, confirmed.values records the new selection.
     const evidence = context.get(id) ?? selection;
     context.set(id, evidence);
-    return { id, kind, fieldId, side, values: selection.values, summary: structuredSelectionSummary,
+    return { id, kind, fieldId, side, values: selection.values, summary: inferred.has(id) ? inferredSelectionSummary : structuredSelectionSummary,
       evidence: [{ turnId: `context:${id}`, quote: JSON.stringify(evidence.values) }], needsClarification: false };
   });
   // The existing database receipt verifies the original turns and proposals.
@@ -893,7 +912,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       if (structuredConfirmation) document.proposals = document.confirmed;
       return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
         carryForwardIds:document.proposals.filter(p => eligibleCarryForward(p, document.turns)).map(p => p.id),
-        ...(structuredConfirmation ? { structuredConfirmation } : {}) };
+        ...(structuredConfirmation ? { structuredConfirmation, inferredPartnerIds: document.confirmed.filter(item => item.summary === inferredSelectionSummary).map(item => item.id) } : {}) };
     }
     async function fail(document, reason) {
       const saved = await save({ ...document, lastMode: 'guided', pendingAnalysis: true });
@@ -968,7 +987,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     }
     if (input.action === 'structuredConfirm' || (input.action === 'confirm' && isStructuredConfirmation(document))) {
       const original = snapshot.document;
-      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.shareReview);
+      let confirmed = confirmStructuredChoices(document, original.proposals, input.choices, input.shareReview, input.inferredPartnerIds);
       if (input.profileChoices) confirmed = confirmProfileChoices(confirmed, input.profileChoices);
       const saved = await save(confirmed);
       try { await attest('complete', saved); }

@@ -133,6 +133,22 @@ test('structured confirmation retains the attested conversation and persists all
   assert.equal(h.modelCalls.length, 1);
 });
 
+test('a reviewed relocation suggestion retains its inferred origin on reload and sharing', async () => {
+  const h = harness({checkFingerprint:true}), first = await start(h);
+  const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
+  const choices = structuredChoices(), id = 'preference:residence_plan:partner';
+  const request = inferredPartnerIds => h.service({action:'structuredConfirm', revision:analyzed.revision,choices,inferredPartnerIds},headers);
+  for (const invalid of [[id,id],['preference:social_rhythm:partner'],['preference:residence_plan:self']])
+    await assert.rejects(request(invalid), err => err.status === 400);
+  const result = await request([id]);
+  assert.deepEqual(result.inferredPartnerIds,[id]);
+  const loaded = await h.service({action:'load'},headers);
+  assert.deepEqual(loaded.inferredPartnerIds,[id]);
+  const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
+  assert.deepEqual(shared.inferredPartnerIds,[id]);
+  assert.equal(shared.document.confirmed.length,44);
+});
+
 test('a failed structured receipt is retryable without repeating Luna analysis', async () => {
   const options = {checkFingerprint:true}, h = harness(options), first = await start(h);
   const analyzed = await send(h, first.revision);

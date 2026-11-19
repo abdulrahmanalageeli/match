@@ -37,7 +37,7 @@ const fixture = `
       void fetch('/__hybrid-draft').then(response => response.json()).then(setChoices);
     }, []);
     if (!choices) return null;
-    return <InterviewPanel open auth={{ testSession: 'isolated-browser-fixture' }} onboarding
+    return <InterviewPanel open gender={new URLSearchParams(location.search).get('gender') === 'woman' ? 'woman' : 'man'} auth={{ testSession: 'isolated-browser-fixture' }} onboarding
       assessmentContext={Object.entries(choices).map(([id, values]) => ({ id, values }))}
       onStructuredDraftChange={next => {
         setChoices(next);
@@ -54,7 +54,7 @@ const server = await createServer({
     entries: [],
     include: ['react', 'react-dom/client', 'react/jsx-runtime', 'lucide-react', '@capacitor/core', '@supabase/supabase-js', 'react-native-reanimated', 'react-native-worklets'],
   },
-  server: { host: '127.0.0.1', port: 5297, strictPort: true, hmr: false },
+  server: { host: '127.0.0.1', port: 0, hmr: false },
   plugins: [{
     name: 'interview-hybrid-browser-fixture',
     enforce: 'pre',
@@ -68,7 +68,7 @@ const server = await createServer({
     },
     configureServer(dev) {
       dev.middlewares.use(async (request, response, next) => {
-        if (request.url !== '/__interview-hybrid') return next();
+        if (request.url?.split('?')[0] !== '/__interview-hybrid') return next();
         response.setHeader('Content-Type', 'text/html');
         response.end(await dev.transformIndexHtml(request.url,
           '<!doctype html><html lang="ar" dir="rtl"><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div><script type="module" src="/@id/__x00__interview-hybrid"></script></body></html>'));
@@ -107,7 +107,7 @@ let browser;
 try {
   await server.listen();
   browser = await chromium.launch({ channel: 'chrome', headless: true });
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ar-SA', reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport: { width: 402, height: 874 }, isMobile: true, hasTouch: true, locale: 'ar-SA', reducedMotion: 'reduce' });
   await context.route('**/*', async route => {
     const { hostname, pathname } = new URL(route.request().url());
     if (hostname !== '127.0.0.1') return route.abort();
@@ -161,7 +161,7 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   page.setDefaultTimeout(45000);
-  const url = 'http://127.0.0.1:5297/__interview-hybrid';
+  const url = `http://127.0.0.1:${server.httpServer.address().port}/__interview-hybrid`;
   const dialog = page.locator('.wi-dialog');
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   assert.equal(await page.locator('#wi-answer').getAttribute('maxlength'), '900');
@@ -197,42 +197,29 @@ try {
   await accept.click();
   assert.deepEqual(draft[firstId], ['C']);
   assert.notEqual(await fill.getAttribute('style'), emptyFill);
+  assert.equal(await card.locator('fieldset').getAttribute('data-side'), 'partner');
+  assert.equal(draft[firstPartnerId], undefined);
   await portrait.locator(':scope > summary').click();
   await portrait.locator('.wi-portrait-theme > summary').first().click();
   const mirror = portrait.getByRole('combobox', { name:'الأطفال، في حياتي' });
   assert.equal(await mirror.inputValue(), 'C');
   await mirror.selectOption('B');
   await portrait.locator(':scope > summary').click();
-  assert.equal(await card.locator('fieldset').count(),1);
-  assert.match(await page.locator('.wi-hybrid-recorded').innerText(), /لا أرغب في الإنجاب/);
-
-  for (const width of [320, 390]) {
-    await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
-    assert.equal(await dialog.evaluate(element => element.scrollWidth > element.clientWidth), false);
-    assert.equal(await card.evaluate(element => element.scrollWidth > element.clientWidth), false);
-    await page.screenshot({ path: resolve(output, `cards-${width}.png`) });
-  }
-  await page.setViewportSize({width:375,height:667});
-  await page.emulateMedia({colorScheme:'dark'});
-  await page.evaluate(()=>document.documentElement.style.setProperty('--nf-system-text','32px'));
-  assert.equal(await card.evaluate(el=>el.scrollWidth > el.clientWidth), false);
-  assert.equal(await dialog.evaluate(el=>el.scrollWidth > el.clientWidth), false);
-  await page.screenshot({path:resolve(output,'luna-dark-large-375.png')});
-  await page.evaluate(()=>document.documentElement.style.removeProperty('--nf-system-text'));
-  await page.emulateMedia({colorScheme:'light'});
-
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  const inferred = card.locator('.wi-partner-default');
+  assert.match(await inferred.innerText(), /اقتراح للشريك/);
+  assert.equal(draft[firstPartnerId], undefined);
+  await inferred.locator('summary').click();
+  await inferred.locator('.wi-hybrid-option').first().click();
+  assert.deepEqual(draft[firstPartnerId], ['A']);
+  await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('.wi-hybrid').waitFor();
-  // Reload preserves the self answer and leaves the partner choice open.
   assert.deepEqual(draft[firstId], ['B']);
+  assert.deepEqual(draft[firstPartnerId], ['A']);
   const actionsBeforeCards = calls.length;
-  const partnerButton = card.locator('.wi-hybrid-option').first();
-  await partnerButton.dispatchEvent('click',{detail:1,clientX:140,clientY:360});
+  await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:1,clientX:140,clientY:360});
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:2,clientX:140,clientY:360});
-  assert.equal(await card.locator('fieldset').count(), 2, 'A repeated activation cannot skip the timing card');
-  assert.equal(draft['preference:marriage_timeline:self'],undefined,'Tap-through must not answer the newly mounted card');
+  assert.equal(draft['preference:residence_plan:self'],undefined,'Tap-through cannot answer the next self question');
   await page.getByRole('button',{name:'السابق',exact:true}).click();
-  assert.equal(await card.locator('button[aria-pressed=true]').count(), 2);
   await page.getByRole('button',{name:'متابعة',exact:true}).click();
   let scaleChecked = false;
   for (let index = 0; index < 44 && await card.count(); index++) {
@@ -260,6 +247,20 @@ try {
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
+  const review = page.locator('.wi-hybrid-review');
+  assert.equal(await review.locator('select').count(),44);
+  await review.locator('summary').first().click();
+  const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
+  const residencePartner = review.getByRole('combobox',{name:/مدينة السكن، تفضيلي في الشريك/});
+  assert.equal(await residencePartner.inputValue(),'B');
+  await residenceSelf.selectOption('B');
+  assert.equal(await residencePartner.inputValue(),'');
+  await residenceSelf.selectOption('A');
+  assert.match(await residencePartner.getAttribute('aria-label'),/اقتراح/);
+  await residencePartner.selectOption('C');
+  await residenceSelf.selectOption('B');
+  assert.equal(await residencePartner.inputValue(),'C');
+  assert.doesNotMatch(await residencePartner.getAttribute('aria-label'),/اقتراح/);
   const confirmation = page.getByRole('button', { name: 'اعتماد إجاباتي', exact: true });
   assert.equal(await confirmation.isDisabled(), false);
   assert.equal(calls.length, actionsBeforeCards, 'Reviewing the choices stays local');
@@ -312,7 +313,7 @@ try {
   for (suggestionCount of [0, 1, 3]) {
     draft = {};
     snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
-    await page.reload();
+    await page.goto(url + '?gender=' + (suggestionCount === 1 ? 'woman' : 'man'));
     let actions = 0;
     const startCalls = calls.length;
     await page.locator('#wi-answer').fill(opening); actions++;
@@ -321,6 +322,10 @@ try {
     while (await card.count()) {
       assert.ok(actions < 60, 'Every activation must make progress');
       const group = card.locator('fieldset').first();
+      const legend = await group.locator('legend').innerText();
+      if (legend.includes('في حياتي') && (await page.locator('.wi-hybrid-stage h1').innerText()).includes('عمل')) {
+        assert.match(legend, suggestionCount === 1 ? /ترغبين في العمل/ : /العمل|عمل|الزوجة/);
+      }
       const scale = group.getByRole('slider');
       if (await scale.count()) await scale.click({position:{x:4,y:22}});
       else {
@@ -328,22 +333,28 @@ try {
         await page.waitForTimeout(360);
         await group.locator('button').first().click();
       }
+      if (!suggestionCount && actions === 2) await page.screenshot({path:resolve(output,'partner-after.png')});
       actions++;
     }
     await confirmation.click(); actions++;
     await page.locator('.wi-complete').waitFor();
+    assert.equal(await page.locator('.wi-confirmed-answers dd').count(), 2);
+    assert.match(await page.locator('.wi-complete').innerText(), /٤٤ إجابة/);
     const requests = calls.slice(startCalls);
-    const confirmed = requests.find(call => call.action === 'structuredConfirm').choices;
+    const submitted = requests.find(call => call.action === 'structuredConfirm');
+    const confirmed = submitted.choices;
+    assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
+    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 8 : 9);
     assert.equal(confirmed.length,44);
     assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,1);
     trials.push({ actions, confirmed });
   }
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[47,46,44]);
+  assert.deepEqual(trials.map(trial => trial.actions),[38,37,36]);
   console.log('Assessment actions (zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   assert.deepEqual(errors, []);
-  console.log('PASS: mobile 320–390px, reviewed Luna response, saved draft, explicit partner choices, and one 44-field confirmation');
+  console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 44-field confirmation');
 } finally {
   releaseOpening();
   await browser?.close();

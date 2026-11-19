@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { Check, ChevronRight, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
+import { Check, ChevronRight, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { cityOptions, professionOptions, educationOptions } from '../profile/profileOptions';
@@ -109,15 +109,33 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,visibleIndex-1) : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
+  const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
+  const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
   return <section ref={container} className="wd-signup-slides" aria-label="خطوات إعداد الملف" data-chapter={chapter} data-slide-index={visibleIndex}>
     <div className="wd-slide-progress"><span>{slideLabels[slideChapter]}</span><span className="wd-slide-position" data-complete={complete||undefined}>خطوة {arabicNumber(index+1)} <i>من {arabicNumber(count)}</i>{complete&&<Check size={13} aria-label="اكتملت الخطوة"/>}</span></div>
     <div className="wd-slide-track" role="progressbar" aria-label="الخطوة الحالية في هذا القسم" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index+1}>{Array.from({length:count},(_,i)=><span key={i} data-state={i<index?'done':i===index?'current':undefined}/>)}</div>
     <MotionReveal key={`${chapter}:${index}`} className="wd-slide-content" data-complete={complete||undefined} axis="x" distance={direction==='next'?-10:10} fromOpacity={0.86} duration={200}>
-      <div className="wd-slide-heading"><span className="wd-slide-icon" data-complete={complete||undefined} aria-hidden="true">{complete?<Check size={20} strokeWidth={1.9}/>:<SlideIcon size={20} strokeWidth={1.7}/>}</span><div><span className="wd-slide-kicker">{subtitle}</span><h2 ref={heading} tabIndex={-1}>{title}</h2></div></div>
+      <div className="wd-slide-heading">
+        <div><h2 ref={heading} tabIndex={-1}>{title}</h2><p className="wd-slide-kicker">{subtitle}</p></div>
+        <span className="wd-slide-icon" data-complete={complete||undefined} aria-hidden="true">{complete?<Check size={20} strokeWidth={1.9}/>:<SlideIcon size={20} strokeWidth={1.7}/>}</span>
+      </div>
       <div className="wd-slide-body">
       {chapter==='story'&&draftReady&&<div className="wd-slide-draft-note" role="status"><Sparkles size={17} aria-hidden="true"/><div><strong>جهزنا لك مسودة من إجاباتك.</strong><span>راجع النص وعدّل أي كلمة قبل أن يظهر في ملفك.</span></div></div>}
       {chapter==='identity'&&visibleIndex===0&&<><label>الاسم المعروض<input data-field="displayName" autoComplete="nickname" value={p.displayName} maxLength={60} placeholder="اسمك الأول" required onChange={e=>answer({displayName:e.target.value})}/></label><fieldset className="nf-gender-segment"><legend>كيف نعرّفك؟</legend><div className="choice-row">{(['woman','man']as const).map(value=><button type="button" key={value} aria-pressed={p.gender===value} onClick={()=>{setError(null);setInteracted(true);gender(value);}}>{value==='woman'?'امرأة':'رجل'}{p.gender===value&&<Check size={16}/>}</button>)}</div></fieldset></>}
-      {chapter==='identity'&&visibleIndex===1&&<><label>{p.birthDate ? "تاريخ الميلاد · ميلادي" : "اختر تاريخ ميلادك · ميلادي"}<input data-field="birthDate" type="date" dir="ltr" autoComplete="bday" value={p.birthDate??''} min="1900-01-01" max={latestAdultBirthday()} required onChange={e=>{const birthDate=e.target.value,age=ageFromBirthday(birthDate);answer({birthDate,age:age===null?'':String(age)});}}/></label>{p.birthDate&&ageFromBirthday(p.birthDate)!>=18&&<p className="wd-slide-detail">يظهر في ملفك: {arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا</p>}</>}
+      {chapter==='identity'&&visibleIndex===1&&<>
+        <label className="wd-birthday-field">{p.birthDate ? "تاريخ الميلاد · ميلادي" : "اختر تاريخ ميلادك · ميلادي"}
+          <input id="wd-birthday" data-field="birthDate" type="date" dir="ltr" autoComplete="bday" value={p.birthDate??''} min="1900-01-01" max={latestAdultBirthday()} required aria-invalid={error ? true : undefined} aria-describedby={error ? 'wd-slide-error' : undefined} onChange={e=>{const birthDate=e.target.value,age=ageFromBirthday(birthDate);answer({birthDate,age:age===null?'':String(age)});}}/>
+        </label>
+        <div className="wd-age-window" data-ready={publicAge !== null || undefined}>
+          <div className="wd-window-caption"><Eye size={16} aria-hidden="true"/><span>ما يظهر في ملفك</span></div>
+          <div className="wd-window-opening">
+            <div><small>للأعضاء المؤهلين</small><strong dir="auto">{p.displayName || 'اسمك المعروض'}</strong></div>
+            <output htmlFor="wd-birthday" aria-live="polite" aria-atomic="true">
+              {publicAge === null ? <span aria-label="لم يتحدد العمر">—</span> : <span key={publicAge} data-age>{arabicNumber(publicAge)}<small>عامًا</small></span>}
+            </output>
+          </div>
+        </div>
+      </>}
       {chapter==='identity'&&visibleIndex===2&&<><p className="wd-slide-description">نقرّب لك الخيارات التي تناسب مكان حياتك.</p><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/></>}
       {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">سؤالان واضحان قبل جلسة التوافق، حتى لا نأخذ من وقتك إذا لم يكن المسار مناسبًا.</p><MarriageBasicsFields activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
       {chapter==='story'&&visibleIndex===0&&<>{!showSaved && entryFields.some(field=>['profession','education'].includes(field.fieldId)) && <button type="button" className="nf-intake-policy" onClick={()=>setShowSaved(true)}>تعديل العمل والدراسة المحفوظين</button>}{(showSaved || !entryFields.some(field=>field.fieldId==='profession')) && <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>}{(showSaved || !entryFields.some(field=>field.fieldId==='education')) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}</>}
@@ -132,7 +150,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields hiddenFields={hiddenFields} activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>
-    {error&&<p className="wd-slide-error" role="alert">{error}</p>}
+    {error&&<p id="wd-slide-error" className="wd-slide-error" role="alert">{error}</p>}
     <div className="wd-slide-foot">{index>0?<button type="button" onClick={()=>move(index-1)}><ChevronRight size={16}/>السابق</button>:<span/>}</div>
   </section>;
 });

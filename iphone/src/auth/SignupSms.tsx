@@ -42,9 +42,9 @@ function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(res
   {!proof&&<p className="nf-sms-precision">تأكيد الجوال يحمي الحساب، لكنه لا يُعد تحققًا من الهوية الوطنية.</p>}
   {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر خلال فترة الاختبار.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
-   <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} readOnly={Boolean(proof)} onChange={e=>setPhone(e.target.value)}/></label>
-   {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} onChange={e=>setCode(e.target.value.replace(/[^0-9٠-٩]/g,''))}/></label>}
-   {error&&<p role="alert" className="form-error">{error}</p>}
+   <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} readOnly={Boolean(proof)} aria-describedby={!proof && error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>
+   {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setCode(e.target.value.replace(/[^0-9٠-٩]/g,''));setError('');}}/></label>}
+   {error&&<p id="signup-sms-error" role="alert" className="form-error">{error}</p>}
    <button className="f-primary" disabled={busy||(!proof&&cooldown>0)}>{busy?'لحظات…':!proof&&cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:proof?'تأكيد وإنشاء حسابي':'إرسال رمز التحقق'}</button>
   </form>
   {proof&&<div className="nf-sms-links"><button type="button" aria-live="polite" disabled={busy||cooldown>0} onClick={()=>void send()}>{cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:'إرسال رمز جديد'}</button><button type="button" disabled={busy} onClick={()=>{setProof('');setCode('');setError('');}}>تعديل الرقم</button></div>}

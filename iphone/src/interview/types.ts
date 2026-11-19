@@ -48,6 +48,7 @@ export type InterviewSnapshot = {
   expiresAt?: string | null;
   fallbackAvailable?: boolean;
   structuredConfirmation?: boolean;
+  inferredPartnerIds?: string[];
   coverage?: { answered: number; required: number };
   choiceHelp?: InterviewChoiceHelp;
 };

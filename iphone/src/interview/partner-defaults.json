@@ -1,0 +1,89 @@
+{
+  "children_plan": {
+    "A": "A",
+    "B": "B",
+    "C": null
+  },
+  "residence_plan": {
+    "A": "B",
+    "B": null,
+    "C": null
+  },
+  "wife_work": {
+    "A": "A",
+    "B": "B",
+    "C": null
+  },
+  "marriage_timeline": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": null
+  },
+  "family_authority": {
+    "A": "A",
+    "B": "B",
+    "C": null
+  },
+  "financial_provision": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": null
+  },
+  "domestic_labor": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": null
+  },
+  "housing_arrangement": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": null
+  },
+  "social_rhythm": {
+    "A": null,
+    "B": null,
+    "C": null
+  },
+  "mixed_gatherings": {
+    "A": null,
+    "B": null,
+    "C": null
+  },
+  "match_disagreement_style": {
+    "A": null,
+    "B": null,
+    "C": null,
+    "D": null
+  },
+  "repair_after_conflict": {
+    "A": null,
+    "B": null,
+    "C": null
+  },
+  "faith_routine": {
+    "A": "A",
+    "B": null,
+    "C": "C"
+  },
+  "closeness_pace": {
+    "A": null,
+    "B": null,
+    "C": null
+  },
+  "public_event_attendance": {
+    "A": null,
+    "B": null,
+    "C": null,
+    "D": null
+  },
+  "parenting_approach": {
+    "A": null,
+    "B": null,
+    "C": null,
+    "D": null
+  }
+}

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pe
 import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
-import { HybridAssessment } from './HybridAssessment';
+import { ConfirmedAnswers, HybridAssessment } from './HybridAssessment';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
 import topics from './catalog.json';
@@ -61,11 +61,12 @@ type Props = {
   assessmentContext?: InterviewSelection[];
   onStructuredDraftChange?: (choices: Record<string, string[]>) => void;
   gender?: 'woman' | 'man';
+  hardRequirements?: readonly string[];
   sensitiveProfileAllowed?: boolean;
   onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
-export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, assessmentContext, onStructuredDraftChange, gender, sensitiveProfileAllowed = false, onProfileApply }: Props) {
+export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -324,12 +325,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     return result;
   }
 
-  async function confirm(structuredChoices?: InterviewSelection[]) {
+  async function confirm(structuredChoices?: InterviewSelection[], inferredPartnerIds?: string[]) {
     if (activeRequest.current?.action === 'draft' && !await afterDraft('confirm')) return;
     const choices = structuredChoices ?? validProposals.map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values) }));
     if (!choices.length || choices.some(choice => !choice.values.length)) return;
     const approvedProfile = onboarding && !includeProfile ? [] : profileChoices;
-    const result = await call(structuredChoices ? 'structuredConfirm' : 'confirm', { choices, shareReview, ...(approvedProfile.length ? { profileChoices: approvedProfile.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
+    const result = await call(structuredChoices ? 'structuredConfirm' : 'confirm', { choices, shareReview, ...(inferredPartnerIds ? { inferredPartnerIds } : {}), ...(approvedProfile.length ? { profileChoices: approvedProfile.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
     if (result?.document) {
       const selectedProfile = result.document.profileConfirmed?.filter(p=>approvedProfile.some(choice=>choice.id===p.id)) ?? [];
       if (selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
@@ -454,7 +455,13 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {profileChoices.length<profileProposals.length-ignoredProfile.length && <p className="wi-review-attention">التفاصيل غير الواضحة تبقى معلّقة حتى توضّحها؛ لن نملأها بالتخمين.</p>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
-        : applied ? <section className="wi-complete"><span className="wi-complete-mark" aria-hidden="true"><Check size={30}/></span><h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1><p>أضفنا إجاباتك إلى مسودة ملفك. يمكنك مراجعتها قبل إرساله.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button></section>
+        : applied ? <section className="wi-complete">
+          <h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1>
+          <p>{snapshot.structuredConfirmation ? `أضفنا ${number(doc.confirmed.length)} إجابة اعتمدتها إلى مسودة ملفك.` : 'أضفنا إجاباتك إلى مسودة ملفك.'} يمكنك مراجعتها قبل إرساله.</p>
+          {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender}/>}
+          <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton>
+          <button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button>
+        </section>
         : hybrid ? <section aria-label="أسئلة جلسة التوافق" className="wi-card-session">
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
           {profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
@@ -479,7 +486,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               if (!result.choiceHelp) throw new InterviewError('تعذّر الحصول على المساعدة الآن.', 'unavailable', 503);
               return result.choiceHelp;
             } : undefined}
-            onComplete={choices => void confirm(choices)} gender={gender} disabled={busy === 'structuredConfirm'}
+            unresolvedPartnerIds={[...hardRequirements.map(id => `preference:${id}:partner`), ...validProposals.filter(item => item.side === 'partner' && item.source !== 'self_default' && !aiProposals.includes(item)).map(item => item.id)]}
+            onComplete={(choices, inferredIds) => void confirm(choices, inferredIds)} gender={gender} disabled={busy === 'structuredConfirm'}
             completingUnavailable={!hybridReady || actionBlocked || clarifying || Boolean(answer.trim())}
             onClarify={hybridReady && !actionBlocked && !clarifying ? () => setClarifying(true) : undefined}
             reviewExtras={<>
@@ -538,7 +546,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {!!profileProposals.length && <button className="wi-profile-summary-link" type="button" onClick={()=>setProfileReview(true)} disabled={actionBlocked}><span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل لملفك وتفضيلاتك</span><span>مراجعة <ArrowLeft size={13}/></span></button>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
-            {openingTurn && <div className="wi-opening-note"><span>ابدأ من قصتك.</span><p>عرّفنا عن حياتك وما تريده من الزواج في فقرة قصيرة. هذا حديث خاص للتحليل؛ تكتب نبذة ملفك لاحقًا.</p></div>}
+            {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>اكتب للونا فقرة قصيرة عنك وعن الزواج الذي تتمناه. حديثك خاص، وتكتب نبذة ملفك لاحقًا.</p></div>}
             {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>

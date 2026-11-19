@@ -55,9 +55,33 @@
 }
 
 .wi-hybrid-field { border: 0; min-inline-size: 0; margin: 0; padding: 0; }
-.wi-hybrid-field + .wi-hybrid-field { border-top: 1px solid var(--hybrid-line); padding-top: 12px; }
-.wi-hybrid-field legend { font-size: 0.9375rem; font-weight: 650; line-height: 1.7; padding: 0; margin-bottom: 8px; }
-.wi-hybrid-options { display: grid; gap: 7px; }
+.wi-hybrid .wi-hybrid-card {
+  padding: 0;
+  gap: 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.wi-hybrid-field { --side-accent: var(--hybrid-accent); --side-tint: var(--hybrid-tint); }
+.wi-hybrid-field[data-side=partner] { --side-accent: #385e54; --side-tint: #eff5f1; }
+.wi-hybrid-field legend { font-size: 1rem; font-weight: 650; line-height: 1.65; padding: 0; margin-bottom: 10px; }
+.wi-field-side {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-block-end: 4px;
+  color: var(--side-accent);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+.wi-hybrid-options {
+  display: grid;
+  padding-inline: 12px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 15px;
+  background: #fff;
+}
 .wi-hybrid-field[data-compact] .wi-hybrid-options { display: flex; flex-wrap: wrap; }
 .wi-hybrid-option {
   display: flex;
@@ -65,22 +89,24 @@
   gap: 9px;
   background: #fff;
   color: var(--hybrid-ink);
-  border: 1px solid var(--hybrid-line);
-  border-radius: 12px;
-  padding: 9px 11px;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 3px;
   min-height: 44px;
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   line-height: 1.6;
   text-align: start;
   cursor: pointer;
   transition: background .16s, border-color .16s;
 }
-.wi-hybrid-option:not(:disabled):hover { border-color: #b595a5; }
+.wi-hybrid-option + .wi-hybrid-option { border-block-start: 1px solid var(--hybrid-line); }
+@media (hover: hover) { .wi-hybrid-option:not(:disabled):hover { color: var(--side-accent); background: var(--side-tint); } }
+.wi-hybrid-option:focus-visible { outline: 2px solid var(--side-accent); outline-offset: -2px; }
 .wi-hybrid-option:disabled { opacity: .6; cursor: default; }
-.wi-hybrid-option[aria-pressed=true] { background: var(--hybrid-tint); border-color: #a26d84; color: var(--hybrid-accent); }
+.wi-hybrid-option:is([aria-pressed=true], :active) { background: var(--side-tint); color: var(--side-accent); }
 .wi-hybrid-option-mark { display: grid; place-items: center; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1px solid #bba4af; }
-.wi-hybrid-option[aria-pressed=true] .wi-hybrid-option-mark { color: #fff; background: var(--hybrid-accent); border-color: var(--hybrid-accent); }
+.wi-hybrid-option[aria-pressed=true] .wi-hybrid-option-mark { color: #fff; background: var(--side-accent); border-color: var(--side-accent); }
 .wi-hybrid-field[data-compact] .wi-hybrid-option { font-size: 0.75rem; flex: 1 1 110px; }
 
 .wi-hybrid-suggestion {
@@ -263,7 +289,7 @@
   cursor: pointer;
 }
 .wi-reflection { margin-top: 9px; background: #fff; }
-.wi-card-help > button { min-height: 34px; padding-inline: 0; font-size: 0.75rem; }
+.wi-card-help > button { min-height: 44px; padding-inline: 3px; font-size: 0.8125rem; }
 .wi-choice-help {
   display: grid;
   gap: 9px;
@@ -319,6 +345,28 @@
 .wi-hybrid-evidence summary { cursor:pointer; }
 .wi-hybrid-evidence q { display:block; padding-block:0.35rem; overflow-wrap:anywhere; }
 
+.wi-confirmed-answers dl {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,8.3rem),1fr));
+  gap:13px 17px;
+  margin:0;
+  padding-block:12px 0;
+  border-block-start:1px solid var(--hybrid-line);
+}
+.wi-confirmed-answers dt { color:var(--hybrid-accent); line-height:1.65; font-size:.8125rem; font-weight:600; }
+.wi-confirmed-answers dd { margin:3px 0; color:var(--hybrid-ink); line-height:1.6; font-size:1rem; font-weight:600; overflow-wrap:anywhere; }
+.wi-dialog .wi-complete:has(.wi-confirmed-answers) { text-align:start; }
+.wi-confirmed-answers { margin:22px 0 26px; }
+.wi-dialog .wi-confirmed-answers h2 { margin:0 0 10px; color:var(--hybrid-ink,#432f3a); font-size:1.1rem; line-height:1.6; }
+.wi-confirmed-answers dl { border-color:var(--line,#e9dfe4); }
+.wi-confirmed-answers dt { color:var(--accent,#68213c); }
+.wi-confirmed-answers dd { color:var(--ink,#432f3a); }
+.wi-hybrid-captured-review > .wi-link { margin: 0 12px 6px; min-block-size: 44px; }
+.wi-hybrid .wi-hybrid-stage > h1 { scroll-margin-block-start: calc(env(safe-area-inset-top) + 70px); }
+.wi-hybrid-recorded:not(:empty) { margin-block:0 12px; font-size:.8125rem; border-inline-start:2px solid var(--hybrid-accent); padding-inline-start:9px; }
+.wi-hybrid-recorded[data-echo] { position:absolute; clip-path:inset(50%); inline-size:1px; block-size:1px; overflow:hidden; }
+.wi-self-echo { display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 10px; padding:8px 12px; margin:0 0 15px; border-inline-start:2px solid var(--hybrid-accent); background:#f8f2f4; font-size:.875rem; line-height:1.65; }
+.wi-self-echo span { color:#755261; font-size:.75rem; }
 .wi-hybrid-captured-review > summary > span { display: inline-flex; align-items: center; gap: .5em; }
 .wi-extracted-count { display: inline-grid; place-items: center; padding-inline: .45em; min-width: 1.6em; border-radius: 1em; background: var(--hybrid-tint); font-variant-numeric: tabular-nums; }
 .wi-hybrid-captured-review > p { margin: 0; padding: 0 14px .75rem; font-size: .8125rem; line-height: 1.75; }
@@ -336,3 +384,9 @@
   html:not([data-nf-motion=reduced]) .wi-hybrid-captured-review > summary svg { transition: transform var(--nf-motion-press,140ms); }
 }
 @keyframes wi-open-extraction { from { opacity: .78; transform: translateY(-4px); } }
+
+.wi-partner-default { margin-block: 8px 14px; border-block: 1px solid var(--line, #e6dadf); }
+.wi-partner-default > summary { display: grid; grid-template-columns: minmax(0,1fr) auto; align-content: center; min-height: 44px; padding-block: 7px; cursor: pointer; }
+.wi-partner-default > summary span { grid-column: 1 / -1; font-size: .75rem; }
+.wi-partner-default > summary strong { font-size: .875rem; font-weight: 550; }
+.wi-partner-default > summary small { padding-inline-start: 10px; text-decoration: underline; }

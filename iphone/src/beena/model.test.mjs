@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { beenaScenarios, beenaVersion, validBeenaProfile, beenaProgress, compareBeena, beenaRankMultiplier } from './model.ts';
-import { describeFit, comparePreferences, dimensions, rankPreferences } from '../compatibility/model.ts';
+import { describeFit, comparePreferences, dimensionsForVersion, rankPreferences } from '../compatibility/model.ts';
 
 const complete = (self = 'A', partner = ['B']) => ({ version: beenaVersion,
   answers: Object.fromEntries(beenaScenarios.map(s => [s.id, { self, partner, importance: 1 }])) });
@@ -79,7 +79,7 @@ test('stories use a Unicode codepoint limit and cannot change matching or appear
 });
 
 test('Beena nudges ordering only when complete without changing existing percentages or eligibility', () => {
-  const surveyAnswers = Object.fromEntries(dimensions.flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']]));
+  const surveyAnswers = Object.fromEntries(dimensionsForVersion('marriage-v3').flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']]));
   const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 25, preferredMaxAge: 40,
     assessmentVersion: 'marriage-v3', surveyAnswers, beena: first };
   const b = { ...a, id: 'b', gender: 'man', beena: second };
@@ -90,6 +90,6 @@ test('Beena nudges ordering only when complete without changing existing percent
   assert.equal(describeFit({ ...a, beena: undefined }, b).rankValue, legacy.rankValue);
   const incompatible = { ...b, id: 'z', beena: complete('C', ['D']) };
   assert.deepEqual(rankPreferences(a, [incompatible, { ...b, beena: undefined, id: 'm' }, b]).map(x => x.person.id), ['b', 'm', 'z']);
-  assert(comparePreferences(a, { ...b, preferredMinAge: 30 }).rankValue < fit.rankValue);
+  assert.equal(comparePreferences(a, { ...b, preferredMinAge: 30 }), null);
   assert.equal(comparePreferences(a, { ...b, gender: 'woman' }), null);
 });

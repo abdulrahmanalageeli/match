@@ -209,12 +209,19 @@ test('an open recommended profile refreshes after moving out of the top five, th
   m.render(); await settle(); let tree = m.render();
   named(tree, 'PersonCard').props.open({ closest: () => null, querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
   tree = m.render(); assert.equal(tree.props.person.fit.preference, 90);
-  source.discover = async filters => filters.mode === 'all' ? [person(61)] : [person(95, 'new-top-match')];
+  const lookups = [];
+  let eligible = true;
+  source.discover = async filters => {
+    if (!filters.subjectId) return [person(95, 'new-top-match')];
+    lookups.push([filters.mode, filters.subjectId]);
+    return eligible ? [person(61)] : [];
+  };
   source.notify(); await settle(); tree = m.render();
   assert.equal(tree.type.name, 'MemberProfile'); assert.equal(tree.props.person.fit.preference, 61);
-  source.discover = async () => [person(95, 'new-top-match')];
+  eligible = false;
   source.notify(); await settle(); tree = m.render();
-  assert.notEqual(tree.type?.name, 'MemberProfile'); m.close();
+  assert.notEqual(tree.type?.name, 'MemberProfile');
+  assert.deepEqual(lookups, [['recommended', 'partner'], ['recommended', 'partner']]); m.close();
 });
 
 test('an open compatibility sheet refreshes in place and changes arriving during a read are not lost', async () => {

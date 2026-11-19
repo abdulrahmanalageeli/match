@@ -6,7 +6,7 @@ import {createServer} from 'vite';
 
 let loader,ProfilePhotoChoice;
 before(async()=>{
- loader=await createServer({configFile:false,appType:'custom',logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+ loader=await createServer({configFile:false,appType:'custom',define:{'import.meta.env.VITE_MARRIAGE_ENV':JSON.stringify('test')},logLevel:'error',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
  ({ProfilePhotoChoice}=await loader.ssrLoadModule('/src/onboarding/ProfilePhotoChoice.tsx'));
 });
 after(()=>loader?.close());

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import { isolateCommunityServices } from '../../tests/fixtures/isolated-community-services.mjs';
 import { pairAssessmentFixture } from './pairAssessmentFixture.ts';
 import { projectPairState } from '../../supabase/functions/_shared/pair-privacy.ts';
 import { compareBeena } from '../beena/model.ts';
@@ -10,12 +11,12 @@ import { conversationInsights } from '../compatibility/conversation-insights.ts'
 const fixture = { city:'الرياض', age:29, preferredMinAge:22, preferredMaxAge:40, interestIds:[], surveyAnswers:{}, marriageBasics:{} };
 let compiled = ts.transpileModule(await readFile(new URL('./pair.ts', import.meta.url), 'utf8'),
   { compilerOptions:{ target:ts.ScriptTarget.ES2022, module:ts.ModuleKind.ESNext } }).outputText;
-compiled = compiled
+compiled = isolateCommunityServices(compiled)
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/, "const requestAi=async()=>{throw Error('offline')};")
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/verification\/client['"];?/, 'const manualVerificationSource=()=>({});')
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/, "const marriageProjectUrl='https://test.invalid';const marriagePublishableKey='public';")
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile=${JSON.stringify(fixture)};
-    const demoCommunity=viewer=>({inbox:async()=>[],watch:()=>()=>{},discover:async()=>[{id:'fictional',age:29,viewer:viewer()}]});`)
+    const matchesDiscoveryFilters=()=>true; const demoCommunity=viewer=>({inbox:async()=>[],watch:()=>()=>{},discover:async()=>[{id:'fictional',age:29,viewer:viewer()}]});`)
   .replace(/from (['"])(\.{1,2}\/[^'"]+)\1/g, (_all,_quote,path)=>'from '+JSON.stringify(new URL(path+'.ts',import.meta.url).href));
 const { pairSource, testProfile } = await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const flush = () => new Promise(resolve=>setImmediate(resolve));
@@ -106,7 +107,7 @@ test('own edits on another device refresh discovery but preserve open drafts and
   h.profiles.abdulrahman.surveyAnswers.children_plan='B';h.revisions.abdulrahman='other-device';
   await h.tick();
   assert.equal(viewer.surveyAnswers.children_plan,'A','An open editor is not silently overwritten');
-  const [fictional]=await pair.source.discover({});
+  const fictional=(await pair.source.discover({})).find(person=>person.id==='fictional');
   assert.equal(fictional.viewer.surveyAnswers.children_plan,'B','Discovery uses the current saved assessment');
   assert.equal(fictional.viewer.gender,'woman','Admin browsing gender is retained');
   await assert.rejects(pair.save(viewer),error=>error.status===409);

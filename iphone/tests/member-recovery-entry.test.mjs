@@ -26,6 +26,7 @@ async function entry(href, mode = 'production') {
     './settings/preferences': { initializeDevicePreferences: () => events.push(['preferences']) },
     './monitoring': { AppBoundary: 'AppBoundary', initializeFaultReporting: () => events.push(['monitoring']) },
     './mobile/keyboardViewport': { initializeKeyboardViewport: () => { events.push(['keyboard']); return () => {}; } },
+    './mobile/safeAreaLight': { initializeSafeAreaLight: () => { events.push(['safeAreaLight']); return () => {}; } },
   };
   const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source.replaceAll('import.meta', '__meta'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;

@@ -9,7 +9,15 @@ before(async () => {
   loader = await createServer({
     configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true },
     server: { middlewareMode: true, hmr: false },
-    plugins: [{ name: 'verification-render-exports', transform(code, id) {
+    plugins: [{ name: 'verification-render-exports', enforce: 'pre', load(id) {
+      if (id.replaceAll('\\', '/').endsWith('/src/ScenePaths.tsx')) return 'export const ScenePaths = () => null;';
+      if (id.replaceAll('\\', '/').endsWith('/src/motion/Reanimated.tsx')) {
+        // Keep semantic controls and children in the server-rendered markup.
+        return `import {createElement} from 'react';
+          export const MotionPressButton = 'button';
+          export const MotionReveal = ({as = 'div', delay, duration, active, axis, distance, fromOpacity, fromScale, ...props}) => createElement(as, props);`;
+      }
+    }, transform(code, id) {
       if (id.replaceAll('\\', '/').endsWith('/src/community/Community.tsx')) return code + '\nexport { DirectoryRow, PersonCard };';
       // Render tests must not initialize a live authentication client.
       if (id.replaceAll('\\', '/').endsWith('/src/cloud.ts')) return code.replace(/export const cloud =\s*deployment\.ready/, 'export const cloud = false');
@@ -77,12 +85,12 @@ test('document collection is unavailable for demo, testers and members while his
   noNestedButtons(tester);
 });
 
-test('Settings exposes the verification center only when the source supports it', () => {
+test('Settings hides verification history until earlier requests have loaded', () => {
   const props = { state: null, demo: true, demoMember: profile, paused: false, busy: false, onEdit: noop, onMembership: noop, onToggle: noop, onDelete: noop, onExit: noop, onPrivacy: noop };
-  const html = render(Settings, { ...props, source });
-  assert.match(html, /st-verification-entry/);
-  assert.match(html, /استقبال المستندات متوقف/);
-  assert.match(html, /متابعة الطلبات السابقة وسحبها/);
-  noNestedButtons(html);
-  assert.doesNotMatch(render(Settings, { ...props, source: {} }), /st-verification-entry/);
+  // discovery-refinement.browser.mjs covers the row after the history request resolves.
+  for (const available of [source, {}]) {
+    const html = render(Settings, { ...props, source: available });
+    assert.doesNotMatch(html, /st-verification-entry/);
+    noNestedButtons(html);
+  }
 });

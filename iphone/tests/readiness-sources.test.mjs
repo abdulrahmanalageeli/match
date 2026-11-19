@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
+import { isolateCommunityServices } from './fixtures/isolated-community-services.mjs';
 import {emptyReadinessPassport, preparationItems} from '../src/readiness/model.ts';
 
-const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const compile=async path=>isolateCommunityServices(ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const rewrite=source=>source.replaceAll("'../readiness/model'",JSON.stringify(new URL('../src/readiness/model.ts',import.meta.url).href)).replaceAll("'../family/model'",JSON.stringify(new URL('../src/family/model.ts',import.meta.url).href));
 const dataUrl=url(rewrite(await compile('../src/community/data.ts'))
- .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
+  .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
@@ -20,7 +21,7 @@ const dataUrl=url(rewrite(await compile('../src/community/data.ts'))
  + '\nconst cloud={}; const callRpc=(...args)=>globalThis.__readinessRpc(...args); class CloudError extends Error{} const privateUpdates=()=>()=>()=>{};');
 const {cloudCommunity,demoCommunity,demoProfile}=await import(dataUrl);
 const {pairSource,testProfile}=await import(url(rewrite(await compile('../src/testing/pair.ts'))
- .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
+  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
  .replace("'../community/data'",JSON.stringify(dataUrl))
  .replace("'../compatibility/model'",JSON.stringify(new URL('../src/compatibility/model.ts',import.meta.url).href))

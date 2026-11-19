@@ -24,7 +24,7 @@ function mount(rows, draft = '') {
     useRef: value => hooks[cursor++] ??= { current: value }, useId: () => `id-${cursor++}`,
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
-  const thread = { rows, ready: true, pendingReactionIds: new Set(), get draft() { return draft; }, refresh: noop, older: noop,
+  const thread = { rows, ready: true, connectionState: 'online', pendingReactionIds: new Set(), get draft() { return draft; }, refresh: noop, older: noop,
     outbox: { read: () => ({ draft, reply }), replyTo: value => { reply = value; }, write: value => { draft = value; }, clear: noop },
   };
   const doc = { hidden: false, addEventListener: noop, removeEventListener: noop };
@@ -112,6 +112,9 @@ test('held reactions preserve the draft, close the menu and report failures with
   f.thread.pendingReactionIds.clear(); f.thread.reactToMessage = async () => { throw Error('offline'); };
   named(sheet(f.render()), 'ReactionPicker')[0].props.choose(null); await new Promise(resolve => setImmediate(resolve));
   assert(nodes(f.render()).some(node => node.props?.role === 'alert' && textOf(node).includes('لم يُحفظ التفاعل')));
+  f.thread.connectionState = 'offline';
+  named(f.render(), 'SwipeReply')[0].props.onHold();
+  assert.equal(named(sheet(f.render()), 'ReactionPicker').length, 0);
   f.thread.rows = [msg('received', { deletedAt: new Date().toISOString() })];
   tree = f.render(); assert.equal(named(tree, 'MessageReactions').length, 0);
   assert.equal(named(tree, 'SwipeReply')[0].props.actionsDisabled, true); f.close();

@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
-const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+import { isolateCommunityServices } from './fixtures/isolated-community-services.mjs';
+const compile=async path=>isolateCommunityServices(ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const dataUrl=url((await compile('../src/community/data.ts'))
- .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
+  .replace("'../profile/profileOptions'",JSON.stringify(new URL('../src/profile/profileOptions.ts',import.meta.url).href))
  .replace("'./simulation'",JSON.stringify(new URL('../src/community/simulation.ts',import.meta.url).href))
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
@@ -19,7 +20,7 @@ const dataUrl=url((await compile('../src/community/data.ts'))
  + '\nconst cloud={storage:{from:()=>globalThis.__portraitHarness.storage}}; const callRpc=(...args)=>globalThis.__portraitHarness.rpc(...args); class CloudError extends Error{} const privateUpdates=()=>()=>()=>{};');
 const {cloudCommunity,demoCommunity,demoProfile}=await import(dataUrl);
 const {pairSource,testProfile}=await import(url((await compile('../src/testing/pair.ts'))
- .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
+  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/ai\/client["'];?/, "const requestAi=async()=>{throw Error('offline')};")
  .replace(/import\s*\{[^}]+\}\s*from ["']\.\.\/verification\/client["'];?/, 'const manualVerificationSource=()=>({});')
  .replace("'../family/model'",JSON.stringify(new URL('../src/family/model.ts',import.meta.url).href))
  .replace("'../readiness/model'",JSON.stringify(new URL('../src/readiness/model.ts',import.meta.url).href))
@@ -33,7 +34,10 @@ const photo={id:'11111111-1111-4111-8111-111111111111',path:'owner/blurred.jpg',
 test('cloud authorizes the effective variant; opted-in clear upload is validated before commit',async t=>{
  const calls=[],uploads=[],downloads=[];let policy='serious',failClear=false;
  globalThis.window={setTimeout,clearTimeout};
- globalThis.__portraitHarness={rpc:async(name,payload)=>{calls.push([name,payload]);
+ const selfie=jpeg('camera');
+ globalThis.__portraitHarness={capture:async()=>selfie,verify:async(id,kind,proof)=>{
+  assert.equal(id,photo.id);assert.equal(kind,'portrait');assert.equal(proof,selfie);calls.push(['verified']);
+ },rpc:async(name,payload)=>{calls.push([name,payload]);
   if(name==='marriage_portrait_view')return {...photo,path:'owner/clear.jpg',blur:0,revealed:true};
   if(name==='marriage_portrait_prepare_v2')return {...photo,revealPolicy:payload.reveal_policy,clearPath:payload.reveal_policy==='never'?undefined:'owner/clear.jpg'};
   if(name==='marriage_portrait_commit')return {...photo,revealPolicy:policy,hasClear:policy!=='never'};
@@ -46,7 +50,7 @@ test('cloud authorizes the effective variant; opted-in clear upload is validated
  assert.deepEqual(downloads,['owner/clear.jpg'],'metadata path is never trusted for access');
  const saved=await source.setPortrait(blurred,65,{policy,clearBlob:clear});assert.equal(saved.hasClear,true);
  assert.deepEqual(uploads.map(x=>x[0]),['owner/blurred.jpg','owner/clear.jpg']);assert.equal(uploads[1][1],clear);assert.equal(uploads[1][2].cacheControl,'0');
- assert.equal(calls.at(-1)[0],'marriage_portrait_commit');
+ assert.deepEqual(calls.slice(-2).map(([name])=>name),['verified','marriage_portrait_commit']);
  policy='never';uploads.length=0;await source.setPortrait(blurred,65,{policy,clearBlob:clear});assert.deepEqual(uploads.map(x=>x[0]),['owner/blurred.jpg'],'never does not retain an unsolicited clear image');
  const count=calls.length;await assert.rejects(source.setPortrait(blurred,65,{policy:'family'}),/مجددًا/);assert.equal(calls.length,count);
  failClear=true;const priorCommits=calls.filter(x=>x[0]==='marriage_portrait_commit').length;

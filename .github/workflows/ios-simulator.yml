@@ -1,0 +1,58 @@
+name: Wudayn iPhone simulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/wudayn-ios-simulator]
+permissions:
+  contents: read
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: iphone
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Select and boot an installed iPhone
+        run: |
+          xcodebuild -version
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; groups=json.load(sys.stdin)["devices"]; phones=[d for k,ds in groups.items() if ".iOS-" in k for d in ds if d["name"].startswith("iPhone")]; print(next((d["udid"] for d in phones if d["name"].endswith(" Pro")), phones[0]["udid"]))')
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl list devices booted
+      - name: Build member app and bundle offline test pages
+        run: |
+          npm ci
+          npm run build
+          node tests/simulator/build-fixtures.mjs
+          npx --no-install cap sync ios
+      - name: Configure hosted XCTest in the runner checkout
+        run: |
+          gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
+          ruby tests/simulator/add-test-target.rb
+      - name: Build, install and exercise Wudayn on iPhone
+        run: |
+          mkdir -p "$RUNNER_TEMP/wudayn-results"
+          set -o pipefail
+          xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" -parallel-testing-enabled NO \
+            -derivedDataPath "$RUNNER_TEMP/WudaynBuild" \
+            -resultBundlePath "$RUNNER_TEMP/wudayn-results/Wudayn.xcresult" \
+            | tee "$RUNNER_TEMP/wudayn-results/xcodebuild.log"
+      - name: Save native test results and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wudayn-simulator-results
+          path: ${{ runner.temp }}/wudayn-results
+          retention-days: 7

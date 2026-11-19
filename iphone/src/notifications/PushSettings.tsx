@@ -10,18 +10,21 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
   const [permission, setPermission] = useState('prompt');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [preview,setPreview]=useState<PushPreview>('private');
+  const [preview,setPreview]=useState<PushPreview|null>(null);
   const available = Boolean(owner && (!demo || (testerSession && nativePush)) && pushSupported() && pushConfigured);
   useEffect(() => {
     let active = true;
-    setEnabled(false); setError('');
+    setEnabled(false); setPreview(null); setError('');
+    const refreshPrivacy=()=>{
+      if (available && owner && nativePush) void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);},
+        ()=>{if(active)setPreview(null);});
+    };
     if (available && owner) {
-      void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);}).catch(()=>{});
+      refreshPrivacy();
       void Promise.all([getPushPreference(owner), pushStatus()]).then(([setting, device]) => {
         if (active) { setEnabled(setting.enabled && (!('subscribed' in device) || device.subscribed)); setPermission(device.permission); }
       }, () => { if (active) setError('تعذّر تحميل إعداد الإشعارات.'); });
     }
-    const refreshPrivacy=()=>{if(available&&owner)void pushPrivacy(owner).then(value=>{if(active)setPreview(value.preview);}).catch(()=>{});};
     window.addEventListener('nisfayn:push-privacy',refreshPrivacy);
     return () => { active = false;window.removeEventListener('nisfayn:push-privacy',refreshPrivacy); };
   }, [available, owner]);
@@ -47,12 +50,17 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'تصلك حتى عند إغلاق وُدَين. أنت تختار ما يظهر فيها.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
-      {nativePush&&available&&enabled&&<label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>الاسم أو النص قد يظهران على شاشة القفل. لا تظهر الصور الخاصة.</small></span>
-        <select aria-label="معاينة الإشعارات" value={preview} disabled={busy} onChange={async event=>{
+      {nativePush&&available&&enabled&&<><label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>اختر ما يظهر على شاشة القفل.</small></span>
+        <select aria-label="معاينة الإشعارات" value={preview??''} disabled={busy} onChange={async event=>{
           const next=event.target.value as PushPreview;if(!owner)return;setBusy(true);setError('');
           try{setPreview((await pushPrivacy(owner,next)).preview);}catch{setError('لم يُحفظ إعداد المعاينة. حاول مجددًا.');}finally{setBusy(false);}
-        }}><option value="private">إشعار خاص</option><option value="name">الاسم فقط</option><option value="content">الاسم والرسالة</option></select>
-      </label>}
+        }}><option value="" disabled>اختر المعاينة</option><option value="private">إشعار خاص</option><option value="name">الاسم فقط</option><option value="content">الاسم والرسالة</option></select>
+      </label>
+      {preview&&<div className="st-lock-preview" role="status" aria-label="مثال لإشعار على شاشة القفل">
+        <small><Bell size={14} aria-hidden="true"/> وُدَين · مثال توضيحي</small>
+        <strong>{preview==='private'?'إشعار جديد': 'رسالة من نورة'}</strong>
+        {preview==='content'&&<span>يسعدني أن نتعرّف أكثر.</span>}
+      </div>}</>}
       {nativePush && available && permission === 'denied' && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
         <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>يمكنك السماح بالإشعارات من إعدادات الجهاز.</small></span>
       </button>}

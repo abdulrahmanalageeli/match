@@ -379,3 +379,24 @@ test('unclear unrestricted criteria and sensitive disclosures are not silently a
   const ui=mount({document:{...baseDocument(),profileProposals:[proposal]},revision:1});ui.render();await tick();let tree=ui.render();find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.equal(find(tree,'تفاصيل إلى مسودتي').props.disabled,true);assert.equal(ui.profileApplied.length,0);ui.unmount();
  }
 });
+
+test('signup assessment approval carries only separately approved profile proposals and preserves conflicting manual preferences', async () => {
+  const doc = { ...baseDocument(), promptVersion:'wudayn-interview-4', status:'review', lastMode:'luna',
+    turns:[{id:'t1',topic:'intent',answer:'إجابة',question:'سؤال',skipped:false}],
+    proposals:[proposal], profileProposals:[capturedProfile] };
+  for (const [approve,existing,expected] of [[false,false,0],[true,false,1],[false,true,0]]) {
+    const ui = mount({document:doc,revision:2}, (payload,snapshot) => payload.action === 'structuredConfirm'
+      ? Promise.resolve({...snapshot,revision:3,document:{...doc,status:'confirmed',confirmed:[proposal],profileConfirmed:[capturedProfile]}}) : null);
+    ui.render({onboarding:true,onStructuredDraftChange:noop,profileContext:existing?[{...capturedProfile,values:['hijab']}]:[]});
+    await tick();
+    const card = () => nodes(ui.render()).find(node=>node.type==='hybrid-assessment');
+    const approval = nodes(card().props.reviewExtras).find(node=>node.type==='label' && textOf(node).includes('أضيف التفاصيل المقترحة'));
+    assert.equal(Boolean(approval),!existing);
+    if (approve) nodes(approval).find(node=>node.type==='input').props.onChange({target:{checked:true}});
+    card().props.onComplete([{id:proposal.id,values:['A']}]);
+    await tick();
+    assert.equal(ui.calls.at(-1).profileChoices?.length ?? 0,expected);
+    assert.equal(ui.profileApplied.length,expected);
+    ui.unmount();
+  }
+});

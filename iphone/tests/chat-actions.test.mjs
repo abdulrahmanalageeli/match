@@ -50,6 +50,24 @@ function mount(rows, draft = '') {
   };
 }
 
+test('a receipt marks delivery and reading only when the server row contains those timestamps', () => {
+  const stamp = new Date().toISOString();
+  const rows = [
+    msg('sending', { senderIsMe: true, status: 'sending', clientId: 'c1' }),
+    msg('failed', { senderIsMe: true, status: 'failed', clientId: 'c2', error: 'تعذّر الإرسال' }),
+    msg('acknowledged', { senderIsMe: true, status: 'saved', clientId: 'c3' }),
+    msg('remote', { senderIsMe: true }),
+    msg('delivered', { senderIsMe: true, deliveredAt: stamp }),
+    msg('read', { senderIsMe: true, deliveredAt: stamp, readAt: stamp }),
+    msg('incoming'),
+  ];
+  const f = mount(rows);
+  const receipts = nodes(f.render()).filter(node => node.props?.['data-receipt']);
+  assert.deepEqual(receipts.map(node => node.props['data-receipt']), ['sending', 'failed', 'sent', 'sent', 'delivered', 'read']);
+  assert.deepEqual(receipts.map(node => node.props['aria-label']), ['جارٍ الإرسال', 'تعذّر الإرسال', 'أُرسلت', 'أُرسلت', 'تم التسليم', 'قُرئت']);
+  f.close();
+});
+
 test('bubble metadata stays clean; held received message offers reply and preserves an existing draft', () => {
   const f = mount([msg('received')], 'My unfinished draft'); let tree = f.render();
   const meta = nodes(tree).find(node => node.props?.className === 'cm-message-meta');

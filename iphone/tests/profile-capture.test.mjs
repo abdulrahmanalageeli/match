@@ -70,3 +70,12 @@ test('review corrections replace the addressed value, leaving language and other
  assert.equal(patch.marriageBasics.currentWives,undefined);assert.deepEqual(plain(patch.marriageBasics.spokenLanguages),['العربية']);
  assert.deepEqual(plain(patch.partnerCriteria),{dressStyle:{mode:'any'},smoking:{mode:'require',target:'never'}});
 });
+
+test('restoring confirmed fields fills gaps and preserves explicit answers and unfinished strict criteria', () => {
+  const current = { city: 'جدة', marriageBasics: { childrenCount: 0 }, partnerCriteria: { maritalStatus: { mode: 'require', values: [] } } };
+  const proposals = [proposal('city',['الرياض']), proposal('marriageBasics.childrenCount',['2']),
+    proposal('partnerCriteria.maritalStatus',['never_married']), proposal('marriageBasics.heightCm',['170']),
+    proposal('marriageBasics.weightKg',['65'],{needsClarification:true}), proposal('bio',['نص خاص'])];
+  const missing = exports.unfilledProfileProposals(current, proposals);
+  assert.deepEqual(plain(applyProfileProposals(current, missing)), { marriageBasics: { childrenCount: 0, heightCm: 170 } });
+});

@@ -97,11 +97,16 @@ test('public edits enter review, preserve approved text and accepted chat, and e
   assert.equal(result.user.applicationStatus,'pending');assert.equal(result.user.profileReviewPending,true);
   assert(Date.parse(result.user.nextPublicProfileEditAt)>Date.now()+29*86400000);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'النص المعتمد');
+  const settings=await call(a,'public.marriage_my_settings()');
+  assert.equal(settings.visibility,'review');
+  assert.equal(settings.approvedPreview.bio,'النص المعتمد');
+  assert.equal(settings.approvedPreview.portrait,null);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.portrait,null);
   await send(a,id);await send(b,id);
   await assert.rejects(call(a,'public.marriage_discover()'));
   result=await apply(a,{bio:'تصحيح أثناء المراجعة'});assert.equal(result.profile.bio,'تصحيح أثناء المراجعة');
   await approve(a);assert.equal((await state(a)).user.profileReviewPending,false);
+  assert.equal((await call(a,'public.marriage_my_settings()')).approvedPreview,null);
   assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'تصحيح أثناء المراجعة');
   await assert.rejects(apply(a,{bio:'تعديل مبكر'}),/٣٠ يومًا/);
   result=await state(a);assert.equal(result.profile.bio,'تصحيح أثناء المراجعة');assert.equal(result.user.applicationStatus,'approved');
@@ -109,6 +114,9 @@ test('public edits enter review, preserve approved text and accepted chat, and e
   await db.query("update marriage.members set last_public_profile_edit_at=now()-interval '30 days' where id=$1",[a.id]);
   assert.equal((await state(a)).user.nextPublicProfileEditAt,null);
   assert.equal((await apply(a,{bio:'تعديل في الموعد'})).user.applicationStatus,'pending');
+  await db.query("update marriage.members set approved_profile_snapshot=jsonb_set(approved_profile_snapshot,'{card}','null') where id=$1",[a.id]);
+  assert.equal((await call(a,'public.marriage_my_settings()')).approvedPreview,null);
+  assert.equal((await call(b,'public.marriage_inbox()'))[0].person.bio,'');
  } finally {await db.close();}
 });
 

@@ -47,6 +47,10 @@ function harness(options = {}) {
       assert.equal(config.maxRetries, 0);
       return { chat: { completions: { create: async (request, runtime) => {
         modelCalls.push({ request, runtime, config });
+        if (request.response_format.json_schema.name === 'wudayn_check_choices') {
+          const data = JSON.parse(request.messages[1].content);
+          return completion({answers:options.checkChoices?.(data) ?? []});
+        }
         if (options.failure) throw new Error('PRIVATE PROVIDER ERROR');
         if (request.response_format.json_schema.name === 'wudayn_choice_help') return {
           choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(options.choiceResult) } }],
@@ -109,7 +113,7 @@ test('structured confirmation retains the attested conversation and persists all
   const confirm = revision => h.service({action:'structuredConfirm',revision,choices},headers);
   await assert.rejects(confirm(first.revision), error => error.code === 'introduction_pending');
   const analyzed = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
-  assert(h.modelCalls[0].request.response_format.json_schema.schema.required.includes('replyEvidence'));
+  assert.equal(analyzed.document.currentQuestion, null);
   const attested = h.state.document;
   for (const invalidChoices of [choices.slice(1), [...choices.slice(1), choices[1]], [{...choices[0],values:['Z']},...choices.slice(1)]]) {
     await assert.rejects(h.service({action:'structuredConfirm',revision:analyzed.revision,choices:invalidChoices},headers),error => error.status === 400);
@@ -155,7 +159,8 @@ test('clarification uses the member’s wording in a separate turn and is idempo
   assert.equal(clarified.document.turns.at(-1).answer,payload.answer);
   const replayed = await h.service(payload,headers);
   assert.equal(replayed.document.turns.length,2);
-  assert.equal(h.modelCalls.length,2);
+  assert.equal(h.modelCalls.filter(call => call.request.response_format.json_schema.name === 'wudayn_interview').length,2);
+  assert.equal(h.modelCalls.length,3, 'One independent check of the clarification; replay is local');
 });
 
 test('the hybrid review can save an unsent clarification without changing attested proposals', async () => {
@@ -583,7 +588,7 @@ test('interrupted service attestation keeps analysis retryable and never grants 
  const loaded=await h.service({action:'load'},headers);assert.equal(loaded.document.pendingAnalysis,true);assert.equal(loaded.fallbackAvailable,false);
  options.attestationFailure=false;
  const retried=await h.service({action:'retry',revision:loaded.revision},headers);assert.equal(retried.document.pendingAnalysis,false);
- options.attestationConflict=true;await assert.rejects(send(h,retried.revision),e=>e.code==='conflict');
+ options.attestationConflict=true;await assert.rejects(h.service({action:'clarify',revision:retried.revision,requestId:randomUUID(),answer},headers),e=>e.code==='conflict');
 });
 
 test('required dialogue scopes follow-up context to missing sides and avoids survey headings',()=>{
@@ -872,122 +877,120 @@ test('Beena self choices prepare one editable acceptable partner choice',()=>{
 });
 
 
-test('hybrid opening asks three bounded situations before quick assessment and never drafts public writing', async () => {
-  const h = harness({response: transcript => ({profileProposals:[{id:'profile:bio',fieldId:'bio',values:['نص خاص لا ينشر'],mode:null,exclude:false,evidence:[{turnId:transcript[0].id,quote:'خلال ستة أشهر'}],needsClarification:false}]})});
-  let current = await start(h);
-  const questions=[];
-  for(let index=0;index<4;index++){
-    if(index) {
-      questions.push(current.document.currentQuestion.text);
-      await assert.rejects(h.service({action:'answer',hybrid:true,revision:current.revision,requestId:randomUUID(),answer:'س'.repeat(701)},headers),e=>e.code==='answer_too_long');
-    }
-    current=await h.service({action:'answer',hybrid:true,revision:current.revision,requestId:randomUUID(),answer},headers);
-    assert.equal(current.document.profileProposals.some(p=>p.fieldId==='bio'),false);
-    assert.equal(current.document.status,index<3?'active':'review');
+test('one introduction leads to the remaining cards despite a proposed follow-up, without drafting public text', async () => {
+  const h = harness({ response: turns => ({
+    followUp: true, question: 'وش الترتيب اللي يناسبك؟', questionTopic: 'family',
+    questionFields: ['preference:housing_arrangement:self'],
+    profileProposals: [{ id:'profile:bio', fieldId:'bio', values:['نص خاص'], mode:null, exclude:false,
+      evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}], needsClarification:false }],
+  }) });
+  const first = await start(h);
+  const request = { action:'answer', hybrid:true, revision:first.revision, requestId:randomUUID(), answer };
+  const analyzed = await h.service(request, headers);
+  assert.equal(analyzed.document.status, 'review');
+  assert.equal(analyzed.document.currentQuestion, null);
+  assert.equal(analyzed.document.turns.length, 1);
+  assert(analyzed.document.proposals.some(p => p.fieldId === 'marriage_timeline' && p.side === 'self'));
+  assert(!analyzed.document.proposals.some(p => p.side === 'partner'));
+  assert(!analyzed.document.profileProposals.some(p => p.fieldId === 'bio'));
+  await h.service(request, headers);
+  assert.equal((await h.service({action:'load'}, headers)).document.currentQuestion, null);
+  assert.equal(h.modelCalls.length, 1);
+  assert.throws(()=>parseInterviewInput({...request,answer:'س'.repeat(901)}));
+});
+
+test('ambiguous introduction produces no invented answer and requires no conversational retry', async () => {
+  const h = harness({ response: () => ({ answerDisposition:'clarify' }) });
+  const first = await start(h);
+  const result = await h.service({action:'answer',hybrid:true,revision:first.revision,requestId:randomUUID(),answer:'لسه ما أدري وش أبي.'},headers);
+  assert.equal(result.document.status, 'review');
+  assert.deepEqual(result.document.proposals, []);
+  assert.equal(result.coverage.answered, 0);
+  assert.equal(h.modelCalls.length, 1);
+});
+
+async function checkIntroduction(answer, claims, checkChoices, disposition = 'answered') {
+  const h = harness({
+    proposals:([source]) => claims.map(([id, code, quote]) => {
+      const [kind, fieldId, side] = id.split(':');
+      return {kind,fieldId,side,values:[code],summary:'اقتراح',needsClarification:false,evidence:[{turnId:source.id,quote}]};
+    }),
+    response:() => ({answerDisposition:disposition}), checkChoices,
+  });
+  const first = await start(h);
+  const snapshot = await h.service({action:'answer',hybrid:true,revision:first.revision,requestId:randomUUID(),answer},headers);
+  assert.deepEqual((await h.service({action:'load'},headers)).carryForwardIds,snapshot.carryForwardIds);
+  return {snapshot,calls:h.modelCalls.length};
+}
+
+test('general intent and wrong subject or polarity cannot fill a personality or partner answer', async () => {
+  const self = 'preference:children_plan:self', partner = 'preference:children_plan:partner';
+  const trait = 'personality:depth:self';
+  assert.equal(validateProposal({...candidate,kind:'personality',fieldId:'depth',values:['E'],evidence:[{turnId:turn.id,quote:'بناء أسرة'}]},[{...turn,answer:'بناء أسرة'}]),null);
+  for (const [answer, claims, expected] of [
+    ['بناء أسرة',[[trait,'E','بناء أسرة']],[]],
+    ['لا أرغب في الإنجاب',[[self,'A','أرغب في الإنجاب'],[partner,'B','لا أرغب في الإنجاب']],[]],
+    ['أرغب في الإنجاب',[[partner,'A','أرغب في الإنجاب'],[self,'A','أرغب في الإنجاب']],[self]],
+    ['أفضل شريكًا يرغب في الإنجاب',[[partner,'A','أفضل شريكًا يرغب في الإنجاب']],[partner]],
+  ]) {
+    const {snapshot,calls} = await checkIntroduction(answer,claims);
+    assert.deepEqual(snapshot.carryForwardIds,expected);
+    assert.equal(calls,1);
   }
-  assert.equal(new Set(questions).size,3);
-  assert.equal(current.document.turns.length,4);
-  assert.equal(current.document.proposals.some(p=>p.fieldId==='marriage_timeline'),true);
-  assert.throws(()=>parseInterviewInput({action:'answer',hybrid:true,revision:1,requestId:randomUUID(),answer:'س'.repeat(901)}));
 });
 
-test('an in-progress interview recognizes earlier scenario wording after copy changes', async () => {
-  const initial=initialInterviewDocument();
-  initial.turns=[
-    {id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false},
-    {id:randomUUID(),topic:'family',question:openingScenarios[0].priorWording[2],answer:'أدخل الأهل بعد شهرين.',skipped:false},
-  ];
-  initial.currentQuestion={topic:'practical',text:openingScenarios[1].priorWording[2],suggestions:[]};
-  const h=harness({initial:{document:initial,revision:2}});
-  const result=await h.service({action:'answer',hybrid:true,revision:2,requestId:randomUUID(),answer:'أفضّل أن نخطط للمصاريف معًا.'},headers);
-  assert.equal(result.document.currentQuestion.text,openingScenarios[2].text);
-  assert.equal(result.document.turns.length,3);
+test('blind catalog agreement permits paraphrases, preserves clear clauses, and abstains on disagreement', async () => {
+  const kids='preference:children_plan:self', partner='preference:children_plan:partner', place='preference:residence_plan:self';
+  const mine='ودي أصير أب', theirs='وأبي زوجة ودها تصير أم', stay='أبي أبقى في مدينتي', move='بس أحيانًا أفكر أروح مدينتها';
+  const answer='أنا شمري. '+[mine,theirs,stay,move].join('، ');
+  const {snapshot,calls}=await checkIntroduction(answer,[[kids,'A',mine],[partner,'A',theirs],[place,'A',stay],[place,'B',move]],data=>{
+    assert.ok(!JSON.stringify(data).includes('شمري'));
+    assert.deepEqual(data.fields.map(f=>f.id),[kids,partner]);
+    assert.ok(data.fields.every(f=>f.options.length===3 && !('values' in f) && !('evidence' in f)));
+    return [[kids,mine],[partner,theirs]].map(([id,quote])=>({id,quote,code:'A',turnId:data.turns[0].id}));
+  },'clarify');
+  assert.deepEqual(snapshot.carryForwardIds,[kids,partner]);
+  assert.ok(snapshot.document.proposals.find(p=>p.id===place)?.needsClarification);
+  assert.equal(calls,2);
+
+  for (const mode of ['wrong option','wrong subject','unrelated quote','no answer','inconsistent reviewer','unavailable']) {
+    const checked=await checkIntroduction(answer,[[kids,'A',mine]],({turns})=>{
+      const row={id:kids,code:'A',quote:mine,turnId:turns[0].id};
+      if(mode==='unavailable') throw Error('simulated timeout');
+      if(mode==='no answer') return [];
+      if(mode==='inconsistent reviewer') return [row,{...row,code:'B'}];
+      return [{...row,...(mode==='wrong option'?{code:'B'}:mode==='wrong subject'?{id:partner}:{quote:move})}];
+    });
+    assert.deepEqual(checked.snapshot.carryForwardIds,[],mode);
+    assert.equal(checked.snapshot.document.status,'review',mode);
+  }
 });
 
-test('a saved signup introduction resumes at its first scenario after a failed retry route', async () => {
+test('an older scenario draft retains its question and length limit, then proceeds to cards', async () => {
+  const initial = initialInterviewDocument(true);
+  initial.turns = [{id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false}];
+  initial.currentQuestion = {topic:'family',text:openingScenarios[0].priorWording[2],suggestions:[]};
+  initial.lastMode = 'luna';
+  initial.draftAnswer = 'أدخل الأهل بعد تفاهم واضح.';
+  const h = harness({initial:{document:initial,revision:2}});
+  const loaded = await h.service({action:'load'},headers);
+  assert.deepEqual(loaded.document.currentQuestion, initial.currentQuestion);
+  assert.equal(loaded.document.draftAnswer, initial.draftAnswer);
+  const submit = text => h.service({action:'answer',hybrid:true,revision:2,requestId:randomUUID(),answer:text},headers);
+  await assert.rejects(submit('س'.repeat(701)), e => e.code === 'answer_too_long');
+  const result = await submit(initial.draftAnswer);
+  assert.equal(result.document.turns.at(-1).question, initial.currentQuestion.text);
+  assert.equal(result.document.currentQuestion, null);
+  assert.equal(result.document.status, 'review');
+});
+
+test('retry of a saved signup introduction proceeds to cards for older clients', async () => {
   const initial=initialInterviewDocument(true);
   initial.turns=[{id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false}];
-  initial.currentQuestion={topic:'communication',text:'سؤال عام بعد الخطأ',suggestions:[]};
-  initial.status='active';initial.pendingAnalysis=false;initial.lastMode='luna';
-  const h=harness({initial:{document:initial,revision:2}});
-  const loaded=await h.service({action:'load'},headers);
-  assert.equal(loaded.document.currentQuestion.text,openingScenarios[0].text);
-  assert.deepEqual(Object.keys(loaded.document.currentQuestion).sort(),['suggestions','text','topic']);
-  assert.equal(h.state.revision,2,'loading a saved session does not write to the database');
-  const answered=await h.service({action:'answer',hybrid:true,revision:loaded.revision,requestId:randomUUID(),answer:'أدخل الأهل بعد تفاهم واضح.'},headers);
-  assert.equal(answered.document.turns[1].question,openingScenarios[0].text);
-  assert.equal(answered.document.currentQuestion.text,openingScenarios[1].text);
-  assert.deepEqual(Object.keys(h.state.document.currentQuestion).sort(),['suggestions','text','topic']);
-});
-
-test('retry of a saved signup answer keeps the scenario route even if an older client omits hybrid', async () => {
-  const initial=initialInterviewDocument(true);
-  initial.turns=[{id:randomUUID(),topic:'intent',question:initial.currentQuestion.text,answer,skipped:false}];
-  initial.currentQuestion={topic:'communication',text:'سؤال عام أثناء الانتظار',suggestions:[]};
-  initial.status='active';initial.pendingAnalysis=true;initial.lastMode='guided';
+  initial.pendingAnalysis=true;
   const h=harness({initial:{document:initial,revision:2}});
   const retried=await h.service({action:'retry',revision:2},headers);
-  assert.equal(retried.document.currentQuestion.text,openingScenarios[0].text);
+  assert.equal(retried.document.currentQuestion,null);
+  assert.equal(retried.document.status,'review');
   assert.equal(retried.document.turns.length,1);
-});
-
-test('a brief ambiguous housing answer gets one specific clarification, also after reloading', async () => {
-  const h = harness();
-  let state = await start(h);
-  const reply = text => h.service({action:'answer', hybrid:true, revision:state.revision, requestId:randomUUID(), answer:text},headers);
-  state = await reply(answer);
-  assert.equal(state.document.currentQuestion.text, openingScenarios[0].text);
-  state = await reply('على حسب؟');
-  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
-  state = await h.service({action:'load'}, headers);
-  assert.equal(state.document.currentQuestion.text, openingScenarios[0].clarification);
-  state = await reply('على حسب');
-  assert.equal(state.document.currentQuestion.text, openingScenarios[1].text);
-});
-
-test('Luna responds to the introduction, keeps one useful question on resume, and stops after a clear answer', async () => {
-  const introduction = 'دوامي يتغير كل أسبوع وأبي وقتنا مع بعض يكون واضح.';
-  const firstReply = 'مع تغيّر دوامك، يهمك تتفقون على وقت يجمعكم.';
-  const question = 'لو اختلفتوا على ترتيب الوقت، وش يساعدكم توصلون لاتفاق؟';
-  const lastAnswer = 'أفضل نتكلم ونختار سوا.';
-  const lastReply = 'يناسبك تسمعون رأي بعض وتختارون سوا.';
-  const h = harness({response: turns => turns.length === 1
-    ? {reply:firstReply, replyEvidence:'دوامي يتغير كل أسبوع', question, questionTopic:'communication', questionFields:['preference:match_disagreement_style:self']}
-    : {reply:lastReply, replyEvidence:'نتكلم ونختار سوا', question:'', questionTopic:'', questionFields:[]}});
-  let state = await start(h);
-  const answerOpening = (revision, text, requestId) => h.service({action:'answer', hybrid:true, revision, requestId, answer:text}, headers);
-  const requestId = randomUUID(), revision = state.revision;
-  state = await answerOpening(revision, introduction, requestId);
-  const displayed = state.document.currentQuestion.text;
-  assert.deepEqual(displayed.split('\u2029'), [firstReply, question]);
-  assert(h.modelCalls[0].request.response_format.json_schema.schema.required.includes('replyEvidence'));
-  assert.doesNotMatch(h.modelCalls[0].request.messages[0].content, /هذه مراجعة استخراج فقط/);
-  assert.equal((await answerOpening(revision, introduction, requestId)).document.turns.length, 1);
-  assert.equal((await h.service({action:'load'}, headers)).document.currentQuestion.text, displayed);
-  await assert.rejects(answerOpening(state.revision, 'س'.repeat(701), randomUUID()), e => e.code === 'answer_too_long');
-  state = await answerOpening(state.revision, lastAnswer, randomUUID());
-  assert.equal(state.document.turns.at(-1).question, displayed);
-  assert.equal(state.document.status, 'review');
-  assert.equal((await h.service({action:'load'}, headers)).document.currentQuestion.text, lastReply);
-});
-
-test('a clear housing preference rules out a redundant follow-up from the first answer', async () => {
-  const answer = 'أبي بيت مستقل بس قريب من أهلي.';
-  const reply = 'يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.';
-  const h = harness({proposals: turns => [{...candidate, fieldId:'housing_arrangement', summary:'تفضّل بيتًا مستقلًا',
-    evidence:[{turnId:turns[0].id, quote:'أبي بيت مستقل'}]}], response: () => ({reply, replyEvidence:'بيت مستقل بس قريب من أهلي',
-    followUp:true, question:'هل يناسبك بيت مستقل؟', questionTopic:'family', questionFields:['preference:housing_arrangement:self']})});
-  const startState = await start(h);
-  const state = await h.service({action:'answer', hybrid:true, revision:startState.revision, requestId:randomUUID(), answer}, headers);
-  assert.equal(state.document.status, 'review');
-  assert.equal(state.document.currentQuestion.text, reply);
-  assert(state.document.proposals.some(p => p.fieldId === 'housing_arrangement'));
-});
-
-test('an invented quote cannot support a personal reflection', async () => {
-  const h = harness({response: () => ({reply:'تحب السكن مع الأهل.', replyEvidence:'أحب السكن مع أهلي', question:'', questionTopic:'', questionFields:[]})});
-  const s = await start(h);
-  const state = await h.service({action:'answer', hybrid:true, revision:s.revision, requestId:randomUUID(), answer}, headers);
-  assert.equal(state.document.status, 'review');
-  assert.equal(state.document.currentQuestion, null);
 });

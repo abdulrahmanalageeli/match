@@ -252,12 +252,12 @@ export function Pending({
       <p className="flow-intro">
         وصل ملفك، والخطوة الحالية هي مراجعته. بعد المراجعة نوضح لك النتيجة والخطوة المتاحة في حسابك، دون وعد بموعد أو ترشيح محدد.
       </p>
-      <div className="flow-card timeline">
+      <div className="flow-card timeline" aria-busy={busy}>
         <strong>
           <Check size={18} /> استلمنا الطلب
         </strong>
-        <strong>
-          <span className="timeline-dot" /> نراجع الملف
+        <strong aria-current="step">
+          <span className="timeline-dot" aria-hidden="true" /> نراجع الملف
         </strong>
         <span>
           <span className="timeline-dot hollow" /> نتيجة المراجعة وإتاحة التعارف عند القبول

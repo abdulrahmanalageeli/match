@@ -17,6 +17,8 @@ function settingsHarness(initial){
     if(name==='react')return react;
     if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
     if(name==='./preferences')return{useDevicePreferences:()=>({value:{},setPreference(){}}),useSystemReducedMotion:()=>false};
+    if(name==='./settingsSummary')return{useSettingsSummary:()=>({data:null,error:false,refresh(){}})};
+    if(name==='../billing')return{isIOSBilling:()=>false};
     if(name==='../feedback/haptics')return{hasHaptics:()=>false};
     return placeholders;
   }});

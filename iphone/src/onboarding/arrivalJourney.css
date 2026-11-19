@@ -147,7 +147,19 @@
 .nf-signup-status .flow-body { padding-top: 32px; }
 .nf-signup-status .flow-symbol { color: #54152a; border: 1px solid var(--journey-line); background: #fff; border-radius: 12px; box-shadow: none; }
 .nf-signup-status .flow-body > h1 { color: var(--journey-ink); }
-.nf-signup-status .flow-card { border: 0; border-radius: 50%; background: #fff; box-shadow: none; }
+.nf-signup-status .flow-card { border: 1px solid var(--journey-line); border-radius: 16px; background: #fff; box-shadow: none; }
+.nf-signup-status .timeline-dot { flex: none; }
+.nf-signup-status [aria-current="step"] .timeline-dot { position: relative; }
+.nf-signup-status [aria-current="step"] .timeline-dot::after {
+  content: ''; position: absolute; inset: -4px; border: 1px solid currentColor;
+  border-radius: 50%; opacity: 0; transform: scale(.65);
+}
+.nf-signup-status [aria-busy="true"] [aria-current="step"] .timeline-dot::after { opacity: .7; transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-signup-status [aria-current="step"] .timeline-dot::after {
+    transition: opacity 140ms ease-out, transform 160ms var(--nf-ease-settle, ease-out);
+  }
+}
 .nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 52px; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f5f3f4f5; border-bottom: 0; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, env(safe-area-inset-bottom)); background: none; }

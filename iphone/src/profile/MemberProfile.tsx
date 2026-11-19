@@ -1,5 +1,5 @@
 import { languageOpennessLabels } from "../compatibility/marriage";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, Check, ChevronDown, ChevronLeft, Eye, Feather, GraduationCap, Heart, Leaf, ListFilter, LockKeyhole, MapPin, Sparkles, UserRound, type LucideIcon } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
 import { denied } from '../community/chatOutbox';
@@ -15,7 +15,7 @@ import { marriageTimelineLabels, meetingPreferenceLabels, polygynyLabels, prayer
 import './member-profile.css';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
-import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { MotionPressButton } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
 import { PersonalPrompts } from './PersonalPrompts';
@@ -110,12 +110,12 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       {context&&<p className="mp-decision-context">{context}</p>}
     </div>}
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}
-    <div className="mp-sections" ref={sections} role="group" aria-label="أقسام الملف">
+    <div className="mp-sections" ref={sections} style={{'--mp-section-count': 1 + Number(hasDetails) + Number(hasFit), '--mp-section-index': section === 'about' ? 0 : section === 'details' ? 1 : 1 + Number(hasDetails)} as CSSProperties} role="group" aria-label="أقسام الملف">
       <MotionPressButton aria-pressed={section==='about'} aria-controls={contentId} onClick={()=>selectSection('about')}><Feather size={16} aria-hidden="true"/>نبذة</MotionPressButton>
       {hasDetails&&<MotionPressButton aria-pressed={section==='details'} aria-controls={contentId} onClick={()=>selectSection('details')}><ListFilter size={16} aria-hidden="true"/>التفاصيل</MotionPressButton>}
       {hasFit&&<MotionPressButton ref={fitButton} aria-pressed={section==='fit'} aria-controls={contentId} onClick={()=>selectSection('fit')}><Sparkles size={16} aria-hidden="true"/>التوافق</MotionPressButton>}
     </div>
-    <MotionReveal id={contentId} className="mp-content" key={section} axis="x" distance={-8} duration={340}>
+    <div id={contentId} className="mp-content" key={section}>
       {section==='about'&&<>
         {person.bio?<Story title="عنّي">{person.bio}</Story>:<p className="mp-empty">لم تُضف نبذة شخصية بعد.</p>}
         {!!highlights.length&&<dl className="mp-highlights" aria-label="لمحة سريعة">{highlights.map(({label,value,icon:Icon})=><div key={label}><dt><Icon size={17} strokeWidth={1.5} aria-hidden="true"/>{label}</dt><dd dir="auto">{value}</dd></div>)}</dl>}
@@ -164,7 +164,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         ]}/>
       </>}
       {section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit}/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
-    </MotionReveal>
+    </div>
     {preview&&<p className="mp-preview-footnote"><Sparkles size={16}/><span>نسبة التوافق تختلف من شخص لآخر؛ تظهر عند مقارنة تقييميكما. إجابات التقييم ومتطلبات الشريك الخاصة لا تظهر في هذا الملف.</span></p>}
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;

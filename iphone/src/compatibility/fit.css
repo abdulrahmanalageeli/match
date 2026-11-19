@@ -12,7 +12,13 @@
 .nf-fit-score > strong small { color: inherit; font-size: 1rem; font-weight: 400; margin-inline-start: 4px; }
 .nf-fit-score .nf-score-pending { color: #716b70; }
 .nf-score-track { height: 4px; border-radius: 3px; background: #e5e2de; overflow: hidden; }
-.nf-score-track > span { display: block; height: 100%; background: var(--score-color); border-radius: inherit; }
+.nf-score-track > span { display: block; height: 100%; transform-origin: right; background: var(--score-color); border-radius: inherit; }
+.nf-score-track:dir(ltr) > span { transform-origin: left; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-score-track > span {
+    transition: transform var(--nf-motion-shift, 220ms) var(--nf-ease-settle, ease-out);
+  }
+}
 .nf-fit-score > p { font-size: 13px; line-height: 1.85; min-height: 2.52em; margin: 12px 0 0; color: #716b70; }
 .nf-preference-panel { scroll-margin-top: 24px; border-radius: 12px; }
 .nf-preference-panel:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 4px; }

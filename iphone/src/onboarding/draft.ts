@@ -114,6 +114,8 @@ export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[]
   return [1,2,3,4,5,6,7].filter(slide=>!complete[slide]&&(slide!==7||sensitive));
 }
 
+export const requiredCriteria = ['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'] as const;
+
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {
   switch (step) {
     case 'compatibility':
@@ -157,7 +159,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (p.marriageBasics && !validMarriageBasics(p.marriageBasics)) return { field: "marriageBasics", text: "راجع التفاصيل: الطول من ١٢٠ إلى ٢٣٠ سم، والوزن من ٣٥ إلى ٢٥٠ كجم بأعداد صحيحة، والأبناء من صفر إلى ٢٠. اسم القبيلة اختياري للخلفية القبلية فقط." };
       return null;
     case "criteria":
-      if (requireAssessment && (['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'] as const).some(key => !p.partnerCriteria?.[key]?.mode)) return { field: 'partnerCriteria', text: 'حدّد موقفك من كل معيار. «لا يهمني» إجابة كاملة عندما لا يكون لديك تفضيل.' };
+      if (requireAssessment && requiredCriteria.some(key => !p.partnerCriteria?.[key]?.mode)) return { field: 'partnerCriteria', text: 'حدّد موقفك من كل معيار. «لا يهمني» إجابة كاملة عندما لا يكون لديك تفضيل.' };
       if (p.partnerCriteria && !validPartnerCriteria(p.partnerCriteria, p.marriageBasics)) return { field: "partnerCriteria", text: "حدّد الخيارات لكل معيار مهم لك، بما فيها البشرة واللباس إذا اخترتهما. راجع نطاق الطول والوزن والحالات الاجتماعية. «نفس قبيلتي» يحتاج اسم قبيلتك في تفاصيلك." };
       return null;
     case "avatar":

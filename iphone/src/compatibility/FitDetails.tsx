@@ -50,7 +50,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
         <SlidersHorizontal className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>درجة توافق التفضيلات</h3>
         <strong aria-label={preference === null ? 'بانتظار التقييمين' : undefined}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{arabic.format(preference)}<small> من ١٠٠</small></>}</strong>
-        <div className="nf-score-track" aria-hidden="true"><span style={{width:`${preference ?? 0}%`}}/></div>
+        <div className="nf-score-track" aria-hidden="true">{preference !== null && <span style={{transform: `scaleX(${preference / 100})`}}/>}</div>
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>
       </div>
@@ -58,7 +58,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>تشابه الإجابات الشخصية</h3>
         <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : undefined}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{arabic.format(personality)}<small>٪</small></>}</strong>
-        <div className="nf-score-track" aria-hidden="true"><span style={{width:`${personality ?? 0}%`}}/></div>
+        <div className="nf-score-track" aria-hidden="true">{personality !== null && <span style={{transform: `scaleX(${personality / 100})`}}/>}</div>
         <p>{personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار اكتمال التقييمين' : 'تشابه أسلوبكما وطباعكما'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={personalityId} onClick={explainPersonality}>{personality===null?'عن هذا التقييم':'لماذا هذه النسبة؟'}<CircleHelp size={15}/></button>
       </div>

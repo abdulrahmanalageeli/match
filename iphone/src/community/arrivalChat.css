@@ -61,6 +61,16 @@
 .phone-app .cm-shell .cm-chat .cm-message-meta { gap: 6px; margin-top: 5px; color: #716b70; font-size: 12px; font-variant-numeric: tabular-nums; }
 .phone-app .cm-shell .cm-chat .cm-bubble.self .cm-message-meta { color: #dfcbd3; }
 .phone-app .cm-shell .cm-chat .cm-message-meta [data-receipt="read"] { color: #cadcc4; }
+.cm-receipt svg { flex: none; }
+.cm-receipt-first, .cm-receipt-second { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.cm-receipt:is([data-receipt="sent"], [data-receipt="delivered"], [data-receipt="read"]) .cm-receipt-first,
+.cm-receipt:is([data-receipt="delivered"], [data-receipt="read"]) .cm-receipt-second { stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .cm-receipt { transition: color 150ms ease-out; }
+  html:not([data-nf-motion="reduced"]) .cm-receipt :is(.cm-receipt-first, .cm-receipt-second) {
+    transition: stroke-dashoffset 150ms var(--nf-ease-settle, ease-out);
+  }
+}
 .phone-app .cm-shell .cm-chat .cm-bubble.failed { border-color: #b54953; }
 .phone-app .cm-shell .cm-reply-quote { border-inline-start-color: #bba6ae; background: #f1eeee; border-radius: 5px; color: #575158; font-size: 13px; }
 .phone-app .cm-shell .cm-bubble.self .cm-reply-quote { background: #ffffff12; color: #fff; border-inline-start-color: #c5a9b4; }

@@ -143,3 +143,9 @@ html[data-nf-motion=reduced] .phone-app .nf-intake :is(.compat-fields, .nf-perso
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button { font-weight: 500; letter-spacing: 0; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button[aria-pressed=true] { font-weight: 500; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .compat-refine > summary > span { border-radius: 4px; font-size: 13px; font-weight: 500; }
+
+/* This presentation uses edge-to-edge segments; the active rule tracks those
+   exact cells horizontally while the newly relevant controls open underneath. */
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-criterion-modes[data-mode] { --criterion-gap: 0px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-criterion-modes[data-mode]::before { inset: auto 0 0; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .nf-criterion-modes[data-mode] button[aria-pressed=true] { border-bottom-color: transparent; }

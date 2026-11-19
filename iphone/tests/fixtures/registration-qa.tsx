@@ -28,6 +28,15 @@ function RegistrationQa() {
     draft.current = initialDraft('registration-qa', null);
     Object.assign(draft.current.answers, { displayName: 'نورة', gender: 'woman', age: '28', city: 'الرياض', profession: 'مهندسة', bio: 'أحب الهدوء والقراءة والوقت مع العائلة.', contact: 'qa@example.com' });
     draft.current.step = chapter;
+    if (new URLSearchParams(location.search).has('consolidation')) {
+      draft.current.permissions = { version: '2026-11-07-privacy', assessment: true, sensitiveProfile: true, sensitivePublication: true };
+      Object.assign(draft.current.answers, {
+        birthDate: '1997-03-14', familyPreference: 'من البداية', surveyAnswers: { marriage_timeline: 'A' },
+        marriageBasics: { maritalStatus: 'never_married', polygynyPreference: 'not_open', heightCm: 167, marriageTimeline: 'six_to_twelve_months' },
+        partnerCriteria: { smoking: { mode: 'require', target: 'never' } },
+        membershipReadiness: { family: 'later', nextStep: 'not_yet' },
+      });
+    }
   }
   return <div className="phone-app">{closed ? <p role="status">انتهت المعاينة</p> : chapter ? <GuidedApplication initial={null} previouslyApproved={false} busy={false} demo preview includeCompatibility startAt={chapter} draftRef={draft} draftOwner="registration-qa" back={()=>setClosed(true)} exitPreview={()=>setClosed(true)} onPrivacy={()=>{}} save={()=>setClosed(true)}/> : <OnboardingSandbox close={()=>setClosed(true)}/>}</div>;
 }

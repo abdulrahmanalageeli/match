@@ -68,7 +68,7 @@ import catalog from '../compatibility/catalog.json' with { type: 'json' };
 import type { Profile } from '../types';
 
 
-export type ReadinessAnswers = Pick<Profile, 'surveyAnswers' | 'hardRequirements' | 'priorityCategories' | 'lookingFor' | 'lifeTogether' | 'personalityAnswers'>
+export type ReadinessAnswers = Pick<Profile, 'marriageBasics' | 'surveyAnswers' | 'hardRequirements' | 'priorityCategories' | 'lookingFor' | 'lifeTogether' | 'personalityAnswers'>
   & { gender?: Profile['gender'] | '' };
 
 /** A private reflection of reviewed choices, without predicting intent or relationship outcomes. */

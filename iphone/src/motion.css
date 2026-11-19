@@ -1,6 +1,7 @@
 :root {
   --nf-ease-settle: cubic-bezier(.22,.78,.28,1);
-  --nf-motion-press: 140ms;
+  --nf-motion-press: 120ms;
+  --nf-motion-touch: 75ms;
   --nf-motion-shift: 220ms;
   --nf-motion-reveal: 280ms;
   --nf-ease-release: cubic-bezier(.2,.8,.25,1);
@@ -104,7 +105,7 @@ html[data-nf-motion="reduced"] *, html[data-nf-motion="reduced"] *::before, html
     transition: scale var(--nf-motion-press) var(--nf-ease-release), background-color var(--nf-motion-press) ease-out, border-color var(--nf-motion-press) ease-out, color var(--nf-motion-press) ease-out;
   }
   /* Independent scale preserves positioning transforms and keeps hit boxes stable. */
-  html:not([data-nf-motion="reduced"]) :where(button,summary):not([data-motion-press]):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: 80ms; }
+  html:not([data-nf-motion="reduced"]) :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: var(--nf-motion-touch); }
 }
 /* Reduced motion retains a visible press response without shrinking controls. */
 :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { filter: brightness(.96); }

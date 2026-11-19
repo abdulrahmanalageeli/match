@@ -69,8 +69,8 @@
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-stage{padding-top:0}
 .phone-app .nf-intake.nf-intake--new[data-basic-slides] .nf-intake-fields{padding-top:0}
 @media(prefers-reduced-motion:reduce){.wd-signup-slides *{transition:none!important}}
-@media(prefers-reduced-motion:no-preference){.wd-slide-icon{animation:wd-icon-settle 520ms ease-out both}.wd-slide-icon[data-complete]{animation:wd-complete-settle 360ms cubic-bezier(.2,.8,.2,1) both}.wd-slide-track>span{transition:background 260ms ease,transform 320ms ease}.wd-slide-track>span[data-state=current]{animation:wd-progress-arrive 360ms ease-out both}}
-@keyframes wd-icon-settle{from{opacity:0;transform:translateY(4px) scale(.94)}to{opacity:1;transform:none}}
-@keyframes wd-complete-settle{0%{transform:scale(.88)}60%{transform:scale(1.06)}100%{transform:none}}
-@keyframes wd-progress-arrive{from{transform:scaleX(.35) scaleY(1.35);transform-origin:right}to{transform:scaleX(1) scaleY(1.35);transform-origin:right}}
-html[data-nf-motion=reduced] .wd-slide-icon{animation:none}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .wd-slide-icon {
+    transition: background-color var(--nf-motion-press,140ms), border-color var(--nf-motion-press,140ms);
+  }
+}

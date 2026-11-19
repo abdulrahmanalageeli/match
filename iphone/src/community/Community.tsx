@@ -40,7 +40,6 @@ import {
   BriefcaseBusiness,
   BookOpen,
   Check,
-  CheckCheck,
   CircleMinus,
   Clock3,
   ChevronLeft,
@@ -150,6 +149,7 @@ type CommunityProps = {
 type Filters = import('./data').Filters;
 type SafetyAction = "block" | "report";
 const ar = new Intl.NumberFormat("ar-SA");
+const receiptLabels = { sending: 'جارٍ الإرسال', failed: 'تعذّر الإرسال', sent: 'أُرسلت', delivered: 'تم التسليم', read: 'قُرئت' };
 const time = new Intl.DateTimeFormat("ar-SA", {
   hour: "2-digit",
   minute: "2-digit",
@@ -603,7 +603,7 @@ function Discovery({
   const [rowError,setRowError]=useState("");
   const [interestNotice,setInterestNotice]=useState("");
   const identity = useRef<HTMLElement>(null);
-  const listPosition = useRef<{ id: string; top: number; scroll: number; featured: boolean } | null>(null);
+  const listPosition = useRef<{ id: string; top: number; scroll: number; featured: boolean; shell: Element | null } | null>(null);
   const move = useWeeklyCardTransition();
   const sequence = useRef(0);
   const needsRefresh = useRef(false);
@@ -716,31 +716,32 @@ function Discovery({
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
-    const origin = anchor.querySelector<HTMLElement>(".cm-weekly-identity");
-    if (!origin) return;
-    listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
+    const hasAccessCheck = !item.isDemo && Boolean(source.profileVisible);
+    const portraitSelector = '.df-private-initial, .dr-row-avatar, .df-selected-avatar, .df-demo-image';
+    const origin = item.portrait || hasAccessCheck ? null : anchor.querySelector<HTMLElement>(portraitSelector);
+    listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, shell: anchor.closest(".cm-shell"), featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
     move(origin, () => {
       flushSync(() => { setNotice(""); setError(""); setSelected(item.id); setSelectedPerson(item); });
+      window.scrollTo(0, 0);
       const hero = identity.current;
       if (!hero) return null;
-      window.scrollTo(0, 0);
       hero.closest(".mp-profile")?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
       void source.noteProfileOpen?.(item.id).catch(() => {});
-      return hero;
+      return hero.querySelector<HTMLElement>(".mp-portrait");
     });
   }
   function closeProfile() {
-    const origin = identity.current;
-    const shell = origin?.closest(".cm-shell");
     const anchor = listPosition.current;
-    if (!origin || !anchor || !shell) { setSelected(null); setSelectedPerson(null); return; }
-    move(origin, () => {
+    const shell = anchor?.shell;
+    const origin = person?.portrait || (!person?.isDemo && source.profileVisible) ? null : identity.current?.querySelector<HTMLElement>(".mp-portrait");
+    if (!anchor || !shell) { setSelected(null); setSelectedPerson(null); return; }
+    move(origin ?? null, () => {
       flushSync(() => {setSelected(null);setSelectedPerson(null);});
       const button = shell.querySelector<HTMLButtonElement>(`[data-weekly-person="${CSS.escape(anchor.id)}"]`);
       if (!button) { window.scrollTo(0, anchor.scroll); return null; }
       window.scrollTo(0, window.scrollY + button.getBoundingClientRect().top - anchor.top);
       button.focus({ preventScroll: true });
-      return button.querySelector(".cm-weekly-identity");
+      return button.querySelector<HTMLElement>(".df-private-initial, .dr-row-avatar, .df-selected-avatar, .df-demo-image");
     });
   }
   async function sendRequest(target=person) {
@@ -771,12 +772,13 @@ function Discovery({
       if(action==='interest') {
         if(!source.setInterest)throw Error('الاهتمام غير متاح الآن.');
         await source.setInterest(item.id,!item.interested);
+        if (!item.interested) feedback('selection');
         setList(rows=>rows.map(row=>row.id===item.id?{...row,interested:!item.interested}:row));
         setInterestNotice(item.interested?'أُلغي اهتمامك.':'أُرسل إشعار باهتمامك.');
       } else {
         if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
         else if(action==='block' && source.blockPerson) {await source.blockPerson(item.id);setHiddenNotice('تم حظر العضو.');}
-        else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(true);}
+        else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');setReportTarget(null);setReportSent(true);}
         setList(rows=>rows.filter(row=>row.id!==item.id));
       }
     }catch(e){setRowError(messageFor(e));}
@@ -1046,11 +1048,13 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     if (busy) return;
     setBusy(true); setError("");
     try {
-      if (end) { await source.act(connection.id, "cancel", undefined, allowRematch); feedback('success'); closed(); }
+      if (end) { await source.act(connection.id, "cancel", undefined, allowRematch); closed(); }
       else if (progress && source.nextStep) {
         const next=await source.nextStep(connection.id, !progress.exclusive ? 1 : progress.stage + 1, !(progress.exclusive ? progress.mine : progress.consentMine), exclusiveConsent);
         setProgress(next);
-        setSavedStep(next.stage>progress.stage||!progress.exclusive&&next.exclusive ? {title:'اتفقتما على المرحلة الجديدة',detail:journeyStages[next.stage]+' · حُفظ اختياركما معًا.'} : (next.exclusive ? next.mine : next.consentMine) ? {title:'وصل اقتراحك',detail:'بانتظار موافقة الطرف الآخر. تبقى المرحلة الحالية كما هي.',quiet:true} : {title:'سُحب الاقتراح',detail:'يمكنك اقتراح الخطوة مجددًا عندما تكون مستعدًا.',quiet:true});
+        const mutualAdvance = next.stage > progress.stage || (!progress.exclusive && next.exclusive);
+        if (mutualAdvance) feedback('success');
+        setSavedStep(mutualAdvance ? {title:'اتفقتما على المرحلة الجديدة',detail:journeyStages[next.stage]+' · حُفظ اختياركما معًا.'} : (next.exclusive ? next.mine : next.consentMine) ? {title:'وصل اقتراحك',detail:'بانتظار موافقة الطرف الآخر. تبقى المرحلة الحالية كما هي.',quiet:true} : {title:'سُحب الاقتراح',detail:'يمكنك اقتراح الخطوة مجددًا عندما تكون مستعدًا.',quiet:true});
         setExclusiveConsent(false);
         setRetry(n => n + 1);
       }
@@ -1167,6 +1171,7 @@ export function Chat({
   const anchor = useRef<{ id: string; offset: number } | null>(null);
   const lastRow = thread.rows.at(-1);
   const lastId = lastRow?.clientId || lastRow?.id;
+  const lastFailed = lastRow && 'status' in lastRow && lastRow.status === 'failed';
   const lastReactions = lastRow?.reactions?.map(reaction => `${reaction.emoji}:${reaction.count}:${reaction.mine}`).join('|');
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.outbox.read().reply;
@@ -1252,7 +1257,7 @@ export function Chat({
   }, [lastId, profileOpen, conversationAllowed]);
   useLayoutEffect(() => {
     if (reading.positioned && atBottom.current) scrollToLatest();
-  }, [replyDraft?.id, lastReactions]);
+  }, [replyDraft?.id, lastReactions, lastFailed]);
   useLayoutEffect(() => {
     const saved = anchor.current;
     if (saved && !thread.loadingOlder && log.current) {
@@ -1316,7 +1321,6 @@ export function Chat({
     try {
       if (safety === 'report' && evidence && source.reportIncident) await source.reportIncident(connection.id,evidence.id,reason,evidence.submission);
       else await source.act(connection.id, safety, reason || undefined);
-      feedback('success');
       thread.outbox.clear();
       if (safety === 'report') onReported?.();
       close();
@@ -1329,7 +1333,7 @@ export function Chat({
   async function finishMatch() {
     if (ending) return;
     setEnding(true); setEndError('');
-    try { await source.act(connection.id, 'cancel', undefined, allowRematch); feedback('success'); thread.outbox.clear(); close(); }
+    try { await source.act(connection.id, 'cancel', undefined, allowRematch); thread.outbox.clear(); close(); }
     catch (e) { setEndError(messageFor(e)); }
     finally { setEnding(false); }
   }
@@ -1398,6 +1402,8 @@ export function Chat({
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
             const { status, deleted, canReply, canDelete, canReact, canReport } = messagePermissions(msg);
+            const receipt = status?.status === 'sending' || status?.status === 'failed' ? status.status
+              : msg.readAt ? 'read' : msg.deliveredAt ? 'delivered' : 'sent';
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
@@ -1413,11 +1419,15 @@ export function Chat({
                 {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe}/> : <p dir="auto">{msg.body}</p>}
                 <div className="cm-message-meta">
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
-                  {!deleted && msg.senderIsMe && (status?.status === "sending" ?
-                    <span role="img" aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
-                    status?.status !== "failed" && <span role="img" data-receipt={msg.readAt ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
-                      {msg.readAt || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
-                      <span className="cm-receipt-label">{msg.readAt ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
+                  {!deleted && msg.senderIsMe && <span className="cm-receipt" role="img" data-receipt={receipt} aria-label={receiptLabels[receipt]}>
+                    <svg width="16" height="14" viewBox="0 0 20 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path className="cm-receipt-first" pathLength="1" d="m1.5 8 3.7 3.7L14 3"/>
+                      <path className="cm-receipt-second" pathLength="1" d="m9.4 10.4 1.4 1.3L19 3.5"/>
+                      {receipt === 'sending' && <g><circle cx="10" cy="8" r="5.8"/><path d="M10 4.6v3.7l2.4 1.2"/></g>}
+                      {receipt === 'failed' && <g><circle cx="10" cy="8" r="5.8"/><path d="M10 4.8v3.5m0 2.4v.1"/></g>}
+                    </svg>
+                    <span className="cm-receipt-label">{receiptLabels[receipt]}</span>
+                  </span>}
                 </div>
               </div>
               {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={connection.person.alias}
@@ -1735,7 +1745,6 @@ function Requests({
         await source.demoAcceptOutgoing(item.id);
       } else await source.act(item.id, action, reason || undefined, allowRematch);
       if (intent !== navigation.current) return;
-      if (action !== "accept" && action !== "demoAccept") feedback('success');
       setConfirm(null);
       if (action === "accept" || action === "demoAccept") {
         setList(rows => rows.map(row => row.id === item.id ? { ...row, status: "accepted" } : row));

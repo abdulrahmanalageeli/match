@@ -7,8 +7,8 @@
 .phone-app .nf-sheet-choice-row:focus-visible { outline: 2px solid #956176; outline-offset: 3px; }
 .nf-choice-sheet { position: fixed; inset: auto 0 0; margin: 0 auto; padding: 0 0 max(12px, env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: min(82svh, 700px); border: 0; border-radius: 24px 24px 0 0; background: #fbfaf8; color: #30232c; box-shadow: 0 -12px 60px #2716201c; overflow: hidden; font-family: var(--font-ui); }
 .nf-choice-sheet[open] { display: flex; flex-direction: column; }
-@keyframes nf-choice-sheet-in { from { opacity: .6; transform: translateY(20px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .nf-choice-sheet[open] { animation: nf-choice-sheet-in 180ms ease-out; } }
+@keyframes nf-choice-sheet-in { from { opacity: .88; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) { html:not([data-nf-motion="reduced"]) .nf-choice-sheet[open] { animation: nf-choice-sheet-in var(--nf-motion-shift, 220ms) var(--nf-ease-settle, ease-out); } }
 .nf-choice-sheet::backdrop { background: #21182066; }
 .nf-choice-sheet-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; flex: none; gap: 8px; padding: 12px 12px 4px; }
 .nf-choice-sheet-header h2 { margin: 0; text-align: center; font-size: 18px; font-weight: 700; line-height: 1.5; }
@@ -29,3 +29,11 @@
 .nf-choice-sheet-clear { min-height: 48px; flex: none; margin: 4px 20px 0; padding: 10px; border: 0; border-top: 1px solid #eae4e4; background: none; color: #5a0f28; font-size: 14px; }
 html[data-nf-keyboard] .nf-choice-sheet { top: calc(var(--nf-visual-top, 0px) + 8px); bottom: auto; height: calc(var(--nf-visual-height, 100dvh) - 16px); max-height: calc(var(--nf-visual-height, 100dvh) - 16px); border-radius: 20px; }
 @media (min-width: 600px) { .nf-choice-sheet { inset: 0; margin: auto; width: calc(100% - 48px); border-radius: 24px; } html[data-nf-keyboard] .nf-choice-sheet { margin-block: 0; margin-inline: auto; } }
+
+@keyframes nf-picked-value { from { opacity: .76; translate: 0 2px; } to { opacity: 1; translate: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-sheet-choice-value[data-accepted] {
+    animation: nf-picked-value 160ms var(--nf-ease-settle, ease-out);
+  }
+}
+.nf-choice-sheet-search:focus-within { box-shadow: inset 0 0 0 2px var(--accent-fill, #68223b); }

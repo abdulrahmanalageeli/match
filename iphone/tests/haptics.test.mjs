@@ -34,3 +34,9 @@ test('completed decisions produce one bounded acknowledgment and never queue lat
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(f.calls, ['success', 'selection', 'success']);
 });
+
+test('an immediate result can follow a selection while duplicate results stay quiet', async () => {
+  const f = await fixture();
+  f.feedback('selection'); f.state.time += 100; f.feedback('error'); f.feedback('error'); f.feedback('selection');
+  assert.deepEqual(f.calls, ['selection', 'error']);
+});

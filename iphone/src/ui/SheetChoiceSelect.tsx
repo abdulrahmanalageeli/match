@@ -14,6 +14,7 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
   const cancel = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [accepted, setAccepted] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const known = options.find(option => option.value === value);
@@ -74,7 +75,11 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
     if (document.activeElement instanceof HTMLElement && dialog.current?.contains(document.activeElement)) document.activeElement.blur();
     setOpen(false);
   }
-  function choose(next: string) { onChange(next); close(); }
+  function choose(next: string) {
+    if (next !== value) setAccepted(next);
+    onChange(next);
+    close();
+  }
   function keyboard(event: KeyboardEvent<HTMLElement>, fromSearch = false) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -95,9 +100,10 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
     <button {...field} ref={trigger} id={triggerId} type="button" className="nf-sheet-choice-row" disabled={disabled}
       aria-haspopup="dialog" aria-expanded={expanded} aria-controls={expanded ? `${triggerId}-dialog` : undefined}
       aria-label={`${label}${required ? '، مطلوب' : ''}، ${known?.label ?? (value || placeholder)}`}
-      onClick={() => { setQuery(''); setActive(Math.max(0, choices.findIndex(option => option.value === value))); setOpen(true); }}>
+      onClick={() => { setAccepted(null); setQuery(''); setActive(Math.max(0, choices.findIndex(option => option.value === value))); setOpen(true); }}>
       <span className="nf-sheet-choice-label">{label}</span>
-      <span className="nf-sheet-choice-value" data-empty={!value || undefined}>{known?.label ?? (value || placeholder)}</span>
+      <span key={value} className="nf-sheet-choice-value" data-accepted={accepted === value || undefined}
+        onAnimationEnd={() => setAccepted(null)} data-empty={!value || undefined}>{known?.label ?? (value || placeholder)}</span>
       <ChevronLeft size={17} aria-hidden="true"/>
     </button>
     {expanded && createPortal(<dialog ref={dialog} id={`${triggerId}-dialog`} className="nf-choice-sheet" dir="rtl" aria-labelledby={`${triggerId}-title`}

@@ -160,7 +160,31 @@
 .phone-app .mp-primary .cm-help { color: var(--muted); font-size: 0.75rem; }
 .phone-app .mp-sections { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; scroll-margin-top: env(safe-area-inset-top, 0px); margin-bottom: 18px; padding: 0; gap: 16px; border: 0; border-bottom: 1px solid #d8d4d1; border-radius: 0; background: var(--adaptive-chrome, #fdfdfdf5); backdrop-filter: blur(16px); box-shadow: none; }
 .phone-app .mp-sections button { min-height: 54px; padding: 10px 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; color: var(--muted); font-size: 0.875rem; }
-.phone-app .mp-sections button[aria-pressed="true"] { background: transparent; color: var(--accent); border-bottom-color: #54152a; box-shadow: none; }
+.phone-app .mp-sections button[aria-pressed="true"] { background: transparent; color: var(--accent); border-bottom-color: transparent; box-shadow: none; }
+.phone-app .mp-sections {
+  --mp-tab-gap: 16px;
+  --mp-advance: -1;
+  display: grid;
+  grid-template-columns: repeat(var(--mp-section-count), minmax(0, 1fr));
+  gap: var(--mp-tab-gap);
+}
+.phone-app .mp-sections:dir(ltr) { --mp-advance: 1; }
+.phone-app .mp-sections::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: -1px;
+  height: 2px;
+  width: calc((100% - (var(--mp-section-count) - 1) * var(--mp-tab-gap)) / var(--mp-section-count));
+  background: var(--accent);
+  transform: translateX(calc(var(--mp-advance) * var(--mp-section-index) * (100% + var(--mp-tab-gap))));
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .phone-app .mp-sections::after {
+    transition: transform var(--nf-motion-shift, 220ms) var(--nf-ease-settle, ease-out);
+  }
+}
 .phone-app .mp-content { scroll-margin-top: 76px; }
 .phone-app .mp-profile :is(.nf-preference-panel,.nf-personality-reading) { scroll-margin-top: 76px; }
 .phone-app .mp-content h2 { color: var(--ink); font-size: 1.0625rem; margin-bottom: 12px; font-weight: 600; }
@@ -221,13 +245,9 @@
 .phone-app .mp-fit-preview small { font-size: 0.8125rem; line-height: 1.8; color: var(--muted); }
 .phone-app .mp-fit-preview-reason { font-size: 0.875rem; line-height: 1.9; }
 
-@keyframes nf-people-arrive { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+/* Keep list geometry stable while restoring the originating row and its focus. */
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .cm-person.df-person,
-  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .dr-person-row,
-  html:not([data-nf-motion="reduced"]) .phone-app .mp-hero { animation: nf-people-arrive 480ms cubic-bezier(.22,.7,.2,1) both; }
-  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .dr-person-row:nth-child(2) { animation-delay: 45ms; }
-  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .dr-person-row:nth-child(3) { animation-delay: 90ms; }
+  html:not([data-nf-motion="reduced"]) .phone-app .cm-shell :is(.cm-person.df-person,.dr-person-row) { animation: none; }
   html:not([data-nf-motion="reduced"]) .phone-app .mp-content { animation: none; }
   html:not([data-nf-motion="reduced"]) .phone-app :is(.df-feed-tabs button,.df-interest-filters button,.cm-filter-button,.df-beena-invite,.dr-row-actions button,.dr-filter-shortcut,.mp-primary button,.mp-sections button,.mp-back,.mp-passport-link) { transition: transform 120ms ease, background-color 180ms ease, color 180ms ease; }
   html:not([data-nf-motion="reduced"]) .phone-app :is(.df-feed-tabs button,.df-interest-filters button,.cm-filter-button,.df-beena-invite,.dr-row-actions button,.dr-filter-shortcut,.mp-primary button,.mp-sections button,.mp-back,.mp-passport-link):active:not(:disabled) { transform: scale(.98); }

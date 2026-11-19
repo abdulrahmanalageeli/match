@@ -34,7 +34,7 @@ import { BeenaFields } from '../beena/BeenaFields';
 import { beenaProgress, beenaScenarios } from '../beena/model';
 import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
-import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
+import { applyProfileProposals, unfilledProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
 import { answersFromAssessmentContext, assessmentContextFromAnswers } from '../interview/assessmentContext';
 import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
 import { requestInterview, type InterviewAuth } from '../interview/api';
@@ -313,7 +313,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(previous => ({ ...previous, adult: previous.adult || recorded.adult, terms: previous.terms || recorded.terms, privacy: previous.privacy || recorded.privacy }));
   }, [accountAgreements, initial?.signupConsents]);
   useEffect(() => {
-    if (editing || checkingDevice || !interviewAuth || !consentRef.current.assessment) return;
+    if (editing || interviewOpen || checkingDevice || !interviewAuth || !consentRef.current.assessment) return;
     let active = true;
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
@@ -321,19 +321,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       confirmedProfileProposals.current = snapshot.document?.profileConfirmed ?? [];
       interviewVersion.current = snapshot.document ? { model:snapshot.document.model, promptVersion:snapshot.document.promptVersion, confirmedAt:snapshot.document.confirmedAt } : {};
       if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
-      const knownProfileFields = new Set(profileContextFromAnswers(current.current.answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
-      const restoreProfile = (snapshot.document?.profileConfirmed ?? []).filter(field => !knownProfileFields.has(field.fieldId));
+      const restoreProfile = current.current.step === 'compatibility'
+        ? unfilledProfileProposals(current.current.answers, snapshot.document?.profileConfirmed ?? []) : [];
       if (restoreProfile.length) update(applyProfileProposals(current.current.answers, restoreProfile, consentRef.current.sensitiveProfile));
       const confirmed = snapshot.document?.status === 'confirmed' ? snapshot.document.confirmed.filter(item => item.kind !== 'beena') : [];
       const complete = confirmed.length === dimensions.length * 2 + personalityQuestions.length;
       setAiComplete(complete);
       if (complete) {
         const saved = current.current.answers, restored = applyInterviewAnswers(saved, confirmed);
-        update({ surveyAnswers: restored.surveyAnswers, personalityAnswers: restored.personalityAnswers });
+        update({ surveyAnswers: { ...restored.surveyAnswers, ...saved.surveyAnswers }, personalityAnswers: { ...restored.personalityAnswers, ...saved.personalityAnswers } });
       }
     }).catch(() => { /* The session itself offers a retry; a network error is not a bypass. */ });
     return () => { active = false; };
-  }, [checkingDevice, consents.assessment, editing, interviewAuth?.token, interviewAuth?.testSession]);
+  }, [checkingDevice, consents.assessment, editing, interviewOpen, interviewAuth?.token, interviewAuth?.testSession]);
   useEffect(() => {
     if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
       const fresh = withDefaultContact(initialDraft(draftOwner, latestInitial.current), defaultContact);
@@ -443,7 +443,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   function applyCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
     confirmedProfileProposals.current=document.profileConfirmed ?? proposals;
     interviewVersion.current={model:document.model,promptVersion:document.promptVersion,confirmedAt:document.confirmedAt};
-    update(applyProfileProposals(current.current.answers, proposals, consentRef.current.sensitiveProfile));
+    const answers = current.current.answers;
+    const known = new Set(profileContextFromAnswers(answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
+    const allowed = editing ? proposals : [...proposals.filter(p => known.has(p.fieldId)), ...unfilledProfileProposals(answers, proposals)];
+    update(applyProfileProposals(answers, allowed, consentRef.current.sensitiveProfile));
     void saveProgressNow();
   }
   function selectGender(gender: Profile["gender"]) {
@@ -578,7 +581,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility} aiDraftsReady={chapter.key==='story'&&interviewApplied}/>}
+              {usesBasicSlides && <SignupBasicsSlides reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility} aiDraftsReady={chapter.key==='story'&&interviewApplied}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -710,8 +713,15 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           void saveProgressNow();
         }}
         onApply={confirmed => {
-          setAiComplete(true);
-          update(applyInterviewAnswers(current.current.answers, !editing ? confirmed.filter(item => item.kind !== 'beena') : confirmed));
+          const saved = current.current.answers;
+          const reviewed = applyInterviewAnswers(saved, confirmed.filter(item => !item.needsClarification && (editing || item.kind !== 'beena')));
+          const complete = !validateStep('compatibility', { ...saved, ...reviewed }, true, true, true);
+          setAiComplete(complete);
+          update(reviewed);
+          if (!editing && complete && current.current.step === 'compatibility') {
+            setInterviewOpen(false);
+            move(current.current.returnToReview ? 'review' : 'details');
+          }
           setInterviewApplied(true);
           setInterviewRevision(value => value + 1);
           setAssessmentPath('questions');

@@ -866,7 +866,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     );
   else if (view === "settings")
     screen = (
-      <Settings source={source} testerSession={tester?.session}
+      <Settings key={tester?.session ?? (demo?'demo':live?.user.id)} source={source} testerSession={tester?.session}
         completionEntry={completionEntry}
         onProfileChanged={() => { if (token) void run(async () => { await refresh(token); }); }}
         state={live}
@@ -879,7 +879,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onMembership={openMembership}
         onEdit={() => {setApplicationChapter(undefined);go("application");}}
         onBeena={demo||cloud ? ()=>{setApplicationChapter('beena');go('application');}:undefined}
-        onInterview={tester || (!demo && token) ? ()=>{setApplicationChapter('compatibility');go('application');}:undefined}
         onToggle={togglePause}
         onExit={signOut}
         onDelete={() => setConfirm("delete")}

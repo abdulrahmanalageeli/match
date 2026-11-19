@@ -1,5 +1,6 @@
 import memberAr from '../../src/member-ar.json' with { type: 'json' };
 import OpenAI from 'openai';
+import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, genericEvidence, groundHybridChoices, personalityOptions } from './interview-grounding.mjs';
 import { randomUUID } from 'node:crypto';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
 import topics from '../../src/interview/catalog.json' with { type: 'json' };
@@ -38,10 +39,6 @@ const topicById = new Map(topics.map(topic => [topic.id, topic]));
 const preferenceById = new Map(preferences.dimensions.map(dimension => [dimension.id, dimension]));
 const scenarioById = new Map(scenarios.map(scenario => [scenario.id, scenario]));
 const personalityById = new Map(personality.map(item => [item.id, item]));
-const personalityOptions = [
-  { code: 'A', label: 'لا يشبهني إطلاقًا' }, { code: 'B', label: 'يشبهني قليلًا' },
-  { code: 'C', label: 'يشبهني أحيانًا' }, { code: 'D', label: 'يشبهني غالبًا' }, { code: 'E', label: 'يشبهني كثيرًا' },
-];
 const personalityThemes = {
   intent: { ids: ['initiative', 'depth'], question: 'في بداية التعارف، من يبدأ المواضيع عادة؟ وبالنسبة لك، الحوار الأقرب لك يتعمّق في موضوع واحد أو يتنقّل بين مواضيع؟' },
   communication: { ids: ['conflict_pace', 'directness'], question: 'وقت الاختلاف، عادةً تحب تتكلم فورًا أو بعد ما تهدأ؟ وكيف توضّح ما تحتاجه وما يزعجك؟' },
@@ -162,33 +159,6 @@ function openingScenario(text, topic) {
 function isOpeningTurn(turn) {
   return isIntroduction(turn?.question) || Boolean(openingScenario(turn?.question, turn?.topic));
 }
-function nextOpeningQuestion(turns, proposals, result, reflection = '') {
-  const last = turns.at(-1);
-  const current = openingScenario(last?.question, last?.topic);
-  const covered = item => proposals.some(p => p.kind === 'preference' && p.fieldId === openingFields[item.topic]
-    && p.side === 'self' && !p.needsClarification);
-  const visited = item => turns.filter(t => openingScenario(t.question, t.topic)?.topic === item.topic).length;
-  // Clarify an unresolved situation at most once. Leave any remaining uncertainty for the editable assessment.
-  const ambiguous = !last?.skipped && (/^(?:على حسب|حسب الظروف|يعتمد|ما فهمت|وش تقصد(?:ين)?)[؟.!،\s]*$/u.test(last?.answer.trim() ?? '')
-    || result?.answerDisposition === 'clarify');
-  const clarify = current && !covered(current) && visited(current) === 1 && ambiguous;
-  const target = openingScenarios.find(item => result?.questionTopic === item.topic && !covered(item)
-    && result.questionFields?.includes(`preference:${openingFields[item.topic]}:self`) && safeText(result.question, 280)
-    && /^[^\r\n\u2029؟?]+[؟?]$/u.test(result.question.trim()) && !result.question.includes(SENSITIVE_REDACTION)
-    && !alreadyAsked(result.question, { turns }));
-  let scenario = clarify ? current : target;
-  if (!clarify && scenario && visited(scenario)) scenario = null;
-  // Older sessions can contain an analyzed answer without a saved opening question.
-  if (!scenario && typeof result?.replyEvidence !== 'string') {
-    scenario = openingScenarios.find(item => !covered(item) && !visited(item));
-  }
-  if (!scenario) return null;
-  let text = clarify ? scenario.clarification : scenario.text;
-  if (reflection && target === scenario) {
-    text = result.question.trim();
-  }
-  return { topic: scenario.topic, text: reflection ? `${reflection}\u2029${text}` : text, suggestions: [] };
-}
 function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
 function unfinishedOpeningScenario(document) {
   if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
@@ -196,7 +166,10 @@ function unfinishedOpeningScenario(document) {
   if (!isIntroduction(turns[0]?.question) || !turns.every(isOpeningTurn)) return null;
   const saved = document.currentQuestion;
   if (openingScenario(saved?.text, saved?.topic)) return saved;
-  return nextOpeningQuestion(turns, document.proposals);
+  // Older clients may have an unsent draft attached to an opening scenario.
+  const missing = openingScenarios.find(item => !turns.some(turn => openingScenario(turn.question, turn.topic)?.topic === item.topic)
+    && !document.proposals.some(p => p.fieldId === openingFields[item.topic] && p.side === 'self' && !p.needsClarification));
+  return missing ? { topic: missing.topic, text: missing.text, suggestions: [] } : null;
 }
 function validValues(kind, fieldId, side, values) {
   if (!Array.isArray(values) || values.length < 1 || values.length > 4 || new Set(values).size !== values.length) return false;
@@ -233,6 +206,7 @@ export function validateProposal(value, turns, assessmentContext = [], allowCont
     || (value.source !== undefined && value.source !== 'self_default')
     || (value.source === 'self_default' && (value.kind !== 'beena' || value.side !== 'partner'))) return null;
   const evidence = evidenceFor(value.evidence, turns, assessmentContext);
+  if (!allowContextEdit && evidence?.every(e => genericEvidence(e.quote))) return null;
   if (!evidence || evidence.every(item => { const turn=turns.find(turn => turn.id===item.turnId); return turn ? unclearConfirmation(turn) : false; })) return null;
   const contextIds = value.source === 'self_default'
     ? new Set([`context:${value.kind}:${value.fieldId}:self`, `context:${value.kind}:${value.fieldId}:partner`])
@@ -583,15 +557,11 @@ export const interviewSchema = { type: 'object', additionalProperties: false, pr
   readiness: noteSchema, clarifications: noteSchema,
 }, required: ['reply', 'answerDisposition', 'followUp', 'questionTopic', 'question', 'questionFields', 'quickReplies', 'invalidatedProposals', 'proposals', 'profileProposals', 'invalidatedProfileProposals', 'readiness', 'clarifications'] };
 
-function schemaFor(document, sensitiveProfileAllowed, liveOpening) {
+function schemaFor(document, sensitiveProfileAllowed) {
   const allowedIds = (sensitiveProfileAllowed ? profileCatalog : safeProfileCatalog).filter(field => !publicWriting.has(field.fieldId)).map(field => field.fieldId);
   const filteredProfileSchema = { ...profileProposalSchema, items: { ...profileProposalSchema.items,
     properties: { ...profileProposalSchema.items.properties, fieldId: { type: 'string', enum: allowedIds } } } };
   const base = { ...interviewSchema, properties: { ...interviewSchema.properties, profileProposals: filteredProfileSchema } };
-  if (liveOpening) {
-    base.properties.replyEvidence = { type: 'string', maxLength: 160 };
-    base.required = [...base.required, 'replyEvidence'];
-  }
   return requiredInterview(document) ? { ...base, properties: { ...base.properties, proposals: { ...base.properties.proposals,
     items: { ...base.properties.proposals.items, properties: { ...base.properties.proposals.items.properties,
       kind: { type: 'string', enum: ['preference', 'personality'] } } } } } } : base;
@@ -652,15 +622,12 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   if (!sensitiveProfileAllowed) instructions += `\nلم يمنح العضو إذن معالجة التفاصيل الحساسة. profileCatalog المرفق لا يحتوي الحقول الحساسة، ولا يجوز استنتاج أو اقتراح أو سؤال أي معلومة حساسة. ${SENSITIVE_REDACTION} بديل خصوصية أضافه الخادم قبل الإرسال: تجاهله تمامًا، ولا تقتبسه كدليل ولا تسأل عما أخفاه. حلّل فقط النص غير المحجوب.`;
   instructions += '\nالتعريف والمواقف محادثة خاصة للتحليل فقط. لا تستخرج أو تصغ bio أو lookingFor أو lifeTogether أو valuesStatement أو marriageIntent من المحادثة؛ هذه النصوص تُكتب من النموذج بعد التقييم. استخرج كل إجابة صريحة تدعمها الرسالة ولو غطت عشرة بنود أو أكثر، دون اختلاق اختيارات من السكوت أو فرض أن موقفًا افتراضيًا يثبت سمة ثابتة. مواقف البداية تكشف التوقيت الممكن والخطوات المعلنة والمرونة وطريقة الحوار، لا تكشف الصدق أو درجة الجدية. سجّل عدم الوضوح والتناقض بلطف في clarifications، ولا تضف اختبارًا أو حكمًا على الشخص.';
   if (hybrid) instructions += '\nافصل بين موعد الخطوة الرسمية وموعد إتمام الزواج: marriage_timeline في التوافق يخص الخطوة الرسمية وحدها، وmarriageBasics.marriageTimeline يخص إتمام الزواج. لا تستنتج موعد أحدهما من الآخر. اربط كل اقتراح بعبارة تصرّح بتوقيته.';
-  if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
-  const liveOpening = hybrid && !finalReview && isOpeningTurn(last);
-  if (liveOpening) instructions += `\nأنتِ لونا في بداية تعارف خاص. اكتبي في reply جملة سعودية قصيرة تردّ على معنى محدد من آخر رسالة، حتى لو كانت جملة واحدة. replyEvidence عبارة حرفية قصيرة من آخر answer تسند ردك. احفظي الفرق بين الرغبة والشرط والتردّد. مثال توضيحي فقط: من «أبي بيت مستقل بس قريب من أهلي» يمكن أن تقولي «يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.» لا تكرري المثال مع شخص آخر. إذا طلب شرحًا فاشرحي المقصود باختصار. تجنّبي المدح الجاهز ووصف الشخصية ووعد الحفظ، ولا تضعي سؤالًا في reply. إذا لم تجدي معنى تسندينه اتركي reply وreplyEvidence فارغين.
-في هذه البداية وحدها، question اختياري. اقترحي سؤالًا واحدًا فقط إذا أضاف معلومة تفرق في فهم آخر إجابة أو تناول جانبًا مرتبطًا بها ما زال مفتوحًا. إذا حسم الشخص السكن أو المصاريف أو طريقة التعامل مع اختلاف الرأي، لا تعيدي السؤال عنها. لا تسألي عن استثناء افتراضي أو تبرير قرار واضح. عند وجود سؤال، حددي questionTopic وquestionFields للجانب الناقص من openingTopics. إذا لم يوجد سؤال مفيد اتركي question وquestionTopic فارغين وquestionFields=[] وfollowUp=false. دعي الانتقال للموقف التالي للتطبيق.`;
+  if (finalReview && !hybrid) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
+  if (hybrid) instructions += '\nاستخرج المعاني الصريحة فقط. تبقى الإجابة المبهمة بلا اختيار. في هذه الجلسة تُستكمل المعلومات الناقصة بالبطاقات. اترك reply وquestion وquestionTopic فارغة، وquestionFields وquickReplies فارغتين، وfollowUp=false. حدّد answerDisposition بحسب معنى الإجابة.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
     messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({
       transcript: providerSafe.turns,
-      ...(liveOpening ? { openingTopics: openingFields } : {}),
       memberGender: memberGender === 'woman' || memberGender === 'man' ? memberGender : null,
       partnerGender: memberGender === 'woman' ? 'man' : memberGender === 'man' ? 'woman' : null,
       previousProposals: providerSafe.proposals,
@@ -671,11 +638,11 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
       ...(requiredInterview(document) ? { missingFields: missingFields(document).map(({ topic, ...field }) => ({ ...field, topic: topic.id })) } : { beenaCatalog: scenarios.map(({ id, title, scene, options }) => ({ id, title, scene, options })) }),
       personalityCatalog: personality, personalityOptions,
     }) }],
-    response_format: { type: 'json_schema', json_schema: { name: 'wudayn_interview', strict: true, schema: schemaFor(document, sensitiveProfileAllowed, liveOpening) } },
+    response_format: { type: 'json_schema', json_schema: { name: 'wudayn_interview', strict: true, schema: schemaFor(document, sensitiveProfileAllowed) } },
   };
 }
 
-export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false } = {}) {
+export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false, pendingGrounding = false } = {}) {
   const choice = completion?.choices?.[0];
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
@@ -690,7 +657,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     || (result.invalidatedProposals !== undefined && (!Array.isArray(result.invalidatedProposals) || result.invalidatedProposals.length > MAX_PROPOSALS))
     || (result.questionFields !== undefined && (!Array.isArray(result.questionFields) || result.questionFields.length > 3))) throw unavailable();
   const last = document.turns.at(-1);
-  const needsClarification = !finalReview && (result.answerDisposition !== 'answered' || (last && unclearConfirmation(last)));
+  const needsClarification = (hybrid || !finalReview) && (result.answerDisposition !== 'answered' || (last && unclearConfirmation(last)));
   const previous = withContextProposals(document,previousProposals.map(value => validateProposal(value, document.turns,document.assessmentContext)).filter(Boolean));
   const evidencePosition = evidence => Math.max(...evidence.map(item => document.turns.findIndex(turn => turn.id === item.turnId)));
   const invalidated = new Map();
@@ -710,17 +677,18 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     if (!proposal || (requiredInterview(document) && proposal.kind === 'beena')) continue;
     const correctionPosition = invalidated.get(proposal.id);
     if (correctionPosition !== undefined && evidencePosition(proposal.evidence) < correctionPosition) continue;
-    if (needsClarification && proposal.evidence.some(item => item.turnId === last?.id)) {
+    // Hybrid ambiguity is resolved per field by the catalog check below.
+    if (needsClarification && !(hybrid && result.answerDisposition === 'clarify' && last && !unclearConfirmation(last)) && proposal.evidence.some(item => item.turnId === last?.id)) {
       const prior = previous.find(item => item.id === proposal.id && JSON.stringify(item.values) === JSON.stringify(proposal.values));
       if (correctionPosition === undefined) {
         if (!prior) continue;
         proposal = prior;
-      }
+      } else if (hybrid) continue;
     }
     const duplicate = fresh.get(proposal.id);
     if (!duplicate || evidencePosition(proposal.evidence) > evidencePosition(duplicate.evidence)) fresh.set(proposal.id, proposal);
     else if (evidencePosition(proposal.evidence) === evidencePosition(duplicate.evidence)
-      && JSON.stringify(proposal.values) !== JSON.stringify(duplicate.values)) fresh.set(proposal.id, { ...duplicate, needsClarification: true });
+      && (proposal.needsClarification || JSON.stringify(proposal.values) !== JSON.stringify(duplicate.values))) fresh.set(proposal.id, { ...duplicate, needsClarification: true });
   }
   // Signup extraction is cumulative. Omitting an unaffected earlier answer is
   // not a retraction; only a grounded correction can withdraw or replace it.
@@ -808,15 +776,11 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     const reply = result.reply.trim().slice(0, Math.max(0, 498 - question.text.length));
     if (reply) question.text = `${reply}\n\n${question.text}`;
   }
-  const openingFlow = hybrid && isOpeningTurn(last);
-  const groundedReply = !finalReview && bounded(result.replyEvidence, 160) && last?.answer.includes(result.replyEvidence.trim())
-    && !/[؟?\r\n\u2029]/u.test(result.reply) && !result.reply.includes(SENSITIVE_REDACTION) ? result.reply.trim() : '';
-  const opening = openingFlow && !finalReview ? nextOpeningQuestion(document.turns, proposals, result, groundedReply) : null;
-  const closing = groundedReply && !opening ? { topic: last.topic, text: groundedReply, suggestions: [] } : null;
   return { ...document, model: INTERVIEW_MODEL,
-    proposals,profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
-    currentQuestion: openingFlow ? opening ?? closing : question,
-    status: openingFlow ? (opening ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
+    proposals: hybrid && !pendingGrounding ? proposals.filter(p => p.needsClarification || directCarryForward(p, document.turns) || p.evidence.every(e => e.turnId.startsWith('context:'))) : proposals,
+    profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
+    currentQuestion: hybrid ? null : question,
+    status: !hybrid && next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
 }
 
@@ -873,6 +837,7 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
 
 export function createInterviewService({ env = process.env, fetcher = fetch, clientFactory = options => new OpenAI(options) } = {}) {
   return async (body, headers = {}) => {
+    const startedAt = Date.now();
     const input = parseInterviewInput(body);
     const identity = identityHeaders(headers);
     const withAccountPolicy = document => {
@@ -883,12 +848,12 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     };
     if (env.SUPABASE_URL && env.SUPABASE_URL.replace(/\/$/, '') !== PROJECT_URL) throw unavailable();
     let memberGender = null;
-    const rpc = async (command, payload = {}) => {
+    const rpc = async (command, payload = {}, timeout = 8000) => {
       let response, value;
       try {
         response = await fetcher(`${PROJECT_URL}/rest/v1/rpc/marriage_interview`, {
           method: 'POST', headers: { apikey: PUBLISHABLE_KEY, 'Content-Type': 'application/json', ...(identity.token ? { Authorization: `Bearer ${identity.token}` } : {}) },
-          body: JSON.stringify({ command, payload, test_token: identity.testToken }), signal: AbortSignal.timeout(8000),
+          body: JSON.stringify({ command, payload, test_token: identity.testToken }), signal: AbortSignal.timeout(timeout),
         });
         value = await response.json();
       } catch { throw unavailable(); }
@@ -927,6 +892,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const structuredConfirmation = isStructuredConfirmation(document);
       if (structuredConfirmation) document.proposals = document.confirmed;
       return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
+        carryForwardIds:document.proposals.filter(p => eligibleCarryForward(p, document.turns)).map(p => p.id),
         ...(structuredConfirmation ? { structuredConfirmation } : {}) };
     }
     async function fail(document, reason) {
@@ -1073,7 +1039,21 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
       const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
-      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid });
+      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, pendingGrounding:hybrid });
+      if (hybrid) {
+        const turns = providerDocument(next, input.sensitiveProfileAllowed === true).turns.filter(t => !t.skipped);
+        analyzed.proposals = await groundHybridChoices(analyzed.proposals, turns, memberGender, async data => {
+          try {
+            // Leave time for the existing save and attestation before the client deadline.
+            const budget = () => 36000 - (Date.now() - startedAt);
+            if (budget() < 1000) return [];
+            const quota = await rpc('reserve', {expectedRevision:snapshot.revision}, Math.min(1500,budget()));
+            if (quota.status !== 'allowed') return [];
+            const timeout = Math.min(6000,budget());
+            return timeout > 0 ? await checkCatalogAnswers(openai, INTERVIEW_MODEL, data, timeout) : [];
+          } catch { return []; } // Verification is optional. The ordinary question remains available.
+        });
+      }
       // Retrying analysis must not change the question beneath an unsent draft.
       if (input.action === 'retry' && document.status === 'active' && document.draftAnswer.trim()) {
         analyzed = { ...analyzed, status: 'active', currentQuestion: document.currentQuestion, draftAnswer: document.draftAnswer };

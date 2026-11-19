@@ -122,6 +122,17 @@ export function applyProfileProposals<T extends ProfileCaptureAnswers>(current: 
   return patch as Partial<T>;
 }
 
+/** Preserve partially entered criteria too. They are intentionally absent from the valid model context. */
+export function unfilledProfileProposals(current: ProfileCaptureAnswers, proposals: ProfileProposal[]) {
+  return proposals.filter(proposal => {
+    const field = profileField(proposal.fieldId);
+    if (!field) return false;
+    const root = current[field.path[0] as keyof ProfileCaptureAnswers];
+    const value = field.path.length === 1 ? root : object(root) ? (root as Record<string, unknown>)[field.path[1]] : undefined;
+    return value === undefined || value === null || value === '';
+  });
+}
+
 /** Share only registered, populated fields already in the user's draft so the
  * conversation can avoid re-asking them. Sensitive context needs separate consent. */
 export function profileContextFromAnswers(current: ProfileCaptureAnswers, sensitiveConsent = false): ProfileContext {

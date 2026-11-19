@@ -21,10 +21,10 @@ export function useWeeklyCardTransition() {
     return () => { document.removeEventListener("visibilitychange", onVisibility); clear(); };
   }, [clear]);
 
-  return (origin: HTMLElement, swap: () => HTMLElement | null) => {
+  return (origin: HTMLElement | null, swap: () => HTMLElement | null) => {
     clear();
     const root = document.documentElement;
-    if (!document.startViewTransition || document.hidden || root.dataset.nfMotion === "reduced" ||
+    if (!origin || !document.startViewTransition || document.hidden || root.dataset.nfMotion === "reduced" ||
         matchMedia("(prefers-reduced-motion: reduce)").matches) {
       swap();
       return;

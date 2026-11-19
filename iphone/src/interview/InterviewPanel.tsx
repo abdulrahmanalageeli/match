@@ -88,6 +88,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [clarifying, setClarifying] = useState(false);
   const [profileEdits, setProfileEdits] = useState<Record<string, ProfileChoice>>({});
   const [editedProfile, setEditedProfile] = useState<string[]>([]);
+  const [includeProfile,setIncludeProfile] = useState(false);
   const [ignoredProfile, setIgnoredProfile] = useState<string[]>([]);
   const contextRef = useRef(profileContext); contextRef.current = profileContext;
   const assessmentContextRef = useRef(assessmentContext); assessmentContextRef.current = assessmentContext;
@@ -196,6 +197,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   useEffect(() => { setShareReview(doc?.reviewSharing ?? false); }, [doc?.reviewSharing]);
   useEffect(() => {
     setProfileEdits(Object.fromEntries((doc?.profileProposals ?? []).map(p => [p.id, { id:p.id, fieldId:p.fieldId, values:p.needsClarification ? [] : p.values, mode:p.mode, exclude:p.exclude }])));
+    setIncludeProfile(false);
     setIgnoredProfile([]);
     setEditedProfile([]);
   }, [profileVersion]);
@@ -326,9 +328,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (activeRequest.current?.action === 'draft' && !await afterDraft('confirm')) return;
     const choices = structuredChoices ?? validProposals.map(proposal => ({ id: proposal.id, values: selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values) }));
     if (!choices.length || choices.some(choice => !choice.values.length)) return;
-    const result = await call(structuredChoices ? 'structuredConfirm' : 'confirm', { choices, shareReview, ...(profileChoices.length ? { profileChoices: profileChoices.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
+    const approvedProfile = onboarding && !includeProfile ? [] : profileChoices;
+    const result = await call(structuredChoices ? 'structuredConfirm' : 'confirm', { choices, shareReview, ...(approvedProfile.length ? { profileChoices: approvedProfile.map(({id,values,mode,exclude})=>({id,values,mode,exclude})) } : {}) });
     if (result?.document) {
-      const selectedProfile = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
+      const selectedProfile = result.document.profileConfirmed?.filter(p=>approvedProfile.some(choice=>choice.id===p.id)) ?? [];
       if (selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
       if (result.document.confirmed.length) { onApply(result.document.confirmed); setApplied(true); }
       else setSharingSaved(true);
@@ -358,7 +361,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const validProposals = (snapshot.structuredConfirmation && doc?.status === 'confirmed' ? doc.confirmed : doc?.proposals ?? [])
     .filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
   const savedStructuredChoices = Object.fromEntries((assessmentContext ?? []).map(({ id, values }) => [id, values]));
-  const aiProposals = validProposals.filter(item => !item.needsClarification && item.source !== 'self_default' && !savedStructuredChoices[item.id]);
+  const aiProposals = validProposals.filter(item => snapshot.carryForwardIds?.includes(item.id) && !item.needsClarification && item.source !== 'self_default' && item.evidence.some(e => !e.turnId.startsWith('context:')));
   const structuredChoices = {
     ...Object.fromEntries(aiProposals.map(({ id, values }) => [id, values])),
     ...savedStructuredChoices,
@@ -376,7 +379,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const profileProposals = (doc?.profileProposals ?? []).filter(p => Boolean(profileField(p.fieldId)));
   const profileChoices = profileProposals.flatMap(p => {
     const choice = profileEdits[p.id];
-    return choice && (!p.needsClarification || editedProfile.includes(p.id)) && !ignoredProfile.includes(p.id) && (!profileField(p.fieldId)?.sensitive || sensitiveProfileAllowed) && validProfileProposalValues(choice) ? [choice] : [];
+    const previous = profileContext?.find(field => field.fieldId === p.fieldId);
+    const replacesSaved = onboarding && previous && choice && captureSignature(previous) !== captureSignature(choice);
+    return choice && (!replacesSaved || editedProfile.includes(p.id)) && (!p.needsClarification || editedProfile.includes(p.id)) && !ignoredProfile.includes(p.id) && (!profileField(p.fieldId)?.sensitive || sensitiveProfileAllowed) && validProfileProposalValues(choice) ? [choice] : [];
   });
   const captureBadge=(change:MessageChange)=>change.profile&&profileField(change.id.slice('profile:'.length))?.sensitive&&!sensitiveProfileAllowed?'معلّق للموافقة':change.changed?'تغيّر':'أُضيف للملخص';
   const coverage = snapshot.coverage;
@@ -399,7 +404,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       || (questionParts.length === 2 && /[؟?]$/u.test(questionParts[1]))));
   const answerLimit = !clarifying && scenarioIndex >= 0 ? 700 : 900;
   const hybrid = Boolean(hybridEnabled && doc?.promptVersion === 'wudayn-interview-4' &&
-    doc.status !== 'confirmed' && !fallbackReview && (hasOpening && doc.status === 'review'));
+    doc.status !== 'confirmed' && !fallbackReview && (hasOpening && (doc.status === 'review' || (doc.status === 'active' && doc.lastMode === 'luna' && !doc.pendingAnalysis && !doc.draftAnswer.trim() && scenarioIndex >= 0))));
   const hybridReady = Boolean(hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis);
   const isChat = Boolean(loaded && doc && !applied && !profileReview && !hybrid && !reviewMode);
   useEffect(() => {
@@ -445,17 +450,13 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <button className="wi-link" type="button" onClick={()=>setProfileReview(false)} disabled={actionBlocked}>العودة إلى الحوار <ArrowLeft size={15}/></button>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>ملفك يتشكّل من كلامك</h1>
           <p className="wi-lead">هذه التفاصيل التي فهمناها. عدّل ما يحتاج، ثم أضفها إلى مسودتك بخطوة واحدة. لا تُنشر قبل إرسال الملف.</p>
-          <div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div>
+          <div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} previous={onboarding ? profileContext?.find(field=>field.fieldId===proposal.fieldId) : undefined} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div>
           {profileChoices.length<profileProposals.length-ignoredProfile.length && <p className="wi-review-attention">التفاصيل غير الواضحة تبقى معلّقة حتى توضّحها؛ لن نملأها بالتخمين.</p>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
         : applied ? <section className="wi-complete"><span className="wi-complete-mark" aria-hidden="true"><Check size={30}/></span><h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1><p>أضفنا إجاباتك إلى مسودة ملفك. يمكنك مراجعتها قبل إرساله.</p><MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton><button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button></section>
         : hybrid ? <section aria-label="أسئلة جلسة التوافق" className="wi-card-session">
-          {doc.status === 'review' && hybridReady && doc.currentQuestion && !/[؟?]/u.test(doc.currentQuestion.text) &&
-            <div className="wi-bubble wi-bubble-guide wi-closing"><span className="wi-speaker">لونا</span><p className="wi-reflection">{doc.currentQuestion.text}</p></div>}
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
-          {!responding && !doc.pendingAnalysis && aiProposals.some(item => !savedStructuredChoices[item.id]) &&
-            <p className="wi-coverage-note" role="status"><Check size={15}/> استخدمنا كلامك لتجهيز بعض الإجابات. تقدر تعدّلها في المراجعة.</p>}
           {profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
             <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
           </button>}
@@ -468,7 +469,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
-          <HybridAssessment choices={structuredChoices} aiProposals={aiProposals} onChange={changeStructuredChoices}
+          <HybridAssessment choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} onChange={changeStructuredChoices}
             onChoiceHelp={hybridReady ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,
@@ -486,11 +487,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
                 <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
                 <div className="wi-profile-capture-list">{profileProposals.map(proposal => <ProfileProposalReview
                   key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]}
-                  restricted={Boolean(profileField(proposal.fieldId)?.sensitive && !sensitiveProfileAllowed)}
+                  previous={onboarding ? profileContext?.find(field=>field.fieldId===proposal.fieldId) : undefined} restricted={Boolean(profileField(proposal.fieldId)?.sensitive && !sensitiveProfileAllowed)}
                   ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice}
                   onIgnore={() => setIgnoredProfile(previous => previous.includes(proposal.id) ? previous.filter(id => id !== proposal.id) : [...previous, proposal.id])}
                 />)}</div>
               </details>}
+              {profileChoices.length > 0 && <label className="wi-sharing"><input type="checkbox" checked={includeProfile} onChange={event=>setIncludeProfile(event.target.checked)}/><span>أضيف التفاصيل المقترحة إلى مسودة ملفي<small>{profileChoices.map(choice=>profileProposalLabel(choice)+' · '+profileProposalValue(choice)).join('، ')}</small></span></label>}
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
                 <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>
@@ -519,7 +521,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             return <details className="wi-review-group" key={side} open={needsCorrection || undefined} data-attention={needsCorrection || undefined}><summary><span><strong>{side === 'personality' ? 'طريقتك في الحياة والتواصل' : side === 'self' ? 'عن حياتك' : side === 'partner' ? 'ما تريده في شريكك' : 'أولوياتك'}</strong><small>{needsCorrection ? 'تحتاج نقطة إلى توضيحك' : 'جاهز للمراجعة والتعديل'}</small></span><span className="wi-review-state" aria-hidden="true">{needsCorrection ? 'راجع' : <Check size={14}/>}</span><ChevronDown size={17}/></summary><div className="wi-review-rows">{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div></details>;
 
           }) : <div className="wi-notice"><p>لم يتكوّن ملخص واضح بعد. نحتاج أن نكمل الحوار دون تخمين إجاباتك.</p></div>}
-          {!!profileProposals.length && <details className="wi-review-group wi-profile-group"><summary><span><strong>ملفك وما يناسبك في الشريك</strong><small>مسودة من كلامك · راجعها قبل الإضافة</small></span><ChevronDown size={17}/></summary><div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div></details>}
+          {!!profileProposals.length && <details className="wi-review-group wi-profile-group"><summary><span><strong>ملفك وما يناسبك في الشريك</strong><small>مسودة من كلامك · راجعها قبل الإضافة</small></span><ChevronDown size={17}/></summary><div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} previous={onboarding ? profileContext?.find(field=>field.fieldId===proposal.fieldId) : undefined} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div></details>}
           {!!doc.readiness.length && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
           {!!doc.clarifications.length && <details className="wi-private-notes"><summary>نقاط للحوار لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
           {!fallbackReview && <details className="wi-sharing-options"><summary>مشاركة الملخص مع فريق العضوية <ChevronDown size={14}/></summary><label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط.<small>اختياري. الحوار وإجابات التوافق تبقى خاصة.</small></span></label>{shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}{sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة، دون تغيير إجابات ملفك.</p>}</details>}
@@ -568,7 +570,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
 
 function TypingDots() { return <span className="wi-loading-dots" aria-hidden="true"><i/><i/><i/></span>; }
 
-function ProfileProposalReview({proposal,choice,ignored,restricted=false,onChange,onIgnore}:{proposal:ProfileProposal;choice?:ProfileChoice;ignored:boolean;restricted?:boolean;onChange:(choice:ProfileChoice)=>void;onIgnore:()=>void}) {
+function ProfileProposalReview({proposal,choice,ignored,previous,restricted=false,onChange,onIgnore}:{previous?:ProfileContext[number];proposal:ProfileProposal;choice?:ProfileChoice;ignored:boolean;restricted?:boolean;onChange:(choice:ProfileChoice)=>void;onIgnore:()=>void}) {
   const field=profileField(proposal.fieldId);
   if(!field)return null;
   const value=choice??{id:proposal.id,fieldId:proposal.fieldId,values:proposal.needsClarification?[]:proposal.values,mode:proposal.mode,exclude:proposal.exclude};
@@ -578,6 +580,7 @@ function ProfileProposalReview({proposal,choice,ignored,restricted=false,onChang
   return <details className="wi-profile-proposal" data-ignored={ignored||undefined} open={!valid&&!ignored||undefined}>
     <summary><span><small>{label}{restricted?' · يتطلب موافقة التفاصيل الاختيارية':''}</small><strong>{ignored?'لن يُضاف إلى المسودة':profileProposalValue(value)||'نحتاج توضيحك'}</strong></span><Pencil size={15} aria-hidden="true"/></summary>
     <div className="wi-profile-editor">
+      {previous && captureSignature(previous)!==captureSignature(value) && <p>إجابتك المحفوظة: {profileProposalValue(previous)} <button type="button" className="wi-link" onClick={()=>onChange(value)}>استخدام الاختيار المعروض بدل إجابتي</button></p>}
       {field.criterionShape&&<label>أهمية هذا التفضيل<select value={value.mode??'prefer'} onChange={event=>change({mode:event.target.value as ProfileChoice['mode'],...(event.target.value==='any'?{values:[],exclude:false}:{})})}><option value="prefer">أفضل</option><option value="require">شرط أساسي</option><option value="any">لا تفضيل محدد</option></select></label>}
       {value.mode!=='any'&&field.criterionShape!=='mode'&&(field.kind==='text'?<label>{label}<textarea dir="rtl" rows={3} maxLength={field.maxLength??600} value={value.values[0]??''} onChange={event=>change({values:[event.target.value]})}/></label>
         :field.kind==='range'?<fieldset><legend>{label}</legend><div className="wi-profile-range"><label>من<input type="number" inputMode="numeric" min={field.min} max={field.max} value={value.values[0]??''} onChange={event=>change({values:[event.target.value,value.values[1]??'']})}/></label><label>إلى<input type="number" inputMode="numeric" min={field.min} max={field.max} value={value.values[1]??''} onChange={event=>change({values:[value.values[0]??'',event.target.value]})}/></label></div></fieldset>

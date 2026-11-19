@@ -58,8 +58,8 @@ export type MotionRevealProps = HTMLAttributes<HTMLElement> & {
 
 /** A semantic DOM element whose entrance is driven by Reanimated shared values. */
 function AnimatedMotionReveal({
-  as = 'div', delay = 0, duration = 480, active = true,
-  axis = 'y', distance = 10, fromOpacity = 0, fromScale = 1, style, ...props
+  as = 'div', delay = 0, duration = 240, active = true,
+  axis = 'y', distance = 6, fromOpacity = .82, fromScale = 1, style, ...props
 }: MotionRevealProps) {
   const { value } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
@@ -95,52 +95,9 @@ export function MotionReveal(props: MotionRevealProps) {
   return <MotionBoundary fallback={<RevealFallback {...props}/>}><AnimatedMotionReveal {...props}/></MotionBoundary>;
 }
 
-type ButtonHostProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style'> & { style?: HostStyle };
-const ButtonHost = forwardRef<HTMLButtonElement, ButtonHostProps>(function ButtonHost({ style, ...props }, ref) {
-  return <button {...props} ref={ref} style={domStyle(style)} />;
-});
-const AnimatedButton = Animated.createAnimatedComponent(ButtonHost);
-
-/** Native button semantics, with quiet 120ms Reanimated press compression. */
-const AnimatedMotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function AnimatedMotionPressButton({
-  disabled, type = 'button', style, onPointerDown, onPointerUp, onPointerCancel,
-  onPointerLeave, onKeyDown, onKeyUp, onBlur, ...props
+/** The WebView handles presses directly, including scroll cancellation and keyboard activation. */
+export const MotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function MotionPressButton({
+  type = 'button', ...props
 }, ref) {
-  const { value } = useDevicePreferences();
-  const systemReduced = useSystemReducedMotion();
-  const reduced = value.reducedMotion || systemReduced;
-  const scale = useSharedValue(1);
-  const settle = () => {
-    scale.value = reduced || disabled || document.hidden ? 1 : withTiming(1, { duration: 120 });
-  };
-  const press = () => {
-    if (!disabled && !reduced && !document.hidden) scale.value = withTiming(.97, { duration: 120 });
-  };
-  useEffect(() => {
-    const finish = () => { cancelAnimation(scale); scale.value = 1; };
-    const visibility = () => { if (document.hidden) finish(); };
-    if (reduced || disabled || document.hidden) finish();
-    document.addEventListener('visibilitychange', visibility);
-    return () => {
-      document.removeEventListener('visibilitychange', visibility);
-      cancelAnimation(scale);
-    };
-  }, [disabled, reduced, scale]);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }), [scale]);
-  return <AnimatedButton {...props} ref={ref} type={type} disabled={disabled}
-    data-motion-press="" data-motion-engine="reanimated" style={[style, animatedStyle]}
-    onPointerDown={event => { onPointerDown?.(event); if (!event.defaultPrevented && event.button === 0) press(); }}
-    onPointerUp={event => { onPointerUp?.(event); settle(); }}
-    onPointerCancel={event => { onPointerCancel?.(event); settle(); }}
-    onPointerLeave={event => { onPointerLeave?.(event); settle(); }}
-    onKeyDown={event => { onKeyDown?.(event); if (!event.defaultPrevented && !event.repeat && (event.key === ' ' || event.key === 'Enter')) press(); }}
-    onKeyUp={event => { onKeyUp?.(event); if (event.key === ' ' || event.key === 'Enter') settle(); }}
-    onBlur={event => { onBlur?.(event); settle(); }}
-  />;
-});
-
-export const MotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function MotionPressButton(props, ref) {
-  return <MotionBoundary fallback={<button {...props} ref={ref} type={props.type ?? 'button'} data-motion-press="" data-motion-engine="fallback"/>}>
-    <AnimatedMotionPressButton {...props} ref={ref}/>
-  </MotionBoundary>;
+  return <button {...props} ref={ref} type={type} data-motion-press=""/>;
 });

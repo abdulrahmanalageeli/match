@@ -1,62 +1,107 @@
 [
   {
-    "id": "social_energy",
-    "title": "طاقتي الاجتماعية",
-    "prompt": "أشعر بنشاط أكبر بعد قضاء وقت مع مجموعة من الناس."
+    "id": "calm_before_acting",
+    "title": "التفكير قبل التصرف",
+    "prompt": "إذا صار شيء مزعج، أقدر أهدأ وأفكر قبل ما أتصرف.",
+    "domain": "stability",
+    "reverse": false
   },
   {
-    "id": "initiative",
-    "title": "المبادرة في الحوار",
-    "prompt": "أبادر بفتح المواضيع عندما أتعرف إلى شخص جديد."
+    "id": "lasting_tension",
+    "title": "مدة التوتر",
+    "prompt": "إذا ضغطتني أمور يومي، يستمر معي التوتر لفترة طويلة.",
+    "domain": "stability",
+    "reverse": true
   },
   {
-    "id": "depth",
-    "title": "عمق الحوار",
-    "prompt": "أستمتع بالتعمق في فكرة واحدة أكثر من التنقل بين مواضيع كثيرة."
+    "id": "stress_recovery",
+    "title": "التعافي بعد الضغط",
+    "prompt": "إذا واجهت مشكلة، أرجع لطبيعتي بعد وقت معقول.",
+    "domain": "stability",
+    "reverse": false
   },
   {
-    "id": "openness",
-    "title": "مشاركة المشاعر",
-    "prompt": "أشارك مشاعري وتجربتي الشخصية بسهولة عندما أشعر بالأمان."
+    "id": "follow_through",
+    "title": "الوفاء بالالتزامات",
+    "prompt": "إذا التزمت بشيء، أحرص أني أنفذه حتى لو انشغلت.",
+    "domain": "reliability",
+    "reverse": false
   },
   {
-    "id": "closeness",
-    "title": "التواصل اليومي",
-    "prompt": "أحب مشاركة تفاصيل يومي والتواصل المتكرر مع شريك حياتي."
+    "id": "prepare_early",
+    "title": "الاستعداد المبكر",
+    "prompt": "أرتب أموري المهمة قبل وقتها بدل ما أتركها لآخر لحظة.",
+    "domain": "reliability",
+    "reverse": false
   },
   {
-    "id": "reassurance",
-    "title": "الطمأنينة",
-    "prompt": "يطمئنني التعبير الواضح والمتكرر عن الاهتمام."
+    "id": "unfinished_tasks",
+    "title": "إكمال المهام",
+    "prompt": "أحيانًا أبدأ أشياء مهمة وما أكملها.",
+    "domain": "reliability",
+    "reverse": true
   },
   {
-    "id": "support",
-    "title": "الدعم وقت الضغط",
-    "prompt": "عندما أمر بضغط، أفضل الحديث عنه مع شخص أثق به."
+    "id": "perspective_taking",
+    "title": "فهم الآخر",
+    "prompt": "حتى إذا اختلفت مع شخص، أحاول أفهم وجهة نظره قبل ما أحكم.",
+    "domain": "warmth",
+    "reverse": false
   },
   {
-    "id": "planning",
-    "title": "التخطيط",
-    "prompt": "أفضل الاتفاق على تفاصيل خططنا قبل موعدها بوقت كافٍ."
+    "id": "make_amends",
+    "title": "إصلاح الخطأ",
+    "prompt": "إذا أخطأت في حق شخص، أقدر أعترف بخطئي وأصلّح الموقف.",
+    "domain": "warmth",
+    "reverse": false
   },
   {
-    "id": "novelty",
-    "title": "التجارب الجديدة",
-    "prompt": "أتحمس لتجربة أنشطة وأماكن جديدة بدل تكرار المألوف."
+    "id": "harsh_words",
+    "title": "الكلام وقت الزعل",
+    "prompt": "وقت الزعل، ممكن أقول كلام أقسى مما أقصد.",
+    "domain": "warmth",
+    "reverse": true
   },
   {
-    "id": "conflict_pace",
-    "title": "وقت الاختلاف",
-    "prompt": "أفضل مناقشة الخلاف فورًا بدل تأجيله إلى وقت أهدأ."
+    "id": "group_energy",
+    "title": "الطاقة مع الناس",
+    "prompt": "وجودي مع مجموعة من الناس يعطيني طاقة.",
+    "domain": "social_energy",
+    "reverse": false
   },
   {
-    "id": "directness",
-    "title": "وضوح الاحتياج",
-    "prompt": "أقول بوضوح ما أحتاجه وما يزعجني في العلاقة."
+    "id": "start_conversation",
+    "title": "بدء الحديث",
+    "prompt": "عادةً أبادر بالكلام مع أشخاص جدد.",
+    "domain": "social_energy",
+    "reverse": false
   },
   {
-    "id": "quiet_comfort",
-    "title": "الراحة في الهدوء",
-    "prompt": "أرتاح للحظات الهدوء مع شخص قريب دون الحاجة لملئها بالكلام."
+    "id": "quiet_settings",
+    "title": "الأجواء الهادئة",
+    "prompt": "أفضل غالبًا الأجواء الهادئة على التجمعات الكبيرة.",
+    "domain": "social_energy",
+    "reverse": true
+  },
+  {
+    "id": "try_new_ideas",
+    "title": "التجربة",
+    "prompt": "أستمتع بتجربة طرق أو أفكار جديدة حتى لو كانت مختلفة عن اللي تعودت عليه.",
+    "domain": "openness",
+    "reverse": false
+  },
+  {
+    "id": "explore_views",
+    "title": "وجهات النظر",
+    "prompt": "أحب أفهم وجهات نظر أو أفكار تختلف عن رأيي.",
+    "domain": "openness",
+    "reverse": false
+  },
+  {
+    "id": "prefer_familiar",
+    "title": "المألوف",
+    "prompt": "أفضل الأشياء المألوفة حتى لو كانت هناك طريقة جديدة ممكن تكون أفضل.",
+    "domain": "openness",
+    "reverse": true
   }
 ]

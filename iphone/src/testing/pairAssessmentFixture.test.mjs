@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pairAssessmentFixture } from './pairAssessmentFixture.ts';
-import { describeFit, dimensions } from '../compatibility/model.ts';
-import personalityCatalog from '../compatibility/personality-catalog.json' with { type: 'json' };
+import { describeFit, dimensionsForVersion } from '../compatibility/model.ts';
+const dimensions = dimensionsForVersion('marriage-v3');
+import personalityCatalog from '../compatibility/personality-catalog-v1.json' with { type: 'json' };
 import { beenaProgress, validBeenaProfile } from '../beena/model.ts';
 import { conversationInsights } from '../compatibility/conversation-insights.ts';
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparePreferences, describeFit, dimensions, rankPreferences } from "./model.ts";
+import { comparePreferences, describeFit, dimensionsForVersion, rankPreferences } from "./model.ts";
+const dimensions = dimensionsForVersion("marriage-v3");
 import { validPartnerCriteria, validPartnerCriteriaDraft } from './marriage.ts';
 
 const a = {

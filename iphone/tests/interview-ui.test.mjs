@@ -6,6 +6,7 @@ import ts from 'typescript';
 import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
+import * as parenting from '../src/compatibility/parenting.mjs';
 import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -70,6 +71,7 @@ function mount(initial, intercept = () => null) {
     if (name === './catalog.json') return { default: topics };
     if (name === './opening-scenarios.json') return { default: openingScenarios };
     if (name === './profileCapture') return profileHelpers;
+    if (name === '../compatibility/parenting.mjs') return parenting;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected import ${name}`);
   };
@@ -192,15 +194,15 @@ test('quick replies remain disabled while analysis is pending', async () => {
 });
 
 test('uncertain interpretations require correction while clear answers need no repeated approvals', async () => {
-  const known={...proposal,id:'personality:directness:self',kind:'personality',fieldId:'directness',values:['D']};
-  const uncertain={...known,id:'personality:openness:self',fieldId:'openness',values:['C'],needsClarification:true};
+  const known={...proposal,id:'personality:make_amends:self',kind:'personality',fieldId:'make_amends',values:['D']};
+  const uncertain={...known,id:'personality:try_new_ideas:self',fieldId:'try_new_ideas',values:['C'],needsClarification:true};
   const ui=mount({document:{...baseDocument(),status:'review',currentQuestion:null,proposals:[known,uncertain]},revision:2});ui.render();await tick();let tree=ui.render();
   const reviews=()=>nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');assert.equal(reviews().length,2);
-  assert.match(textOf(reviews()[0].type(reviews()[0].props)),/أقول بوضوح ما أحتاجه وما يزعجني في العلاقة/);
+  assert.match(textOf(reviews()[0].type(reviews()[0].props)),/أعترف بخطئي/);
   assert.equal(find(tree,'اعتماد الملخص').props.disabled,true);
   nodes(reviews()[1].type(reviews()[1].props)).find(node=>node.type==='select').props.onChange({target:{value:'B'}});tree=ui.render();
   assert.equal(find(tree,'اعتماد الملخص').props.disabled,false);find(tree,'اعتماد الملخص').props.onClick();await tick();ui.render();
-  assert.deepEqual(ui.applied[0].map(({fieldId,values})=>({fieldId,values})),[{fieldId:'directness',values:['D']},{fieldId:'openness',values:['B']}]);ui.unmount();
+  assert.deepEqual(ui.applied[0].map(({fieldId,values})=>({fieldId,values})),[{fieldId:'make_amends',values:['D']},{fieldId:'try_new_ideas',values:['B']}]);ui.unmount();
 });
 
 test('manual fallback is available only after the server confirms a recoverable failure', async () => {

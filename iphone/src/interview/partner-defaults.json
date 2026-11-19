@@ -50,12 +50,13 @@
     "B": null,
     "C": null
   },
-  "mixed_gatherings": {
+  "social_boundaries": {
     "A": null,
     "B": null,
-    "C": null
+    "C": null,
+    "D": null
   },
-  "match_disagreement_style": {
+  "conflict_response": {
     "A": null,
     "B": null,
     "C": null,
@@ -76,7 +77,7 @@
     "B": null,
     "C": null
   },
-  "public_event_attendance": {
+  "money_management": {
     "A": null,
     "B": null,
     "C": null,

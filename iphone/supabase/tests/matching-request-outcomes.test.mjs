@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 
-const catalog = JSON.parse(await readFile(new URL('../../src/compatibility/catalog.json', import.meta.url), 'utf8'));
+const catalog = JSON.parse(await readFile(new URL('../../src/compatibility/catalog-v3.json', import.meta.url), 'utf8'));
 test('recommended filters, authoritative expiry and neutral history retain participant privacy', async () => {
   const db = await createDatabase();
   const call = (user, sql, args = []) => asMember(db, user.id, user.sessionId, () => db.query('select ' + sql + ' value', args).then(result => result.rows[0].value));
@@ -12,7 +12,7 @@ test('recommended filters, authoritative expiry and neutral history retain parti
     const user = { id: randomUUID(), sessionId: randomUUID(), email: randomUUID() + '@example.test' };
     await addUser(db, user);
     const profile = { displayName: name, age: 30, city, gender, profession: 'مهندس', bio: 'نبذة تجريبية', contact: user.email,
-      preferredMinAge: 25, preferredMaxAge: 40, familyPreference: '', consentVersion: '2026-11-07-privacy', assessmentVersion: 'marriage-v2',
+      preferredMinAge: 25, preferredMaxAge: 40, familyPreference: '', consentVersion: '2026-11-07-privacy', assessmentVersion: 'marriage-v3',
       surveyAnswers: Object.fromEntries(catalog.dimensions.flatMap(d => [[d.id, 'A'], [d.partnerId, 'A']])), hardRequirements: [],
       marriageBasics: { smoking: 'never', maritalStatus: 'never_married', nationality: 'السعودية' },
       signupConsents: { version: '2026-11-07-privacy', adult: true, terms: true, privacy: true, sensitiveProfile: true, sensitivePublication: true, assessment: true, photo: false } };

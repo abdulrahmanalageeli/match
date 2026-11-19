@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deepSnapshot } from '../src/community/deepCompatibilityModel.ts';
+import { deepConsent, deepSnapshot } from '../src/community/deepCompatibilityModel.ts';
 
 const finding = {id:'f1',section:'summary',kind:'manageable',text:'Joint private inference',evidence:[{side:'b',key:'private'}]};
 test('review state retains only own evidence, never draft inference or peer input',()=>{
@@ -24,4 +24,10 @@ test('unknown or malformed states fail closed',()=>{
   assert.throws(()=>deepSnapshot({status:'published',findings:[finding]}));
   assert.throws(()=>deepSnapshot({status:'shared',findings:[{...finding,section:'invented'}]}));
   assert.throws(()=>deepSnapshot({status:'review',review:[{id:'f1',section:'summary'}]}));
+});
+
+test('the two consent actions are versioned and acceptance is bound to the displayed invitation',()=>{
+ assert.deepEqual(deepConsent('request'),{consentVersion:'deep-assessment-v2'});
+ assert.deepEqual(deepConsent('accept','displayed-invitation'),{consentVersion:'deep-assessment-v2',requestId:'displayed-invitation'});
+ assert.throws(()=>deepConsent('accept'));
 });

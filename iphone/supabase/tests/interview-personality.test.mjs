@@ -2,7 +2,7 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, addUser, asMember } from './harness.mjs';
-import catalog from '../../src/compatibility/personality-catalog.json' with { type: 'json' };
+import catalog from '../../src/compatibility/personality-catalog-v1.json' with { type: 'json' };
 
 let db;
 before(async () => { db = await createDatabase(); });

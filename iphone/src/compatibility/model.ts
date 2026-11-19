@@ -1,19 +1,18 @@
 import { normalizeNationality } from './nationality.ts';
 export { normalizeNationality } from './nationality.ts';
 import { canonicalCity, canonicalEducation, canonicalProfession, educationOptions, professionOptions } from '../profile/profileOptions.ts';
-import catalog from "./catalog.json" with { type: "json" };
-import personalityCatalog from "./personality-catalog.json" with { type: "json" };
+import legacyCatalog from "./catalog-v3.json" with { type: "json" };
+import personalityCatalog from "./personality-catalog-v1.json" with { type: "json" };
 import type { MarriageBasics, PartnerCriteria } from "./marriage.ts";
 import { compareBeena, beenaRankMultiplier, type BeenaFit, type BeenaProfile } from '../beena/model.ts';
 import { createPersonalityEvidence, validatedPersonalityEvidence, type PersonalityEvidencePayload } from './personality-analysis.ts';
 import { preferenceCategoryCounts, type PreferenceEvidence, type PreferenceTopic } from './preference-evidence.ts';
 
-export const assessmentVersion = "marriage-v3" as const;
-export const categories = catalog.categories;
-export const dimensions = catalog.dimensions;
+import { assessmentVersion, dimensions, applicableDimensions } from './practical-catalog.ts';
+export { assessmentVersion, categories, dimensions, applicableDimensions, dimensionsForVersion } from './practical-catalog.ts';
 export const maxPriorities = 2;
 export type MatchFit = {
-  version: "marriage-v1" | "marriage-v2" | typeof assessmentVersion;
+  version: "marriage-v1" | "marriage-v2" | "marriage-v3" | typeof assessmentVersion;
   practicalConcerns?: string[];
   band: "insufficient" | "strong" | "mixed" | "explore";
   provisional: boolean;
@@ -33,12 +32,13 @@ export type MatchFit = {
   } & Partial<PersonalityEvidencePayload>;
 };
 export function preferencePercentage(fit?: MatchFit): number | null {
-  return fit && ["marriage-v1", "marriage-v2", assessmentVersion].includes(fit.version) && fit.assessmentComplete && !fit.provisional && fit.total > 0 && fit.covered === fit.total
+  return fit && ["marriage-v1", "marriage-v2", "marriage-v3", assessmentVersion].includes(fit.version) && fit.assessmentComplete && !fit.provisional && fit.total > 0 && fit.covered === fit.total
     && typeof fit.percentage === "number" && Number.isFinite(fit.percentage)
     && fit.percentage >= 0 && fit.percentage <= 100 ? Math.round(fit.percentage) : null;
 }
 
 export function personalityPercentage(fit?: MatchFit): number | null {
+  if (fit?.version === assessmentVersion) return null;
   const personality = fit?.personality;
   if (personality && Object.hasOwn(personality, 'method') && !validatedPersonalityEvidence(personality)) return null;
   return personality?.version === "personality-v1" && personality.complete && personality.total > 0 && personality.covered === personality.total
@@ -178,7 +178,9 @@ function personalityFit(first: PairProfile, second: PairProfile): NonNullable<Ma
 }
 
 type Dimension = typeof dimensions[number];
+const historicalTopics = new Set(legacyCatalog.dimensions.map(topic => topic.id));
 function answer(member: PairProfile, dim: Dimension, side: "self" | "partner") {
+  if (member.assessmentVersion !== assessmentVersion && !historicalTopics.has(dim.id)) return undefined;
   const value = member.surveyAnswers?.[side === "self" ? dim.id : dim.partnerId];
   if (dim.id === 'public_event_attendance' && side === 'self' && value === 'D') return undefined;
   return dim.options.some(option => option.code === value) ? value : undefined;
@@ -232,7 +234,7 @@ function answerFits(member: PairProfile, peer: PairProfile, dim: Dimension, want
 
 function acceptsRequirements(member: PairProfile, peer: PairProfile) {
   return (member.hardRequirements ?? []).every(id => {
-    const dim = dimensions.find(item => item.id === id && item.hardAllowed);
+    const dim = legacyCatalog.dimensions.find(item => item.id === id && item.hardAllowed);
     if (!dim) return false;
     const required = answer(member, dim, "partner");
     return answerFits(member, peer, dim, required, answer(peer, dim, "self"));
@@ -255,11 +257,11 @@ function cityKnown(member: PairProfile) {
   return !!city && !['مدينة أخرى داخل السعودية', 'مدينة أخرى خارج السعودية'].includes(city);
 }
 
-function directedFit(member: PairProfile, peer: PairProfile) {
+function legacyDirectedFit(member: PairProfile, peer: PairProfile) {
   let numerator = 0, denominator = 0, penalty = 1;
-  for (const category of categories) {
+  for (const category of legacyCatalog.categories) {
     let known = 0, points = 0;
-    for (const dim of dimensions.filter(item => item.category === category.id)) {
+    for (const dim of legacyCatalog.dimensions.filter(item => item.category === category.id)) {
       const want = answer(member, dim, 'partner'), observed = answer(peer, dim, 'self');
       if (!want || !observed) continue;
       const credit = agreement(member, peer, dim, want, observed);
@@ -283,6 +285,36 @@ function directedFit(member: PairProfile, peer: PairProfile) {
   return { score: denominator ? numerator / denominator : 0, penalty, criteria };
 }
 
+function currentDirectedFit(member: PairProfile, peer: PairProfile, topics: Dimension[]) {
+  let numerator = 0, denominator = 0;
+  const criteria = preferredCriteria(member, peer);
+  let strictConflict = (Object.keys(member.partnerCriteria ?? {}) as (keyof PartnerCriteria)[])
+    .some(key => member.partnerCriteria?.[key]?.mode === 'require' && criterionFit(member, peer, key) !== true);
+  for (const topic of topics) {
+    const wanted = answer(member, topic, 'partner'), observed = answer(peer, topic, 'self');
+    if (!wanted || !observed || (topic.id === 'children_plan' && (wanted === 'C' || observed === 'C'))) continue;
+    const credit = agreement(member, peer, topic, wanted, observed);
+    const weight = (100 / dimensions.length) * (member.priorityCategories?.includes(topic.category) ? 2 : 1);
+    numerator += weight * credit;
+    denominator += weight;
+    if (credit === 0 && topic.hardAllowed && member.hardRequirements?.includes(topic.id)) strictConflict = true;
+  }
+  numerator += 2 * criteria.matched;
+  denominator += 2 * criteria.covered;
+  return { score: denominator ? numerator / denominator : 0, criteria, strictConflict, penalty: 1 };
+}
+
+function hasCurrentContract(first: PairProfile, second: PairProfile) {
+  return first.assessmentVersion === assessmentVersion || second.assessmentVersion === assessmentVersion;
+}
+
+function pairDimensions(first: PairProfile, second: PairProfile) {
+  if (!hasCurrentContract(first, second)) return legacyCatalog.dimensions;
+  const omitParenting = [first, second].some(member => member.assessmentVersion === assessmentVersion &&
+    applicableDimensions(assessmentVersion, member.surveyAnswers, member.marriageBasics?.childrenCount, member.partnerCriteria?.children).length < dimensions.length);
+  return omitParenting ? dimensions.filter(topic => topic.id !== 'parenting_approach') : dimensions;
+}
+
 export function comparePreferences(first: PairProfile, second: PairProfile) {
   const woman=first.gender==='woman'?first:second;
   const man=woman===first?second:first;
@@ -294,10 +326,11 @@ export function comparePreferences(first: PairProfile, second: PairProfile) {
     !first.city?.trim() || !second.city?.trim() ||
     (!sameCity && !canShareCity(first, second)) ||
     !ageAccepted(first.age, second) || !ageAccepted(second.age, first) ||
-    !acceptsRequirements(first, second) || !acceptsRequirements(second, first) ||
+    (first.assessmentVersion !== assessmentVersion && !acceptsRequirements(first, second)) || (second.assessmentVersion !== assessmentVersion && !acceptsRequirements(second, first)) ||
     !acceptsCriteria(first, second) || !acceptsCriteria(second, first)
   ) return null;
   const result = describeFit(first, second);
+  if (hasCurrentContract(first, second) && result.fit.practicalConcerns?.includes('strict_requirement')) return null;
   if (!result.reasons.length) result.reasons.push('يمكنكما مناقشة التفضيلات الظاهرة في تفاصيل المقارنة.');
   return result;
 }
@@ -310,7 +343,9 @@ export function describeFit(first: PairProfile, second: PairProfile) {
   const coveredCategories = new Set<string>();
   const reasons: string[] = [];
   const topics: PreferenceTopic[] = [];
-  for (const dim of dimensions) {
+  const current = hasCurrentContract(first, second);
+  const activeTopics = pairDimensions(first, second);
+  for (const dim of activeTopics) {
     const selfA = answer(first, dim, "self");
     const selfB = answer(second, dim, "self");
     const wantA = answer(first, dim, "partner");
@@ -326,8 +361,8 @@ export function describeFit(first: PairProfile, second: PairProfile) {
     } else { discussion.push(dim.id); }
   }
   const covered = strengths.length + discussion.length;
-  const forward = directedFit(first, second);
-  const reverse = directedFit(second, first);
+  const forward = current ? currentDirectedFit(first, second, activeTopics) : legacyDirectedFit(first, second);
+  const reverse = current ? currentDirectedFit(second, first, activeTopics) : legacyDirectedFit(second, first);
   const practicalConcerns: string[] = [];
   let practicalPenalty = 1;
   if (!ageAccepted(first.age, second) || !ageAccepted(second.age, first)) {
@@ -346,27 +381,30 @@ export function describeFit(first: PairProfile, second: PairProfile) {
   }
   if (!locationKnown) practicalConcerns.push('location_unknown');
   if (forward.criteria.requiredConflict || reverse.criteria.requiredConflict) practicalConcerns.push('required_criterion');
-  const reciprocal = Math.sqrt(forward.score * reverse.score) * Math.min(practicalPenalty, forward.penalty, reverse.penalty);
+  if ((first.assessmentVersion === assessmentVersion && 'strictConflict' in forward && forward.strictConflict) ||
+      (second.assessmentVersion === assessmentVersion && 'strictConflict' in reverse && reverse.strictConflict)) practicalConcerns.push('strict_requirement');
+  const reciprocal = Math.sqrt(forward.score * reverse.score) * (current ? 1 : Math.min(practicalPenalty, forward.penalty, reverse.penalty));
   const provisional = covered < 5 || coveredCategories.size < 3 || !locationKnown || forward.criteria.missing + reverse.criteria.missing > 0;
   const band: MatchFit["band"] = provisional ? "insufficient" : reciprocal >= 0.75 ? "strong" : reciprocal >= 0.45 ? "mixed" : "explore";
-  const assessmentComplete = covered === dimensions.length && dimensions.length > 0 &&
-    first.assessmentVersion === assessmentVersion && second.assessmentVersion === assessmentVersion && locationKnown &&
+  const version = current ? assessmentVersion : "marriage-v3";
+  const assessmentComplete = covered === activeTopics.length && activeTopics.length > 0 &&
+    first.assessmentVersion === version && second.assessmentVersion === version && locationKnown &&
     !forward.criteria.missing && !reverse.criteria.missing;
   const forwardCriteria = forward.criteria, reverseCriteria = reverse.criteria;
-  const fit: MatchFit = { version: assessmentVersion, band, practicalConcerns, provisional, covered, total: dimensions.length, strengths, discussion, missing,
+  const fit: MatchFit = { version, band, practicalConcerns, provisional, covered, total: activeTopics.length, strengths, discussion, missing,
     assessmentComplete, percentage: assessmentComplete ? Math.round(reciprocal * 100) : null,
     criteria: { covered: forwardCriteria.covered + reverseCriteria.covered, total: forwardCriteria.total + reverseCriteria.total },
-    preferenceEvidence: { version: 'preference-evidence-v1', method: 'reciprocal-weighted-v3', topics, categories: preferenceCategoryCounts(topics), criteria: {
+    preferenceEvidence: { version: 'preference-evidence-v1', method: current ? 'reciprocal-weighted-v4' : 'reciprocal-weighted-v3', topics, categories: preferenceCategoryCounts(topics, version), criteria: {
       matched: forwardCriteria.matched + reverseCriteria.matched,
       different: forwardCriteria.different + reverseCriteria.different,
       missing: forwardCriteria.missing + reverseCriteria.missing,
       total: forwardCriteria.total + reverseCriteria.total,
     } },
-    personality: personalityFit(first, second), beena: compareBeena(first.beena, second.beena) };
+    ...(!current && first.personalityVersion !== 'personality-v2' && second.personalityVersion !== 'personality-v2' ? { personality: personalityFit(first, second) } : {}), beena: compareBeena(first.beena, second.beena) };
   const sharedInterests = interests.filter(interest =>
     first.interestIds?.includes(interest.id) && second.interestIds?.includes(interest.id));
   for (const interest of sharedInterests) reasons.push("اهتمام مشترك: " + interest.label);
-  const rankValue = reciprocal * Math.sqrt(covered / dimensions.length) * beenaRankMultiplier(fit.beena);
+  const rankValue = reciprocal * Math.sqrt(covered / activeTopics.length) * beenaRankMultiplier(fit.beena);
   return { fit, rankValue, reciprocalSignals: strengths.length, sharedInterests, reasons };
 }
 

@@ -64,17 +64,17 @@ export function readinessComplete(value: MembershipReadiness, topics: ReadinessT
   return Boolean(value.family && value.nextStep && value.agreement === membershipAgreementVersion &&
     topics.every(topic => value.clarifications?.[topic]));
 }
-import catalog from '../compatibility/catalog.json' with { type: 'json' };
+import { applicableDimensions } from '../compatibility/practical-catalog.ts';
 import type { Profile } from '../types';
 
 
-export type ReadinessAnswers = Pick<Profile, 'surveyAnswers' | 'hardRequirements' | 'priorityCategories' | 'lookingFor' | 'lifeTogether' | 'personalityAnswers'>
+export type ReadinessAnswers = Pick<Profile, 'assessmentVersion' | 'personalityVersion' | 'marriageBasics' | 'partnerCriteria' | 'surveyAnswers' | 'hardRequirements' | 'priorityCategories' | 'lookingFor' | 'lifeTogether' | 'personalityAnswers'>
   & { gender?: Profile['gender'] | '' };
 
 /** A private reflection of reviewed choices, without predicting intent or relationship outcomes. */
 export function readinessBlueprint(answers: ReadinessAnswers, value: MembershipReadiness, conflicts: ReadinessTopic[]) {
   const survey = answers.surveyAnswers ?? {};
-  const described = catalog.dimensions.flatMap(dimension => {
+  const described = applicableDimensions(answers.assessmentVersion, survey, answers.marriageBasics?.childrenCount, answers.partnerCriteria?.children).flatMap(dimension => {
     const own = dimension.options.find(option => option.code === survey[dimension.id]);
     const partner = dimension.options.find(option => option.code === survey[dimension.partnerId]);
     if (!own || !partner) return [];
@@ -96,7 +96,7 @@ export function readinessBlueprint(answers: ReadinessAnswers, value: MembershipR
   if (survey.children_plan === 'C') discussion.push('رغبتك في الإنجاب لم تُحسم. ناقشاها قبل الاتفاق النهائي.');
   if (survey.residence_plan === 'A') discussion.push('مدينة الاستقرار نقطة مهمّة إذا كان الطرف الآخر في مدينة مختلفة.');
   const personality = answers.personalityAnswers ?? {};
-  if (['D', 'E'].includes(personality.conflict_pace ?? '') && ['A', 'B'].includes(personality.directness ?? '')) {
+  if (answers.personalityVersion !== 'personality-v2' && ['D', 'E'].includes(personality.conflict_pace ?? '') && ['A', 'B'].includes(personality.directness ?? '')) {
     discussion.push('تميل لمناقشة الخلاف بسرعة، والتعبير المباشر عن احتياجك أقل شيوعًا عندك. اتفقا على طريقة توضيح ما يزعجكما.');
   }
   return {

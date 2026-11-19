@@ -1,4 +1,6 @@
 import { Check, ChevronDown, HeartHandshake, LockKeyhole, ShieldCheck } from '../BrandIcons';
+import { dimensionsForVersion } from '../compatibility/model';
+import { marriageTimelineLabels } from '../compatibility/marriage';
 import { MotionReveal } from '../motion/Reanimated';
 import { membershipAgreementVersion, readinessBlueprint, readinessClarifications, readinessComplete, readinessConflicts, readinessScenarios, type MembershipReadiness as Readiness, type ReadinessAnswers, type ReadinessTopic } from './membershipReadiness';
 import './membership-readiness.css';
@@ -50,6 +52,8 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
   onChange: (value: Readiness) => void;
 }) {
   const conflicts = readinessConflicts(value, familyPreference, formalTiming);
+  const formalLabel = dimensionsForVersion(answers?.assessmentVersion).find(item => item.id === 'marriage_timeline')?.options.find(option => option.code === formalTiming)?.self;
+  const wedding = answers?.marriageBasics?.marriageTimeline;
   const reviewed = value.family && value.nextStep && conflicts.every(topic => value.clarifications?.[topic]);
   function selectScenario(topic: ReadinessTopic, choice: string) {
     if (value[topic] === choice) return;
@@ -59,6 +63,10 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
   }
   return <section className="nf-readiness-intake" aria-label="مواقف الجاهزية واتفاق العضوية">
     <p className="nf-readiness-intro">نتفق من البداية على مقصد الزواج، وحدود التواصل، وخطوة الأهل.</p>
+    <dl className="nf-readiness-declarations">
+      <div><dt>توقيت أول خطوة رسمية</dt><dd>{formalLabel ?? 'لم يُحدّد'}</dd></div>
+      <div><dt>توقيت إتمام الزواج</dt><dd>{wedding ? marriageTimelineLabels[wedding] : 'لم يُحدّد'}</dd></div>
+    </dl>
     {(['family','nextStep'] as const).map(topic => <div className="nf-readiness-card" key={topic}>
       <fieldset>
         <legend>{readinessScenarios[topic].question}</legend>
@@ -67,6 +75,10 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
         </button>)}
       </fieldset>
       {conflicts.includes(topic) && <MotionReveal className="nf-readiness-clarify" duration={200} distance={5}>
+        <dl className="nf-readiness-declarations">
+          <div><dt>اختيارك السابق</dt><dd>{topic === 'family' ? familyPreference : formalLabel}</dd></div>
+          <div><dt>إجابتك في هذا الموقف</dt><dd>{topic === 'family' ? readinessScenarios.family.options[value.family!] : readinessScenarios.nextStep.options[value.nextStep!]}</dd></div>
+        </dl>
         <small><HeartHandshake size={15} aria-hidden="true"/> لونا · خلّنا نوضحها</small>
         <fieldset>
           <legend>{readinessClarifications[topic].question}</legend>

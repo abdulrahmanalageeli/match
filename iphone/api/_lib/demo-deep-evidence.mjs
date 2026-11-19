@@ -1,5 +1,5 @@
 import personas from '../../src/community/demoPersonas.json' with {type:'json'};
-import questions from '../../src/compatibility/personality-catalog.json' with {type:'json'};
+import questions from '../../src/compatibility/personality-catalog-v1.json' with {type:'json'};
 
 // Only fictional catalog entries can be selected by an API caller.
 export function demoEvidence(id) {
@@ -12,5 +12,5 @@ export function demoEvidence(id) {
   return {key:'personality:'+id,question:prompt,answer:statement.slice(prompt.length).trim()};
  });
  entries.push({key:'profile:bio',question:'كيف تصف حياتك اليومية؟',answer:persona.bio});
- return {entries};
+ return {personalityVersion:'personality-v1',entries};
 }

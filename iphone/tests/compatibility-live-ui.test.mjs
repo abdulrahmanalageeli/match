@@ -241,7 +241,7 @@ test('an assessment change during the initial discovery load is caught up immedi
 
 test('the visible conversation topic stays selected as answers reclassify it, with fresh explanations and safe fallbacks', () => {
   const answers = Object.fromEntries(dimensions.flatMap(item => [[item.id, 'A'], [item.partnerId, 'A']]));
-  const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70, assessmentVersion: 'marriage-v3', surveyAnswers: answers };
+  const a = { id: 'a', gender: 'woman', age: 29, city: 'الرياض', preferredMinAge: 18, preferredMaxAge: 70, assessmentVersion: 'marriage-v4', surveyAnswers: answers };
   const b = { ...a, id: 'b', gender: 'man' }; const topic = dimensions[3];
   let chosen; const props = { fit: describeFit(a, b).fit, name: 'رهام', disabled: false, hasDraft: false, choose: value => { chosen = value; } };
   const m = mount(insightsCode, 'ChatInsights', props); let tree = m.render();

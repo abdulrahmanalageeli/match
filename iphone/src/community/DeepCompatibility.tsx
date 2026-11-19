@@ -66,7 +66,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     const current = ++sequence.current;
     try {
       let next = action === 'generate' ? snapshot : await source.request(connectionId, action, action === 'review'
-        ? Object.fromEntries((snapshot?.review ?? []).map(item => [item.id, decisions[item.id] === true])) : undefined);
+        ? Object.fromEntries((snapshot?.review ?? []).map(item => [item.id, decisions[item.id] === true])) : undefined, action === 'accept' ? snapshot?.id : undefined);
       if (current !== sequence.current) return;
       if (!document.hidden) setSnapshot(next);
       // One explicit approval starts one job. Polls and re-renders never invoke AI.
@@ -140,7 +140,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
         {!source && <p className="wd-deep-note">يُتاح طلب التحليل لأعضاء وسام الجدية في التوافقات الحقيقية. هذه المحادثة التجريبية لا ترسل أي إجابات للتحليل.</p>}
         {source && !snapshot && !error && <p role="status" className="wd-deep-note">{busy ? 'جارٍ تنفيذ طلبك…' : 'جارٍ تحميل حالة التقرير…'}</p>}
         {isStart && <>
-          {status === 'stale' && <p className="wd-deep-note">انتهت صلاحية الموافقة أو تغيّرت الإجابات. طلب جديد يحافظ على دقة التقرير وخصوصيتكما.</p>}
+          {status === 'stale' && <p className="wd-deep-note">يلزم طلب جديد وموافقة من كل طرف إذا تغيّرت الإجابات أو نسخة الاستبيان أو انتهت صلاحية الموافقة.</p>}
           {status === 'declined' && <p className="wd-deep-note">لم تُقبل الدعوة السابقة. لم يُفتح تقرير مشترك.</p>}
           {status === 'cancelled' && <p className="wd-deep-note">أُلغي التحليل السابق وسُحب الوصول إلى محتواه.</p>}
           <ConsentCopy/>
@@ -180,7 +180,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
 }
 
 function ConsentCopy() {
-  return <div className="wd-deep-consent"><h3><LockKeyhole size={17}/> قبل أن توافق</h3><ul><li>تُحلّل لونا إجاباتكما المحفوظة: تفضيلاتكما، متطلبات الشريك وعبارات الشخصية، وخطط الزواج والسكن والإنجاب والمصاريف إن أضفتماها، عبر OpenAI، مزوّد الذكاء الاصطناعي.</li><li>لا تُستخدم المحادثات أو الصور أو بيانات التواصل أو مدينة الأصل أو نص «بيننا». لا استبيان إضافي.</li><li>قد يكشف التقرير تفضيلات خاصة عبر استنتاجاته. تراجعان نطاق مشاركة كل نقطة؛ لا تُفتح إلا بموافقتكما.</li></ul><small>يمكنك رفض الدعوة أو إلغاء التحليل وسحب الوصول إلى التقرير داخل التطبيق. لا يمكن سحب نسخة سبق أن حفظها الطرف الآخر.</small></div>;
+  return <div className="wd-deep-consent"><h3><LockKeyhole size={17}/> قبل أن توافق</h3><ul><li>تُحلّل لونا إجاباتكما المحفوظة: تفضيلاتكما، متطلبات الشريك وعبارات الشخصية، وخطط الزواج والسكن والإنجاب والمصاريف إن أضفتماها، عبر OpenAI، مزوّد الذكاء الاصطناعي.</li><li>تشمل القراءة عبارات الشخصية التي أجاب عنها كل منكما: ١٢ عبارة في النسخة السابقة، أو ١٥ عبارة عن التعامل مع الضغط والتنظيم ومراعاة الآخرين والطاقة الاجتماعية والانفتاح على التجربة. يلزم رضاكما قبل استخدام النسخة الجديدة.</li><li>لا تُستخدم المحادثات أو الصور أو بيانات التواصل أو مدينة الأصل أو نص «بيننا». لا استبيان إضافي.</li><li>قد يكشف التقرير تفضيلات خاصة عبر استنتاجاته. تراجعان نطاق مشاركة كل نقطة؛ لا تُفتح إلا بموافقتكما.</li></ul><small>يمكنك رفض الدعوة أو إلغاء التحليل وسحب الوصول إلى التقرير داخل التطبيق. لا يمكن سحب نسخة سبق أن حفظها الطرف الآخر.</small></div>;
 }
 
 function Revoke({ busy, shared, apply }: { busy: boolean; shared: boolean; apply(): void }) {

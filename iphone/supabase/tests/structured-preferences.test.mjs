@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createDatabase, addUser, asMember } from './harness.mjs';
 import { canonicalEducation, canonicalProfession, educationOptions, professionOptions, professionAliases } from '../../src/profile/profileOptions.ts';
 
-const catalog=JSON.parse(await readFile(new URL('../../src/compatibility/catalog.json',import.meta.url),'utf8'));
+const catalog=JSON.parse(await readFile(new URL('../../src/compatibility/catalog-v3.json',import.meta.url),'utf8'));
 const education='بكالوريوس', profession='الهندسة والعمارة';
 const choices={version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false};
 const criteria={education:{mode:'prefer',values:[education]},profession:{mode:'prefer',values:[profession]}};

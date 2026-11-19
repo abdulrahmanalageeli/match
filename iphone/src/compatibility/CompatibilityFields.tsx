@@ -1,25 +1,27 @@
 import memberAr from '../member-copy.ts';
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, CookingPot, Dice5, Footprints, Heart, Landmark, PenLine, Plane, SlidersHorizontal, Sparkles, Star, UserRound } from "../BrandIcons";
-import { categories, dimensions, interests, maxInterests, maxPriorities, type CompatibilitySelection } from "./model";
+import { categories, applicableDimensions, interests, maxInterests, maxPriorities, type CompatibilitySelection } from "./model";
 import { hasPreferenceAnswer } from "../onboarding/remainingAssessments";
 import "./fields.css";
 import "./question-experience.css";
 
-type Props = CompatibilitySelection & { gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
+import type { PartnerCriteria } from './marriage';
+
+type Props = CompatibilitySelection & { version?: string; childrenCount?: number; partnerChildren?: PartnerCriteria['children']; gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
 const interestIcons = { reading: BookOpen, cooking: CookingPot, walking: Footprints, travel: Plane,
   photography: Camera, board_games: Dice5, museums: Landmark, creative_writing: PenLine };
 const number = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
 const sectionOrder = ["plans", "timing", "values", "lifestyle", "communication", "personality"];
 const sections = sectionOrder.map(id => categories.find(category => category.id === id)!);
-const topics = sections.flatMap(section => dimensions.filter(dim => dim.category === section.id));
-const total = topics.length * 2;
-function countAnswers(category: string, answers: Record<string, string>) {
-  return topics.filter(dim => dim.category === category)
-    .reduce((n, dim) => n + Number(hasPreferenceAnswer(dim.options,answers[dim.id])) + Number(hasPreferenceAnswer(dim.options,answers[dim.partnerId])), 0);
-}
-
-export function CompatibilityFields({ interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
+export function CompatibilityFields({ version, childrenCount, partnerChildren, interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
+  const dimensions = applicableDimensions(version,surveyAnswers,childrenCount,partnerChildren);
+  const topics = sections.flatMap(section => dimensions.filter(dim => dim.category === section.id));
+  const total = topics.length * 2;
+  function countAnswers(category: string, answers: Record<string, string>) {
+    return topics.filter(dim => dim.category === category)
+      .reduce((n, dim) => n + Number(hasPreferenceAnswer(dim.options,answers[dim.id])) + Number(hasPreferenceAnswer(dim.options,answers[dim.partnerId])), 0);
+  }
   const prefix = useId();
   const completedHere = useRef(new Set<number>()), previousMode = useRef(remainingOnly);
   if (previousMode.current !== remainingOnly) { completedHere.current.clear(); previousMode.current = remainingOnly; }
@@ -122,7 +124,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
         <details className="compat-refine">
           <summary><SlidersHorizontal size={14} aria-hidden="true"/>ما أهمية هذا لك؟{(isPriority || hardRequirements.includes(dim.id)) && <span>محددة</span>}<ChevronDown size={13} aria-hidden="true"/></summary>
           <label className="compat-priority"><input type="checkbox" checked={isPriority} disabled={!isPriority && priorityCategories.length >= maxPriorities} onChange={() => change({ priorityCategories: isPriority ? priorityCategories.filter(id => id !== category.id) : [...priorityCategories, category.id] })}/><span><strong><Star size={14} aria-hidden="true"/>من أولوياتي</strong><small>امنح «{category.label}» أهمية أكبر. يمكنك اختيار محورين.</small></span></label>
-          {dim.hardAllowed && surveyAnswers[dim.partnerId] && <label className="compat-hard"><input type="checkbox" checked={hardRequirements.includes(dim.id)} onChange={event => change({ hardRequirements: event.target.checked ? [...hardRequirements, dim.id] : hardRequirements.filter(id => id !== dim.id) })}/><span><strong>شرط أساسي عندي</strong><small>يُشترط أن تلائم إجابة الطرف الآخر تفضيلك.</small></span></label>}
+          {dim.hardAllowed && surveyAnswers[dim.partnerId] && <label className="compat-hard"><input type="checkbox" checked={hardRequirements.includes(dim.id)} onChange={event => change({ hardRequirements: event.target.checked ? [...hardRequirements, dim.id] : hardRequirements.filter(id => id !== dim.id) })}/><span><strong>شرط أساسي عندي</strong><small>{version && version !== 'marriage-v4' ? "يُشترط أن تلائم إجابة الطرف الآخر تفضيلك." : "أشترط في الشريك: " + dim.options.find(o=>o.code===surveyAnswers[dim.partnerId])?.partner}</small></span></label>}
         </details>
       </div>
       <footer className="compat-navigation"><button type="button" className="compat-previous" disabled={questionIndex <= 0} onClick={() => move(positions[questionIndex - 1])}><ChevronRight size={17} aria-hidden="true"/>السابق</button>
@@ -131,7 +133,7 @@ export function CompatibilityFields({ interestIds, surveyAnswers, hardRequiremen
       </div>}
       {!remainingOnly && activePosition === total-1 && <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'اكتملت صورتك عن الحياة' : 'وصلت إلى آخر فكرة'}</strong><small>{filled === total ? 'يمكنك مراجعة إجاباتك من المواضيع، ثم متابعة التسجيل.' : `بقيت ${number.format(total-filled)} إجابات${required ? " لنكمل صورتك عن الحياة." : " اختيارية. يمكنك إكمالها أو متابعة التسجيل الآن."}`}</small></p>{firstMissing >= 0 && firstMissing !== position && <button type="button" onClick={()=>move(firstMissing)}>إكمال المتبقي<ChevronLeft size={15} aria-hidden="true"/></button>}</div>}
     </section>
-    {remainingOnly && <details className="compat-refine"><summary><SlidersHorizontal size={14}/>{required ? "ما الأهم لك؟" : "أولوياتك وشروطك الاختيارية"}<ChevronDown size={13}/></summary><p className="compat-assessment-note">لا نختار الأولويات أو الشروط الأساسية بدلًا عنك.</p>{sections.map(section => <label className="compat-priority" key={section.id}><input type="checkbox" checked={priorityCategories.includes(section.id)} disabled={!priorityCategories.includes(section.id) && priorityCategories.length >= maxPriorities} onChange={event => change({priorityCategories:event.target.checked?[...priorityCategories,section.id]:priorityCategories.filter(id=>id!==section.id)})}/><span><strong>{section.label}</strong></span></label>)}{topics.filter(topic=>topic.hardAllowed&&hasPreferenceAnswer(topic.options,surveyAnswers[topic.partnerId])).map(topic=><label className="compat-hard" key={topic.id}><input type="checkbox" checked={hardRequirements.includes(topic.id)} onChange={event=>change({hardRequirements:event.target.checked?[...hardRequirements,topic.id]:hardRequirements.filter(id=>id!==topic.id)})}/><span><strong>{topic.title} · شرط أساسي</strong><small>يُشترط أن تلائم إجابة الطرف الآخر تفضيلك.</small></span></label>)}</details>}
+    {remainingOnly && <details className="compat-refine"><summary><SlidersHorizontal size={14}/>{required ? "ما الأهم لك؟" : "أولوياتك وشروطك الاختيارية"}<ChevronDown size={13}/></summary><p className="compat-assessment-note">لا نختار الأولويات أو الشروط الأساسية بدلًا عنك.</p>{sections.map(section => <label className="compat-priority" key={section.id}><input type="checkbox" checked={priorityCategories.includes(section.id)} disabled={!priorityCategories.includes(section.id) && priorityCategories.length >= maxPriorities} onChange={event => change({priorityCategories:event.target.checked?[...priorityCategories,section.id]:priorityCategories.filter(id=>id!==section.id)})}/><span><strong>{section.label}</strong></span></label>)}{topics.filter(topic=>topic.hardAllowed&&hasPreferenceAnswer(topic.options,surveyAnswers[topic.partnerId])).map(topic=><label className="compat-hard" key={topic.id}><input type="checkbox" checked={hardRequirements.includes(topic.id)} onChange={event=>change({hardRequirements:event.target.checked?[...hardRequirements,topic.id]:hardRequirements.filter(id=>id!==topic.id)})}/><span><strong>{topic.title} · شرط أساسي</strong><small>{version && version !== 'marriage-v4' ? "يُشترط أن تلائم إجابة الطرف الآخر تفضيلك." : "أشترط في الشريك: " + topic.options.find(o=>o.code===surveyAnswers[topic.partnerId])?.partner}</small></span></label>)}</details>}
     {registration && interestPicker}
   </div>;
 }

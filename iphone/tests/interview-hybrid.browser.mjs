@@ -1,3 +1,5 @@
+import archivedDimensions from '../src/compatibility/catalog-v3.json' with {type:'json'};
+import archivedTraits from '../src/compatibility/personality-catalog-v1.json' with {type:'json'};
 // Isolated browser check. Interview and account draft responses are synthetic.
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
@@ -38,6 +40,10 @@ const fixture = `
     }, []);
     if (!choices) return null;
     return <InterviewPanel open direct={location.hash === '#direct'} gender={new URLSearchParams(location.search).get('gender') === 'woman' ? 'woman' : 'man'} auth={{ testSession: 'isolated-browser-fixture' }} onboarding
+      profileContext={new URLSearchParams(location.search).has('children') ? [
+        {fieldId:'marriageBasics.childrenCount',values:[new URLSearchParams(location.search).get('children')],mode:null,exclude:false},
+        {fieldId:'partnerCriteria.children',values:['none'],mode:new URLSearchParams(location.search).get('mode'),exclude:false},
+      ] : undefined}
       assessmentContext={Object.entries(choices).map(([id, values]) => ({ id, values }))}
       onStructuredDraftChange={next => {
         setChoices(next);
@@ -83,7 +89,7 @@ const expectedIds = [
   ...preferences.dimensions.flatMap(({ id }) => [`preference:${id}:self`, `preference:${id}:partner`]),
   ...personality.map(({ id }) => `personality:${id}:self`),
 ].sort();
-const opening = 'أرغب في الإنجاب وأفضّل شريكًا يرغب في الإنجاب. أستمتع كثيرًا بالتعمق في فكرة واحدة أكثر من التنقل بين مواضيع كثيرة.';
+const opening = 'أرغب في الإنجاب وأفضّل شريكًا يرغب في الإنجاب. أحب كثيرًا أفهم وجهات نظر أو أفكار تختلف عن رأيي.';
 const proposal = {
   id: firstId, kind: 'preference', fieldId: 'children_plan', side: 'self', values: ['A'],
   summary: 'اقتراح من مقدمتك', needsClarification: false,
@@ -93,13 +99,15 @@ const calls = [];
 const errors = [];
 let draft = {};
 let benchmark = false;
+let expectedReceipt=expectedIds;
+let resumedFamily=false;
 let suggestionCount = 1;
 const supported = [
-  {...proposal, id:'personality:depth:self', kind:'personality', fieldId:'depth', values:['E'], evidence:[{turnId:'intro',quote:'أستمتع كثيرًا بالتعمق في فكرة واحدة أكثر من التنقل بين مواضيع كثيرة'}]},
+  {...proposal, id:'personality:explore_views:self', kind:'personality', fieldId:'explore_views', values:['E'], evidence:[{turnId:'intro',quote:'أحب كثيرًا أفهم وجهات نظر أو أفكار تختلف عن رأيي'}]},
   proposal,
   {...proposal, id:firstPartnerId, side:'partner', evidence:[{turnId:'intro',quote:'أفضّل شريكًا يرغب في الإنجاب'}]},
 ];
-let snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+let snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
 let releaseOpening;
 const openingResponse = new Promise(resolveOpening => { releaseOpening = resolveOpening; });
 let browser;
@@ -128,7 +136,7 @@ try {
         assert.equal(payload.hybrid, true);
         assert.equal(payload.assessmentContext, undefined);
         await openingResponse;
-        snapshot = { revision: snapshot.revision + 1, carryForwardIds:supported.slice(0,suggestionCount).map(p=>p.id), coverage: { answered: suggestionCount, required: 44 }, document: {
+        snapshot = { revision: snapshot.revision + 1, carryForwardIds:supported.slice(0,suggestionCount).map(p=>p.id), coverage: { answered: suggestionCount, required: 47 }, document: {
           ...snapshot.document, status: 'review', currentQuestion: null, pendingAnalysis: false, draftAnswer: '',
           turns: [{ id: 'intro', topic: 'intent', question: snapshot.document.currentQuestion.text, answer: opening, skipped: false }],
           lastMode: 'luna', lastRequestId: payload.requestId, proposals:supported.slice(0,suggestionCount),
@@ -136,10 +144,10 @@ try {
         break;
       case 'directConfirm':
       case 'structuredConfirm':
-        assert.deepEqual(payload.choices.map(({ id }) => id).sort(), expectedIds);
-        assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], benchmark ? 'A' : 'B');
+        assert.deepEqual(payload.choices.map(({ id }) => id).sort(), expectedReceipt);
+        assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], benchmark && !resumedFamily ? 'A' : 'B');
         assert.equal(payload.choices.find(({ id }) => id === firstPartnerId).values[0], 'A');
-        snapshot = { revision: snapshot.revision + 1, coverage: { answered: 44, required: 44 }, structuredConfirmation: true,
+        snapshot = { revision: snapshot.revision + 1, coverage: { answered: expectedReceipt.length, required: expectedReceipt.length }, structuredConfirmation: true,
           document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => {
             const [kind, fieldId, side] = choice.id.split(':');
             return { ...proposal, ...choice, kind, fieldId, side };
@@ -224,7 +232,7 @@ try {
   await page.getByRole('button',{name:'السابق',exact:true}).click();
   await page.getByRole('button',{name:'متابعة',exact:true}).click();
   let scaleChecked = false;
-  for (let index = 0; index < 44 && await card.count(); index++) {
+  for (let index = 0; index < 47 && await card.count(); index++) {
       const group = card.locator('fieldset').first();
       const scale = group.getByRole('slider');
       if (await scale.count()) {
@@ -250,7 +258,7 @@ try {
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   const review = page.locator('.wi-hybrid-review');
-  assert.equal(await review.locator('select').count(),44);
+  assert.equal(await review.locator('select').count(),47);
   await review.locator('summary').first().click();
   const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
   const residencePartner = review.getByRole('combobox',{name:/مدينة السكن، تفضيلي في الشريك/});
@@ -268,9 +276,9 @@ try {
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
-  assert.equal(await page.evaluate(() => window.applied[0]?.length), 44);
+  assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
   draft = {};
-  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name:'إرسال الرسالة', exact:true }).click();
@@ -279,11 +287,11 @@ try {
   const callsBeforeEdit = calls.length;
   const suggestions = page.locator('.wi-hybrid-captured-review');
   await suggestions.locator(':scope > summary').click();
-  const extracted = suggestions.getByRole('combobox', {name:'عمق الحوار، عن شخصيتي'});
+  const extracted = suggestions.getByRole('combobox', {name:'وجهات النظر، عن شخصيتي'});
   assert.equal(await extracted.inputValue(), 'E');
   await extracted.selectOption('C');
   assert.equal(await extracted.inputValue(), 'C');
-  assert.deepEqual(draft['personality:depth:self'], ['C']);
+  assert.deepEqual(draft['personality:explore_views:self'], ['C']);
   assert.equal(calls.length, callsBeforeEdit);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await suggestions.locator(':scope > summary').click();
@@ -295,14 +303,14 @@ try {
   await suggestions.locator(':scope > summary').click();
   await suggestions.getByText('من كلامك',{exact:true}).click();
   await suggestions.locator('q').filter({hasText:'أرغب في الإنجاب'}).waitFor();
-  assert.deepEqual(draft,{ 'personality:depth:self':['C'] });
+  assert.deepEqual(draft,{ 'personality:explore_views:self':['C'] });
   const beforeBatch = calls.length;
   await suggestions.getByRole('button',{name:'اعتماد المقترحات في مسودتي'}).click();
   await page.waitForFunction(() => !document.querySelector('.wi-hybrid-captured-review')?.open);
-  assert.deepEqual(draft,{ 'personality:depth:self':['C'], [firstId]:['A'] });
+  assert.deepEqual(draft,{ 'personality:explore_views:self':['C'], [firstId]:['A'] });
   assert.equal(calls.length,beforeBatch);
   assert.equal(await card.locator('fieldset').first().getByRole('button',{pressed:true}).count(),0);
-  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:44}};
+  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:47}};
   snapshot.document.currentQuestion = { topic:scenarios[0].topic, text:scenarios[0].clarification, suggestions:[] };
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('#wi-answer').waitFor();
@@ -311,7 +319,7 @@ try {
   const guidedChoices = calls.find(call => call.action === 'structuredConfirm').choices;
   draft = Object.fromEntries(guidedChoices.map(({ id, values }) => [id, values]));
   delete draft[firstId];
-  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
   const directStart = calls.length;
   await page.goto(url + '#direct');
   await page.reload({waitUntil:'domcontentloaded'});
@@ -323,13 +331,13 @@ try {
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'directConfirm']);
-  assert.equal(await page.evaluate(() => window.applied[0]?.length), 44);
+  assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
   // Two otherwise identical scripted assessments. One text entry or control activation counts as one action.
   benchmark = true;
   const trials = [];
   for (suggestionCount of [0, 1, 3]) {
     draft = {};
-    snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 44 } };
+    snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
     await page.goto(url + '?gender=' + (suggestionCount === 1 ? 'woman' : 'man'));
     let actions = 0;
     const startCalls = calls.length;
@@ -356,22 +364,63 @@ try {
     await confirmation.click(); actions++;
     await page.locator('.wi-complete').waitFor();
     assert.equal(await page.locator('.wi-confirmed-answers dd').count(), 2);
-    assert.match(await page.locator('.wi-complete').innerText(), /٤٤ إجابة/);
+    assert.match(await page.locator('.wi-complete').innerText(), /٤٧ إجابة/);
     const requests = calls.slice(startCalls);
     const submitted = requests.find(call => call.action === 'structuredConfirm');
     const confirmed = submitted.choices;
     assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
     assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 7 : 8);
-    assert.equal(confirmed.length,44);
+    assert.equal(confirmed.length,47);
     assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,1);
     trials.push({ actions, confirmed });
   }
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[39,38,37]);
+  assert.deepEqual(trials.map(trial => trial.actions),[42,41,40]);
   console.log('Assessment actions (zero / one / three supported suggestions):', trials.map(trial => trial.actions));
+  // Resume the same confirmed answers through the real panel with different family facts.
+  const reviewedDoc={...snapshot.document,status:'review',proposals:[],confirmed:[],currentQuestion:null};
+  resumedFamily=true;
+  draft=Object.fromEntries(trials[0].confirmed.map(row=>[row.id,row.values]));
+  draft[firstId]=['B'];
+  for(const side of ['self','partner']) delete draft['preference:parenting_approach:'+side];
+  expectedReceipt=expectedIds.filter(id=>!id.startsWith('preference:parenting_approach:'));
+  snapshot={revision:1,document:reviewedDoc,coverage:{answered:0,required:45}};
+  await page.goto(url+'?children=0&mode=require');
+  await page.locator('.wi-hybrid-review').waitFor();
+  assert.equal(await page.locator('.wi-hybrid-review select').count(),45);
+  await confirmation.click();
+  await page.locator('.wi-complete').waitFor();
+  assert.equal(snapshot.document.confirmed.length,45);
+
+  expectedReceipt=expectedIds;
+  draft={}; // A new device recovers the completed fields directly from the receipt.
+  await page.goto(url+'?children=0&mode=prefer');
+  for (const side of ['self','partner']) {
+    const option=card.locator('fieldset').first().getByRole('button').first();
+    await option.waitFor();
+    await page.waitForTimeout(380);
+    await option.click();
+  }
+  await confirmation.click();
+  await page.locator('.wi-complete').waitFor();
+  assert.equal(snapshot.document.confirmed.length,47);
+
+  resumedFamily=false;
+  const legacyIds=[...archivedDimensions.dimensions.flatMap(d=>['self','partner'].map(side=>'preference:'+d.id+':'+side)),
+    ...archivedTraits.map(t=>'personality:'+t.id+':self')];
+  draft=Object.fromEntries(legacyIds.map(id=>[id,['A']]));
+  expectedReceipt=legacyIds.sort();
+  snapshot={revision:1,document:{...reviewedDoc,promptVersion:'wudayn-interview-4'},coverage:{answered:0,required:44}};
+  await page.goto(url+'?legacy');
+  await page.locator('.wi-hybrid-review').waitFor();
+  assert.equal(await page.locator('.wi-hybrid-review select').count(),44);
+  await confirmation.click();
+  await page.locator('.wi-complete').waitFor();
+  assert.equal(await page.locator('.wi-confirmed-answers li').count(),44);
+  console.log('PASS: reviewed 45 with a strict child-free preference, reopened both parenting questions after relaxing it, and resumed a 44-answer legacy receipt');
   assert.deepEqual(errors, []);
-  console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 44-field confirmation');
+  console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 47-field confirmation');
 } finally {
   releaseOpening();
   await browser?.close();

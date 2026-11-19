@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 
 let loader, buildProfileAnswerProvenance;
 test.before(async () => {
-  loader = await createServer({ configFile:false, appType:'custom', logLevel:'error', optimizeDeps:{noDiscovery:true}, server:{middlewareMode:true,hmr:false} });
+  loader = await createServer({ configFile:false, appType:'custom', logLevel:'error', optimizeDeps:{noDiscovery:true}, server:{middlewareMode:true,hmr:false, ws: false} });
   ({ buildProfileAnswerProvenance } = await loader.ssrLoadModule('/src/interview/profileProvenance.ts'));
 });
 test.after(() => loader?.close());

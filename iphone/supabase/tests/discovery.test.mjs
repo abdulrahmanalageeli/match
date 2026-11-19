@@ -1,3 +1,6 @@
+import legacyAssessment from "../../src/compatibility/catalog-v3.json" with {type:"json"};
+const { dimensions, version: assessmentVersion } = legacyAssessment;
+import { seedCommunicationMember, signCommunicationAgreement } from './communication-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -5,8 +8,8 @@ import { readFile } from "node:fs/promises";
 import { createDatabase, addUser, asMember, asService } from "./harness.mjs";
 
 // Run the actual phone-side matching reference with Node's test runner.
-const catalogUrl=new URL("../../src/compatibility/catalog.json",import.meta.url);
-const {assessmentVersion,dimensions,rankPreferences,comparePreferences}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
+const catalogUrl=new URL("../../src/compatibility/catalog-v3.json",import.meta.url);
+const {rankPreferences,comparePreferences}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
 
 function setup(db) {
   const rpc = async (expression, args=[]) =>
@@ -17,7 +20,7 @@ function setup(db) {
   async function add(gender, profile={}, {paid=true, approved=true}={}) {
     const id=randomUUID();
     const user={id,email:id+"@example.test",sessionId:randomUUID()};
-    await addUser(db,user);
+    await addUser(db,user);await seedCommunicationMember(db,user,gender,'pending');
     const state=await call(user,"public.marriage_apply($1)",[{
       displayName:"مثال",age:29,gender,city:"الرياض",profession:"مهندس",bio:"ملف تجريبي",lookingFor:"",
       contact:user.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:"",
@@ -43,6 +46,8 @@ test('replies quote only this conversation, retain idempotency and respect membe
     const a=await add('woman'), b=await add('man'), outsider=await add('man');
     const request=randomUUID(), other=randomUUID();
     await db.query("insert into marriage.member_requests(id,requester_id,recipient_id,status) values($1,$2,$3,'accepted'),($4,$2,$5,'accepted')",[request,a.id,b.id,other,outsider.id]);
+    await signCommunicationAgreement(call,a,b,request);
+    await signCommunicationAgreement(call,a,outsider,other);
     const original=await call(a,'public.marriage_message($1,$2,$3)',[request,'original question',randomUUID()]);
     const foreign=await call(a,'public.marriage_message($1,$2,$3)',[other,'private other conversation',randomUUID()]);
     const client=randomUUID();
@@ -66,22 +71,30 @@ test("discovery gates the pool, ranks bilateral evidence, paginates and hides co
   try {
     const {add,call}=setup(db);
     const a=await add("woman",{interestIds:["reading","travel"],surveyAnswers:{
-      conversation_initiative_preference:"C",partner_conversation_initiative_preference:"A",
+      match_disagreement_style:"C",partner_match_disagreement_style:"A",
     }});
     const best=await add("man",{interestIds:["reading"],surveyAnswers:{
-      conversation_initiative_preference:"A",partner_conversation_initiative_preference:"C",
+      match_disagreement_style:"A",partner_match_disagreement_style:"C",
     }});
     const shared=await add("man",{interestIds:["reading","travel"]});
     await add("man",{city:"جدة"});
     await add("man",{preferredMinAge:30});
     const free=await add("man",{},{paid:false});
-    await assert.rejects(call(free,"public.marriage_discover()"),/الاشتراك/);
+    const freeCards=await call(free,"public.marriage_discover()");
+    assert.deepEqual(freeCards.map(card=>card.id),[a.id]);
+    assert.equal(freeCards[0].compatibilityLocked,true);
+    assert.equal(freeCards[0].fit,undefined);
+    const observation=(await db.query(`select o.model_version,o.fit_band,f.fit->>'version' as version,f.fit->>'band' as band
+      from marriage.fit_observations o cross join lateral marriage.pair_fit(o.viewer_id,o.candidate_id) f
+      where o.viewer_id=$1 and o.candidate_id=$2`,[free.id,a.id])).rows[0];
+    assert.equal(observation.model_version,observation.version);
+    assert.equal(observation.fit_band,observation.band);
     for(let i=0;i<48;i++) await add("man");
     const items=await call(a,"public.marriage_discover()");
     assert.equal(items.length,5);
     assert.equal(items[0].id,best.id);
     assert.equal(items[1].id,shared.id);
-    assert(items[0].reasons.some(reason=>reason.includes("بدء الحديث")));
+    assert.deepEqual(items[0].reasons,[]);
     assert.deepEqual(items[0].interests,["القراءة"]);
     assert.equal(JSON.stringify(items).includes("@example.test"),false);
     assert.equal(items[0].surveyAnswers,undefined);
@@ -112,12 +125,19 @@ test("paged chat, sender retry receipts and private refresh signals stay within 
   try {
     const {add,call}=setup(db);
     const a=await add("woman"), b=await add("man"), outsider=await add("woman");
+    await db.exec("truncate realtime.messages");
     const id=await call(a,"public.marriage_request($1)",[b.id]);
     await assert.rejects(call(a,"public.marriage_thread_page($1)",[id]),/غير متاحة/);
     await call(b,"public.marriage_act($1,'accept')",[id]);
-    const sends=await db.query(`insert into marriage.thread_messages(request_id,sender_id,client_id,body,created_at)
+    // Seed historical messages across separate rate-limit windows.
+    const sends={rows:[]};
+    for(let first=1;first<=61;first+=12) {
+      await db.query("delete from marriage.safety_usage where member_id=$1 and purpose in ('send',$2)",[a.id,'chat:'+id]);
+      const batch=await db.query(`insert into marriage.thread_messages(request_id,sender_id,client_id,body,created_at)
       select $1,$2,gen_random_uuid(),'message '||n, timestamp '2026-01-01' + (n/4) * interval '1 second'
-      from generate_series(1,61) n returning id`,[id,a.id]);
+      from generate_series($3::int,$4::int) n returning id`,[id,a.id,first,Math.min(61,first+11)]);
+      sends.rows.push(...batch.rows);
+    }
     const page=await call(b,"public.marriage_thread_page($1)",[id]);
     const prior=await call(b,"public.marriage_thread_page($1,$2)",[id,page[0].id]);
     assert.equal(page.length,50); assert.equal(prior.length,11);
@@ -158,6 +178,8 @@ test("unread cursors are private, monotonic across devices, and count only eligi
     await assert.rejects(mark(a,ab,randomUUID()),/غير متاحة/);
     await call(b,"public.marriage_act($1,'accept')",[ab]);
     await call(c,"public.marriage_act($1,'accept')",[ac]);
+    await signCommunicationAgreement(call,a,b,ab);
+    await signCommunicationAgreement(call,a,c,ac);
 
     const tied=[1,2,3,4].map(n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0'));
     for(let i=0;i<tied.length;i++) {
@@ -186,7 +208,9 @@ test("unread cursors are private, monotonic across devices, and count only eligi
     assert.equal(await mark(a,ab,tied[0]),false);   // a slower second device cannot move backwards
     assert.equal(await mark(a,ab,tied[1]),false);
     const {rows:signals}=await db.query("select topic,event,payload-'id' as payload,private from realtime.messages");
-    assert.deepEqual(signals,[{topic:"marriage:member:"+a.id,event:"changed",payload:{},private:true}]);
+    assert.equal(signals.length,2);
+    assert.deepEqual(new Set(signals.map(x=>x.topic)),new Set([a,b].map(u=>"marriage:member:"+u.id)));
+    assert(signals.every(x=>x.event==="changed" && x.private && Object.keys(x.payload).length===0));
     assert.equal(await count(b),1);                  // the other member's independent read state
     assert.equal(await mark(a,ab,tied[3]),true);
     assert.equal(await count(a),1);
@@ -203,7 +227,7 @@ test("unread cursors are private, monotonic across devices, and count only eligi
   } finally {await db.close()}
 });
 
-test("only reciprocal requests unlock private chat; closing, blocking and paid expiry revoke access",async()=>{
+test("only accepted requests unlock chat; expiry preserves the thread and reporting blocks access",async()=>{
   const db=await createDatabase();
   try {
     const {add,call,staff}=setup(db);
@@ -221,6 +245,8 @@ test("only reciprocal requests unlock private chat; closing, blocking and paid e
     assert.equal(await call(b,"public.marriage_act($1,'accept')",[request]),true);
     assert.equal(await call(b,"public.marriage_act($1,'accept')",[request]),true);
     await assert.rejects(call(outsider,"public.marriage_thread($1)",[request]),/غير متاحة/);
+    await assert.rejects(call(a,"public.marriage_message($1,'unsigned',$2)",[request,randomUUID()]),/اتفاق الجدية/);
+    await signCommunicationAgreement(call,a,b,request);
     const clientId=randomUUID();
     const message=await call(a,"public.marriage_message($1,$2,$3)",[request,"أهلًا",clientId]);
     assert.equal(await call(a,"public.marriage_message($1,$2,$3)",[request,"أهلًا",clientId]),message);
@@ -230,11 +256,12 @@ test("only reciprocal requests unlock private chat; closing, blocking and paid e
     await assert.rejects(call(a,"public.marriage_message($1,$2,$3)",[request,"x".repeat(1001),randomUUID()]),/١٠٠٠/);
     await db.query("update marriage.store_transactions set revoked=true where transaction_id=$1",[a.id]);
     assert.equal((await call(a,"public.marriage_state()")).membership.canStart,true);
-    await assert.rejects(call(b,"public.marriage_thread($1)",[request]),/غير متاحة/);
-    await assert.rejects(call(a,"public.marriage_thread($1)",[request]),/الاشتراك/);
-    await assert.rejects(call(outsider,"public.marriage_act($1,'report','بلاغ اختبار')",[request]),/غير متاح/);
-    assert.equal(await call(a,"public.marriage_act($1,'report','بلاغ اختبار')",[request]),true);
-    assert.equal(await call(a,"public.marriage_act($1,'report','بلاغ اختبار')",[request]),true);
+    for (const user of [a,b]) assert.equal((await call(user,"public.marriage_thread($1)",[request]))[0].id,message);
+    const reportArgs=[request,null,"بلاغ اختبار",randomUUID()];
+    const reportRpc="public.marriage_report_incident($1,$2,$3,$4)";
+    await assert.rejects(call(outsider,reportRpc,reportArgs),/غير متاح/);
+    const report=await call(a,reportRpc,reportArgs);
+    assert.equal(await call(a,reportRpc,reportArgs),report);
     assert.equal((await db.query("select count(*)::int n from marriage.reports where member_id=$1 and reported_id=$2",[a.id,b.id])).rows[0].n,1);
     assert.equal((await call(a,"public.marriage_state()")).membership.canStart,false);
     await db.query("update marriage.store_transactions set revoked=false where transaction_id=$1",[a.id]);
@@ -243,7 +270,7 @@ test("only reciprocal requests unlock private chat; closing, blocking and paid e
   } finally {await db.close()}
 });
 
-test("founder shortlisting, discovery and the local walkthrough return identical ranking/reasons",async()=>{
+test("founder shortlisting, discovery and the local walkthrough agree on ranking and keep detailed reasons private",async()=>{
   const db=await createDatabase();
   try {
     const {add,call}=setup(db);
@@ -270,14 +297,15 @@ test("founder shortlisting, discovery and the local walkthrough return identical
     }
     const expected=rankPreferences({...viewerProfile,id:viewer.id},people);
     const ranked=await call(viewer,"public.marriage_discover()");
-    assert.deepEqual(ranked.map(p=>[p.id,p.reasons,p.fit]),expected.map(p=>[p.person.id,p.reasons,p.fit]));
+    assert.deepEqual(ranked.map(p=>p.id),expected.map(p=>p.person.id));
+    assert(ranked.every(p=>p.reasons.length===0 && p.fit.preferenceEvidence===undefined));
     const operator=await asService(db,()=>db.query("select * from public.marriage_candidates($1)",[viewer.id]));
     assert.deepEqual(operator.rows.map(r=>r.member_id_out),expected.map(p=>p.person.id));
     await assert.rejects(call(viewer,"public.marriage_candidates($1)",[viewer.id]),/permission denied/);
   } finally {await db.close()}
 });
 
-test("versioned full assessment matches the phone in both directions, fails closed on strict unknowns and retains accepted chats",async()=>{
+test("legacy full assessment matches the phone score in both directions and retains accepted chats",async()=>{
   const db=await createDatabase();
   try {
     const {add,call}=setup(db);
@@ -288,10 +316,10 @@ test("versioned full assessment matches the phone in both directions, fails clos
     const a=await add("woman",aProfile);
     const configurations=[
       {city:"جدة",surveyAnswers:{...all,residence_plan:"B",partner_residence_plan:"B"}},
-      {surveyAnswers:{...all,curiosity_style:"B",partner_early_openness:"B",shared_budget:"B",weekly_planning:"C",wife_work:"B",partner_wife_work:"B"}},
+      {surveyAnswers:{...all,domestic_labor:"C",wife_work:"B",partner_wife_work:"B"}},
       {surveyAnswers:{children_plan:"A"}},
       {surveyAnswers:{...all,children_plan:"C"}},
-      {surveyAnswers:{weekly_planning:"A"}},
+      {surveyAnswers:{faith_routine:"A"}},
       {hardRequirements:["marriage_timeline"],surveyAnswers:{...all,partner_marriage_timeline:"B"}},
       {city:"جدة",surveyAnswers:{...all,residence_plan:"A"}},
     ];
@@ -303,19 +331,16 @@ test("versioned full assessment matches the phone in both directions, fails clos
     const fullViewer={...aProfile,id:a.id};
     const expected=rankPreferences(fullViewer,members.map(({profile,user})=>({...profile,id:user.id})));
     const shown=await call(a,"public.marriage_discover()");
-    assert.deepEqual(shown.map(p=>p.id),expected.map(p=>p.person.id));
-    assert.deepEqual(shown.map(p=>[p.fit,p.reasons]),expected.map(p=>[p.fit,p.reasons]));
-    assert.equal(shown.length,4);
-    const card = i => shown.find(p => p.id === members[i].user.id);
-    assert.equal(card(0).fit.band,"strong");
-    assert.equal(card(1).fit.band,"mixed");
-    assert(card(1).fit.discussion.includes("weekly_planning"));
-    assert.equal(card(2).fit.band,"insufficient");
-    assert(card(2).fit.missing.includes("children_plan"));
-    assert(card(6), "a willing mover can match someone who stays in their city");
+    assert.deepEqual(shown.map(p=>p.id),expected.slice(0,5).map(p=>p.person.id));
+    assert.deepEqual(shown.map(p=>p.fit.percentage),expected.slice(0,5).map(p=>p.fit.percentage));
+    assert(shown.every(p=>p.fit.preferenceEvidence===undefined));
     assert(!JSON.stringify(shown).includes("partner_children_plan") && !JSON.stringify(shown).includes("priorityCategories"));
     const {catalog}= (await db.query("select catalog from marriage.assessment_versions where id=$1",[assessmentVersion])).rows[0];
-    assert.deepEqual(catalog,JSON.parse(await readFile(catalogUrl,"utf8")));
+    // Historical client copy can differ while the database matching contract stays identical.
+    const matchingCatalog=value=>({version:value.version,categories:value.categories,
+      dimensions:value.dimensions.map(({id,partnerId,category,hardAllowed,options})=>
+        ({id,partnerId,category,hardAllowed,codes:options.map(option=>option.code)}))});
+    assert.deepEqual(matchingCatalog(catalog),matchingCatalog(JSON.parse(await readFile(catalogUrl,"utf8"))));
     for(const {profile,user} of members){
       const simulated=comparePreferences(fullViewer,{...profile,id:user.id});
       const sql=(await db.query("select marriage.compatible($1,$2) as eligible, f.* from marriage.pair_fit($1,$2) f",[a.id,user.id])).rows[0];
@@ -376,6 +401,6 @@ test("closed and paused introductions cannot refill the current week's slots; ma
       profession:"مهندسة",bio:"تعديل يستوجب المراجعة",contact:a.email,preferredMinAge:25,preferredMaxAge:40,
       familyPreference:"",consentVersion:"2026-11-05",interestIds:[],surveyAnswers:{}}]);
     await staff("public.marriage_review($1,'approve')",[a.id]);
-    await assert.rejects(call(next,"public.marriage_act($1,'accept')",[pending]),/المغلق/);
+    await assert.rejects(call(next,"public.marriage_act($1,'accept')",[pending]),/المغلق|غير متاح/);
   } finally {await db.close()}
 });

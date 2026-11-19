@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
-import { categories, dimensions, preferencePercentage, type MatchFit } from './model';
+import { categories, dimensionsForVersion, preferencePercentage, type MatchFit } from './model';
 import { readPreferenceEvidence, reciprocalTopicAgreement, type PreferenceTopicStatus } from './preference-evidence';
 import { MotionReveal } from '../motion/Reanimated';
 import './preference-insights.css';
@@ -14,8 +14,8 @@ const statusNames: Record<Topic['status'], string> = {
   discussion: 'مساحة للنقاش', missing: 'بانتظار إجاباتكما',
 };
 
-function TopicCard({ topic }: { topic: Topic }) {
-  const definition = dimensions.find(item => item.id === topic.id);
+function TopicCard({ topic, version }: { topic: Topic; version: string }) {
+  const definition = dimensionsForVersion(version).find(item => item.id === topic.id);
   if (!definition) return null;
   const aligned = topic.status === 'aligned';
   const missing = topic.status === 'missing';
@@ -68,8 +68,8 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
     <p className="nf-pref-count-note">{agreement ? <>تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</> : 'الأعداد تلخّص مواضيع الحوار.'}</p>
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
-      {preview.length ? preview.map(topic => <TopicCard topic={topic} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
-      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} />)}</div></details>}
+      {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
+      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} />)}</div></details>}
     </MotionReveal>
     <details className="nf-pref-map"><summary><Layers3 size={17} strokeWidth={1.5} aria-hidden="true" /><span>خريطة التوافق<small>كيف تتوزع المواضيع على جوانب الحياة؟</small></span></summary><div className="nf-pref-map-body">
       <div className="nf-pref-map-legend"><span data-tone="aligned">اتفاق</span><span data-tone="discussion">للنقاش</span><span data-tone="missing">لم يكتمل</span></div>

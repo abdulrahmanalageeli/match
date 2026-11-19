@@ -1,19 +1,24 @@
+import archived from '../compatibility/catalog-v3.json' with {type:'json'};
+import archivedTraits from '../compatibility/personality-catalog-v1.json' with {type:'json'};
 import compatibility from '../compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../beena/catalog.json' with { type: 'json' };
 import { personalityOptions, personalityQuestions } from '../compatibility/personality';
 import type { BeenaProfile } from '../beena/model';
 import type { InterviewProposal } from './types';
 
+const knownDimensions = [...compatibility.dimensions,...archived.dimensions];
+const knownTraits = [...personalityQuestions,...archivedTraits];
+const oldOptions=['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'].map((label,i)=>({code:'ABCDE'[i],label}));
 export type InterviewSelection = { id: string; values: string[] };
 export type InterviewAnswers = { surveyAnswers?: Record<string, string>; personalityAnswers?: Record<string, string>; beena?: BeenaProfile | null };
 
 export function proposalOptions(proposal: InterviewProposal): Array<{ value: string; label: string }> {
   if (proposal.kind === 'personality') {
-    if (proposal.side !== 'self' || !personalityQuestions.some(question => question.id === proposal.fieldId)) return [];
-    return personalityOptions.map(option => ({ value: option.code, label: option.label }));
+    if (proposal.side !== 'self' || !knownTraits.some(question => question.id === proposal.fieldId)) return [];
+    return (archivedTraits.some(t=>t.id===proposal.fieldId) ? oldOptions : personalityOptions).map(option => ({ value: option.code, label: option.label }));
   }
   if (proposal.kind === 'preference') {
-    const dimension = compatibility.dimensions.find(item => item.id === proposal.fieldId);
+    const dimension = knownDimensions.find(item => item.id === proposal.fieldId);
     if (!dimension || !['self', 'partner'].includes(proposal.side)) return [];
     return dimension.options.map(option => ({ value: option.code, label: proposal.side === 'partner' ? option.partner : option.self }));
   }
@@ -26,14 +31,14 @@ export function proposalOptions(proposal: InterviewProposal): Array<{ value: str
 }
 
 export function proposalTitle(proposal: InterviewProposal) {
-  if (proposal.kind === 'personality') return personalityQuestions.find(question => question.id === proposal.fieldId)?.title ?? '';
+  if (proposal.kind === 'personality') return knownTraits.find(question => question.id === proposal.fieldId)?.title ?? '';
   return proposal.kind === 'preference'
-    ? compatibility.dimensions.find(item => item.id === proposal.fieldId)?.title ?? ''
+    ? knownDimensions.find(item => item.id === proposal.fieldId)?.title ?? ''
     : scenarios.find(item => item.id === proposal.fieldId)?.title ?? '';
 }
 
 export function proposalStatement(proposal: InterviewProposal) {
-  return proposal.kind === 'personality' ? personalityQuestions.find(question => question.id === proposal.fieldId)?.prompt ?? '' : '';
+  return proposal.kind === 'personality' ? knownTraits.find(question => question.id === proposal.fieldId)?.prompt ?? '' : '';
 }
 
 export function proposalSide(proposal: InterviewProposal) {
@@ -58,7 +63,7 @@ export function applyInterviewAnswers(current: InterviewAnswers, confirmed: Inte
     if (!values.length || values.some(value => !allowed.has(value))) continue;
     if (proposal.kind === 'preference') {
       if (values.length !== 1) continue;
-      const dimension = compatibility.dimensions.find(item => item.id === proposal.fieldId)!;
+      const dimension = knownDimensions.find(item => item.id === proposal.fieldId)!;
       surveyAnswers[proposal.side === 'partner' ? dimension.partnerId : dimension.id] = values[0];
       changedPreferences = true;
     } else if (proposal.kind === 'personality') {

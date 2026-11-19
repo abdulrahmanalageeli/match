@@ -1,13 +1,9 @@
-import preferences from '../../src/compatibility/catalog.json' with { type: 'json' };
-import personality from '../../src/compatibility/personality-catalog.json' with { type: 'json' };
+import { assessment } from './interview-assessment.mjs';
 import member from '../../src/member-ar.json' with { type: 'json' };
 
 const normalize = text => text.normalize('NFKC').replace(/[\u064B-\u065F\u0670ـ]/gu, '').replace(/[إأآ]/gu, 'ا').replace(/[.،,!؟\s]+$/u, '').trim();
 const emptyIntent = /^(?:(?:انا )?(?:ارغب (?:في |ب)|اريد |ابغى |ابي |اتمنى ))?(?:الزواج(?: وبناء اسرة)?|بناء اسرة|تكوين اسرة)$/u;
 export const genericEvidence = quote => emptyIntent.test(normalize(quote));
-export const personalityOptions = ['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا']
-  .map((label, i) => ({code:'ABCDE'[i], label}));
-
 // These shortcuts match the complete utterance, including subject and polarity.
 // All other wording goes through independent catalog interpretation.
 function catalogStatement(turns) {
@@ -16,7 +12,7 @@ function catalogStatement(turns) {
   if (/^(?:اذا اتفقنا[،,]?\s*)?(?:ابغى|اريد|افضل) الخطوة الرسمية خلال ستة اشهر$/u.test(answer)) {
     return {id:'preference:marriage_timeline:self', code:'A', claim:'خلال ستة اشهر'};
   }
-  for (const option of preferences.dimensions.find(field => field.id === 'children_plan').options.slice(0,2)) {
+  for (const option of assessment().dimensions.find(field => field.id === 'children_plan').options.slice(0,2)) {
     for (const side of ['self','partner']) {
       const claim = (side === 'partner' ? 'افضل شريكا ' : '') + normalize(option[side]);
       if (answer === claim) return {id:'preference:children_plan:'+side, code:option.code, claim};
@@ -36,8 +32,8 @@ export function directCarryForward(p, turns) {
 // A server-authored summary fits the existing persisted proposal contract.
 // Older free-form model summaries remain available for the historical interview.
 function reviewedSummary(p) {
-  const field = p.kind === 'personality' ? personality.find(field => field.id === p.fieldId) : preferences.dimensions.find(field => field.id === p.fieldId);
-  const option = (field?.options ?? personalityOptions).find(item => item.code === p.values[0]);
+  const field = p.kind === 'personality' ? assessment().traits.find(field => field.id === p.fieldId) : assessment().dimensions.find(field => field.id === p.fieldId);
+  const option = (field?.options ?? assessment().options).find(item => item.code === p.values[0]);
   return field && option ? `من تعريفك · ${p.side === 'partner' ? 'تفضيلي في الشريك' : 'عنّي'} · ${field.title} · ${option[p.side] ?? option.label}` : '';
 }
 
@@ -61,13 +57,13 @@ export async function checkCatalogAnswers(client, model, data, timeout) {
       {role:'user',content:JSON.stringify(data)},
     ],
     response_format:{type:'json_schema',json_schema:{name:'wudayn_check_choices',strict:true,schema:{
-      type:'object', additionalProperties:false, required:['answers'], properties:{answers:{type:'array',maxItems:44,items:item}},
+      type:'object', additionalProperties:false, required:['answers'], properties:{answers:{type:'array',maxItems:data.fields.length,items:item}},
     }}},
   }, {timeout,maxRetries:0});
   const choice = response.choices?.[0];
   if (choice?.finish_reason !== 'stop' || choice.message.refusal) return [];
   const rows = JSON.parse(choice.message.content).answers;
-  return Array.isArray(rows) && rows.length <= 44 ? rows : [];
+  return Array.isArray(rows) && rows.length <= data.fields.length ? rows : [];
 }
 
 export async function groundHybridChoices(proposals, turns, gender, verify) {
@@ -79,9 +75,9 @@ export async function groundHybridChoices(proposals, turns, gender, verify) {
   const accepted = new Map(direct.map(p => [p.id, p]));
   if (remaining.length && verify) {
     const fields = remaining.map(p => {
-      const trait = personality.find(item => item.id === p.fieldId);
-      if (trait) return { id:p.id, question:trait.prompt, options:personalityOptions };
-      const field = preferences.dimensions.find(item => item.id === p.fieldId);
+      const trait = assessment().traits.find(item => item.id === p.fieldId);
+      if (trait) return { id:p.id, question:trait.prompt, options:assessment().options };
+      const field = assessment().dimensions.find(item => item.id === p.fieldId);
       const femaleWork = gender === 'woman' && p.id === 'preference:wife_work:self';
       return { id:p.id, question:femaleWork ? 'هل ترغبين في العمل بعد الزواج؟' : field[p.side + 'Prompt'],
         options:field.options.map(o => ({code:o.code, label:femaleWork ? member.womanWork[o.code] : o[p.side]})) };

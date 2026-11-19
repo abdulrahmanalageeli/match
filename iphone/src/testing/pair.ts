@@ -1,6 +1,6 @@
 import { demoCommunity, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
 import { marriageProjectUrl, marriagePublishableKey } from '../deployment';
-import { dimensions, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
+import { dimensionsForVersion, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
 import type { Profile, ProfilePortrait } from '../types';
 import type { VoiceCall, VoiceCredentials } from '../voice/source';
@@ -14,6 +14,7 @@ export type Actor='abdulrahman'|'reham';
 export type TestSession={actor:Actor;session:string;profile:Profile;profileRevision:string};
 type Row=Omit<Message,'reply'>&{sender:Actor;reply?:{id:string;body:string;sender:Actor;deletedAt?:string|null}|null};
 type PublicTestProfile=Partial<Profile>&{beenaStory?:SharedBeenaStory};
+const dimensions = dimensionsForVersion('marriage-v3');
 const unavailablePairFit:MatchFit={version:'marriage-v3',band:'insufficient',provisional:true,covered:0,total:dimensions.length,
  strengths:[],discussion:[],missing:dimensions.map(item=>item.id),assessmentComplete:false,percentage:null,beena:compareBeena()};
 type State={exclusiveId?:string;stepId?:string;pairFit?:MatchFit;manualVerifications?:Partial<Record<Actor,ManualVerificationClaim[]>>;beenaFit?:BeenaFit;onlineActors?:Partial<Record<Actor,boolean>>;interests?:Partial<Record<Actor,boolean>>;hiddenPeople?:Partial<Record<Actor,boolean>>;allowRematch?:boolean;rematchRequestedBy?:Actor;matchCelebration?:string;celebrationSeen?:Partial<Record<Actor,string>>;profileRevision:string;rewind?:{actor:Actor;stage:number};matchedAt?:string;journeyUpdatedAt?:string;exclusive?:boolean;exclusiveConsent?:Partial<Record<Actor,boolean>>;retiredFictional?:boolean;actor:Actor;matched:boolean;seriousness?:Omit<SeriousnessAgreement,'actor'>;messages:Row[];read:Partial<Record<Actor,string>>;delivered?:Partial<Record<Actor,string>>;callPermission?:{status:'none'|'pending'|'accepted'|'declined';invitedBy?:Actor};profiles:Partial<Record<Actor,PublicTestProfile>>;stage:number;agree:Partial<Record<Actor,boolean>>;call:(VoiceCall&{caller:Actor})|null};

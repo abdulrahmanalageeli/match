@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDeepAnalysisService,analysisRequest,privateReviewRequest,validatePrivateReview,validateReport,parseDeepInput,SECTIONS,PERSONALITY_KEYS} from '../api/_lib/deep-compatibility.mjs';
+import {createDeepAnalysisService,analysisRequest,privateReviewRequest,validatePrivateReview,validateReport,parseDeepInput,SECTIONS} from '../api/_lib/deep-compatibility.mjs';
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with {type:'json'};
+import legacyCatalog from '../src/compatibility/personality-catalog-v1.json' with {type:'json'};
+const legacyKeys=legacyCatalog.map(item=>item.id);
 import handler from '../api/deep-compatibility.mjs';
 const actor='11111111-1111-4111-8111-111111111111',connectionId='22222222-2222-4222-8222-222222222222',lease='33333333-3333-4333-8333-333333333333';
 const snapshot={a:{entries:[{key:'answer:closeness',question:'القرب',answer:'أحتاج مساحة'}]},b:{entries:[{key:'personality:reassurance',question:'الطمأنة',answer:'أقدّر التواصل'}]}};
@@ -80,15 +82,55 @@ test('report evidence is bilateral, real, complete and conservative about incomp
  const req=analysisRequest(snapshot);assert.equal(req.store,false);assert.equal(req.model,'gpt-6.2-sol');assert.equal(req.reasoning_effort,'medium');assert.equal(JSON.parse(req.messages[1].content).a.entries[0].key,'answer:closeness');
 });
 
-test('personality coverage keys match the actual questionnaire',()=>{
- assert.deepEqual([...PERSONALITY_KEYS].sort(),personalityCatalog.map(item=>item.id).sort());
+test('current and mixed reports use each member’s own instrument and enforce bilateral evidence',()=>{
+ for(const pair of [[personalityCatalog,personalityCatalog],[legacyCatalog,personalityCatalog],[personalityCatalog,legacyCatalog]]) {
+  const full={};
+  for(const [index,side] of ['a','b'].entries()){
+   const catalog=pair[index];
+   full[side]={assessmentVersion:catalog===personalityCatalog?'marriage-v4':'marriage-v3',entries:catalog.map(item=>({key:'personality:'+item.id,question:item.prompt,answer:'يشبهني'}))};
+   if(catalog===personalityCatalog)full[side].personalityVersion='personality-v2';
+  }
+  const req=analysisRequest(full), system=req.messages[0].content;
+  assert.deepEqual(JSON.parse(req.messages[1].content),full);
+  for(const item of personalityCatalog.filter(item=>item.reverse))assert.ok(system.includes(item.id));
+  assert.equal(system.includes('أجاب الطرفان عن نسختين مختلفتين'),pair[0]!==pair[1]);
+  assert.equal(system.includes('النسخة التاريخية'),pair.includes(legacyCatalog));
+  assert.match(system,/لا تحوّلي الشخصية إلى نسبة توافق أو ترتيب/);
+  const refs=['a','b'].map(side=>({side,key:full[side].entries[0].key}));
+  const rows=findings().map(row=>({...row,evidence:refs}));
+  const patterns=rows.find(row=>row.section==='patterns');
+  assert.throws(()=>validateReport(completion({findings:rows}),full));
+  patterns.evidence=[...refs,{side:'a',key:full.a.entries[1].key}];
+  assert.equal(validateReport(completion({findings:rows}),full).findings.length,8);
+  if(pair[0]!==pair[1]){
+   patterns.evidence[2].key=full.b.entries[1].key;
+   assert.throws(()=>validateReport(completion({findings:rows}),full));
+  }
+ }
+ const unknown={...snapshot,a:{...snapshot.a,personalityVersion:'unknown'}};
+ assert.throws(()=>analysisRequest(unknown));
+});
+
+test('joint and private prompts distinguish confirmed, suggested and unverified partner preferences',()=>{
+ const full=structuredClone(snapshot);
+ const key='answer:partner_residence_plan';
+ full.a.entries.push({key,question:'مدينة الشريك',answer:'السكن في مدينتي',provenance:'inferred'});
+ const rows=findings().map(row=>({...row,evidence:[{side:'a',key},...row.evidence]}));
+ for(const request of [analysisRequest(full),privateReviewRequest(full,{findings:rows},'a')]){
+  const system=request.messages[0].content, data=JSON.parse(request.messages[1].content);
+  const source=Array.isArray(data)?data[0].evidence:data.a.entries;
+  assert.equal(source.find(entry=>entry.key===key).provenance,'inferred');
+  for(const marker of ['confirmed','inferred','unverified','غياب المصدر'])assert.ok(system.includes(marker));
+ }
+ const other=privateReviewRequest(full,{findings:rows},'b');
+ assert.ok(!other.messages[1].content.includes(key));
 });
 
 test('complete personalities require real cross-trait evidence without forcing filler for every trait',()=>{
  const complete={};
- for(const side of ['a','b'])complete[side]={entries:PERSONALITY_KEYS.map(key=>({key:`personality:${key}`,question:key,answer:'يشبهني أحيانًا'}))};
+ for(const side of ['a','b'])complete[side]={entries:legacyKeys.map(key=>({key:`personality:${key}`,question:key,answer:'يشبهني أحيانًا'}))};
  const rows=SECTIONS.filter(section=>section!=='patterns').map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',title:`فكرة مستقلة ${i+1}`,text:`قراءة مستقلة ${i+1}: إشارات محدودة تستحق توضيحًا بالحوار.`,evidence:[{side:'a',key:'personality:closeness'},{side:'b',key:'personality:reassurance'}]}));
- for(let i=0;i<4;i++)rows.push({id:`f${i+8}`,section:'patterns',kind:'manageable',title:`معنى مختلف ${i+1}`,text:`نمط مستقل ${i+1}: تفاعل عدة إشارات، مع بديل يحتاج إلى تحقق.`,evidence:PERSONALITY_KEYS.slice(i*3,i*3+3).flatMap(key=>['a','b'].map(side=>({side,key:`personality:${key}`})))});
+ for(let i=0;i<4;i++)rows.push({id:`f${i+8}`,section:'patterns',kind:'manageable',title:`معنى مختلف ${i+1}`,text:`نمط مستقل ${i+1}: تفاعل عدة إشارات، مع بديل يحتاج إلى تحقق.`,evidence:legacyKeys.slice(i*3,i*3+3).flatMap(key=>['a','b'].map(side=>({side,key:`personality:${key}`})))});
  assert.equal(validateReport(completion({findings:rows}),complete).findings.length,11);
  // Literal profile summaries cannot pass by citing the same two questions repeatedly.
  const shallow=structuredClone(rows);for(const row of shallow)row.evidence=rows[0].evidence;
@@ -103,18 +145,21 @@ test('complete personalities require real cross-trait evidence without forcing f
 test('member demos reserve against authenticated membership before Sol and return no raw evidence',async()=>{
  assert.throws(()=>parseDeepInput({demoPersonaId:'unknown'}));
  assert.throws(()=>parseDeepInput({demoPersonaId:'p01',answers:{}}));
+ assert.throws(()=>parseDeepInput({demoPersonaId:'p01',consentVersion:'obsolete'}));
  for(const allowed of [false,true]){
   const calls=[];let invocations=0;
   const service=createDeepAnalysisService({env:{OPENAI_API_KEY:'test'},fetcher:async(url,options)=>{
    calls.push(url);assert.equal(options.headers.Authorization,'Bearer demo');
+   assert.deepEqual(JSON.parse(options.body),allowed?{consent_version:'deep-assessment-v2'}:{});
    return {ok:allowed,status:allowed?200:403,json:async()=>allowed?snapshot.a:{code:'42501'}};
   },clientFactory:()=>({chat:{completions:{create:async req=>{
    invocations++;assert.equal(req.model,'gpt-6.2-sol');
    const input=JSON.parse(req.messages[1].content);
    assert.equal(input.b.entries.length,13);
+   assert.equal(input.b.personalityVersion,'personality-v1');assert.match(req.messages[0].content,/ملف خيالي/);
    return completion({findings:findings()});
   }}}})});
-  const request=service({demoPersonaId:'p01'},{authorization:'Bearer demo'});
+  const request=service(allowed?{demoPersonaId:'p01',consentVersion:'deep-assessment-v2'}:{demoPersonaId:'p01'},{authorization:'Bearer demo'});
   if(allowed){const result=await request;assert.equal(result.findings.length,8);assert.equal('evidence' in result.findings[0],false);assert.match(result.findings[0].text,/\n\n/);}
   else await assert.rejects(request,error=>error.status===403);
   assert.equal(invocations,allowed?1:0);assert.equal(calls.length,1);assert(calls[0].endsWith('/marriage_demo_deep_reserve'));

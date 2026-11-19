@@ -4,6 +4,7 @@
 .phone-app .nf-fit .nf-fit-heading > p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.85; }
 .nf-fit-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-block: 24px; border: 1px solid var(--fit-rule); border-radius: 12px; background: #fff; box-shadow: none; }
 .nf-fit-score { --score-color: #54152a; min-width: 0; padding-inline: 20px; text-align: start; }
+.nf-fit-score:only-child { grid-column: 1 / -1; }
 .nf-fit-score.personality { --score-color: #536b50; border-inline-start: 1px solid var(--fit-rule); }
 .nf-fit .nf-score-icon { display: block; color: var(--score-color); margin-bottom: 12px; }
 .nf-fit h3, .nf-fit-missing summary { display: flex; align-items: center; gap: 8px; }

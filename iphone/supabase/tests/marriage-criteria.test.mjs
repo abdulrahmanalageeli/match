@@ -1,3 +1,8 @@
+import currentAssessment from "../../src/compatibility/catalog.json" with {type:"json"};
+import legacyAssessment from "../../src/compatibility/catalog-v3.json" with {type:"json"};
+const { dimensions, version: assessmentVersion } = currentAssessment;
+const legacyAssessmentFields={assessmentVersion:legacyAssessment.version,surveyAnswers:Object.fromEntries(legacyAssessment.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]))};
+import { seedCommunicationMember, signCommunicationAgreement } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -5,10 +10,8 @@ import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 
-let source=await readFile(new URL('../../src/compatibility/model.ts',import.meta.url),'utf8');
-for(const name of ['catalog.json','personality-catalog.json'])source=source.replace(JSON.stringify('./'+name),JSON.stringify(new URL('../../src/compatibility/'+name,import.meta.url).href));
-const {assessmentVersion,dimensions,describeFit,comparePreferences}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
-const personalityQuestions=JSON.parse(await readFile(new URL('../../src/compatibility/personality-catalog.json',import.meta.url),'utf8'));
+const {describeFit,comparePreferences}=await import(new URL('../../src/compatibility/model.ts',import.meta.url));
+const personalityQuestions=JSON.parse(await readFile(new URL('../../src/compatibility/personality-catalog-v1.json',import.meta.url),'utf8'));
 const answers=()=>Object.fromEntries(dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
 const personality=(code='C')=>Object.fromEntries(personalityQuestions.map(q=>[q.id,code]));
 const basics={heightCm:178,weightKg:78,tribalBackground:'tribal',tribeName:'عائلة تجريبية',nationality:'سعودي',maritalStatus:'never_married',childrenCount:0,smoking:'never'};
@@ -18,6 +21,10 @@ function setup(db){
  const staff=(expression,args)=>asService(db,()=>rpc(expression,args));
  async function save(u,extra={}){
   u.profile={...u.profile,...extra};
+  // Simulate a new assessment allowance between otherwise independent fixture edits.
+  await db.query("delete from marriage.safety_usage where member_id=$1 and purpose='assessment'",[u.id]);
+  // Exercise public edits after the current 30-day editing window.
+  await db.query("update marriage.members set last_public_profile_edit_at=now()-interval '31 days' where id=$1",[u.id]);
   return call(u,'public.marriage_apply($1)',[{...u.profile,consentVersion:'2026-11-06-assessment'}]);
  }
  async function approve(u){
@@ -25,8 +32,8 @@ function setup(db){
   if(status!=='approved')await staff("public.marriage_review($1,'approve')",[u.id]);
  }
  async function add(gender,extra={}){
-  const id=randomUUID(),u={id,email:id+'@example.test',sessionId:randomUUID(),profile:{displayName:'عضو تجريبي',gender,age:29,city:'الرياض',profession:'مهندس',bio:'نبذة عامة',contact:id+'@example.test',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف الأول',assessmentVersion,surveyAnswers:answers(),...extra}};
-  await addUser(db,u);const state=await save(u);await approve(u);
+  const id=randomUUID(),u={id,email:id+'@example.test',sessionId:randomUUID(),profile:{signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},displayName:'عضو تجريبي',gender,age:29,city:'الرياض',profession:'مهندس',bio:'نبذة عامة',contact:id+'@example.test',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف الأول',assessmentVersion,surveyAnswers:answers(),personalityVersion:'personality-v2',personalityAnswers:{},...extra}};
+  await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');const state=await save(u);await approve(u);
   await staff('public.marriage_record_receipt($1,$2,false)',[id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:id,transactionId:id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
   return u;
  }
@@ -35,7 +42,7 @@ function setup(db){
 
 test('public basics are opt-in, reviewed and exportable; private criteria/personality stay private and older clients preserve them',async()=>{
  const db=await createDatabase();try{
-  const {add,call,save,approve}=setup(db),a=await add('woman'),b=await add('man',{marriageBasics:basics,partnerCriteria:{height:{mode:'prefer',min:160}},personalityVersion:'personality-v1',personalityAnswers:personality()});
+  const {add,call,save,approve}=setup(db),a=await add('woman',{...legacyAssessmentFields,personalityVersion:'personality-v1'}),b=await add('man',{...legacyAssessmentFields,marriageBasics:basics,partnerCriteria:{height:{mode:'prefer',min:160}},personalityVersion:'personality-v1',personalityAnswers:personality()});
   const cards=await call(a,'public.marriage_discover()'),card=cards.find(p=>p.id===b.id);
   assert.deepEqual(card.marriageBasics,basics);
   for(const key of ['partnerCriteria','personalityAnswers','personalityVersion','surveyAnswers','contact'])assert.equal(card[key],undefined);
@@ -92,7 +99,7 @@ test('every required criterion is bilateral and unknown fails closed; no-prefere
 
 test('personality completion and soft-preference coverage score identically on server and phone',async()=>{
  const db=await createDatabase();try{
-  const {add,save}=setup(db),a=await add('woman',{marriageBasics:basics,personalityVersion:'personality-v1',personalityAnswers:personality('A')}),b=await add('man',{marriageBasics:basics,personalityVersion:'personality-v1',personalityAnswers:personality('E')});
+  const {add,save}=setup(db),a=await add('woman',{...legacyAssessmentFields,marriageBasics:basics,personalityVersion:'personality-v1',personalityAnswers:personality('A')}),b=await add('man',{...legacyAssessmentFields,marriageBasics:basics,personalityVersion:'personality-v1',personalityAnswers:personality('E')});
   const compare=async()=>{
    const fit=(await db.query('select fit from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0].fit;
    assert.deepEqual(fit,describeFit({...a.profile,id:a.id},{...b.profile,id:b.id}).fit);return fit;
@@ -106,7 +113,7 @@ test('personality completion and soft-preference coverage score identically on s
    const fit=await compare();assert.equal(fit.personality.complete,Object.keys(choices).length===12);assert.deepEqual(fit.criteria,{covered:2,total:2});
   }
   await save(b,{marriageBasics:{},personalityAnswers:{}});
-  const unknown=await compare();assert.equal(unknown.percentage,100);assert.deepEqual(unknown.criteria,{covered:0,total:2});assert.equal(unknown.personality.percentage,null);
+  const unknown=await compare();assert.equal(unknown.percentage,null);assert.deepEqual(unknown.criteria,{covered:0,total:2});assert.equal(unknown.personality.percentage,null);
  }finally{await db.close()}
 });
 
@@ -129,9 +136,13 @@ test('new dealbreakers close pending requests but preserve already accepted conv
   const {add,call,save}=setup(db),a=await add('woman',{marriageBasics:basics}),b=await add('man',{marriageBasics:basics}),c=await add('man',{marriageBasics:basics});
   const pending=await call(a,'public.marriage_request($1)',[b.id]),accepted=await call(a,'public.marriage_request($1)',[c.id]);
   await call(c,"public.marriage_act($1,'accept',null)",[accepted]);
+  await signCommunicationAgreement(call,a,c,accepted);
   await save(a,{partnerCriteria:{height:{mode:'require',min:190}}});
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[pending])).rows[0].status,'closed');
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[accepted])).rows[0].status,'accepted');
+  for(const candidate of [b,c]) assert.equal((await db.query('select marriage.new_pair_requirements($1,$2) ok',[a.id,candidate.id])).rows[0].ok,false);
   assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,c.id])).rows[0].ok,true);
+  const message=await call(a,'public.marriage_message($1,$2,$3)',[accepted,'رسالة اختبار',randomUUID()]);
+  assert.equal((await call(c,'public.marriage_thread_page($1)',[accepted])).at(-1).id,message);
  }finally{await db.close()}
 });

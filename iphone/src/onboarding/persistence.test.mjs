@@ -6,7 +6,7 @@ let loader, createWritingDrafts, createDraftVault, draftTTL, decodeDraft, initia
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     plugins:[{name:'isolate-account-cloud',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/src/cloud.ts'))return 'export const cloud=null; export async function callRpc(){throw Error("Unexpected live RPC in draft test")}';}}],
-    optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+    optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   ({ createDraftVault, draftTTL } = await loader.ssrLoadModule("/src/onboarding/vault.ts"));
   ({ createWritingDrafts } = await loader.ssrLoadModule("/src/interview/writingDraft.ts"));
   ({ decodeDraft } = await loader.ssrLoadModule("/src/onboarding/persistence.ts"));

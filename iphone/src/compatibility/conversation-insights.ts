@@ -1,4 +1,4 @@
-import catalog from './catalog.json' with { type: 'json' };
+import { dimensionsForVersion } from './practical-catalog.ts';
 import type { MatchFit } from './model.ts';
 import { readPreferenceEvidence } from './preference-evidence.ts';
 
@@ -47,7 +47,7 @@ export function conversationInsights(fit?: MatchFit): {
   if (readout.source === 'unavailable') return { source: 'general', prompts: generalPrompts() };
   const aligned: ConversationPrompt[] = [], discussion: ConversationPrompt[] = [], explore: ConversationPrompt[] = [];
   for (const topic of readout.topics) {
-    const definition = catalog.dimensions.find(item => item.id === topic.id);
+    const definition = dimensionsForVersion(fit.version).find(item => item.id === topic.id);
     if (!definition) continue;
     if (topic.status === 'aligned') {
       aligned.push({ id: `aligned:${topic.id}`, kind: 'aligned', title: definition.title,

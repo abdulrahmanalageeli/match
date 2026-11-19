@@ -1,10 +1,10 @@
 import { interviewWritingDrafts } from '../interview/writingDraft';
 import { privateDraftKeychain } from "../session";
-import { assessmentVersion, categories, dimensions, interests, maxInterests, maxPriorities } from "../compatibility/model";
+import { assessmentVersion, categories, dimensionsForVersion, interests, maxInterests, maxPriorities } from "../compatibility/model";
 import { chapters, type Answers, type ApplicationDraft } from "./draft";
 import { createDraftVault, draftTTL } from "./vault";
 import { validMarriageBasicsDraft, validPartnerCriteriaDraft } from "../compatibility/marriage";
-import { personalityQuestions, personalityOptions, personalityVersion } from "../compatibility/personality";
+import { personalityQuestionsFor, personalityOptions, personalityVersion } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { cloud, callRpc } from '../cloud';
@@ -16,14 +16,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const textLimits = { displayName: 60, age: 3, city: 80, profession: 100, bio: 1200, contact: 180,
   preferredMinAge: 3, preferredMaxAge: 3, familyPreference: 180 } as const;
 const optionalTextLimits = { birthDate: 10, lookingFor: 600, lifeTogether: 600, valuesStatement: 600, education: 100, marriageIntent: 100 } as const;
-const surveyOptions = new Map<string, Set<string>>();
-for (const dimension of dimensions) {
-  const options = new Set<string>(dimension.options.map(o => o.code));
-  surveyOptions.set(dimension.id, options);
-  surveyOptions.set(dimension.partnerId, options);
-}
 function validAnswers(value: unknown): value is Answers {
   if (!isRecord(value) || (value.gender !== "" && value.gender !== "woman" && value.gender !== "man")) return false;
+  const dimensions = dimensionsForVersion(String(value.assessmentVersion ?? 'marriage-v3'));
+  const personalityQuestions = personalityQuestionsFor(String(value.personalityVersion ?? 'personality-v1'));
   for (const [key, limit] of Object.entries(textLimits)) {
     const text = value[key];
     if (typeof text !== "string" || text.length > limit) return false;
@@ -35,19 +31,19 @@ function validAnswers(value: unknown): value is Answers {
     if (value[key] !== undefined && (typeof value[key] !== "string" || value[key].length > limit)) return false;
   }
   if (Object.keys(value).some(key => !Object.hasOwn(textLimits, key) && !Object.hasOwn(optionalTextLimits, key) && !extraFields.includes(key))) return false;
-  if (value.assessmentVersion !== undefined && value.assessmentVersion !== assessmentVersion && value.assessmentVersion !== "marriage-v1") return false;
+  if (value.assessmentVersion !== undefined && ![assessmentVersion,"marriage-v3","marriage-v2","marriage-v1","legacy-v0"].includes(String(value.assessmentVersion))) return false;
   if (value.appearanceVersion !== undefined && value.appearanceVersion !== "appearance-v1") return false;
   if (value.publicAvatar !== undefined && !validPublicAvatar(value.publicAvatar)) return false;
   if (value.marriageBasics !== undefined && !validMarriageBasicsDraft(value.marriageBasics)) return false;
   if (value.partnerCriteria !== undefined && !validPartnerCriteriaDraft(value.partnerCriteria)) return false;
-  if (value.personalityVersion !== undefined && value.personalityVersion !== personalityVersion) return false;
+  if (value.personalityVersion !== undefined && value.personalityVersion !== personalityVersion && value.personalityVersion !== "personality-v1") return false;
   if (value.personalityAnswers !== undefined && (!isRecord(value.personalityAnswers) || !Object.entries(value.personalityAnswers).every(([key, answer]) => personalityQuestions.some(q => q.id === key) && personalityOptions.some(o => o.code === answer)))) return false;
   const ids = value.interestIds;
   if (!Array.isArray(ids) || ids.length > maxInterests || new Set(ids).size !== ids.length ||
      !ids.every(id => interests.some(item => item.id === id))) return false;
   const answers = value.surveyAnswers;
   if (!isRecord(answers) || !Object.entries(answers).every(([key, answer]) =>
-    typeof answer === "string" && surveyOptions.get(key)?.has(answer))) return false;
+    typeof answer === "string" && dimensions.some(d => (d.id === key || d.partnerId === key) && d.options.some(o => o.code === answer)))) return false;
   const priorities = value.priorityCategories;
   if (priorities !== undefined && (!Array.isArray(priorities) || priorities.length > maxPriorities ||
     new Set(priorities).size !== priorities.length || !priorities.every(id => categories.some(c => c.id === id)))) return false;
@@ -62,9 +58,11 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
   try { data = JSON.parse(text); } catch { return null; }
   if (isRecord(data) && isRecord(data.answers)) {
     // Recover usable drafts written before these server-only fields were excluded.
+    if (!data.answers.assessmentVersion) data.answers.assessmentVersion = 'marriage-v3';
+    if (!data.answers.personalityVersion) data.answers.personalityVersion = data.answers.assessmentVersion === assessmentVersion ? personalityVersion : 'personality-v1';
     if (['marriage-v1','marriage-v2'].includes(String(data.answers.assessmentVersion)) && isRecord(data.answers.surveyAnswers)) {
-      data.answers.surveyAnswers = Object.fromEntries(Object.entries(data.answers.surveyAnswers).filter(([id]) => surveyOptions.has(id)));
-      data.answers.assessmentVersion = assessmentVersion;
+      const catalog = dimensionsForVersion(String(data.answers.assessmentVersion));
+      data.answers.surveyAnswers = Object.fromEntries(Object.entries(data.answers.surveyAnswers).filter(([id]) => catalog.some(d => d.id === id || d.partnerId === id)));
     }
     delete data.answers.portrait;
     delete data.answers.signupConsents;

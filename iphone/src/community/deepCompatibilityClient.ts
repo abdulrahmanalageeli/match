@@ -1,14 +1,14 @@
 import { Capacitor } from '@capacitor/core';
 import { callRpc, cloud, cloudConnection } from '../cloud';
 import { marriageProjectUrl } from '../deployment';
-import { deepSnapshot, type DeepAnalysisSource } from './deepCompatibilityModel';
+import { deepConsent, deepConsentVersion, deepSnapshot, type DeepAnalysisSource } from './deepCompatibilityModel';
 
 /** Only the authenticated real-member adapter installs this capability. */
 export function deepCompatibilitySource(userId: string): DeepAnalysisSource {
   return {
-    async request(connectionId, action, decisions) {
+    async request(connectionId, action, decisions, requestId) {
       const response = await callRpc<unknown>('marriage_deep_analysis', {
-        connection_id: connectionId, action, decisions: decisions ?? null,
+        connection_id: connectionId, action, decisions: action === 'request' || action === 'accept' ? deepConsent(action, requestId) : decisions ?? null,
       }, userId, AbortSignal.timeout(15000));
       return deepSnapshot(response);
     },
@@ -18,7 +18,7 @@ export function deepCompatibilitySource(userId: string): DeepAnalysisSource {
   };
 }
 
-async function generateReading(body: {connectionId:string} | {demoPersonaId:string}, userId?:string) {
+async function generateReading(body: {connectionId:string} | {demoPersonaId:string;consentVersion:typeof deepConsentVersion}, userId?:string) {
   const session = (await cloud?.auth.getSession())?.data.session;
   if (!session || (userId && session.user.id !== userId)) throw Error('سجّل الدخول مجددًا لمتابعة التحليل.');
   const native = Capacitor.isNativePlatform();
@@ -37,7 +37,7 @@ async function generateReading(body: {connectionId:string} | {demoPersonaId:stri
 }
 
 export async function generateDemoReading(demoPersonaId:string) {
-  const response=await generateReading({demoPersonaId});
+  const response=await generateReading({demoPersonaId,consentVersion:deepConsentVersion});
   const data=await response.json();
   const {findings}=deepSnapshot({status:'shared', findings:data.findings});
   if (!findings.length) throw Error('تعذّر تحميل القراءة التجريبية.');

@@ -1,9 +1,9 @@
 import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
-import { assessmentVersion, dimensions } from "../compatibility/model";
+import { assessmentVersion, dimensionsForVersion, applicableDimensions } from "../compatibility/model";
 import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
-import { personalityVersion, personalityQuestions } from "../compatibility/personality";
+import { personalityVersion, personalityQuestionsFor } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
@@ -67,6 +67,10 @@ export function profileBaseline(p: Profile | null) {
 }
 
 export function initialDraft(owner: string, initial: Profile | null): ApplicationDraft {
+  const hasHistoricalAnswers = Object.keys(initial?.surveyAnswers ?? {}).length > 0 || initial?.personalityVersion === 'personality-v1';
+  const version = initial?.assessmentVersion === 'legacy-v0' ? 'marriage-v1'
+    : initial?.assessmentVersion ?? (hasHistoricalAnswers ? 'marriage-v3' : assessmentVersion);
+  const dimensions = dimensionsForVersion(version);
   const answers: Answers = {
     displayName: "", gender: "", city: "", profession: "", bio: "", contact: "",
     lookingFor: "", lifeTogether: "", education: "", marriageIntent: "", valuesStatement: "",
@@ -76,8 +80,8 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
     preferredMinAge: String(initial?.preferredMinAge ?? 18),
     preferredMaxAge: String(initial?.preferredMaxAge ?? 110),
     interestIds: initial?.interestIds ?? [], surveyAnswers: Object.fromEntries(dimensions.flatMap(d => [d.id, d.partnerId]).filter(id => initial?.surveyAnswers?.[id]).map(id => [id, initial!.surveyAnswers![id]])),
-    assessmentVersion, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
-    personalityVersion, personalityAnswers: initial?.personalityAnswers ?? {},
+    assessmentVersion: version, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
+    personalityVersion: initial?.personalityVersion ?? (initial && version !== assessmentVersion ? "personality-v1" : personalityVersion), personalityAnswers: initial?.personalityAnswers ?? {},
     appearanceVersion: "appearance-v1",
   };
   return { owner, baseline: profileBaseline(initial), answers, step: "identity", returnToReview: false, consent: false };
@@ -116,6 +120,8 @@ export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[]
 
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {
   p = applicableFamilyAnswers(p);
+  const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
+  const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   switch (step) {
     case 'compatibility':
       if (requireAssessment && dimensions.some(d => [d.id, d.partnerId].some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
@@ -179,7 +185,7 @@ export function toProfile(p: Answers): Profile {
   p = withFamilyDefaults(applicableFamilyAnswers(p));
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
-    ...publicApplicationAnswers(p), assessmentVersion, personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
+    ...publicApplicationAnswers(p), assessmentVersion: p.assessmentVersion ?? assessmentVersion, personalityVersion: p.personalityVersion ?? personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
     priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: p.birthDate ? ageFromBirthday(p.birthDate ?? '')! : Number(p.age), preferredMinAge: Number(p.preferredMinAge),
     preferredMaxAge: Number(p.preferredMaxAge), displayName: p.displayName.trim(),
     city: canonicalCity(p.city), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),

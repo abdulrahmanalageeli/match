@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 
-const catalog=JSON.parse(await readFile(new URL('../../src/compatibility/catalog.json',import.meta.url),'utf8'));
+const catalog=JSON.parse(await readFile(new URL('../../src/compatibility/catalog-v2.json',import.meta.url),'utf8'));
 const migration=await readFile(new URL('../migrations/20261108095104_assessment_private_refresh.sql',import.meta.url),'utf8');
 
 test('successful assessments wake both sides privately without changing score rules or save permissions',async()=>{

@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {createDatabase,addUser,asMember} from './harness.mjs';
+import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {initialInterviewDocument} from '../../api/_lib/interview.mjs';
+import preferences from '../../src/compatibility/catalog.json' with {type:'json'};
+import personality from '../../src/compatibility/personality-catalog.json' with {type:'json'};
 
 test('private birthday drives age, rejects underage signup, and survives account reload',async()=>{
  const db=await createDatabase();
@@ -11,7 +14,19 @@ test('private birthday drives age, rejects underage signup, and survives account
   const call=(q,args=[])=>asMember(db,u.id,u.sessionId,async()=> (await db.query('select '+q+' value',args)).rows[0].value);
   const p={displayName:'مثال',age:99,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة',contact:u.email,
    preferredMinAge:18,preferredMaxAge:65,familyPreference:'من البداية',consentVersion:'2026-11-07-privacy',
-   signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:false,photo:false}};
+   signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},
+   education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],
+   marriageBasics:{skinTone:'tone_4',heightCm:165,weightKg:65,spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},
+   partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),
+   surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))};
+  // Exercise real new-account gates, then test birthdays after a trusted provider
+  // failure has explicitly permitted complete manual assessment answers.
+  await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'1998-01-01'}]),/أكمل جلسة/);
+  let interview=await call("public.marriage_interview('start',$1,null)",[{consentVersion:'wudayn-interview-v1',document:initialInterviewDocument(true)}]);
+  interview=await call("public.marriage_interview('save',$1,null)",[{expectedRevision:interview.revision,document:{...interview.document,pendingAnalysis:true}}]);
+  const attest='public.marriage_interview_attest($1,null,$2,\'fallback\',\'unavailable\')';
+  await assert.rejects(call(attest,[u.id,interview.revision]),/permission denied/);
+  await asService(db,()=>db.query('select '+attest,[u.id,interview.revision]));
   await assert.rejects(call('public.marriage_apply($1)',[p]),/تاريخ ميلاد/);
   await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'2020-01-01'}]),/١٨/);
   await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'2001-02-29'}]),/غير صالح/);

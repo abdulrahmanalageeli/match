@@ -9,7 +9,7 @@ import personalityCatalog from '../src/compatibility/personality-catalog.json' w
 
 const owner = '11111111-1111-4111-8111-111111111111';
 const plain = value => JSON.parse(JSON.stringify(value));
-let loader, interview, draft, consent, compatibility, personalityAnalysis, beena, decodeDraft, createDraftVault;
+let loader, interview, draft, consent, compatibility, personalityModel, beena, decodeDraft, createDraftVault;
 before(async () => {
   loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error',
     plugins: [{ name: 'interview-integration-no-live-services', enforce: 'pre', load(id) {
@@ -21,7 +21,7 @@ before(async () => {
   draft = await loader.ssrLoadModule('/src/onboarding/draft.ts');
   consent = await loader.ssrLoadModule('/src/legal/consent.ts');
   compatibility = await loader.ssrLoadModule('/src/compatibility/model.ts');
-  personalityAnalysis = await loader.ssrLoadModule('/src/compatibility/personality-analysis.ts');
+  personalityModel = await loader.ssrLoadModule('/src/compatibility/personality.ts');
   beena = await loader.ssrLoadModule('/src/beena/model.ts');
   ({ decodeDraft } = await loader.ssrLoadModule('/src/onboarding/persistence.ts'));
   ({ createDraftVault } = await loader.ssrLoadModule('/src/onboarding/vault.ts'));
@@ -97,7 +97,7 @@ test('confirmed interview answers survive onboarding resume and reach the real a
   assert.equal(boundary.calls[0].name, 'marriage_apply');
   assert.deepEqual(boundary.calls[0].args.payload.surveyAnswers, plain(initial.answers.surveyAnswers));
   assert.deepEqual(boundary.calls[0].args.payload.personalityAnswers, plain(initial.answers.personalityAnswers));
-  assert.equal(boundary.calls[0].args.payload.personalityVersion, 'personality-v1');
+  assert.equal(boundary.calls[0].args.payload.personalityVersion, 'personality-v2');
   assert.equal(boundary.calls[0].args.payload.assessmentVersion, compatibility.assessmentVersion);
   assert.equal(boundary.calls[0].args.payload.signupConsents.assessment, true);
   assert.equal(Object.hasOwn(boundary.calls[0].args.payload, 'proposals'), false);
@@ -121,7 +121,7 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
   assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);
   assert.deepEqual(plain(updated[1].fit.strengths),['residence_plan']);
-  assert.equal(updated[1].fit.percentage, 11, 'same-city residence aligns and attending selectively accepts a partner who abstains');
+  assert.equal(updated[1].fit.percentage, 9, 'same-city residence aligns and adjacent formal timing receives partial credit');
   assert.equal(first.surveyAnswers.children_plan, 'A', 'the original draft is not mutated');
 });
 
@@ -134,7 +134,7 @@ test('unselected proposals and partial confirmations never invent an assessment 
   const comparison = compatibility.describeFit({ ...selfOnly, id: owner }, candidate('A', 'peer'));
   assert.equal(comparison.fit.covered, 0);
   assert.equal(comparison.fit.percentage, null);
-  assert.equal(comparison.fit.personality.complete, false);
+  assert.equal(comparison.fit.personality, undefined);
   assert.deepEqual(plain(selfOnly.personalityAnswers), {});
   const onePair = profile({ ...base, ...interview.applyInterviewAnswers(base, confirmed(preferences('A').slice(0, 2))) });
   const partial = compatibility.describeFit({ ...onePair, id: owner }, candidate('A', 'peer'));
@@ -143,35 +143,27 @@ test('unselected proposals and partial confirmations never invent an assessment 
   assert(partial.rankValue > 0, 'valid incomplete answers still contribute to ranking with a coverage penalty');
 });
 
-test('personality proposals affect actual scoring and explanations only after confirmation and completion', () => {
+test('confirmed personality answers feed the descriptive profile and leave matching unchanged', () => {
   const base = newDraft().answers;
-  const peer = { ...profile({ ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D'))) }), id: 'peer', gender: 'man' };
-  const submitted = answers => ({ ...profile(answers), id: owner });
-  const fit = answers => compatibility.describeFit(submitted(answers), peer).fit.personality;
-  const unanswered = fit(base);
-  assert.equal(unanswered.percentage, null);
-  assert.equal(unanswered.covered, 0);
-  const unselected = { ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D'), [])) };
-  assert.deepEqual(plain(fit(unselected)), plain(unanswered), 'unconfirmed AI interpretations do not change matching');
-  const partial = { ...base, ...interview.applyInterviewAnswers(base, confirmed(personality('D').slice(0, 1))) };
-  assert.equal(fit(partial).covered, 1);
-  assert.equal(fit(partial).percentage, null, 'one answer cannot fabricate a full personality percentage');
-  const first = { ...partial, ...interview.applyInterviewAnswers(partial, confirmed(personality('D').slice(1))) };
-  const originalFit = fit(first);
-  assert.equal(originalFit.complete, true);
-  assert.equal(originalFit.percentage, 100);
-  assert.equal(originalFit.similarities.length, personalityCatalog.length);
-  assert.equal(personalityAnalysis.analyzePersonality(originalFit).discussion.length, 0);
-  const proposals = personality('A');
-  const firstId = proposals[0].id;
-  const edited = confirmInterviewChoices({ status: 'review', pendingAnalysis: false, proposals, confirmed: [] }, [{ id: firstId, values: ['B'] }], false).confirmed;
-  const changed = { ...first, ...interview.applyInterviewAnswers(first, edited) };
-  const changedFit = fit(changed);
-  assert.equal(changed.personalityAnswers[proposals[0].fieldId], 'B', 'member-edited interpretation overrides the proposed A');
-  assert.equal(changedFit.percentage, 96);
-  assert.deepEqual(plain(changedFit.differences), [proposals[0].fieldId]);
-  assert.equal(personalityAnalysis.analyzePersonality(changedFit).discussion[0].id, proposals[0].fieldId);
-  assert.equal(first.personalityAnswers[proposals[0].fieldId], 'D', 'the prior saved answers remain unmutated');
+  const peer = candidate('A','peer');
+  const describe = answers => personalityModel.personalityProfile(answers.personalityVersion,answers.personalityAnswers);
+  const rank = answers => compatibility.describeFit({...profile(answers),id:owner},peer);
+  assert.deepEqual(plain(describe(base)),[]);
+  const unselected = {...base,...interview.applyInterviewAnswers(base,confirmed(personality('D'),[]))};
+  assert.deepEqual(plain(describe(unselected)),[]);
+  const partial = {...base,...interview.applyInterviewAnswers(base,confirmed(personality('D').slice(0,1)))};
+  assert.deepEqual(plain(describe(partial)),[]);
+  const full = {...partial,...interview.applyInterviewAnswers(partial,confirmed(personality('D').slice(1)))};
+  assert.equal(describe(full).length,5);
+  const first=personality('A')[0];
+  const edited=confirmInterviewChoices({status:'review',pendingAnalysis:false,proposals:[first],confirmed:[]},
+    [{id:first.id,values:['B']}],false).confirmed;
+  const changed={...full,...interview.applyInterviewAnswers(full,edited)};
+  assert.equal(changed.personalityAnswers[first.fieldId],'B');
+  assert.equal(full.personalityAnswers[first.fieldId],'D');
+  assert.notEqual(describe(changed)[0].mean,describe(full)[0].mean);
+  assert.equal(rank(changed).rankValue,rank(base).rankValue);
+  assert.equal(rank(changed).fit.personality,undefined);
 });
 
 test('confirmed Beena answers feed the same scenario matching while unselected scenarios remain unanswered', () => {

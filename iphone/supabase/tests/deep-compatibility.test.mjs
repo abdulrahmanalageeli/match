@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {seedCommunicationMember} from './communication-fixture.mjs';
+import currentPersonality from '../../src/compatibility/personality-catalog.json' with {type:'json'};
 
 const sections=['summary','strengths','differences','patterns','expectations','friction','conversation','conclusion'];
 async function setup(){
@@ -12,7 +13,7 @@ async function setup(){
  for(const gender of ['man','woman','man']){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
   await addUser(db,u);await seedCommunicationMember(db,u,gender);members.push(u);
-  await db.query("insert into marriage.personality_answers select $1,code,$2 from marriage.personality_questions",[u.id,gender==='man'?'A':'E']);
+  await db.query("insert into marriage.personality_answers select $1,code,$2 from marriage.personality_questions where ordinal<=12",[u.id,gender==='man'?'A':'E']);
   await db.query("insert into marriage.member_assessment values($1,'marriage-v2')",[u.id]);
   await db.query("insert into marriage.member_answers select $1,q.code,(select code from marriage.question_options where question_code=q.code order by position limit 1) from marriage.questions q",[u.id]);
  }
@@ -149,4 +150,95 @@ test('fictional readings require membership and have an independent daily quota'
   await db.query("update marriage.demo_deep_usage set usage_date=usage_date-1 where member_id=$1",[a.id]);
   assert.ok((await reserve()).entries.length>2);
  } finally {await db.close();}
+});
+
+const modernConsent={consentVersion:'deep-assessment-v2'};
+
+async function upgradeAssessment(db,member,skipParenting=false) {
+ await db.query("update marriage.member_assessment set version='marriage-v4' where member_id=$1",[member.id]);
+ await db.query(`insert into marriage.personality_answers
+   select $1,code,chr(65+((ordinal-13)%5)) from marriage.personality_questions where ordinal between 13 and 27
+   on conflict(member_id,question_code) do update set option_code=excluded.option_code`,[member.id]);
+ if(skipParenting){
+  await db.query('insert into marriage.member_basics(member_id,children_count) values($1,0)',[member.id]);
+  await db.query("insert into marriage.partner_criteria values($1,'children',$2)",[member.id,{mode:'require',target:'none'}]);
+  await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='children_plan'",[member.id]);
+ }
+}
+
+test('changing either instrument invalidates old invitations and leases; mixed and current consent bind the precise invitation',async()=>{
+ const {db,a,b,call,job,grant,rpc}=await setup();
+ try{
+  await grant();
+  const old=await call(a,'request');
+  await upgradeAssessment(db,b,true);
+  assert.equal((await call(b)).status,'stale');
+  await assert.rejects(call(b,'accept',{...modernConsent,requestId:old.id}),e=>e.code==='42501');
+  await assert.rejects(call(a,'request'),e=>e.code==='42501');
+  await assert.rejects(call(a,'request',{consentVersion:'deep-assessment-v1'}),e=>e.code==='42501');
+  const mixed=await call(a,'request',modernConsent);
+  assert.equal((await call(a,'request',modernConsent)).id,mixed.id);
+  await assert.rejects(call(b,'accept'),e=>e.code==='42501');
+  await assert.rejects(call(b,'accept',{...modernConsent,requestId:old.id}),e=>e.code==='42501');
+  await assert.rejects(call(a,'accept',{...modernConsent,requestId:mixed.id}),e=>e.code==='42501');
+  assert.deepEqual(await job('claim'),{status:'idle'});
+  assert.equal(await rpc('(select count(*)::int from marriage.deep_analyses where snapshot is not null)'),0);
+  await db.query("delete from marriage.personality_answers where member_id=$1 and question_code='stress_recovery'",[b.id]);
+  await assert.rejects(call(b,'accept',{...modernConsent,requestId:mixed.id}),e=>e.code==='22023');
+  await db.query("insert into marriage.personality_answers values($1,'stress_recovery','C')",[b.id]);
+  await db.query("update marriage.member_answers set partner_answer_origin='inferred' where member_id=$1 and question_code='partner_marriage_timeline'",[b.id]);
+  assert.equal((await call(b,'accept',{...modernConsent,requestId:mixed.id})).status,'ready');
+  const claim=await job('claim');
+  assert.equal(claim.status,'claimed');
+  assert.equal(claim.snapshot.a.entries.length,44);
+  assert.deepEqual(claim.snapshot.a,await rpc('marriage.deep_evidence_legacy($1)',[a.id]));
+  const side=claim.snapshot.b;
+  assert.equal(side.assessmentVersion,'marriage-v4');
+  assert.equal(side.personalityVersion,'personality-v2');
+  assert.equal(side.entries.length,45);
+  assert.ok(!side.entries.some(e=>e.key.includes('parenting_approach')));
+  const labels=['لا يشبهني إطلاقًا','لا يشبهني كثيرًا','يشبهني إلى حد ما','يشبهني','يشبهني كثيرًا'];
+  for(const [i,item] of currentPersonality.entries()){
+   assert.deepEqual(side.entries.find(e=>e.key==='personality:'+item.id),{key:'personality:'+item.id,question:item.prompt,answer:labels[i%5]});
+  }
+  assert.equal(side.entries.find(e=>e.key==='answer:partner_marriage_timeline').provenance,'inferred');
+  assert.equal(side.entries.find(e=>e.key==='answer:partner_children_plan').provenance,'unverified');
+
+  await upgradeAssessment(db,a);
+  assert.equal((await call(a)).status,'stale');
+  await assert.rejects(job('publish',claim.lease,report()),e=>e.code==='42501');
+  assert.deepEqual(await job('claim'),{status:'idle'});
+  const fresh=await call(a,'request',modernConsent);
+  assert.ok(fresh.id!==mixed.id);
+  await assert.rejects(call(b,'accept',{...modernConsent,requestId:mixed.id}),e=>e.code==='42501');
+  await call(b,'accept',{...modernConsent,requestId:fresh.id});
+  const next=await job('claim');
+  assert.equal(next.snapshot.a.entries.length,47);
+  assert.equal(next.snapshot.b.entries.length,45);
+  const draft=report();
+  for(const f of draft.findings)f.evidence=[{side:'a',key:'personality:lasting_tension'},{side:'b',key:'answer:partner_marriage_timeline'}];
+  assert.equal((await job('publish',next.lease,draft)).status,'review');
+  assert.match((await call(b)).review[0].ownEvidence[0].label,/مقترح/);
+  assert.equal((await call(a)).findings.length,0);
+  await call(a,'cancel');
+  assert.deepEqual(await job('claim'),{status:'idle'});
+  assert.equal(await rpc('(select count(*)::int from marriage.deep_analyses where snapshot is not null or report is not null)'),0);
+ }finally{await db.close();}
+});
+
+test('fictional current reading requires positive permission and a complete instrument before consuming quota',async()=>{
+ const {db,a,grant,rpc}=await setup();
+ const reserve=consent=>asMember(db,a.id,a.sessionId,()=>rpc('public.marriage_demo_deep_reserve($1)',[consent]));
+ try{
+  await grant();
+  await upgradeAssessment(db,a);
+  await assert.rejects(reserve(null),e=>e.code==='42501');
+  await assert.rejects(reserve('deep-assessment-v1'),e=>e.code==='42501');
+  assert.equal(await rpc('(select count(*)::int from marriage.demo_deep_usage)'),0);
+  assert.equal((await reserve(modernConsent.consentVersion)).entries.length,47);
+  await db.query("delete from marriage.member_answers where member_id=$1 and question_code='money_management'",[a.id]);
+  await assert.rejects(reserve(modernConsent.consentVersion),e=>e.code==='22023');
+  assert.equal(await rpc('(select attempts from marriage.demo_deep_usage where member_id=$1)',[a.id]),1);
+  await assert.rejects(asMember(db,a.id,a.sessionId,()=>rpc('marriage.marriage_demo_deep_reserve()')),e=>e.code==='42501');
+ }finally{await db.close();}
 });

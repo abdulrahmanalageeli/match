@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 import { projectPairState } from '../supabase/functions/_shared/pair-privacy.ts';
-import { describeFit, dimensions, preferencePercentage, personalityPercentage } from '../src/compatibility/model.ts';
-import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import { describeFit, dimensionsForVersion, preferencePercentage, personalityPercentage } from '../src/compatibility/model.ts';
+import personalityCatalog from '../src/compatibility/personality-catalog-v1.json' with { type: 'json' };
 import { compareBeena } from '../src/beena/model.ts';
+
+const dimensions=dimensionsForVersion('marriage-v3');
 
 function profile(id, offset = 0) {
   return { displayName: id, age: 29, city: 'الرياض', gender: id === 'reham' ? 'woman' : 'man', profession: 'عمل', bio: 'نبذة عامة',

@@ -13,8 +13,14 @@ export type DeepSnapshot = {
   canGenerate: boolean; myReviewed: boolean; peerReviewed: boolean;
   review: DeepReview[]; findings: DeepFinding[];
 };
+export const deepConsentVersion = 'deep-assessment-v2' as const;
+export function deepConsent(action: 'request' | 'accept', requestId?: string) {
+  if (action === 'request') return { consentVersion: deepConsentVersion };
+  if (!requestId) throw Error('أعد فتح الدعوة للموافقة عليها.');
+  return { consentVersion: deepConsentVersion, requestId };
+}
 export type DeepAnalysisSource = {
-  request(connectionId: string, action: DeepAction, decisions?: Record<string, boolean>): Promise<DeepSnapshot>;
+  request(connectionId: string, action: DeepAction, decisions?: Record<string, boolean>, requestId?: string): Promise<DeepSnapshot>;
   generate(connectionId: string): Promise<void>;
 };
 

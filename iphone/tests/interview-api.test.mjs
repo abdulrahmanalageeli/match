@@ -112,11 +112,18 @@ test('Luna choice help is authorized, question-scoped, and never changes the int
 
 test('direct onboarding validates exactly the same catalog, with no AI calls, before attesting', async () => {
   const h = harness({checkFingerprint:true}), first = await start(h), choices = structuredChoices();
-  const confirm = answers => h.service({action:'directConfirm',revision:first.revision,choices:answers},headers);
+  const id = 'preference:children_plan:partner';
+  choices.find(row=>row.id===id).values = choices.find(row=>row.id==='preference:children_plan:self').values;
+  const confirm = (answers,inferredPartnerIds=[id]) => h.service({action:'directConfirm',revision:first.revision,choices:answers,inferredPartnerIds},headers);
   for (const invalid of [choices.slice(1), [...choices.slice(1),choices[1]], [{...choices[0],values:['Z']},...choices.slice(1)]]) {
     await assert.rejects(confirm(invalid), { status:400 });
   }
+  await assert.rejects(confirm(choices,['preference:residence_plan:partner']), {status:400});
+  const mismatch = choices.map(row => row.id === id ? {...row, values:['C']} : row);
+  await assert.rejects(confirm(mismatch), {status:400});
   const saved = await confirm(choices);
+  assert.deepEqual(saved.inferredPartnerIds,[id]);
+  assert.deepEqual((await h.service({action:'load'},headers)).inferredPartnerIds,[id]);
   assert.equal(saved.structuredConfirmation,true);
   assert.deepEqual(saved.coverage,{answered:47,required:47});
   assert.deepEqual(saved.document.turns,[]);

@@ -10,7 +10,9 @@ export function resolvePartnerDefaults(explicit: Choices, saved: Choices, blocke
     const self = `preference:${dimension}:self`;
     const partner = `preference:${dimension}:partner`;
     if (explicit[partner] || blocked.has(partner) || saved[self]?.length !== 1) continue;
-    const code = codes[saved[self][0]];
+    const answer = saved[self][0];
+    if (explicit[self]?.length !== 1 || explicit[self][0] !== answer || !Object.hasOwn(codes, answer)) continue;
+    const code = codes[answer];
     if (code) {
       choices[partner] = [code];
       inferred.add(partner);

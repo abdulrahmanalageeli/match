@@ -342,7 +342,7 @@ export function HybridAssessment({
   reviewExtras?: ReactNode;
 }) {
   const blocked = new Set(unresolvedPartnerIds);
-  if (direct) for (const dimension of dimensions) blocked.add(`preference:${dimension.id}:partner`);
+  if (direct && historical) for (const dimension of legacyCatalog.dimensions) blocked.add(`preference:${dimension.id}:partner`);
   const {choices, inferred} = resolvePartnerDefaults(explicit, savedChoices, blocked);
   const allThemes = makeThemeCards(gender,historical);
   const relevant = (item: Card, values: Choices) => historical || item.self.id !== 'preference:parenting_approach:self' ||

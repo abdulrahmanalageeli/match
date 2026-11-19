@@ -145,7 +145,7 @@ try {
       case 'directConfirm':
       case 'structuredConfirm':
         assert.deepEqual(payload.choices.map(({ id }) => id).sort(), expectedReceipt);
-        assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], benchmark && !resumedFamily ? 'A' : 'B');
+        assert.equal(payload.choices.find(({ id }) => id === firstId).values[0], (payload.action === 'directConfirm' || (benchmark && !resumedFamily)) ? 'A' : 'B');
         assert.equal(payload.choices.find(({ id }) => id === firstPartnerId).values[0], 'A');
         snapshot = { revision: snapshot.revision + 1, coverage: { answered: expectedReceipt.length, required: expectedReceipt.length }, structuredConfirmation: true,
           document: { ...snapshot.document, status: 'confirmed', confirmed: payload.choices.map(choice => {
@@ -319,30 +319,42 @@ try {
   const guidedChoices = calls.find(call => call.action === 'structuredConfirm').choices;
   draft = Object.fromEntries(guidedChoices.map(({ id, values }) => [id, values]));
   delete draft[firstId];
+  delete draft[firstPartnerId];
   snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
   const directStart = calls.length;
   await page.goto(url + '#direct');
   await page.reload({waitUntil:'domcontentloaded'});
   await card.waitFor();
   assert.equal(await page.locator('#wi-answer').count(), 0);
-  await card.locator('.wi-hybrid-option').nth(1).click();
+  await card.locator('.wi-hybrid-option').first().click();
+  assert.equal(await card.locator('fieldset[data-side="partner"]').count(), 0,
+    'A definite children answer must not open a mandatory partner field');
+  const childrenSuggestion = page.locator('.wi-partner-default');
+  assert.match(await childrenSuggestion.locator('summary').innerText(), /اقتراح للشريك.*تعديل/s);
+  assert.equal(await childrenSuggestion.getAttribute('open'), null);
+  assert.equal(draft[firstPartnerId], undefined, 'Inferred values stay out of the explicit draft');
+  await page.reload({waitUntil:'domcontentloaded'});
   await confirmation.waitFor();
   assert.equal(await confirmation.isEnabled(), true);
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
-  assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'directConfirm']);
+  assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'load', 'directConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
-  // Two otherwise identical scripted assessments. One text entry or control activation counts as one action.
+  assert.deepEqual(calls.at(-1).inferredPartnerIds,[firstPartnerId]);
+  // Otherwise identical scripted assessments. One text entry or control activation counts as one action.
   benchmark = true;
   const trials = [];
-  for (suggestionCount of [0, 1, 3]) {
+  for (suggestionCount of [-1, 0, 1, 3]) {
+    const directTrial = suggestionCount === -1;
     draft = {};
     snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
-    await page.goto(url + '?gender=' + (suggestionCount === 1 ? 'woman' : 'man'));
+    await page.goto(url + '?gender=' + (suggestionCount === 1 ? 'woman' : 'man') + (directTrial ? '#direct' : ''));
     let actions = 0;
     const startCalls = calls.length;
-    await page.locator('#wi-answer').fill(opening); actions++;
-    await page.getByRole('button', {name:'إرسال الرسالة',exact:true}).click(); actions++;
+    if (!directTrial) {
+      await page.locator('#wi-answer').fill(opening); actions++;
+      await page.getByRole('button', {name:'إرسال الرسالة',exact:true}).click(); actions++;
+    }
     await card.waitFor();
     while (await card.count()) {
       assert.ok(actions < 60, 'Every activation must make progress');
@@ -366,18 +378,19 @@ try {
     assert.equal(await page.locator('.wi-confirmed-answers dd').count(), 2);
     assert.match(await page.locator('.wi-complete').innerText(), /٤٧ إجابة/);
     const requests = calls.slice(startCalls);
-    const submitted = requests.find(call => call.action === 'structuredConfirm');
+    const submitted = requests.find(call => call.action === (directTrial ? 'directConfirm' : 'structuredConfirm'));
     const confirmed = submitted.choices;
     assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
-    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 7 : 8);
+    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 8 : 9);
     assert.equal(confirmed.length,47);
-    assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,1);
+    assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,directTrial ? 0 : 1);
     trials.push({ actions, confirmed });
   }
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[42,41,40]);
-  console.log('Assessment actions (zero / one / three supported suggestions):', trials.map(trial => trial.actions));
+  assert.deepEqual(trials[0].confirmed, trials[3].confirmed);
+  assert.deepEqual(trials.map(trial => trial.actions),[39,41,40,39]);
+  console.log('Assessment actions (direct / guided zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   // Resume the same confirmed answers through the real panel with different family facts.
   const reviewedDoc={...snapshot.document,status:'review',proposals:[],confirmed:[],currentQuestion:null};
   resumedFamily=true;

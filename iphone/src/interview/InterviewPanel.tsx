@@ -489,7 +489,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             const result=await call('load', {}, true);
             if(result){setLoaded(true);if(!result.document)await call('start',{consentVersion:'wudayn-interview-v1',hybrid:true},true);}
           }}>إعادة الاتصال</button>
-          <HybridAssessment direct {...family} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
+          <HybridAssessment direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
             completingUnavailable onComplete={()=>{}}/>
         </section> : !loaded ? <div className="wi-loading" role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>نفتح جلستك…</p><TypingDots/>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
         : !doc ? <section className="wi-welcome">

@@ -32,9 +32,9 @@ This inventory describes the full membership application. Profile editing, appro
 
 ## New registrations (marriage-v4 and personality-v2)
 
-Each paired row below has one self ID and its existing partner ID from the catalog. Self fields need an explicit or previously confirmed answer. In a row marked C, a letter maps to the same partner letter. Every omitted letter requires an explicit partner answer. Edited partner values take precedence. An interview suggestion that needs clarification blocks the deterministic default. The final receipt distinguishes inferred partner values from member selections.
+Each paired row below has one self ID and its existing partner ID from the catalog. Self fields need an explicit or previously confirmed answer. Both direct cards and guided cards use the AUTO-SUGGEST codes below. In this catalog the listed self and partner codes describe the same shared arrangement. For MANUAL codes the member chooses independently. Confirmed partner-specific context takes precedence on every topic; a private self-report alone cannot establish an independent partner preference. Every omitted letter requires an explicit partner answer. Edited partner values take precedence. An interview suggestion that needs clarification blocks the deterministic default. The final receipt distinguishes inferred partner values from member selections.
 
-| Stored dimension | C codes | Meaning |
+| Stored dimension | AUTO-SUGGEST codes (all others MANUAL) | Meaning |
 |---|---|---|
 | children_plan | A, B | Shared future children plan |
 | residence_plan | None | Staying in one's current city gives no unique partner relocation answer |
@@ -50,8 +50,10 @@ Each paired row below has one self ID and its existing partner ID from the catal
 | repair_after_conflict | None | Reconnection after conflict |
 | faith_routine | A, C | Explicitly individual or shared worship routine |
 | closeness_pace | None | Pace of emotional closeness |
-| money_management | None | Saving or spending an unexpected surplus |
+| money_management | A | Explicit joint plan to save most of a windfall. Personal balance, conditional spending and undecided plans stay manual. |
 | parenting_approach | None | Approach to parenting |
+
+In the iPhone 17 browser fixture, selecting the first option throughout the 47-answer direct assessment took 48 actions before this correction and 39 afterward, including final confirmation. Nine partner rows were inferred. The fixture starts with the cards open and uses a mocked API. Counts vary with manual corrections, hard requirements and the member's answers.
 
 The profile has 15 required self-reports, three per domain. Each domain's mean uses the five response levels and reverses the keyed item before averaging. The member sees five separate descriptions. Matching uses practical answers. A complete receipt has 47 answers, or 45 when the member explicitly reports zero existing children, answers B to future children and sets the existing partner-children criterion to require none. An unknown count, a soft preference or openness to a partner with children keeps both questions applicable. Changing any of the three facts can reopen them. Matching ignores stored parenting answers while the topic is inapplicable.
 

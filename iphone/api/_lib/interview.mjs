@@ -836,7 +836,7 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
   if (selections.size !== requiredFields.length) throw invalid();
   const inferred = new Set(inferredPartnerIds ?? document.confirmed.filter(item =>
     item.summary === inferredSelectionSummary && item.values[0] === selections.get(item.id)?.values[0] &&
-    partnerDefaults[item.fieldId]?.[selections.get(`preference:${item.fieldId}:self`)?.values[0]] === item.values[0]
+    document.confirmed.find(prior => prior.id === `preference:${item.fieldId}:self`)?.values[0] === selections.get(`preference:${item.fieldId}:self`)?.values[0]
   ).map(item => item.id));
   const confirmed = requiredFields.map(({ id, kind, fieldId, side }) => {
     const selection = selections.get(id);

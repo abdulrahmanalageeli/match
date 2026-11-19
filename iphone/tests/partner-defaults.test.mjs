@@ -14,7 +14,7 @@ for (const d of catalog.dimensions) test(d.id + ' covers every code, manual over
   const self = 'preference:'+d.id+':self', partner='preference:'+d.id+':partner';
   assert.deepEqual(Object.keys(rules[d.id]),d.options.map(o=>o.code));
   for (const {code} of d.options) {
-    const expected = d.id==='residence_plan' && code==='A' ? 'B' : same[d.id]?.includes(code) ? code : null;
+    const expected = same[d.id]?.includes(code) ? code : null;
     const draft={[self]:[code]};
     const resolve=(values,blocked=[])=>resolvePartnerDefaults(values,values,new Set(blocked));
     const first=resolve(draft);

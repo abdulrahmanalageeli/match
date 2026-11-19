@@ -252,11 +252,10 @@ try {
   await review.locator('summary').first().click();
   const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
   const residencePartner = review.getByRole('combobox',{name:/مدينة السكن، تفضيلي في الشريك/});
-  assert.equal(await residencePartner.inputValue(),'B');
+  assert.equal(await residencePartner.inputValue(),'A');
   await residenceSelf.selectOption('B');
-  assert.equal(await residencePartner.inputValue(),'');
-  await residenceSelf.selectOption('A');
-  assert.match(await residencePartner.getAttribute('aria-label'),/اقتراح/);
+  assert.equal(await residencePartner.inputValue(),'A');
+  assert.doesNotMatch(await residencePartner.getAttribute('aria-label'),/اقتراح/);
   await residencePartner.selectOption('C');
   await residenceSelf.selectOption('B');
   assert.equal(await residencePartner.inputValue(),'C');
@@ -344,14 +343,14 @@ try {
     const submitted = requests.find(call => call.action === 'structuredConfirm');
     const confirmed = submitted.choices;
     assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
-    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 8 : 9);
+    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 7 : 8);
     assert.equal(confirmed.length,44);
     assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,1);
     trials.push({ actions, confirmed });
   }
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[38,37,36]);
+  assert.deepEqual(trials.map(trial => trial.actions),[39,38,37]);
   console.log('Assessment actions (zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   assert.deepEqual(errors, []);
   console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 44-field confirmation');

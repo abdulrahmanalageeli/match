@@ -330,6 +330,19 @@ test("the audit pairs run through the historical and current database and the cu
     set(b, "public_event_attendance", "C", "A");
     await seed(after, a);
     await seed(after, b);
+    // Saved age ranges are reciprocal ranking preferences in v3. A directory
+    // query's optional age filter is separate from these persisted preferences.
+    for (const owner of [a,b]) {
+      await after.query('update marriage.preferences set min_age=35,max_age=50 where member_id=$1',[owner.id]);
+      const result = async () => (await after.query('select marriage.compatible($1,$2) as eligible, fit from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0];
+      const outside = await result();
+      assert.equal(outside.eligible,true);
+      assert.ok(outside.fit.practicalConcerns.includes('age_range'));
+      await after.query('update marriage.preferences set min_age=$2,max_age=$3 where member_id=$1',[owner.id,owner.preferredMinAge,owner.preferredMaxAge]);
+      const inside = await result();
+      assert.ok(!inside.fit.practicalConcerns.includes('age_range'));
+      assert.ok(inside.fit.percentage > outside.fit.percentage);
+    }
     async function checkAttendance(expectedPercentage, expectedStatus) {
       const {
         rows: [{ fit: sqlFit, eligible }],

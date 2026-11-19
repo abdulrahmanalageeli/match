@@ -28,8 +28,6 @@ jobs:
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; groups=json.load(sys.stdin)["devices"]; phones=[d for k,ds in groups.items() if ".iOS-" in k for d in ds if d["name"].startswith("iPhone")]; print(next((d["udid"] for d in phones if d["name"].endswith(" Pro")), phones[0]["udid"]))')
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
           xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
-          xcrun simctl list devices booted
       - name: Build member app and bundle offline test pages
         run: |
           npm ci
@@ -43,6 +41,8 @@ jobs:
       - name: Build, install and exercise Wudayn on iPhone
         run: |
           mkdir -p "$RUNNER_TEMP/wudayn-results"
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl list devices booted
           set -o pipefail
           xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" -parallel-testing-enabled NO \

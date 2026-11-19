@@ -34,6 +34,7 @@ const source:CommunitySource = {...base,
  ...(params.has('interrupt') ? {
    demoAcceptOutgoing: undefined,
    profileVisible: async () => {
+     if (params.get('case') === 'native-retry') return true;
      const response = await fetch('/__qa/profile');
      if (!response.ok) throw Object.assign(new Error('تعذّر التحقق'), {status:response.status});
      return response.json();

@@ -10,6 +10,9 @@ jobs:
       fail-fast: false
       matrix:
         model: ["iPhone-SE-3rd-generation", "iPhone-17", "iPhone-17-Pro-Max"]
+    env:
+      FOCUSED: ${{ contains(github.event.head_commit.message, '[birthday-chat]') }}
+      MODEL: ${{ matrix.model }}
     runs-on: macos-26
     timeout-minutes: 45
     defaults:
@@ -37,9 +40,11 @@ jobs:
           npm ci --no-audit
           npm run build
           changed=(src/onboarding/journey.css src/onboarding/marriage-fields.css src/community/arrivalDiscovery.css src/settings/settings.css src/onboarding/SignupBasicsSlides.tsx src/onboarding/signup-slides.css)
-          git restore --source=92b9011a -- "${changed[@]}"
-          AUDIT_BEFORE=1 node tests/simulator/audit-fixtures.mjs
-          git restore --source=HEAD -- "${changed[@]}"
+          if [[ "$FOCUSED" != true ]]; then
+            git restore --source=92b9011a -- "${changed[@]}"
+            AUDIT_BEFORE=1 node tests/simulator/audit-fixtures.mjs
+            git restore --source=HEAD -- "${changed[@]}"
+          fi
           node tests/simulator/audit-fixtures.mjs
           npx --no-install cap sync ios
           gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
@@ -52,6 +57,17 @@ jobs:
           xcodebuild build-for-testing -project "$project" -scheme App -destination "$dest" -derivedDataPath "$RUNNER_TEMP/build" > "$RUNNER_TEMP/evidence/build.log"
           status=0
           for variant in normal enlarged; do
+            only=()
+            if [[ "$FOCUSED" == true ]]; then
+              if [[ "$MODEL" == iPhone-SE-* ]]; then
+                only+=(-only-testing:ExperienceAudit/ExperienceAudit/testBirthdayFitsSE)
+                if [[ "$variant" == normal ]]; then only+=(-only-testing:ExperienceAudit/ExperienceAudit/testChat); fi
+              elif [[ "$MODEL:$variant" == "iPhone-17:normal" || "$MODEL:$variant" == "iPhone-17-Pro-Max:enlarged" ]]; then
+                only+=(-only-testing:ExperienceAudit/ExperienceAudit/testChat)
+              else
+                continue
+              fi
+            fi
             if [[ "$variant" == enlarged ]]; then
               xcrun simctl ui "$UDID" content_size accessibility-large
               xcrun simctl spawn "$UDID" defaults write com.apple.Accessibility ReduceMotionEnabled -bool YES
@@ -60,7 +76,7 @@ jobs:
             out="$RUNNER_TEMP/evidence/$variant"
             mkdir -p "$out"
             xcrun simctl io "$UDID" recordVideo --codec=h264 "$out/interactions.mp4" & recorder=$!
-            xcodebuild test-without-building -project "$project" -scheme App -destination "$dest" -derivedDataPath "$RUNNER_TEMP/build" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/$variant.xcresult" > "$out/test.log" || status=1
+            xcodebuild test-without-building "${only[@]}" -project "$project" -scheme App -destination "$dest" -derivedDataPath "$RUNNER_TEMP/build" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/$variant.xcresult" > "$out/test.log" || status=1
             kill -INT "$recorder" || true
             wait "$recorder" || true
             xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$variant.xcresult" --output-path "$out/attachments" || true

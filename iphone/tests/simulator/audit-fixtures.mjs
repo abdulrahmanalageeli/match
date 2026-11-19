@@ -9,7 +9,8 @@ const pages = {
   readiness: 'registration-qa?chapter=readiness&consolidation',
   settings: 'settings-qa',
   profile: 'profile-qa',
-  messages: 'chat-privacy-qa?interrupt',
+  messages: 'chat-privacy-qa?interrupt&case=native-retry',
+  recipient: 'chat-privacy-qa?actor=abdulrahman&case=native-retry',
   luna: 'luna',
 };
 function path(value) {
@@ -31,3 +32,8 @@ await build({plugins:[parity],mode:'demo', publicDir:false, build:{outDir:'dist/
 // The runner installs this offline fixture selector in its disposable app bundle.
 await writeFile('dist/index.html','<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{padding:66px 16px 24px;display:grid;grid-template-columns:1fr 1fr}a{display:block;padding:8px}</style>' +
   Object.entries(pages).filter(([name])=>['criteria','birthday','settings','profile'].includes(name)).map(([name,value])=>'<a href="baseline/'+path(value)+'">before-'+name+'</a>').join('') + Object.entries(pages).map(([name,value])=>'<a href="audit/'+path(value)+'">'+name+'</a>').join(''));
+
+// Native audit launches select a fixed local route without racing the launcher UI.
+for (const name of ['messages','recipient','birthday']) {
+  await writeFile('dist/'+name+'.html','<!doctype html><script>location.replace('+JSON.stringify('audit/'+path(pages[name]))+')</script>');
+}

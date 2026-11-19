@@ -67,22 +67,54 @@ final class ExperienceAudit: XCTestCase {
             }
         }
     }
+    private func launchFixture(_ page: String) {
+        app.launchEnvironment["AUDIT_PAGE"] = page
+        app.launch()
+    }
+    func testBirthdayFitsSE() throws {
+        launchFixture("birthday")
+        let field = app.descendants(matching: .other).matching(NSPredicate(format: "label == %@", "اختر تاريخ ميلادك · ميلادي")).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 90))
+        let title = app.staticTexts["متى يوم ميلادك؟"]
+        XCTAssertTrue(title.exists)
+        // The birthday card starts 20 pt from the SE screen edge and has its own padding.
+        XCTAssertGreaterThanOrEqual(field.frame.minX, 30)
+        XCTAssertLessThanOrEqual(field.frame.maxX, app.frame.maxX - 30)
+        XCTAssertGreaterThanOrEqual(field.frame.height, 44)
+        capture("birthday-contained")
+        field.tap()
+        capture("birthday-picker")
+    }
     func testChat() throws {
-        try visit("messages")
+        continueAfterFailure = false
+        let body = "Retry " + String(UUID().uuidString.prefix(8))
         let open = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "فتح المحادثة")).firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 8))
+        launchFixture("messages")
+        XCTAssertTrue(open.waitForExistence(timeout: 90))
         open.tap()
-        capture("chat-open")
         let field = app.textViews.firstMatch
-        if field.waitForExistence(timeout: 6) {
-            field.tap()
-            field.typeText("QA draft")
-            capture("chat-keyboard")
-            XCUIDevice.shared.press(.home)
-            app.activate()
-            capture("chat-resume")
-            let send = app.buttons["إرسال الرسالة"]
-            if send.isHittable { send.tap(); Thread.sleep(forTimeInterval: 2); capture("chat-interrupted") }
-        }
+        XCTAssertTrue(field.waitForExistence(timeout: 30))
+        field.tap()
+        field.typeText(body)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertEqual(field.value as? String, body)
+        app.buttons["إرسال الرسالة"].tap()
+        let retry = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "إعادة الإرسال")).firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 30))
+        capture("chat-failed")
+        retry.tap()
+        XCTAssertTrue(retry.waitForNonExistence(timeout: 30))
+        let receipt = app.images.matching(NSPredicate(format:"label IN %@", ["تم التسليم","قُرئت"])).firstMatch
+        XCTAssertTrue(receipt.waitForExistence(timeout: 30))
+        capture("chat-retried")
+        app.terminate()
+        launchFixture("recipient")
+        XCTAssertTrue(open.waitForExistence(timeout: 60))
+        open.tap()
+        let received = app.staticTexts.matching(identifier: body)
+        XCTAssertTrue(received.firstMatch.waitForExistence(timeout: 30))
+        XCTAssertEqual(received.count, 1)
+        capture("chat-received")
     }
 }

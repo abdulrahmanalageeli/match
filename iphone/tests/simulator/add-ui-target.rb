@@ -19,3 +19,17 @@ project.save
 scheme = Xcodeproj::XCScheme.new("#{bundle}/xcshareddata/xcschemes/App.xcscheme")
 scheme.add_test_target(target)
 scheme.save_as(bundle, 'App')
+
+# Only the simulator runner's disposable app has this fixture launch override.
+controller = "#{dir}/App/MarriageBridgeController.swift"
+File.write(controller, "import Foundation\n" + File.read(controller).sub('override func capacitorDidLoad()', <<~SWIFT))
+  override func instanceDescriptor() -> InstanceDescriptor {
+      let descriptor = super.instanceDescriptor()
+      if let page = ProcessInfo.processInfo.environment["AUDIT_PAGE"],
+         ["messages", "recipient", "birthday"].contains(page) {
+          descriptor.appStartPath = page + ".html"
+      }
+      return descriptor
+  }
+  override func capacitorDidLoad()
+SWIFT

@@ -96,9 +96,14 @@ final class ExperienceAudit: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 30))
         field.tap()
         field.typeText(body)
+        // XCTest can finish synthesizing keystrokes before WKWebView publishes the edited value.
+        let draftReady = NSPredicate(format: "value == %@", body)
+        let typed = XCTNSPredicateExpectation(predicate: draftReady, object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: 30), .completed)
         XCUIDevice.shared.press(.home)
         app.activate()
-        XCTAssertEqual(field.value as? String, body)
+        let restored = XCTNSPredicateExpectation(predicate: draftReady, object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 30), .completed)
         app.buttons["إرسال الرسالة"].tap()
         let retry = app.buttons.matching(NSPredicate(format:"label CONTAINS %@", "إعادة الإرسال")).firstMatch
         XCTAssertTrue(retry.waitForExistence(timeout: 30))

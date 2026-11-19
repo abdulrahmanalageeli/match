@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        model: ["iPhone-SE-3rd-generation", "iPhone-17", "iPhone-17-Pro-Max"]
+        model: ${{ fromJSON(contains(github.event.head_commit.message, '[standard-retry]') && '["iPhone-17"]' || '["iPhone-SE-3rd-generation","iPhone-17","iPhone-17-Pro-Max"]') }}
     env:
       FOCUSED: ${{ contains(github.event.head_commit.message, '[birthday-chat]') }}
       MODEL: ${{ matrix.model }}

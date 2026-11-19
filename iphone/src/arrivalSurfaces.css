@@ -256,6 +256,10 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual { width: auto; min-width: 0; min-height: 44px; }
 .phone-app .cm-shell .df-discovery .dr-row-overview > .dr-fit-visual { border-inline-start: 1px solid var(--arrival-rule); padding-inline-start: 12px; }
 .phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 0.75rem; }
+.phone-app .cm-shell .df-discovery .df-recommendation { position: relative; text-align: start; }
+.phone-app .cm-shell .df-discovery .df-profile-hitbox { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.phone-app .cm-shell .df-discovery .df-profile-hitbox:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -3px; }
+.phone-app .cm-shell .df-discovery .df-card-fit-summary .df-read-fit { position: relative; z-index: 2; padding-inline: 0; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary { display: flex; align-items: center; gap: 14px; margin-block: 4px 14px; text-align: start; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-compatibility { flex: none; margin: 0; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .nf-score-ring { width: 36px; height: 34px; }
@@ -269,7 +273,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .dr-row-overview { gap: 10px; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group { position: relative; display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group > .dr-row-profile { position: absolute; inset: 0; z-index: 1; min-height: 0; border-radius: 6px; }
-.phone-app .cm-shell .df-discovery .dr-row-name { gap: 4px; }
+.phone-app .cm-shell .df-discovery .dr-row-name { gap: 4px; flex-wrap: wrap; }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest {
   position: relative;
   z-index: 2;

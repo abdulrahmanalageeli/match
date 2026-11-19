@@ -94,7 +94,7 @@ export function ScoreTile({ percentage, variant = 'ring' }: { percentage: number
     </svg>}
     <span className="nf-score-tile-copy">
       <span>توافق التفضيلات</span>
-      <strong><bdi>{number.format(percentage)} من ١٠٠</bdi></strong>
+      <strong><bdi dir="ltr">{number.format(percentage)}٪</bdi></strong>
     </span>
   </span>;
 }

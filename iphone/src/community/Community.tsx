@@ -80,7 +80,7 @@ import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
-import { FitDetails, personalityPercentage } from "../compatibility/FitDetails";
+import { FitDetails, preferencePercentage } from "../compatibility/FitDetails";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { PersonAvatar } from "../avatars/PersonAvatar";
 import { MatchesOverview } from './MatchesOverview';
@@ -489,29 +489,31 @@ function PersonCard({
   const {premium}=useMembershipAccess();
   const {personalLine, context} = decisionContext(person);
   const descriptionId = useId();
-  return <div className="df-recommendation">
-    <MotionPressButton
-      className={"cm-person df-person"+(compact?" dr-compact":"")}
-      data-membership={person.membershipTier}
-      style={{animationDelay: `${Math.min(index,7)*45}ms`}}
-      onClick={event => open(event.currentTarget)}
-      data-weekly-person={person.id}
-      aria-label={`عرض ملف ${person.alias}`}
-      aria-describedby={descriptionId}
-    >
-      <div className="cm-person-top cm-weekly-identity df-card-portrait">
-        <DiscoveryPortrait person={person} source={source} priority={priority} />
-      </div>
-      <div className="df-card-copy" id={descriptionId}>
+  const canReadFit = premium && !person.compatibilityLocked && Boolean(person.fit);
+  const score = canReadFit ? preferencePercentage(person.fit) : null;
+  return <div className={"df-recommendation cm-person df-person"+(compact?" dr-compact":"")}
+    data-membership={person.membershipTier} style={{animationDelay: `${Math.min(index,7)*45}ms`}}>
+    <MotionPressButton className="df-profile-hitbox" type="button" onClick={event => open(event.currentTarget)}
+      data-weekly-person={person.id} aria-label={`عرض ملف ${person.alias}`} aria-describedby={descriptionId}/>
+    <div className="cm-person-top cm-weekly-identity df-card-portrait">
+      <DiscoveryPortrait person={person} source={source} priority={priority} />
+    </div>
+    <div className="df-card-copy" id={descriptionId}>
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
       {context && <p className="df-card-reason">{context}</p>}
+      {canReadFit ? <div className="df-card-fit-summary">
+        <button type="button" className="df-read-fit" onClick={explain}
+          aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
+          {score === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={score} variant="logo"/>}
+          <ChevronLeft size={14} aria-hidden="true"/>
+        </button>
+      </div> : !premium && person.recommendationPercentage != null && <div className="df-card-fit-summary">
+        <ScoreTile percentage={person.recommendationPercentage} variant="logo"/>
+      </div>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
-      </div>
-    </MotionPressButton>
-    {!premium && person.recommendationPercentage != null && <ScoreTile percentage={person.recommendationPercentage} variant="logo"/>}
-    {premium && person.fit && !person.compatibilityLocked && <button type="button" className="df-read-fit" onClick={explain} aria-label={`قراءة التوافق مع ${person.alias}`}>قراءة التوافق <ChevronLeft size={14}/></button>}
+    </div>
   </div>;
 }
 
@@ -545,7 +547,8 @@ function MembershipRowSpark() {
 }
 
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
-  const {premium,upgrade,connectionLimit}=useMembershipAccess();
+  const {premium,upgrade}=useMembershipAccess();
+  const score = premium && !person.compatibilityLocked ? preferencePercentage(person.fit) : null;
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
   const {personalLine, context} = decisionContext(person);
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -572,6 +575,10 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
+      {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
+        aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
+        {score === null ? <span className="dr-fit-pending">—<small>غير مكتمل</small></span> : <ScoreTile percentage={score} variant="logo"/>}
+      </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     </div>
 
     <div className="dr-row-detail">
@@ -580,9 +587,6 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         {context&&<p className="df-card-reason">{context}</p>}
       </div>
 
-    {premium ? person.fit && !person.compatibilityLocked &&
-      <button type="button" className="df-read-fit" onClick={explain} aria-label={`قراءة التوافق مع ${person.alias}`}>قراءة التوافق <ChevronLeft size={14}/></button> :
-      <button type="button" className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
       <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
@@ -829,7 +833,7 @@ function Discovery({
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
-    const origin = (anchor.closest('.dr-row-profile-group') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
+    const origin = (anchor.closest('.dr-row-profile-group, .df-recommendation') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
     listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
     move(origin, () => {
@@ -853,7 +857,7 @@ function Discovery({
       if (!button) { window.scrollTo(0, anchor.scroll); return null; }
       window.scrollTo(0, window.scrollY + button.getBoundingClientRect().top - anchor.top);
       button.focus({ preventScroll: true });
-      return (button.closest('.dr-row-profile-group') ?? button).querySelector(".cm-weekly-identity");
+      return (button.closest('.dr-row-profile-group, .df-recommendation') ?? button).querySelector(".cm-weekly-identity");
     });
   }
   async function sendRequest(target=person) {

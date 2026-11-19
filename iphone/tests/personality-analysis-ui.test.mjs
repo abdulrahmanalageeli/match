@@ -4,11 +4,12 @@ import {createElement,createRef} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 
-let loader,PersonalityAnalysis,FitDetails,comparePreferences,catalog;
+let loader,PersonalityAnalysis,FitDetails,ScoreTile,comparePreferences,catalog;
 before(async()=>{
  loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{name:'static-motion-for-copy-tests',enforce:'pre',load(id){if(id.replaceAll('\\','/').endsWith('/motion/Reanimated.tsx'))return "import {createElement} from 'react';export const MotionReveal=({children,duration,distance,...props})=>createElement('div',props,children);";}}],optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
  ({PersonalityAnalysis}=await loader.ssrLoadModule('/src/compatibility/PersonalityAnalysis.tsx'));
  ({FitDetails}=await loader.ssrLoadModule('/src/compatibility/FitDetails.tsx'));
+ ({ScoreTile}=await loader.ssrLoadModule('/src/compatibility/ScoreTile.tsx'));
  ({comparePreferences}=await loader.ssrLoadModule('/src/compatibility/model.ts'));
  const {personalityQuestionsFor}=await loader.ssrLoadModule('/src/compatibility/personality.ts');
  catalog=personalityQuestionsFor('personality-v1');
@@ -67,4 +68,20 @@ test('new and mixed pairs display practical fit without a pending personality pe
   assert.match(html,/data-fit-score="preferences"/);
   assert.doesNotMatch(html,/data-fit-score="personality"|ما وراء انسجام الشخصية|لماذا هذه النسبة؟/);
  }
+});
+
+test('Explore and profile details render the actual practical percentage, including zero', () => {
+ const base = {...pair().fit, assessmentComplete:true, provisional:false, covered:16, total:16};
+ for (const percentage of [0, 81, 100]) {
+  const tile = renderToStaticMarkup(createElement(ScoreTile,{percentage,variant:'logo'}));
+  const label = new Intl.NumberFormat('ar-SA').format(percentage);
+  assert.ok(tile.includes('>' + label + '٪</bdi>'));
+  for (const version of ['marriage-v3','marriage-v4']) {
+   const fit = {...base, version, percentage};
+   const details = renderToStaticMarkup(createElement(FitDetails,{fit}));
+   assert.ok(details.includes('>' + percentage + '%</bdi>'));
+  }
+ }
+ const partial = renderToStaticMarkup(createElement(FitDetails,{fit:{...base, provisional:true, percentage:81}}));
+ assert.doesNotMatch(partial,/>81%<\/bdi>/);
 });

@@ -15,11 +15,12 @@ import {Settings} from '/src/settings/Settings.tsx';
 import {MembershipAccess} from '/src/membership/access.tsx';
 import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
-const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v2',assessmentComplete:true,provisional:false,covered:32,total:32,percentage:72-i*3}}));
+const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:[],discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:32,total:32,percentage:72-i*3}}));
+people[0].recommendationPercentage=65;people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people;},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
-createRoot(document.getElementById('root')).render(<MembershipAccess.Provider value={{premium:true,upgrade:noop}}><div className="phone-app"><main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main></div></MembershipAccess.Provider>);
+createRoot(document.getElementById('root')).render(<MembershipAccess.Provider value={{premium:!new URLSearchParams(location.search).has('free'),upgrade:noop}}><div className="phone-app"><main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main></div></MembershipAccess.Provider>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),server:{host:'127.0.0.1',port:5281,strictPort:true},
  plugins:[{name:'local-discovery-fixture',enforce:'pre',resolveId(id){if(id==='virtual:discovery-fixture')return '\0discovery-fixture'},
@@ -30,9 +31,23 @@ await server.listen();let browser,page;const errors=[];
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});const weekly=page.locator('.df-recommendation').first();
+ const percent = value => new Intl.NumberFormat('ar-SA',{style:'percent',numberingSystem:'arab'}).format(value/100).replace(/[\u061c\u200e\u200f]/g,'');
+ const scoreText = async tile => (await tile.locator('.nf-score-tile strong').innerText()).replace(/[\u061c\u200e\u200f]/g,'');
+ assert.equal(await scoreText(weekly),percent(72));
+ await page.screenshot({path:resolve(output,'recommended-390.png'),fullPage:true});
+ await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
+ await page.locator('.mp-profile h1').waitFor();
+ assert.match(await page.locator('.mp-fit-preview-scores bdi').first().innerText(),/^(?:72%|٧٢٪)$/);
+ await page.screenshot({path:resolve(output,'profile-390.png'),fullPage:true});await page.locator('.mp-back').click();
+ await weekly.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
+ const sheet=page.getByRole('dialog');await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
  await page.locator('.dr-person-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const first=page.getByRole('article',{name:'ملف سارة',exact:true});
+ await first.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
+ await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();
+ await page.keyboard.press('Escape');
  await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>window.__interest),[{id:'p0',value:true}]);
  assert.equal(await page.getByText('أُرسل إشعار باهتمامك.',{exact:true}).count(),1);
@@ -41,7 +56,13 @@ try{
  await page.evaluate(()=>window.__failInterest=true);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await page.getByRole('alert').waitFor();
  assert.equal(await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).getAttribute('aria-pressed'),'false');
  await page.evaluate(()=>window.__failInterest=false);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();assert.equal((await first.locator('.dr-row-interest').innerText()).trim(),'إلغاء الاهتمام');
- for(const width of [390,320,768]){await page.setViewportSize({width,height:844});await page.screenshot({path:resolve(output,'rows-'+width+'.png'),fullPage:true});assert(await page.evaluate(width=>document.documentElement.scrollWidth<=width+1,width),'rows should not overflow at '+width);}
+ for(const width of [393,320,768]){
+   await page.setViewportSize({width,height:844});await page.screenshot({path:resolve(output,'rows-'+width+'.png'),fullPage:true});
+   assert(await page.evaluate(width=>document.documentElement.scrollWidth<=width+1,width),'rows should not overflow at '+width);
+   assert(await first.locator('.dr-row-name strong').evaluate(n=>n.clientWidth>0&&n.clientWidth>=n.scrollWidth),'member name should fit alongside the percentage at '+width);
+   assert.equal(await scoreText(first),percent(72));
+   assert(await first.locator('.dr-fit-visual').evaluate(n=>n.getBoundingClientRect().height>=44),'percentage opens an accessible target at '+width);
+ }
  assert.equal(await page.locator('.dr-online-label').count(),2);assert.equal(await page.locator('.dr-avatar-online').count(),2);
  const sample=page.getByRole('article',{name:'ملف مها',exact:true});assert.equal(await sample.locator('.dr-row-actions').count(),0);await sample.locator('.dr-row-image b').waitFor();assert.equal(await sample.getByRole('button',{name:/استعراض الملف الخيالي/}).count(),1);
  await sample.locator('.dr-sample-preview').click();await page.getByText('طلبات التعارف غير متاحة لهذا الملف.',{exact:true}).waitFor();assert.equal(await page.locator('.mp-action-main').count(),0);await page.locator('.mp-back').click();await first.locator('.dr-bio-peek').click();await page.locator('.mp-profile h1').waitFor();await page.locator('.mp-back').click();
@@ -49,8 +70,14 @@ try{
  await page.getByRole('textbox',{name:'البحث بالاسم أو المهنة أو النبذة'}).fill('لا يوجد');await page.getByRole('button',{name:'مسح البحث والتصفية',exact:true}).click();await first.waitFor();
  await page.emulateMedia({reducedMotion:'reduce'});assert(await first.evaluate(n=>parseFloat(getComputedStyle(n).transitionDuration)<.001));
  assert(await page.locator('.dr-filter-shortcut').evaluate(n=>n.getBoundingClientRect().height>=44));assert(await first.locator('.dr-row-request').evaluate(n=>n.getBoundingClientRect().height>=44));
- assert.equal(await first.locator('.dr-fit-visual').count(),0);
- assert(await first.getByRole('button',{name:'قراءة التوافق مع سارة'}).isVisible());
+ assert.equal(await scoreText(first),percent(72));
+ assert.equal(await scoreText(page.getByRole('article',{name:'ملف نورة',exact:true})),percent(0));
+ assert.equal(await page.getByRole('article',{name:'ملف ريم',exact:true}).locator('.nf-score-tile').count(),0);
+ assert.equal(await page.getByRole('article',{name:'ملف لولو',exact:true}).locator('.nf-score-tile').count(),0);
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture?free');
+ assert.equal(await scoreText(weekly),percent(65));assert.equal(await page.locator('.df-recommendation .nf-score-tile').count(),1);
+ await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
+ await first.getByRole('button',{name:'اشترك لعرض نسبة التوافق'}).waitFor();assert.equal(await first.locator('.nf-score-tile').count(),0);
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings');await page.getByRole('heading',{name:'الإعدادات',exact:true}).waitFor();await page.waitForTimeout(250);assert.equal(await page.locator('.st-verification-entry').count(),0);
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
  assert.deepEqual(errors,[]);console.log('PASS: phone/tablet layout, online labels, interest send/undo/failure, unused verification hidden, legacy access retained.');

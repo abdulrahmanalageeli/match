@@ -48,7 +48,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
       <div className="nf-fit-score" data-fit-score="preferences">
         <SlidersHorizontal className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>درجة توافق التفضيلات</h3>
-        <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} من ١٠٠`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{preference}/100</bdi>}</strong>
+        <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} بالمئة`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{preference}%</bdi>}</strong>
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${preference ?? 0}%`}}/></div>
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>

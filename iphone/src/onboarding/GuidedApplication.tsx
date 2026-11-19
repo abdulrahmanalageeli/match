@@ -7,7 +7,7 @@ import { Brand } from "../Brand";
 import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
-import { categories, dimensions, interests } from "../compatibility/model";
+import { applicableDimensions, dimensionsForVersion, categories, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
 import { selectedDiscoveryLine } from '../profile/profilePrompts';
@@ -17,7 +17,7 @@ import { ageOptions, cityOptions, educationOptions, professionOptions } from '..
 import { intakeVault, accountDraftsAvailable } from "./persistence";
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
-import { personalityQuestions } from "../compatibility/personality";
+import { personalityQuestionsFor, personalityProfile } from "../compatibility/personality";
 import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels } from "../compatibility/marriage";
 import { dressStyles, dressFlexibilities, skinTones } from "../compatibility/appearance";
 import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
@@ -105,6 +105,28 @@ function ReviewGroup({ title, edit, children, visible=true, expanded=false }: { 
   );
 }
 
+// A restored server session determines the questionnaire for its application.
+function interviewDraftVersion(p: Answers, legacy: boolean): Answers {
+  const version = legacy ? 'marriage-v3' : 'marriage-v4';
+  const personalityVersion = legacy ? 'personality-v1' : 'personality-v2';
+  if (p.assessmentVersion === version && p.personalityVersion === personalityVersion) return p;
+  const topics = dimensionsForVersion(version);
+  const ids = new Set(topics.flatMap(d => [d.id,d.partnerId]));
+  return {...p, assessmentVersion:version, personalityVersion,
+    surveyAnswers:Object.fromEntries(Object.entries(p.surveyAnswers ?? {}).filter(([id]) => ids.has(id))),
+    hardRequirements:p.hardRequirements?.filter(id => topics.some(d => d.id === id && d.hardAllowed)),
+    personalityAnswers:p.personalityVersion === personalityVersion ? p.personalityAnswers : {},
+  };
+}
+
+const domainNumber = new Intl.NumberFormat('ar-SA',{ maximumFractionDigits: 1 });
+function TraitProfile({ answers }: { answers: Answers }) {
+  const domains = personalityProfile(answers.personalityVersion, answers.personalityAnswers);
+  if (!domains.length) return null;
+  return <dl className="nf-review-styles" aria-label="محاور شخصيتي">{domains.map(domain =>
+    <div key={domain.id}><dt>{domain.label}</dt><dd>{domainNumber.format(domain.mean)} من ٥ <small>الطرف الأعلى للمقياس: {domain.upperAnchor}</small></dd></div>)}</dl>;
+}
+
 function Review({ p, edit, withCompatibility, registration = false, changed, portraitChange, portraitSource, portraitPolicy, sensitivePublication }: { p: Answers; edit: (step: Chapter) => void; withCompatibility: boolean; registration?:boolean; changed?:Set<Chapter>; portraitChange?:PortraitDraft|null; portraitSource?:CommunitySource|null; portraitPolicy?:PortraitRevealPolicy; sensitivePublication:boolean }) {
   const groupProps=(step:Chapter)=>({visible:!changed||changed.has(step),expanded:changed?.size===1});
   const photoUrl=portraitChange===null?null:portraitChange?.url;
@@ -112,6 +134,8 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
   const reveal=portraitChange?.revealPolicy??portraitPolicy??p.portrait?.revealPolicy??'never';
   const chosen = interests.filter(item => p.interestIds?.includes(item.id));
   const priorities = categories.filter(item => p.priorityCategories?.includes(item.id));
+  const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
+  const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   const requirements = dimensions.filter(item => p.hardRequirements?.includes(item.id));
   const styles = dimensions.flatMap(dimension => {
     const self = dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.id]);
@@ -184,6 +208,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
       </ReviewGroup>}
       {withCompatibility && <ReviewGroup title={registration ? "ملامح شخصيتك" : "تقييم الشخصية الخاص"} edit={() => edit(registration ? "compatibility" : "personality")} {...groupProps('personality')}>
         <p>أجبت عن {arabicNumber(personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length)} من {arabicNumber(personalityQuestions.length)} سؤالًا.</p>
+        <TraitProfile answers={p}/>
         <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{personalityQuestions.flatMap(q => { const answer = q.options.find(o => o.code === p.personalityAnswers?.[q.id]); return answer ? [<div key={q.id}><dt>{q.prompt}</dt><dd>{answer.label}</dd></div>] : []; })}</dl></details>
       </ReviewGroup>}
       {withCompatibility && !registration && <ReviewGroup title="بيننا · مواقف الحياة" edit={() => edit('beena')} {...groupProps('beena')}>
@@ -221,7 +246,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     return withDefaultContact({...saved, step: !initial && ["personality", "beena"].includes(step) ? "compatibility" : step, returnToReview: startAt ? Boolean(initial) : saved.returnToReview}, defaultContact);
   });
   const [assessmentPath, setAssessmentPath] = useState<'choice'|'questions'>(() =>
-    dimensions.some(d => d.options.some(o => o.code === draft.answers.surveyAnswers?.[d.id] || o.code === draft.answers.surveyAnswers?.[d.partnerId])) ? 'questions' : 'choice');
+    dimensionsForVersion(draft.answers.assessmentVersion).some(d => d.options.some(o => o.code === draft.answers.surveyAnswers?.[d.id] || o.code === draft.answers.surveyAnswers?.[d.partnerId])) ? 'questions' : 'choice');
   const [reviewAllCompatibility, setReviewAllCompatibility] = useState(false);
   const [reviewAllBeena, setReviewAllBeena] = useState(false);
   const [reviewAllPersonality, setReviewAllPersonality] = useState(false);
@@ -286,6 +311,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
+  const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
+  const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
   if(!consents.assessment)reviewAnswers=withoutAssessment(reviewAnswers);
   if(reviewAnswers.gender==='woman'&&reviewAnswers.publicAvatar===undefined&&reviewAnswers.marriageBasics?.dressStyle&&reviewAnswers.marriageBasics?.skinTone&&!portraitChange&&!initial?.portrait)
@@ -327,11 +354,16 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         ? unfilledProfileProposals(current.current.answers, snapshot.document?.profileConfirmed ?? []) : [];
       if (restoreProfile.length) update(applyProfileProposals(current.current.answers, restoreProfile, consentRef.current.sensitiveProfile));
       const confirmed = snapshot.document?.status === 'confirmed' ? snapshot.document.confirmed.filter(item => item.kind !== 'beena') : [];
-      const complete = confirmed.length === dimensions.length * 2 + personalityQuestions.length;
+      const saved = current.current.answers;
+      const session = snapshot.document;
+      const versions = session && !editing ? interviewDraftVersion(saved,session.promptVersion !== 'wudayn-interview-5') : saved;
+      const selected = applyInterviewAnswers({},confirmed);
+      const receipt = {...versions,surveyAnswers:selected.surveyAnswers,personalityAnswers:selected.personalityAnswers};
+      const complete = confirmed.length > 0 && validateStep('compatibility',receipt,true,true,true) === null;
+      if (versions !== saved) update(versions);
       setAiComplete(complete);
       if (complete) {
-        const saved = current.current.answers, restored = applyInterviewAnswers(saved, confirmed);
-        update({ surveyAnswers: { ...restored.surveyAnswers, ...saved.surveyAnswers }, personalityAnswers: { ...restored.personalityAnswers, ...saved.personalityAnswers } });
+        update({ surveyAnswers: { ...selected.surveyAnswers, ...versions.surveyAnswers }, personalityAnswers: { ...selected.personalityAnswers, ...versions.personalityAnswers } });
       }
     }).catch(() => { /* The session itself offers a retry; a network error is not a bypass. */ });
     return () => { active = false; };
@@ -370,7 +402,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       }
       if (draftRef) draftRef.current = restored;
       setDraft(restored);
-      if(dimensions.some(d => d.options.some(o => o.code === restored.answers.surveyAnswers?.[d.id] || o.code === restored.answers.surveyAnswers?.[d.partnerId])))setAssessmentPath('questions');
+      if(dimensionsForVersion(restored.answers.assessmentVersion).some(d => d.options.some(o => o.code === restored.answers.surveyAnswers?.[d.id] || o.code === restored.answers.surveyAnswers?.[d.partnerId])))setAssessmentPath('questions');
       setEditorHome(false);
       setStorageState("restored");
     }).catch(() => { if (active && !touched.current) { loadFailed.current = true; setStorageState("loadError"); } })
@@ -618,17 +650,18 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields required={!editing&&includeCompatibility} value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
               {chapter.key === "personality" && consents.assessment && <>
-                {editing || !interviewAuth ? <PersonalityFields answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
-                  {savedPersonalityCount>0 ? <div className="wi-onboarding-summary"><div><CheckCheck size={18} aria-hidden="true"/><p><strong>{savedPersonalityCount===personalityQuestions.length ? 'ملامحك مؤكدة. لا تحتاج لإعادتها.' : 'نبني على ما أكّدته'}<small>{arabicNumber(savedPersonalityCount)} من {arabicNumber(personalityQuestions.length)} ملمحًا</small></strong><span>{savedPersonalityCount===personalityQuestions.length ? 'تُستخدم اختياراتك في انسجام الشخصية بعد حفظ ملفك. يمكنك مراجعتها وتعديلها متى شئت.' : 'المؤكد محفوظ، وما لم يتضح يبقى مفتوحًا. أكمل الحوار، أو أجب مباشرة عن المتبقي.'}</span></p></div><button type="button" onClick={()=>{setReviewAllPersonality(value=>!value);setPersonalityDirect(true);}}>{reviewAllPersonality ? 'إظهار المتبقي فقط' : 'مراجعة ملامح شخصيتي'}<ChevronLeft size={14}/></button></div> : <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
+                <TraitProfile answers={p}/>
+                {editing || !interviewAuth ? <PersonalityFields version={p.personalityVersion} answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
+                  {savedPersonalityCount>0 ? <div className="wi-onboarding-summary"><div><CheckCheck size={18} aria-hidden="true"/><p><strong>{savedPersonalityCount===personalityQuestions.length ? 'ملامحك مؤكدة. لا تحتاج لإعادتها.' : 'نبني على ما أكّدته'}<small>{arabicNumber(savedPersonalityCount)} من {arabicNumber(personalityQuestions.length)} ملمحًا</small></strong><span>{savedPersonalityCount===personalityQuestions.length ? 'يمكنك مراجعة ملامحك وتعديل إجاباتك متى شئت.' : 'المؤكد محفوظ، وما لم يتضح يبقى مفتوحًا. أكمل الحوار، أو أجب مباشرة عن المتبقي.'}</span></p></div><button type="button" onClick={()=>{setReviewAllPersonality(value=>!value);setPersonalityDirect(true);}}>{reviewAllPersonality ? 'إظهار المتبقي فقط' : 'مراجعة ملامح شخصيتي'}<ChevronLeft size={14}/></button></div> : <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
                   {savedPersonalityCount>0&&savedPersonalityCount<personalityQuestions.length&&<div className="wi-personality-actions"><MotionPressButton className="wi-button wi-button-primary" onClick={()=>setInterviewOpen(true)}>أكمل ملامحي عبر الحوار<ArrowLeft size={17}/></MotionPressButton></div>}
-                  {(savedPersonalityCount<personalityQuestions.length||reviewAllPersonality)&&<details className="wi-manual wi-personality-manual" open={personalityDirect||reviewAllPersonality||undefined}><summary><span>{savedPersonalityCount===personalityQuestions.length ? 'مراجعة الإجابات وتعديلها' : 'أفضّل إكمال المتبقي مباشرة'}</span><ChevronLeft size={16}/></summary><PersonalityFields key={`${interviewRevision}:${reviewAllPersonality}`} answers={p.personalityAnswers ?? {}} onChange={update} registration remainingOnly={!reviewAllPersonality}/></details>}
+                  {(savedPersonalityCount<personalityQuestions.length||reviewAllPersonality)&&<details className="wi-manual wi-personality-manual" open={personalityDirect||reviewAllPersonality||undefined}><summary><span>{savedPersonalityCount===personalityQuestions.length ? 'مراجعة الإجابات وتعديلها' : 'أفضّل إكمال المتبقي مباشرة'}</span><ChevronLeft size={16}/></summary><PersonalityFields version={p.personalityVersion} key={`${interviewRevision}:${reviewAllPersonality}`} answers={p.personalityAnswers ?? {}} onChange={update} registration remainingOnly={!reviewAllPersonality}/></details>}
                 </>}
               </>}
               {chapter.key === "compatibility" && consents.assessment && <>
                 {editing ? <>
-                  <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>
+                  {p.assessmentVersion === 'marriage-v4' && <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>}
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. راجع الملف قبل حفظه.</p>}
-                  {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
+                  {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {aiComplete && savedCompatibilityCount===dimensions.length*2 && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
@@ -636,8 +669,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
                     <p className="nf-intake-note">{demo||preview?'معاينة الأسئلة. في التسجيل الفعلي نبدأ بالحوار.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
-                    <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
-                    {savedCompatibilityCount===dimensions.length*2 && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
+                    <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
+                    {savedCompatibilityCount===dimensions.length*2 && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
                   </div>}
                 </div>}
               </>}
@@ -687,6 +720,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
        </>}
       </div>
       {interviewAuth && consents.assessment && <InterviewPanel
+        onAssessmentVersion={legacy => { const saved=current.current.answers; const next=interviewDraftVersion(saved,legacy); if (!editing && next!==saved) update(next); }}
         key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
         open={interviewOpen} auth={interviewAuth} onboarding={!editing}
         gender={p.gender || undefined}

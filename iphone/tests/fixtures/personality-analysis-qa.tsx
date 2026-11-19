@@ -1,11 +1,11 @@
 import {createRoot} from 'react-dom/client';
 import {FitDetails} from '../../src/compatibility/FitDetails';
 import {comparePreferences} from '../../src/compatibility/model';
-import {personalityQuestions} from '../../src/compatibility/personality';
+import {personalityQuestionsFor} from '../../src/compatibility/personality';
 import '../../src/design.css';
 import '../../src/motion.css';
 
-const answers=Object.fromEntries(personalityQuestions.map(question=>[question.id,'D']));
+const answers=Object.fromEntries(personalityQuestionsFor('personality-v1').map(question=>[question.id,'D']));
 const first={id:'qa-a',gender:'woman',age:27,city:'الرياض',preferredMinAge:25,preferredMaxAge:40,personalityVersion:'personality-v1',personalityAnswers:answers};
 const second={...first,id:'qa-b',gender:'man',age:31,personalityAnswers:{...answers,initiative:'E',openness:'B',planning:'A',novelty:'B',conflict_pace:'B',quiet_comfort:'C'}};
 const mode=new URLSearchParams(location.search).get('mode');

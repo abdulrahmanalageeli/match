@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { describeFit, dimensions } from './model.ts';
+import { describeFit, dimensionsForVersion } from './model.ts';
+const dimensions = dimensionsForVersion("marriage-v3");
 import { conversationInsights } from './conversation-insights.ts';
 
 const answers = Object.fromEntries(dimensions.flatMap(dimension => [[dimension.id, 'A'], [dimension.partnerId, 'A']]));

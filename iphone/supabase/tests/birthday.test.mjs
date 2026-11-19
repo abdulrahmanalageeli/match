@@ -15,7 +15,7 @@ test('private birthday drives age, rejects underage signup, and survives account
   const p={displayName:'مثال',age:99,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة',contact:u.email,
    preferredMinAge:18,preferredMaxAge:65,familyPreference:'من البداية',consentVersion:'2026-11-07-privacy',
    signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:false,sensitivePublication:false,assessment:true,photo:false},
-   education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],
+   education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],
    marriageBasics:{heightCm:165,weightKg:65,spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},
    partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),
    surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))};

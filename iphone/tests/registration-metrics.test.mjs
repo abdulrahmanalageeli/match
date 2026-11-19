@@ -16,3 +16,10 @@ test('all mature starts contribute to coverage and abandonment, including early 
   assert.equal(registrationMetrics({ windowDays: 1, attempts: [] }).unsubmittedAtCutoffPercent, null);
   assert.throws(() => registrationMetrics({ windowDays: 1, attempts: [{ ...submitted, completedFields: 45 }] }));
 });
+
+test('completion uses each version and applicable questionnaire length', () => {
+  const complete = { ageMinutes:1600, submittedMinutes:30, requiredActions:100, aiCalls:1, correctedSuggestions:0 };
+  const attempts = [44,45,47].map(n=>({...complete,requiredFields:n,completedFields:n}));
+  assert.equal(registrationMetrics({windowDays:1,attempts}).compatibilityCompletionPercent,100);
+  assert.throws(()=>registrationMetrics({windowDays:1,attempts:[{...complete,requiredFields:45,completedFields:46}]}));
+});

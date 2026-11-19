@@ -1,5 +1,5 @@
 import { Check, ChevronDown, HeartHandshake, LockKeyhole, ShieldCheck } from '../BrandIcons';
-import { dimensions } from '../compatibility/model';
+import { dimensionsForVersion } from '../compatibility/model';
 import { marriageTimelineLabels } from '../compatibility/marriage';
 import { MotionReveal } from '../motion/Reanimated';
 import { membershipAgreementVersion, readinessBlueprint, readinessClarifications, readinessComplete, readinessConflicts, readinessScenarios, type MembershipReadiness as Readiness, type ReadinessAnswers, type ReadinessTopic } from './membershipReadiness';
@@ -52,7 +52,7 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
   onChange: (value: Readiness) => void;
 }) {
   const conflicts = readinessConflicts(value, familyPreference, formalTiming);
-  const formalLabel = dimensions.find(item => item.id === 'marriage_timeline')?.options.find(option => option.code === formalTiming)?.self;
+  const formalLabel = dimensionsForVersion(answers?.assessmentVersion).find(item => item.id === 'marriage_timeline')?.options.find(option => option.code === formalTiming)?.self;
   const wedding = answers?.marriageBasics?.marriageTimeline;
   const reviewed = value.family && value.nextStep && conflicts.every(topic => value.clarifications?.[topic]);
   function selectScenario(topic: ReadinessTopic, choice: string) {

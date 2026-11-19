@@ -29,7 +29,7 @@ export type Profile = {
   appearanceVersion?: "appearance-v1";
   partnerCriteria?: PartnerCriteria;
   personalityAnswers?: Record<string, string>;
-  personalityVersion?: "personality-v1";
+  personalityVersion?: "personality-v1" | "personality-v2";
   beena?: BeenaProfile | null;
   contact: string;
   preferredMinAge: number;
@@ -37,7 +37,7 @@ export type Profile = {
   familyPreference: string;
   interestIds?: string[];
   surveyAnswers?: Record<string, string>;
-  assessmentVersion?: "legacy-v0" | "marriage-v1" | "marriage-v2" | "marriage-v3";
+  assessmentVersion?: "legacy-v0" | "marriage-v1" | "marriage-v2" | "marriage-v3" | "marriage-v4";
   hardRequirements?: string[];
   priorityCategories?: string[];
 };

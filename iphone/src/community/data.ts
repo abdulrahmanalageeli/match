@@ -9,8 +9,8 @@ import { privateUpdates, type WatchUpdates } from "./updates";
 import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
 import type { MarriageBasics } from "../compatibility/marriage";
 import type { PublicAvatar } from "../compatibility/appearance";
-import { personalityQuestions, personalityVersion } from "../compatibility/personality";
-import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, dimensions, interests, rankPreferences, type MatchFit } from "../compatibility/model";
+import { personalityQuestionsFor } from "../compatibility/personality";
+import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
 import { beenaScenarios, sharedBeenaStory, type BeenaProfile, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
@@ -341,7 +341,7 @@ export function cloudCommunity(userId: string): CommunitySource {
 }
 
 const sampleLifeAnswers: Record<string, string> = {
-  ...Object.fromEntries(dimensions.flatMap(d => [[d.id, d.options[0].code], [d.partnerId, d.options[0].code]])),
+  ...Object.fromEntries(dimensionsForVersion("marriage-v3").flatMap(d => [[d.id, d.options[0].code], [d.partnerId, d.options[0].code]])),
   children_plan: "A", partner_children_plan: "A", financial_provision: "B", partner_financial_provision: "B",
   repair_after_conflict: "B", partner_repair_after_conflict: "B", housing_arrangement: "A", partner_housing_arrangement: "A",
   closeness_pace: "B", partner_closeness_pace: "B", marriage_timeline: "B", partner_marriage_timeline: "B",
@@ -374,9 +374,9 @@ export const demoProfile: Profile = {
   education: "بكالوريوس تصميم",
   marriageIntent: "تعارف جاد يهدف إلى الزواج",
   assessmentVersion: "marriage-v3",
-  personalityVersion,
+  personalityVersion: "personality-v1" as const,
   beena: fictionalBeena(0),
-  personalityAnswers: Object.fromEntries(personalityQuestions.map((q, index) => [q.id, "BCDDE"[index % 5]])),
+  personalityAnswers: Object.fromEntries(personalityQuestionsFor("personality-v1").map((q, index) => [q.id, "BCDDE"[index % 5]])),
   marriageBasics: { heightCm: 165, weightKg: 59, nationality: "سعودية", tribalBackground: "prefer_not_to_say", maritalStatus: "never_married", childrenCount: 0, smoking: "never", skinTone: "tone_3", dressStyle: "hijab", dressFlexibility: "keep" },
   publicAvatar: { style: "hijab", skinTone: "tone_3" },
   appearanceVersion: "appearance-v1",
@@ -517,7 +517,7 @@ function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
     repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C',
     closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A',
   };
-  return Object.fromEntries(dimensions.flatMap(d => [[d.id,self[d.id]], [d.partnerId,
+  return Object.fromEntries(dimensionsForVersion("marriage-v3").flatMap(d => [[d.id,self[d.id]], [d.partnerId,
     d.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[d.id]] ]));
 }
 
@@ -535,8 +535,8 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
     marriageIntent:seed.timeline==='when_ready'?'تعارف جاد على مهل':'تعارف جاد يهدف إلى الزواج',
     familyPreference:seed.meeting==='family_before_formal'||seed.meeting==='after_formal'?'من البداية':'بعد التعارف الأول',
-    assessmentVersion:'marriage-v3' as const,personalityVersion,
-    personalityAnswers:Object.fromEntries(personalityQuestions.map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
+    assessmentVersion:'marriage-v3' as const,personalityVersion: "personality-v1" as const,
+    personalityAnswers:Object.fromEntries(personalityQuestionsFor("personality-v1").map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
     surveyAnswers:demoSurvey(seed,index),beena:fictionalBeena(index+genderIndex*15+1),
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),
     partnerCriteria:{ tribalBackground:{mode:'any' as const},nationality:{mode:'any' as const},smoking:{mode:seed.smoking?'any' as const:'prefer' as const,target:'never' as const} },

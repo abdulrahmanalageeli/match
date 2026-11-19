@@ -5,7 +5,7 @@ import { createServer } from "vite";
 let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, unresolvedDetailSlides, withFamilyDefaults;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
-    optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+    optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   ({ initialDraft, validateStep, toProfile, profileBaseline, unresolvedDetailSlides, withFamilyDefaults } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
   ({ dimensions } = await loader.ssrLoadModule("/src/compatibility/model.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
@@ -266,4 +266,62 @@ test('full adult age range is visible for new applications and previous ranges s
   assert.equal(toProfile({...restored,preferredMaxAge:'47'}).preferredMaxAge,47);
   assert.equal(validateStep('preferences',{...restored,preferredMinAge:'50'},true)?.field,'preferredMaxAge');
   assert.equal(validateStep('preferences',p,true,true,true)?.field,'familyPreference');
+});
+
+test('versioned personality profiles reverse-key items and withhold incomplete domains', async () => {
+  const { personalityProfile, personalityQuestionsFor } = await loader.ssrLoadModule('/src/compatibility/personality.ts');
+  const catalog = personalityQuestionsFor('personality-v2');
+  assert.equal(catalog.length,15);
+  const legacy = personalityQuestionsFor('personality-v1');
+  assert.equal(legacy.length,12);
+  assert.ok(legacy.every(q=>!catalog.some(current=>current.id===q.id)));
+  const answers = Object.fromEntries(catalog.map(q=>[q.id,q.reverse?'A':'E']));
+  const all = personalityProfile('personality-v2',answers);
+  assert.equal(all.length,5);
+  assert.ok(all.every(domain=>domain.mean===5));
+  assert.deepEqual(personalityProfile('personality-v1',answers),[]);
+  assert.equal(personalityProfile('personality-v2',{...answers,calm_before_acting:'Z'}).length,4);
+  assert.equal(personalityProfile('personality-v2',{...answers,lasting_tension:'E'})[0].mean,11/3);
+  const reverseIds = ['lasting_tension','unfinished_tasks','harsh_words','quiet_settings','prefer_familiar'];
+  assert.deepEqual(catalog.filter(item => item.reverse).map(item => item.id).sort(), reverseIds.sort());
+  const neutral = Object.fromEntries(catalog.map(item => [item.id,'C']));
+  for (const item of catalog) {
+    for (const [index,code] of ['A','B','C','D','E'].entries()) {
+      const keyed = reverseIds.includes(item.id) ? 5-index : 1+index;
+      const profile = personalityProfile('personality-v2',{...neutral,[item.id]:code});
+      for (const domain of profile) {
+        assert.equal(domain.mean,domain.id === item.domain ? (6+keyed)/3 : 3,item.id+' '+code);
+      }
+    }
+  }
+});
+
+test('member edits retain legacy answers and versions, new registration validates applicable questions', async () => {
+  const { dimensionsForVersion } = await loader.ssrLoadModule('/src/compatibility/model.ts');
+  const { personalityQuestionsFor } = await loader.ssrLoadModule('/src/compatibility/personality.ts');
+  const pairs = version => Object.fromEntries(dimensionsForVersion(version).flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));
+  const traits = version => Object.fromEntries(personalityQuestionsFor(version).map(q=>[q.id,'B']));
+  const p=answers();
+  assert.equal(p.assessmentVersion,'marriage-v4');
+  assert.equal(p.personalityVersion,'personality-v2');
+  const legacy=toProfile({...p,assessmentVersion:'marriage-v3',personalityVersion:'personality-v1',surveyAnswers:pairs('marriage-v3'),personalityAnswers:traits('personality-v1')});
+  const restored=initialDraft('owner',legacy).answers;
+  assert.deepEqual(toProfile(restored).surveyAnswers,legacy.surveyAnswers);
+  assert.deepEqual(toProfile(restored).personalityAnswers,legacy.personalityAnswers);
+  assert.equal(toProfile(restored).personalityVersion,'personality-v1');
+  assert.equal(toProfile(restored).assessmentVersion,'marriage-v3');
+  assert.equal(validateStep('compatibility',restored,true,true,true),null);
+  for (const earlier of ['marriage-v1','marriage-v2']) {
+    const profile = {...legacy,assessmentVersion:earlier,surveyAnswers:pairs(earlier)};
+    assert.deepEqual(toProfile(initialDraft('owner',profile).answers).surveyAnswers,profile.surveyAnswers);
+  }
+  const current={...p,surveyAnswers:{...pairs('marriage-v4'),children_plan:'B'},personalityAnswers:traits('personality-v2'),marriageBasics:{childrenCount:0}};
+  delete current.surveyAnswers.parenting_approach;
+  delete current.surveyAnswers.partner_parenting_approach;
+  current.partnerCriteria={children:{mode:'prefer',target:'none'}};
+  assert.equal(validateStep('compatibility',current,true,true,true)?.field,'surveyAnswers');
+  current.partnerCriteria.children.mode='require';
+  assert.equal(validateStep('compatibility',current,true,true,true),null);
+  for(const count of [undefined,2]) assert.equal(validateStep('compatibility',{...current,marriageBasics:{childrenCount:count}},true,true,true)?.field,'surveyAnswers');
+  assert.equal(validateStep('compatibility',{...current,personalityAnswers:legacy.personalityAnswers},true,true,true)?.field,'personalityAnswers');
 });

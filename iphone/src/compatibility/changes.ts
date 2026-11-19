@@ -1,4 +1,4 @@
-import { dimensions, personalityPercentage, preferencePercentage, type MatchFit } from './model.ts';
+import { dimensionsForVersion, personalityPercentage, preferencePercentage, type MatchFit } from './model.ts';
 import { beenaScenarios } from '../beena/model.ts';
 import { readPreferenceEvidence } from './preference-evidence.ts';
 import { personalityDomains, personalityTopics, validatedPersonalityEvidence } from './personality-analysis.ts';
@@ -24,7 +24,7 @@ export function compatibilitySnapshot(fit?: MatchFit | null): CompatibilitySnaps
   const preference = preferencePercentage(fit), evidence = readPreferenceEvidence(fit);
   if (preference !== null && evidence.source !== 'unavailable') {
     const statuses = new Map(evidence.topics.map(topic => [topic.id, topic.status]));
-    sections.preferences = { score: preference, method: `${fit.version}:${evidence.source}`, topics: dimensions.flatMap(topic => {
+    sections.preferences = { score: preference, method: `${fit.version}:${evidence.source}`, topics: dimensionsForVersion(fit.version).flatMap(topic => {
       const status = statuses.get(topic.id); return status ? [[topic.id, status] as [string, string]] : [];
     }), metrics: evidence.criteria ? [
       ['matched', evidence.criteria.matched], ['different', evidence.criteria.different],
@@ -68,7 +68,7 @@ export function compareCompatibility(before?: CompatibilitySnapshot | null, afte
     if (previous.score !== next.score) scoreChanges.push({ key, label: labels[key], before: previous.score, after: next.score });
     const oldTopics = new Map(previous.topics), changed = next.topics.filter(([id, status]) => oldTopics.has(id) && oldTopics.get(id) !== status);
     for (const [id, status] of changed) {
-      const title = key === 'preferences' ? dimensions.find(topic => topic.id === id)?.title
+      const title = key === 'preferences' ? dimensionsForVersion(next.method.split(':')[0]).find(topic => topic.id === id)?.title
         : key === 'personality' ? personalityTopics[id]?.title : beenaScenarios.find(scenario => scenario.id === id)?.title;
       if (!title) continue;
       const detail = status === 'aligned' ? key === 'personality' ? 'أصبحت إجاباتكما أقرب' : key === 'beena' ? 'أصبح التصرف مقبولًا من الطرفين' : 'أصبح التوافق متبادلًا'

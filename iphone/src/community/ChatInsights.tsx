@@ -12,6 +12,15 @@ const kindLabels: Record<ConversationPrompt['kind'], string> = {
   aligned: 'ما يجمعكما', discussion: 'لنفهم بعضنا', explore: 'بداية هادئة',
 };
 
+const privateDiscussionTopics = [
+  ['الميزانية والالتزامات', 'متى يناسبنا أن نتحدث عن الديون والالتزامات وكيف نرتب ميزانية مشتركة؟'],
+  ['الدعم وقت الضغط', 'إذا مرّ أحدنا بأسبوع صعب، أي نوع من الدعم يريحه؟'],
+  ['رعاية الوالدين', 'ما التزاماتنا تجاه والدينا، وكيف نرتب زياراتنا ومسؤولياتنا؟'],
+  ['القرب والخصوصية', 'متى وكيف نرتاح للحديث عن احتياجاتنا للقرب وحدود الخصوصية؟'],
+  ['الإنجاب والصحة', 'هل يناسبنا تخصيص وقت خاص لمناقشة الإنجاب وما قد نحتاجه من رعاية أو علاج؟'],
+  ['تربية الأبناء', 'لو اختلفنا على قاعدة تخص أحد الأبناء، كيف نتفاهم عليها؟'],
+] as const;
+
 export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [], choose }: {
   fit?: MatchFit; name: string; disabled: boolean; hasDraft: boolean;
   usedMessages?: string[]; choose: (text: string) => void;
@@ -20,6 +29,7 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
   const cardId = useId();
   const [kind, setKind] = useState<ConversationPrompt['kind'] | 'all'>('all');
   const [position, setPosition] = useState(0);
+  const [discussion, setDiscussion] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const result = conversationInsights(fit);
   const used = new Set(usedMessages.map(normalizeMessage));
@@ -68,5 +78,13 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
       <MotionPressButton className="cm-insights-use" disabled={locked} onClick={() => { if (!locked) choose(current.prompt); }}><PenLine size={17} strokeWidth={1.7} aria-hidden="true" />أضف إلى مسودتي</MotionPressButton>
       <p className="cm-insights-draft-note" role={hasDraft ? 'status' : undefined}>{hasDraft ? 'لديك مسودة محفوظة. أكملها أو امسحها أولًا؛ لن نستبدل كلماتك.' : disabled ? 'يمكنك إضافة السؤال بعد إتاحة الكتابة في المحادثة.' : 'يمكنك تعديل السؤال قبل إرساله. لا يُرسل تلقائيًا.'}</p>
     </> : <div className="cm-insights-empty"><CheckCheck size={28} strokeWidth={1.4} aria-hidden="true" /><h4>أعطيتما هذه المواضيع مساحة</h4><p>الاقتراحات المتاحة موجودة بالفعل في الرسائل المحمّلة. واصلا من حيث وصل حديثكما، أو عودا بعد تحديث تقييمكما.</p></div>}
+    <details className="cm-insights-context">
+      <summary>مواضيع خاصة أختار وقت طرحها</summary>
+      <label>موضوع الحديث<select value={discussion} onChange={event => setDiscussion(event.target.value)}>
+        <option value="">اختر موضوعًا</option>
+        {privateDiscussionTopics.map(([title, prompt]) => <option key={title} value={prompt}>{title}</option>)}
+      </select></label>
+      {discussion && <><blockquote>{discussion}</blockquote><MotionPressButton className="cm-insights-use" disabled={locked} onClick={() => { if (!locked) choose(discussion); }}>أضف إلى مسودتي</MotionPressButton></>}
+    </details>
   </section>;
 }

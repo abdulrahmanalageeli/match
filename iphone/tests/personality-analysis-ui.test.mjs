@@ -10,7 +10,8 @@ before(async()=>{
  ({PersonalityAnalysis}=await loader.ssrLoadModule('/src/compatibility/PersonalityAnalysis.tsx'));
  ({FitDetails}=await loader.ssrLoadModule('/src/compatibility/FitDetails.tsx'));
  ({comparePreferences}=await loader.ssrLoadModule('/src/compatibility/model.ts'));
- ({personalityQuestions:catalog}=await loader.ssrLoadModule('/src/compatibility/personality.ts'));
+ const {personalityQuestionsFor}=await loader.ssrLoadModule('/src/compatibility/personality.ts');
+ catalog=personalityQuestionsFor('personality-v1');
 });
 after(()=>loader?.close());
 function pair(){
@@ -55,4 +56,15 @@ test('the score exposes a direct accessible explanation control and retains sepa
  assert.match(html,/class="nf-personality-explain" aria-controls="[^"]+"/);assert.match(html,/لماذا هذه النسبة؟/);
  assert.match(html,/data-fit-score="preferences"/);assert.match(html,/data-fit-score="personality"/);
  assert.equal((html.match(/ما وراء انسجام الشخصية/g)||[]).length,1);
+});
+
+test('new and mixed pairs display practical fit without a pending personality percentage',()=>{
+ const {a,b}=pair();
+ const current={...a,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2'};
+ for (const peer of [b,{...b,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2'}]) {
+  const fit=comparePreferences(current,peer).fit;
+  const html=renderToStaticMarkup(createElement(FitDetails,{fit}));
+  assert.match(html,/data-fit-score="preferences"/);
+  assert.doesNotMatch(html,/data-fit-score="personality"|ما وراء انسجام الشخصية|لماذا هذه النسبة؟/);
+ }
 });

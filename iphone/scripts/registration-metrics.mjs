@@ -12,12 +12,12 @@ export function registrationMetrics({ windowDays, attempts }) {
   const cutoff = windowDays * 1440;
   const mature = [];
   for (const row of attempts) {
-    const { ageMinutes, submittedMinutes, requiredActions, aiCalls, correctedSuggestions, completedFields } = row;
+    const { ageMinutes, submittedMinutes, requiredActions, aiCalls, correctedSuggestions, completedFields, requiredFields = 44 } = row;
     if (![ageMinutes, requiredActions, aiCalls, correctedSuggestions, completedFields].every(n => Number.isSafeInteger(n) && n >= 0)
-      || completedFields > 44 || (submittedMinutes !== null && (!Number.isFinite(submittedMinutes) || submittedMinutes < 0 || submittedMinutes > ageMinutes))) {
+      || ![44,45,47].includes(requiredFields) || completedFields > requiredFields || (submittedMinutes !== null && (!Number.isFinite(submittedMinutes) || submittedMinutes < 0 || submittedMinutes > ageMinutes))) {
       throw Error('Invalid registration observation');
     }
-    if (ageMinutes >= cutoff) mature.push(row);
+    if (ageMinutes >= cutoff) mature.push({...row, requiredFields});
   }
   const submissions = mature.filter(row => row.submittedMinutes !== null && row.submittedMinutes <= cutoff);
   const median = values => {
@@ -31,7 +31,7 @@ export function registrationMetrics({ windowDays, attempts }) {
     medianRequiredActionsPerSubmission: median(submissions.map(row => row.requiredActions)),
     medianSignupToSubmissionMinutes: median(submissions.map(row => row.submittedMinutes)),
     aiCalls: total('aiCalls'), correctedSuggestions: total('correctedSuggestions'),
-    compatibilityCompletionPercent: mature.length ? 100 * total('completedFields') / (44 * mature.length) : null,
+    compatibilityCompletionPercent: mature.length ? 100 * total('completedFields') / total('requiredFields') : null,
     unsubmittedAtCutoffPercent: mature.length ? 100 * (mature.length - submissions.length) / mature.length : null,
   };
 }

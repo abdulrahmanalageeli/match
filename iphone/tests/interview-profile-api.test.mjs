@@ -23,7 +23,7 @@ test('negative marital preference remains an explicit exclusion instead of inven
  const p={...proposal,id:'profile:partnerCriteria.maritalStatus',fieldId:'partnerCriteria.maritalStatus',values:['divorced'],mode:'require',exclude:true,evidence:[{turnId:turn.id,quote:'غير مطلقة'}]};
  const result=applyInterviewCompletion(base(),completion({profileProposals:[proposal,p]}));
  assert.equal(result.profileProposals.length,2);assert.deepEqual(result.profileProposals[1].values,['divorced']);assert.equal(result.profileProposals[1].exclude,true);
- assert.equal(interviewCoverage(result).answered,0,'profile information never inflates 44 assessment coverage');
+ assert.equal(interviewCoverage(result).answered,0,'profile information never inflates 47 assessment coverage');
  assert.equal(result.currentQuestion.topic,'communication','understood profile details need not trap the opening');
  assert.equal(result.profileConfirmed.length,0,'extraction never publishes or approves profile changes');
 });
@@ -107,12 +107,12 @@ test('stored profile and assessment context suppress known fields without invent
  let state={document:null,revision:0};
  const service=createInterviewService({env:{},fetcher:async(_url,init)=>{const {command,payload}=JSON.parse(init.body);if(command==='start'&&!state.document)state={document:payload.document,revision:1};return Response.json(state);}});
  const profileContext=[{fieldId:'marriageBasics.marriageTimeline',values:['within_3_months'],mode:null,exclude:false}];
- const assessmentContext=[{id:'personality:initiative:self',values:['D']}];
+ const assessmentContext=[{id:'personality:start_conversation:self',values:['D']}];
  const result=await service({action:'start',consentVersion:CONSENT_VERSION,profileContext,assessmentContext},{authorization:'Bearer fictional.session'});
   assert.equal(result.coverage.answered,1);assert.equal(result.document.turns.length,0);
   assert.ok(result.document.proposals.every(p=>p.evidence[0].turnId==='context:'+p.id));
  const request=interviewCompletionRequest(result.document),context=JSON.parse(request.messages[1].content);
-  assert.ok(!context.missingFields.some(p=>p.id==='personality:initiative:self'));
+  assert.ok(!context.missingFields.some(p=>p.id==='personality:start_conversation:self'));
  assert.deepEqual(context.knownProfileContext,profileContext);assert.match(request.messages[0].content,/لا تسأله عنها من جديد/);
   const loaded=await service({action:'load'},{authorization:'Bearer fictional.session'});assert.equal(loaded.coverage.answered,1);
 });
@@ -158,5 +158,5 @@ test('confirmation leaves analyzed context proposals and attestation fingerprint
  const token='a.'+Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111'})).toString('base64url')+'.b';
  const service=createInterviewService({env:{SUPABASE_SERVICE_ROLE_KEY:'synthetic'},fetcher:async(url,init)=>{const input=JSON.parse(init.body);if(url.endsWith('marriage_interview_attest')){assert.equal(input.event,'complete');assert.equal(canonical(state.document.proposals),fingerprint);attested=true;return Response.json({ok:true});}if(input.command==='save')state={...state,document:input.payload.document,revision:state.revision+1};return Response.json(state);}});
  const out=await service({action:'confirm',revision:2,choices:context.map((item,i)=>({...item,values:i===0?['B']:item.values}))},{authorization:'Bearer '+token});
- assert.equal(attested,true);assert.equal(out.document.confirmed.length,44);assert.equal(out.document.status,'confirmed');
+ assert.equal(attested,true);assert.equal(out.document.confirmed.length,47);assert.equal(out.document.status,'confirmed');
 });

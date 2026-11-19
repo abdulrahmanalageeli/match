@@ -1,9 +1,13 @@
 import {
   comparePreferences,
-  dimensions,
+
 } from "../../src/compatibility/model.ts";
+import legacy from "../../src/compatibility/catalog-v3.json" with {type:"json"};
+const dimensions = legacy.dimensions;
+import currentCatalog from "../../src/compatibility/catalog.json" with {type:"json"};
+import newPersonality from "../../src/compatibility/personality-catalog.json" with {type:"json"};
 import { reciprocalTopicAgreement } from "../../src/compatibility/preference-evidence.ts";
-import personality from "../../src/compatibility/personality-catalog.json" with { type: "json" };
+import personality from "../../src/compatibility/personality-catalog-v1.json" with { type: "json" };
 import { createDatabase, addUser, asMember } from "./harness.mjs";
 import { seedCommunicationMember } from "./communication-fixture.mjs";
 import assert from "node:assert/strict";
@@ -269,7 +273,7 @@ test("the audit pairs run through the historical and current database and the cu
         await seed(db, b);
         if (v3 && index === 0) {
           const current = (await asMember(db, a.id, sessionId, member => member.query("select public.marriage_catalog()->'assessment' as catalog"))).rows[0].catalog;
-          assert.deepEqual(current.dimensions, dimensions);
+          assert.deepEqual(current, currentCatalog);
           const scoredFields = ({ selfPrompt, partnerPrompt, discussion, ...dimension }) => dimension;
           assert.deepEqual(catalog.dimensions.map(scoredFields), dimensions.map(scoredFields));
         }
@@ -404,4 +408,73 @@ test("the audit pairs run through the historical and current database and the cu
     await before.close();
     await after.close();
   }
+});
+
+test('v4 practical scoring, explicit strictness, age and optional parenting agree across PostgreSQL and TypeScript',async()=>{
+  const db=await createDatabase();
+  try {
+    const a=profile('man',currentCatalog.dimensions,'marriage-v4');
+    const b=profile('woman',currentCatalog.dimensions,'marriage-v4');
+    for(const person of [a,b]) {
+      person.personalityVersion='personality-v2';
+      person.personalityAnswers=Object.fromEntries(newPersonality.map(q=>[q.id,'A']));
+      await seed(db,person);
+    }
+    async function compare(eligible=true, expectedTotal=16){
+      const {rows:[row]}=await db.query('select marriage.compatible($1,$2) as eligible,fit from marriage.pair_fit($1,$2)',[a.id,b.id]);
+      const local=comparePreferences(a,b);
+      assert.equal(row.eligible,eligible);
+      assert.equal(Boolean(local),eligible);
+      assert.equal(row.fit.personality??null,null);
+      assert.equal(row.fit.total,expectedTotal);
+      if(local){
+        assert.deepEqual(row.fit.preferenceEvidence,local.fit.preferenceEvidence);
+        assert.equal(row.fit.percentage,local.fit.percentage);
+      }
+      return row.fit;
+    }
+    assert.equal((await compare()).percentage,100);
+    set(b,'money_management','B');
+    await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code in ('money_management','partner_money_management')",[b.id]);
+    assert.equal((await compare()).percentage,94);
+    b.surveyAnswers.social_boundaries='B';
+    await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='social_boundaries'",[b.id]);
+    await compare();
+    a.hardRequirements=['social_boundaries'];
+    await db.query("insert into marriage.fit_hard_requirements values ($1,'social_boundaries')",[a.id]);
+    assert.ok((await compare(false)).practicalConcerns.includes('strict_requirement'));
+    a.hardRequirements=[];
+    await db.query("delete from marriage.fit_hard_requirements where member_id=$1",[a.id]);
+    for(const p of [a,b]){
+      p.preferredMinAge=30;
+      await db.query("update marriage.preferences set min_age=30 where member_id=$1",[p.id]);
+      await compare(false);
+      p.preferredMinAge=25;
+      await db.query("update marriage.preferences set min_age=25 where member_id=$1",[p.id]);
+    }
+    a.marriageBasics.childrenCount=0;
+    set(a,'children_plan','B');
+    await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code in ('children_plan','partner_children_plan')",[a.id]);
+    await db.query("insert into marriage.member_basics(member_id,children_count) values($1,0)",[a.id]);
+    b.marriageBasics.childrenCount=0;
+    await db.query("insert into marriage.member_basics(member_id,children_count) values($1,0)",[b.id]);
+    await compare(true,16);
+    a.partnerCriteria.children={mode:'prefer',target:'none'};
+    await db.query("insert into marriage.partner_criteria(member_id,criterion,rule) values($1,'children',$2)",[a.id,a.partnerCriteria.children]);
+    await compare(true,16);
+    a.partnerCriteria.children.mode='require';
+    await db.query("update marriage.partner_criteria set rule=$2 where member_id=$1 and criterion='children'",[a.id,a.partnerCriteria.children]);
+    await compare(true,15);
+    a.marriageBasics.childrenCount=1;
+    await db.query("update marriage.member_basics set children_count=1 where member_id=$1",[a.id]);
+    await compare(true,16);
+    set(a,'children_plan','C');
+    await db.query("update marriage.member_answers set option_code='C' where member_id=$1 and question_code in ('children_plan','partner_children_plan')",[a.id]);
+    await compare();
+    b.assessmentVersion='marriage-v3';
+    b.preferredMinAge=30;
+    await db.query("update marriage.member_assessment set version='marriage-v3' where member_id=$1",[b.id]);
+    await db.query("update marriage.preferences set min_age=30 where member_id=$1",[b.id]);
+    assert.equal((await compare()).percentage,null);
+  } finally {await db.close();}
 });

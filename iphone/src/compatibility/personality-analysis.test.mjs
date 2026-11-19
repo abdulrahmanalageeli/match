@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import catalog from './personality-catalog.json' with {type:'json'};
+import catalog from './personality-catalog-v1.json' with {type:'json'};
 import {comparePreferences,personalityPercentage} from './model.ts';
 import {analyzePersonality, validatedPersonalityEvidence, personalityDomains, personalityTopics, distributionSteps} from './personality-analysis.ts';
 

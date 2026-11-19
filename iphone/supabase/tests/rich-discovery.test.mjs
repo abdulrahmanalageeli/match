@@ -1,8 +1,10 @@
+import legacyAssessment from "../../src/compatibility/catalog-v3.json" with {type:"json"};
+const { dimensions, version: assessmentVersion } = legacyAssessment;
 import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { assessmentVersion, dimensions, describeFit } from '../../src/compatibility/model.ts';
+import { describeFit } from '../../src/compatibility/model.ts';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 
 const allAnswers=()=>Object.fromEntries(dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));

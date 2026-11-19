@@ -20,7 +20,7 @@ function harness(actor) {
   const modules = {
     '../community/data': { demoCommunity: (_viewer, _seed, opts) => { options = opts; return local; }, demoProfile: {}, sanitizeMessage: value => value },
     '../deployment': { marriageProjectUrl: 'https://nisfayn.invalid', marriagePublishableKey: 'public' },
-    '../compatibility/model': { dimensions: [], interests: [] }, '../beena/model': { compareBeena: () => ({}) },
+    '../compatibility/model': { dimensionsForVersion: () => [], interests: [] }, '../beena/model': { compareBeena: () => ({}) },
     '../ai/client': { requestSimulationReply: (...args) => { ai.push(args); return Promise.resolve('هلا'); } },
     '../verification/client': { manualVerificationSource: () => ({}) },
   };

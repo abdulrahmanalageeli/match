@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
+import {applicableDimensions} from '../src/compatibility/practical-catalog.ts';
 import catalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../src/beena/catalog.json' with { type: 'json' };
 import { hasPreferenceAnswer, hasScenarioAnswer } from '../src/onboarding/remainingAssessments.ts';
@@ -26,7 +27,7 @@ function mount(name, initial) {
     if(name==='react/jsx-runtime')return{jsx:(type,props,key)=>({type,props,key}),jsxs:(type,props,key)=>({type,props,key})};
     if(name==='../BrandIcons')return icons;
     if(name==='../onboarding/remainingAssessments')return{hasPreferenceAnswer,hasScenarioAnswer};
-    if(name==='./model')return{name:'fixture',categories:catalog.categories,dimensions:catalog.dimensions,interests:[],maxInterests:3,maxPriorities:2,beenaScenarios:scenarios,beenaVersion:'beena-v1',beenaProgress:value=>{const answered=scenarios.filter(s=>hasScenarioAnswer(s.options,value?.answers[s.id],'self')&&hasScenarioAnswer(s.options,value?.answers[s.id],'partner')).length;return{answered,total:scenarios.length,complete:answered===scenarios.length}}};
+    if(name==='./model')return{name:'fixture',categories:catalog.categories,applicableDimensions, dimensions:catalog.dimensions,interests:[],maxInterests:3,maxPriorities:2,beenaScenarios:scenarios,beenaVersion:'beena-v1',beenaProgress:value=>{const answered=scenarios.filter(s=>hasScenarioAnswer(s.options,value?.answers[s.id],'self')&&hasScenarioAnswer(s.options,value?.answers[s.id],'partner')).length;return{answered,total:scenarios.length,complete:answered===scenarios.length}}};
     if(name.endsWith('.css'))return{};throw Error(name);
   };
   vm.runInNewContext(codes[name],{exports,require,document:{documentElement:{dataset:{}}},window:{matchMedia:()=>({matches:false})}});

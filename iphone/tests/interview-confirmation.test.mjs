@@ -7,6 +7,9 @@ import compatibility from '../src/compatibility/catalog.json' with { type: 'json
 import scenarios from '../src/beena/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
+import archived from '../src/compatibility/catalog-v3.json' with { type: 'json' };
+import archivedTraits from '../src/compatibility/personality-catalog-v1.json' with { type: 'json' };
+
 async function loadModel() {
   const source = await readFile(new URL('../src/interview/model.ts', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -17,10 +20,11 @@ async function loadModel() {
       const personalitySource = await readFile(new URL('../src/compatibility/personality.ts', import.meta.url), 'utf8');
       const personalityCompiled = ts.transpileModule(personalitySource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
       const personalityModule = new vm.SourceTextModule(personalityCompiled, { context });
-      await personalityModule.link(() => new vm.SyntheticModule(['default'], function () { this.setExport('default', personalityCatalog); }, { context }));
+      await personalityModule.link(path => new vm.SyntheticModule(['default'], function () { this.setExport('default', path.includes('-v1') ? archivedTraits : personalityCatalog); }, { context }));
       return personalityModule;
     }
-    const value = name.includes('compatibility') ? compatibility : scenarios;
+    const value = name.includes('personality-catalog-v1') ? archivedTraits
+      : name.includes('catalog-v3') ? archived : name.includes('compatibility') ? compatibility : scenarios;
     return new vm.SyntheticModule(['default'], function () { this.setExport('default', value); }, { context });
   });
   await module.evaluate();
@@ -93,7 +97,7 @@ test('personality rejects invented questions, partner/importance interpretations
 });
 
 test('personality review shows the exact self-report statement and five editable scale choices', () => {
-  const labels = ['لا يشبهني إطلاقًا', 'يشبهني قليلًا', 'يشبهني أحيانًا', 'يشبهني غالبًا', 'يشبهني كثيرًا'];
+  const labels = ['لا يشبهني إطلاقًا', 'لا يشبهني كثيرًا', 'يشبهني إلى حد ما', 'يشبهني', 'يشبهني كثيرًا'];
   for (const question of personalityCatalog) {
     const choice = proposal({ kind: 'personality', fieldId: question.id });
     assert.equal(model.proposalTitle(choice), question.title);

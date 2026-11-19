@@ -1,10 +1,12 @@
+import legacyAssessment from "../../src/compatibility/catalog.json" with {type:"json"};
+const { dimensions, version: assessmentVersion } = legacyAssessment;
 import { seedCommunicationMember } from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 
-const {assessmentVersion,dimensions,describeFit,comparePreferences}=await import(new URL('../../src/compatibility/model.ts',import.meta.url));
+const {describeFit,comparePreferences}=await import(new URL('../../src/compatibility/model.ts',import.meta.url));
 const answers=()=>Object.fromEntries(dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
 const appearance={skinTone:'tone_3',dressStyle:'niqab',dressFlexibility:'keep'};
 const avatar={style:'hijab',skinTone:'tone_6'};
@@ -13,11 +15,13 @@ function setup(db){
  const call=(u,expression,args)=>asMember(db,u.id,u.sessionId,()=>rpc(expression,args));
  const staff=(expression,args)=>asService(db,()=>rpc(expression,args));
  async function save(u,extra={}){u.profile={...u.profile,...extra};
+  // Simulate a new assessment allowance between otherwise independent fixture edits.
+  await db.query("delete from marriage.safety_usage where member_id=$1 and purpose='assessment'",[u.id]);
   // Exercise public edits after the current 30-day editing window.
   await db.query("update marriage.members set last_public_profile_edit_at=now()-interval '31 days' where id=$1",[u.id]);return call(u,'public.marriage_apply($1)',[{...u.profile,consentVersion:'2026-11-06-assessment'}]);}
  async function approve(u){if((await db.query('select review_status from marriage.members where id=$1',[u.id])).rows[0].review_status!=='approved')await staff("public.marriage_review($1,'approve')",[u.id]);}
  async function add(gender,extra={}){
-  const id=randomUUID(),u={id,email:id+'@example.test',sessionId:randomUUID(),profile:{signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},displayName:'عضو تجريبي',gender,age:29,city:'الرياض',profession:'مهندس',bio:'نبذة عامة',contact:id+'@example.test',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف الأول',assessmentVersion,appearanceVersion:'appearance-v1',surveyAnswers:answers(),...extra}};
+  const id=randomUUID(),u={id,email:id+'@example.test',sessionId:randomUUID(),profile:{signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},displayName:'عضو تجريبي',gender,age:29,city:'الرياض',profession:'مهندس',bio:'نبذة عامة',contact:id+'@example.test',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف الأول',assessmentVersion,appearanceVersion:'appearance-v1',surveyAnswers:answers(),personalityVersion:'personality-v2',personalityAnswers:{},...extra}};
   await addUser(db,u);await seedCommunicationMember(db,u,gender,'pending');const state=await save(u);await approve(u);
   await staff('public.marriage_record_receipt($1,$2,false)',[id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:id,transactionId:id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]);
   return u;
@@ -88,7 +92,7 @@ test('appearance soft preferences use exact self-reports, never avatar or palett
  const db=await createDatabase();try{
   const {add,save}=setup(db),a=await add('man',{partnerCriteria:{skinTone:{mode:'prefer',values:['tone_1']},dressStyle:{mode:'prefer',values:['hijab']},dressFlexibility:{mode:'prefer',target:'open_to_discussion'}}}),b=await add('woman',{publicAvatar:{style:'hijab',skinTone:'tone_1'}});
   const compare=async()=>{const fit=(await db.query('select fit from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0].fit;assert.deepEqual(fit,describeFit({...a.profile,id:a.id},{...b.profile,id:b.id}).fit);return fit;};
-  const unknown=await compare();assert.deepEqual(unknown.criteria,{covered:0,total:3});assert.equal(unknown.percentage,100);
+  const unknown=await compare();assert.deepEqual(unknown.criteria,{covered:0,total:3});assert.equal(unknown.percentage,null);
   let mismatchPercentage;
   for(let i=1;i<=8;i++){
    await save(b,{marriageBasics:{skinTone:'tone_'+i,dressStyle:'niqab',dressFlexibility:'keep'}});

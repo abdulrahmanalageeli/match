@@ -2,17 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
 import ts from 'typescript';
-import {dimensions,comparePreferences,interests} from '../compatibility/model.ts';
-import {personalityQuestions,personalityOptions} from '../compatibility/personality.ts';
+import {dimensionsForVersion,comparePreferences,interests} from '../compatibility/model.ts';
+import {personalityQuestionsFor,legacyPersonalityOptions as personalityOptions} from '../compatibility/personality.ts';
 import personas from './demoPersonas.json' with {type:'json'};
 
 // Load only the fictional fixture block. Browser transport/simulation imports
 // are tested separately and must never execute while inspecting seed coverage.
+const dimensions=dimensionsForVersion('marriage-v3');
+const personalityQuestions=personalityQuestionsFor('personality-v1');
 const dataFile=new URL('./data.ts',import.meta.url);
 const content=await readFile(dataFile,'utf8');
 const fixtures=content.slice(content.indexOf('const sampleLifeAnswers'),content.indexOf('const demoPortraitFiles'));
-const imports=`import {dimensions} from ${JSON.stringify(new URL('../compatibility/model.ts',import.meta.url).href)};
-import {personalityQuestions,personalityVersion} from ${JSON.stringify(new URL('../compatibility/personality.ts',import.meta.url).href)};
+const imports=`import {dimensionsForVersion} from ${JSON.stringify(new URL('../compatibility/model.ts',import.meta.url).href)};
+import {personalityQuestionsFor} from ${JSON.stringify(new URL('../compatibility/personality.ts',import.meta.url).href)};
 import {beenaScenarios} from ${JSON.stringify(new URL('../beena/model.ts',import.meta.url).href)};`;
 const compiled=ts.transpileModule(fixtures,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {demoPeople,demoProfile}=await import('data:text/javascript;base64,'+Buffer.from(imports+compiled).toString('base64'));

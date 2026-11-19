@@ -1,4 +1,5 @@
 import catalog from './catalog.json' with { type: 'json' };
+import { dimensionsForVersion } from './practical-catalog.ts';
 import type { MatchFit } from './model.ts';
 
 export type PreferenceTopicStatus = 'aligned' | 'conditional' | 'one_sided' | 'different' | 'missing';
@@ -7,7 +8,7 @@ export type PreferenceCategory = { id: string; covered: number; total: number; a
 export type PreferenceCriteria = { matched: number; different: number; missing: number; total: number };
 export type PreferenceEvidence = {
   version: 'preference-evidence-v1';
-  method: 'reciprocal-weighted-v1' | 'reciprocal-weighted-v3';
+  method: 'reciprocal-weighted-v1' | 'reciprocal-weighted-v3' | 'reciprocal-weighted-v4';
   topics: PreferenceTopic[];
   categories: PreferenceCategory[];
   criteria: PreferenceCriteria;
@@ -19,15 +20,14 @@ export type PreferenceReadout = {
   criteria: PreferenceCriteria | null;
 };
 
-const ids = new Set(catalog.dimensions.map(dimension => dimension.id));
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const count = (value: unknown, maximum = catalog.dimensions.length): value is number => Number.isInteger(value) && (value as number) >= 0 && (value as number) <= maximum;
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 
 /** Each topic counts once here, regardless of its ranking weight. */
-export function preferenceCategoryCounts(topics: PreferenceReadout['topics']): PreferenceCategory[] {
+export function preferenceCategoryCounts(topics: PreferenceReadout['topics'], version?: string): PreferenceCategory[] {
   return catalog.categories.map(category => {
-    const categoryIds = new Set(catalog.dimensions.filter(dimension => dimension.category === category.id).map(dimension => dimension.id));
+    const categoryIds = new Set(dimensionsForVersion(version).filter(dimension => dimension.category === category.id).map(dimension => dimension.id));
     const entries = topics.filter(topic => categoryIds.has(topic.id));
     const aligned = entries.filter(topic => topic.status === 'aligned').length;
     const discussion = entries.filter(topic => topic.status !== 'aligned' && topic.status !== 'missing').length;
@@ -36,7 +36,8 @@ export function preferenceCategoryCounts(topics: PreferenceReadout['topics']): P
 }
 
 function validPartition(fit: MatchFit): boolean {
-  if (!['marriage-v1', 'marriage-v2', 'marriage-v3'].includes(fit.version) || !count(fit.covered) || !count(fit.total) || fit.total === 0) return false;
+  const ids = new Set(dimensionsForVersion(fit.version).map(topic => topic.id));
+  if (!['marriage-v1', 'marriage-v2', 'marriage-v3', 'marriage-v4'].includes(fit.version) || !count(fit.covered) || !count(fit.total) || fit.total === 0) return false;
   if (![fit.strengths, fit.discussion, fit.missing].every(values => Array.isArray(values) && values.every(id => typeof id === 'string' && ids.has(id)))) return false;
   const all = [...fit.strengths, ...fit.discussion, ...fit.missing];
   return new Set(all).size === all.length && all.length === fit.total && fit.covered === fit.strengths.length + fit.discussion.length;
@@ -44,12 +45,17 @@ function validPartition(fit: MatchFit): boolean {
 
 /** Fail closed if the explanation disagrees with the score's coverage/outcome metadata. */
 export function validatedPreferenceEvidence(fit: MatchFit): PreferenceEvidence | null {
-  const method = fit.version === 'marriage-v3' ? 'reciprocal-weighted-v3' : 'reciprocal-weighted-v1';
+  const ids = new Set(dimensionsForVersion(fit.version).map(topic => topic.id));
+  if (!validPartition(fit)) return null;
+  const allTopicIds = [...fit.strengths, ...fit.discussion, ...fit.missing];
+  const skipsParenting = fit.version === 'marriage-v4' && !allTopicIds.includes('parenting_approach');
+  const expected = ids.size - (skipsParenting ? 1 : 0);
+  const method = fit.version === 'marriage-v4' ? 'reciprocal-weighted-v4' : fit.version === 'marriage-v3' ? 'reciprocal-weighted-v3' : 'reciprocal-weighted-v1';
   const evidence: unknown = fit.preferenceEvidence;
-  if (!validPartition(fit) || fit.total !== catalog.dimensions.length || !record(evidence)
+  if (fit.total !== expected || !record(evidence)
     || !exactKeys(evidence, ['version','method','topics','categories','criteria'])
     || evidence.version !== 'preference-evidence-v1' || evidence.method !== method
-    || !Array.isArray(evidence.topics) || evidence.topics.length !== catalog.dimensions.length
+    || !Array.isArray(evidence.topics) || evidence.topics.length !== expected
     || !Array.isArray(evidence.categories) || evidence.categories.length !== catalog.categories.length) return null;
   const topics: PreferenceTopic[] = [];
   for (const topic of evidence.topics) {
@@ -61,7 +67,7 @@ export function validatedPreferenceEvidence(fit: MatchFit): PreferenceEvidence |
     topics.push({ id: topic.id, status });
   }
   if (new Set(topics.map(topic => topic.id)).size !== topics.length) return null;
-  const categories = preferenceCategoryCounts(topics);
+  const categories = preferenceCategoryCounts(topics, fit.version);
   for (const category of evidence.categories) {
     if (!record(category) || !exactKeys(category, ['id','covered','total','aligned','discussion'])) return null;
     const expected = categories.find(item => item.id === category.id);
@@ -82,16 +88,16 @@ export function readPreferenceEvidence(fit: MatchFit): PreferenceReadout {
   const verified = validatedPreferenceEvidence(fit);
   if (verified) return { source: 'evidenced', topics: verified.topics, categories: verified.categories, criteria: verified.criteria };
   if (fit.preferenceEvidence !== undefined || !validPartition(fit)) return { source: 'unavailable', topics: [], categories: [], criteria: null };
-  const topics: PreferenceReadout['topics'] = catalog.dimensions.flatMap(dimension => {
+  const topics: PreferenceReadout['topics'] = dimensionsForVersion(fit.version).flatMap(dimension => {
     const status = fit.strengths.includes(dimension.id) ? 'aligned' : fit.discussion.includes(dimension.id) ? 'discussion' : fit.missing.includes(dimension.id) ? 'missing' : null;
     return status ? [{ id: dimension.id, status }] : [];
   });
-  return { source: 'legacy', topics, categories: preferenceCategoryCounts(topics), criteria: null };
+  return { source: 'legacy', topics, categories: preferenceCategoryCounts(topics, fit.version), criteria: null };
 }
 
 /** Share of assessed topics where both partners' stated expectations are met. */
 export function reciprocalTopicAgreement(fit: MatchFit, readout = readPreferenceEvidence(fit)) {
-  if (fit.version !== 'marriage-v3' || !fit.assessmentComplete || fit.provisional || fit.percentage == null
+  if (!['marriage-v3','marriage-v4'].includes(fit.version) || !fit.assessmentComplete || fit.provisional || fit.percentage == null
     || readout.source !== 'evidenced' || fit.covered !== fit.total) return null;
   const agreed = readout.topics.filter(topic => topic.status === 'aligned').length;
   return { agreed, total: fit.total, percentage: Math.round(100 * agreed / fit.total) };

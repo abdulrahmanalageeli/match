@@ -3,6 +3,10 @@ import memberAr from '../member-copy.ts';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil } from '../BrandIcons';
+import legacyCatalog from '../compatibility/catalog-v3.json';
+import legacyTraits from '../compatibility/personality-catalog-v1.json';
+import { parentingApplicable } from '../compatibility/parenting.mjs';
+import type { PartnerCriteria } from '../compatibility/marriage';
 import { dimensions } from '../compatibility/model';
 import { personalityQuestions } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -27,12 +31,30 @@ type Card = {
 
 const themes = [
   { label: 'الزواج والسكن', dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
+  { label: 'البيت والأهل', dimensions: ['wife_work', 'financial_provision', 'money_management', 'domestic_labor', 'family_authority', 'parenting_approach'] },
+  { label: 'حياتكم اليومية', dimensions: ['faith_routine', 'social_boundaries', 'social_rhythm', 'closeness_pace'] },
+  { label: 'التواصل وقت الاختلاف', dimensions: ['conflict_response', 'repair_after_conflict'] },
+];
+
+const personalityByDimension: Record<string, string[]> = {
+  housing_arrangement: ['prepare_early', 'prefer_familiar'],
+  money_management: ['follow_through', 'unfinished_tasks'],
+  social_rhythm: ['group_energy', 'quiet_settings'],
+  social_boundaries: ['start_conversation'],
+  faith_routine: ['explore_views'],
+  closeness_pace: ['try_new_ideas'],
+  conflict_response: ['calm_before_acting', 'harsh_words', 'perspective_taking'],
+  repair_after_conflict: ['make_amends', 'lasting_tension', 'stress_recovery'],
+};
+
+const historicalThemes = [
+  { label: 'الزواج والسكن', dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
   { label: 'البيت والأهل', dimensions: ['wife_work', 'financial_provision', 'domestic_labor', 'family_authority', 'parenting_approach'] },
   { label: 'حياتكم اليومية', dimensions: ['faith_routine', 'mixed_gatherings', 'public_event_attendance', 'social_rhythm', 'closeness_pace'] },
   { label: 'التواصل وقت الاختلاف', dimensions: ['match_disagreement_style', 'repair_after_conflict'] },
 ];
 
-const personalityByDimension: Record<string, string[]> = {
+const historicalTraitsByDimension: Record<string, string[]> = {
   housing_arrangement: ['planning', 'novelty'],
   social_rhythm: ['social_energy'],
   mixed_gatherings: ['initiative'],
@@ -43,14 +65,19 @@ const personalityByDimension: Record<string, string[]> = {
   repair_after_conflict: ['support'],
 };
 
+const historicalOptions = ['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'].map((label,i)=>({code:'ABCDE'[i],label}));
+const historicalQuestions = legacyTraits.map(trait=>({...trait,options:historicalOptions}));
 const workLabels: Record<string, string> = memberAr.womanWork;
 const number = new Intl.NumberFormat('ar-SA');
 
-function makeThemeCards(gender?: Gender) {
-  return themes.map(theme => ({
+function makeThemeCards(gender?: Gender, historical=false) {
+  const topics = historical ? legacyCatalog.dimensions : dimensions;
+  const questions = historical ? historicalQuestions : personalityQuestions;
+  const layout = historical ? historicalTraitsByDimension : personalityByDimension;
+  return (historical ? historicalThemes : themes).map(theme => ({
     label: theme.label,
     cards: theme.dimensions.map(id => {
-      const dimension = dimensions.find(item => item.id === id)!;
+      const dimension = topics.find(item => item.id === id)!;
       const femaleWork = gender === 'woman' && id === 'wife_work';
       const fields: Card = {
         self: {
@@ -68,8 +95,8 @@ function makeThemeCards(gender?: Gender) {
           prompt: dimension.partnerPrompt,
           options: dimension.options.map(option => ({ code: option.code, label: option.partner })),
         },
-        personality: (personalityByDimension[id] ?? []).map(questionId => {
-          const question = personalityQuestions.find(item => item.id === questionId)!;
+        personality: (layout[id] ?? []).map(questionId => {
+          const question = questions.find(item => item.id === questionId)!;
           return {
             id: `personality:${questionId}:self`,
             label: question.title,
@@ -95,17 +122,19 @@ function perspective(field: Field) {
 }
 
 export function ConfirmedAnswers({ confirmed, gender, inferredPartnerIds = [] }: { confirmed: readonly InterviewSelection[]; gender?: Gender; inferredPartnerIds?: readonly string[] }) {
-  const cards = makeThemeCards(gender).flatMap(theme => theme.cards);
+  const historical = confirmed.some(item=>legacyTraits.some(trait=>item.id==='personality:'+trait.id+':self'));
+  const cards = makeThemeCards(gender,historical).flatMap(theme=>theme.cards);
   const timing = cards.find(card => card.self.id === 'preference:marriage_timeline:self');
   if (!timing) return null;
   const choices = Object.fromEntries(confirmed.map(item => [item.id, item.values]));
+  const reviewFields = cards.flatMap(assessmentFields);
   const rows = [timing.self, timing.partner].filter(field => selected(field, choices));
   if (!rows.length) return null;
   return <section className="wi-confirmed-answers" aria-label={timing.self.label}>
     <h2>{timing.self.label}</h2>
     <dl>{rows.map(field => <div key={field.id}><dt>{perspective(field)}{inferredPartnerIds.includes(field.id) && ' · اقتراح من إجابتك'}</dt><dd>{selected(field, choices)?.label}</dd></div>)}</dl>
     <details><summary>جميع إجابات التوافق ({number.format(confirmed.length)})</summary>
-      <ul>{cards.flatMap(assessmentFields).filter(field => selected(field, choices)).map(field =>
+      <ul>{reviewFields.filter(field => selected(field, choices)).map(field =>
         <li key={field.id}>{field.label} · {perspective(field)}: {selected(field, choices)?.label}
           {inferredPartnerIds.includes(field.id) && ' · اقتراح من إجابتك'}</li>)}</ul>
     </details>
@@ -287,9 +316,12 @@ function PartnerRow({item, choices, inferred, disabled, onChoose}: {
 }
 
 export function HybridAssessment({
-  choices: explicit, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, onClarify, onChoiceHelp, reviewExtras, unresolvedPartnerIds = [],
+  choices: explicit, childrenCount, partnerChildren, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, onClarify, onChoiceHelp, reviewExtras, unresolvedPartnerIds = [],
 }: {
   choices: Choices;
+  childrenCount?: number;
+  partnerChildren?: PartnerCriteria['children'];
+  historical?: boolean;
   onChange: (choices: Choices, changedIds?: readonly string[]) => void;
   unresolvedPartnerIds?: readonly string[];
   onComplete: (choices: InterviewSelection[], inferredIds: string[]) => void;
@@ -304,10 +336,14 @@ export function HybridAssessment({
 }) {
   const blocked = new Set(unresolvedPartnerIds);
   const {choices, inferred} = resolvePartnerDefaults(explicit, savedChoices, blocked);
-  const themeCards = makeThemeCards(gender);
-  const cards = themeCards.flatMap((theme, themeIndex) => theme.cards.map(card => ({ ...card, themeIndex })));
-  const fields = cards.flatMap(assessmentFields);
-  const [index, setIndex] = useState(() => cards.findIndex(card => needsCard(card, choices)));
+  const allThemes = makeThemeCards(gender,historical);
+  const relevant = (item: Card, values: Choices) => historical || item.self.id !== 'preference:parenting_approach:self' ||
+    parentingApplicable({children_plan:values['preference:children_plan:self']?.[0]},childrenCount,partnerChildren);
+  const themeCards = allThemes.map(theme=>({...theme,cards:theme.cards.filter(item=>relevant(item,choices))}));
+  const activeCardCount = themeCards.reduce((sum,theme)=>sum+theme.cards.length,0);
+  const cards = allThemes.flatMap((theme, themeIndex) => theme.cards.map(card => ({ ...card, themeIndex })));
+  const fields = themeCards.flatMap(theme=>theme.cards.flatMap(assessmentFields));
+  const [index, setIndex] = useState(() => cards.findIndex(card => relevant(card,choices) && needsCard(card, choices)));
   const started = useRef(false);
   const [history, setHistory] = useState<number[]>([]);
   const [editingCard, setEditingCard] = useState(false);
@@ -326,7 +362,7 @@ export function HybridAssessment({
   });
   const answered = allSelected.length;
   const available = fields.length - answered;
-  const remainingCards = cards.filter(item => needsCard(item, choices)).length;
+  const remainingCards = cards.filter(item => relevant(item,choices) && needsCard(item, choices)).length;
   const aiValues = new Map(aiProposals.filter(item => !item.needsClarification && item.source !== 'self_default' && item.values.length === 1)
     .map(item => [item.id, item.values[0]]));
   const wasCaptured = (field: Field) => Boolean(aiValues.has(field.id) && aiValues.get(field.id) === selected(field, choices)?.code);
@@ -337,11 +373,11 @@ export function HybridAssessment({
   const pendingIds = new Set(pendingSuggestions.map(field => field.id));
   const selfAnswer = card && selected(card.self, choices);
   const retainSelf = selfAnswer && !editingCard && !selected(card.partner, choices);
-  const firstNeeded = cards.findIndex(item => needsCard(item, choices));
+  const firstNeeded = cards.findIndex(item => relevant(item,choices) && needsCard(item, choices));
 
   useEffect(() => {
-    if (!started.current && capturedCount > 0) setIndex(firstNeeded);
-  }, [capturedCount, firstNeeded]);
+    if ((!started.current && capturedCount > 0) || (index < 0 && firstNeeded >= 0) || (card && !relevant(card,choices))) setIndex(firstNeeded);
+  }, [capturedCount, firstNeeded, index]);
 
   useEffect(() => {
     if (previousIndex.current === index) return;
@@ -362,7 +398,7 @@ export function HybridAssessment({
     if (movingFrom.current === index) return;
     movingFrom.current = index;
     started.current = true;
-    const next = cards.findIndex(item => needsCard(item, nextChoices));
+    const next = cards.findIndex(item => relevant(item,nextChoices) && needsCard(item, nextChoices));
     setHistory(previous => [...previous, index]);
     setEditingCard(false);
     setIndex(next);
@@ -379,12 +415,12 @@ export function HybridAssessment({
   }
 
   function goBack() {
-    const previous = history.at(-1);
+    const previous = history.filter(at=>relevant(cards[at],choices)).at(-1);
     if (previous === undefined) return;
     movingFrom.current = null;
     setEditingCard(true);
     setRecorded('');
-    setHistory(current => current.slice(0, -1));
+    setHistory(current => current.slice(0,current.lastIndexOf(previous)));
     setIndex(previous);
   }
 
@@ -405,7 +441,7 @@ export function HybridAssessment({
     <div className="wi-hybrid-progress">
       <span>{card ? themeCards[card.themeIndex].label : 'مراجعة التوافق'}</span>
       <small>{remainingCards ? `متبقّي ${number.format(remainingCards)} موضوعًا` : 'بقيت المراجعة'}</small>
-      <progress aria-label="اكتمال مواضيع التوافق" value={cards.length - remainingCards} max={cards.length}/>
+      <progress aria-label="اكتمال مواضيع التوافق" value={activeCardCount - remainingCards} max={activeCardCount}/>
     </div>
     <details className="wi-living-portrait" onToggle={event => setPortraitOpen(event.currentTarget.open)}>
       <summary>

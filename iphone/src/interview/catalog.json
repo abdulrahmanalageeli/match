@@ -16,7 +16,7 @@
     "suggestions": [],
     "dimensionIds": [
       "repair_after_conflict",
-      "match_disagreement_style"
+      "conflict_response"
     ],
     "scenarioIds": [
       "conflict"
@@ -58,7 +58,8 @@
     "suggestions": [],
     "dimensionIds": [
       "wife_work",
-      "financial_provision"
+      "financial_provision",
+      "money_management"
     ],
     "scenarioIds": [
       "career",
@@ -73,8 +74,7 @@
     "dimensionIds": [
       "domestic_labor",
       "social_rhythm",
-      "mixed_gatherings",
-      "public_event_attendance"
+      "social_boundaries"
     ],
     "scenarioIds": [
       "household"

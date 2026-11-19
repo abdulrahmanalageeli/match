@@ -2,7 +2,7 @@ import { familyContext } from './familyContext';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type FocusEvent } from "react";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, Sparkles, Users, type LucideIcon } from "../BrandIcons";
 import { languageOptions, languageOpennessLabels, criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
-import { personalityQuestions, personalityVersion } from "../compatibility/personality";
+import { personalityQuestionsFor, personalityVersion } from "../compatibility/personality";
 import { normalizeNationality } from "../compatibility/model";
 import { arabicNumber, latinDigits, requiredCriteria } from "./draft";
 import "./marriage-fields.css";
@@ -183,7 +183,8 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
   </div>;
 }
 
-export function PersonalityFields({ answers, onChange, registration = false, remainingOnly = false, required = false }: { answers: Record<string, string>; onChange: (value: { personalityAnswers: Record<string, string>; personalityVersion: typeof personalityVersion }) => void; registration?: boolean; remainingOnly?: boolean; required?: boolean }) {
+export function PersonalityFields({ version = personalityVersion, answers, onChange, registration = false, remainingOnly = false, required = false }: { version?: "personality-v1" | "personality-v2"; answers: Record<string, string>; onChange: (value: { personalityAnswers: Record<string, string>; personalityVersion: "personality-v1" | "personality-v2" }) => void; registration?: boolean; remainingOnly?: boolean; required?: boolean }) {
+  const personalityQuestions = personalityQuestionsFor(version);
   const [requestedIndex, setIndex] = useState(() => Math.max(0, personalityQuestions.findIndex(q => !q.options.some(o=>o.code===answers[q.id]))));
   const completedHere = useRef(new Set<string>());
   const positions = personalityQuestions.flatMap((q,i) => !remainingOnly || completedHere.current.has(q.id) || !q.options.some(o=>o.code===answers[q.id]) ? [i] : []);
@@ -196,9 +197,9 @@ export function PersonalityFields({ answers, onChange, registration = false, rem
   const count = personalityQuestions.filter(q => q.options.some(o => o.code === answers[q.id])).length;
   const firstMissing = personalityQuestions.findIndex(q => !q.options.some(option => option.code === answers[q.id]));
   useLayoutEffect(() => { if (previous.current !== index) { previous.current = index; (registration ? prompt.current : title.current)?.focus({ preventScroll: true }); if (registration) card.current?.scrollIntoView({ block: 'start', behavior: 'instant' }); } }, [index, registration]);
-  function answer(value: string) { if (required && !value) return; completedHere.current.add(question.id); const next = { ...answers }; if (value) next[question.id] = value; else delete next[question.id]; onChange({ personalityAnswers: next, personalityVersion }); }
-  const privacy = <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>كن أنت. لا توجد إجابة مثالية.</strong><span>لا ننشر اختياراتك الفردية. نعرض للطرف الآخر ملخصًا مجمعًا لتشابه إجاباتكما ونقاطًا للنقاش.</span></p></div>;
-  const explanation = <small>١٢ سؤالًا عن أسلوبك وطباعك، في أربعة محاور. {required ? 'اختر ما يشبهك في كل موقف لنكمل صورة شخصيتك. ' : 'يمكنك إكمالها لاحقًا. '}هي قراءة إرشادية وليست اختبارًا نفسيًا أو توقعًا لنجاح الزواج.</small>;
+  function answer(value: string) { if (required && !value) return; completedHere.current.add(question.id); const next = { ...answers }; if (value) next[question.id] = value; else delete next[question.id]; onChange({ personalityAnswers: next, personalityVersion: version }); }
+  const privacy = <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>كن أنت. لا توجد إجابة مثالية.</strong><span>{version === 'personality-v1' ? 'لا ننشر اختياراتك الفردية. نعرض للطرف الآخر ملخصًا مجمعًا لتشابه إجاباتكما ونقاطًا للنقاش.' : 'تظهر لك قراءة لكل محور بعد إكمال عباراته.'}</span></p></div>;
+  const explanation = <small>{version === 'personality-v1' ? '١٢ سؤالًا عن أسلوبك وطباعك، في أربعة محاور.' : '١٥ عبارة تصف أسلوبك في خمسة محاور.'} {required ? 'اختر ما يشبهك في كل موقف لنكمل صورة شخصيتك. ' : 'يمكنك إكمالها لاحقًا. '}هي قراءة إرشادية وليست اختبارًا نفسيًا أو توقعًا لنجاح الزواج.</small>;
   return <section className="nf-personality" aria-label="أسئلة الشخصية">
     {!registration && privacy}
     <div className="nf-personality-progress"><span>{remainingOnly ? 'ملامح شخصيتك' : <>ملمح {arabicNumber(index + 1)} <i>/ {arabicNumber(personalityQuestions.length)}</i></>}</span><span aria-live="polite">{count === personalityQuestions.length ? 'اكتملت ملامح شخصيتك' : `${arabicNumber(count)} إجابات تعبّر عنك`}</span></div>

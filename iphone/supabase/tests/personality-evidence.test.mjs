@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {describeFit} from '../../src/compatibility/model.ts';
 
-const questions=JSON.parse(await readFile(new URL('../../src/compatibility/personality-catalog.json',import.meta.url),'utf8'));
+const questions=JSON.parse(await readFile(new URL('../../src/compatibility/personality-catalog-v1.json',import.meta.url),'utf8'));
 const codes=questions.map(q=>q.id);
 const consents={version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false};
 const full=code=>Object.fromEntries(codes.map(id=>[id,code]));
@@ -79,7 +79,11 @@ test('existing personality score and ordering are unchanged; evidence is aggrega
   assert.deepEqual(Object.keys(server).sort(),['version','complete','covered','total','percentage','similarities','differences','method','domains','distribution'].sort());
   assert.ok(server.domains.every(d=>Object.keys(d).sort().join()===['id','covered','total','percentage'].sort().join()));
   const card=(await call(a,'public.marriage_discover()')).find(p=>p.id===b.id);
-  assert.ok(card);assert.deepEqual(card.fit.personality,server);
+  assert.ok(card);
+  assert.equal(card.fit.personality.percentage,server.percentage);
+  assert.deepEqual(card.fit.personality.similarities,[]);
+  assert.deepEqual(card.fit.personality.differences,[]);
+  assert.equal(card.fit.personality.domains,undefined);
   for(const key of ['personalityAnswers','personalityVersion','surveyAnswers','partnerCriteria'])assert.equal(card[key],undefined);
   for(const role of ['anon','authenticated','service_role']){
    assert.equal(await rpc("has_function_privilege($1,'marriage.personality_fit(uuid,uuid)','EXECUTE')",[role]),false);

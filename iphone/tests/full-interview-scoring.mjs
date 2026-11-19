@@ -1,4 +1,4 @@
-// Run against an actual synthetic Luna session, not invented complete assessment answers:
+// Replay a historical v1 personality-similarity session against its original catalog:
 // node --experimental-vm-modules tests/full-interview-scoring.mjs .tmp/full-interview-review/luna-session.json
 // Add --simulated when the supplied session uses simulated provider responses.
 // Add --submitted <path> to verify the browser's actual final signup payload too.
@@ -10,14 +10,18 @@ import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { createServer } from 'vite';
-import { confirmInterviewChoices } from '../api/_lib/interview.mjs';
-import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import { assessmentScope, historicalAssessment } from '../api/_lib/interview-assessment.mjs';
+import { confirmInterviewChoices as confirmLegacyChoices } from '../api/_lib/interview.mjs';
+import personalityCatalog from '../src/compatibility/personality-catalog-v1.json' with { type: 'json' };
 
 const artifactPath=resolve(process.argv[2]||'.tmp/full-interview-review/luna-session.json');
 const raw=await readFile(artifactPath,'utf8'), artifact=JSON.parse(raw);
 const doc=artifact.finalSnapshot?.document??artifact.document??artifact.final?.document??artifact.finalDocument??artifact.snapshots?.at(-1)?.document;
 assert(doc?.proposals?.length,'Artifact must contain the real final interview document and proposals');
 assert.equal(doc.pendingAnalysis,false,'Do not count an unfinished model analysis as completed');
+assert(/^wudayn-interview-[1-4]$/.test(doc.promptVersion??'') && !doc.proposals.some(p=>p.kind==='personality'&&!personalityCatalog.some(q=>q.id===p.fieldId)),
+  'This historical similarity verifier accepts only archived personality-v1 sessions');
+const confirmInterviewChoices=(...args)=>assessmentScope.run({catalog:historicalAssessment},()=>confirmLegacyChoices(...args));
 const plain=value=>value===undefined?undefined:JSON.parse(JSON.stringify(value));
 const owner='22222222-2222-4222-8222-222222222222';
 const loader=await createServer({configFile:false,appType:'custom',logLevel:'error',plugins:[{
@@ -33,8 +37,9 @@ try{
     '/src/interview/model.ts','/src/onboarding/draft.ts','/src/legal/consent.ts','/src/compatibility/model.ts',
     '/src/compatibility/personality-analysis.ts','/src/beena/model.ts','/src/onboarding/persistence.ts','/src/onboarding/vault.ts',
   ].map(path=>loader.ssrLoadModule(path)));
+  const dimensions=matching.dimensionsForVersion('marriage-v3');
   const initial=draft.initialDraft(owner,null);
-  initial.answers={...initial.answers,displayName:'ملف التحقق الافتراضي',gender:'woman',birthDate:'1997-06-15',age:'29',city:'الرياض',profession:'مهندسة',bio:'ملف خيالي للتحقق المحلي فقط',contact:'fictional@example.test'};
+  initial.answers={...initial.answers,assessmentVersion:'marriage-v3',personalityVersion:'personality-v1',displayName:'ملف التحقق الافتراضي',gender:'woman',birthDate:'1997-06-15',age:'29',city:'الرياض',profession:'مهندسة',bio:'ملف خيالي للتحقق المحلي فقط',contact:'fictional@example.test'};
   initial.permissions={version:'2026-11-07-privacy',sensitiveProfile:false,assessment:true};
   const permissions={...consent.emptyConsents(),adult:true,terms:true,privacy:true,assessment:true};
   const profile=answers=>({...consent.applyConsentChoices(draft.toProfile(answers),permissions),id:owner});
@@ -53,7 +58,7 @@ try{
   for(const p of doc.proposals.filter(p=>p.needsClarification&&p.kind==='personality'))assert.equal(saved.personalityAnswers[p.fieldId],undefined);
 
   function peer(aligned){
-    const surveyAnswers=Object.fromEntries(matching.dimensions.flatMap(d=>{
+    const surveyAnswers=Object.fromEntries(dimensions.flatMap(d=>{
       const other=code=>d.options.find(o=>o.code!==code)?.code??d.options[0].code;
       const self=answers.surveyAnswers?.[d.partnerId]??d.options[0].code;
       const partner=answers.surveyAnswers?.[d.id]??d.options[0].code;
@@ -77,9 +82,9 @@ try{
   const before=matching.describeFit(emptyProfile,aligned),after=matching.describeFit(saved,aligned);
   assert.equal(before.fit.covered,0);assert.equal(before.fit.personality.covered,0);
   assert.deepEqual(plain(matching.describeFit(profile({...initial.answers,...interview.applyInterviewAnswers(initial.answers,none)}),aligned)),plain(before));
-  const fullPairs=matching.dimensions.filter(d=>answers.surveyAnswers?.[d.id]&&answers.surveyAnswers?.[d.partnerId]).length;
+  const fullPairs=dimensions.filter(d=>answers.surveyAnswers?.[d.id]&&answers.surveyAnswers?.[d.partnerId]).length;
   assert.equal(after.fit.covered,fullPairs);
-  assert.equal(after.fit.percentage,fullPairs===matching.dimensions.length?100:null);
+  assert.equal(after.fit.percentage,fullPairs===dimensions.length?100:null);
   assert.equal(after.fit.personality.covered,Object.keys(answers.personalityAnswers).length);
   assert.equal(after.fit.personality.percentage,after.fit.personality.covered===personalityCatalog.length?100:null);
   assert.equal(after.fit.beena.covered,beena.beenaProgress(answers.beena).answered);
@@ -162,12 +167,12 @@ try{
     assert.equal(uiAfter.fit.personality.percentage,expectedPersonality,'Actual confirmed choices must determine the existing score arithmetic');
     const originalComparison=matching.describeFit({...uiProfile,personalityAnswers:rawPersonality},uiComparator).fit.personality;
     if(uiAfter.fit.personality.complete){assert(uiAfter.fit.personality.percentage<originalComparison.percentage,'A changed browser choice must affect the comparison with the unchanged proposal comparator');}
-    const excludedPreferences=doc.proposals.filter(p=>p.kind==='preference'&&!Object.hasOwn(uiPayload.surveyAnswers??{},p.side==='partner'?matching.dimensions.find(d=>d.id===p.fieldId).partnerId:p.fieldId)).map(p=>({field:p.fieldId,side:p.side}));
+    const excludedPreferences=doc.proposals.filter(p=>p.kind==='preference'&&!Object.hasOwn(uiPayload.surveyAnswers??{},p.side==='partner'?dimensions.find(d=>d.id===p.fieldId).partnerId:p.fieldId)).map(p=>({field:p.fieldId,side:p.side}));
     const excludedScenarios=doc.proposals.filter(p=>p.kind==='beena'&&!Object.hasOwn(uiPayload.beena?.answers?.[p.fieldId]??{},p.side)).map(p=>({field:p.fieldId,side:p.side}));
     assert(excludedPreferences.length+excludedScenarios.length>0,'The browser test must leave an excluded interpretation absent');
-    const uiCovered=matching.dimensions.filter(d=>uiPayload.surveyAnswers?.[d.id]&&uiPayload.surveyAnswers?.[d.partnerId]).length;
+    const uiCovered=dimensions.filter(d=>uiPayload.surveyAnswers?.[d.id]&&uiPayload.surveyAnswers?.[d.partnerId]).length;
     assert.equal(uiAfter.fit.covered,uiCovered);
-    if(uiCovered<matching.dimensions.length)assert.equal(uiAfter.fit.percentage,null);
+    if(uiCovered<dimensions.length)assert.equal(uiAfter.fit.percentage,null);
     if(uiCovered===0)assert.equal(uiAfter.rankValue,0,'An excluded half-pair cannot fabricate recommendation evidence');
     const uiOrderBefore=matching.rankPreferences({...uiProfile,personalityAnswers:{},surveyAnswers:{},beena:undefined},[uiComparator,different]).map(row=>row.person.id);
     const uiOrderAfter=matching.rankPreferences(uiProfile,[different,uiComparator]).map(row=>row.person.id);

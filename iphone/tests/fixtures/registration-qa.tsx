@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { useRef, useState } from 'react';
+import { applicableDimensions } from '../../src/compatibility/model';
+import { personalityQuestionsFor } from '../../src/compatibility/personality';
 import { OnboardingSandbox } from '../../src/onboarding/OnboardingSandbox';
 import { GuidedApplication } from '../../src/onboarding/GuidedApplication';
 import { chapters, initialDraft, type ApplicationDraft } from '../../src/onboarding/draft';
@@ -28,6 +30,21 @@ function RegistrationQa() {
     draft.current = initialDraft('registration-qa', null);
     Object.assign(draft.current.answers, { displayName: 'نورة', gender: 'woman', age: '28', city: 'الرياض', profession: 'مهندسة', bio: 'أحب الهدوء والقراءة والوقت مع العائلة.', contact: 'qa@example.com' });
     draft.current.step = chapter;
+    const mode = new URLSearchParams(location.search).get('assessment');
+    if (mode === 'legacy' || mode === 'current') {
+      const p = draft.current.answers;
+      p.assessmentVersion = mode === 'legacy' ? 'marriage-v3' : 'marriage-v4';
+      p.personalityVersion = mode === 'legacy' ? 'personality-v1' : 'personality-v2';
+      p.birthDate = '1997-05-12';
+      p.marriageBasics = {maritalStatus:'never_married', polygynyPreference:'not_open', childrenCount:0};
+      p.partnerCriteria = {children:{mode:'require',target:'none'}};
+      const topics = applicableDimensions(p.assessmentVersion,{children_plan:'B'},0,p.partnerCriteria.children);
+      p.surveyAnswers = Object.fromEntries(topics.flatMap(d => [[d.id,'B'],[d.partnerId,'B']]));
+      const questions = personalityQuestionsFor(p.personalityVersion);
+      const seeded = chapter === 'review' ? questions : questions.slice(0,-1);
+      p.personalityAnswers = Object.fromEntries(seeded.map(q => [q.id,'C']));
+      draft.current.permissions = {version:'2026-11-07-privacy',assessment:true,sensitiveProfile:true,sensitivePublication:true};
+    }
     if (new URLSearchParams(location.search).has('consolidation')) {
       draft.current.permissions = { version: '2026-11-07-privacy', assessment: true, sensitiveProfile: true, sensitivePublication: true };
       Object.assign(draft.current.answers, {

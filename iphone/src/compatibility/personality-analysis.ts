@@ -1,4 +1,4 @@
-import catalog from './personality-catalog.json' with { type: 'json' };
+import catalog from './personality-catalog-v1.json' with { type: 'json' };
 
 export const personalityEvidenceMethod = 'answer-distance-v1' as const;
 export const personalityDomains = [

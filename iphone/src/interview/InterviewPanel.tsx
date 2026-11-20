@@ -24,21 +24,32 @@ const interviewChapters = [
 type ProfileChoice = Pick<ProfileProposal, 'id' | 'fieldId' | 'values' | 'mode' | 'exclude'>;
 type MessageChange = { id: string; title: string; value: string; changed: boolean; profile: boolean };
 const captureSignature = (proposal: { values: string[]; mode?: unknown; exclude?: unknown }) => JSON.stringify([proposal.values, proposal.mode, proposal.exclude]);
-function messageChanges(before: InterviewSnapshot, after: InterviewSnapshot): MessageChange[] {
+function messageChanges(before: InterviewSnapshot, after: InterviewSnapshot, hybrid: boolean): MessageChange[] {
   const doc = after.document;
   if (!doc || doc.pendingAnalysis || doc.lastMode !== 'luna') return [];
   const lastTurn = doc.turns.at(-1)?.id;
   const previous = new Map([...(before.document?.proposals ?? []), ...(before.document?.profileProposals ?? [])].map(p => [p.id, captureSignature(p)]));
   return [
-    ...doc.proposals.filter(p => !p.needsClarification && p.evidence.some(e => e.turnId === lastTurn)).map(p => ({ id: p.id, title: `${proposalTitle(p)} · ${proposalSide(p)}`, value: proposalOptions(p).filter(o => p.values.includes(o.value)).map(o => o.label).join('، '), changed: previous.has(p.id), profile: false, signature: captureSignature(p) })),
+    ...doc.proposals.filter(p => (!hybrid || after.carryForwardIds?.includes(p.id)) && !p.needsClarification && p.evidence.some(e => e.turnId === lastTurn)).map(p => ({ id: p.id, title: `${proposalTitle(p)} · ${proposalSide(p)}`, value: proposalOptions(p).filter(o => p.values.includes(o.value)).map(o => o.label).join('، '), changed: previous.has(p.id), profile: false, signature: captureSignature(p) })),
     ...(doc.profileProposals ?? []).filter(p => !p.needsClarification && p.evidence.some(e => e.turnId === lastTurn)).map(p => ({ id: p.id, title: profileProposalLabel(p), value: profileProposalValue(p), changed: previous.has(p.id), profile: true, signature: captureSignature(p) })),
   ].filter(p => previous.get(p.id) !== p.signature);
 }
 
-function renderLunaMessage(text: string) {
+function renderLunaMessage(text: string, animate = false, singleClass?: string) {
   const paragraphs = text.split(/\u2029|\n\s*\n/);
-  if (paragraphs.length !== 2) return <p>{text}</p>;
-  return <><p className="wi-reflection">{paragraphs[0]}</p><p className="wi-next-question">{paragraphs[1]}</p></>;
+  const msPerCharacter = Math.min(26, 1150 / Math.max(1, text.length));
+  let offset = 0;
+  function contents(paragraph: string) {
+    if (!animate) return paragraph;
+    return paragraph.split(/(\s+)/u).map((word, index) => {
+      if (!word.trim()) return word;
+      const delay = offset;
+      offset += word.length * msPerCharacter;
+      return <span key={index} className="wi-type-word" style={{animationDelay: `${delay}ms`, animationDuration: `${offset - delay}ms`, animationTimingFunction: `steps(${word.length}, end)`}}>{word}</span>;
+    });
+  }
+  if (paragraphs.length !== 2) return <p className={singleClass}>{contents(text)}</p>;
+  return <><p className="wi-reflection">{contents(paragraphs[0])}</p><p className="wi-next-question">{contents(paragraphs[1])}</p></>;
 }
 
 function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
@@ -199,7 +210,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       });
       if (!mounted.current) return null;
       if (['answer','clarify','retry','review'].includes(action) && next.document && !next.document.pendingAnalysis) {
-        const changes = messageChanges(before, next), turnId = next.document.turns.at(-1)?.id;
+        const changes = messageChanges(before, next, hybridEnabled), turnId = next.document.turns.at(-1)?.id;
         if (turnId && changes.length) setCaptures(previous => ({ ...previous, [turnId]: changes }));
       }
       assign(next, replaceAnswer);
@@ -524,7 +535,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     unavailableCallback.current?.(); onDirectQuestions();
   }
 
-  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-chat={isChat || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
+  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-chat={isChat || undefined} data-luna-motion={!direct || undefined} data-reading={!direct && responding || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
       <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>لونا من وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','clarify','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
       <div className="wi-content" data-chat={isChat || undefined}>
@@ -563,7 +574,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         : hybrid ? <section aria-label="أسئلة جلسة التوافق" className="wi-card-session">
           {!direct && !responding && doc.status === 'review' && hybridReady && doc.currentQuestion && (hasFollowUp || !/[؟?]/u.test(doc.currentQuestion.text)) &&
             <div className="wi-bubble wi-bubble-guide wi-closing"><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>
-              {hasFollowUp ? renderLunaMessage(doc.currentQuestion.text) : <p className="wi-reflection">{doc.currentQuestion.text}</p>}
+              {renderLunaMessage(doc.currentQuestion.text, true, 'wi-reflection')}
               {hasFollowUp && !clarifying && <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => setClarifying('followUp')}>أردّ على لونا</button>}
             </div>}
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
@@ -663,10 +674,12 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
-              {!!captures[turn.id]?.length && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من رسالتك · {number(captures[turn.id].length)} تفاصيل اتضحت</span><div>{captures[turn.id].map(change=><button key={change.id} type="button" className="wi-capture-chip" data-changed={change.changed || undefined} disabled={!change.profile || actionBlocked} onClick={()=>setProfileReview(true)} title={change.value}><small>{captureBadge(change)}</small><span>{change.title}</span>{change.profile&&<Pencil size={11}/>}</button>)}</div></div>}
+              {!!captures[turn.id]?.length && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من كلامك</span><div>{captures[turn.id].map(change=>change.profile
+                ? <button key={change.id} type="button" className="wi-capture-chip" data-changed={change.changed || undefined} disabled={actionBlocked} onClick={()=>setProfileReview(true)} title={change.value}><small>{captureBadge(change)}</small><span>{change.title}</span><Pencil size={11}/></button>
+                : <span key={change.id} className="wi-capture-chip"><small>{change.title}</small><strong>{change.value}</strong></span>)}</div></div>}
             </div>)}
             {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1></div>}
-            <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟')}</div>
+            <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟', true)}</div>
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
             {!responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}

@@ -260,7 +260,8 @@ html[data-nf-motion="reduced"] .phone-app :is(.df-discovery,.mp-profile) button 
 .phone-app .mp-profile-menu { position: relative; margin-inline-start: auto; }
 .phone-app .mp-profile-menu summary { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; list-style: none; color: var(--muted); }
 .phone-app .mp-profile-menu summary::-webkit-details-marker { display: none; }
-.phone-app .mp-profile-menu > button { position: absolute; inset-inline-end: 0; top: 46px; z-index: 5; display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent); box-shadow: 0 6px 20px #24182012; font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.phone-app .mp-profile-menu[open] .mp-menu-items { position:absolute; inset-inline-end:0; inset-block-start:100%; z-index:6; display:grid; width:max-content; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); box-shadow:0 6px 20px #24182012; }
+.phone-app .mp-menu-items button { display:flex; align-items:center; gap:8px; min-height:44px; padding:8px 12px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:.8125rem; cursor:pointer; }
 
 .phone-app .cm-shell .dr-header-dismiss { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 0; background: transparent; color: var(--supporting-ink, #92898d); cursor: pointer; }
 .phone-app .cm-shell .dr-row-actions .dr-compatibility-rings { justify-self: end; width: 94px; display: flex; justify-content: space-between; align-items: start; gap: 6px; padding: 0; background: none; border: 0; border-radius: 6px; }

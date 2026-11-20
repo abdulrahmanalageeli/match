@@ -390,3 +390,37 @@ html[data-nf-motion=reduced] .wi-loading-brand { animation:none; }
   .wi-example-panel, .wi-opening-example > button svg { transition:none; }
 }
 html[data-nf-motion=reduced] :is(.wi-example-panel,.wi-opening-example > button svg) { transition:none; }
+
+.wi-capture-chip strong { overflow-wrap:anywhere; font-weight:600; }
+.wi-dialog[data-reading] .wi-header img { filter:drop-shadow(0 0 4px #92456665); }
+.wi-hybrid-captured-review > summary > .wi-extracted-summary { flex-direction:column; align-items:flex-start; gap:2px; }
+.wi-extracted-summary small { color:#735b68; font-size:.75rem; font-weight:400; }
+
+@media (prefers-reduced-motion:no-preference) {
+  html:not([data-nf-motion=reduced]) .wi-type-word {
+    display:inline-block;
+    animation-name:wi-type-rtl;
+    animation-fill-mode:backwards;
+  }
+  html:not([data-nf-motion=reduced]) .wi-dialog[data-reading] .wi-header img {
+    animation:wi-reading-glow 1.65s ease-in-out infinite alternate;
+  }
+  html:not([data-nf-motion=reduced]) .wi-dialog[data-luna-motion] :is(.wi-extracted-count,.wi-capture-caption) {
+    animation:wi-reveal-glow 950ms ease-out;
+  }
+  html:not([data-nf-motion=reduced]) .wi-dialog[data-luna-motion] .wi-hybrid-stage > h1 {
+    --wi-enter-offset:-8px;
+    animation:wi-card-title 200ms ease-out;
+  }
+  html:not([data-nf-motion=reduced]) .wi-dialog[data-luna-motion] .wi-hybrid-stage[data-back] > h1 { --wi-enter-offset:8px; }
+}
+@keyframes wi-type-rtl {
+  from { clip-path:inset(-.25em 0 -.25em 100%); }
+  to { clip-path:inset(-.25em -.1em); }
+}
+@keyframes wi-reading-glow {
+  from { filter:drop-shadow(0 0 2px #92456650); }
+  to { filter:drop-shadow(0 0 6px #924566a6); }
+}
+@keyframes wi-reveal-glow { 35% { box-shadow:0 0 12px 2px #994b712b; } }
+@keyframes wi-card-title { from { opacity:.65; transform:translateX(var(--wi-enter-offset)); } }

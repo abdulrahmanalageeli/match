@@ -81,6 +81,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const privateDemo = person.isDemo && (source?.simulation || source?.demoInteractions || source?.familyTestMode);
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const {personalLine, context}=decisionContext(person);
+  const introduction = personalLine === person.bio?.trim() ? undefined : personalLine;
   const percentage=preferencePercentage(person.fit);
   const personality=personalityPercentage(person.fit);
   const showsPersonality = Boolean(person.fit && (person.fit.version !== 'marriage-v4' || person.fit.personality?.version === 'personality-v2'));
@@ -110,7 +111,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>
           <Heart size={17} fill={person.interested?'currentColor':'none'} aria-hidden="true"/>اهتمام
         </button>}
-        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary>{onBlock && <button type="button" onClick={onBlock}>حظر العضو</button>}<button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ والحظر</button></details>}
+        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><div className="mp-menu-items">{onBlock && <button type="button" onClick={onBlock}>حظر العضو</button>}<button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ والحظر</button></div></details>}
       </div>}
     </header>
     {interestAction?.error?<p className="mp-interest-feedback" role="alert">{interestAction.error}</p>:interestAction?.notice?<p className="mp-interest-feedback" role="status">{interestAction.notice}</p>:null}
@@ -119,14 +120,15 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       <ScenePaths className="mp-arrival-paths" parallax />
       <div className="mp-hero-copy">{!preview&&<span className="mp-eyebrow">ملف شخصي</span>}<MemberBadge tier={person.membershipTier} active={person.premium} labeled/><h1 ref={heading} tabIndex={-1}>{person.alias}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<small>{ar.format(person.age)} عامًا</small>}</h1><VerifiedBadge claims={person.manualVerifications}/>
         <div className="mp-meta">{person.city&&<span><MapPin size={14}/><bdi>{canonicalCity(person.city)}</bdi></span>}</div>
-        {b?.marriageTimeline && <p className="mp-decision-timeline">توقيت الزواج · {marriageTimelineLabels[b.marriageTimeline]}</p>}
+        {b?.marriageTimeline && marriageTimelineLabels[b.marriageTimeline] && <p className="mp-decision-timeline">توقيت الزواج · {marriageTimelineLabels[b.marriageTimeline]}</p>}
       </div>
-      {person.portrait?<div className="mp-portrait-column"><PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/></div>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
+      <div className="mp-portrait-column">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
+        {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
+      </div>
       <div className="mp-intention"><Heart size={13}/><span>{person.marriageIntent||'تعارف بقصد الزواج'}</span>{person.exclusive&&<strong><Check size={12}/> تعارف حصري</strong>}</div>
     </section>
-    {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
-    {(personalLine||context)&&<div className="mp-decision-copy">
-      {personalLine&&<p className="mp-personal-line" dir="auto">{personalLine}</p>}
+    {(introduction||context)&&<div className="mp-decision-copy">
+      {introduction&&<p className="mp-personal-line" dir="auto">{introduction}</p>}
       {context&&<p className="mp-decision-context">{context}</p>}
     </div>}
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}

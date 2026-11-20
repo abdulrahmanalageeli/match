@@ -575,10 +575,6 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
             <strong>{person.alias}</strong>
             <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
-            {!sampleOnly && !ineligible && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
-              <Heart size={14} aria-hidden="true" fill={person.interested?'currentColor':'none'}/>
-              {person.interested?memberAr.removeInterest:memberAr.showInterest}
-            </button>}
           </span>
           <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
@@ -596,6 +592,10 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       </div>
 
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:ineligible&&!person.connectionId?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)}>غير مؤهل للتعارف <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
+      {!sampleOnly && !ineligible && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
+              <Heart size={14} aria-hidden="true" fill={person.interested?'currentColor':'none'}/>
+              {person.interested?memberAr.removeInterest:memberAr.showInterest}
+            </button>}
       <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>

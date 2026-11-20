@@ -19,6 +19,7 @@ const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=
 people[0].recommendationPercentage=65;people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
+source.blockPerson=async()=>{throw Error('not part of fixture')};
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
 createRoot(document.getElementById('root')).render(<MembershipAccess.Provider value={{premium:!new URLSearchParams(location.search).has('free'),upgrade:noop}}><div className="phone-app"><main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main></div></MembershipAccess.Provider>);
 `;
@@ -38,6 +39,13 @@ try{
  await page.screenshot({path:resolve(output,'recommended-390.png'),fullPage:true});
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  await page.locator('.mp-profile h1').waitFor();
+ const profile=page.locator('.mp-profile');
+ await profile.getByLabel('خيارات الملف').click();
+ const block=await profile.getByRole('button',{name:'حظر العضو',exact:true}).boundingBox();
+ const report=await profile.getByRole('button',{name:'الإبلاغ والحظر',exact:true}).boundingBox();
+ assert.ok(block && report && report.y>=block.y+block.height,'profile menu actions occupy separate rows');
+ await profile.getByLabel('خيارات الملف').click();
+ assert.equal(await profile.getByText('أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',{exact:true}).count(),1);
  assert.match(await page.locator('.mp-fit-preview-scores bdi').first().innerText(),/^(?:72%|٧٢٪)$/);
  await page.screenshot({path:resolve(output,'profile-390.png'),fullPage:true});await page.locator('.mp-back').click();
  await weekly.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
@@ -54,7 +62,8 @@ try{
  await page.getByRole('button',{name:'تصفية الملفات',exact:true}).click();
  const eligibility=page.getByRole('switch',{name:'المؤهلون للتعارف فقط'});
  assert.equal(await eligibility.isChecked(),false);
- await eligibility.check();
+ await page.getByText('المؤهلون للتعارف فقط',{exact:true}).click();
+ assert.equal(await eligibility.isChecked(),true);
  await page.getByRole('button',{name:'عرض النتائج',exact:true}).click();
  await ineligible.waitFor({state:'detached'});
  await page.getByRole('button',{name:'إزالة المؤهلون للتعارف فقط'}).click();

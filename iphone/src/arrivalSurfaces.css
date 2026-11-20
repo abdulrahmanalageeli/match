@@ -274,16 +274,15 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group { position: relative; display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group > .dr-row-profile { position: absolute; inset: 0; z-index: 1; min-height: 0; border-radius: 6px; }
 .phone-app .cm-shell .df-discovery .dr-row-name { gap: 4px; flex-wrap: wrap; }
-.phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest {
-  position: relative;
-  z-index: 2;
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest {
   display: inline-flex;
   flex: none;
   align-self: center;
   align-items: center;
   gap: 3px;
-  min-height: 24px;
-  padding: 0 2px;
+  width: auto;
+  min-height: 44px;
+  padding: 0 6px;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -292,8 +291,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   font-size: 0.6875rem;
   white-space: nowrap;
 }
-.phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
-.phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:disabled { opacity: .55; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
+.phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-interest:disabled { opacity: .55; }
 .phone-app .cm-shell .df-discovery .dr-row-avatar { width: 48px; height: 48px; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-image, .dr-avatar-online) { border-radius: 50%; }
 .phone-app .cm-shell .df-discovery .dr-row-image {
@@ -304,7 +303,9 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   background: linear-gradient(145deg, #fbf5f7, #e9dce3);
 }
 .phone-app .cm-shell .df-discovery .dr-avatar-online::after { inset-inline-end: 0; bottom: 0; }
-.phone-app .cm-shell .df-discovery .dr-row-actions { gap: 8px; }
+.phone-app .cm-shell .df-discovery .dr-row-detail { display:grid; grid-template-columns:minmax(0,1fr); gap:0; }
+.phone-app .cm-shell .df-discovery .dr-row-detail > .dr-decision-copy:empty { display:none; }
+.phone-app .cm-shell .df-discovery .dr-row-actions { justify-content:space-between; flex-wrap:wrap; gap:4px 12px; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-actions button, .dr-sample-preview) {
   height: 24px;
   min-height: 24px;

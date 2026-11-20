@@ -494,7 +494,9 @@ export function HybridAssessment({
       </div>}
     </details>
     {capturedCount > 0 && <details key={card ? 'suggestions' : 'review-suggestions'} open={!card || undefined} className="wi-hybrid-captured-review">
-      <summary><span>هذا ما فهمته منك <bdi className="wi-extracted-count">{number.format(capturedCount)}</bdi></span><ChevronDown size={17} aria-hidden="true"/></summary>
+      <summary><span className="wi-extracted-summary"><span>هذا ما فهمته منك <bdi className="wi-extracted-count">{number.format(capturedCount)}</bdi></span>
+        {card && pendingSuggestions.length > 0 && <small>{[...new Set(pendingSuggestions.map(field => field.label))].slice(0, 2).join(' · ')}</small>}
+      </span><ChevronDown size={17} aria-hidden="true"/></summary>
       <p>عدّل أي اختيار هنا. تعتمد إجاباتك معًا بعد إكمال الباقي.</p>
       <div className="wi-hybrid-review-fields">
         {extracted.map(field => <div key={field.id} className="wi-extracted-answer" data-corrected={!wasCaptured(field) || undefined}><ReviewChoice
@@ -519,8 +521,8 @@ export function HybridAssessment({
     </details>}
     {previous && previous !== card && inferred.has(previous.partner.id) &&
       <div ref={precedingSuggestion}>{suggestionRow(previous)}</div>}
-    <div className="wi-hybrid-stage">
-      <h1 id={headingId} ref={heading} tabIndex={-1}>{card ? card.self.label : 'راجع إجاباتك'}</h1>
+    <div className="wi-hybrid-stage" data-back={editingCard || undefined}>
+      <h1 key={direct ? 'title' : card?.self.id ?? 'review'} id={headingId} ref={heading} tabIndex={-1}>{card ? card.self.label : 'راجع إجاباتك'}</h1>
       <small role="status" className="wi-hybrid-recorded" data-echo={retainSelf || (previous && inferred.has(previous.partner.id)) || undefined}>{recorded}</small>
       {retainSelf && <p className="wi-self-echo"><span>{pendingIds.has(card.self.id) ? 'في حياتي · اقتراح لونا' : 'في حياتي'}</span><strong>{selfAnswer.label}</strong></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {

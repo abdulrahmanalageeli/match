@@ -78,6 +78,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     {access === 'error' && <button className="btn-secondary" onClick={()=>{setVisible(null);setAttempt(value=>value+1);}}>إعادة المحاولة</button>}
   </article>;
   const b=person.marriageBasics;
+  const privateDemo = person.isDemo && (source?.simulation || source?.demoInteractions || source?.familyTestMode);
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const {personalLine, context}=decisionContext(person);
   const percentage=preferencePercentage(person.fit);
@@ -120,10 +121,10 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         <div className="mp-meta">{person.city&&<span><MapPin size={14}/><bdi>{canonicalCity(person.city)}</bdi></span>}</div>
         {b?.marriageTimeline && <p className="mp-decision-timeline">توقيت الزواج · {marriageTimelineLabels[b.marriageTimeline]}</p>}
       </div>
-      {person.portrait?<div className="mp-portrait-column"><PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/></div>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={`صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
+      {person.portrait?<div className="mp-portrait-column"><PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/></div>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
       <div className="mp-intention"><Heart size={13}/><span>{person.marriageIntent||'تعارف بقصد الزواج'}</span>{person.exclusive&&<strong><Check size={12}/> تعارف حصري</strong>}</div>
     </section>
-    {(!person.portrait||person.isDemo)&&!(person.isDemo&&source?.simulation)&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
+    {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
     {(personalLine||context)&&<div className="mp-decision-copy">
       {personalLine&&<p className="mp-personal-line" dir="auto">{personalLine}</p>}
       {context&&<p className="mp-decision-context">{context}</p>}

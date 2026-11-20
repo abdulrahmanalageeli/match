@@ -174,18 +174,18 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
   assert(!h.calls.some(call=>call.action==='send'));
 });
 
-test('all fifteen eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
+test('all ten eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
   const h=harness(t);
   const strict=await h.source.discover({mode:'all'});
-  const openToDiscussion=['p04','p09','p14'];
-  assert.equal(strict.length,12);assert(strict.every(person=>!openToDiscussion.includes(person.id)));
+  const openToDiscussion=['p04','p09'];
+  assert.equal(strict.length,8);assert(strict.every(person=>!openToDiscussion.includes(person.id)));
   h.profile.marriageBasics={...h.profile.marriageBasics,polygynyPreference:'open_to_discussion'};
   const people=await h.source.discover({mode:'all'});
-  assert.equal(people.length,15);assert(people.every(person=>person.isDemo));
+  assert.equal(people.length,10);assert(people.every(person=>person.isDemo));
   assert.equal(people.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
   assert.equal(people.find(p=>p.id==='p07').demoPhoto,'/demo/portraits/omar.webp');
-  assert.equal(people.find(p=>p.id==='p15').demoPhoto,undefined);
-  assert.equal(people.filter(p=>!p.demoPhoto).length,8);
+  assert.equal(people.find(p=>p.id==='p10').demoPhoto,undefined);
+  assert.equal(people.filter(p=>!p.demoPhoto).length,3);
 });
 
 test('old tester commitment does not erase new fictional matches when reloading after exclusivity ends',async t=>{

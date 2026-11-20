@@ -14,7 +14,7 @@ import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
 import type { MarriageBasics } from "../compatibility/marriage";
 import type { PublicAvatar } from "../compatibility/appearance";
 import { personalityQuestionsFor } from "../compatibility/personality";
-import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
+import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
 import { beenaScenarios, sharedBeenaStory, type BeenaProfile, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
@@ -434,6 +434,7 @@ type DemoSeed = {
   /** In catalog order: social energy, initiative, depth, openness, closeness,
    * reassurance, support, planning, novelty, conflict pace, directness, quiet. */
   traits: number[];
+  currentTraits: string;
   timeline: NonNullable<MarriageBasics['marriageTimeline']>;
   meeting: NonNullable<MarriageBasics['meetingPreference']>;
   children?: 'A' | 'B' | 'C'; status?: 'divorced' | 'widowed'; childrenCount?: number;
@@ -441,102 +442,72 @@ type DemoSeed = {
 };
 const demoMen: DemoSeed[] = [
   { alias:'فهد',age:32,city:'الرياض',occupation:'محلّل بيانات',education:'ماجستير علوم البيانات',
-    bio:'أعمل في تحليل البيانات، لكن أكثر ما يسعدني حديث طويل لا ننظر فيه إلى الساعة. أهوى الكتب والسفر الخفيف، وأخصص نهاية الأسبوع للأهل والمشي في مكان جديد.',
-    lookingFor:'شريكة فضولية وواضحة، نتشارك الحديث والقرار دون استعجال القرب.',values:'الصدق من البداية، والوفاء بالوعود الصغيرة.',home:'مكتبة صغيرة وعشاء بلا هواتف، مع مساحة لعمل كل منا.',interests:['travel','reading'],traits:[2,2,5,3,3,2,3,5,3,2,4,5],timeline:'within_3_months',meeting:'public_before_formal' },
+    bio:'دوامي في تحليل البيانات، وبعده أفصل بالمشي أو بكم صفحة من كتاب. الجمعة غالبًا غدا عند الوالدة. وإذا عندي يومين فاضية أحب أطلع مشوار بالسيارة وأوقف عند الأماكن اللي تعجبني.',
+    lookingFor:'شريكة فضولية وواضحة، نتشارك الحديث والقرار دون استعجال القرب.',values:'الصدق من البداية، والوفاء بالوعود الصغيرة.',home:'مكتبة صغيرة وعشاء بلا هواتف، مع مساحة لعمل كل منا.',interests:['travel','reading'],traits:[2,2,5,3,3,2,3,5,3,2,4,5],currentTraits:'DADDBADDBBCEDDC',timeline:'within_3_months',meeting:'public_before_formal' },
   { alias:'سعود',age:30,city:'الرياض',occupation:'مهندس مدني',education:'بكالوريوس هندسة مدنية',
-    bio:'أبدأ عملي مبكرًا وأعود للمشي أو تجربة وصفة جديدة. هادئ في البداية، لكنني أحب اللمة الصغيرة. أيام المشاريع مزدحمة لذلك أقدّر وضوح المواعيد.',
-    lookingFor:'شريكة تهتم بالعائلة ولها شغفها الخاص؛ نتفق دون أن يفقد أحدنا صوته.',values:'وضوح المسؤوليات وصلة الأهل.',home:'روتين مريح أيام العمل، وطبخ مشترك في نهاية الأسبوع.',interests:['walking','cooking'],traits:[3,2,3,2,3,3,2,5,2,2,4,4],timeline:'three_to_six_months',meeting:'family_before_formal' },
+    bio:'أشتغل في مواقع المشاريع وأطلع من البيت قبل الزحمة. إذا رجعت بدري أطبخ، وحاليًا أحاول أضبط المرقوق مثل أبوي. غالبًا أرتّب الويكند من الخميس عشان ألحق أشوف أهلي وأرتاح.',
+    lookingFor:'شريكة تهتم بالعائلة ولها شغفها الخاص؛ نتفق دون أن يفقد أحدنا صوته.',values:'وضوح المسؤوليات وصلة الأهل.',home:'روتين مريح أيام العمل، وطبخ مشترك في نهاية الأسبوع.',interests:['walking','cooking'],traits:[3,2,3,2,3,3,2,5,2,2,4,4],currentTraits:'DBEEEBCCCCBBBCC',timeline:'three_to_six_months',meeting:'family_before_formal' },
   { alias:'ياسر',age:29,city:'الرياض',occupation:'مصمم منتجات',education:'بكالوريوس تصميم',
-    bio:'أصمم منتجات رقمية وألتقط صور الأماكن التي أمر بها. أحب الأفكار الجديدة أكثر من الجداول الطويلة، وأحتاج أحيانًا تذكيرًا بأن أغلق الكمبيوتر وأخرج.',
-    lookingFor:'صداقة عميقة ونية واضحة، وحديث صريح عن الأمور الصعبة.',values:'اللطف والخصوصية ودعم الطموح.',home:'بيت فيه فن ونباتات، وخروجة عفوية بين حين وآخر.',interests:['photography','reading'],traits:[3,4,5,4,3,2,3,2,5,3,4,4],timeline:'within_3_months',meeting:'public_before_formal',relocate:true },
+    bio:'أصمم تطبيقات، ودايم معي كاميرا صغيرة. آخر مشروع شخصي لي كان تصوير محلات الحي من بدري. إذا طولت قدام الشاشة أطلع أمشي شوي وأرجع أروق.',
+    lookingFor:'صداقة عميقة ونية واضحة، وحديث صريح عن الأمور الصعبة.',values:'اللطف والخصوصية ودعم الطموح.',home:'بيت فيه فن ونباتات، وخروجة عفوية بين حين وآخر.',interests:['photography','reading'],traits:[3,4,5,4,3,2,3,2,5,3,4,4],currentTraits:'CBDBCCDDBEEAEEA',timeline:'within_3_months',meeting:'public_before_formal',relocate:true },
   { alias:'مازن',age:34,city:'الرياض',occupation:'معلم',education:'بكالوريوس تربية',
-    bio:'أستمتع بعملي مع الطلاب وأحكي عن مواقفهم كثيرًا. أحب الأمسيات العائلية والمتاحف. بعد يوم مليء بالكلام أحتاج بعض الهدوء قبل أن أفتح موضوعًا مهمًا.',
-    lookingFor:'شريكة حنونة وعملية، نبني الثقة على مهل.',values:'حسن الظن وتقدير وقت العائلة.',home:'قرب من الأهل مع وقت خاص لنا أسبوعيًا.',interests:['museums','travel'],traits:[4,3,3,4,4,4,4,4,2,2,3,4],timeline:'when_ready',meeting:'family_before_formal' },
+    bio:'أدرّس متوسط، وإذا رجعت من المدرسة أحب آخذ لي ساعة هدوء. الويكند عندي يا غدا مع أهلي يا زيارة معرض. إذا سافرت، أول شيء أدور عليه متحف صغير أو مكان له قصة.',
+    lookingFor:'شريكة حنونة وعملية، نبني الثقة على مهل.',values:'حسن الظن وتقدير وقت العائلة.',home:'قرب من الأهل مع وقت خاص لنا أسبوعيًا.',interests:['museums','travel'],traits:[4,3,3,4,4,4,4,4,2,2,3,4],currentTraits:'DDDEDBEDBDCCDCB',timeline:'when_ready',meeting:'family_before_formal' },
   { alias:'نواف',age:35,city:'الرياض',occupation:'باحث',education:'ماجستير إدارة',
-    bio:'أعمل في البحث وأكتب قصصًا قصيرة لنفسي. مطلق ولدي طفل أقضي معه وقتًا ثابتًا. أفضّل أن نتحدث بوضوح عن المسؤوليات قبل أن نبني توقعات كبيرة.',
-    lookingFor:'شريكة مستقلة في رأيها تتقبل أن الأبوة جزء من حياتي.',values:'المساحة الشخصية والاعتذار عند الخطأ.',home:'أمسيات هادئة وترتيب يحترم مواعيد ابني وراحتنا.',interests:['creative_writing','walking'],traits:[1,2,5,2,2,3,2,4,3,1,4,5],timeline:'over_a_year',meeting:'discuss_together',status:'divorced',childrenCount:1,children:'C' },
-  { alias:'عبدالله',age:31,city:'الرياض',occupation:'صيدلي',education:'دكتور صيدلة',
-    bio:'دوامي بنظام المناوبات، لذلك قد أتأخر في الرد ولا يعني ذلك قلة الاهتمام. أحب الطبخ وألعاب الطاولة، ويسعدني أن نتشارك تفاصيل اليوم ولو بمكالمة قصيرة.',
-    lookingFor:'شريكة نفهم ظروف عمل بعضنا ونعطي وقتنا المشترك أولوية.',values:'التعاون والثقة وطلب الاحتياج بوضوح.',home:'نقسم المسؤوليات وفق المناوبات ونحافظ على موعد أسبوعي.',interests:['board_games','cooking'],traits:[4,4,3,4,5,4,4,3,4,4,4,3],timeline:'six_to_twelve_months',meeting:'public_before_formal' },
+    bio:'أشتغل في الأبحاث وأكتب قصص قصيرة على الجنب. ابني معي بعض أيام الأسبوع، وغالبًا نطلع نتمشى بعد العصر. أفضّل أتكلم عن ترتيب وقتي من بدري عشان تكون الصورة واضحة.',
+    lookingFor:'شريكة مستقلة في رأيها تتقبل أن الأبوة جزء من حياتي.',values:'المساحة الشخصية والاعتذار عند الخطأ.',home:'أمسيات هادئة وترتيب يحترم مواعيد ابني وراحتنا.',interests:['creative_writing','walking'],traits:[1,2,5,2,2,3,2,4,3,1,4,5],currentTraits:'EADDCBEECABBECB',timeline:'over_a_year',meeting:'discuss_together',status:'divorced',childrenCount:1,children:'C' },
+  { alias:'عبدالله',age:31,city:'المدينة المنورة',occupation:'صيدلي',education:'دكتور صيدلة',
+    bio:'صيدلي في المدينة ودوامي مناوبات، فممكن أرد متأخر إذا كنت في الشفت. إذا اجتمعوا الشباب عندي غالبًا نطبخ ونجرب لعبة طاولة جديدة. الترتيب المسبق يسهّل علي الالتزام.',
+    lookingFor:'شريكة نفهم ظروف عمل بعضنا ونعطي وقتنا المشترك أولوية.',values:'التعاون والثقة وطلب الاحتياج بوضوح.',home:'نقسم المسؤوليات وفق المناوبات ونحافظ على موعد أسبوعي.',interests:['board_games','cooking'],traits:[4,4,3,4,5,4,4,3,4,4,4,3],currentTraits:'CDBDCBDEBBBBDEC',timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
   { alias:'عمر',age:27,city:'جدة',occupation:'مهندس برمجيات',education:'بكالوريوس علوم حاسب',
-    bio:'أعمل عن بُعد وأعيش في جدة. أستمتع بالبحر وألعاب الطاولة أكثر من المناسبات الكبيرة. أكتب أفضل مما أتكلم في البداية، ثم يصبح الحديث أسهل.',
-    lookingFor:'شريكة تحترم الهدوء وتحب مشاركة هواية دون أن نتشابه في كل شيء.',values:'الخصوصية والاتفاق على وقت للشاشات.',home:'وقت للعمل وآخر لنا؛ ويمكنني الانتقال إن اتفقنا.',interests:['board_games','walking','reading'],traits:[1,1,4,2,2,2,1,4,4,1,3,5],timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
+    bio:'أشتغل من البيت في جدة، وأطلع أمشي عند البحر إذا طولت قدام اللابتوب. أحب ألعاب الطاولة، وعادة أكون أهدأ واحد أول الجلسة. بالرسائل آخذ راحتي أسرع.',
+    lookingFor:'شريكة تحترم الهدوء وتحب مشاركة هواية دون أن نتشابه في كل شيء.',values:'الخصوصية والاتفاق على وقت للشاشات.',home:'وقت للعمل وآخر لنا؛ ويمكنني الانتقال إن اتفقنا.',interests:['board_games','walking','reading'],traits:[1,1,4,2,2,2,1,4,4,1,3,5],currentTraits:'DBEEEBECAAAACEB',timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
   { alias:'خالد',age:38,city:'الخبر',occupation:'مدير عمليات',education:'بكالوريوس إدارة أعمال',
-    bio:'أحب العمل الواضح والقوائم القصيرة. أرمل وأب لطفلة، وأعيد ترتيب حياتي بهدوء. أخرج للمشي بعد العشاء وأجيد الاستماع أكثر من المجاملات الطويلة.',
-    lookingFor:'شريكة نناقش معها شكل الأسرة والمسؤوليات من البداية.',values:'الاستقرار والصدق واحترام تجربة الآخر.',home:'بيت منتظم وقريب من مدرسة ابنتي، مع مساحة لاهتمامات الجميع.',interests:['walking','cooking'],traits:[2,3,3,2,3,2,2,5,1,3,5,4],timeline:'when_ready',meeting:'family_before_formal',status:'widowed',childrenCount:1,children:'C' },
+    bio:'أنا من الخبر وأشتغل في العمليات. جزء كبير من يومي يدور حول بنتي ومدرستها. إذا نامت أطلع أمشي قريب من البيت أو أجهّز فطور بكرة. أميل للجلسات الصغيرة والكلام الواضح.',
+    lookingFor:'شريكة نناقش معها شكل الأسرة والمسؤوليات من البداية.',values:'الاستقرار والصدق واحترام تجربة الآخر.',home:'بيت منتظم وقريب من مدرسة ابنتي، مع مساحة لاهتمامات الجميع.',interests:['walking','cooking'],traits:[2,3,3,2,3,2,2,5,1,3,5,4],currentTraits:'EBDDECDEDCCCDBB',timeline:'when_ready',meeting:'family_before_formal',status:'widowed',childrenCount:1,children:'C' },
   { alias:'راشد',age:26,city:'الرياض',occupation:'أخصائي تسويق',education:'بكالوريوس تسويق',
-    bio:'غالبًا أنا من يقترح الخروجة ويجمع الأصدقاء. أحب التصوير والرحلات القصيرة، لكنني أتعلم ألّا أملأ كل نهاية أسبوع بخطة. أبحث عن تعارف جاد بروح خفيفة.',
-    lookingFor:'شريكة تتكلم بصراحة وتستمتع بالتجربة حتى عندما لا تكون مثالية.',values:'المبادرة والمرح واحترام الرفض.',home:'بيت يستقبل الأصدقاء أحيانًا، مع أيام هادئة نلتزم بها.',interests:['travel','photography'],traits:[5,5,1,4,5,4,5,1,5,4,4,1],timeline:'three_to_six_months',meeting:'public_before_formal' },
+    bio:'أشتغل في التسويق وغالبًا عندي اقتراح لمشوار الويكند، حتى لو مجرد قهوة في حي جديد وتصوير. هذه الفترة أحاول أخلي يوم الجمعة للأهل وما أعبّي كل وقتي بالمواعيد.',
+    lookingFor:'شريكة تتكلم بصراحة وتستمتع بالتجربة حتى عندما لا تكون مثالية.',values:'المبادرة والمرح واحترام الرفض.',home:'بيت يستقبل الأصدقاء أحيانًا، مع أيام هادئة نلتزم بها.',interests:['travel','photography'],traits:[5,5,1,4,5,4,5,1,5,4,4,1],currentTraits:'BDBBBDECCEEAEEA',timeline:'three_to_six_months',meeting:'public_before_formal' },
   { alias:'حسن',age:36,city:'الدمام',occupation:'محاسب',education:'بكالوريوس محاسبة',
-    bio:'أردني مقيم في الدمام منذ سنوات. أحب الأرقام والكتب التاريخية والطبخ نهاية الأسبوع. لست سريعًا في مشاركة التفاصيل، لكنني ثابت في التواصل عندما أرتاح.',
-    lookingFor:'شريكة نتفق معها على مكان الاستقرار وعلاقة كل منا بأهله.',values:'الالتزام بالاتفاقات والعدل في المصاريف.',home:'ميزانية واضحة وزيارات عائلية نخطط لها مسبقًا.',interests:['reading','cooking'],traits:[2,1,4,1,3,3,2,5,2,2,4,5],timeline:'within_3_months',meeting:'family_before_formal',nationality:'أردني',relocate:true },
-  { alias:'بندر',age:33,city:'الرياض',occupation:'صاحب مقهى',education:'دبلوم إدارة ضيافة',
-    bio:'أدير مقهى صغيرًا وأعرف أن بداية المشروع تأخذ من وقتي. اجتماعي وأحب الناس، وأحتاج شريكة تعرف أن انشغالي يمكن تنظيمه لا أن يصبح عذرًا دائمًا.',
-    lookingFor:'شريكة عملية وصريحة نضع معها حدودًا بين العمل والبيت.',values:'المسؤولية والمرونة وترك وقت للعلاقة.',home:'صباحات هادئة حين يسمح العمل، وسفر قصير خارج المواسم.',interests:['cooking','travel','photography'],traits:[5,5,2,3,4,2,3,2,5,5,5,2],timeline:'six_to_twelve_months',meeting:'discuss_together',smoking:'sometimes' },
-  { alias:'سلمان',age:25,city:'المدينة المنورة',occupation:'أخصائي مختبر',education:'بكالوريوس علوم مختبرات',
-    bio:'بدأت عملي منذ عامين وما زلت أبني استقراري. قريب من أهلي وأحب الزيارات البسيطة. أستمتع بالمشي والقراءة وأفضل أن يكون التعارف واضحًا للأهل.',
-    lookingFor:'شريكة صبورة نخطط للاستقرار معًا ونتشارك القيم الأساسية.',values:'صلة الرحم والوضوح والتدرج.',home:'بداية بسيطة ضمن إمكاناتنا ثم نطورها مع الوقت.',interests:['walking','reading'],traits:[3,2,3,3,4,5,4,4,2,2,1,4],timeline:'over_a_year',meeting:'after_formal',relocate:true },
-  { alias:'زياد',age:40,city:'جدة',occupation:'مهندس معماري',education:'ماجستير عمارة',
-    bio:'مطلق دون أبناء. أحب العمارة القديمة والسفر البطيء والتقاط الصور. تعلمت أن إعجابنا بالشخص لا يغني عن السؤال عن شكل الحياة الذي يريده فعلًا.',
-    lookingFor:'شريكة تعرف ما تريد، ونناقش موضوع الأطفال دون افتراضات.',values:'الاستقلال واحترام الحدود والوضوح.',home:'بيت هادئ ومساحة للعمل الإبداعي ورحلات نتفق عليها.',interests:['museums','photography','travel'],traits:[2,3,5,3,2,1,2,3,5,3,5,5],timeline:'when_ready',meeting:'public_before_formal',status:'divorced',children:'B',relocate:true },
-  { alias:'إبراهيم',age:28,city:'الرياض',occupation:'أخصائي علاج طبيعي',education:'بكالوريوس علاج طبيعي',
-    bio:'أحب عملي والحركة، وأرتاح بالحديث مع شخص قريب بعد يوم طويل. أتذكر التفاصيل الصغيرة وأحب التعبير عن الاهتمام، وأحاول ألا أقلق من تأخر الردود.',
-    lookingFor:'شريكة حنونة وواضحة في تواصلها، ولكل منا هواياته وأصدقاؤه.',values:'التطمين المتبادل واللطف دون ضغط.',home:'تواصل يومي وعشاء بسيط ومشي مشترك حين تسمح الظروف.',interests:['walking','cooking'],traits:[4,4,4,5,5,5,5,3,3,4,3,2],timeline:'three_to_six_months',meeting:'public_before_formal' },
-  { alias:'طارق',age:37,city:'أبها',occupation:'مصوّر مستقل',education:'بكالوريوس إعلام',
-    bio:'أعيش في أبها ويأخذني عملي بين المدن. أحب الطبيعة والكتابة ولا ألتزم بروتين واحد طويلًا. أريد الاستقرار مع شخص نتفق معه على معنى الاستقرار نفسه.',
-    lookingFor:'شريكة مرنة تحب تجربتها الخاصة وتستطيع قول ما يناسبها.',values:'حرية الرأي والصدق وحفظ المساحة الشخصية.',home:'قاعدة هادئة نعود إليها من العمل والسفر، مع مرونة في المدينة.',interests:['photography','creative_writing','travel'],traits:[3,3,4,4,2,1,3,1,5,2,4,5],timeline:'six_to_twelve_months',meeting:'discuss_together',relocate:true,children:'C' },
+    bio:'من أهل الدمام، وأشتغل في المحاسبة. الجمعة إذا فضيت أطوّل في الطبخ أو أكمّل كتاب تاريخ. لست سريعًا في مشاركة التفاصيل، لكنني ثابت في التواصل عندما أرتاح.',
+    lookingFor:'شريكة ما تخطط للإنجاب، ونتفق سوا على المدينة والقرب من الأهل.',values:'الالتزام بالاتفاقات والعدل في المصاريف.',home:'ميزانية واضحة وزيارات عائلية نخطط لها مسبقًا.',interests:['reading','cooking'],traits:[2,1,4,1,3,3,2,5,2,2,4,5],currentTraits:'EAEEEBEDBABECEE',timeline:'within_3_months',meeting:'family_before_formal',relocate:true,children:'B' },
 ];
 const demoWomen: DemoSeed[] = [
   { alias:'سارة',age:29,city:'الرياض',occupation:'محللة بيانات',education:'ماجستير تحليل أعمال',
-    bio:'أحب عملي وما يعلّمني من فضول ودقة، وأجد توازني في الكتب والرحلات القصيرة. أحتاج وقتًا في البداية، ثم أشارك الحديث والضحك بسهولة.',
-    lookingFor:'شريك فضولي وواضح نشارك الحديث والقرار.',values:'الصدق والخصوصية واحترام الطموح.',home:'وقت هادئ بعد العمل ورحلة نخطط لها معًا.',interests:['reading','travel'],traits:[2,2,5,3,3,3,2,4,4,2,4,5],timeline:'within_3_months',meeting:'public_before_formal' },
+    bio:'أشتغل في تحليل البيانات وأهوى الروايات اللي تشدّني من أول فصل. أحيانًا أختار طلعة يوم واحد خارج الرياض مع أختي. هادئة في أول لقاء وبعدها أضحك وأتكلم أكثر.',
+    lookingFor:'شريك فضولي وواضح نشارك الحديث والقرار.',values:'الصدق والخصوصية واحترام الطموح.',home:'وقت هادئ بعد العمل ورحلة نخطط لها معًا.',interests:['reading','travel'],traits:[2,2,5,3,3,3,2,4,4,2,4,5],currentTraits:'EAEDEAEDEBBECCB',timeline:'within_3_months',meeting:'public_before_formal' },
   { alias:'لولوة',age:28,city:'الرياض',occupation:'مهندسة مدنية',education:'بكالوريوس هندسة مدنية',
-    bio:'مهندسة أؤمن أن أجمل الأشياء تُبنى على مهل. أبدأ يومي بالمشي وأجرب وصفة جديدة في الإجازة. أحب عملي، ويهمني أن نخطط لأوقاتنا بواقعية.',
-    lookingFor:'شريك يساند عملي ونكون سندًا لبعضنا في الأيام المزدحمة.',values:'وضوح المسؤوليات وتقدير الجهد.',home:'بيت عملي ودافئ، نقسم مهامه وفق الوقت المتاح.',interests:['walking','cooking'],traits:[3,3,3,3,4,3,4,5,3,3,4,4],timeline:'three_to_six_months',meeting:'family_before_formal' },
+    bio:'أشتغل مهندسة مدنية. بعض الأسابيع أتنقل بين الموقع والمكتب، فالمشي بعد الدوام هو وقتي لنفسي. آخر وصفة جربتها خبز بالزعتر، وأهلي للحين يطلبونه كل جمعة.',
+    lookingFor:'شريك يساند عملي ونكون سندًا لبعضنا في الأيام المزدحمة.',values:'وضوح المسؤوليات وتقدير الجهد.',home:'بيت عملي ودافئ، نقسم مهامه وفق الوقت المتاح.',interests:['walking','cooking'],traits:[3,3,3,3,4,3,4,5,3,3,4,4],currentTraits:'DDCEEAEDCBCCDDC',timeline:'three_to_six_months',meeting:'family_before_formal' },
   { alias:'نورة',age:27,city:'الرياض',occupation:'مصممة منتجات',education:'بكالوريوس تصميم',
-    bio:'أحب تصوير التفاصيل الصغيرة وزيارة المعارض. أتحمس لأفكار كثيرة وأحتاج أحيانًا إلى تبسيط خططي. يسعدني حديث يجمع الجدية وخفة الروح.',
-    lookingFor:'شريك صريح يحترم الاختلاف ويستمتع بفضول الحياة.',values:'اللطف وحرية التعبير والخصوصية.',home:'ركن للرسم وكتب ونباتات، ووقت نجرب فيه شيئًا جديدًا.',interests:['photography','museums'],traits:[4,4,4,5,4,3,4,2,5,3,4,3],timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
+    bio:'أصمّم منتجات وأحب أصوّر أشياء عادية مثل أبواب البيوت القديمة. الويكند اللي فات رحت معرض صغير في الرياض ورجعت بفكرة أشتغل عليها للحين. أحب أسمع كيف الناس تشوف الأشياء بشكل مختلف.',
+    lookingFor:'شريك صريح يحترم الاختلاف ويستمتع بفضول الحياة.',values:'اللطف وحرية التعبير والخصوصية.',home:'ركن للرسم وكتب ونباتات، ووقت نجرب فيه شيئًا جديدًا.',interests:['photography','museums'],traits:[4,4,4,5,4,3,4,2,5,3,4,3],currentTraits:'CDBCCEDCDEEAEEA',timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
   { alias:'أمل',age:31,city:'الرياض',occupation:'معلمة',education:'بكالوريوس تربية',
-    bio:'أحب عملي مع الأطفال والوقت مع أهلي. هادئة في التجمعات الكبيرة، وأفضّل حديثًا طويلًا مع شخص قريب. أحتاج أن أشعر بالأمان قبل مشاركة كل التفاصيل.',
-    lookingFor:'شريك حنون وعملي نتحدث معه عن المستقبل دون استعجال.',values:'المودة وحسن الظن وحفظ أسرار البيت.',home:'روتين دافئ وزيارات للأهل ووقت للقراءة.',interests:['reading','museums'],traits:[2,1,4,2,4,4,3,4,2,1,2,5],timeline:'when_ready',meeting:'after_formal' },
+    bio:'أدرّس ابتدائي، وأفضل جمعة صغيرة عند أهلي على مناسبة كبيرة. أحب أسمع تفاصيل يوم الشخص القريب مني، وأحتاج شوي وقت عشان آخذ راحتي في الكلام.',
+    lookingFor:'شريك حنون وعملي نتحدث معه عن المستقبل دون استعجال.',values:'المودة وحسن الظن وحفظ أسرار البيت.',home:'روتين دافئ وزيارات للأهل ووقت للقراءة.',interests:['reading','museums'],traits:[2,1,4,2,4,4,3,4,2,1,2,5],currentTraits:'EADDEBEDEAAECCB',timeline:'when_ready',meeting:'after_formal' },
   { alias:'هند',age:34,city:'الرياض',occupation:'باحثة',education:'دكتوراه علوم اجتماعية',
-    bio:'فضولي يقودني إلى البحث والكتابة والاستماع لقصص الآخرين. أحب استقلالي ومساحة عملي، وأرى أن القرب لا يعني أن نتشارك كل دقيقة من يومنا.',
-    lookingFor:'شريك مستقل في رأيه يحترم المساحة الشخصية والحوار.',values:'الاحترام والوضوح والقدرة على مراجعة الرأي.',home:'أمسيات هادئة ومكتبة مشتركة واهتمامات يحتفظ بها كل منا.',interests:['creative_writing','walking'],traits:[1,2,5,2,1,1,2,4,4,2,5,5],timeline:'over_a_year',meeting:'discuss_together',children:'C' },
+    bio:'أشتغل في البحث، وأحيانًا أقضي أمسية كاملة أكتب أو أراجع كتاب. أحب أطلع أمشي في مكان فيه شجر. يهمني يكون لنا وقت سوا، ووقت أقدر أركّز فيه على شغلي.',
+    lookingFor:'شريك مستقل في رأيه يحترم المساحة الشخصية والحوار.',values:'الاحترام والوضوح والقدرة على مراجعة الرأي.',home:'أمسيات هادئة ومكتبة مشتركة واهتمامات يحتفظ بها كل منا.',interests:['creative_writing','walking'],traits:[1,2,5,2,1,1,2,4,4,2,5,5],currentTraits:'DDDEEDEEBBBEEEA',timeline:'over_a_year',meeting:'discuss_together',children:'C' },
   { alias:'منال',age:30,city:'الرياض',occupation:'صيدلانية',education:'دكتور صيدلة',
-    bio:'أستمتع بالجانب الإنساني من عملي وبالطبخ وألعاب الطاولة. مناوباتي تتغير، لذلك أقدّر من يتفق معي على وقت مناسب بدل انتظار الرد طوال اليوم.',
-    lookingFor:'شريك متعاون نضع احتياجاتنا في كلمات واضحة.',values:'الثقة والاهتمام اليومي واحترام الانشغال.',home:'نخطط لأسبوعنا معًا ونترك مساحة لتغيّر الدوام.',interests:['board_games','cooking'],traits:[4,3,3,4,4,4,5,3,3,4,4,3],timeline:'six_to_twelve_months',meeting:'public_before_formal' },
+    bio:'صيدلانية ومناوباتي تتغير من أسبوع للثاني. إذا فضيت أجرّب وصفة أو ألعب مع أخواتي لعبة طاولة. أرتاح لما نتفق على وقت للمكالمة، خصوصًا في الأيام اللي أكون فيها بالمستشفى.',
+    lookingFor:'شريك متعاون نضع احتياجاتنا في كلمات واضحة.',values:'الثقة والاهتمام اليومي واحترام الانشغال.',home:'نخطط لأسبوعنا معًا ونترك مساحة لتغيّر الدوام.',interests:['board_games','cooking'],traits:[4,3,3,4,4,4,5,3,3,4,4,3],currentTraits:'BCBDEBDCEEDCDEC',timeline:'six_to_twelve_months',meeting:'public_before_formal' },
   { alias:'ريم',age:25,city:'جدة',occupation:'كاتبة محتوى',education:'بكالوريوس لغة عربية',
-    bio:'أكتب في عملي وفي دفتري، وأحب المشي قرب البحر. لست سريعة في بدء المحادثة، لكنني أحب الأسئلة التي تجعلنا نفهم بعضنا دون أن يبدو اللقاء مقابلة.',
-    lookingFor:'شريك صبور ومبادر يحترم هدوئي دون أن يفسّره ببرود.',values:'الصدق والرفق ومساحة للتعبير.',home:'وقت للكتابة وطقوس بسيطة نبتكرها معًا.',interests:['creative_writing','walking','reading'],traits:[1,1,5,3,3,4,2,2,4,1,2,5],timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
+    bio:'أكتب محتوى في جدة. بعد الدوام أحب أمشي على البحر، وأخلي الجوال في الشنطة إذا كنت مع أحد. في بداية التعارف أحب سؤال واحد حلو يفتح سالفة أكثر من أسئلة كثيرة ورا بعض.',
+    lookingFor:'شريك صبور ومبادر يحترم هدوئي دون أن يفسّره ببرود.',values:'الصدق والرفق ومساحة للتعبير.',home:'وقت للكتابة وطقوس بسيطة نبتكرها معًا.',interests:['creative_writing','walking','reading'],traits:[1,1,5,3,3,4,2,2,4,1,1,5],currentTraits:'EAEBCDECEAADEEB',timeline:'six_to_twelve_months',meeting:'public_before_formal',relocate:true },
   { alias:'دانة',age:32,city:'الخبر',occupation:'مديرة مشاريع',education:'ماجستير إدارة مشاريع',
-    bio:'أحب الخطط الواضحة والقرارات التي تتحول إلى عمل. اجتماعية في عملي وخارجه، لكنني أتعلم أن ليس كل موضوع يحتاج حلًا فورًا؛ أحيانًا يحتاج أن نسمعه فقط.',
-    lookingFor:'شريك واضح في قراراته ونستطيع الاختلاف معه باحترام.',values:'الالتزام والمساواة في سماع الرأي.',home:'خطط واقعية ومسؤوليات نتفق عليها ووقت للراحة.',interests:['travel','board_games'],traits:[5,5,3,3,3,2,3,5,4,5,5,2],timeline:'three_to_six_months',meeting:'family_before_formal',relocate:true },
-  { alias:'رغد',age:24,city:'الرياض',occupation:'معلمة فنون',education:'بكالوريوس تربية فنية',
-    bio:'أحب المعارض والطبخ مع صديقاتي وأبدأ الحديث بسهولة. عاطفية وأعبّر عن الاهتمام بوضوح، وأفضّل أن نتفق على حدود التواصل حتى لا نسيء فهم انشغال بعضنا.',
-    lookingFor:'شريك لطيف وصريح ويحب أن نتشارك التجارب الجديدة.',values:'الاهتمام والمرح وقبول اختلاف الذوق.',home:'ألوان وطبخ وتجارب جديدة، مع وقت قريب من الأهل.',interests:['museums','cooking','photography'],traits:[5,5,2,5,5,5,5,1,5,4,3,1],timeline:'over_a_year',meeting:'public_before_formal' },
+    bio:'أدير مشاريع في الخبر، وأحب أعرف من بدري إذا الويكند للأهل أو فيه سفرة قصيرة. آخر مرة لعبنا لعبة طاولة مع أخواني تحمست أكثر من اللازم. أقدّر اللي يقدر يضحك على الموقف معي.',
+    lookingFor:'شريك واضح في قراراته ونستطيع الاختلاف معه باحترام.',values:'الالتزام والمساواة في سماع الرأي.',home:'خطط واقعية ومسؤوليات نتفق عليها ووقت للراحة.',interests:['travel','board_games'],traits:[5,5,3,3,3,2,3,5,4,5,5,2],currentTraits:'BDBEEBDECEEADEC',timeline:'three_to_six_months',meeting:'family_before_formal',relocate:true },
+  { alias:'رغد',age:24,city:'أبها',occupation:'معلمة فنون',education:'بكالوريوس تربية فنية',
+    bio:'أدرّس فنون في أبها. إذا الجو حلو أطلع أصوّر، وإذا أمطرت غالبًا أطبخ مع صديقاتي. أبادر بالكلام إذا ارتحت، وأفضّل الواحد يقول إنه مشغول على إنه يختفي.',
+    lookingFor:'شريك لطيف وصريح ويحب أن نتشارك التجارب الجديدة.',values:'الاهتمام والمرح وقبول اختلاف الذوق.',home:'ألوان وطبخ وتجارب جديدة، مع وقت قريب من الأهل.',interests:['museums','cooking','photography'],traits:[5,5,2,5,5,5,5,1,5,4,3,1],currentTraits:'BCBCBDEDBEEAEEA',timeline:'over_a_year',meeting:'public_before_formal',relocate:true },
   { alias:'عبير',age:37,city:'الدمام',occupation:'أخصائية موارد بشرية',education:'بكالوريوس إدارة أعمال',
-    bio:'مطلقة وأم لابن في المرحلة الابتدائية. أحب القراءة والزيارات الصغيرة، وأفضّل الحديث الواضح عن الأبناء وحدود العائلة قبل أي خطوة جادة.',
-    lookingFor:'شريك ناضج يتقبل مسؤولياتي ونبني معه ثقة بهدوء.',values:'الاحترام والثبات وعدم إدخال الأبناء في خلافات الكبار.',home:'بيت آمن ومنظم يحترم مواعيد ابني ووقت شريك حياتي.',interests:['reading','walking'],traits:[3,3,4,3,4,4,4,5,1,2,5,4],timeline:'when_ready',meeting:'family_before_formal',status:'divorced',childrenCount:1,children:'C' },
-  { alias:'جود',age:28,city:'الرياض',occupation:'مؤسسة متجر إلكتروني',education:'بكالوريوس تجارة إلكترونية',
-    bio:'أدير متجرًا صغيرًا وأحب التجربة والتعلّم من الأخطاء. أيامي ليست متشابهة، وأحيانًا أنسى الوقت في العمل. أحاول أن أضع حدودًا تحمي حياتي خارج المشروع.',
-    lookingFor:'شريك عملي ومرن يشجع طموحي ويخبرني بما يحتاجه.',values:'المبادرة والصدق وتحمل المسؤولية.',home:'مساحة للطموح مع موعد ثابت لنا بعيدًا عن العمل.',interests:['travel','photography'],traits:[5,4,3,4,3,2,3,2,5,5,5,2],timeline:'six_to_twelve_months',meeting:'discuss_together' },
-  { alias:'مريم',age:29,city:'المدينة المنورة',occupation:'مترجمة',education:'ماجستير ترجمة',
-    bio:'مصرية مقيمة في المدينة، أحب اللغات والكتب والطبخ. علاقتي بأهلي قريبة، وأحتاج أن نناقش مكان السكن والزيارات والسفر بوضوح لأن العائلتين قد تكونان بعيدتين.',
-    lookingFor:'شريك يحترم صلة الأهل ويشارك التخطيط لحياة مستقرة.',values:'الوضوح والوفاء والاحترام بين العائلتين.',home:'بيت دافئ وميزانية للزيارات ووقت نتعلم فيه من بعضنا.',interests:['reading','cooking'],traits:[2,2,4,4,5,4,4,4,3,2,3,4],timeline:'within_3_months',meeting:'family_before_formal',nationality:'مصرية',relocate:true },
-  { alias:'أروى',age:39,city:'جدة',occupation:'مهندسة معمارية',education:'ماجستير عمارة',
-    bio:'مطلقة دون أبناء، وأعرف أنني لا أرغب في الإنجاب. أحب عملي والسفر البطيء والتصوير. أذكر هذا مبكرًا حتى يبدأ التعارف على وضوح واحترام لا على أمل تغيير الآخر.',
-    lookingFor:'شريك يشاركني قرار عدم الإنجاب ويحترم استقلالنا.',values:'وضوح القرارات واحترام الحدود.',home:'شراكة وصداقة وبيت هادئ نعود إليه بعد يوم مليء بالتجارب.',interests:['museums','photography','travel'],traits:[2,3,5,3,2,1,2,4,5,3,5,5],timeline:'when_ready',meeting:'public_before_formal',status:'divorced',children:'B',relocate:true },
-  { alias:'شذى',age:26,city:'الرياض',occupation:'أخصائية تغذية',education:'بكالوريوس تغذية',
-    bio:'أحب المشي وتجربة الوصفات والحديث مع المقربين. أقدّر التعبير المباشر عن الاهتمام، وأحاول أن أسأل بدل أن أخمّن عندما يتغير إيقاع التواصل.',
-    lookingFor:'شريك دافئ وواضح نساند بعضنا دون أن نفقد مساحتنا الخاصة.',values:'الطمأنينة والصدق واللطف وقت الاختلاف.',home:'حديث يومي ومهام نتقاسمها ووقت للعائلة ولأنفسنا.',interests:['walking','cooking'],traits:[4,4,3,5,5,5,5,3,4,4,4,2],timeline:'three_to_six_months',meeting:'public_before_formal' },
-  { alias:'ليان',age:33,city:'أبها',occupation:'مصممة داخلية',education:'بكالوريوس تصميم داخلي',
-    bio:'أعمل على مشاريع بين أبها والرياض. أحب الطبيعة والأماكن القديمة، وأحتاج مساحة هادئة بعد السفر. لم أحسم قرار الإنجاب وأفضل أن أقول ذلك من البداية.',
-    lookingFor:'شريك نناقش معه خطط المستقبل بمرونة وصراحة.',values:'المساحة الشخصية والتفاهم دون افتراضات.',home:'بيت قريب من الطبيعة ومرونة في المدينة عندما تكون الفرصة مناسبة.',interests:['photography','museums','walking'],traits:[1,2,4,3,2,2,1,2,5,1,4,5],timeline:'six_to_twelve_months',meeting:'discuss_together',relocate:true,children:'C' },
+    bio:'أشتغل في الموارد البشرية، وعندي ولد في الابتدائي. الويكند غالبًا بين مشاويره وزيارة أهلي، وإذا فاض لي وقت أمسك كتاب. يهمني نتكلم بدري عن ترتيب الوقت مع الأولاد والأهل.',
+    lookingFor:'شريك ناضج يتقبل مسؤولياتي ونبني معه ثقة بهدوء.',values:'الاحترام والثبات وعدم إدخال الأبناء في خلافات الكبار.',home:'بيت آمن ومنظم يحترم مواعيد ابني ووقت شريك حياتي.',interests:['reading','walking'],traits:[3,3,4,3,4,4,4,5,1,2,5,4],currentTraits:'DDDEEADEBCBCEBD',timeline:'when_ready',meeting:'family_before_formal',status:'divorced',childrenCount:1,children:'C' },
 ];
 
 // This assessment measures behaviors, not MBTI categories. Fictional responses
-// intentionally span all 12 measured dimensions; no types are inferred for users.
-function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
+// supply complete answers for each supported test assessment.
+function demoSurvey(seed: DemoSeed, index: number, version: typeof assessmentVersion | 'marriage-v3'): Record<string,string> {
   const [social,,,openness,closeness,,,,novelty,conflict,directness] = seed.traits;
   const self: Record<string,string> = {
     children_plan: seed.children ?? 'A', residence_plan: seed.relocate ? 'C' : 'A', wife_work: index % 5 === 3 ? 'C' : 'A',
@@ -544,6 +515,7 @@ function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
     // Independent illustrative choices for fictional members.
     family_authority: 'ABC'[index % 3], financial_provision: 'ABCD'[index % 4],
     domestic_labor: 'BDA'[index % 3], housing_arrangement: 'ABD'[index % 3],
+    social_boundaries: 'ABCD'[index % 4], conflict_response: 'ABBABDACAB'[index], money_management: 'ABBACABADC'[index],
     mixed_gatherings: 'BCA'[index % 3], faith_routine: 'CAB'[index % 3],
     public_event_attendance: 'BAC'[index % 3], parenting_approach: 'BADC'[index % 4],
     social_rhythm: social <= 2 ? 'A' : social === 3 ? 'B' : 'C',
@@ -551,17 +523,17 @@ function demoSurvey(seed: DemoSeed, index: number): Record<string,string> {
     repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C',
     closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A',
   };
-  return Object.fromEntries(dimensionsForVersion("marriage-v3").flatMap(d => [[d.id,self[d.id]], [d.partnerId,
+  return Object.fromEntries(dimensionsForVersion(version).flatMap(d => [[d.id,self[d.id]], [d.partnerId,
     d.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[d.id]] ]));
 }
 
 export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => group.map((seed,index) => {
   const woman = genderIndex === 1;
-  const menPhotos = ['fahad','saud','yasser','','nawaf','abdullah','omar','','','','','salman'];
-  const womenPhotos = ['sarah','lulwa','noura','amal','hind','manal'];
+  const menPhotos = ['fahad','saud','yasser','mazen-test-v3','','abdullah','omar','khalid-test-v3'];
+  const womenPhotos = ['sarah-realistic-v2','lulwa-realistic-v2','noura-realistic-v2','amal-realistic-v2','hind-test-v3','manal-realistic-v2','reem-test-v3'];
   const photo = woman ? womenPhotos[index] : menPhotos[index];
   const tone = (['tone_3','tone_5','tone_2','tone_7','tone_4','tone_6'] as const)[index%6];
-  const dress = (['hijab','niqab','uncovered','hijab','niqab','uncovered'] as const)[index%6];
+  const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered'] as const)[index];
   return {
     id:`${woman?'w':''}p${String(index+1).padStart(2,'0')}`, isDemo:true as const,
     membershipTier: (index%5===0?'seriousness':index%5===1||index%5===3?'premium':'free') as 'free'|'premium'|'seriousness',
@@ -573,23 +545,30 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
     assessmentVersion:'marriage-v3' as const,personalityVersion: "personality-v1" as const,
     personalityAnswers:Object.fromEntries(personalityQuestionsFor("personality-v1").map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
     relocationCities:seed.relocate?['الرياض','جدة']:[],
-    surveyAnswers:demoSurvey(seed,index),beena:fictionalBeena(index+genderIndex*15+1),
+    surveyAnswers:demoSurvey(seed,index,'marriage-v3'),beena:fictionalBeena(index+genderIndex*15+1),
+    currentAssessment: {
+      assessmentVersion, personalityVersion:'personality-v2' as const,
+      surveyAnswers:demoSurvey(seed,index,assessmentVersion),
+      personalityAnswers:Object.fromEntries(personalityQuestionsFor('personality-v2').map((q,i)=>[q.id,seed.currentTraits[i]])),
+    },
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),
     partnerCriteria:{ tribalBackground:{mode:'any' as const},nationality:{mode:'any' as const},smoking:{mode:seed.smoking?'any' as const:'prefer' as const,target:'never' as const} },
     marriageBasics:{
-      heightCm:woman?[165,169,162,167,164,166,160,171,158,163,168,161,170,164,166][index]:[179,183,174,181,176,178,172,180,185,175,177,173,182,179,178][index],
-      weightKg:woman?[59,64,55,62,58,60,54,67,52,65,61,57,66,58,63][index]:[78,85,72,82,76,80,69,87,84,75,83,73,86,79,77][index],
+      heightCm:woman?[165,169,162,167,164,166,160,171,158,163][index]:[179,183,174,181,176,178,172,180,185,175][index],
+      weightKg:woman?[59,64,55,62,58,60,54,67,52,65][index]:[78,85,72,82,76,80,69,87,84,75][index],
       nationality:seed.nationality??(woman?'سعودية':'سعودي'),maritalStatus:seed.status??'never_married',childrenCount:seed.childrenCount??0,
       polygynyPreference:index%5===3?'open_to_discussion':'not_open',smoking:seed.smoking??'never',tribalBackground:index%5===4?'prefer_not_to_say':index%2?'tribal':'non_tribal',
       marriageTimeline:seed.timeline,meetingPreference:seed.meeting,
       ...(woman?{skinTone:tone,dressStyle:dress,dressFlexibility:index%2?'open_to_discussion':'keep'}:{}),
     } as MarriageBasics,
     publicAvatar:woman&&!photo?{style:dress,skinTone:tone} as PublicAvatar:null,
-    demoPhoto:photo?`/demo/portraits/${photo}${woman?'-realistic-v2':''}.webp`:undefined,
+    demoPhoto:photo?`/demo/portraits/${photo}.webp`:undefined,
   };
 }));
 const examples = demoPeople;
-
+function demoAssessmentFor(person: (typeof examples)[number], viewer: Profile) {
+  return viewer.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
+}
 
 const demoPortraitFiles = new Map<string, { file: Blob; clearBlob?: Blob; policy: PortraitRevealPolicy }>();
 function validatePortraitUpload(file: Blob, blur: number) {
@@ -635,7 +614,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         {
           id: "welcome",
           senderIsMe: false,
-          body: peerPrefix ? "أهلًا، ما المكان الذي تود زيارته؟" : "أهلًا، لفتني أننا نحب السفر. ما المكان الذي تودين زيارته؟",
+          body: peerPrefix ? "هلا، أنا دايم أحتار بين مكتبة ومعرض إذا فضيت. وش تختار لو عندك ساعتين؟" : "هلا، أنا أحب المتاحف إذا سافرت. فيه مكان زرته وتحسين يستاهل الزيارة؟",
           createdAt: new Date().toISOString(),
         },
       ],
@@ -699,9 +678,11 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
   function candidates() {
-    return rankPreferences({ ...viewer(), relocationCities, id: "demo-viewer" }, examples).map(({ person, ...fit }) => card(person, fit));
+    const member = { ...viewer(), relocationCities, id: "demo-viewer" };
+    const people = examples.map(person => demoAssessmentFor(person, member));
+    return rankPreferences(member, people).map(({ person, ...fit }) => card(person, fit));
   }
-  function card(person: (typeof examples)[number], { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
+  function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // Fixtures have no member consent receipt. Keep their private matching
     // inputs intact, while using the same default-hidden public presentation.
     const visibleBasics={...person.marriageBasics};
@@ -999,7 +980,8 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         if (r.status === "closed") return [];
         const peer = examples.find(p => p.id === r.peer);
         if (!peer || peer.gender === member.gender) return [];
-        const fit = r.status === "accepted" ? describeFit(member, peer) : comparePreferences(member, peer);
+        const comparable = demoAssessmentFor(peer, member);
+        const fit = r.status === "accepted" ? describeFit(member, comparable) : comparePreferences(member, comparable);
         if (!fit) return [];
         return [{ id: r.id, celebrationKey:r.celebrationKey&&!celebrationsSeen.has(r.celebrationKey)?r.celebrationKey:undefined, createdAt: r.createdAt, updatedAt: r.updatedAt, status: r.status, direction: r.direction, person: card(peer, fit),
               unreadCount: r.status === "accepted" ? unread(r.id) : 0,

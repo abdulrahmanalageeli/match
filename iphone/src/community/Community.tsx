@@ -460,7 +460,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
     <div className="df-portrait-shade" aria-hidden="true" />
     <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
     <div className="df-portrait-badges">
-      {(!person.portrait||person.isDemo)&&!(person.isDemo&&source.simulation)&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
+      {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
     <div className="df-portrait-identity">{timeline && <span className="df-intention"><Clock3 size={12} />توقيت الزواج · {marriageTimelineLabels[timeline]}</span>}
       <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>

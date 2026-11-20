@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
 import ts from 'typescript';
-import {dimensionsForVersion,comparePreferences,interests} from '../compatibility/model.ts';
+import {assessmentVersion,dimensionsForVersion,comparePreferences,interests} from '../compatibility/model.ts';
 import {personalityQuestionsFor,legacyPersonalityOptions as personalityOptions} from '../compatibility/personality.ts';
 import personas from './demoPersonas.json' with {type:'json'};
 
@@ -13,17 +13,17 @@ const personalityQuestions=personalityQuestionsFor('personality-v1');
 const dataFile=new URL('./data.ts',import.meta.url);
 const content=await readFile(dataFile,'utf8');
 const fixtures=content.slice(content.indexOf('const sampleLifeAnswers'),content.indexOf('const demoPortraitFiles'));
-const imports=`import {dimensionsForVersion} from ${JSON.stringify(new URL('../compatibility/model.ts',import.meta.url).href)};
+const imports=`import {assessmentVersion,dimensionsForVersion} from ${JSON.stringify(new URL('../compatibility/model.ts',import.meta.url).href)};
 import {personalityQuestionsFor} from ${JSON.stringify(new URL('../compatibility/personality.ts',import.meta.url).href)};
 import {beenaScenarios} from ${JSON.stringify(new URL('../beena/model.ts',import.meta.url).href)};`;
 const compiled=ts.transpileModule(fixtures,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {demoPeople,demoProfile}=await import('data:text/javascript;base64,'+Buffer.from(imports+compiled).toString('base64'));
 
-test('fictional roster contains 15 distinct adults per gender with complete valid assessments',()=>{
-  assert.equal(demoPeople.length,30);
-  assert.equal(new Set(demoPeople.map(p=>p.id)).size,30);
-  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,30);
-  for(const gender of ['man','woman'])assert.equal(demoPeople.filter(p=>p.gender===gender).length,15);
+test('fictional roster contains 10 distinct adults per gender with complete valid assessments',()=>{
+  assert.equal(demoPeople.length,20);
+  assert.equal(new Set(demoPeople.map(p=>p.id)).size,20);
+  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,20);
+  for(const gender of ['man','woman'])assert.equal(demoPeople.filter(p=>p.gender===gender).length,10);
   for(const p of demoPeople){
     assert.equal(p.isDemo,true);assert(p.age>=18);
     assert(p.bio.length>=80);assert(p.lookingFor&&p.valuesStatement&&p.lifeTogether&&p.education);
@@ -33,6 +33,19 @@ test('fictional roster contains 15 distinct adults per gender with complete vali
       for(const id of [d.id,d.partnerId])assert(d.options.some(o=>o.code===p.surveyAnswers[id]),`${p.id}: ${id}`);
     }
     for(const q of personalityQuestions)assert(personalityOptions.some(o=>o.code===p.personalityAnswers[q.id]),`${p.id}: ${q.id}`);
+    const current={...p,...p.currentAssessment};
+    assert.equal(current.assessmentVersion,assessmentVersion);
+    assert.equal(Object.keys(current.surveyAnswers).length,32);
+    assert.equal(Object.keys(current.personalityAnswers).length,15);
+    for(const d of dimensionsForVersion(assessmentVersion)){
+      for(const id of [d.id,d.partnerId])assert(d.options.some(o=>o.code===current.surveyAnswers[id]),`${p.id}: ${id}`);
+    }
+    for(const q of personalityQuestionsFor(current.personalityVersion)){
+      assert(q.options.some(o=>o.code===current.personalityAnswers[q.id]),`${p.id}: ${q.id}`);
+    }
+    const currentComparison=comparePreferences(current,{...current,id:'current-'+p.id,gender:p.gender==='man'?'woman':'man'});
+    assert.equal(currentComparison.fit.assessmentComplete,true);
+    assert.equal(currentComparison.fit.personality.complete,true);
     const peer={...p,id:'opposite-'+p.id,gender:p.gender==='man'?'woman':'man'};
     const comparison=comparePreferences(p,peer);
     assert.equal(comparison.fit.assessmentComplete,true);
@@ -60,7 +73,7 @@ test('roster spans every measured personality dimension and realistic life situa
 });
 
 test('demo portraits remain valid and optional while server persona briefs match source profiles',async()=>{
-  assert(demoPeople.filter(p=>!p.demoPhoto).length>=15);
+  for(const gender of ['man','woman'])assert.equal(demoPeople.filter(p=>p.gender===gender&&p.demoPhoto).length,7);
   assert.equal(demoPeople.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
   assert.equal(demoPeople.find(p=>p.id==='wp01').demoPhoto,'/demo/portraits/sarah-realistic-v2.webp');
   for(const p of demoPeople.filter(p=>p.demoPhoto))await access(new URL('../../public'+p.demoPhoto,import.meta.url));

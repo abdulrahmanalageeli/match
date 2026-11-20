@@ -95,6 +95,50 @@
       "bytes": 117700,
       "sha256": "532c1cd9e574fdc2c5e26e8b6de77f00df7755a46d8de956cfbe63e898aeb0fe",
       "prompt": "Use case: photorealistic-natural. Asset type: fictional profile portrait for a serious Arabic marriage app demo, not a real member. Create one completely fictional Saudi/Gulf adult, not resembling any celebrity or specific real person. Natural premium editorial photography, truthful skin texture and small imperfections, sincere relaxed expression, modest clothing, soft daylight, warm ivory/sand/muted olive palette, pleasant slightly blurred architectural or garden background. Portrait 4:5, head and upper torso with comfortable space above head, face centered around upper third, eyes looking at camera, camera at eye level, realistic 50mm lens perspective. Polished but approachable and ordinary rather than model glamour. No words, logo, watermark, frames, collage, other people, excessive retouching, plastic skin, exaggerated bokeh, wedding clothing or romance props. Subject: fictional Manal, clearly adult 30-year-old Saudi woman with light olive skin, a round face with soft cheeks, warm hazel-brown eyes, natural dark eyebrows, a friendly relaxed smile. Wearing a cream hijab covering hair and neck and a loose modest muted burgundy blouse. Standing beside a softly blurred sandstone wall and gentle garden greenery. Minimal makeup, natural realistic everyday appearance."
+    },
+    {
+      "file": "mazen-test-v3.webp",
+      "fictional": true,
+      "width": 825,
+      "height": 1100,
+      "bytes": 81006,
+      "sha256": "36992772f61d1e8f770084625378610456499b2e3cee131d6f707a497be10d20",
+      "generator": "Built-in image_gen.imagegen",
+      "encoding": "WebP quality 84; resized to fit 900 × 1100 without retouching",
+      "prompt": "Use case: photorealistic-natural. Fictional adult Saudi person in an unretouched vertical smartphone profile photo for private app testing. Adult Saudi man in a white thobe and checked shemagh in a warm Riyadh courtyard."
+    },
+    {
+      "file": "khalid-test-v3.webp",
+      "fictional": true,
+      "width": 825,
+      "height": 1100,
+      "bytes": 70832,
+      "sha256": "cb728f4bc2c4f469e30008b3922b10e7697f4a755110f3b04e0c1504d1b30da8",
+      "generator": "Built-in image_gen.imagegen",
+      "encoding": "WebP quality 84; resized to fit 900 × 1100 without retouching",
+      "prompt": "Use case: photorealistic-natural. Fictional adult Saudi person in an unretouched vertical smartphone profile photo for private app testing. Adult Saudi man in a casual overshirt by Khobar Corniche in soft daylight."
+    },
+    {
+      "file": "reem-test-v3.webp",
+      "fictional": true,
+      "width": 825,
+      "height": 1100,
+      "bytes": 90358,
+      "sha256": "f9e7067d36294088914b147a6b10b4bcd2111ab97cab3ccc4f637a74a969b92c",
+      "generator": "Built-in image_gen.imagegen",
+      "encoding": "WebP quality 84; resized to fit 900 × 1100 without retouching",
+      "prompt": "Use case: photorealistic-natural. Fictional adult Saudi person in an unretouched vertical smartphone profile photo for private app testing. Adult Saudi woman in a black hijab at a quiet Jeddah cafe."
+    },
+    {
+      "file": "hind-test-v3.webp",
+      "fictional": true,
+      "width": 825,
+      "height": 1100,
+      "bytes": 146028,
+      "sha256": "4944de8ebcf2f4e0981b10bab8a877cd8b97ad6ad75c680d092096a3edfc5cbe",
+      "generator": "Built-in image_gen.imagegen",
+      "encoding": "WebP quality 84; resized to fit 900 × 1100 without retouching",
+      "prompt": "Use case: photorealistic-natural. Fictional adult Saudi person in an unretouched vertical smartphone profile photo for private app testing. Adult Saudi woman in a taupe hijab in a Riyadh palm garden."
     }
   ]
 }

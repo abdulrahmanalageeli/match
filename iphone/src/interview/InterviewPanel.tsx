@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pe
 import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
-import { ConfirmedAnswers, HybridAssessment } from './HybridAssessment';
+import { ConfirmedAnswers, HybridAssessment, LunaSessionSteps } from './HybridAssessment';
 import { parentingApplicable, parentingContext } from '../compatibility/parenting.mjs';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
@@ -86,12 +86,12 @@ function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
   </div>;
 }
 
-export function InterviewEntry({ available, open, direct }: { available: boolean; open: () => void; direct?: () => void }) {
+export function InterviewEntry({ available, open }: { available: boolean; open: () => void }) {
   if (!available) return null;
   return <section className="wi-entry" aria-labelledby="wi-entry-title">
     <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
-    <p>{direct ? 'اختر ما يشبهك وما تتمناه في شريكك. يمكنك البدء بالاختيارات أو الحديث مع لونا، ومراجعة إجاباتك قبل اعتمادها.' : 'عرّفنا عن نفسك، ثم راجع إجاباتك عن الزواج والشخصية.'}</p>
-    <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span>{direct && <MotionPressButton className="wi-button wi-button-primary" onClick={direct}>الاختيارات المباشرة</MotionPressButton>}<MotionPressButton className={direct ? "wi-link" : "wi-button wi-button-primary"} onClick={open}>ابدأ الحوار <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
+    <p>احكِ للونا عنك وعن الشريك اللي تتمناه. التفاصيل الواضحة تساعدها تختصر عليك الأسئلة، وأنت تراجع إجاباتك قبل اعتمادها.</p>
+    <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار مع لونا <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;
 }
 
@@ -460,6 +460,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   // On a fresh device the receipt can outlive the application draft.
   const savedStructuredChoices = Object.fromEntries([...receiptChoices, ...(assessmentContext ?? [])].map(({ id, values }) => [id, values]));
   const aiProposals = direct ? [] : validProposals.filter(item => snapshot.carryForwardIds?.includes(item.id) && !item.needsClarification && item.source !== 'self_default' && item.evidence.some(e => !e.turnId.startsWith('context:')));
+  const openingTurnId = doc?.turns[0]?.id;
+  const openingInsights = nextStepTurn && openingTurnId ? aiProposals.filter(item =>
+    !savedStructuredChoices[item.id]?.length && item.evidence.some(e => e.turnId === openingTurnId)
+  ) : [];
   const structuredChoices = {
     ...Object.fromEntries(aiProposals.map(({ id, values }) => [id, values])),
     ...savedStructuredChoices,
@@ -490,7 +494,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const responding = ['answer', 'retry', 'clarify'].includes(busy) || queuedIntent === 'answer';
   const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
-  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : 'حفظنا آخر تعديل';
+  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : answer.trim() ? 'كتابتك محفوظة' : '';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
@@ -547,7 +551,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           }}>إعادة الاتصال</button>
           <HybridAssessment direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
             completingUnavailable onComplete={()=>{}}/>
-        </section> : !loaded ? <div className="wi-loading" role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>نفتح جلستك…</p><TypingDots/>{error && <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button>}</div>
+        </section> : !loaded ? <div className="wi-loading" data-stopped={Boolean(error) || undefined} role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>{error ? 'تعذّر فتح جلستك' : 'نفتح جلستك…'}</p>{error ? <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button> : <TypingDots/>}</div>
         : !doc ? <section className="wi-welcome">
           <span className="wi-welcome-emblem" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="42" height="49" alt=""/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>{direct ? 'اختياراتك للتوافق' : 'نتعرّف إليك، بكلماتك.'}</h1>
@@ -565,6 +569,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
         : applied && !needsParenting ? <section className="wi-complete">
+          <span className="wi-confirmation-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="34" height="38" alt=""/><Check size={17}/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1>
           <p>{snapshot.structuredConfirmation ? `أضفنا ${number(doc.confirmed.length)} إجابة اعتمدتها إلى مسودة ملفك.` : 'أضفنا إجاباتك إلى مسودة ملفك.'} يمكنك مراجعتها قبل إرساله.</p>
           {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender}/>}
@@ -578,8 +583,6 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               {hasFollowUp && !clarifying && <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => setClarifying('followUp')}>أردّ على لونا</button>}
             </div>}
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
-          {!responding && !doc.pendingAnalysis && aiProposals.some(item => !savedStructuredChoices[item.id]) &&
-            <p className="wi-coverage-note" role="status"><Check size={15}/> استخدمنا كلامك لتجهيز بعض الإجابات. تقدر تعدّلها في المراجعة.</p>}
           {!direct && profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
             <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
           </button>}
@@ -662,35 +665,42 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         </section>
         : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
           <div className="wi-session-compass">
+            {hybridEnabled ? <LunaSessionSteps current="قصتك"/> : <>
             <div className="wi-chat-context"><span><HeartHandshake size={15}/>{activeChapter.label}</span><span><LockKeyhole size={12}/> خاص · لا يظهر للأعضاء</span></div>
             <ol className="wi-session-milestones" aria-label="مراحل جلسة التوافق">
               {interviewChapters.map((chapter,index)=><li key={chapter.id} data-state={index<chapterIndex?'done':index===chapterIndex?'current':'next'} aria-current={index===chapterIndex?'step':undefined} aria-label={chapter.label}><i aria-hidden="true">{index<chapterIndex?<Check size={10}/>:index+1}</i><span>{chapter.shortLabel}</span></li>)}
-            </ol>
+            </ol></>}
             {!!profileProposals.length && <button className="wi-profile-summary-link" type="button" onClick={()=>setProfileReview(true)} disabled={actionBlocked}><span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل لملفك وتفضيلاتك</span><span>مراجعة <ArrowLeft size={13}/></span></button>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
             {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>{hybridEnabled ? 'حديثك خاص، وتكتب نبذة ملفك لاحقًا.' : 'اكتب للونا فقرة قصيرة عنك وعن الزواج الذي تتمناه. حديثك خاص. بعد رسالتك الأولى ننتقل للاختيارات، وتكتب نبذة ملفك لاحقًا.'}</p></div>}
-            {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
+            {doc.turns.map((turn,index) => {
+              const changes = (captures[turn.id] ?? []).filter(change => !nextStepTurn || index !== 0 || change.profile);
+              return <div className="wi-exchange" key={turn.id}>
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
-              {!!captures[turn.id]?.length && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من كلامك</span><div>{captures[turn.id].map(change=>change.profile
+              {index === 0 && openingInsights.length > 0 && <details className="wi-opening-insights">
+                <summary><span><strong>اقتراحات من كلامك <bdi>{number(openingInsights.length)}</bdi></strong><small>{[...new Set(openingInsights.map(proposalTitle))].slice(0, 2).join(' · ')}</small></span><ChevronDown size={16} aria-hidden="true"/></summary>
+                <dl>{openingInsights.map(item => <div key={item.id}>
+                  <dt>{proposalTitle(item)} · {proposalSide(item)}</dt>
+                  <dd><strong>{proposalOptions(item).filter(option => item.values.includes(option.value)).map(option => option.label).join('، ')}</strong><q>{item.evidence.find(e => e.turnId === openingTurnId)?.quote}</q></dd>
+                </div>)}</dl>
+              </details>}
+              {changes.length > 0 && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من كلامك</span><div>{changes.map(change=>change.profile
                 ? <button key={change.id} type="button" className="wi-capture-chip" data-changed={change.changed || undefined} disabled={actionBlocked} onClick={()=>setProfileReview(true)} title={change.value}><small>{captureBadge(change)}</small><span>{change.title}</span><Pencil size={11}/></button>
                 : <span key={change.id} className="wi-capture-chip"><small>{change.title}</small><strong>{change.value}</strong></span>)}</div></div>}
-            </div>)}
-            {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1></div>}
+            </div>;})}
+            {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1><p>خطوتك الجاية بكلماتك. هذا السؤال اختياري.</p></div>}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟', true)}</div>
+            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit"><strong>كل ما ذكرت تفاصيل واضحة، قدرت أختصر عليك أسئلة أكثر.</strong> أقترح إجابات من كلامك، وأنت تراجعها وتعدّلها قبل الاعتماد.</p>}
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
             {!responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}
           </div>
           <form className="wi-composer" data-opening={openingTurn || undefined} data-next-step={nextStepTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
-            {openingTurn && hybridEnabled && <>
-              <p className="wi-opening-benefit"><strong>كل ما ذكرت تفاصيل واضحة، قدرت أختصر عليك أسئلة أكثر.</strong> أقترح لك إجابات من كلامك، وتقدر تراجعها وتعدّلها قبل الاعتماد.</p>
-              <OpeningExample/>
-            </>}
+            {openingTurn && hybridEnabled && <OpeningExample/>}
             {nextStepTurn && <>
-              <p className="wi-opening-benefit">يهمّنا نفهم وش أنت مستعد له اليوم. تقدر تحكي عن الأمور اللي ودّك تتفاهمون عليها أول، أو عن الخطوة اللي تناسبك إذا حصل توافق.</p>
               <OpeningExample key="next-step" nextStep/>
             </>}
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? (hybridEnabled ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يهمك في الزواج.' : 'اختر شيئًا واحدًا يهمّك، مثل كيف تتخذان قرارًا معًا أو متى تحبّ إشراك الأهل.') : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
@@ -698,7 +708,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-count wi-answer-help' : 'wi-answer-count'} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : nextStepTurn ? 3 : 1} wrap="soft" placeholder={openingTurn && hybridEnabled ? 'اكتب بطريقتك، حتى لو كانت كم جملة…' : openingTurn ? 'أهم شيء عندي…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
             <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span>
-              {nextStepTurn ? <button type="button" disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(true)}>تخطّي السؤال</button> :
+              {nextStepTurn ? <button type="button" disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(true)}>تخطّي السؤال</button> : (!openingTurn || !hybridEnabled) &&
                 <button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>}
               <span id="wi-answer-count">{number(answer.length)} من {number(answerLimit)} حرف</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>

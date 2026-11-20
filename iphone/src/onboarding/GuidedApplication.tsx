@@ -246,11 +246,6 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
 
 export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
-  const [directInterview, setDirectInterview] = useState(false);
-  function openInterview(direct = false) {
-    setDirectInterview(direct);
-    setInterviewOpen(true);
-  }
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
   const [aiComplete, setAiComplete] = useState(false);
@@ -755,11 +750,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {aiComplete && savedCompatibilityCount===dimensions.length*2 && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
-                    {interviewAuth && <InterviewEntry available open={()=>openInterview()} direct={()=>openInterview(true)}/>}
+                    {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
-                    <p className="nf-intake-note">{demo||preview?'معاينة الأسئلة. عند التسجيل، تختار بين البطاقات والحوار مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
+                    <p className="nf-intake-note">{demo||preview?'هذه معاينة للأسئلة. عند التسجيل تبدأ جلسة التوافق مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
                     <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
                     {savedCompatibilityCount===dimensions.length*2 && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
                   </div>}
@@ -813,7 +808,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       {interviewAuth && consents.assessment && <InterviewPanel
         onAssessmentVersion={legacy => { const saved=current.current.answers; const next=interviewDraftVersion(saved,legacy); if (!editing && next!==saved) update(next); }}
         key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
-        open={interviewOpen} direct={directInterview} auth={interviewAuth} onboarding={!editing}
+        open={interviewOpen} auth={interviewAuth} onboarding={!editing}
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}

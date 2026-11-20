@@ -24,7 +24,7 @@ await mkdir(output, { recursive: true });
 const fixture = `
   import React, { useEffect, useState } from 'react';
   import { createRoot } from 'react-dom/client';
-  import { InterviewPanel } from '/src/interview/InterviewPanel';
+  import { InterviewEntry, InterviewPanel } from '/src/interview/InterviewPanel';
   import { initializeDevicePreferences } from '/src/settings/preferences';
   import '/src/typography.css';
   import '/src/ambient.css';
@@ -36,10 +36,12 @@ const fixture = `
   window.applied = [];
   function Fixture() {
     const [choices, setChoices] = useState(null);
+    const [showEntry, setShowEntry] = useState(new URLSearchParams(location.search).has('entry'));
     useEffect(() => {
       void fetch('/__hybrid-draft').then(response => response.json()).then(setChoices);
     }, []);
     if (!choices) return null;
+    if (showEntry) return <InterviewEntry available open={() => setShowEntry(false)}/>;
     return <InterviewPanel open direct={location.hash === '#direct'} gender={new URLSearchParams(location.search).get('gender') === 'woman' ? 'woman' : 'man'} auth={{ testSession: 'isolated-browser-fixture' }} onboarding
       profileContext={new URLSearchParams(location.search).has('children') ? [
         {fieldId:'marriageBasics.childrenCount',values:[new URLSearchParams(location.search).get('children')],mode:null,exclude:false},
@@ -272,6 +274,8 @@ try {
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   const review = page.locator('.wi-hybrid-review');
+  assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'المراجعة');
+  assert.match(await review.locator('summary').first().innerText(),/الأطفال/);
   assert.equal(await review.locator('select').count(),47);
   await review.locator('summary').first().click();
   const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
@@ -289,6 +293,7 @@ try {
   assert.equal(calls.length, actionsBeforeCards, 'Reviewing the choices stays local');
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
+  await page.screenshot({path:resolve(output,'confirmed.png'),animations:'disabled'});
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
   draft = {};
@@ -450,7 +455,13 @@ try {
   openingExperience = true;
   draft = {};
   snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:47}};
-  await page.goto(url);
+  await page.goto(url + '?entry');
+  const start = page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true});
+  await start.waitFor();
+  assert.equal(await page.locator('.wi-entry button').count(),1);
+  await start.click();
+  await page.getByRole('heading',{name:/ابدأ من قصتك/}).waitFor();
+  assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'قصتك');
   await page.emulateMedia({reducedMotion:'no-preference'});
   const typedWord = page.locator('.wi-current-question .wi-type-word').first();
   const wordAnimation = () => typedWord.evaluate(el => getComputedStyle(el).animationName);
@@ -481,8 +492,22 @@ try {
   assert.equal(await page.locator('#wi-answer').inputValue(),'');
   assert.equal(await page.locator('.wi-chat-suggestions').count(),0);
   await page.screenshot({path:resolve(output,'opening-next-step.png'), animations:'disabled'});
+  const insight = page.locator('.wi-opening-insights');
+  await insight.locator('summary').click();
+  assert.deepEqual(await insight.locator('q').allTextContents(),supported.slice(0,suggestionCount).map(p=>p.evidence[0].quote));
+  await page.screenshot({path:resolve(output,'opening-evidence.png'),animations:'disabled'});
+  const answersBeforeResume = calls.filter(call=>call.action==='answer').length;
+  await page.goto(url+'?resumed');
+  await insight.locator('summary').waitFor();
+  assert.equal(await insight.locator('q').count(),suggestionCount);
+  assert.equal(calls.filter(call=>call.action==='answer').length,answersBeforeResume);
+  await page.setViewportSize({width:320,height:640});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await insight.evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth <= el.clientWidth + 1));
   await page.getByRole('button',{name:'تخطّي السؤال'}).click();
   await card.waitFor();
+  assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'اختياراتك');
   assert.ok(calls.at(-1).skip);
   console.log('PASS: timed example and optional free-text next step');
   assert.deepEqual(errors, []);

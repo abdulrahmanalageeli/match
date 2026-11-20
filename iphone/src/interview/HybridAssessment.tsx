@@ -16,6 +16,16 @@ import type { InterviewChoiceHelp, InterviewProposal } from './types';
 import './hybrid-assessment.css';
 
 type Choices = Record<string, string[]>;
+const sessionSteps = ['قصتك', 'اختياراتك', 'المراجعة'] as const;
+
+export function LunaSessionSteps({ current }: { current: typeof sessionSteps[number] }) {
+  const active = sessionSteps.indexOf(current);
+  return <ol className="wi-luna-steps" aria-label="مراحل جلسة التوافق">
+    {sessionSteps.map((step, index) => <li key={step} aria-current={step === current ? 'step' : undefined} data-done={index < active || undefined}>
+      <span className="wi-step-dot" aria-hidden="true">{index < active && <Check size={10}/>}</span>{step}
+    </li>)}
+  </ol>;
+}
 type Gender = 'woman' | 'man';
 type Field = {
   id: string;
@@ -377,6 +387,7 @@ export function HybridAssessment({
   const hasSuggestion = (field: Field) => field.options.some(option => option.code === aiValues.get(field.id)) && Boolean(selected(field, choices));
   const extracted = fields.filter(hasSuggestion);
   const capturedCount = extracted.length;
+  const retainedCount = extracted.filter(wasCaptured).length;
   const pendingSuggestions = extracted.filter(field => !savedChoices[field.id]?.length);
   const pendingIds = new Set(pendingSuggestions.map(field => field.id));
   const selfAnswer = card && selected(card.self, choices);
@@ -391,7 +402,8 @@ export function HybridAssessment({
     if (previousIndex.current === index) return;
     previousIndex.current = index;
     heading.current?.focus({ preventScroll: true });
-    (precedingSuggestion.current ?? heading.current)?.scrollIntoView({block:'start', behavior:'instant'});
+    const target = index < 0 ? heading.current?.closest('.wi-hybrid') : precedingSuggestion.current ?? heading.current;
+    target?.scrollIntoView({block:'start', behavior:'instant'});
   }, [index]);
 
   function choose(id: string, code: string) {
@@ -445,10 +457,37 @@ export function HybridAssessment({
   const formalStep = selected(timing.self, choices);
   const partnerStep = selected(timing.partner, choices);
   const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => commitField(field, code)} disabled={disabled}/>;
+  const suggestionsReview = capturedCount > 0 && <details key={card ? 'suggestions' : 'review-suggestions'} className="wi-hybrid-captured-review">
+      <summary><span className="wi-extracted-summary"><span>هذا ما فهمته منك <bdi className="wi-extracted-count">{number.format(capturedCount)}</bdi></span>
+        {card && pendingSuggestions.length > 0 && <small>{perspective(pendingSuggestions[0])} · {pendingSuggestions[0].label} · {selected(pendingSuggestions[0], choices)?.label}</small>}
+      </span><ChevronDown size={17} aria-hidden="true"/></summary>
+      <p>عدّل أي اختيار هنا. تعتمد إجاباتك معًا بعد إكمال الباقي.</p>
+      <div className="wi-hybrid-review-fields">
+        {extracted.map(field => <div key={field.id} className="wi-extracted-answer" data-corrected={!wasCaptured(field) || undefined}><ReviewChoice
+          field={field}
+          value={selected(field, choices)?.code}
+          captured={wasCaptured(field)}
+          side={field.id.startsWith('personality:') ? 'عن شخصيتي' : field.id.endsWith(':partner') ? 'تفضيلي في الشريك' : 'عنّي'}
+          onChoose={code => choose(field.id, code)}
+          disabled={disabled}
+        />
+          {wasCaptured(field) && <details className="wi-hybrid-evidence"><summary>من كلامك</summary>
+            {aiProposals.find(p => p.id === field.id)?.evidence.filter(e => !e.turnId.startsWith('context:')).map(e => <q key={e.turnId + e.quote}>{e.quote}</q>)}
+          </details>}
+          {!wasCaptured(field) && <small>عدّلت هذه الإجابة</small>}
+        </div>)}
+      </div>
+      {card && pendingSuggestions.length > 0 && <button type="button" className="wi-link" disabled={disabled} onClick={event => {
+        onChange(explicit, pendingSuggestions.map(field => field.id));
+        event.currentTarget.closest('details')?.removeAttribute('open');
+        heading.current?.focus();
+      }}>اعتماد المقترحات في مسودتي</button>}
+    </details>;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
-    <div className="wi-hybrid-progress">
+    {!direct && <LunaSessionSteps current={card ? 'اختياراتك' : 'المراجعة'}/>}
+    {card && <><div className="wi-hybrid-progress">
       <span>{card ? themeCards[card.themeIndex].label : 'مراجعة التوافق'}</span>
-      <small>{remainingCards ? `متبقّي ${number.format(remainingCards)} موضوعًا` : 'بقيت المراجعة'}</small>
+      <small>{remainingCards ? `المواضيع المتبقية · ${number.format(remainingCards)}` : 'بقيت المراجعة'}</small>
       <progress aria-label="اكتمال مواضيع التوافق" value={activeCardCount - remainingCards} max={activeCardCount}/>
     </div>
     <details className="wi-living-portrait" onToggle={event => setPortraitOpen(event.currentTarget.open)}>
@@ -492,38 +531,13 @@ export function HybridAssessment({
           </details>;
         })}
       </div>}
-    </details>
-    {capturedCount > 0 && <details key={card ? 'suggestions' : 'review-suggestions'} open={!card || undefined} className="wi-hybrid-captured-review">
-      <summary><span className="wi-extracted-summary"><span>هذا ما فهمته منك <bdi className="wi-extracted-count">{number.format(capturedCount)}</bdi></span>
-        {card && pendingSuggestions.length > 0 && <small>{[...new Set(pendingSuggestions.map(field => field.label))].slice(0, 2).join(' · ')}</small>}
-      </span><ChevronDown size={17} aria-hidden="true"/></summary>
-      <p>عدّل أي اختيار هنا. تعتمد إجاباتك معًا بعد إكمال الباقي.</p>
-      <div className="wi-hybrid-review-fields">
-        {extracted.map(field => <div key={field.id} className="wi-extracted-answer" data-corrected={!wasCaptured(field) || undefined}><ReviewChoice
-          field={field}
-          value={selected(field, choices)?.code}
-          captured={wasCaptured(field)}
-          side={field.id.startsWith('personality:') ? 'عن شخصيتي' : field.id.endsWith(':partner') ? 'تفضيلي في الشريك' : 'عنّي'}
-          onChoose={code => choose(field.id, code)}
-          disabled={disabled}
-        />
-          {wasCaptured(field) && <details className="wi-hybrid-evidence"><summary>من كلامك</summary>
-            {aiProposals.find(p => p.id === field.id)?.evidence.filter(e => !e.turnId.startsWith('context:')).map(e => <q key={e.turnId + e.quote}>{e.quote}</q>)}
-          </details>}
-          {!wasCaptured(field) && <small>عدّلت هذه الإجابة</small>}
-        </div>)}
-      </div>
-      {card && pendingSuggestions.length > 0 && <button type="button" className="wi-link" disabled={disabled} onClick={event => {
-        onChange(explicit, pendingSuggestions.map(field => field.id));
-        event.currentTarget.closest('details')?.removeAttribute('open');
-        heading.current?.focus();
-      }}>اعتماد المقترحات في مسودتي</button>}
-    </details>}
+    </details></>}
+    {card && suggestionsReview}
     {previous && previous !== card && inferred.has(previous.partner.id) &&
       <div ref={precedingSuggestion}>{suggestionRow(previous)}</div>}
     <div className="wi-hybrid-stage" data-back={editingCard || undefined}>
       <h1 key={direct ? 'title' : card?.self.id ?? 'review'} id={headingId} ref={heading} tabIndex={-1}>{card ? card.self.label : 'راجع إجاباتك'}</h1>
-      <small role="status" className="wi-hybrid-recorded" data-echo={retainSelf || (previous && inferred.has(previous.partner.id)) || undefined}>{recorded}</small>
+      {card && <small role="status" className="wi-hybrid-recorded" data-echo={retainSelf || (previous && inferred.has(previous.partner.id)) || undefined}>{recorded}</small>}
       {retainSelf && <p className="wi-self-echo"><span>{pendingIds.has(card.self.id) ? 'في حياتي · اقتراح لونا' : 'في حياتي'}</span><strong>{selfAnswer.label}</strong></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
@@ -541,10 +555,14 @@ export function HybridAssessment({
           <ChoiceCard key={field.id} field={field} value={selected(field, choices)?.code} onChoose={code => commitField(field, code)}
             disabled={disabled} compact={card.personality.includes(field)} help={helpFor(field)}/>)}
       </div> : <>
-        <p className="wi-lead">{capturedCount ? `أضفنا ${number.format(capturedCount)} إجابة من حوارك. راجعها مع اختياراتك قبل الاعتماد.` : 'راجع اختياراتك وعدّل أي إجابة قبل اعتماد التوافق.'}</p>
+        <p className="wi-lead">{retainedCount ? `من كلامك أخذنا ${number.format(retainedCount)} من أصل ${number.format(answered)} إجابة. افتح أي موضوع وراجع اللي يمثّلك قبل الاعتماد.` : 'هذه اختياراتك. افتح أي موضوع وعدّل اللي تبي قبل الاعتماد.'}</p>
+        {suggestionsReview}
         <div className="wi-hybrid-review">
-          {themeCards.map(theme => <details key={theme.label}>
-            <summary>{theme.label}<ChevronDown size={17} aria-hidden="true"/></summary>
+          {themeCards.map(theme => {
+            const sample = theme.cards[0]?.self;
+            const answer = sample && selected(sample, choices);
+            return <details key={theme.label}>
+            <summary><span className="wi-review-topic">{theme.label}{answer && <small>{sample.label} · {answer.label}</small>}</span><ChevronDown size={17} aria-hidden="true"/></summary>
             <div className="wi-hybrid-review-fields">
               {theme.cards.flatMap(item => assessmentFields(item).map(field => <ReviewChoice
                 key={field.id}
@@ -557,7 +575,8 @@ export function HybridAssessment({
                 disabled={disabled}
               />))}
             </div>
-          </details>)}
+          </details>;
+          })}
         </div>
         <details className="wi-portrait-theme wi-reflection">
           <summary>جاهزيتك للخطوة الرسمية</summary>

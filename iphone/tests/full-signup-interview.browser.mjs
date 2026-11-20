@@ -100,7 +100,8 @@ try{
  await page.getByLabel('الاسم المعروض',{exact:true}).fill('سارة');await page.getByRole('button',{name:'امرأة',exact:true}).click();await page.locator('input[data-field="birthDate"]').fill('1997-04-15');await choose('مدينة الإقامة','الرياض');await capture('signup-01-identity');await next('story');
  await choose('مجال العمل أو الوضع المهني','الهندسة والعمارة');await page.locator('textarea[data-field="bio"]').fill('أحب الهدوء والقراءة والمشي. أبحث عن حياة مستقرة فيها تفاهم ووضوح، مع شريك يقدّر الحوار والعمل والعائلة.');await next('details');await capture('signup-02-details');
  await next('avatar');await capture('signup-03-avatar');await next('criteria');await page.getByRole('checkbox',{name:/أوافق على تحليل إجاباتي للتوافق/}).click();await next('compatibility');await capture('signup-04-interview-choice');checks.push('fresh identity, birthday, searchable city/profession, bio, optional details/photo, and assessment consent completed');
- await page.getByRole('button',{name:'ابدأ الحوار',exact:true}).click();await page.locator('.wi-consent input').check();await page.getByRole('button',{name:'خلّنا نبدأ',exact:true}).click();
+ assert.equal(await page.locator('.wi-entry button').count(),1);
+ await page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true}).click();await page.locator('.wi-consent input').check();await page.getByRole('button',{name:'ابدأ الحوار',exact:true}).click();
  const seen=[];let expectedDocument=initial.document;
  for(let i=0;i<steps.length;i++){
   const step=steps[i],action=step.action??'answer',expected=expectedDocument.currentQuestion;

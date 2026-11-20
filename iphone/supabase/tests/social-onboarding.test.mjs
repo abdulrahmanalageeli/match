@@ -37,6 +37,11 @@ test('social registration requires verified phone and consent without changing e
   assert.equal((await rpc(legacy,'marriage_social_onboarding_status')).required,false);
   assert.equal((await rpc(legacy,'marriage_state')).user.id,legacy.id);
   const pending=await proof(google.email,false);
+  // Return with a fresh Google session after leaving during phone verification.
+  await db.query('delete from auth.sessions where id=$1',[google.sessionId]);
+  google.sessionId=randomUUID();
+  await db.query('insert into auth.sessions values($1,$2,null)',[google.sessionId,google.id]);
+  assert.deepEqual(await rpc(google,'marriage_social_onboarding_status'),{required:true,email:google.email});
   await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[pending.proofHash,pending.deviceHash,consent]),/تأكيد رقم الجوال/);
   const valid=await proof(google.email);
   await assert.rejects(rpc(apple,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent]),/تأكيد رقم الجوال/);

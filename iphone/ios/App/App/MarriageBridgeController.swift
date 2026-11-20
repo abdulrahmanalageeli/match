@@ -70,7 +70,12 @@ final class SocialAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationContro
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) { finish(nil, error: error.localizedDescription) }
 
     @objc func google(_ call: CAPPluginCall) {
-        guard pending == nil, let raw = call.getString("url"), let url = URL(string: raw),
+        DispatchQueue.main.async { self.startGoogle(call) }
+    }
+
+    private func startGoogle(_ call: CAPPluginCall) {
+        guard pending == nil else { call.reject("تسجيل الدخول جارٍ."); return }
+        guard let raw = call.getString("url"), let url = URL(string: raw),
               url.scheme == "https", url.host == "wupkifqbwhhebwrgvwai.supabase.co", url.path == "/auth/v1/authorize",
               let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
               query.first(where: { $0.name == "provider" })?.value == "google",
@@ -79,10 +84,22 @@ final class SocialAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationContro
         let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "com.blindmatch.marriage") { [weak self] url, error in
             DispatchQueue.main.async {
                 guard let self else { return }
-                guard error == nil, let parts = url.flatMap({ URLComponents(url: $0, resolvingAgainstBaseURL: false) }),
-                      parts.scheme == "com.blindmatch.marriage", parts.host == "auth", parts.path == "/callback", parts.fragment == nil,
-                      parts.queryItems?.filter({ $0.name == "code" }).count == 1,
-                      let code = parts.queryItems?.first(where: { $0.name == "code" })?.value, !code.isEmpty else { self.finish(nil, error: "أُلغي تسجيل الدخول أو تعذّر إكماله."); return }
+                if let error {
+                    let cancelled = (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+                    self.finish(nil, error: cancelled ? "أُغلقت نافذة Google. للمتابعة، سجّل الدخول بالحساب نفسه." : "تعذّر الرجوع من Google إلى وُدَين. حاول تسجيل الدخول مرة أخرى.")
+                    return
+                }
+                guard let parts = url.flatMap({ URLComponents(url: $0, resolvingAgainstBaseURL: false) }),
+                      parts.scheme == "com.blindmatch.marriage", parts.host == "auth", parts.path == "/callback",
+                      parts.user == nil, parts.password == nil, parts.port == nil,
+                      let items = parts.queryItems,
+                      !items.contains(where: { ["error", "error_code", "error_description"].contains($0.name) }),
+                      ["", "sb="].contains(parts.percentEncodedFragment ?? ""),
+                      items.filter({ $0.name == "code" }).count == 1,
+                      let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty else {
+                    self.finish(nil, error: "لم يصل رمز تسجيل الدخول من Google. أعد المحاولة باستخدام حساب Google نفسه.")
+                    return
+                }
                 self.finish(["code": code])
             }
         }

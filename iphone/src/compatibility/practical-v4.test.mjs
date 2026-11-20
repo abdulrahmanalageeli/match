@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applicableDimensions, comparePreferences, describeFit, dimensions, dimensionsForVersion } from './model.ts';
 import { validatedPreferenceEvidence } from './preference-evidence.ts';
+import traits from './personality-catalog.json' with { type:'json' };
 
 const complete = items => Object.fromEntries(items.flatMap(q => [[q.id,'A'], [q.partnerId,'A']]));
 function member(id, overrides={}) {
@@ -70,7 +71,7 @@ test('known soft criteria share at most 12 points and satisfied strict criteria 
   assert.equal(strictOnly.rankValue,1);
 });
 
-test('hard gates are reciprocal; unanswered structured requirements exclude while survey uncertainty remains pending and personality does not affect ranking', () => {
+test('hard gates are reciprocal; unanswered structured requirements exclude while survey uncertainty remains pending', () => {
   const conflict = change(b,{financial_provision:'B'});
   assert.ok(comparePreferences(a,conflict));
   const hard = {...a,hardRequirements:['financial_provision']};
@@ -89,6 +90,37 @@ test('hard gates are reciprocal; unanswered structured requirements exclude whil
   assert.equal(comparePreferences({...a,partnerCriteria:{height:{mode:'require',min:190}}}, b),null);
   assert.ok(comparePreferences({...a,partnerCriteria:{height:{mode:'prefer',min:190}}}, b));
   assert.equal(comparePreferences(a,b).rankValue,comparePreferences(a,{...b,personalityVersion:'personality-v2',personalityAnswers:{}}).rankValue);
+});
+
+test('a candidate can be first or last depending on reciprocal partner ranges', () => {
+  const profile = (p, high, social) => ({
+    ...p, personalityVersion:'personality-v2', personalityAnswers:{
+      ...Object.fromEntries(traits.map(q => [q.id, high !== q.reverse ? 'E' : 'A'])),
+      ...(social ? {partner_social_energy:social} : {}),
+    },
+  });
+  const outgoing = profile(b,true,'E'), quiet = profile(b,false,'E');
+  const base = comparePreferences(a,b);
+  for (const [preference,preferred,other] of [['A',quiet,outgoing],['E',outgoing,quiet]]) {
+    const seeker = profile(a,true,preference);
+    const match = comparePreferences(seeker,preferred), mismatch = comparePreferences(seeker,other);
+    assert.equal(match.fit.partnerPersonalityFit,100);
+    assert.equal(mismatch.fit.partnerPersonalityFit,0);
+    assert.equal(match.rankValue,base.rankValue*1.02);
+    assert.equal(mismatch.rankValue,base.rankValue*0.98);
+    assert.deepEqual(comparePreferences(preferred,seeker).fit.partnerPersonalityFit,100);
+    const {partnerPersonalityFit,personality,...practical} = match.fit;
+    assert.ok(personality.complete, 'the existing personality similarity remains available');
+    assert.deepEqual(practical,base.fit);
+  }
+  for (const other of [profile(b,true),{...quiet,personalityVersion:'personality-v1'}, {...quiet,personalityAnswers:{partner_social_energy:'A'}}]) {
+    const comparison = comparePreferences(profile(a,true,'A'),other);
+    const {partnerPersonalityFit,personality,...practical} = comparison.fit;
+    assert.equal(partnerPersonalityFit,undefined);
+    assert.deepEqual(practical,base.fit);
+    assert.equal(comparison.rankValue,base.rankValue);
+  }
+  assert.equal(comparePreferences(profile(a,true,'E'),{...outgoing,preferredMaxAge:31}),null);
 });
 
 test('parenting skips only for an explicitly child-free household on all three facts', () => {

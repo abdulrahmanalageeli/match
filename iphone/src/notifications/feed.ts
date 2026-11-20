@@ -1,7 +1,7 @@
 import memberAr from '../member-copy.ts';
-import type { ActivityNotification, Connection, PublicPerson, StepProgress } from '../community/data';
+import type { ActivityNotification, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 
-export type FeedKind = 'visit' | 'interest' | 'request' | 'message' | 'journey' | 'exclusive' | 'match';
+export type FeedKind = 'visit' | 'interest' | 'request' | 'message' | 'journey' | 'exclusive' | 'match' | 'feedback';
 export type FeedFilter = 'all' | 'unread' | 'requests' | 'interests' | 'visits' | 'journey' | 'messages';
 export type FeedItem = {
   id: string; kind: FeedKind; person: PublicPerson; title: string; detail: string;
@@ -10,7 +10,7 @@ export type FeedItem = {
 };
 export const feedTime = (value?: string) => value && Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 
-export function buildFeed(connections: Connection[], notifications: ActivityNotification[], progress: Map<string, StepProgress>, seen: Set<string>): FeedItem[] {
+export function buildFeed(connections: Connection[], notifications: ActivityNotification[], progress: Map<string, StepProgress>, seen: Set<string>, feedback: FeedbackNotice[] = []): FeedItem[] {
   const active = new Set(connections.filter(c => c.status === 'accepted').map(c => c.id));
   const exclusive = new Set(notifications.filter(n => n.kind === 'exclusive').map(n => n.requestId));
   const rows: FeedItem[] = notifications.map(n => {
@@ -55,6 +55,15 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       }
     }
   }
+  const activePeople = new Map(connections.filter(c => c.status === 'accepted').map(c => [c.id, c.person]));
+  for (const notice of feedback) {
+    const person = activePeople.get(notice.requestId);
+    if (!person) continue;
+    const id = `feedback:${notice.stage}:${notice.requestId}`;
+    rows.push({id, kind:'feedback', person, at:notice.at, target:'conversation', requestId:notice.requestId,
+      unread:!seen.has(id), title:notice.stage === 'day2' ? 'كيف كان أول تواصل بينكما؟' : 'كيف مضى أسبوع التعارف؟',
+      detail:`متابعة اختيارية لتعارفك مع ${person.alias}`});
+  }
   return rows.sort((a, b) => feedTime(b.at) - feedTime(a.at) || a.id.localeCompare(b.id));
 }
 
@@ -63,6 +72,6 @@ export function filterFeed(rows: FeedItem[], filter: FeedFilter) {
     || (filter === 'requests' && (row.kind === 'request' || row.kind === 'match'))
     || (filter === 'visits' && row.kind === 'visit')
     || (filter === 'interests' && row.kind === 'interest')
-    || (filter === 'journey' && (row.kind === 'journey' || row.kind === 'exclusive'))
+    || (filter === 'journey' && (row.kind === 'journey' || row.kind === 'exclusive' || row.kind === 'feedback'))
     || (filter === 'messages' && row.kind === 'message'));
 }

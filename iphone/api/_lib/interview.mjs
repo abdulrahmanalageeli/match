@@ -12,6 +12,7 @@ import scenarios from '../../src/beena/catalog.json' with { type: 'json' };
 import profileCatalog from '../../src/interview/profile-catalog.json' with { type: 'json' };
 
 import openingScenarios from '../../src/interview/opening-scenarios.json' with { type: 'json' };
+import openingPrompts from '../../src/interview/opening-prompts.json' with { type: 'json' };
 const publicWriting = new Set(['bio','lookingFor','lifeTogether','valuesStatement','marriageIntent']);
 
 export const INTERVIEW_MODEL = 'gpt-6-luna';
@@ -61,11 +62,11 @@ export function parseInterviewInput(body) {
   if (!record(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw invalid();
   const allowed = {
     load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
-    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'],
-    clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed', 'verifyChoices'],
+    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow'],
+    clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed', 'verifyChoices', 'editNextStep'],
     choiceHelp: ['action', 'revision', 'fieldId', 'answer', 'priorAnswer', 'gender'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
-    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply'], resume: ['action', 'revision'], delete: ['action', 'revision'],
+    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
     directConfirm: ['action', 'revision', 'choices', 'profileContext', 'sensitiveProfileAllowed', 'inferredPartnerIds'],
     structuredConfirm: ['profileContext','sensitiveProfileAllowed','action', 'revision', 'choices', 'shareReview', 'profileChoices', 'inferredPartnerIds'],
@@ -93,6 +94,8 @@ export function parseInterviewInput(body) {
     || (body.priorAnswer !== undefined && (!body.answer || !safeText(body.priorAnswer, 450)))
     || (body.gender !== undefined && !['woman', 'man'].includes(body.gender)))) throw invalid();
   if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
+  if ((body.openingFlow !== undefined && typeof body.openingFlow !== 'boolean') ||
+    (body.editNextStep !== undefined && typeof body.editNextStep !== 'boolean')) throw invalid();
   if (['answer', 'clarify'].includes(body.action) && (!uuid.test(body.requestId ?? '') || (body.skip !== undefined && typeof body.skip !== 'boolean')
     || !bounded(body.answer, 900, body.skip === true))) throw invalid();
   if (body.verifyChoices !== undefined && typeof body.verifyChoices !== 'boolean') throw invalid();
@@ -146,10 +149,11 @@ export function initialInterviewDocument(required = false) {
   };
 }
 function questionFrom(topic) { return topic ? { topic: topic.id, text: topic.question, suggestions: [] } : null; }
-const LEGACY_OPENING_QUESTION = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
-const REQUIRED_OPENING_QUESTION = 'وش أهم شيء تبحث عنه في حياتك مع شريكك؟ جملة واحدة تكفي.';
-const AUDIT_OPENING_QUESTION = 'وش يهمك نعرف عن حياتك اليوم وتطلعاتك للزواج؟ ممكن تذكر الصفات اللي تهمك في الطرف الآخر والتوقيت اللي يناسبك.';
-const isOpeningQuestion = text => [REQUIRED_OPENING_QUESTION, LEGACY_OPENING_QUESTION, AUDIT_OPENING_QUESTION].includes(text);
+const previousOpening = 'قبل ما نبدأ، عرّفنا عن نفسك بطريقتك في فقرة: كيف تبدو حياتك اليوم، وما الذي تبحث عنه في شريك حياتك وزواجك؟ اذكر ما يعنيه لك الزواج الجاد، وما يهمك فعلًا، ومدى استعدادك للخطوة الرسمية والتوقيت الذي يناسبك.';
+const olderIntroduction = 'وش يهمك نعرف عن حياتك اليوم وتطلعاتك للزواج؟ ممكن تذكر الصفات اللي تهمك في الطرف الآخر والتوقيت اللي يناسبك.';
+const isOpeningQuestion = text => [openingPrompts.introduction, olderIntroduction, previousOpening, 'وش أهم شيء تبحث عنه في حياتك مع شريكك؟ جملة واحدة تكفي.'].includes(text);
+const isNextStep = text => text?.split('\u2029').at(-1) === openingPrompts.nextStep;
+const nextStepQuestion = () => ({ topic: 'intent', text: openingPrompts.nextStep, suggestions: [] });
 const scenarioWordings = item => [item.text, item.clarification, ...item.priorWording];
 const openingFields = { family: 'housing_arrangement', practical: 'financial_provision', communication: 'conflict_response' };
 function openingScenario(text, topic) {
@@ -188,12 +192,13 @@ function nextOpeningQuestion(turns, proposals, result, reflection = '') {
   }
   return { topic: scenario.topic, text: reflection ? `${reflection}\u2029${text}` : text, suggestions: [] };
 }
-function openingQuestion() { return { topic: 'intent', text: REQUIRED_OPENING_QUESTION, suggestions: [] }; }
+function openingQuestion() { return { topic: 'intent', text: openingPrompts.introduction, suggestions: [] }; }
 function unfinishedOpeningScenario(document) {
   if (!requiredInterview(document) || document.status !== 'active' || document.pendingAnalysis) return null;
   const turns = document.turns ?? [];
   if (!isOpeningQuestion(turns[0]?.question) || !turns.every(isOpeningTurn)) return null;
   const saved = document.currentQuestion;
+  if (isNextStep(saved?.text)) return null;
   if (openingScenario(saved?.text, saved?.topic)) return saved;
   return nextOpeningQuestion(turns, document.proposals);
 }
@@ -664,6 +669,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   const liveOpening = hybrid && !finalReview && isOpeningTurn(last);
   if (liveOpening) instructions += `\nأنتِ لونا في بداية تعارف خاص. اكتبي في reply جملة سعودية قصيرة تردّ على معنى محدد من آخر رسالة، حتى لو كانت جملة واحدة. replyEvidence عبارة حرفية قصيرة من آخر answer تسند ردك. احفظي الفرق بين الرغبة والشرط والتردّد. مثال توضيحي فقط: من «أبي بيت مستقل بس قريب من أهلي» يمكن أن تقولي «يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.» لا تكرري المثال مع شخص آخر. إذا طلب شرحًا فاشرحي المقصود باختصار. تجنّبي المدح الجاهز ووصف الشخصية ووعد الحفظ، ولا تضعي سؤالًا في reply. إذا لم تجدي معنى تسندينه اتركي reply وreplyEvidence فارغين.
 في هذه البداية وحدها، question اختياري. اقترحي سؤالًا واحدًا فقط إذا أضاف معلومة تفرق في فهم آخر إجابة أو تناول جانبًا مرتبطًا بها ما زال مفتوحًا. إذا حسم الشخص السكن أو المصاريف أو طريقة التعامل مع اختلاف الرأي، لا تعيدي السؤال عنها. لا تسألي عن استثناء افتراضي أو تبرير قرار واضح. عند وجود سؤال، حددي questionTopic وquestionFields للجانب الناقص من openingTopics. إذا لم يوجد سؤال مفيد اتركي question وquestionTopic فارغين وquestionFields=[] وfollowUp=false. دعي الانتقال للموقف التالي للتطبيق.`;
+  if (hybrid) instructions += '\nاستثناء من تأجيل readiness: أخرج nextStep الآن فقط إذا وصف العضو بوضوح خطوة هو مستعد لها عند القبول المتبادل. اكتبها باختصار وبضمير المتكلم مع اقتباس حرفي داعم. ذكر التوقيت وحده أو قول «أنا جاد» أو وصف ما ينتظره من الطرف الآخر لا يكفي. عند تعديل الخطوة، اتبع آخر وصف صريح من العضو. لا تحوّلها إلى درجة أو تقييم للجدية.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
     messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({
@@ -1086,18 +1092,28 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     let next = document;
     const finalReview = input.action === 'review' || (input.action === 'retry' && document.status === 'review');
     if (['answer', 'clarify'].includes(input.action)) {
-      if (requiredInterview(document) && input.skip) throw new InterviewError(409, 'answer_required', 'هذه النقطة مطلوبة لإكمال التوافق. أجب بكلماتك أو اطلب توضيح السؤال.');
       const clarifying = input.action === 'clarify';
       const question = clarifying
-        ? { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
+        ? input.editNextStep ? nextStepQuestion() : { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : unfinishedOpeningScenario(document) ?? document.currentQuestion;
+      const optionalNextStep = isNextStep(question?.text);
+      if (requiredInterview(document) && input.skip && (!optionalNextStep || !hasAnalyzedIntroduction(document))) {
+        throw new InterviewError(409, 'answer_required', 'هذه النقطة مطلوبة لإكمال التوافق. أجب بكلماتك أو اطلب توضيح السؤال.');
+      }
       if (openingScenario(question?.text, question?.topic) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
       const optionalFollowUp = input.cardsAfterReply && document.status === 'review' && !document.pendingAnalysis
         && document.currentQuestion?.text.includes('\u2029') && openingScenario(question?.text, question?.topic);
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active' || optionalFollowUp;
-      if (!canAnswer || !question || document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
-      next = { ...document, turns: [...document.turns, { id: randomUUID(), topic: question.topic,
-        question: question.text, answer: input.skip ? '' : input.answer.trim(), skipped: input.skip === true }],
+      if (!canAnswer || !question || (optionalNextStep && !hasAnalyzedIntroduction(document)) ||
+        (input.editNextStep && document.status !== 'review') ||
+        document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
+      if (input.skip && optionalNextStep) {
+        // Skipping adds no content and leaves the attested transcript intact.
+        return save({ ...document, currentQuestion: null, status: 'review', lastRequestId: input.requestId, draftAnswer: '' });
+      }
+      const turns = [...document.turns, { id: randomUUID(), topic: question.topic,
+        question: optionalNextStep ? openingPrompts.nextStep : question.text, answer: input.skip ? '' : input.answer.trim(), skipped: input.skip === true }];
+      next = { ...document, turns,
         // A new answer can correct any earlier interpretation. Never offer or
         // share stale conclusions while that correction awaits analysis.
         ...(input.skip ? {} : { proposals: [], readiness: [], clarifications: [] }),
@@ -1128,8 +1144,8 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
       const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
-      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, pendingGrounding: hybrid, finishOpening: input.cardsAfterReply && next.turns.length > 1 });
-      if (hybrid && (input.cardsAfterReply || input.verifyChoices)) {
+      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, pendingGrounding: hybrid, finishOpening: input.openingFlow || (input.cardsAfterReply && next.turns.length > 1) });
+      if (hybrid && (input.cardsAfterReply || input.openingFlow || input.verifyChoices || input.editNextStep)) {
         const turns = providerDocument(next, input.sensitiveProfileAllowed === true).turns.filter(t => !t.skipped);
         analyzed.proposals = await groundHybridChoices(analyzed.proposals, turns, memberGender, async data => {
           try {
@@ -1151,6 +1167,15 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       // Retrying analysis must not change the question beneath an unsent draft.
       if (input.action === 'retry' && document.status === 'active' && document.draftAnswer.trim()) {
         analyzed = { ...analyzed, status: 'active', currentQuestion: document.currentQuestion, draftAnswer: document.draftAnswer };
+      }
+      if (hybrid && input.openingFlow && analyzed.status === 'review' && analyzed.turns.length === 1 &&
+        isOpeningQuestion(analyzed.turns[0].question) && !analyzed.readiness.some(note => note.id === 'nextStep' &&
+          note.evidence.some(evidence => evidence.turnId === analyzed.turns[0].id))) {
+        const question = nextStepQuestion();
+        if (analyzed.currentQuestion && !/[؟?]/u.test(analyzed.currentQuestion.text)) {
+          question.text = `${analyzed.currentQuestion.text}\u2029${question.text}`;
+        }
+        analyzed = { ...analyzed, status: 'active', currentQuestion: question };
       }
     } catch {
       return fail(next, 'unavailable');

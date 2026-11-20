@@ -9,6 +9,7 @@ import handler from '../api/interview.mjs';
 import preferenceCatalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
+import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 
 const headers = { authorization: 'Bearer header.' + Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111'})).toString('base64url') + '.signature' };
 const answer = 'إذا اتفقنا، أبغى الخطوة الرسمية خلال ستة أشهر.';
@@ -72,6 +73,46 @@ const structuredChoices = () => [
   ...preferenceCatalog.dimensions.flatMap(dimension => ['self','partner'].map(side => ({id:`preference:${dimension.id}:${side}`,values:[dimension.options[side === 'self' ? 0 : 1].code]}))),
   ...personalityCatalog.map(question => ({id:`personality:${question.id}:self`,values:['D']})),
 ];
+
+test('the optional next step preserves grounded answers and allows confirmation after a skip', async () => {
+  const reflection = 'يناسبك تاخذ الخطوة الرسمية خلال ستة أشهر.';
+  const h = harness({checkFingerprint:true,response:()=>({reply:reflection,replyEvidence:'خلال ستة أشهر'})});
+  const first = await start(h);
+  const intro = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true,openingFlow:true},headers);
+  assert.equal(intro.document.currentQuestion.text,`${reflection}\u2029${openingPrompts.nextStep}`);
+  assert.deepEqual(intro.document.currentQuestion.suggestions,[]);
+  assert.ok(intro.carryForwardIds.includes('preference:marriage_timeline:self'));
+  const draft = await h.service({action:'draft',revision:intro.revision,answer:'ودي نتفاهم أول.'},headers);
+  const reloaded = await h.service({action:'load'},headers);
+  assert.equal(reloaded.document.currentQuestion.text,intro.document.currentQuestion.text);
+  assert.equal(reloaded.document.draftAnswer,'ودي نتفاهم أول.');
+  const skip = {action:'answer',revision:draft.revision,requestId:randomUUID(),answer:'',skip:true,hybrid:true,openingFlow:true};
+  const skipped = await h.service(skip,headers);
+  assert.equal(skipped.document.currentQuestion,null);
+  assert.equal(skipped.document.draftAnswer,'');
+  assert.deepEqual(skipped.carryForwardIds,intro.carryForwardIds);
+  assert.equal((await h.service(skip,headers)).revision,skipped.revision);
+  assert.equal(h.modelCalls.length,1);
+  const confirmed = await h.service({action:'structuredConfirm',revision:skipped.revision,choices:structuredChoices()},headers);
+  assert.equal(confirmed.structuredConfirmation,true);
+});
+
+test('a grounded next step avoids a second prompt and remains editable', async () => {
+  const step = 'أبي نتفاهم عن السكن والعمل أول، وإذا اتفقنا نرتّب كيف يدخل الأهل.';
+  const edited = 'أرتاح إذا الأهل كانوا بالصورة من بدري.';
+  const h = harness({proposals:()=>[],response:turns=>({readiness:[{id:'nextStep',text:turns.at(-1).answer,
+    evidence:[{turnId:turns.at(-1).id,quote:turns.at(-1).answer}]}]})});
+  const first = await start(h);
+  const intro = await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer:step,hybrid:true,openingFlow:true},headers);
+  assert.equal(intro.document.status,'review');
+  assert.equal(intro.document.readiness[0].text,step);
+  assert.equal(h.modelCalls.length,1);
+  const updated = await h.service({action:'clarify',editNextStep:true,revision:intro.revision,requestId:randomUUID(),answer:edited},headers);
+  assert.equal(updated.document.status,'review');
+  assert.equal(updated.document.turns.at(-1).question,openingPrompts.nextStep);
+  assert.equal(updated.document.readiness[0].text,edited);
+  assert.equal(updated.coverage.answered,0);
+});
 
 test('Luna choice help is authorized, question-scoped, and never changes the interview or saved choice', async () => {
   const options = { memberGender: 'woman' };
@@ -259,7 +300,7 @@ test('session start does not call model; draft autosaves privately and answer us
   const first = await start(h);
   assert.equal(first.document.reviewSharing, false);
   assert.equal(first.document.currentQuestion.topic, 'intent');
-  assert.match(first.document.currentQuestion.text, /وش أهم شيء.*جملة واحدة تكفي/);
+  assert.equal(first.document.currentQuestion.text, openingPrompts.introduction);
   assert.deepEqual(first.document.currentQuestion.suggestions, []);
   assert.equal(h.modelCalls.length, 0);
   const draft = await h.service({ action: 'draft', revision: first.revision, answer }, headers);
@@ -824,7 +865,7 @@ test('loading a saved session sanitizes current quick replies',async()=>{
  const h=harness({initial:{document:initial,revision:1}});
  const loaded=await h.service({action:'load'},headers);
  assert.deepEqual(loaded.document.currentQuestion.suggestions,[]);
- assert.match(loaded.document.currentQuestion.text,/جملة واحدة تكفي/,'an untouched saved signup receives the shorter opening too');
+ assert.equal(loaded.document.currentQuestion.text,openingPrompts.introduction,'an untouched saved signup receives the richer opening too');
  assert.equal(h.modelCalls.length,0);
 });
 

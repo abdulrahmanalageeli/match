@@ -1,4 +1,5 @@
 import { normalizeNationality } from './nationality.ts';
+import { reciprocalTraitFit, traitRankMultiplier } from './personality.ts';
 export { normalizeNationality } from './nationality.ts';
 import { canonicalCity, canonicalEducation, canonicalProfession, educationOptions, professionOptions } from '../profile/profileOptions.ts';
 import legacyCatalog from "./catalog-v3.json" with { type: "json" };
@@ -25,6 +26,7 @@ export type MatchFit = {
   assessmentComplete?: boolean;
   percentage?: number | null;
   criteria?: { covered: number; total: number };
+  partnerPersonalityFit?: number;
   preferenceEvidence?: PreferenceEvidence;
   beena?: BeenaFit;
   personality?: {
@@ -422,10 +424,14 @@ export function describeFit(first: PairProfile, second: PairProfile) {
   const sharedInterests = interests.filter(interest =>
     first.interestIds?.includes(interest.id) && second.interestIds?.includes(interest.id));
   for (const interest of sharedInterests) reasons.push("اهتمام مشترك: " + interest.label);
-  const rankValue = currentTopics
+  const traitFit = first.assessmentVersion === assessmentVersion && second.assessmentVersion === assessmentVersion
+    ? reciprocalTraitFit(first, second) : null;
+  if (traitFit !== null) fit.partnerPersonalityFit = Math.round(100 * traitFit);
+  const practicalRank = currentTopics
     ? 0.5 + Math.sqrt((forward.observedWeight + reverse.observedWeight) /
         (2 * currentTopics.reduce((total, topic) => total + topic.weight, 0))) * (reciprocal - 0.5)
     : reciprocal * Math.sqrt(covered / activeTopics.length) * beenaRankMultiplier(fit.beena);
+  const rankValue = practicalRank * traitRankMultiplier(traitFit);
   return { fit, rankValue, reciprocalSignals: strengths.length, sharedInterests, reasons };
 }
 

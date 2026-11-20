@@ -61,6 +61,7 @@ test("public basics and private assessments survive resume in each new chapter",
   f.draft.answers.personalityVersion = personalityVersion;
   f.draft.answers.beena={version:'beena-v1',answers:{finances:{self:'A',partner:['B'],importance:2}},story:{scenarioId:'finances',text:'نتحدث عن الميزانية بوضوح.',share:false}};
   f.draft.answers.personalityAnswers = Object.fromEntries(personalityQuestions.map((question, i) => [question.id, ["A", "B", "C", "D", "E"][i % 5]]));
+  f.draft.answers.personalityAnswers.partner_social_energy = "A";
   f.draft.returnToReview = true;
   for (const step of ["details", "avatar", "criteria", "personality", "beena"]) {
     f.draft.step = step;

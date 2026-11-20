@@ -8,6 +8,7 @@ import personalityCatalog from '../src/compatibility/personality-catalog.json' w
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
 import * as parenting from '../src/compatibility/parenting.mjs';
 import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
+import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const code = compile(await readFile(new URL('../src/interview/InterviewPanel.tsx', import.meta.url), 'utf8'));
@@ -70,6 +71,7 @@ function mount(initial, intercept = () => null) {
     };
     if (name === './catalog.json') return { default: topics };
     if (name === './opening-scenarios.json') return { default: openingScenarios };
+    if (name === './opening-prompts.json') return { default: openingPrompts };
     if (name === './profileCapture') return profileHelpers;
     if (name === '../compatibility/parenting.mjs') return parenting;
     if (name.endsWith('.css')) return {};

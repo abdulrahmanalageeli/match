@@ -10,6 +10,7 @@ import { createServer, transformWithEsbuild } from 'vite';
 import preferences from '../src/compatibility/catalog.json' with { type: 'json' };
 import personality from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import scenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
+import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 import { initialInterviewDocument } from '../api/_lib/interview.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -99,6 +100,7 @@ const calls = [];
 const errors = [];
 let draft = {};
 let benchmark = false;
+let openingExperience = false;
 let expectedReceipt=expectedIds;
 let resumedFamily=false;
 let suggestionCount = 1;
@@ -132,6 +134,12 @@ try {
         snapshot = { ...snapshot, revision: snapshot.revision + 1, document: { ...snapshot.document, draftAnswer: payload.answer } };
         break;
       case 'answer':
+        if (openingExperience && payload.skip) {
+          assert.equal(snapshot.document.currentQuestion.text,openingPrompts.nextStep);
+          snapshot = {...snapshot, revision:snapshot.revision + 1,
+            document:{...snapshot.document,status:'review',currentQuestion:null,lastRequestId:payload.requestId}};
+          break;
+        }
         assert.equal(payload.answer, opening);
         assert.equal(payload.hybrid, true);
         assert.equal(payload.assessmentContext, undefined);
@@ -141,6 +149,11 @@ try {
           turns: [{ id: 'intro', topic: 'intent', question: snapshot.document.currentQuestion.text, answer: opening, skipped: false }],
           lastMode: 'luna', lastRequestId: payload.requestId, proposals:supported.slice(0,suggestionCount),
         } };
+        if (openingExperience) {
+          assert.equal(payload.openingFlow,true);
+          snapshot.document.status = 'active';
+          snapshot.document.currentQuestion = {topic:'intent',text:openingPrompts.nextStep,suggestions:[]};
+        }
         break;
       case 'directConfirm':
       case 'structuredConfirm':
@@ -432,6 +445,36 @@ try {
   await page.locator('.wi-complete').waitFor();
   assert.equal(await page.locator('.wi-confirmed-answers li').count(),44);
   console.log('PASS: reviewed 45 with a strict child-free preference, reopened both parenting questions after relaxing it, and resumed a 44-answer legacy receipt');
+
+  openingExperience = true;
+  draft = {};
+  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:47}};
+  await page.goto(url);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.clock.install();
+  await page.evaluate(() => document.fonts.ready);
+  const example = page.getByRole('button',{name:'شوف كيف تختصر الأسئلة'});
+  await example.click();
+  assert.equal(await example.getAttribute('aria-expanded'),'true');
+  await page.clock.runFor(320);
+  await page.screenshot({path:resolve(output,'opening-example.png')});
+  await page.clock.fastForward(10_000);
+  await example.getAttribute('aria-expanded').then(value=>assert.equal(value,'false'));
+  await example.click();
+  await example.click();
+  assert.equal(await example.getAttribute('aria-expanded'),'false');
+  await page.clock.runFor(320);
+  await page.screenshot({path:resolve(output,'opening-saudia.png')});
+  await page.locator('#wi-answer').fill(opening);
+  await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();
+  await page.getByRole('heading',{name:'كيف تتصوّر التعارف الجاد؟'}).waitFor();
+  assert.equal(await page.locator('#wi-answer').inputValue(),'');
+  assert.equal(await page.locator('.wi-chat-suggestions').count(),0);
+  await page.screenshot({path:resolve(output,'opening-next-step.png')});
+  await page.getByRole('button',{name:'تخطّي السؤال'}).click();
+  await card.waitFor();
+  assert.ok(calls.at(-1).skip);
+  console.log('PASS: timed example and optional free-text next step');
   assert.deepEqual(errors, []);
   console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 47-field confirmation');
 } finally {

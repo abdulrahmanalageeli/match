@@ -55,3 +55,21 @@ node --experimental-strip-types --experimental-vm-modules --test src/community/d
 - Before delivery, inspect `git diff --check` and the changed-file list. Check `.github/workflows/nisfayn.yml` for CI scope. Native builds require macOS/Xcode; `npm run ios:sync` builds and syncs Capacitor assets. `codemagic.yaml` defines manual signed iPhone builds. A Git push or web deployment does not update an installed TestFlight bundle.
 
 Keep this file durable and concise. Put architecture detail and dated development context in `docs/AI_PROJECT_CONTEXT.md`, feature details in existing feature docs, and temporary task state in the task report. Never persist credentials or conversation transcripts here.
+
+## Luna carry-forward and conversation feedback
+
+- Luna onboarding starts with the free-text introduction in `opening-prompts.json`. The example explains carry-forward and closes 10 seconds after opening. Ask the optional open-ended next-step question only when the introduction lacks a grounded next step. Keep the private reflection editable and separate from compatibility scoring. A skip preserves the attested transcript and introduces no additional model call.
+
+- Start with `iphone/api/_lib/interview.mjs` and `iphone/api/_lib/interview-grounding.mjs`. An exact transcript quote establishes provenance. The suggestion also needs support for its field, subject, and option. The regression example is «بناء أسرة» (“building a family”), which cannot support `personality:depth:self = E`.
+- Recognized complete statements can be checked locally. Other eligible candidates share one independent catalog check per analysis. The checker receives the consent-filtered transcript and catalog options, without the first model’s proposed codes. It must independently agree and supply supporting evidence. Ambiguity, disagreement, an unavailable checker, or exhausted quota leaves the field for manual selection.
+- Keep independent clauses separate. An unresolved residence preference can coexist with an explicit children preference. Never copy a self answer into the desired-partner field. Preserve consent and redaction rules, and keep interview quotes private.
+- `iphone/src/interview/types.ts` defines the snapshot’s `carryForwardIds`. `InterviewPanel.tsx` uses that list to admit suggestions and gives saved manual choices precedence. A raw proposal or coverage count alone cannot skip a field.
+
+### Card interaction
+
+`iphone/src/interview/HybridAssessment.tsx` shows unresolved fields during forward navigation. A deliberate choice that completes a card advances to the next incomplete card. Keep Back, individual corrections, editable final review, and protection against repeated taps. Members can inspect the evidence or save pending suggestions as a batch without an extra required confirmation.
+
+`iphone/src/interview/AnswerScale.tsx` also serves other onboarding screens. Its deliberate-commit behavior is opt-in for Luna. Arrow keys preview a score. Enter, Space, the explicit commit button, or a completed pointer selection records it. Preserve keyboard focus, recorded-answer feedback, and reduced-motion behavior when editing the cards or `hybrid-assessment.css`.
+
+
+The enrolled conversation pilot offers private day-two, weekly and exit feedback. See `iphone/docs/matching-model-and-feedback.md` for enrollment, timing, and the training export.

@@ -363,3 +363,30 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
 @media(prefers-reduced-motion:reduce) { .wi-loading-brand { animation:none; } }
 html[data-nf-motion=reduced] .wi-loading-brand { animation:none; }
 @media(prefers-reduced-motion:reduce){.wi-compose-row,.wi-compose-row::before,.wi-send:not(:disabled){animation:none;transition:none}}
+
+.wi-opening-benefit { margin:0 0 2px; color:#655660; font-size:.8125rem; line-height:1.7; }
+.wi-opening-benefit strong { color:var(--accent,#68213c); }
+.wi-opening-example { margin-block-end:7px; }
+.wi-opening-example > button { display:flex; align-items:center; gap:6px; min-height:36px; padding:0; border:0; background:none; color:var(--accent,#68213c); font:inherit; font-size:.8125rem; font-weight:700; cursor:pointer; }
+.wi-opening-example > button svg { transition:transform .26s ease; }
+.wi-opening-example[data-expanded=true] > button svg { transform:rotate(180deg); }
+.wi-example-panel { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows .28s ease,opacity .22s ease; }
+.wi-opening-example[data-expanded=true] .wi-example-panel { grid-template-rows:1fr; opacity:1; }
+.wi-chat:has(.wi-composer[data-opening] .wi-opening-example[data-expanded=true]) .wi-opening-note { padding-block:12px 8px; }
+.wi-example-clip { min-height:0; overflow:hidden; }
+.wi-example-content { max-height:min(29dvh,230px); overflow:auto; padding:12px; border:1px solid #e5d7dc; border-radius:14px; background:#fbf7f8; color:#51424b; font-size:.8125rem; line-height:1.65; }
+.wi-example-content p { margin:0 0 8px; }
+.wi-example-content dl, .wi-example-content ul { margin:0; }
+.wi-example-content ul { padding-inline-start:17px; }
+.wi-example-content li + li { margin-top:7px; }
+.wi-example-content dl > div { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap:6px; padding-block:3px; }
+.wi-example-content dt { color:#695761; }
+.wi-example-content dd { margin:0; font-weight:600; }
+.wi-dialog .wi-next-step-note h1 { font-size:clamp(1.45rem,6vw,1.9rem); }
+.wi-next-step-note { padding-block:18px 12px; }
+.wi-composer[data-next-step] .wi-compose-row textarea { min-height:65px; }
+.wi-next-step-review p { max-height:8rem; overflow:auto; overflow-wrap:anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  .wi-example-panel, .wi-opening-example > button svg { transition:none; }
+}
+html[data-nf-motion=reduced] :is(.wi-example-panel,.wi-opening-example > button svg) { transition:none; }

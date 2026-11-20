@@ -5,11 +5,56 @@ import {readFile} from 'node:fs/promises';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {seedCommunicationMember} from './communication-fixture.mjs';
 import {describeFit} from '../../src/compatibility/model.ts';
+import traits from '../../src/compatibility/personality-catalog.json' with {type:'json'};
+import {reciprocalTraitFit} from '../../src/compatibility/personality.ts';
 
 const questions=JSON.parse(await readFile(new URL('../../src/compatibility/personality-catalog-v1.json',import.meta.url),'utf8'));
 const codes=questions.map(q=>q.id);
 const consents={version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false};
 const full=code=>Object.fromEntries(codes.map(id=>[id,code]));
+
+test('v2 database and client rankings agree on every item, reverse key and mixed-version fallback',async()=>{
+ const db=await createDatabase();
+ try {
+   const {rpc,call,member,setAnswers}=setup(db), a=await member('woman'), b=await member('man');
+   await db.query("update marriage.member_assessment set version='marriage-v4' where member_id in ($1,$2)",[a.id,b.id]);
+   for(const topic of ['children_plan','marriage_timeline','housing_arrangement']){
+     for(const key of [topic,'partner_'+topic]){
+       await db.query("insert into marriage.member_answers values ($1,$3,'A'),($2,$3,'A')",[a.id,b.id,key]);
+     }
+   }
+   const neutral=Object.fromEntries(traits.map(q=>[q.id,'C']));
+   const profile=personalityAnswers=>({personalityVersion:'personality-v2',personalityAnswers});
+   await setAnswers(a,neutral);
+   await setAnswers(b,neutral);
+   const pairRank=async()=>(await db.query('select rank_value from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0].rank_value;
+   const baseline=await pairRank();
+   assert.ok(baseline>0);
+   for(const q of traits){
+     const ideals={...neutral,['partner_'+q.domain]:'E'};
+     const answers={...neutral,[q.id]:q.reverse?'A':'E',partner_stability:'C'};
+     await setAnswers(a,ideals);
+     await setAnswers(b,answers);
+     const score=reciprocalTraitFit(profile(ideals),profile(answers));
+     const {rows:[row]}=await db.query('select fit,rank_value from marriage.pair_fit($1,$2)',[a.id,b.id]);
+     assert.equal(row.fit.partnerPersonalityFit,Math.round(100*score),q.id);
+     assert.ok(Math.abs(row.rank_value-baseline*(0.98+0.04*score))<1e-12,q.id);
+     assert.equal(row.fit.personalityAnswers,undefined);
+   }
+   const selected={...neutral,partner_social_energy:'A'};
+   const edit={...a.profile,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2',personalityAnswers:selected};
+   await call(a,'public.marriage_apply($1)',[edit]);
+   assert.deepEqual((await rpc('marriage.profile_json($1)',[a.id])).personalityAnswers,selected);
+   await assert.rejects(call(a,'public.marriage_apply($1)',[{...edit,personalityAnswers:{...selected,partner_social_energy:'B'}}]));
+   await call(a,'public.marriage_apply($1)',[{...edit,personalityAnswers:neutral}]);
+   assert.deepEqual((await rpc('marriage.profile_json($1)',[a.id])).personalityAnswers,neutral);
+   assert.equal(await rpc('marriage.reciprocal_trait_fit($1,$2)',[a.id,b.id]),null);
+   await setAnswers(a,selected);
+   await db.query("update marriage.member_assessment set version='marriage-v3' where member_id=$1",[b.id]);
+   assert.equal(await rpc('marriage.reciprocal_trait_fit($1,$2)',[a.id,b.id]),null);
+   assert.equal(await rpc("has_function_privilege('authenticated','marriage.reciprocal_trait_fit(uuid,uuid)','EXECUTE')"),false);
+ }finally{await db.close();}
+});
 function setup(db){
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' value',args)).rows[0].value;
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));

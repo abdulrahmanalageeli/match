@@ -215,6 +215,9 @@ export interface CommunitySource extends ManualVerificationSource {
   callPermission?(requestId: string): Promise<CallPermissionState>;
   requestCallPermission?(requestId: string, action: "invite" | "accept" | "decline"): Promise<CallPermissionState>;
   agreement?(requestId:string):Promise<SeriousnessAgreement>;
+  conversationPilotNotices?(): Promise<FeedbackNotice[]>;
+  conversationPilot?(requestId: string, action?: 'read' | 'save' | 'withdraw' | 'followup' | 'week' | 'exit',
+    answer?: ConversationPilotAnswer | {followupTalked: boolean} | ConnectionReview): Promise<ConversationPilotState | null>;
   agree?(requestId:string,action:'propose'|'accept'|'family'|'family_propose'|'family_accept'|'family_clear'|'extend'|'extension_accept',payload?:{days?:number;signed?:boolean;proposalId?:string;confirmed?:boolean}):Promise<SeriousnessAgreement>;
   unreadCount(): Promise<number>;
   markRead(requestId: string, throughId: string): Promise<void>;
@@ -223,6 +226,31 @@ export interface CommunitySource extends ManualVerificationSource {
   nextStep?(requestId: string, stage: number, agree: boolean, exclusiveConsent?: boolean): Promise<StepProgress>;
   watch: WatchUpdates;
 }
+
+export type ConversationPilotAnswer = { talked: false } | { talked: true; enjoyed: boolean; continue: boolean };
+export type FeedbackNotice = {requestId: string; stage: 'day2' | 'week'; at: string};
+export type ConversationPilotState = {
+  stage?: 'week' | 'exit';
+  review?: ConnectionReview | null;
+  answer: ConversationPilotAnswer | null;
+  mutualContinue: boolean;
+  initialOpen: boolean;
+  followupOpen: boolean;
+  followupTalked: boolean | null;
+};
+export type ConnectionReview = {
+  instrument?: 'week-v2';
+  contact: 'none' | 'once' | 'repeated';
+  personalFit?: 'well' | 'partly' | 'poorly' | 'too_early';
+  practicalFit?: 'aligned' | 'partial' | 'different' | 'not_discussed' | 'unclear';
+  mainFactor?: string;
+  enjoyed?: 'yes' | 'no' | 'unsure';
+  continue?: 'yes' | 'no' | 'unsure';
+  marriagePotential?: 'yes' | 'no' | 'too_early';
+  familyContact?: 'yes' | 'no' | 'unknown';
+  reason?: string;
+  topic?: string;
+};
 
 export function cloudCommunity(userId: string, pendingSends?: PendingChatSends): CommunitySource {
   const media = () => import('./memberChatMedia').then(module => module.memberChatMediaSource(userId));
@@ -252,6 +280,8 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     mediaUrl: async (...args) => (await media()).mediaUrl!(...args),
     openMedia: async (...args) => (await media()).openMedia!(...args),
     agreement: request_id => timedRpc('marriage_agreement',{request_id}),
+    conversationPilotNotices: () => timedRpc('marriage_conversation_pilot_notices',{}),
+    conversationPilot: (request_key, action = 'read', answer) => timedRpc('marriage_conversation_pilot_response', {request_key, action, answer: answer ?? null}),
     agree: (request_id,action,payload={}) => timedRpc('marriage_agreement',{request_id,action,payload}),
     ...manualVerificationSource(),
     suggestOpener: () => requestAi({mode:'opener'}),

@@ -113,6 +113,7 @@ import { useThread } from "./useThread";
 import { ChatMediaComposer, MessageMedia } from "./ChatMedia";
 import { CallPermissionButton } from "./CallPermission";
 import { ConversationAgreement } from "./ConversationAgreement";
+import { ConversationPilotFeedback } from "./ConversationPilotFeedback";
 import { useReadPosition } from "./useReadPosition";
 import { useVoiceCalls } from "../voice/VoiceCalls";
 import { chatHandoff } from "./chatMotion";
@@ -1297,10 +1298,11 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, onReported, onCompletion, initialMessage, initialRoom, initialAgreement, initialAnalysis,
+  source, connection, back, close, backLabel, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, openFeedback,
 }: {
-  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean;initialAnalysis?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
+  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean;initialAnalysis?:boolean;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   onReported?: () => void;
+  onEnded?: (id:string) => void;
   onCompletion?: () => void;
 }) {
   const thread = useThread(source, connection.id);
@@ -1515,7 +1517,7 @@ export function Chat({
   async function finishMatch() {
     if (ending) return;
     setEnding(true); setEndError('');
-    try { await source.act(connection.id, 'cancel', undefined, allowRematch); feedback('success'); thread.outbox.clear(); close(); }
+    try { await source.act(connection.id, 'cancel', undefined, allowRematch); feedback('success'); thread.outbox.clear(); onEnded?.(connection.id); close(); }
     catch (e) { setEndError(messageFor(e)); }
     finally { setEnding(false); }
   }
@@ -1552,6 +1554,8 @@ export function Chat({
       <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
         <ConversationAgreement hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
+          respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
       </div>
 
@@ -1696,7 +1700,7 @@ export function Chat({
       {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
-        close={() => setGuide(false)} closed={() => { thread.outbox.clear(); close(); }}
+        close={() => setGuide(false)} closed={() => { thread.outbox.clear(); onEnded?.(connection.id); close(); }}
         choose={chooseConversationPrompt}/>}
     </section>
   );
@@ -1752,10 +1756,14 @@ function Requests({
   const [selected, setSelected] = useState<string | null>(initialRequestId ?? null);
   const [declineTarget, setDeclineTarget] = useState<string | null>(null);
   const [chat, setChat] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [visitPerson, setVisitPerson] = useState<PublicPerson | null>(null);
+  const [endedFeedback, setEndedFeedback] = useState<string | null>(null);
+  const exitFeedback = endedFeedback && source.conversationPilot && <ConversationPilotFeedback key={endedFeedback}
+    requestId={endedFeedback} respond={source.conversationPilot} resumeChat={()=>{}}/>;
   const [reportSent, setReportSent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1889,10 +1897,11 @@ function Requests({
     setActionError("");
     void refresh();
   };
-  function enterChat(id: string, origin: Element | null, justAccepted = false) {
+  function enterChat(id: string, origin: Element | null, justAccepted = false, openFeedback = false) {
     const intent = ++navigation.current;
     chatHandoff(origin, () => {
       if (intent !== navigation.current) return;
+      setFeedbackTarget(openFeedback ? id : null);
       if (justAccepted) setList(rows => rows.map(row => row.id === id ? { ...row, status: "accepted" } : row));
       setSelected(id);
       setChat(true);
@@ -1952,6 +1961,7 @@ function Requests({
         void refresh();
       } else {
         if (action === 'report') setReportSent(true);
+        if (action === 'cancel' && request.status === 'accepted') setEndedFeedback(request.id);
         setSelected(null);
         setChat(false);
         setList((previous) => previous.filter((c) => c.id !== request.id));
@@ -1979,10 +1989,12 @@ function Requests({
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
         initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
+        openFeedback={feedbackTarget===item.id}
         initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
         source={item.person.isDemo?source.demoInteractions??source:source}
         onCompletion={onCompletion}
         onReported={()=>setReportSent(true)}
+        onEnded={setEndedFeedback}
         connection={item}
         back={leaveChat}
         close={closeDetail}
@@ -2114,6 +2126,7 @@ function Requests({
     </>}/>;
   }
   if (matches) return <>
+    {exitFeedback}
     {actionError && <Banner alert text={actionError}/>}
     {notice && <Banner text={notice}/>}
     <MatchesOverview source={source} connections={list} loading={loading} error={error}
@@ -2140,11 +2153,12 @@ function Requests({
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
     <header className="cm-header"><Brand /></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
+    {exitFeedback}
     {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
     {notice && <Banner text={notice}/>}
     <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
-      onConversation={id => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
+      onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
     {error && <button className="btn-text" onClick={() => void refresh()}>إعادة المحاولة</button>}
     <RequestHistory source={source}/>
@@ -2160,6 +2174,7 @@ function Requests({
   const rows = filtered.filter((c) => !search || c.person.alias.normalize("NFKC").includes(search));
   return (
     <section className="screen-content cm-view">
+      {exitFeedback}
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header">
         <Brand />

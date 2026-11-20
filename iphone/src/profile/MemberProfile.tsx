@@ -193,7 +193,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           b?.prayerPractice&&b.prayerPractice!=='prefer_not_to_say'&&['الصلاة',prayerPracticeLabels[b.prayerPractice]],
         ]}/>
       </>}
-      {hasFit&&section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit}/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
+      {hasFit&&section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit} profile/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
     </MotionReveal>
     {preview&&<p className="mp-preview-footnote"><Sparkles size={16}/><span>نسبة التوافق تختلف من شخص لآخر؛ تظهر عند مقارنة تقييميكما. إجابات التقييم ومتطلبات الشريك الخاصة لا تظهر في هذا الملف.</span></p>}
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}

@@ -45,6 +45,7 @@
 .phone-app .mp-profile .mp-content :is(h2, h3, h4, .mp-fact-heading strong, .mp-fit-preview-heading strong, .mp-passport-link strong) {
   font-size: var(--text-section); font-weight: 600; line-height: 1.5;
 }
+.phone-app .mp-profile .mp-personal-line,
 .phone-app .mp-profile .mp-content :is(p, dd, .mp-interests span, .mp-fit li, .mp-fit-preview-reason) {
   font-size: var(--mp-body); font-weight: 400; line-height: 1.8;
 }
@@ -54,11 +55,11 @@
   font-size: var(--mp-label); font-weight: 400; line-height: 1.6;
 }
 .phone-app .mp-profile :is(.mp-eyebrow, .mp-meta, .mp-hero h1 small, .mp-intention, .mp-portrait-caption,
-  .mp-navigation, .mp-preview-footnote, .mp-preview-note, .mp-primary .cm-help, .mp-action-copy small) {
+  .mp-decision-context, .mp-decision-timeline, .mp-navigation, .mp-preview-footnote, .mp-preview-note, .mp-primary .cm-help, .mp-action-copy small) {
   font-size: var(--mp-label); line-height: 1.6;
 }
 .phone-app .mp-profile :is(.mp-sections button, .mp-primary > button, .mp-action-copy strong,
-  .mp-secondary button, .mp-back, .mp-prompts-toggle, .nf-personality-explain, .nf-pref-more) {
+  .mp-interest, .mp-fit-preferences > summary, .mp-secondary button, .mp-back, .mp-prompts-toggle, .nf-personality-explain, .nf-pref-more) {
   font-size: var(--mp-control); line-height: 1.5;
 }
 .phone-app .mp-profile .mp-content :is(.nf-fit-score > strong, .mp-fit-preview-scores strong, .bn-summary-score > strong) {

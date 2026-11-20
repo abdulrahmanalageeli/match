@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, us
 import { Check, ChevronRight, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
-import { cityOptions, professionOptions, educationOptions } from '../profile/profileOptions';
+import { cityOptions, professionOptions, educationOptions, nationalityChoices } from '../profile/profileOptions';
 import { ageFromBirthday, latestAdultBirthday } from '../profile/birthday';
 import { profilePrompts } from '../profile/profilePrompts';
 import { ProfilePromptFields } from './ProfilePromptFields';
@@ -16,7 +16,7 @@ import './signup-slides.css';
 
 export type SignupSlidesHandle = { advance: () => boolean; back: () => boolean };
 const details = ['المظهر واللباس','اللغات والتواصل','الخلفية والعائلة','بداية تناسبك','الزواج والتعدد','الأبناء والعادات','الدين في حياتي','خطط الحياة الزوجية'];
-const identityTitles = ['أهلًا بك. نبدأ باسمك.','متى يوم ميلادك؟','وين تقيم حاليًا؟','هل يناسبك مسار وُدَين؟'];
+const identityTitles = ['أهلًا بك. نبدأ باسمك.','متى يوم ميلادك؟','مدينة إقامتك وجنسيتك','هل يناسبك مسار وُدَين؟'];
 const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.','ثلاث لمحات تشبهك.','خطوتك القادمة.'];
 const slideSubtitles = {
   identity: ['الاسم الذي سيظهر في ملفك.', 'نستخدمه لحساب العمر فقط؛ يبقى التاريخ خاصًا.', 'نقرّب لك الخيارات من المكان الذي تعيش فيه.', 'نتأكد من الأهلية قبل بدء جلسة التوافق.'],
@@ -31,7 +31,10 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   if(chapter==='identity') {
     if(index===0)return !p.displayName.trim()?'وش الاسم اللي تحب يظهر في ملفك؟':!p.gender?'اختر لإكمال ملفك.':null;
     if(index===1){const age=ageFromBirthday(p.birthDate??'');return age===null||age<18||age>110?'أدخل تاريخ ميلاد صحيحًا. التسجيل من عمر ١٨ عامًا.':null;}
-    if(index===2)return p.city.trim()?null:'اختر مدينة إقامتك.';
+    if(index===2){
+      if(!p.city.trim())return 'اختر مدينة إقامتك.';
+      return p.marriageBasics?.nationality ? null : 'اختر جنسيتك.';
+    }
     const b=p.marriageBasics??{};
     if(b.maritalStatus==='married'&&p.gender!=='man')return 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.';
     if(b.currentWives===4)return 'لا يدعم وُدَين البحث عن زواج إضافي مع وجود أربع زوجات حاليًا.';
@@ -134,7 +137,9 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
           </div>
         </div>
       </>}
-      {chapter==='identity'&&visibleIndex===2&&<><p className="wd-slide-description">نقرّب لك الخيارات التي تناسب مكان حياتك.</p><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/></>}
+      {chapter==='identity'&&visibleIndex===2&&<><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/>
+        <SheetChoiceSelect label="ما جنسيتك؟" value={basics.nationality ?? ''} options={nationalityChoices} onChange={nationality=>answer({marriageBasics:{...basics,nationality}})} placeholder="اختر الجنسية" required/>
+      </>}
       {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">نبدأ بالحالة الاجتماعية للتأكد من الأهلية. يمكنك تحديد تفضيلاتك للزواج لاحقًا في تفاصيل ملفك.</p><MarriageBasicsFields eligibilityOnly activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
       {chapter==='story'&&visibleIndex===0&&<><SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/><SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/></>}
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<small>تظهر النبذة للأعضاء المؤهلين. اكتب فقط ما ترغب في مشاركته معهم.</small><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}

@@ -6,47 +6,32 @@ The standard assessment has 32 practical answers and 15 personality answers. The
 
 | Topic | About you | About your partner | Baseline points per direction |
 |---|---|---|---:|
-| الأطفال | كيف تتصور موضوع الإنجاب بعد الزواج؟ | أي رغبة في الإنجاب تفضّلها لدى شريك الحياة؟ | 6.25 |
-| مدينة السكن | ما المدن التي يمكنك أن تبني فيها حياتك الزوجية؟ | أي موقف من الانتقال يناسبك لدى شريك الحياة؟ | 6.25 |
-| عمل الزوجة وطموحها | أي ترتيب للعمل بعد الزواج يناسب تصورك لحياة الزوجة المهنية؟ | ما الموقف الذي تتمنى أن يشاركك فيه الطرف الآخر؟ | 6.25 |
-| موعد الخطوة الرسمية | متى يناسبك الانتقال إلى خطوة رسمية إذا وجدت الشخص المناسب؟ | ما توقيت أول خطوة رسمية الذي يناسبك لدى الطرف الآخر؟ | 6.25 |
-| دور الأهل في القرار | إذا اعترض الأهل على قرار كبير يخص بيتكم، كيف تحب تحسمونه؟ | لو أراد الطرف الآخر إشراك أهله في قرار يخصّ بيتكما، وش الدور اللي يناسبك؟ | 6.25 |
-| مصاريف البيت الأساسية | لو كان لكل واحد منكم دخل، كيف تتصورون تغطية مصاريف البيت الأساسية؟ | أي اتفاق على المصاريف الأساسية يناسبك من الطرف الآخر؟ | 6.25 |
-| توزيع أعمال البيت | في أسبوع عادي، كيف تتصور توزيع الطبخ والتنظيف وأعمال البيت؟ | أي توزيع لأعمال البيت يناسبك لو فضّله الطرف الآخر؟ | 6.25 |
-| السكن مع الأهل أو باستقلال | وقت الزواج، أي ترتيب سكن يناسبك فعليًا؟ | أي ترتيب سكن تقدر تتقبله لو فضّله شريكك؟ | 6.25 |
-| الزيارات ووقت الراحة | بعد أسبوع مزدحم، كيف يناسبك تقضي وقتك بين الراحة والزيارات؟ | كيف يناسبك أن يوازن الطرف الآخر بين الزيارات ووقت الراحة؟ | 6.25 |
-| حدود المناسبات والفعاليات | إذا دُعيت إلى مناسبة أو فعالية عامة، كيف تختار وش تحضر؟ | كيف تفضّل أن يختار شريكك المناسبات والفعاليات التي يحضرها؟ | 6.25 |
-| عند احتدام النقاش | إذا احتدّ النقاش بينك وبين شخص قريب، وش الأقرب للي يصير معك عادة؟ | إذا احتدّ النقاش، أي استجابة تفضّلها من الطرف الآخر؟ | 6.25 |
-| العودة بعد الزعل | بعد ما يهدأ الخلاف، وش أول خطوة عادةً تسويها عشان ترجعون للتفاهم؟ | كيف تفضّل أن يعود الطرف الآخر للحوار بعد الزعل؟ | 6.25 |
-| الممارسة الدينية في البيت | إذا اختلف روتين عبادتكم في البيت، وش تتوقع في يومكم العادي؟ | أي توقع من الطرف الآخر بخصوص روتين العبادة يناسبك؟ | 6.25 |
-| القرب والمساحة | عندما يزداد القرب بينكما، ما الذي يساعدك على الارتياح؟ | أي طريقة في بناء القرب ترتاح لها لدى الشريك؟ | 6.25 |
-| الادخار والصرف | إذا جاءكم مبلغ إضافي غير متوقع، وش الأقرب لطريقتك؟ | أي طريقة في التعامل مع المال ترتاح لها عند شريكك؟ | 6.25 |
-| التعامل مع الأطفال | لو كسر طفل قاعدة اتفقتوا عليها، وش الأقرب لتصرفك؟ | أي تصرف ترتاح له من الطرف الآخر في هالموقف؟ | 6.25 |
+| الأطفال | كيف تتصور موضوع الإنجاب بعد الزواج؟ | أي رغبة في الإنجاب تفضّلها لدى شريك الحياة؟ | 10 |
+| مدينة السكن | ما المدن التي يمكنك أن تبني فيها حياتك الزوجية؟ | أي موقف من الانتقال يناسبك لدى شريك الحياة؟ | 8 |
+| عمل الزوجة وطموحها | أي ترتيب للعمل بعد الزواج يناسب تصورك لحياة الزوجة المهنية؟ | ما الموقف الذي تتمنى أن يشاركك فيه الطرف الآخر؟ | 7 |
+| موعد الخطوة الرسمية | متى يناسبك الانتقال إلى خطوة رسمية إذا وجدت الشخص المناسب؟ | ما توقيت أول خطوة رسمية الذي يناسبك لدى الطرف الآخر؟ | 3 |
+| دور الأهل في القرار | إذا اعترض الأهل على قرار كبير يخص بيتكم، كيف تحب تحسمونه؟ | لو أراد الطرف الآخر إشراك أهله في قرار يخصّ بيتكما، وش الدور اللي يناسبك؟ | 7 |
+| مصاريف البيت الأساسية | لو كان لكل واحد منكم دخل، كيف تتصورون تغطية مصاريف البيت الأساسية؟ | أي اتفاق على المصاريف الأساسية يناسبك من الطرف الآخر؟ | 8 |
+| توزيع أعمال البيت | في أسبوع عادي، كيف تتصور توزيع الطبخ والتنظيف وأعمال البيت؟ | أي توزيع لأعمال البيت يناسبك لو فضّله الطرف الآخر؟ | 7 |
+| السكن مع الأهل أو باستقلال | وقت الزواج، أي ترتيب سكن يناسبك فعليًا؟ | أي ترتيب سكن تقدر تتقبله لو فضّله شريكك؟ | 7 |
+| الزيارات ووقت الراحة | بعد أسبوع مزدحم، كيف يناسبك تقضي وقتك بين الراحة والزيارات؟ | كيف يناسبك أن يوازن الطرف الآخر بين الزيارات ووقت الراحة؟ | 3 |
+| حدود المناسبات والفعاليات | إذا دُعيت إلى مناسبة أو فعالية عامة، كيف تختار وش تحضر؟ | كيف تفضّل أن يختار شريكك المناسبات والفعاليات التي يحضرها؟ | 2 |
+| عند احتدام النقاش | إذا احتدّ النقاش بينك وبين شخص قريب، وش الأقرب للي يصير معك عادة؟ | إذا احتدّ النقاش، أي استجابة تفضّلها من الطرف الآخر؟ | 8 |
+| العودة بعد الزعل | بعد ما يهدأ الخلاف، وش أول خطوة عادةً تسويها عشان ترجعون للتفاهم؟ | كيف تفضّل أن يعود الطرف الآخر للحوار بعد الزعل؟ | 8 |
+| الممارسة الدينية في البيت | إذا اختلف روتين عبادتكم في البيت، وش تتوقع في يومكم العادي؟ | أي توقع من الطرف الآخر بخصوص روتين العبادة يناسبك؟ | 6 |
+| القرب والمساحة | عندما يزداد القرب بينكما، ما الذي يساعدك على الارتياح؟ | أي طريقة في بناء القرب ترتاح لها لدى الشريك؟ | 4 |
+| الادخار والصرف | إذا جاءكم مبلغ إضافي غير متوقع، وش الأقرب لطريقتك؟ | أي طريقة في التعامل مع المال ترتاح لها عند شريكك؟ | 5 |
+| التعامل مع الأطفال | لو كسر طفل قاعدة اتفقتوا عليها، وش الأقرب لتصرفك؟ | أي تصرف ترتاح له من الطرف الآخر في هالموقف؟ | 7 |
 
-With all 16 topics scored, the category totals are قيم البيت ومسؤولياته 37.5, الأطفال والسكن 25.0, إيقاع الحياة 12.5, الحوار والاختلاف 12.5, أسلوب التعارف 6.25, توقيت الزواج 6.25. Each selected priority doubles that category’s topic weights in the member’s direction. An observed structured partner criterion contributes 2 points. The directional results are normalized over the evidence counted, and the practical percentage uses their geometric mean. Both members' age ranges apply to new introductions. Eligibility also enforces each member's explicitly marked requirements and the applicable geographic and marriage-structure rules. A required structured criterion needs a known match. An unanswered survey topic remains unresolved.
+The current practical weights total 100 per direction. A selected priority multiplies its category’s topic weights by 1.35 in that member’s direction, with up to two priorities. Each observed soft structured criterion supplies two points of potential evidence. If more than six are known, they share the 12-point cap proportionately. Strict structured criteria are eligibility gates.
 
-The 6.25 points are an initial product choice. A category’s total follows from its number of topics. Recheck the totals whenever the catalog changes.
-
-### Sensitivity to priority weighting
-
-Run `node iphone/scripts/priority-sensitivity.mjs` from the repository root. The script enumerates every pair of distinct match-count patterns for one selected category, assuming 16 observed binary topic credits and no structured criteria. Reverse-direction fit is held constant and positive. Each pattern counts once, regardless of its frequency among real members.
-
-| Selected practical category | Share at 1.5× | Share at 2× | Strict ordering reversals | Ties gained or lost |
-|---|---:|---:|---:|---:|
-| Household values and responsibilities | 47.4% | 54.5% | 47 / 2,926 | 177 |
-| Children and housing | 33.3% | 40.0% | 22 / 2,080 | 127 |
-| Lifestyle or communication, each | 17.6% | 22.2% | 0 / 990 | 49 |
-| Getting-acquainted style or formal timing, each | 9.1% | 11.8% | 0 / 496 | 14 |
-
-For example, one candidate meets six household expectations and three others. A second meets three household expectations and eight others. At 2× the first leads 68.2% to 63.6% in that direction. At 1.5× the second leads 65.8% to 63.2%. A pilot can present these trade-offs to consenting members and compare their own orderings with each rule.
-
-Recommendation ranking also scales by the square root of practical topic coverage. If both members complete the separate optional Beena scenarios, its score applies a ranking multiplier from 0.95 to 1.05. Neither adjustment changes the displayed practical percentage.
+Each direction divides earned points by observed applicable weight. Unknown or inapplicable answers contribute neither points nor weight. Explicitly undecided children, first formal step or parenting answers also contribute neither. The displayed practical percentage uses the geometric mean of the two directions. Weighted coverage adjusts recommendation ordering by drawing incomplete estimates toward 50%. Beena has a neutral ranking multiplier for current assessments. Archived assessments keep their prior practical and ranking rules.
 
 Luna uses «هل ترغبين في العمل بعد الزواج؟» for the wife-employment self question when the member is a woman.
 
 ## Personality statements
 
-The five response choices are «لا يشبهني إطلاقًا»، «لا يشبهني كثيرًا»، «يشبهني إلى حد ما»، «يشبهني»، and «يشبهني كثيرًا». Each statement contributes one third of its domain’s score on the five-point response scale. Reverse scoring turns 1 into 5, 2 into 4, and vice versa. The five domain scores contribute zero weight to practical matching.
+The five response choices are «لا يشبهني إطلاقًا»، «لا يشبهني كثيرًا»، «يشبهني إلى حد ما»، «يشبهني»، and «يشبهني كثيرًا». Each statement contributes one third of its domain’s score on the five-point response scale. Reverse scoring turns 1 into 5, 2 into 4, and vice versa. The five domain scores contribute zero weight to practical matching. The separate live personality percentage compares the 15 answers when both members completed personality-v2. It gives each domain 20% and each of its three statements equal weight. A difference of zero to four response steps earns 100, 75, 50, 25 or 0 points respectively. Reverse-keying both sides leaves their distance unchanged. Personality has no effect on practical compatibility or recommendation ordering.
 
 | Domain | Statement | Scoring |
 |---|---|---|

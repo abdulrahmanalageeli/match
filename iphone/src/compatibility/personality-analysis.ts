@@ -1,4 +1,5 @@
-import catalog from './personality-catalog-v1.json' with { type: 'json' };
+import legacyCatalog from './personality-catalog-v1.json' with { type: 'json' };
+import currentCatalog from './personality-catalog.json' with { type: 'json' };
 
 export const personalityEvidenceMethod = 'answer-distance-v1' as const;
 export const personalityDomains = [
@@ -8,6 +9,21 @@ export const personalityDomains = [
   { id: 'pressure', title: 'الضغط ومساحة الهدوء', description: 'طلب الدعم، وتوقيت مناقشة الخلاف، والراحة في الهدوء.', questionIds: ['support', 'conflict_pace', 'quiet_comfort'] },
 ] as const;
 
+export const currentPersonalityDomains = [
+  { id: 'stability', title: 'التعامل مع الضغط', description: 'الهدوء والتعافي بعد الضغط.' },
+  { id: 'reliability', title: 'التنظيم والوفاء بالالتزامات', description: 'التخطيط وإتمام الالتزامات.' },
+  { id: 'warmth', title: 'مراعاة الآخرين', description: 'فهم وجهات النظر وإصلاح الخطأ.' },
+  { id: 'social_energy', title: 'الطاقة الاجتماعية', description: 'الطاقة في التجمعات والمبادرة بالحديث.' },
+  { id: 'openness', title: 'الانفتاح على التجربة', description: 'الفضول تجاه الأفكار والتجارب الجديدة.' },
+] as const;
+
+function personalityStructure(version: 'personality-v1' | 'personality-v2') {
+  return version === 'personality-v1' ? { catalog: legacyCatalog, groups: personalityDomains } : {
+    catalog: currentCatalog,
+    groups: currentPersonalityDomains.map(domain => ({ ...domain, questionIds: currentCatalog.filter(item => item.domain === domain.id).map(item => item.id) })),
+  };
+}
+
 export const distributionSteps = [
   { key: 'same', label: 'الإجابة نفسها', points: 100 },
   { key: 'near', label: 'فرق درجة واحدة', points: 75 },
@@ -16,7 +32,7 @@ export const distributionSteps = [
   { key: 'opposite', label: 'فرق أربع درجات', points: 0 },
 ] as const;
 
-export type PersonalityDomainId = typeof personalityDomains[number]['id'];
+export type PersonalityDomainId = typeof personalityDomains[number]['id'] | typeof currentPersonalityDomains[number]['id'];
 export type PersonalityDistribution = Record<typeof distributionSteps[number]['key'], number>;
 export type PersonalityDomainEvidence = { id: PersonalityDomainId; covered: number; total: number; percentage: number | null };
 export type PersonalityEvidencePayload = {
@@ -44,8 +60,9 @@ export const personalityTopics: Record<string, TopicText> = {
   quiet_comfort: { title: 'الراحة في الهدوء', similarity: 'إجاباتكما متقاربة بشأن الراحة في الهدوء مع شخص قريب؛ لا يوضح ذلك وحده مقدار التواصل الذي تحتاجانه.', discussion: 'تختلف إجاباتكما بشأن الراحة في لحظات الصمت. من المفيد توضيح متى يكون الهدوء راحة ومتى يحتاج أحدكما إلى تواصل.', prompt: 'كيف نميّز بين هدوء مريح وحاجة إلى الحديث أو الطمأنينة؟' },
 };
 
-export function createPersonalityEvidence(distances: ReadonlyMap<string, number>, complete: boolean): PersonalityEvidencePayload {
-  const domains = personalityDomains.map(domain => {
+export function createPersonalityEvidence(distances: ReadonlyMap<string, number>, complete: boolean, version: 'personality-v1' | 'personality-v2' = 'personality-v1'): PersonalityEvidencePayload {
+  const { catalog, groups } = personalityStructure(version);
+  const domains = groups.map(domain => {
     const known = domain.questionIds.flatMap(id => {
       const distance = distances.get(id);
       return Number.isInteger(distance) && distance! >= 0 && distance! <= 4 ? [distance!] : [];
@@ -64,14 +81,16 @@ export function createPersonalityEvidence(distances: ReadonlyMap<string, number>
 }
 
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-const count = (value: unknown): value is number => Number.isInteger(value) && typeof value === 'number' && value >= 0 && value <= catalog.length;
+const count = (value: unknown): value is number => Number.isInteger(value) && typeof value === 'number' && value >= 0 && value <= currentCatalog.length;
 
 /** Accept only complete evidence whose arithmetic reconciles to the displayed score. */
 export function validatedPersonalityEvidence(value: unknown): PersonalityEvidence | null {
-  if (!record(value) || value.version !== 'personality-v1' || value.method !== personalityEvidenceMethod
+  if (!record(value) || (value.version !== 'personality-v1' && value.version !== 'personality-v2')) return null;
+  const { catalog, groups } = personalityStructure(value.version);
+  if (value.method !== personalityEvidenceMethod
       || value.complete !== true || value.covered !== catalog.length || value.total !== catalog.length
       || !Number.isInteger(value.percentage) || typeof value.percentage !== 'number'
-      || !record(value.distribution) || !Array.isArray(value.domains) || value.domains.length !== personalityDomains.length) return null;
+      || !record(value.distribution) || !Array.isArray(value.domains) || value.domains.length !== groups.length) return null;
   const distribution = value.distribution;
   if (Object.keys(distribution).length !== distributionSteps.length || distributionSteps.some(step => !count(distribution[step.key]))) return null;
   const counts = distribution as PersonalityDistribution;
@@ -86,7 +105,7 @@ export function validatedPersonalityEvidence(value: unknown): PersonalityEvidenc
   const similarities = new Set(value.similarities);
   let domainDistance = 0;
   const domains: PersonalityDomainEvidence[] = [];
-  for (const [index, definition] of personalityDomains.entries()) {
+  for (const [index, definition] of groups.entries()) {
     const domain = value.domains[index];
     if (!record(domain) || domain.id !== definition.id || domain.covered !== definition.questionIds.length
         || domain.total !== definition.questionIds.length || !Number.isInteger(domain.percentage)) return null;
@@ -108,9 +127,10 @@ export type PersonalityAnalysis = PersonalityEvidence & { strengths: Personality
 export function analyzePersonality(value: unknown): PersonalityAnalysis | null {
   const evidence = validatedPersonalityEvidence(value);
   if (!evidence || !record(value)) return null;
+  if (value.version === 'personality-v2') return { ...evidence, strengths: [], discussion: [] };
   const candidates = (ids: string[], difference: boolean) => {
     const rank = (id: string) => evidence.domains.find(domain => personalityDomains.find(item => item.id === domain.id)!.questionIds.some(question => question === id))?.percentage ?? 0;
-    return ids.slice().sort((a, b) => (difference ? rank(a) - rank(b) : rank(b) - rank(a)) || catalog.findIndex(item => item.id === a) - catalog.findIndex(item => item.id === b)).slice(0, 2)
+    return ids.slice().sort((a, b) => (difference ? rank(a) - rank(b) : rank(b) - rank(a)) || legacyCatalog.findIndex(item => item.id === a) - legacyCatalog.findIndex(item => item.id === b)).slice(0, 2)
       .map(id => ({ id, title: personalityTopics[id].title, interpretation: difference ? personalityTopics[id].discussion : personalityTopics[id].similarity, prompt: personalityTopics[id].prompt }));
   };
   return { ...evidence, strengths: candidates(value.similarities as string[], false), discussion: candidates(value.differences as string[], true) };

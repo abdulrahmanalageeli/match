@@ -171,8 +171,10 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const includePeer=(s.matched||s.allowRematch)&&!s.hiddenPeople?.[account.actor]&&!filters.work&&matchesDiscoveryFilters(partner,filters);
    const people=[...(includePeer?[{...partner,connectionId:s.matched||s.rematchRequestedBy?'tester-pair':undefined,connectionStatus:s.matched?'accepted' as const:s.rematchRequestedBy?'pending' as const:undefined}]:[]),
     ...await local.discover({...filters,offset:0,afterId:undefined})].map(p=>({...p,viewerAtCapacity:full}));
+   const ranking = (person:PublicPerson) => (preferencePercentage(person.fit)??-1) *
+    (person.fit?.version==='marriage-v4' ? 1 : beenaRankMultiplier(person.fit?.beena));
    people.sort(filters.sort==='youngest'?(a,b)=>a.age-b.age:filters.sort==='oldest'?(a,b)=>b.age-a.age:
-    (a,b)=>(preferencePercentage(b.fit)??-1)*beenaRankMultiplier(b.fit?.beena)-(preferencePercentage(a.fit)??-1)*beenaRankMultiplier(a.fit?.beena));
+    (a,b)=>ranking(b)-ranking(a));
    const offset=filters.offset??(filters.afterId?people.findIndex(p=>p.id===filters.afterId)+1:0);
    const page=people.slice(offset,offset+24);
    return page;

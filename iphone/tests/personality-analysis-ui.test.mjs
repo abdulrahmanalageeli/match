@@ -1,3 +1,4 @@
+import currentTraits from '../src/compatibility/personality-catalog.json' with {type:'json'};
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {createElement,createRef} from 'react';
@@ -59,15 +60,21 @@ test('the score exposes a direct accessible explanation control and retains sepa
  assert.equal((html.match(/ما وراء انسجام الشخصية/g)||[]).length,1);
 });
 
-test('new and mixed pairs display practical fit without a pending personality percentage',()=>{
- const {a,b}=pair();
- const current={...a,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2'};
- for (const peer of [b,{...b,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2'}]) {
-  const fit=comparePreferences(current,peer).fit;
+test('current pairs display both existing percentage tiles and mixed instruments keep practical fit', () => {
+  const {a,b}=pair();
+  const current = {...a,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2'};
+  const mixed = renderToStaticMarkup(createElement(FitDetails,{fit:comparePreferences(current,b).fit}));
+  assert.match(mixed,/data-fit-score="preferences"/);
+  assert.doesNotMatch(mixed,/data-fit-score="personality"/);
+
+  const answers=Object.fromEntries(currentTraits.map(item=>[item.id,'C']));
+  const peer={...b,assessmentVersion:'marriage-v4',personalityVersion:'personality-v2',personalityAnswers:answers};
+  const fit=comparePreferences({...current,personalityAnswers:answers},peer).fit;
   const html=renderToStaticMarkup(createElement(FitDetails,{fit}));
-  assert.match(html,/data-fit-score="preferences"/);
-  assert.doesNotMatch(html,/data-fit-score="personality"|ما وراء انسجام الشخصية|لماذا هذه النسبة؟/);
- }
+  assert.match(html,/data-fit-score="personality"/);
+  assert.match(html,/>100%<\/bdi>/);
+  assert.match(html,/تشابه الإجابات الشخصية/);
+  assert.equal((html.match(/role="meter"/g)||[]).length,5);
 });
 
 test('Explore and profile details render the actual practical percentage, including zero', () => {

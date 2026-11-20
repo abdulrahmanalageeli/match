@@ -4,37 +4,38 @@
     {
       "id": "values",
       "label": "قيم البيت ومسؤولياته",
-      "weight": 37.5
+      "weight": 40
     },
     {
       "id": "plans",
       "label": "الأطفال والسكن",
-      "weight": 25.0
+      "weight": 32
     },
     {
       "id": "lifestyle",
       "label": "إيقاع الحياة",
-      "weight": 12.5
+      "weight": 5
     },
     {
       "id": "communication",
       "label": "الحوار والاختلاف",
-      "weight": 12.5
+      "weight": 16
     },
     {
       "id": "personality",
       "label": "أسلوب التعارف",
-      "weight": 6.25
+      "weight": 4
     },
     {
       "id": "timing",
       "label": "توقيت الزواج",
-      "weight": 6.25
+      "weight": 3
     }
   ],
   "dimensions": [
     {
       "id": "children_plan",
+      "weight": 10,
       "partnerId": "partner_children_plan",
       "category": "plans",
       "title": "الأطفال",
@@ -63,6 +64,7 @@
     },
     {
       "id": "residence_plan",
+      "weight": 8,
       "partnerId": "partner_residence_plan",
       "category": "plans",
       "title": "مدينة السكن",
@@ -91,6 +93,7 @@
     },
     {
       "id": "wife_work",
+      "weight": 7,
       "partnerId": "partner_wife_work",
       "category": "plans",
       "title": "عمل الزوجة وطموحها",
@@ -119,6 +122,7 @@
     },
     {
       "id": "marriage_timeline",
+      "weight": 3,
       "partnerId": "partner_marriage_timeline",
       "category": "timing",
       "title": "موعد الخطوة الرسمية",
@@ -154,6 +158,7 @@
     },
     {
       "id": "family_authority",
+      "weight": 7,
       "partnerId": "partner_family_authority",
       "category": "values",
       "title": "دور الأهل في القرار",
@@ -182,6 +187,7 @@
     },
     {
       "id": "financial_provision",
+      "weight": 8,
       "partnerId": "partner_financial_provision",
       "category": "values",
       "title": "مصاريف البيت الأساسية",
@@ -215,6 +221,7 @@
     },
     {
       "id": "domestic_labor",
+      "weight": 7,
       "partnerId": "partner_domestic_labor",
       "category": "values",
       "title": "توزيع أعمال البيت",
@@ -248,6 +255,7 @@
     },
     {
       "id": "housing_arrangement",
+      "weight": 7,
       "partnerId": "partner_housing_arrangement",
       "category": "plans",
       "title": "السكن مع الأهل أو باستقلال",
@@ -281,6 +289,7 @@
     },
     {
       "id": "social_rhythm",
+      "weight": 3,
       "partnerId": "partner_social_rhythm",
       "category": "lifestyle",
       "title": "الزيارات ووقت الراحة",
@@ -309,6 +318,7 @@
     },
     {
       "id": "social_boundaries",
+      "weight": 2,
       "partnerId": "partner_social_boundaries",
       "category": "lifestyle",
       "title": "حدود المناسبات والفعاليات",
@@ -342,6 +352,7 @@
     },
     {
       "id": "conflict_response",
+      "weight": 8,
       "partnerId": "partner_conflict_response",
       "category": "communication",
       "title": "عند احتدام النقاش",
@@ -375,6 +386,7 @@
     },
     {
       "id": "repair_after_conflict",
+      "weight": 8,
       "partnerId": "partner_repair_after_conflict",
       "category": "communication",
       "title": "العودة بعد الزعل",
@@ -403,6 +415,7 @@
     },
     {
       "id": "faith_routine",
+      "weight": 6,
       "partnerId": "partner_faith_routine",
       "category": "values",
       "title": "الممارسة الدينية في البيت",
@@ -431,6 +444,7 @@
     },
     {
       "id": "closeness_pace",
+      "weight": 4,
       "partnerId": "partner_closeness_pace",
       "category": "personality",
       "title": "القرب والمساحة",
@@ -459,6 +473,7 @@
     },
     {
       "id": "money_management",
+      "weight": 5,
       "partnerId": "partner_money_management",
       "category": "values",
       "title": "الادخار والصرف",
@@ -492,6 +507,7 @@
     },
     {
       "id": "parenting_approach",
+      "weight": 7,
       "partnerId": "partner_parenting_approach",
       "category": "values",
       "title": "التعامل مع الأطفال",

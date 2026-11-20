@@ -82,7 +82,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const {personalLine, context}=decisionContext(person);
   const percentage=preferencePercentage(person.fit);
   const personality=personalityPercentage(person.fit);
-  const showsPersonality = Boolean(person.fit && person.fit.version !== 'marriage-v4');
+  const showsPersonality = Boolean(person.fit && (person.fit.version !== 'marriage-v4' || person.fit.personality?.version === 'personality-v2'));
   const hasFit=premium&&!person.compatibilityLocked&&!preview&&Boolean(person.fit||person.reasons.length);
   const hasDetails=Boolean(person.occupation||person.education||person.familyPreference||person.marriageIntent||b&&Object.values(b).some(v=>v!==undefined&&v!==null&&v!==''));
   const passportConnection=connectionId||(person.connectionStatus==='accepted'?person.connectionId:undefined);

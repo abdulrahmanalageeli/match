@@ -121,7 +121,7 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
   assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);
   assert.deepEqual(plain(updated[1].fit.strengths),['residence_plan']);
-  assert.equal(updated[1].fit.percentage, 9, 'same-city residence aligns and adjacent formal timing receives partial credit');
+  assert.equal(updated[1].fit.percentage, 10, 'same-city residence aligns and adjacent formal timing receives partial credit');
   assert.equal(first.surveyAnswers.children_plan, 'A', 'the original draft is not mutated');
 });
 
@@ -134,18 +134,18 @@ test('unselected proposals and partial confirmations never invent an assessment 
   const comparison = compatibility.describeFit({ ...selfOnly, id: owner }, candidate('A', 'peer'));
   assert.equal(comparison.fit.covered, 0);
   assert.equal(comparison.fit.percentage, null);
-  assert.equal(comparison.fit.personality, undefined);
+  assert.equal(comparison.fit.personality.percentage, null);
   assert.deepEqual(plain(selfOnly.personalityAnswers), {});
   const onePair = profile({ ...base, ...interview.applyInterviewAnswers(base, confirmed(preferences('A').slice(0, 2))) });
   const partial = compatibility.describeFit({ ...onePair, id: owner }, candidate('A', 'peer'));
   assert.equal(partial.fit.covered, 1);
   assert.equal(partial.fit.percentage, null);
-  assert(partial.rankValue > 0, 'valid incomplete answers still contribute to ranking with a coverage penalty');
+  assert(partial.rankValue > 0, 'valid incomplete answers adjust ranking from the neutral baseline');
 });
 
-test('confirmed personality answers feed the descriptive profile and leave matching unchanged', () => {
+test('confirmed personality answers produce a separate live percentage without changing practical ranking', () => {
   const base = newDraft().answers;
-  const peer = candidate('A','peer');
+  const peer = {...candidate('A','peer'), personalityAnswers: Object.fromEntries(personalityCatalog.map(q=>[q.id,'D']))};
   const describe = answers => personalityModel.personalityProfile(answers.personalityVersion,answers.personalityAnswers);
   const rank = answers => compatibility.describeFit({...profile(answers),id:owner},peer);
   assert.deepEqual(plain(describe(base)),[]);
@@ -163,7 +163,9 @@ test('confirmed personality answers feed the descriptive profile and leave match
   assert.equal(full.personalityAnswers[first.fieldId],'D');
   assert.notEqual(describe(changed)[0].mean,describe(full)[0].mean);
   assert.equal(rank(changed).rankValue,rank(base).rankValue);
-  assert.equal(rank(changed).fit.personality,undefined);
+  assert.equal(rank(base).fit.personality.percentage,null);
+  assert.equal(rank(full).fit.personality.percentage,100);
+  assert.equal(rank(changed).fit.personality.percentage,97);
 });
 
 test('confirmed Beena answers feed the same scenario matching while unselected scenarios remain unanswered', () => {

@@ -410,22 +410,42 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
       await seed(db,person);
     }
     async function compare(eligible=true, expectedTotal=16){
-      const {rows:[row]}=await db.query('select marriage.compatible($1,$2) as eligible,fit from marriage.pair_fit($1,$2)',[a.id,b.id]);
+      const {rows:[row]}=await db.query('select marriage.compatible($1,$2) as eligible,fit,rank_value from marriage.pair_fit($1,$2)',[a.id,b.id]);
       const local=comparePreferences(a,b);
       assert.equal(row.eligible,eligible);
       assert.equal(Boolean(local),eligible);
-      assert.equal(row.fit.personality??null,null);
       assert.equal(row.fit.total,expectedTotal);
       if(local){
         assert.deepEqual(row.fit.preferenceEvidence,local.fit.preferenceEvidence);
+        assert.deepEqual(row.fit.personality,local.fit.personality);
+        assert.ok(Math.abs(row.rank_value-local.rankValue)<1e-12);
         assert.equal(row.fit.percentage,local.fit.percentage);
       }
       return row.fit;
     }
-    assert.equal((await compare()).percentage,100);
+    const perfect = await compare();
+    assert.equal(perfect.percentage,100);
+    assert.equal(perfect.personality.percentage,100);
+    const {rows:[{catalog}]}=await db.query("select catalog from marriage.assessment_versions where id='marriage-v4'");
+    assert.deepEqual(catalog,currentCatalog);
+    for(const trait of newPersonality.slice(0,3)) {
+      b.personalityAnswers[trait.id]='E';
+      await db.query("update marriage.personality_answers set option_code='E' where member_id=$1 and question_code=$2",[b.id,trait.id]);
+    }
+    const different = await compare();
+    assert.equal(different.percentage,100);
+    assert.equal(different.personality.percentage,80);
+    assert.deepEqual(different.personality.domains.map(x=>x.percentage),[0,100,100,100,100]);
+    const {rows:[{card}]}=await db.query("select marriage.before_mutual_fit($1) as card",[different]);
+    assert.equal(card.personality.percentage,80);
+    assert.equal(card.personality.domains,undefined);
+    assert.deepEqual(card.personality.differences,[]);
+    delete b.personalityAnswers.harsh_words;
+    await db.query("delete from marriage.personality_answers where member_id=$1 and question_code='harsh_words'",[b.id]);
+    assert.equal((await compare()).personality.percentage,null);
     set(b,'money_management','B');
     await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code in ('money_management','partner_money_management')",[b.id]);
-    assert.equal((await compare()).percentage,94);
+    assert.equal((await compare()).percentage,95);
     b.surveyAnswers.social_boundaries='B';
     await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='social_boundaries'",[b.id]);
     await compare();

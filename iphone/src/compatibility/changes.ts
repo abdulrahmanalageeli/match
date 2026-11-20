@@ -1,7 +1,7 @@
 import { dimensionsForVersion, personalityPercentage, preferencePercentage, type MatchFit } from './model.ts';
 import { beenaScenarios } from '../beena/model.ts';
 import { readPreferenceEvidence } from './preference-evidence.ts';
-import { personalityDomains, personalityTopics, validatedPersonalityEvidence } from './personality-analysis.ts';
+import { currentPersonalityDomains, personalityDomains, personalityTopics, validatedPersonalityEvidence } from './personality-analysis.ts';
 
 export type CompatibilityScoreKey = 'preferences' | 'personality' | 'beena';
 type Section = { score: number; method: string; topics: [string, string][]; metrics: [string, number][] };
@@ -35,11 +35,12 @@ export function compatibilitySnapshot(fit?: MatchFit | null): CompatibilitySnaps
   const personality = personalityPercentage(fit), personalityFit = fit.personality;
   if (personality !== null && personalityFit) {
     const analysis = validatedPersonalityEvidence(personalityFit);
-    sections.personality = { score: personality, method: analysis?.method ?? 'legacy',
+    sections.personality = { score: personality, method: personalityFit.version === 'personality-v2'
+      ? 'personality-v2:' + (analysis?.method ?? 'summary') : analysis?.method ?? 'legacy',
       topics: Object.keys(personalityTopics).flatMap(id => personalityFit.similarities?.includes(id) ? [[id, 'aligned'] as [string, string]]
         : personalityFit.differences?.includes(id) ? [[id, 'discussion'] as [string, string]] : []),
       metrics: analysis ? [
-        ...personalityDomains.map(domain => [domain.id, analysis.domains.find(item => item.id === domain.id)!.percentage!] as [string, number]),
+        ...analysis.domains.flatMap(domain => domain.percentage === null ? [] : [[domain.id, domain.percentage] as [string, number]]),
         ...(['same', 'near', 'different', 'far', 'opposite'] as const).map(key => [key, analysis.distribution[key]] as [string, number]),
       ] : [],
     };
@@ -74,7 +75,7 @@ export function compareCompatibility(before?: CompatibilitySnapshot | null, afte
       if (key === 'preferences') reasons.push('تغيّر التوافق في التفضيلات الإضافية التي اخترتما أن يكون لها وزن.');
       if (key === 'personality') {
         const oldMetrics = new Map(previous.metrics), newMetrics = new Map(next.metrics);
-        const domains = personalityDomains.filter(domain => oldMetrics.get(domain.id) !== newMetrics.get(domain.id));
+        const domains = [...personalityDomains, ...currentPersonalityDomains].filter(domain => oldMetrics.get(domain.id) !== newMetrics.get(domain.id));
         if (domains.length) reasons.push(`تغيّر تقارب الإجابات في ${domains.map(domain => domain.title).join('، ')}.`);
         else reasons.push('تغيّر توزيع تقارب الإجابات في تقييم الشخصية.');
       }

@@ -23,7 +23,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
   const preferencePanel=useRef<HTMLDivElement>(null);
   if (!["marriage-v1", "marriage-v2", "marriage-v3", "marriage-v4"].includes(fit.version)) return null;
   const preference = preferencePercentage(fit);
-  const legacyPersonality = fit.version !== 'marriage-v4' && fit.personality?.version === 'personality-v1';
+  const hasPersonality = fit.personality?.version === 'personality-v1' || fit.personality?.version === 'personality-v2';
   const personality = personalityPercentage(fit);
   const personalityUnavailable=personality===null&&fit.personality?.complete===true;
   function explainPreferences(){
@@ -42,7 +42,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
   return <section className="nf-fit" aria-labelledby={heading}>
     <header className="nf-fit-heading">
       <h2 id={heading} className="nf-fit-title">التوافق بينكما</h2>
-      <p>{legacyPersonality ? 'التفضيلات، والطباع، ومواقف الحياة. لكلٍّ قراءة مستقلة.' : 'تفضيلات الزواج ومواقف الحياة المشتركة.'}</p>
+      <p>{hasPersonality ? 'التفضيلات، والطباع، ومواقف الحياة. لكلٍّ قراءة مستقلة.' : 'تفضيلات الزواج ومواقف الحياة المشتركة.'}</p>
     </header>
     <div className="nf-fit-scores">
       <div className="nf-fit-score" data-fit-score="preferences">
@@ -53,7 +53,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>
       </div>
-      {legacyPersonality && <div className="nf-fit-score personality" data-fit-score="personality">
+      {hasPersonality && <div className="nf-fit-score personality" data-fit-score="personality">
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>تشابه الإجابات الشخصية</h3>
         <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : `${arabic.format(personality)} بالمئة`}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{personality}%</bdi>}</strong>
@@ -63,7 +63,7 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
       </div>}
     </div>
     <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>
-    {legacyPersonality && <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>}
+    {hasPersonality && <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>}
     <section className="nf-fit-conversation"><h3>سؤال لبداية أوضح</h3><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></section>
     <p className="nf-fit-boundary">قراءات من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نتيجة عند اكتمال تقييمها لدى الطرفين.</p>
   </section>;

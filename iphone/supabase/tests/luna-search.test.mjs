@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember} from './harness.mjs';
 import {seedCommunicationMember} from './communication-fixture.mjs';
+import {createLunaSearch} from '../../api/_lib/luna-search.mjs';
 
 test('Luna enforces tiers, searches past page one, preserves blocks and quotas; admin grants are audited',async()=>{
  const db=await createDatabase();
@@ -22,6 +23,39 @@ test('Luna enforces tiers, searches past page one, preserves blocks and quotas; 
   assert.deepEqual(await call(viewer,'public.marriage_browse($1)',[{mode:'all',luna:[{kind:'must',field:'unsupported',terms:['الفلك']}]}]),[]);
   assert.deepEqual((await call(viewer,'public.marriage_browse($1)',[options])).map(p=>p.id),[target.id]);
   assert.equal((await call(viewer,'public.marriage_browse($1)',[{luna:options.luna}]))[0].id,target.id,'relevance precedes page slicing');
+  // Evaluate free text and new fields inside browse, before the 24-card limit.
+  const mustMention={field:'profileText',kind:'must',terms:['الفلك']};
+  const nonSaudi={field:'nationality',kind:'exclude',terms:['سعودي']};
+  const lookup=async luna=>(await call(viewer,'public.marriage_browse($1)',[{mode:'all',luna}])).map(p=>p.id);
+  assert.deepEqual(await lookup([mustMention]),[target.id]);
+  const search=createLunaSearch({env:{},fetcher:async(url,request)=>{
+    const response=url.endsWith('/marriage_luna_search_reserve')
+      ? await call(viewer,'public.marriage_luna_search_reserve()')
+      : await call(viewer,'public.marriage_browse($1)',[JSON.parse(request.body).options]);
+    return {ok:true,json:async()=>response};
+  }});
+  const findNonSaudi=async()=>(await search({query:'بنت مو سعودية'},{authorization:'Bearer fixture'})).people.map(p=>p.id);
+  assert.deepEqual(await findNonSaudi(),[]);
+  await db.query("insert into marriage.member_basics(member_id,nationality) values ($1,'مصرية')",[target.id]);
+  assert.deepEqual(await findNonSaudi(),[target.id]);
+  assert.deepEqual(await lookup([mustMention,nonSaudi]),[target.id]);
+  await db.query("update marriage.member_basics set nationality='سعودية' where member_id=$1",[target.id]);
+  assert.deepEqual(await findNonSaudi(),[]);
+  assert.deepEqual(await lookup([mustMention,nonSaudi]),[]);
+  const score=(card,criteria)=>rpc('marriage.luna_score($1,$2)',[card,JSON.stringify(criteria)]);
+  for (const nationality of [null,'','prefer_not_to_say','Saudi Arabia']) {
+    assert.equal(await score({marriageBasics:{nationality}},[nonSaudi]),-1);
+  }
+  for (const field of ['lookingFor','valuesStatement','lifeTogether','marriageIntent']) {
+    assert.equal(await score({[field]:'الفلك'},[mustMention]),0);
+  }
+  assert.equal(await score({beenaStory:{text:'الفلك'}},[mustMention]),0);
+  const badge={field:'verificationBadge',kind:'must',terms:['education']};
+  assert.equal(await score({manualVerifications:[{kind:'education'}]},[badge]),0);
+  assert.equal(await score({manualVerifications:[]},[badge]),-1);
+  assert.equal(await score({id:'الفلك',privateNotes:'الفلك',fit:{discussion:['الفلك']}},[mustMention]),-1);
+  assert.equal(await score({marriageBasics:{heightCm:163}},[{field:'heightCm',kind:'must',terms:['160..165']}]),0);
+  assert.equal(await score({marriageBasics:{heightCm:159}},[{field:'heightCm',kind:'must',terms:['160..165']}]),-1);
   const weekly=await call(viewer,'public.marriage_browse($1)',[{mode:'recommended'}]);
   const outside=women.find(w=>!weekly.some(card=>card.id===w.id));
   assert.deepEqual(await call(viewer,'public.marriage_browse($1)',[{mode:'recommended',subjectId:outside.id,luna:[]}]),[]);

@@ -49,7 +49,7 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
       {tier!=='seriousness'?<div className="luna-search-upgrade"><p>البحث حسب الوصف متاح مع وسام الجدية.</p><button className="f-primary" onClick={upgrade}>اكتشف وسام الجدية</button></div>:!source.lunaSearch?<p role="status">البحث متاح عند تسجيل الدخول بحساب عضوية حقيقي.</p>:<>
         <form onSubmit={event=>{event.preventDefault();void search();}}>
           <label htmlFor="luna-discovery-query">تفضيلاتك</label>
-          <textarea id="luna-discovery-query" rows={2} maxLength={600} minLength={3} required value={query} disabled={busy} onChange={event=>setQuery(event.target.value)} placeholder="مثلًا: من الرياض، يحب القراءة ولا يدخن"/>
+          <textarea id="luna-discovery-query" rows={2} maxLength={600} minLength={3} required value={query} disabled={busy} onChange={event=>setQuery(event.target.value)} placeholder="مثلًا: شخص من الرياض ذكر التصوير في نبذته"/>
           <div className="luna-search-compose"><small>{query.length} / 600</small><button disabled={busy||query.trim().length<3} type="submit"><Sparkles size={16}/>{busy?'لونا تبحث…':'بحث'}</button></div>
         </form>
         <p className="luna-search-privacy">تبحث لونا ضمن التبويب والفلاتر الحالية وشروط الطرفين · ٣٠ بحثًا يوميًا</p>

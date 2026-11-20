@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send } from "../BrandIcons";
 import { PersonAvatar } from '../avatars/PersonAvatar';
-import type { ActivityNotification, CommunitySource, Connection, PublicPerson, StepProgress } from '../community/data';
+import type { ActivityNotification, CommunitySource, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
 import { emptyFeed } from './emptyFeed';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -26,7 +26,7 @@ function EventIcon({ item }: { item: FeedItem }) {
   const props = {size:12,strokeWidth:1.8,'aria-hidden':true as const};
   if (item.kind === 'visit') return <Eye {...props}/>;
   if (item.kind === 'interest') return <Heart {...props}/>;
-  if (item.kind === 'message') return <MessageCircle {...props}/>;
+  if (item.kind === 'message' || item.kind === 'feedback') return <MessageCircle {...props}/>;
   if (item.kind === 'journey') return <Route {...props}/>;
   if (item.kind === 'exclusive') return <HeartHandshake {...props}/>;
   return item.kind === 'match' ? <Heart {...props}/> : <Send {...props}/>;
@@ -34,18 +34,19 @@ function EventIcon({ item }: { item: FeedItem }) {
 
 export function NotificationFeed({ source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
   source: CommunitySource; connections: Connection[]; onProfile: (person: PublicPerson) => void;
-  onConversation: (id: string) => void; onRequest: (id: string) => void; loading?: boolean; error?: string;
+  onConversation: (id: string, openFeedback?: boolean) => void; onRequest: (id: string) => void; loading?: boolean; error?: string;
   onBrowse?: () => void; onRetry?: () => void;
 }) {
   const [items, setItems] = useState<ActivityNotification[]>([]), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [retry, setRetry] = useState(0), [filter, setFilter] = useState<FeedFilter>('all');
   const [progress, setProgress] = useState(new Map<string, StepProgress>()), [opening, setOpening] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackNotice[]>([]);
   const [seen, setSeen] = useState(() => viewedRequests.get(source) || new Set<string>());
   const connectionsRef = useRef(connections); connectionsRef.current = connections;
   const openingRef = useRef(false);
   const acceptedIds = connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(',');
   useEffect(() => {
-    setLoading(true); setItems([]); setProgress(new Map());
+    setLoading(true); setItems([]); setProgress(new Map()); setFeedback([]);
     setSeen(viewedRequests.get(source) || new Set());
   }, [source]);
   useEffect(() => {
@@ -55,14 +56,15 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
       if (busy) { rerun = true; return; }
       busy = true;
       try {
-        const [events, steps] = await Promise.all([
+        const [events, steps, notices] = await Promise.all([
           source.notifications?.() || Promise.resolve([]),
           Promise.all(connectionsRef.current.filter(c => c.status === 'accepted').map(async c => {
             try { return [c.id, await source.progress?.(c.id)] as const; }
             catch { return [c.id, undefined] as const; }
           })),
+          acceptedIds ? source.conversationPilotNotices?.().catch(() => []) : [],
         ]);
-        if (active) { setItems(events); setProgress(new Map(steps.filter((entry): entry is readonly [string, StepProgress] => Boolean(entry[1])))); setError(''); }
+        if (active) { setItems(events); setProgress(new Map(steps.filter((entry): entry is readonly [string, StepProgress] => Boolean(entry[1])))); setFeedback(notices ?? []); setError(''); }
       } catch { if (active) setError('تعذّر تحديث بعض الإشعارات. تظهر طلباتك المتاحة أدناه.'); }
       finally {
         busy = false;
@@ -70,12 +72,13 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
       }
     }
     void refresh(); const stop = source.watch(() => void refresh());
+    const timer = acceptedIds && source.conversationPilotNotices ? window.setInterval(refresh, 5*60*1000) : undefined;
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', refresh);
-    return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
+    return () => { active = false; stop(); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source, retry, acceptedIds]);
 
-  const rows = useMemo(() => buildFeed(connections, items, progress, seen), [connections, items, progress, seen]);
+  const rows = useMemo(() => buildFeed(connections, items, progress, seen, feedback), [connections, items, progress, seen, feedback]);
   const visible = filterFeed(rows, filter), unread = rows.filter(item => item.unread).length;
   const empty = emptyFeed(filter);
   async function open(item: FeedItem) {
@@ -84,7 +87,7 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     try {
       if (item.target === 'profile') onProfile(item.person);
       else if (item.requestId && connections.some(c => c.id === item.requestId)) {
-        if (item.target === 'request') onRequest(item.requestId); else onConversation(item.requestId);
+        if (item.target === 'request') onRequest(item.requestId); else onConversation(item.requestId, item.kind === 'feedback');
       } else { setError('تغيّرت حالة هذا التعارف. حدّث الإشعارات للاطّلاع على آخر المستجدات.'); return; }
       // Navigation must not wait for a read receipt. A failed receipt remains
       // unread on the next refresh, so it can be retried without blocking entry.

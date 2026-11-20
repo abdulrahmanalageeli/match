@@ -1,0 +1,27 @@
+.wf-preview {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  max-width: 1120px; margin: auto; min-height: 100svh;
+  background: var(--surface);
+}
+.wf-courtyard {
+  position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column;
+  justify-content: space-between; align-items: flex-start; padding: clamp(24px, 4vw, 52px);
+  background: linear-gradient(180deg, #1e191954, transparent 33%, #181410bc),
+    url("/brand/welcome/shared-future.webp") 74% center / cover;
+  color: white;
+}
+.wf-courtyard .nisfayn-brand { filter: brightness(0) invert(1); }
+.wf-courtyard h1 { margin: 0 0 4px; font-size: clamp(32px, 4.4vw, 54px); line-height: 1.35; }
+.wf-courtyard p { margin: 0; color: #f0e9df; }
+.wf-stages { min-width: 0; padding: clamp(24px, 4vw, 52px); }
+.wf-stages h2 { font-size: var(--text-title); margin: 0; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.wf-stages > p:empty { display: none; }
+.wf-event-select { display: grid; gap: 6px; padding: 16px 0; color: var(--muted); font-size: .85rem; }
+.wf-event-select select { color: var(--ink); background: var(--surface); min-height: 44px; padding-inline: 10px; border: 1px solid var(--control-line); border-radius: var(--radius-control); }
+.wf-stages footer { margin-top: 18px; color: var(--muted); font-size: .75rem; }
+@media (max-width: 720px) {
+  .wf-preview { display: block; }
+  .wf-courtyard { position: relative; height: 240px; padding: 20px 24px;
+    background-position: center, 80% 40%; }
+  .wf-stages { padding: 22px 22px 32px; }
+}

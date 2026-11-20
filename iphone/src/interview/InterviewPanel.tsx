@@ -10,6 +10,7 @@ import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type I
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
 import topics from './catalog.json';
 import openingScenarios from './opening-scenarios.json';
+import openingPrompts from './opening-prompts.json';
 import type { InterviewDocument, InterviewProposal, InterviewSnapshot } from './types';
 import './interview.css';
 
@@ -37,6 +38,40 @@ function renderLunaMessage(text: string) {
   const paragraphs = text.split(/\u2029|\n\s*\n/);
   if (paragraphs.length !== 2) return <p>{text}</p>;
   return <><p className="wi-reflection">{paragraphs[0]}</p><p className="wi-next-question">{paragraphs[1]}</p></>;
+}
+
+function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const id = nextStep ? 'wi-next-step-example' : 'wi-opening-example';
+  useEffect(() => {
+    if (!expanded) return;
+    const timer = window.setTimeout(() => setExpanded(false), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [expanded]);
+  return <div className="wi-opening-example" data-expanded={expanded}>
+    <button type="button" aria-controls={id} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+      {nextStep ? 'كيف أبدأ؟' : 'شوف كيف تختصر الأسئلة'}<ChevronDown size={16} aria-hidden="true"/>
+    </button>
+    <div id={id} className="wi-example-panel" aria-hidden={!expanded}>
+      <div className="wi-example-clip">
+        <div className="wi-example-content">
+          {nextStep ? <ul>
+            <li>«إذا ارتحنا لبعض، ودي نتكلم أول عن السكن والعمل وكيف كل واحد يتصوّر الحياة بعد الزواج. وإذا تفاهمنا، نرتّب كيف يدخل الأهل.»</li>
+            <li>«أرتاح إذا الأهل كانوا بالصورة من بدري، وإذا ناسب الطرف الثاني نتفق معهم على طريقة التعارف.»</li>
+          </ul> : <>
+            <p>«أبي أطفال، ويهمّني إن الطرف الثاني يبي أطفال بعد. أقدر أنتقل لمدينته، وإذا حصل توافق يناسبني نبدأ الخطوة الرسمية خلال ستة أشهر.»</p>
+            <strong>من هالفقرة، تقدر لونا تقترح أربع إجابات</strong>
+            <dl>
+              <div><dt>رغبتك في الإنجاب</dt><dd>ترغب في الإنجاب</dd></div>
+              <div><dt>رغبة شريك حياتك</dt><dd>تفضّل شخصًا يرغب في الإنجاب</dd></div>
+              <div><dt>مدينة السكن</dt><dd>تقدر تنتقل لمدينة الطرف الثاني</dd></div>
+              <div><dt>موعد الخطوة الرسمية</dt><dd>خلال ستة أشهر</dd></div>
+            </dl>
+          </>}
+        </div>
+      </div>
+    </div>
+  </div>;
 }
 
 export function InterviewEntry({ available, open }: { available: boolean; open: () => void }) {
@@ -88,7 +123,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [coverageGain, setCoverageGain] = useState(0);
   const [captures, setCaptures] = useState<Record<string, MessageChange[]>>({});
   const [profileReview, setProfileReview] = useState(false);
-  const [clarifying, setClarifying] = useState(false);
+  const [clarifying, setClarifying] = useState<false | 'general' | 'nextStep'>(false);
   const [profileEdits, setProfileEdits] = useState<Record<string, ProfileChoice>>({});
   const [editedProfile, setEditedProfile] = useState<string[]>([]);
   const [includeProfile,setIncludeProfile] = useState(false);
@@ -120,6 +155,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const hybridEnabled = onboarding && Boolean(onStructuredDraftChange);
   const hasOpening = doc?.turns.some(turn => !turn.skipped && turn.answer.trim());
   const openingTurn = Boolean(doc?.status === 'active' && doc.turns.length === 0);
+  const nextStepTurn = hybridEnabled && doc?.currentQuestion?.text === openingPrompts.nextStep;
+  const latestStep = doc?.turns.filter(turn => turn.question === openingPrompts.nextStep && !turn.skipped).at(-1);
+  const nextStepNote = doc?.readiness.find(note => note.id === 'nextStep' && (!latestStep || note.evidence.some(evidence => evidence.turnId === latestStep.id)));
+  const nextStepText = nextStepNote?.text ?? latestStep?.answer;
   const owner = auth.testSession ?? auth.token ?? '';
   const reviewVersion = doc ? JSON.stringify([doc.status, doc.proposals, doc.confirmed]) : '';
   const profileVersion = JSON.stringify(doc?.profileProposals ?? []);
@@ -151,6 +190,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           ...(contextRef.current ? { profileContext: contextRef.current } : {}),
           ...(action!=='structuredConfirm' && !hybridEnabled && assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}),
         } : {}),
+        ...(action === 'retry' && hybridEnabled ? { openingFlow: true } : {}),
         ...payload,
       });
       if (!mounted.current) return null;
@@ -307,7 +347,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (quickReply !== undefined && answerRef.current.trim()) return;
     if (activeRequest.current?.action === 'draft' && !await afterDraft('answer')) return;
     if (quickReply !== undefined && answerRef.current.trim()) return;
-    const text = skip ? '' : quickReply?.trim() ?? answerRef.current.trim();
+    const draftBeforeSend = answerRef.current;
+    const text = skip ? '' : quickReply?.trim() ?? draftBeforeSend.trim();
     if (busyRef.current || (!skip && !text)) return;
     if (text.length > answerLimit) { setError(`اختصر إجابتك إلى ${number(answerLimit)} حرف قبل الإرسال.`); return; }
     if (!requestId.current || requestId.current.answer !== text || requestId.current.skip !== skip) requestId.current = { answer: text, skip, id: crypto.randomUUID() };
@@ -317,11 +358,13 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     setPendingReply({ id: sentId, text }); setAnswerHelp(false); setCoverageGain(0);
     answerRef.current = ''; setAnswer(''); feedback('selection');
     const result = await call(clarifying ? 'clarify' : 'answer', {
-      answer: text, ...(clarifying ? {} : { skip, ...(hybridEnabled ? { hybrid: true } : {}) }), requestId: sentId,
+      answer: text, ...(clarifying ? (clarifying === 'nextStep' ? { editNextStep: true } : {}) :
+        { skip, ...(hybridEnabled ? { hybrid: true, openingFlow: true } : {}) }), requestId: sentId,
     }, true);
     if (result) { requestId.current = null; setCoverageGain(Math.max(0, (result.coverage?.answered ?? previousCoverage) - previousCoverage)); }
     else if (mounted.current && current.current.document?.lastRequestId !== sentId) {
-      answerRef.current = text; setAnswer(text); setDraftState('error');
+      answerRef.current = skip ? draftBeforeSend : text;
+      setAnswer(answerRef.current); setDraftState('error');
     }
     if (mounted.current) {
       setPendingReply(null);
@@ -488,9 +531,15 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
             <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
           </button>}
+          {nextStepText && !clarifying && <details className="wi-private-notes wi-next-step-review" open>
+            <summary>خطوتك الجاية من كلامك <ChevronDown size={14}/></summary>
+            <p dir="auto">{nextStepText}</p>
+            <button className="wi-link" type="button" disabled={actionBlocked || !hybridReady || Boolean(answer.trim())}
+              onClick={() => { setClarifying('nextStep'); changeAnswer(nextStepText); }}>تعديل خطوتي</button>
+          </details>}
           {clarifying && <form className="wi-clarification" onSubmit={event => { event.preventDefault(); void send(); }}>
-            <label htmlFor="wi-clarification">وش تحب توضّح عن إجاباتك؟</label>
-            <p>اذكر الموضوع والإجابة التي تعبّر عنك. اختياراتك اليدوية تبقى كما هي وتقدر تعدّلها في المراجعة.</p>
+            <label htmlFor="wi-clarification">{clarifying === 'nextStep' ? 'عدّل وصف خطوتك الجاية' : 'وش تحب توضّح عن إجاباتك؟'}</label>
+            <p>{clarifying === 'nextStep' ? 'اكتبها بالطريقة اللي تعبّر عن استعدادك اليوم.' : 'اذكر الموضوع والإجابة التي تعبّر عنك. اختياراتك اليدوية تبقى كما هي وتقدر تعدّلها في المراجعة.'}</p>
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || !answer.trim()} aria-label="إرسال التوضيح"><ArrowUp size={20}/></button>
               <textarea ref={clarifier} id="wi-clarification" aria-describedby="wi-clarification-count" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={2} dir="rtl" disabled={actionBlocked}/>
             </div>
@@ -509,8 +558,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             } : undefined}
             unresolvedPartnerIds={[...hardRequirements.map(id => `preference:${id}:partner`), ...validProposals.filter(item => item.side === 'partner' && item.source !== 'self_default' && !aiProposals.includes(item)).map(item => item.id)]}
             onComplete={(choices, inferredIds) => void confirm(choices, inferredIds)} gender={gender} disabled={busy === 'structuredConfirm'}
-            completingUnavailable={!hybridReady || actionBlocked || clarifying || Boolean(answer.trim())}
-            onClarify={hybridReady && !actionBlocked && !clarifying ? () => setClarifying(true) : undefined}
+            completingUnavailable={!hybridReady || actionBlocked || Boolean(clarifying || answer.trim())}
+            onClarify={hybridReady && !actionBlocked && !clarifying ? () => setClarifying('general') : undefined}
             reviewExtras={<>
               {profileProposals.length > 0 && <details className="wi-review-group wi-profile-group">
                 <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
@@ -567,24 +616,36 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             {!!profileProposals.length && <button className="wi-profile-summary-link" type="button" onClick={()=>setProfileReview(true)} disabled={actionBlocked}><span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل لملفك وتفضيلاتك</span><span>مراجعة <ArrowLeft size={13}/></span></button>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
-            {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>اكتب للونا فقرة قصيرة عنك وعن الزواج الذي تتمناه. حديثك خاص، وتكتب نبذة ملفك لاحقًا.</p></div>}
+            {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>{hybridEnabled ? 'حديثك خاص، وتكتب نبذة ملفك لاحقًا.' : 'اكتب للونا فقرة قصيرة عنك وعن الزواج الذي تتمناه. حديثك خاص، وتكتب نبذة ملفك لاحقًا.'}</p></div>}
             {doc.turns.map((turn,index) => <div className="wi-exchange" key={turn.id}>
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
               {!!captures[turn.id]?.length && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من رسالتك · {number(captures[turn.id].length)} تفاصيل اتضحت</span><div>{captures[turn.id].map(change=><button key={change.id} type="button" className="wi-capture-chip" data-changed={change.changed || undefined} disabled={!change.profile || actionBlocked} onClick={()=>setProfileReview(true)} title={change.value}><small>{captureBadge(change)}</small><span>{change.title}</span>{change.profile&&<Pencil size={11}/>}</button>)}</div></div>}
             </div>)}
+            {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1></div>}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟')}</div>
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
             {!responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}
           </div>
-          <form className="wi-composer" data-opening={openingTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
+          <form className="wi-composer" data-opening={openingTurn || undefined} data-next-step={nextStepTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
+            {openingTurn && hybridEnabled && <>
+              <p className="wi-opening-benefit"><strong>كل ما ذكرت تفاصيل واضحة، قدرت أختصر عليك أسئلة أكثر.</strong> أقترح لك إجابات من كلامك، وتقدر تراجعها وتعدّلها قبل الاعتماد.</p>
+              <OpeningExample/>
+            </>}
+            {nextStepTurn && <>
+              <p className="wi-opening-benefit">يهمّنا نفهم وش أنت مستعد له اليوم. تقدر تحكي عن الأمور اللي ودّك تتفاهمون عليها أول، أو عن الخطوة اللي تناسبك إذا حصل توافق.</p>
+              <OpeningExample key="next-step" nextStep/>
+            </>}
             {answerHelp && <p id="wi-answer-help" className="wi-answer-help">{openingTurn ? 'تكلم بطريقتك عن حياتك اليوم، طباعك، ما تبحث عنه في شريكك، وما يهمك في الزواج. فقرة واحدة قد تختصر عدة أسئلة.' : 'ابدأ بموقف من حياتك: وش صار، كيف تصرّفت، ووش كنت تتمنى؟ وإذا ما عندك تجربة، قل لنا كيف تتخيلها. ما تحتاج تصيغ كلامك بشكل مثالي.'}</p>}
-            {openingTurn && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
+            {openingTurn && !hybridEnabled && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
-            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-count wi-answer-help' : 'wi-answer-count'} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : 1} wrap="soft" placeholder={openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
-            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span><button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button><span id="wi-answer-count">{number(answer.length)} من {number(answerLimit)} حرف</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
+            <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-count wi-answer-help' : 'wi-answer-count'} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : nextStepTurn ? 3 : 1} wrap="soft" placeholder={openingTurn && hybridEnabled ? 'اكتب بطريقتك، حتى لو كانت كم جملة…' : openingTurn ? 'عرّفنا عن نفسك، وعن الزواج والشريك الذي تبحث عنه…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
+            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span>
+              {nextStepTurn ? <button type="button" disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(true)}>تخطّي السؤال</button> :
+                <button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>}
+              <span id="wi-answer-count">{number(answer.length)} من {number(answerLimit)} حرف</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}

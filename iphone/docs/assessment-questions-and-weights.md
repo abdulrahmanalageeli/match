@@ -46,7 +46,7 @@ Luna uses «هل ترغبين في العمل بعد الزواج؟» for the wi
 
 ## Personality statements
 
-The five response choices are «لا يشبهني إطلاقًا»، «لا يشبهني كثيرًا»، «يشبهني إلى حد ما»، «يشبهني»، and «يشبهني كثيرًا». Each statement contributes one third of its domain’s score on the five-point response scale. Reverse scoring turns 1 into 5, 2 into 4, and vice versa. The five domain scores contribute zero weight to practical matching.
+The five response choices are «لا يشبهني إطلاقًا»، «لا يشبهني كثيرًا»، «يشبهني إلى حد ما»، «يشبهني»، and «يشبهني كثيرًا». Each statement contributes one third of its domain’s score on the five-point response scale. Reverse scoring turns 1 into 5, 2 into 4, and vice versa. The displayed practical percentage uses practical preferences. Complete current personality profiles also contribute to recommendation order as documented below.
 
 | Domain | Statement | Scoring |
 |---|---|---|
@@ -65,6 +65,16 @@ The five response choices are «لا يشبهني إطلاقًا»، «لا يش
 | الانفتاح على التجربة | أستمتع بتجربة طرق أو أفكار جديدة حتى لو كانت مختلفة عن اللي تعودت عليه. | Direct |
 | الانفتاح على التجربة | أحب أفهم وجهات نظر أو أفكار تختلف عن رأيي. | Direct |
 | الانفتاح على التجربة | أفضل الأشياء المألوفة حتى لو كانت هناك طريقة جديدة ممكن تكون أفضل. | Reverse |
+
+### Personality contribution to recommendation order
+
+Each of the 15 self-report items supplies one third of its domain score after reverse scoring. A separate optional partner card lets the member select lower (1–2), middle (2–4), or upper (4–5) ranges for any of the five traits. All start flexible. Ranges stay in the private personality answer map under the five explicit `partner_` keys. They sit outside the required assessment receipt.
+
+For each range a member chooses, calculate the distance between the other person's domain mean and the nearest point in that range. A value inside the range has zero distance. Directional fit is one minus the mean distance divided by three, the largest possible gap. Each selected domain has equal weight within that direction. Both members must have complete current self-reports and each must specify at least one range. Otherwise personality has neutral ranking weight and the aggregate is omitted.
+
+The geometric mean of the two directional fits gives the reciprocal score. A member sees the rounded score out of 100. Recommendations use the unrounded score to multiply the existing rank by 0.98 plus 0.04 times the score. Practical percentages and eligibility follow their existing rules. A high score means both people's self-descriptions fit the ranges they chose, which can cover as little as one domain each.
+
+Individual ideal-partner matching has shown modest associations with romantic evaluations. This supports testing a small preference-fit contribution. The ranges, equal weights, combination rule and 2% cap are product decisions. Estimating marriage outcomes requires prospective validation with Wudayn pairs. [Worldwide registered report](https://pubmed.ncbi.nlm.nih.gov/39480282/)
 
 ### Personality pilot
 

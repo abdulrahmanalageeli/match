@@ -3,7 +3,7 @@ import { assessmentVersion, categories, dimensionsForVersion, interests, maxInte
 import { chapters, type Answers, type ApplicationDraft } from "./draft";
 import { createDraftVault, draftTTL } from "./vault";
 import { validMarriageBasicsDraft, validPartnerCriteriaDraft } from "../compatibility/marriage";
-import { personalityQuestionsFor, personalityOptions, personalityVersion } from "../compatibility/personality";
+import { partnerTraitQuestions, partnerTraitRanges, personalityQuestionsFor, personalityOptions, personalityVersion } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { cloud, callRpc } from '../cloud';
@@ -36,7 +36,9 @@ function validAnswers(value: unknown): value is Answers {
   if (value.marriageBasics !== undefined && !validMarriageBasicsDraft(value.marriageBasics)) return false;
   if (value.partnerCriteria !== undefined && !validPartnerCriteriaDraft(value.partnerCriteria)) return false;
   if (value.personalityVersion !== undefined && value.personalityVersion !== personalityVersion && value.personalityVersion !== "personality-v1") return false;
-  if (value.personalityAnswers !== undefined && (!isRecord(value.personalityAnswers) || !Object.entries(value.personalityAnswers).every(([key, answer]) => personalityQuestions.some(q => q.id === key) && personalityOptions.some(o => o.code === answer)))) return false;
+  if (value.personalityAnswers !== undefined && (!isRecord(value.personalityAnswers) || !Object.entries(value.personalityAnswers).every(([key, answer]) => (
+    personalityQuestions.some(q => q.id === key) && personalityOptions.some(o => o.code === answer)
+  ) || (value.personalityVersion === personalityVersion && partnerTraitQuestions.some(q => q.id === key) && partnerTraitRanges.some(r => r.code === answer))))) return false;
   const ids = value.interestIds;
   if (!Array.isArray(ids) || ids.length > maxInterests || new Set(ids).size !== ids.length ||
      !ids.every(id => interests.some(item => item.id === id))) return false;

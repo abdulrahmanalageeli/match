@@ -17,7 +17,7 @@ import { ageOptions, cityOptions, educationOptions, professionOptions } from '..
 import { intakeVault, accountDraftsAvailable } from "./persistence";
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
-import { personalityQuestionsFor, personalityProfile } from "../compatibility/personality";
+import { partnerTraitQuestions, partnerTraitRanges, personalityQuestionsFor, personalityProfile } from "../compatibility/personality";
 import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels } from "../compatibility/marriage";
 import { dressStyles, dressFlexibilities, skinTones } from "../compatibility/appearance";
 import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
@@ -120,6 +120,20 @@ function interviewDraftVersion(p: Answers, legacy: boolean): Answers {
 }
 
 const domainNumber = new Intl.NumberFormat('ar-SA',{ maximumFractionDigits: 1 });
+function PartnerTraitFields({ p, update }: { p: Answers; update: (values: Partial<Answers>) => void }) {
+  return <fieldset><legend>ما الذي ترتاح له في شخصية شريكك؟</legend>
+    <p>اختياري. حدّد ما يهمك فقط. نقارن اختيار كل طرف بوصف الآخر لنفسه.</p>
+    {partnerTraitQuestions.map(q => <ChoiceSelect key={q.id} label={q.label} value={p.personalityAnswers?.[q.id] ?? 'flexible'}
+      options={[{ value: 'flexible', label: 'مرن · لا تفضيل محدد' }, ...partnerTraitRanges.map((r, i) => ({value: r.code, label: q.options[i]}))]}
+      onChange={value => {
+        const answers = { ...p.personalityAnswers };
+        if (value === 'flexible') delete answers[q.id];
+        else answers[q.id] = value;
+        update({ personalityAnswers: answers });
+      }}/> )}
+  </fieldset>;
+}
+
 function TraitProfile({ answers }: { answers: Answers }) {
   const domains = personalityProfile(answers.personalityVersion, answers.personalityAnswers);
   if (!domains.length) return null;
@@ -209,6 +223,10 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
       {withCompatibility && <ReviewGroup title={registration ? "ملامح شخصيتك" : "تقييم الشخصية الخاص"} edit={() => edit(registration ? "compatibility" : "personality")} {...groupProps('personality')}>
         <p>أجبت عن {arabicNumber(personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length)} من {arabicNumber(personalityQuestions.length)} سؤالًا.</p>
         <TraitProfile answers={p}/>
+        {p.personalityVersion === 'personality-v2' && <p>تبقى إجابات الشخصية خاصة. إذا حدّد كل طرف ما يهمّه، يدخل مدى توافق التفضيلات في ترتيب الترشيحات.</p>}
+        {p.personalityVersion === 'personality-v2' && <details><summary>تفضيلاتي في شخصية الشريك</summary><dl>
+          {partnerTraitQuestions.map(q => <div key={q.id}><dt>{q.label}</dt><dd>{q.options[partnerTraitRanges.findIndex(r => r.code === p.personalityAnswers?.[q.id])] ?? 'مرن'}</dd></div>)}
+        </dl><button type="button" onClick={() => edit(registration ? 'criteria' : 'personality')}>تعديل تفضيلاتي</button></details>}
         <details className="nf-review-styles"><summary>مراجعة إجاباتي</summary><dl>{personalityQuestions.flatMap(q => { const answer = q.options.find(o => o.code === p.personalityAnswers?.[q.id]); return answer ? [<div key={q.id}><dt>{q.prompt}</dt><dd>{answer.label}</dd></div>] : []; })}</dl></details>
       </ReviewGroup>}
       {withCompatibility && !registration && <ReviewGroup title="بيننا · مواقف الحياة" edit={() => edit('beena')} {...groupProps('beena')}>
@@ -649,6 +667,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <BeenaFields key={interviewRevision} value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing} remainingOnly={!editing&&!reviewAllBeena}/>
               </>}
               {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields required={!editing&&includeCompatibility} value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
+              {consents.assessment && p.personalityVersion === 'personality-v2' &&
+                chapter.key === (editing ? 'personality' : 'criteria') && <PartnerTraitFields p={p} update={update}/>}
               {chapter.key === "personality" && consents.assessment && <>
                 <TraitProfile answers={p}/>
                 {editing || !interviewAuth ? <PersonalityFields version={p.personalityVersion} answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>

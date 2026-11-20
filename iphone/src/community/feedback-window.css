@@ -1,0 +1,78 @@
+.wf-window {
+  --wf-wine: var(--accent-fill);
+  direction: rtl;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  text-align: start;
+}
+.wf-window > summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 80px;
+  padding: 13px 4px;
+  list-style: none;
+  cursor: pointer;
+}
+.wf-window > summary::-webkit-details-marker { display: none; }
+.wf-heading { display: grid; flex: 1; gap: 2px; }
+.wf-heading small { color: var(--muted); font-size: .78rem; }
+.wf-heading strong { color: var(--ink); font-size: 1.1rem; line-height: 1.5; }
+.wf-seal {
+  width: 42px; height: 42px; display: grid; place-items: center;
+  border-radius: var(--radius-control); color: var(--accent); background: var(--blush);
+}
+.wf-window[open] .wf-seal { background: var(--accent-fill); color: var(--accent-ink); }
+.wf-chevron { color: var(--muted); }
+.wf-window[open] > summary::after {
+  content: ''; position: absolute; inset-inline-start: 0; bottom: 0;
+  width: 42px; height: 2px; background: var(--accent-fill); transform-origin: right;
+}
+.wf-window[open] .wf-chevron { transform: rotate(180deg); }
+.wf-body { padding: 18px 4px 24px; }
+.wf-window .wf-note {
+  display: flex; gap: 8px; align-items: baseline; margin: 0 0 18px;
+  color: var(--muted, #705d64); font-size: .8rem; line-height: 1.85;
+}
+.wf-note svg { flex: none; align-self: flex-start; margin-top: 4px; }
+.wf-window fieldset { margin: 0; padding: 0; min-inline-size: 0; border: 0; }
+.wf-form, .wf-reveal { display: grid; gap: 15px; }
+.wf-form select { display: block; width: 100%; margin-top: 6px; min-height: 44px; padding-inline: 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--control-line); border-radius: var(--radius-control); }
+.wf-choice legend { padding: 0; margin-bottom: 8px; font-weight: 650; line-height: 1.65; }
+.wf-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.wf-options label { flex: 1 1 5rem; position: relative; cursor: pointer; }
+.wf-options input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.wf-options span {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding-inline: 7px; border: 1px solid var(--control-line, #bba7a6);
+  border-radius: var(--radius-control); text-align: center; font-size: .88rem;
+}
+.wf-options i { display: grid; place-items: center; width: 15px; height: 15px; box-sizing: border-box; flex: none; border: 1px solid currentColor; border-radius: 50%; }
+.wf-options input:checked + span { border-color: var(--wf-wine); color: var(--wf-wine); background: color-mix(in srgb, var(--wf-wine) 8%, var(--paper, white)); }
+.wf-options input:checked + span i { background: var(--wf-wine); color: var(--accent-ink, white); }
+.wf-options input:focus-visible + span, .wf-window summary:focus-visible { outline: 3px solid currentColor; outline-offset: -4px; }
+.wf-window .btn-primary { width: 100%; min-height: 46px; }
+.wf-window button { cursor: pointer; }
+.wf-window button:disabled { cursor: default; opacity: .55; }
+.wf-window .btn-text { min-height: 44px; }
+.wf-mutual {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--wf-wine);
+  border-block: 1px solid var(--line, #e3d2c9); padding-block: 9px; margin-block: 14px; font-size: .86rem;
+}
+.wf-mutual button { margin-inline-start: auto; display: flex; align-items: center; gap: 5px; min-height: 44px; background: none; border: 0; color: inherit; font: inherit; }
+.wf-status { margin: 10px 0 0; color: var(--wf-wine); font-size: .85rem; }
+.wf-status:empty { margin: 0; }
+.cm-chat-plan > .wf-window { grid-column: 1 / -1; width: 100%; max-height: 43dvh; overflow-y: auto; }
+.cm-chat-plan > .wf-window > summary { min-height: 52px; padding-block: 5px; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .wf-window[open] .wf-body,
+  html:not([data-nf-motion="reduced"]) .wf-reveal,
+  html:not([data-nf-motion="reduced"]) .wf-mutual { animation: wf-arrive .24s ease-out both; }
+  html:not([data-nf-motion="reduced"]) .wf-window[open] > summary::after { animation: wf-underline .3s ease-out both; }
+  @keyframes wf-arrive { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @keyframes wf-underline { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+}

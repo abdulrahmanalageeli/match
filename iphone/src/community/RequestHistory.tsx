@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CommunitySource, RequestHistoryEntry } from './data';
+import { ConversationPilotFeedback } from './ConversationPilotFeedback';
 
 const dates = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day: 'numeric', month: 'long', year: 'numeric' });
 function date(value?: string | null) {
@@ -19,6 +20,7 @@ export function RequestHistory({ source, title }: { source: CommunitySource; tit
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [reviewId, setReviewId] = useState('');
   async function report() {
     if (!incident || !source.reportIncident || busy) return;
     setBusy(true);
@@ -54,6 +56,9 @@ export function RequestHistory({ source, title }: { source: CommunitySource; tit
         <strong>{row.alias} · {row.outcome === 'expired' ? 'انتهت مهلة الطلب' : 'أُغلق'}</strong>
         <span>{row.direction === 'incoming' ? 'طلب وارد' : 'طلب مرسل'}{date(row.createdAt) && <> · أُرسل <time dateTime={row.createdAt}>{date(row.createdAt)}</time></>}</span>
         {date(row.closedAt) && <span>أُغلق <time dateTime={row.closedAt!}>{date(row.closedAt)}</time></span>}
+        {source.conversationPilot && row.outcome==='closed' && row.closedAt && Date.parse(row.closedAt)>Date.now()-7*86400000 &&
+          <>{reviewId===row.id ? <ConversationPilotFeedback key={row.id} requestId={row.id} respond={source.conversationPilot} expanded showUnavailable resumeChat={()=>{}}/> :
+            <button type="button" onClick={()=>setReviewId(row.id)}>التحقق من توفر تقييم خاص</button>}</>}
         {source.reportIncident && <button type="button" disabled={busy} onClick={()=>{setIncident({id:row.id,submission:crypto.randomUUID()});setReason('إساءة أو ضغط غير مرغوب');setNote('');setFeedback('');}}>الإبلاغ عن واقعة</button>}
         {incident?.id===row.id && <div className="cm-report-form"><label>سبب البلاغ<select value={reason} onChange={e=>setReason(e.target.value)}>
           {['إساءة أو ضغط غير مرغوب','تهديد فوري للسلامة','انتهاك الخصوصية','احتيال','سبب آخر'].map(value=><option key={value}>{value}</option>)}</select></label>

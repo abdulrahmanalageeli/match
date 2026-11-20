@@ -55,6 +55,12 @@ export function FitDetails({ fit }: { fit: MatchFit }) {
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
         <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>
       </div>
+      {fit.version === 'marriage-v4' && typeof fit.partnerPersonalityFit === 'number' && Number.isInteger(fit.partnerPersonalityFit) && fit.partnerPersonalityFit >= 0 && fit.partnerPersonalityFit <= 100 &&
+        <div className="nf-fit-score" data-fit-score="partner-personality">
+          <Fingerprint className="nf-score-icon" size={20} aria-hidden="true"/><h3>توافق تفضيلات الشخصية</h3>
+          <strong>{arabic.format(fit.partnerPersonalityFit)}<small> من ١٠٠</small></strong>
+          <p>نقارن الصفات التي يفضّلها كل منكما بوصف الآخر لنفسه. تأخذ الدرجة الاتجاهين في الحسبان، وتُستبعد الصفات التي تركتموها مرنة.</p>
+        </div>}
       {legacyPersonality && <div className="nf-fit-score personality" data-fit-score="personality">
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>تشابه الإجابات الشخصية</h3>

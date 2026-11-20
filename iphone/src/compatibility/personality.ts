@@ -38,3 +38,43 @@ export function personalityProfile(version: string | undefined, answers: Readonl
     return [{ id, label, upperAnchor, mean: sum / items.length }];
   });
 }
+
+export const partnerTraitRanges = [
+  { code: "A", low: 1, high: 2 },
+  { code: "C", low: 2, high: 4 },
+  { code: "E", low: 4, high: 5 },
+] as const;
+
+export const partnerTraitQuestions = domains.map(([id, label], index) => ({
+  id: "partner_" + id, label,
+  options: [
+    ["يتأثر بالضغط ويحتاج وقتًا ليهدأ", "يتفاوت هدوؤه بحسب الموقف", "يستعيد هدوءه بسرعة"],
+    ["أقل ميلًا للتخطيط والمتابعة", "يوازن بين التخطيط والتصرف حسب الموقف", "يخطط مبكرًا ويتابع التزاماته"],
+    ["أقل ميلًا لمراعاة وجهة النظر الأخرى عند الخلاف", "تختلف استجابته بحسب الخلاف", "يحرص على فهم الطرف الآخر وإصلاح الخطأ"],
+    ["يرتاح أكثر في الأجواء الهادئة", "يستمتع بمزيج من الهدوء والتجمعات", "تنشّطه التجمعات ويبادر بالحديث"],
+    ["يميل إلى المألوف", "يجمع بين المألوف والتجديد", "يحب استكشاف أفكار وتجارب جديدة"],
+  ][index],
+}));
+
+type TraitAnswers = { personalityVersion?: string; personalityAnswers?: Readonly<Record<string, string>> };
+
+function directionalTraitFit(preferences: TraitAnswers, partner: ReturnType<typeof personalityProfile>) {
+  const distances = partner.flatMap(({ id, mean }) => {
+    const desired = partnerTraitRanges.find(r => r.code === preferences.personalityAnswers?.["partner_" + id]);
+    // Distances in item-sum units keep the three-item boundaries exact.
+    return desired ? [Math.max(0, desired.low * 3 - Math.round(mean * 3), Math.round(mean * 3) - desired.high * 3)] : [];
+  });
+  return distances.length ? 1 - distances.reduce((sum, n) => sum + n, 0) / (9 * distances.length) : null;
+}
+
+export function reciprocalTraitFit(first: TraitAnswers, second: TraitAnswers) {
+  const a = personalityProfile(first.personalityVersion, first.personalityAnswers);
+  const b = personalityProfile(second.personalityVersion, second.personalityAnswers);
+  if (a.length !== domains.length || b.length !== domains.length) return null;
+  const forward = directionalTraitFit(first, b), reverse = directionalTraitFit(second, a);
+  return forward === null || reverse === null ? null : Math.sqrt(forward * reverse);
+}
+
+export function traitRankMultiplier(fit: number | null) {
+  return fit === null ? 1 : 0.98 + 0.04 * fit;
+}

@@ -5,6 +5,21 @@ const person = { id: 'person', alias: 'عضو', age: 30, city: 'الرياض', o
 const request = { id: 'request', status: 'pending', direction: 'incoming', person, createdAt: '2026-11-05T14:00:00Z' };
 const visit = { id: 'visit', kind: 'profile_visit', person, createdAt: '2026-11-06T14:00:00Z' };
 
+test('check-in opens the active chat and each stage has its own unread state', () => {
+  const chat = {...request, status:'accepted'};
+  const due = {requestId:chat.id, stage:'day2', at:visit.createdAt};
+  const rows = (connections, stage, seen = new Set()) => filterFeed(
+    buildFeed(connections, [], new Map(), seen, [{...due, stage}]), 'journey');
+  const [notice] = rows([chat], 'day2');
+  assert.equal(notice.target, 'conversation');
+  assert.equal(notice.requestId, chat.id);
+  assert.equal(notice.at, due.at);
+  const seen = new Set([notice.id]);
+  assert.equal(rows([chat], 'day2', seen)[0].unread, false);
+  assert.equal(rows([chat], 'week', seen)[0].unread, true);
+  assert.deepEqual(rows([request], 'day2'), []);
+});
+
 test('interest notifications open a profile without implying an accepted match', () => {
   const notice = { ...visit, id: 'interest', kind: 'interest' };
   const rows = buildFeed([], [notice], new Map(), new Set());

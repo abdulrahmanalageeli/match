@@ -34,6 +34,33 @@ test('discovery respects both members across directory, Luna and requests',async
     await db.query('update marriage.preferences set min_age=30,max_age=38 where member_id=$1',[woman.id]);
     await paired(false);
   });
+  await scenario('All profiles can include ineligible members without allowing a request or bypassing privacy',async()=>{
+    const expanded={includeIneligible:true};
+    assert.equal((await browse(man,{...expanded,eligibleOnly:true}))[0].eligible,true);
+    await db.query('update marriage.preferences set min_age=40,max_age=50 where member_id=$1',[woman.id]);
+    for(const [viewer,peer] of [[man,woman],[woman,man]]){
+      const [card]=await browse(viewer,expanded);
+      assert.equal(card.id,peer.id);
+      assert.equal(card.eligible,false);
+      assert.equal(Object.hasOwn(card,'portrait'),false);
+      assert.equal(Object.hasOwn(card,'beenaStory'),false);
+      assert.deepEqual(await browse(viewer,{...expanded,eligibleOnly:true}),[]);
+      assert.deepEqual(await browse(viewer,{...expanded,mode:'recommended'}),[]);
+      assert.deepEqual(await browse(viewer,{...expanded,luna:[]}),[]);
+      await db.exec('savepoint ineligible_request');
+      try {
+        await assert.rejects(call(viewer,'public.marriage_request($1)',[peer.id]));
+      } finally {
+        await db.exec('rollback to savepoint ineligible_request; release savepoint ineligible_request');
+      }
+    }
+    await db.query('update marriage.members set paused=true where id=$1',[woman.id]);
+    assert.deepEqual(await browse(man,expanded),[]);
+    await db.query('update marriage.members set paused=false where id=$1',[woman.id]);
+    await db.query('insert into marriage.blocks(member_id,blocked_id) values($1,$2)',[woman.id,man.id]);
+    assert.deepEqual(await browse(man,expanded),[]);
+    assert.deepEqual(await browse(woman,expanded),[]);
+  });
   await scenario('2. Relocation requires a shared, named city',async()=>{
     await db.exec("insert into marriage.cities(label) values('جدة') on conflict do nothing");
     await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='جدة') where member_id=$1",[woman.id]);

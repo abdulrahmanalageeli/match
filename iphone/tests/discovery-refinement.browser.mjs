@@ -16,9 +16,9 @@ import {MembershipAccess} from '/src/membership/access.tsx';
 import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
 const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:[],discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:32,total:32,percentage:72-i*3}}));
-people[0].recommendationPercentage=65;people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;
+people[0].recommendationPercentage=65;people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
-window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people;},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
+window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
 createRoot(document.getElementById('root')).render(<MembershipAccess.Provider value={{premium:!new URLSearchParams(location.search).has('free'),upgrade:noop}}><div className="phone-app"><main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main></div></MembershipAccess.Provider>);
 `;
@@ -45,6 +45,21 @@ try{
  await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
  await page.locator('.dr-person-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const first=page.getByRole('article',{name:'ملف سارة',exact:true});
+ const ineligible=page.getByRole('article',{name:'ملف نورة',exact:true});
+
+ await ineligible.getByRole('button',{name:'غير مؤهل للتعارف'}).click();
+ await page.getByText('هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.').waitFor();
+ assert.equal(await page.locator('.mp-action-main').count(),0);
+ await page.locator('.mp-back').click();
+ await page.getByRole('button',{name:'تصفية الملفات',exact:true}).click();
+ const eligibility=page.getByRole('switch',{name:'المؤهلون للتعارف فقط'});
+ assert.equal(await eligibility.isChecked(),false);
+ await eligibility.check();
+ await page.getByRole('button',{name:'عرض النتائج',exact:true}).click();
+ await ineligible.waitFor({state:'detached'});
+ await page.getByRole('button',{name:'إزالة المؤهلون للتعارف فقط'}).click();
+ await ineligible.waitFor();
+
  await first.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
  await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();
  await page.keyboard.press('Escape');

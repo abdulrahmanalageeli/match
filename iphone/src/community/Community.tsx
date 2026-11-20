@@ -298,11 +298,12 @@ function Sheet({
 }
 
 function FilterSheet({
-  source,onSaved,filters,
+  source,onSaved,filters,allProfiles,
   apply,
   close,
 }: {
   filters: Filters;
+  allProfiles: boolean;
   source: CommunitySource; onSaved:()=>void;
   apply: (next: Filters) => void;
   close: () => void;
@@ -349,11 +350,11 @@ function FilterSheet({
     <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
         <div className="dr-filter-body">
-          <p>الفلاتر مؤقتة وتُطبّق بعد شروط الطرفين. عند الاستبعاد نعرض فقط من أفصح عن المعلومة المطلوبة.</p>
+          <p>الفلاتر مؤقتة. عند الاستبعاد نعرض فقط من أفصح عن المعلومة المطلوبة.</p>
           <label>ترتيب النتائج<select value={extra.sort??''} onChange={e=>setExtra(current=>({...current,sort:(e.target.value||undefined) as Filters['sort']}))}>
             <option value="">الترتيب الافتراضي</option><option value="compatibility">حسب التوافق</option><option value="youngest">الأصغر سنًا</option><option value="oldest">الأكبر سنًا</option>
           </select></label>
-          <small>الترشيحات الأسبوعية مرتبة بالتوافق. في «جميع الملفات» يخلط الترتيب الافتراضي الملفات المؤهلة ويمنح وسام الجدية فرصة ظهور أعلى.</small>
+          <small>الترشيحات الأسبوعية مرتبة بالتوافق. في «جميع الملفات» يخلط الترتيب الافتراضي الملفات الظاهرة ويمنح وسام الجدية فرصة ظهور أعلى.</small>
           <SheetChoiceSelect label="المدينة" value={extra.city ?? ""} options={cityOptions} placeholder="كل المدن" allowClear onChange={city => setExtra(current => ({ ...current, city: city || undefined }))} />
           <fieldset className="dr-filter-age" aria-label="العمر">
             <div className="dr-filter-age-row">
@@ -371,6 +372,11 @@ function FilterSheet({
             </div>
           </fieldset>
           <SheetChoiceSelect label="اهتمام مشترك" value={interest} options={interests.map(item => ({ value: item.id, label: item.label }))} placeholder="كل الاهتمامات" allowClear onChange={setInterest} />
+          {allProfiles && <label className="dr-filter-availability">
+            <span>المؤهلون للتعارف فقط</span>
+            <input type="checkbox" role="switch" checked={!!extra.eligibleOnly} onChange={event => setExtra(current => ({ ...current, eligibleOnly: event.target.checked }))} />
+            <span className="dr-filter-switch" aria-hidden="true" />
+          </label>}
           <label className="dr-filter-availability">
             <span>متاح للتعارف</span>
             <input type="checkbox" role="switch" checked={!!extra.availableOnly} onChange={event => setExtra(current => ({ ...current, availableOnly: event.target.checked }))} />
@@ -550,6 +556,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
   const {premium,upgrade}=useMembershipAccess();
   const score = premium && !person.compatibilityLocked ? preferencePercentage(person.fit) : null;
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
+  const ineligible=person.eligible===false;
   const {personalLine, context} = decisionContext(person);
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
@@ -567,7 +574,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
             <strong>{person.alias}</strong>
             <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
-            {!sampleOnly && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
+            {!sampleOnly && !ineligible && source.setInterest && <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)} aria-label={person.interested?`إلغاء الاهتمام بـ ${person.alias}`:`إبداء الاهتمام بـ ${person.alias}`} title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
               <Heart size={14} aria-hidden="true" fill={person.interested?'currentColor':'none'}/>
               {person.interested?memberAr.removeInterest:memberAr.showInterest}
             </button>}
@@ -587,7 +594,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         {context&&<p className="df-card-reason">{context}</p>}
       </div>
 
-    {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
+    {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:ineligible&&!person.connectionId?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)}>غير مؤهل للتعارف <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
       <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
@@ -861,7 +868,7 @@ function Discovery({
     });
   }
   async function sendRequest(target=person) {
-    if (!target || actionPending.current) return;
+    if (!target || target.eligible===false || actionPending.current) return;
     if(!premium){upgrade();return;}
     const id = target.id;
     actionPending.current = true;
@@ -904,9 +911,9 @@ function Discovery({
   if (person)
     return (
       <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onBlock={source.blockPerson ? ()=>{closeProfile();void rowAction(person,"block");} : undefined} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
-        interestAction={source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
+        interestAction={person.eligible!==false&&source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
         featured={listPosition.current?.featured}
-        primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:<>
+        primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:person.eligible===false&&!person.connectionId?<p className="cm-help"><LockKeyhole size={14} />هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
             <span className="mp-action-symbol">{person.connectionStatus==='accepted'?<MessageCircle size={20}/>:person.connectionStatus==='pending'?<Clock3 size={20}/>:<AddPersonMark/>}</span><span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? memberAr.openChat : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? memberAr.request : "اشترك وابدأ التعارف"}</strong><small>{person.connectionStatus==='accepted'?'مساحتكما لحديث جاد':person.connectionStatus==='pending'?'تفاصيل الطلب والخطوة التالية':'بداية حديث، بموافقة الطرفين'}</small></span><ArrowLeft size={18} className="mp-action-arrow"/>
           </button>
@@ -915,7 +922,7 @@ function Discovery({
         </>}
       />
     );
-  const count = Object.entries(filters).filter(([key,value])=>!["sort","offset","afterId","mode","search"].includes(key)&&(Array.isArray(value)?value.length>0:Boolean(value))).length;
+  const count = Object.entries(filters).filter(([key,value])=>!["sort","offset","afterId","mode","search"].includes(key)&&(key!=="eligibleOnly"||order==="all")&&(Array.isArray(value)?value.length>0:Boolean(value))).length;
   const people = order === "recommended" ? list.slice(0,5) : list;
   const canRefreshDirectory = order === "all" && !loading && !pullRefreshing && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
   async function refreshDirectory() {
@@ -991,7 +998,8 @@ function Discovery({
               {safeInterest(filters.interest)} <X size={13} />
             </button>
           )}
-          {([['language','اللغة'],['city','المدينة'],['nationality','الجنسية'],['tribalBackground','الخلفية القبلية'],['maritalStatus','الحالة الاجتماعية'],['smoking','التدخين'],['dressStyle','غطاء الرأس'],['work','عمل الزوجة'],['minFit','حد التوافق'],['availableOnly','متاح للتعارف'],['onlineOnly','نشط الآن'],['excludeCities','إخفاء مدن'],['excludeNationalities','إخفاء جنسيات'],['excludeTribalBackgrounds','إخفاء خلفيات'],['excludeSmoking','إخفاء حسب التدخين'],['excludeMaritalStatuses','إخفاء حالات اجتماعية']] as const).map(([key,label])=>{
+          {([['language','اللغة'],['city','المدينة'],['nationality','الجنسية'],['tribalBackground','الخلفية القبلية'],['maritalStatus','الحالة الاجتماعية'],['smoking','التدخين'],['dressStyle','غطاء الرأس'],['work','عمل الزوجة'],['minFit','حد التوافق'],['eligibleOnly','المؤهلون للتعارف فقط'],['availableOnly','متاح للتعارف'],['onlineOnly','نشط الآن'],['excludeCities','إخفاء مدن'],['excludeNationalities','إخفاء جنسيات'],['excludeTribalBackgrounds','إخفاء خلفيات'],['excludeSmoking','إخفاء حسب التدخين'],['excludeMaritalStatuses','إخفاء حالات اجتماعية']] as const).map(([key,label])=>{
+            if(key==="eligibleOnly"&&order!=="all")return null;
             const value=filters[key];if(Array.isArray(value)?!value.length:!value)return null;
             return <button key={key} onClick={()=>setFilters(current=>({...current,[key]:undefined}))} aria-label={`إزالة ${label}`}>{label}{Array.isArray(value)?` · ${ar.format(value.length)}`:key==='city'||key==='nationality'?`: ${String(value)}`:''}<X size={13}/></button>;
           })}
@@ -1031,7 +1039,7 @@ function Discovery({
           action={
             <div className="cm-empty-actions">
               {(count > 0 || Boolean(query.trim())) && <button className="btn-secondary" onClick={() => { setQuery(''); setFilters(emptyFilters); }}>مسح البحث والتصفية</button>}
-              {!availability.exclusive && order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف بقية الملفات المؤهلة</button>}
+              {!availability.exclusive && order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف جميع الملفات</button>}
               <button className="btn-text" onClick={onAccount}>مراجعة ملفي وتفضيلاتي</button>
               <SupportContact subject="المساعدة في الترشيحات"/>
             </div>
@@ -1065,7 +1073,7 @@ function Discovery({
       {premium&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
         <FilterSheet source={source} onSaved={()=>{setPreferenceRevision(n=>n+1);void refresh(false);}}
-          filters={filters}
+          filters={filters} allProfiles={order==='all'}
           close={() => setFilterOpen(false)}
           apply={(value) => {
             setFilterOpen(false);
@@ -2068,7 +2076,7 @@ function Requests({
     );
   if (visitPerson && !conversations) {
     const existing = list.find(row => row.person.id === visitPerson.id);
-    const unavailable = discoveryUnavailable || (!existing && (visitPerson.atCapacity || visitPerson.viewerAtCapacity));
+    const unavailable = discoveryUnavailable || (!existing && (visitPerson.eligible===false || visitPerson.atCapacity || visitPerson.viewerAtCapacity));
     const openOrRequest = async () => {
       if (acting.current || unavailable) return;
       acting.current = true;

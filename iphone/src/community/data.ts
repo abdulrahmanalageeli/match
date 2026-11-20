@@ -28,6 +28,7 @@ export type PublicPerson = {
   recommendationPercentage?: number | null;
   manualVerifications?: ManualVerificationClaim[];
   isDemo?: boolean;
+  eligible?: boolean;
   atCapacity?: boolean; viewerAtCapacity?: boolean; connectionId?: string; connectionStatus?: "pending" | "accepted";
   exclusive?: boolean; online?: boolean; interested?: boolean;
   fit?: MatchFit;
@@ -120,7 +121,7 @@ export type Filters = {
   maxAge?: number;
   interest?: string;
   afterId?: string; subjectId?: string;
-  mode?: "recommended" | "all"; offset?: number; search?: string; city?: string; maritalStatus?: string; smoking?: string; dressStyle?: string; work?: string; minFit?: number; availableOnly?: boolean; sort?: "compatibility" | "youngest" | "oldest";
+  mode?: "recommended" | "all"; offset?: number; search?: string; city?: string; maritalStatus?: string; smoking?: string; dressStyle?: string; work?: string; minFit?: number; availableOnly?: boolean; eligibleOnly?: boolean; sort?: "compatibility" | "youngest" | "oldest";
 };
 export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
   const b=p.marriageBasics;
@@ -132,7 +133,7 @@ export function matchesDiscoveryFilters(p: PublicPerson, f: Filters): boolean {
     (!f.children||b?.childrenCount!==undefined&&(f.children==='none'?b.childrenCount===0:b.childrenCount>0))&&
     p.age>=(f.minAge??18)&&p.age<=(f.maxAge??110)&&(!f.smoking||b?.smoking===f.smoking)&&
     (!f.maritalStatus||b?.maritalStatus===f.maritalStatus)&&(!f.dressStyle||b?.dressStyle===f.dressStyle)&&
-    (!f.availableOnly||!p.atCapacity)&&(!f.minFit||(preferencePercentage(p.fit)??-1)>=f.minFit)&&
+    (!f.eligibleOnly||p.eligible!==false)&&(!f.availableOnly||!p.atCapacity)&&(!f.minFit||(preferencePercentage(p.fit)??-1)>=f.minFit)&&
     (!f.interest||p.interests.some(value=>value===f.interest||value===interests.find(item=>item.id===f.interest)?.label))&&
     (!f.onlineOnly||p.online===true)&&(!f.nationality||normalizeNationality(canonicalNationality(b?.nationality??''))===normalizeNationality(canonicalNationality(f.nationality)))&&
     (!f.tribalBackground||b?.tribalBackground===f.tribalBackground)&&
@@ -335,7 +336,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     async noteProfileOpen(candidateId) {
       await timedRpc("marriage_note_profile_open", { candidate_id: candidateId });
     },
-    discover: (f) => timedRpc("marriage_browse", { options: { ...f, mode: f.mode ?? "recommended" } }),
+    discover: (f) => timedRpc("marriage_browse", { options: { ...f, mode: f.mode ?? "recommended", includeIneligible: f.mode === "all" && !f.eligibleOnly } }),
     inbox: () => timedRpc("marriage_inbox", {}),
     requestHistory: beforeId => beforeId ? timedRpc("marriage_request_history_page", {before_id:beforeId}) : timedRpc("marriage_request_history", {}),
     matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),
@@ -677,10 +678,15 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const last = list.findIndex((row) => row.id === readThrough.get(id));
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
-  function candidates() {
+  function candidates(includeIneligible = false) {
     const member = { ...viewer(), relocationCities, id: "demo-viewer" };
     const people = examples.map(person => demoAssessmentFor(person, member));
-    return rankPreferences(member, people).map(({ person, ...fit }) => card(person, fit));
+    const eligible = rankPreferences(member, people).map(({ person, ...fit }) => ({...card(person, fit), eligible:true}));
+    if (!includeIneligible) return eligible;
+    const eligibleIds = new Set(eligible.map(person => person.id));
+    const others = people.filter(person => person.gender !== member.gender && !eligibleIds.has(person.id))
+      .map(person => ({...card(person, describeFit(member, person)), eligible:false}));
+    return [...eligible, ...others];
   }
   function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // Fixtures have no member consent receipt. Keep their private matching
@@ -960,9 +966,9 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     },
     async discover(f) {
       if (exclusiveId) return [];
-      const options = candidates().filter(
+      const options = candidates(f.mode === "all" && !f.eligibleOnly).filter(
         (p) =>
-          (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
+          (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && !blockedPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
           !records.some((r) => r.peer === p.id && r.status === "closed" && !r.allowRematch) &&
           (f.mode === "all" || (!records.some(r => r.peer === p.id) && weekly().includes(p.id))) &&
           !f.work,

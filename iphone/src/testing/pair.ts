@@ -1,6 +1,6 @@
-import { demoCommunity, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
+import { demoCommunity, demoPeople, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
 import { marriageProjectUrl, marriagePublishableKey } from '../deployment';
-import { dimensionsForVersion, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
+import { assessmentVersion, describeFit, dimensionsForVersion, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
 import type { Profile, ProfilePortrait } from '../types';
 import type { VoiceCall, VoiceCredentials } from '../voice/source';
@@ -42,6 +42,23 @@ export function testPerson(actor:Actor,profile?:PublicTestProfile):PublicPerson{
  beenaStory:profile?.beenaStory?{scenarioId:profile.beenaStory.scenarioId,text:profile.beenaStory.text}:undefined,
  demoPhoto:actor==='abdulrahman'?'/demo/portraits/tester-shemagh.webp':undefined,interests:interests.filter(item=>p.interestIds?.includes(item.id)).map(item=>item.label),reasons:['تعارف متبادل مفعّل للاختبار']};
 }
+// Only fictional discovery uses this scenario. Saved tester answers and the
+// server-scored relationship with the other tester remain untouched.
+function fictionalViewer(profile: Profile): Profile {
+ const peer = demoPeople.find(person => person.gender !== profile.gender)!;
+ const comparable = profile.assessmentVersion === assessmentVersion ? {...peer,...peer.currentAssessment} : peer;
+ if (profile.marriageBasics?.polygynyPreference &&
+     describeFit({...profile,id:'private-tester'},comparable).fit.assessmentComplete) return profile;
+
+ const fixture = demoPeople.find(person => person.gender === profile.gender)!;
+ return {
+  ...demoProfile, ...fixture.currentAssessment,
+  gender:profile.gender, age:32, preferredMinAge:18, preferredMaxAge:60,
+  surveyAnswers:{...fixture.currentAssessment.surveyAnswers,residence_plan:'B'},
+  partnerCriteria:fixture.partnerCriteria,
+  marriageBasics:{...fixture.marriageBasics,polygynyPreference:profile.gender==='man'?'not_open':'open_to_discussion'},
+ };
+}
 export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(profile:Profile,revision:string)=>boolean){
  let profileRevision=account.profileRevision;
  const peer:Actor=account.actor==='reham'?'abdulrahman':'reham';
@@ -50,7 +67,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
  const local=demoCommunity(()=>{
   const current=viewer(),own=cached?.profiles[account.actor];
   const latest=own?{...testProfile(account.actor,own),gender:current.gender}:current;
-  return account.actor==='reham'?{...latest,gender:'woman'}:latest;
+  return account.actor==='reham'?{...latest,gender:'woman'}:fictionalViewer(latest);
  },false,{
   storageKey:`nisfayn-simulation-v1-${account.actor}-${viewer().gender}`,
   externalAccepted:()=>Number(cached?.matched),

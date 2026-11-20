@@ -22,7 +22,7 @@ const dataUrl=moduleUrl(resolveImports(data.source,data.file)+"\nclass CloudErro
 const pair=await compile('./pair.ts');
 const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'",JSON.stringify(dataUrl)),pair.file));
 const {pairSource,testProfile}=await import(pairUrl);
-const {withOwnReaction,searchMessageRows}=await import(dataUrl);
+const {demoPeople,withOwnReaction,searchMessageRows}=await import(dataUrl);
 
 test('restricted browser storage does not prevent either saved tester account from opening',async t=>{
   const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
@@ -176,9 +176,13 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
 
 test('all ten eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
   const h=harness(t);
-  const strict=await h.source.discover({mode:'all'});
+  const all=await h.source.discover({mode:'all'});
   const openToDiscussion=['p04','p09'];
-  assert.equal(strict.length,8);assert(strict.every(person=>!openToDiscussion.includes(person.id)));
+  assert.equal(all.length,10);
+  assert.deepEqual(all.filter(person=>person.eligible===false).map(person=>person.id).sort(),openToDiscussion);
+  const strict=await h.source.discover({mode:'all',eligibleOnly:true});
+  assert.equal(strict.length,8);assert(strict.every(person=>person.eligible===true));
+  await assert.rejects(h.source.request('p04'),/غير متاح/);
   h.profile.marriageBasics={...h.profile.marriageBasics,polygynyPreference:'open_to_discussion'};
   const people=await h.source.discover({mode:'all'});
   assert.equal(people.length,10);assert(people.every(person=>person.isDemo));
@@ -202,4 +206,42 @@ test('old tester commitment does not erase new fictional matches when reloading 
   assert.equal(restored.simulation,undefined,'The non-administrator tester has no simulation controls');
   assert((await restored.inbox()).some(row=>row.id===id),'Historical retirement must not delete newly created local conversations');
   assert.equal((await restored.thread(id))[0].body,'هذه محادثة توضيحية محفوظة');
+});
+
+test('Abdulrahman can explore both fictional pools with a partially saved assessment',async t=>{
+  const saved={
+    displayName:'Test account',age:33,city:'الرياض',assessmentVersion:'marriage-v4',
+    preferredMinAge:18,preferredMaxAge:60,
+    marriageBasics:{maritalStatus:'never_married'},
+    surveyAnswers:{residence_plan:'B',children_plan:'A'}
+  };
+  const h=harness(t,{actor:'abdulrahman',profiles:{
+    abdulrahman:saved,reham:{displayName:'Other tester',age:30,city:'الرياض'}
+  }});
+  for(const gender of ['man','woman']){
+    h.profile.gender=gender;
+    const source=h.reopen();
+    const people=await source.discover({mode:'all'});
+    const roster=people.filter(person=>person.isDemo);
+    assert.equal(roster.length,10);
+    assert(roster.every(person=>person.fit.version==='marriage-v4'&&
+      person.fit.assessmentComplete&&Number.isInteger(person.fit.percentage)));
+    assert.equal(people.find(person=>person.id==='reham').fit.percentage,null);
+    assert.equal((await source.discover({mode:'recommended'})).filter(person=>person.isDemo).length,5);
+  }
+  assert.deepEqual(h.remote.profiles.abdulrahman.surveyAnswers,{residence_plan:'B',children_plan:'A'});
+  assert(h.calls.every(call=>call.action==='state'));
+});
+
+test('fictional discovery uses Abdulrahman’s complete assessment and honors active filters',async t=>{
+  const fixture=demoPeople.find(person=>person.id==='p01');
+  const h=harness(t,{actor:'abdulrahman',profiles:{abdulrahman:{
+    ...fixture,...fixture.currentAssessment,preferredMinAge:25,preferredMaxAge:25
+  }}});
+  const directory=(await h.source.discover({mode:'all'})).filter(person=>person.isDemo);
+  assert.equal(directory.length,10);
+  const people=(await h.source.discover({mode:'all',eligibleOnly:true})).filter(person=>person.isDemo);
+  assert.deepEqual(people.map(person=>person.id),['wp07']);
+  assert.equal(people[0].fit.assessmentComplete,true);
+  assert.deepEqual(await h.source.discover({mode:'all',search:'No matching profile'}),[]);
 });

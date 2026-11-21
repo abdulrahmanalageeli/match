@@ -1,4 +1,5 @@
 import { BrandWordmark } from './Brand';
+import { WelcomePairPreview } from './WelcomePairPreview';
 import { WhyWudayn } from './WhyWudayn';
 import { createPortal } from 'react-dom';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -79,6 +80,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       </div>
       <button type="button" className="nf-mast-login wd-welcome-login" onClick={onLogin}>تسجيل الدخول <ArrowLeft size={15} aria-hidden="true"/></button>
       <p className="wd-name-meaning"><span>من الوُدّ؛ محبّة وألفة بين اثنين.</span></p>
+      <WelcomePairPreview visible={!introducing && !hidden} reduced={reduced}/>
     </header>
 
     <section className="wd-welcome-hero">

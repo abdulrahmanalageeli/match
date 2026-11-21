@@ -106,14 +106,19 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;const fallback=missingPublicProfileDraft(p);if(!Object.keys(fallback).length)return;update(fallback);setGeneratedDraft(true);},[chapter]);
   useLayoutEffect(()=>{if(previous.current===index)return;previous.current=index;heading.current?.focus({preventScroll:true});container.current?.scrollIntoView({block:'start',behavior:'instant'});},[index]);
   const draftReady=aiDraftsReady||generatedDraft;
-  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?reviewedStoryTitles[visibleIndex]:storyTitles[visibleIndex]):visibleIndex===0?'تفاصيل واضحة من البداية.':details[visibleIndex-1];
+  const consentSlide = chapter === 'details' && visibleIndex === 0;
+  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?reviewedStoryTitles[visibleIndex]:storyTitles[visibleIndex]):consentSlide?'من يطّلع على تفاصيلك الحساسة؟':details[visibleIndex-1];
   const count=slides.length;
   const basics=p.marriageBasics??{};
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
   const rephrase=(field:keyof PublicProfileDraft)=>{rewriteVersion.current+=1;answer({[field]:generatedPublicProfileDraft(p,rewriteVersion.current)[field]});setGeneratedDraft(true);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
-  const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,visibleIndex-1) : visibleIndex];
+  const subtitle = consentSlide
+    ? required
+      ? 'يلزم اختيار درجة البشرة لإكمال طلب العضوية. نطلب موافقتين منفصلتين لاستخدام التفاصيل الحساسة في التوافق وعرضها للأعضاء المؤهلين. بعد دخول التطبيق يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
+      : 'يمكنك الموافقة على استخدام التفاصيل في التوافق، ثم اختيار ما إذا كنت تسمح بعرضها للأعضاء المؤهلين.'
+    : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
   const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
   const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
@@ -152,7 +157,10 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
         <dl>{savedBasics.map(field=><div key={field.fieldId}><dt>{profileProposalLabel(field)}</dt><dd>{profileProposalValue(field)}</dd></div>)}</dl>
         <button className="btn-secondary" type="button" aria-pressed={showSaved} onClick={()=>setShowSaved(!showSaved)}>{showSaved?'عرض الناقص فقط':'تعديل الإجابات المحفوظة'}</button>
       </details>}
-      {chapter==='details'&&visibleIndex===0&&<><ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">{required?'هاتان الموافقتان مطلوبتان لإنشاء ملفك. تبقى إدارة خصوصيتك متاحة من الإعدادات.':'الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.'}</p></>}
+      {consentSlide && <>
+        <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>
+        {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
+      </>}
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields hiddenFields={hiddenFields} activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>

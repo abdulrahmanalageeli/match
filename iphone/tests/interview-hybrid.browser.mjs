@@ -221,6 +221,7 @@ try {
   assert.equal(await card.locator('fieldset').getAttribute('data-side'), 'partner');
   assert.equal(draft[firstPartnerId], undefined);
   await portrait.locator(':scope > summary').click();
+  assert.equal(await portrait.locator('.wi-portrait-theme > summary small').first().innerText(),'قيد الإكمال');
   await portrait.locator('.wi-portrait-theme > summary').first().click();
   const mirror = portrait.getByRole('combobox', { name:'الأطفال، في حياتي' });
   assert.equal(await mirror.inputValue(), 'C');
@@ -267,6 +268,10 @@ try {
   assert.equal(scaleChecked, true);
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
+  await portrait.locator(':scope > summary').click();
+  const groupStates=await portrait.locator('.wi-portrait-theme > summary small').allTextContents();
+  assert.ok(groupStates.length && groupStates.every(state=>state==='اكتملت الإجابات'));
+  await portrait.locator(':scope > summary').click();
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   const review = page.locator('.wi-hybrid-review');
   assert.equal(await review.locator('select').count(),47);
@@ -423,6 +428,32 @@ try {
   await page.clock.install();
   await page.evaluate(() => document.fonts.ready);
   const example = page.getByRole('button',{name:'شوف كيف تختصر الأسئلة'});
+  await page.locator('.wi-chat[data-opening]').waitFor();
+  const openingGap = await page.evaluate(() => document.querySelector('.wi-composer').getBoundingClientRect().top -
+    document.querySelector('.wi-current-question').getBoundingClientRect().bottom);
+  assert.ok(openingGap >= 0 && openingGap <= 32, 'The reply area should immediately follow the opening question');
+  await page.screenshot({path:resolve(output,'opening-compact.png'),animations:'disabled'});
+  await page.setViewportSize({width:320,height:568});
+  await page.evaluate(() => { document.documentElement.dataset.nfText='large'; });
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const layout = await page.locator('.wi-chat').evaluate(chat => ({
+    overflow:chat.scrollWidth > chat.clientWidth,
+    font:parseFloat(getComputedStyle(chat.querySelector('.wi-opening-benefit')).fontSize),
+    labels:[...chat.querySelectorAll('.wi-session-milestones li > span')].every(label=>label.getBoundingClientRect().width>0),
+    motion:getComputedStyle(chat.querySelector('.wi-example-panel')).transitionDuration
+  }));
+  assert.equal(layout.overflow,false);
+  assert.ok(layout.font >= 16);
+  assert.equal(layout.labels,true);
+  assert.equal(parseFloat(layout.motion),0);
+  await page.locator('#wi-answer').focus();
+  await page.locator('#wi-answer').scrollIntoViewIfNeeded();
+  assert.ok(await page.locator('#wi-answer').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight));
+  await page.screenshot({path:resolve(output,'opening-320-large-reduced.png'),animations:'disabled'});
+  await page.locator('#wi-answer').blur();
+  await page.setViewportSize({width:402,height:874});
+  await page.evaluate(() => { delete document.documentElement.dataset.nfText; document.querySelector('.wi-chat').scrollTop=0; });
+  await page.emulateMedia({reducedMotion:'no-preference'});
   await example.click();
   assert.equal(await example.getAttribute('aria-expanded'),'true');
   await page.clock.runFor(320);

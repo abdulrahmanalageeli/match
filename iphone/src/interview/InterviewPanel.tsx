@@ -607,7 +607,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {fallbackReview ? <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!!busy} onClick={finishFallbackReview}>اعتماد ما راجعته وإكمال المتبقي<ArrowLeft size={18}/></MotionPressButton> : <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => void confirm()} disabled={!!busy || doc.pendingAnalysis || unresolved > 0 || incomplete || !validProposals.length}>{busy === 'confirm' ? 'جارٍ الحفظ…' : 'هذا يمثّلني، اعتماد الملخص'}<Check size={18}/></MotionPressButton>}
           {!fallbackReview && (incomplete || !validProposals.length) && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={() => void call('resume', {}, true).then(result => { if (result) { setApplied(false); setSharingSaved(false); } })}>إكمال الحوار <ArrowLeft size={14}/></button>}
         </section>
-        : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
+        : <section className="wi-chat" data-opening={openingTurn || undefined} aria-label="الحوار مع مرافق وُدَين">
           <div className="wi-session-compass">
             <div className="wi-chat-context"><span><HeartHandshake size={15}/>{activeChapter.label}</span><span><LockKeyhole size={12}/> خاص · لا يظهر للأعضاء</span></div>
             <ol className="wi-session-milestones" aria-label="مراحل جلسة التوافق">
@@ -631,7 +631,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           </div>
           <form className="wi-composer" data-opening={openingTurn || undefined} data-next-step={nextStepTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
             {openingTurn && hybridEnabled && <>
-              <p className="wi-opening-benefit"><strong>كل ما ذكرت تفاصيل واضحة، قدرت أختصر عليك أسئلة أكثر.</strong> أقترح لك إجابات من كلامك، وتقدر تراجعها وتعدّلها قبل الاعتماد.</p>
+              <p className="wi-opening-benefit">إذا وضّحت إجابة في كلامك، تقترحها لك لونا. تقدر تراجع كل اقتراح وتعدّله قبل الاعتماد.</p>
               <OpeningExample/>
             </>}
             {nextStepTurn && <>

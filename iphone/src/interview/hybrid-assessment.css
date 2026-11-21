@@ -18,7 +18,7 @@
   font-weight: 650;
 }
 
-.wi-hybrid-progress small { color: #76636d; font-size: 0.75rem; font-weight: 400; }
+.wi-hybrid-progress small { color: #685861; font-size: .875rem; font-weight: 400; }
 .wi-hybrid-progress progress {
   grid-column: 1 / -1;
   width: 100%;
@@ -120,7 +120,7 @@
   background: var(--hybrid-tint);
 }
 .wi-hybrid-suggestion > div { display: grid; gap: 3px; }
-.wi-hybrid-suggestion small, .wi-hybrid-review-row small { color: #76636d; font-size: 0.6875rem; }
+.wi-hybrid-suggestion small, .wi-hybrid-review-row small { color: #685861; font-size: .875rem; }
 .wi-hybrid-suggestion strong { font-size: 0.8125rem; font-weight: 650; line-height: 1.7; }
 
 .wi-hybrid-batch { gap: 10px; margin-bottom: 14px; }
@@ -208,7 +208,7 @@
 .wi-living-portrait > summary::-webkit-details-marker { display: none; }
 .wi-portrait-title { display: grid; gap: 2px; }
 .wi-living-portrait strong { font-size: 0.8125rem; }
-.wi-living-portrait small { color: #6d5b65; font-size: 0.6875rem; }
+.wi-living-portrait small { color: #685861; font-size: .875rem; }
 .wi-living-portrait summary > svg { transition: transform .18s ease-out; }
 .wi-living-portrait details[open] > summary > svg, .wi-living-portrait[open] > summary > svg { transform: rotate(180deg); }
 .wi-portrait-mark {
@@ -242,7 +242,7 @@
   font-size: 0.75rem;
   line-height: 1.8;
 }
-.wi-portrait-body > p { display: flex; align-items: center; gap: 6px; }
+.wi-portrait-body > p { display: flex; align-items: center; gap: 6px; font-size:.875rem; }
 .wi-portrait-body > p svg { flex-shrink: 0; }
 .wi-portrait-theme { border: 1px solid var(--hybrid-line); border-radius: 12px; padding: 8px 10px; }
 .wi-portrait-theme > summary { cursor: pointer; color: var(--hybrid-accent); font-size: 0.8125rem; padding: 5px 0; }
@@ -255,6 +255,7 @@
   list-style: none;
 }
 .wi-portrait-body .wi-portrait-theme > summary::-webkit-details-marker { display: none; }
+.wi-portrait-theme > summary small { margin-inline-start:auto; padding-inline:.4rem; color:#60545b; font-size:.875rem; font-weight:400; }
 .wi-portrait-mirror-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -276,7 +277,7 @@
 }
 .wi-portrait-choice:nth-child(n+4) { grid-column: 1 / -1; }
 .wi-portrait-choice > span { display: grid; gap: 2px; }
-.wi-portrait-choice strong { font-size: 0.75rem; line-height: 1.5; font-weight: 600; }
+.wi-portrait-choice strong { font-size: .9375rem; line-height: 1.6; font-weight: 600; }
 .wi-portrait-choice > svg { flex: none; color: var(--hybrid-accent); }
 .wi-portrait-choice:focus-within { outline: 2px solid var(--hybrid-accent); outline-offset: 1px; }
 .wi-portrait-choice > select {
@@ -326,7 +327,7 @@
 .wi-choice-explanations dl > div { padding-block: 6px; border-bottom: 1px solid var(--hybrid-line); }
 .wi-choice-explanations dd { font-size: 0.75rem; line-height: 1.7; color: #6d5b65; }
 .wi-choice-proposal { display: grid; gap: 4px; padding: 10px 12px; background: #fff; border-radius: 9px; }
-.wi-choice-proposal small { font-size: 0.6875rem; color: #76636d; }
+.wi-choice-proposal small { font-size: .875rem; color: var(--hybrid-accent); font-weight:600; }
 .wi-choice-proposal-actions { margin-top: 4px; }
 .wi-choice-proposal-actions .wi-button { min-height: 44px; padding: 6px 10px; font-size: 0.75rem; }
 
@@ -341,7 +342,7 @@
 }
 .wi-hybrid-recorded { display:block; color:var(--hybrid-ink); text-align:start; line-height:1.6; }
 .wi-hybrid-recorded:empty { display:none; }
-.wi-hybrid-evidence { margin-block:0.25rem 0.65rem; font-size:0.8125rem; }
+.wi-hybrid-evidence { margin-block:0.25rem 0.65rem; font-size:.875rem; }
 .wi-hybrid-evidence summary { cursor:pointer; }
 .wi-hybrid-evidence q { display:block; padding-block:0.35rem; overflow-wrap:anywhere; }
 
@@ -363,10 +364,12 @@
 .wi-confirmed-answers dd { color:var(--ink,#432f3a); }
 .wi-hybrid-captured-review > .wi-link { margin: 0 12px 6px; min-block-size: 44px; }
 .wi-hybrid .wi-hybrid-stage > h1 { scroll-margin-block-start: calc(env(safe-area-inset-top) + 70px); }
-.wi-hybrid-recorded:not(:empty) { margin-block:0 12px; font-size:.8125rem; border-inline-start:2px solid var(--hybrid-accent); padding-inline-start:9px; }
+.wi-hybrid-recorded:not(:empty) { display:flex; align-items:baseline; gap:.4rem; margin-block:0 12px; font-size:.875rem; color:#385747; }
+.wi-hybrid-recorded svg, .wi-self-echo svg { flex:none; align-self:center; }
 .wi-hybrid-recorded[data-echo] { position:absolute; clip-path:inset(50%); inline-size:1px; block-size:1px; overflow:hidden; }
-.wi-self-echo { display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 10px; padding:8px 12px; margin:0 0 15px; border-inline-start:2px solid var(--hybrid-accent); background:#f8f2f4; font-size:.875rem; line-height:1.65; }
-.wi-self-echo span { color:#755261; font-size:.75rem; }
+.wi-self-echo { display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 10px; padding:8px 12px; margin:0 0 15px; background:#eff4f0; color:#385747; font-size:.9375rem; line-height:1.65; }
+.wi-self-echo span { display:inline-flex; align-items:center; gap:.35rem; font-size:.875rem; }
+.wi-self-echo[data-suggested], .wi-partner-default[data-suggested], .wi-choice-proposal { border-inline-start:2px dashed var(--hybrid-accent); color:var(--hybrid-ink); background:var(--hybrid-tint); }
 .wi-hybrid-captured-review > summary > span { display: inline-flex; align-items: center; gap: .5em; }
 .wi-extracted-count { display: inline-grid; place-items: center; padding-inline: .45em; min-width: 1.6em; border-radius: 1em; background: var(--hybrid-tint); font-variant-numeric: tabular-nums; }
 .wi-hybrid-captured-review > p { margin: 0; padding: 0 14px .75rem; font-size: .8125rem; line-height: 1.75; }
@@ -387,6 +390,7 @@
 
 .wi-partner-default { margin-block: 8px 14px; border-block: 1px solid var(--line, #e6dadf); }
 .wi-partner-default > summary { display: grid; grid-template-columns: minmax(0,1fr) auto; align-content: center; min-height: 44px; padding-block: 7px; cursor: pointer; }
-.wi-partner-default > summary span { grid-column: 1 / -1; font-size: .75rem; }
+.wi-partner-default[data-suggested] { padding-inline:12px; border-block:0; }
+.wi-partner-default > summary span { grid-column: 1 / -1; font-size: .875rem; }
 .wi-partner-default > summary strong { font-size: .875rem; font-weight: 550; }
 .wi-partner-default > summary small { padding-inline-start: 10px; text-decoration: underline; }

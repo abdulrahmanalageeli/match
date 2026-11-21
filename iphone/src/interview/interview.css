@@ -146,6 +146,9 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-welcome-emblem img { object-fit:contain; }
 .wi-content[data-chat] { display:flex; flex-direction:column; padding:0; overflow:hidden; }
 .wi-chat { display:flex; flex-direction:column; flex:1; min-height:0; }
+.wi-chat[data-opening] { overflow-y:auto; overscroll-behavior:contain; }
+.wi-chat[data-opening] .wi-thread { flex:none; overflow:visible; padding-bottom:0; }
+.wi-chat[data-opening] .wi-composer { border-top:0; padding-inline:22px; }
 .wi-chat-context { display:flex; align-items:center; justify-content:space-between; flex:none; gap:10px; padding:11px 22px; font-size:0.75rem; color:#86717d; }
 .wi-chat-context>span:last-child { display:flex; align-items:center; gap:5px; font-size:0.6875rem; }
 .wi-thread { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 22px 24px; scrollbar-width:thin; scrollbar-color:#d8c8d1 transparent; }
@@ -164,7 +167,7 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-dialog .wi-compose-row textarea::placeholder { color:#9b8792; font-size:1rem; direction:rtl; text-align:right; }
 .wi-send { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:50%; color:#fff; background:#59172f; }
 .wi-send:disabled { opacity:.4; }
-.wi-compose-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:0.625rem; color:#8b7682; }
+.wi-compose-meta { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:.8125rem; color:#685761; }
 .wi-compose-meta button { min-height:34px; padding:0; border:0; background:none; color:#856476; font:inherit; cursor:pointer; }
 .wi-chat-suggestions { display:flex; gap:7px; overflow-x:auto; padding:0 0 9px; scrollbar-width:none; }
 .wi-chat-suggestions button { min-height:38px; flex:none; max-width:260px; padding:7px 12px; border:1px solid #e6dbe1; border-radius:12px; background:#f5eff2; color:#846476; font:inherit; font-size:0.6875rem; text-align:start; }
@@ -207,8 +210,9 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 
 /* A guided conversation: quiet progress, personal replies, and space to reflect. */
 .wi-session-compass { flex:none; padding:0 22px 12px; background:#fbfafb; border-bottom:1px solid #ede6e9; }
-.wi-session-compass .wi-chat-context { padding:10px 0 9px; color:#6e5260; }
-.wi-chat-context > span:first-child { display:flex; align-items:center; gap:7px; font-size:0.75rem; }
+.wi-session-compass .wi-chat-context { padding:10px 0 9px; flex-wrap:wrap; color:#604c56; }
+.wi-chat-context > span:first-child { display:flex; align-items:center; gap:7px; font-size:.875rem; }
+.wi-session-compass .wi-chat-context > span:last-child { color:#5f585b; font-size:.875rem; }
 .wi-session-progress { height:3px; border-radius:5px; overflow:hidden; background:#eae1e6; }
 .wi-session-progress > span { display:block; height:100%; width:100%; background:#8b4b65; transform-origin:right; transition:transform .6s cubic-bezier(.22,.7,.3,1); }
 .wi-thread { padding:8px 22px 22px; scroll-padding-block:18px; }
@@ -236,7 +240,7 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-send:not(:disabled):active { transform:scale(.92); }
 .wi-send:disabled { opacity:1; background:#cdbac3; color:#fff; }
 .wi-compose-meta { gap:8px; color:#8b7480; }
-.wi-compose-meta > button { min-height:36px; font-size:0.6875rem; }
+.wi-compose-meta > button { min-height:44px; font-size:.875rem; }
 .wi-answer-help { margin:0 3px 12px; padding:10px 12px; background:#f1e9ee; border-radius:12px; color:#755b68; font-size:0.75rem; line-height:1.85; animation:wi-turn-in .18s ease-out both; }
 .wi-intro-cues { display:flex; flex-wrap:wrap; gap:6px; margin:0 3px 10px; animation:wi-turn-in .22s ease-out both; }
 .wi-intro-cues span { color:#67565f; font-size:.75rem; line-height:1.6; }
@@ -277,7 +281,7 @@ html[data-nf-motion=reduced] :is(.wi-session-progress > span,.wi-send,.wi-compos
 .wi-chat-suggestions button:not(:disabled):hover { background:#f9f5f7; border-color:#b68b9e; }
 .wi-chat-suggestions button:disabled { opacity:.5; }
 .wi-composer { border-top-color:#eee9e6; }
-.wi-compose-meta { color:#83767d; }
+.wi-compose-meta { color:#685761; }
 .wi-typing .wi-loading-dots { color:#89546d; }
 .wi-review-group>summary,.wi-review-rows { border:1px solid #eee8eb; }
 .wi-review-group[open]>.wi-review-rows { border-top:0; }
@@ -317,10 +321,10 @@ html[data-nf-motion=reduced] .wi-chat-suggestions button { transition:none!impor
 
 /* Milestones keep the adaptive interview honest without turning it into a 44-item test. */
 .wi-session-milestones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0;margin:0;list-style:none}
-.wi-session-milestones li{min-width:0;display:flex;align-items:center;gap:6px;color:#96868e;font-size:0.625rem;line-height:1.45}
+.wi-session-milestones li{min-width:0;display:flex;align-items:center;gap:6px;color:#70626a;font-size:.8125rem;line-height:1.5}
 .wi-session-milestones li:not(:last-child)::after{content:'';height:1px;flex:1;min-width:8px;background:#e7dfe3}
 .wi-session-milestones i{width:18px;height:18px;flex:none;display:grid;place-items:center;border:1px solid #ded3d9;border-radius:50%;color:#8d7d85;font-style:normal;font-size:0.5625rem}
-.wi-session-milestones li>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wi-session-milestones li>span{min-width:0;overflow-wrap:anywhere}
 .wi-session-milestones [data-state=current]{color:#5e2a42;font-weight:600}
 .wi-session-milestones [data-state=current] i{border-color:#7d425d;background:#7d425d;color:#fff}
 .wi-session-milestones [data-state=done]{color:#66766b}
@@ -329,7 +333,7 @@ html[data-nf-motion=reduced] .wi-chat-suggestions button { transition:none!impor
 .wi-review-state{display:grid;place-items:center;min-width:29px;min-height:29px;padding-inline:7px;border-radius:999px;background:#eef3ef;color:#617267;font-size:0.5625rem}
 .wi-review-group[data-attention] .wi-review-state{background:#f6ecef;color:#884960}
 html[data-nf-keyboard] .wi-session-milestones{display:none}
-@media(max-width:350px){.wi-session-milestones li>span{display:none}.wi-session-milestones li:not(:last-child)::after{min-width:16px}}
+@media(max-width:350px){.wi-session-milestones li:not(:last-child)::after{display:none}.wi-chat[data-opening] .wi-composer{padding-inline:16px}}
 @media(prefers-reduced-motion:reduce){.wi-session-milestones *{transition:none!important}}
 .wi-profile-editor input[type=checkbox]{accent-color:#702c4e}
 .wi-profile-range{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -362,8 +366,7 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
 html[data-nf-motion=reduced] .wi-loading-brand { animation:none; }
 @media(prefers-reduced-motion:reduce){.wi-compose-row,.wi-compose-row::before,.wi-send:not(:disabled){animation:none;transition:none}}
 
-.wi-opening-benefit { margin:0 0 2px; color:#655660; font-size:.8125rem; line-height:1.7; }
-.wi-opening-benefit strong { color:var(--accent,#68213c); }
+.wi-opening-benefit { margin:0 0 2px; color:#60505b; font-size:.9375rem; line-height:1.75; }
 .wi-opening-example { margin-block-end:7px; }
 .wi-opening-example > button { display:flex; align-items:center; gap:6px; min-height:36px; padding:0; border:0; background:none; color:var(--accent,#68213c); font:inherit; font-size:.8125rem; font-weight:700; cursor:pointer; }
 .wi-opening-example > button svg { transition:transform .26s ease; }

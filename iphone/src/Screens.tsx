@@ -130,12 +130,12 @@ export function Auth({
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
   const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
     <legend className="nf-auth-sr-only">الموافقات المطلوبة لإنشاء الحساب</legend>
+    <p id="auth-agreement-help">هذه الموافقات الثلاث لإنشاء حسابك. عند إعداد ملفك، ستحتاج إلى موافقتين منفصلتين لمعالجة تفاصيلك الحساسة وعرضها للأعضاء المؤهلين. وللصورة والتقييم أذونات خاصة بهما.</p>
     {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
       setAgreements(current => ({ ...current, [kind]: value }));
       setAgreementError("");
     }} />)}
     <button type="button" className="nf-privacy-link" onClick={onPrivacy}>قراءة شروط الاستخدام وإشعار الخصوصية</button>
-    <p id="auth-agreement-help">الخيارات الثلاثة مطلوبة لإنشاء الحساب. أذونات الصورة والتفاصيل الحساسة والتقييم تُعرض منفصلة أثناء إعداد الملف.</p>
     {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
   </fieldset> : null;
   return (

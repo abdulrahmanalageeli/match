@@ -101,14 +101,19 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;if(p.bio.trim())return;const bio=generatedBio(p);if(bio){update({bio});setGeneratedDraft(true);}},[chapter]);
   useLayoutEffect(()=>{if(previous.current===index)return;previous.current=index;heading.current?.focus({preventScroll:true});container.current?.scrollIntoView({block:'start',behavior:'instant'});},[index]);
   const draftReady=generatedDraft && visibleIndex === 1;
-  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):visibleIndex===0?'تفاصيل واضحة من البداية.':details[visibleIndex-1];
+  const consentSlide = chapter === 'details' && visibleIndex === 0;
+  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):consentSlide?'من يطّلع على تفاصيلك الحساسة؟':details[visibleIndex-1];
   const count=slides.length;
   const basics=p.marriageBasics??{};
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
   const rephraseBio=()=>{rewriteVersion.current+=1;answer({bio:generatedBio(p,rewriteVersion.current)});setGeneratedDraft(true);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
-  const subtitle = slideSubtitles[slideChapter][slideChapter==='details' ? Math.max(0,visibleIndex-1) : visibleIndex];
+  const subtitle = consentSlide
+    ? required
+      ? 'يلزم اختيار درجة البشرة لإكمال طلب العضوية. نطلب موافقتين منفصلتين لاستخدام التفاصيل الحساسة في التوافق وعرضها للأعضاء المؤهلين. بعد دخول التطبيق يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
+      : 'يمكنك الموافقة على استخدام التفاصيل في التوافق، ثم اختيار ما إذا كنت تسمح بعرضها للأعضاء المؤهلين.'
+    : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
   const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
   const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
@@ -145,7 +150,10 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<small>تظهر النبذة للأعضاء المؤهلين. اكتب فقط ما ترغب في مشاركته معهم.</small><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
-      {chapter==='details'&&visibleIndex===0&&<><ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}<p className="wd-slide-description">{required?'هاتان الموافقتان مطلوبتان لإنشاء ملفك. تبقى إدارة خصوصيتك متاحة من الإعدادات.':'الموافقة على المعالجة لا تعني عرض التفاصيل في ملفك.'}</p></>}
+      {consentSlide && <>
+        <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>
+        {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
+      </>}
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>

@@ -29,6 +29,7 @@
 }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-hint, .compat-assessment-note, .compat-footnote, .compat-interest-note, .bn-answer-hint, .nf-photo-intro, .nf-avatar-intro, .nf-detail-intro p > span, .nf-marriage-summary small, .nf-detail-footnote, .nf-sensitive-note, .nf-family-disclosure > small, .nf-personality > small, .nf-consent-gate > p, .nf-consent-choice small) { color: #716b70; font-size: 14px; line-height: 1.8; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-section-head, .compat-counter, .compat-topic-label, .compat-question-position, .nf-personality-progress, .nf-personality-card legend, .nf-question-map > summary, .nf-consent-manage > summary, .nf-consent-manage > summary small) { font-size: 14px; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.wd-slide-kicker, .nf-consent-choice small, .nf-consent-gate > p, .nf-consent-review details > p, .nf-consent-manage > summary small) { font-size: .9375rem; line-height: 1.75; color: #60545b; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-topic-label, .nf-personality-card legend) { color: #716b70; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-choice, .nf-personality-options > button, .bn-options > button, .nf-detail-choices button) {
   min-height: 60px;

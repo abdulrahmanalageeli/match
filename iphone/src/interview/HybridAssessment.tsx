@@ -327,7 +327,7 @@ function PartnerRow({item, choices, inferred, disabled, onChoose}: {
   item: Card; choices: Choices; inferred: boolean; disabled: boolean; onChoose: (code: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  return <details className="wi-partner-default" onToggle={event => setOpen(event.currentTarget.open)}>
+  return <details className="wi-partner-default" data-suggested={inferred || undefined} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary><span>{item.self.label} · عنّي: {selected(item.self, choices)?.label}</span>
       <strong>{inferred ? 'اقتراح للشريك' : 'اختيارك للشريك'}: {selected(item.partner, choices)?.label}</strong><small>تعديل</small></summary>
     {open && <ChoiceCard field={item.partner} value={selected(item.partner, choices)?.code} disabled={disabled} onChoose={onChoose}/>}
@@ -524,7 +524,10 @@ export function HybridAssessment({
       </div>}
       <h1 id={headingId} ref={heading} tabIndex={-1}>{card ? activeField?.label ?? card.self.label : 'راجع إجاباتك'}</h1>
       {card && <small role="status" className="wi-hybrid-recorded" data-echo>{recorded}</small>}
-      {retainSelf && <p className="wi-self-echo"><span>{pendingIds.has(card.self.id) ? 'في حياتي · اقتراح لونا' : 'في حياتي'}</span><strong>{selfAnswer.label}</strong></p>}
+      {retainSelf && <p className="wi-self-echo" data-suggested={pendingIds.has(card.self.id) || undefined}>
+        {pendingIds.has(card.self.id) ? <span>في حياتي · اقتراح لونا</span> : <span><Check size={15} aria-hidden="true"/> اختياري عن نفسي</span>}
+        <strong>{selfAnswer.label}</strong>
+      </p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
         const previous = previousTap.current;
@@ -605,7 +608,11 @@ export function HybridAssessment({
           const items = theme.cards.filter(item => selected(item.self, choices) || selected(item.partner, choices) || item.personality.some(field => selected(field, choices)));
           if (!items.length) return null;
           return <details key={theme.label} className="wi-portrait-theme">
-            <summary><span>{theme.label}</span><ChevronDown size={14} aria-hidden="true"/></summary>
+            <summary>
+              <span>{theme.label}</span>
+              <small>{theme.cards.every(item => !needsCard(item, choices)) ? 'اكتملت الإجابات' : 'قيد الإكمال'}</small>
+              <ChevronDown size={14} aria-hidden="true"/>
+            </summary>
             <div>
               {items.map(item => <div key={item.self.id} className="wi-portrait-mirror-row">
                 <strong>{item.self.label}</strong>

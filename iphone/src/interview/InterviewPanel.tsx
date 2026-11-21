@@ -667,7 +667,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {fallbackReview ? <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!!busy} onClick={finishFallbackReview}>اعتماد ما راجعته وإكمال المتبقي<ArrowLeft size={18}/></MotionPressButton> : <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => void confirm()} disabled={!!busy || doc.pendingAnalysis || unresolved > 0 || incomplete || !validProposals.length}>{busy === 'confirm' ? 'جارٍ الحفظ…' : 'هذا يمثّلني، اعتماد الملخص'}<Check size={18}/></MotionPressButton>}
           {!fallbackReview && (incomplete || !validProposals.length) && <button type="button" className="wi-link wi-centered" disabled={!!busy} onClick={() => void call('resume', {}, true).then(result => { if (result) { setApplied(false); setSharingSaved(false); } })}>إكمال الحوار <ArrowLeft size={14}/></button>}
         </section>
-        : <section className="wi-chat" aria-label="الحوار مع مرافق وُدَين">
+        : <section className="wi-chat" data-opening={openingTurn || undefined} aria-label="الحوار مع مرافق وُدَين">
           <div className="wi-session-compass">
             {hybridEnabled ? <LunaSessionSteps current="قصتك"/> : <>
             <div className="wi-chat-context"><span><HeartHandshake size={15}/>{activeChapter.label}</span><span><LockKeyhole size={12}/> خاص · لا يظهر للأعضاء</span></div>
@@ -697,7 +697,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             </div>;})}
             {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1><p>خطوتك الجاية بكلماتك. هذا السؤال اختياري.</p></div>}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟', true)}</div>
-            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit"><strong>كل ما ذكرت تفاصيل واضحة، قدرت أختصر عليك أسئلة أكثر.</strong> أقترح إجابات من كلامك، وأنت تراجعها وتعدّلها قبل الاعتماد.</p>}
+            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit">إذا وضّحت إجابة في كلامك، تقترحها لك لونا. تقدر تراجع كل اقتراح وتعدّله قبل الاعتماد.</p>}
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
             {!responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}

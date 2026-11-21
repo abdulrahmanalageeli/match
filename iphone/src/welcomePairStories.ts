@@ -1,0 +1,80 @@
+import { assessmentVersion, comparePreferences, dimensions, preferencePercentage } from './compatibility/model.ts';
+import { personalityQuestions, personalityVersion, reciprocalTraitFit } from './compatibility/personality.ts';
+
+// Completed fictional questionnaires, shared across the stories in which a person appears.
+const sharedAnswers = {
+  children_plan: 'A', residence_plan: 'A', wife_work: 'A', marriage_timeline: 'B',
+  family_authority: 'A', financial_provision: 'C', domestic_labor: 'B', housing_arrangement: 'A',
+  social_rhythm: 'B', social_boundaries: 'B', conflict_response: 'B', repair_after_conflict: 'B',
+  faith_routine: 'B', closeness_pace: 'A', money_management: 'A', parenting_approach: 'B',
+};
+type Answers = Partial<typeof sharedAnswers>;
+type Details = { wants?: Answers; city?: string; requires?: (keyof Answers)[] };
+
+function member(name: string, image: string, gender: 'woman' | 'man', choices: Answers, details: Details = {}) {
+  const self = { ...sharedAnswers, ...choices };
+  const partner = { ...self, ...details.wants };
+  const surveyAnswers: Record<string, string> = { ...self };
+  for (const topic of dimensions) {
+    surveyAnswers[topic.partnerId] = partner[topic.id as keyof Answers];
+  }
+  return { id: image, name, image, gender, city: details.city ?? 'الرياض', age: 30,
+    preferredMinAge: 24, preferredMaxAge: 39, assessmentVersion, surveyAnswers, hardRequirements: details.requires };
+}
+
+const noura = member('نورة', 'noura', 'woman', { marriage_timeline: 'A' }, { wants: { residence_plan: 'B' } });
+const lulwa = member('لولوة', 'lulwa', 'woman', { financial_provision: 'B' }, { requires: ['children_plan'] });
+const manal = member('منال', 'manal', 'woman', { housing_arrangement: 'B', faith_routine: 'C' });
+const sarah = member('سارة', 'sarah', 'woman', { social_rhythm: 'A', social_boundaries: 'A' }, { wants: { social_boundaries: 'B' } });
+const abdullah = member('عبدالله', 'abdullah', 'man', { domestic_labor: 'A', financial_provision: 'A', family_authority: 'B' });
+const fahad = member('فهد', 'fahad', 'man', { parenting_approach: 'A', closeness_pace: 'B' });
+const nawaf = member('نواف', 'nawaf', 'man', { housing_arrangement: 'C', marriage_timeline: 'C', faith_routine: 'A', family_authority: 'B' });
+const omar = member('عمر', 'omar', 'man', { social_rhythm: 'C', conflict_response: 'D', repair_after_conflict: 'C' }, { wants: { social_boundaries: 'A' } });
+const saud = member('سعود', 'saud', 'man', { residence_plan: 'B', marriage_timeline: 'A' }, { city: 'الخبر', wants: { residence_plan: 'A' } });
+
+function story(topic: string, reading: string, her: ReturnType<typeof member>, herQuote: string,
+  him: ReturnType<typeof member>, hisQuote: string) {
+  const result = comparePreferences(her, him);
+  return { topic, reading, score: preferencePercentage(result?.fit),
+    people: [{ name: her.name, image: her.image, quote: herQuote }, { name: him.name, image: him.image, quote: hisQuote }] };
+}
+
+// The personality row uses the same two-way partner-range calculation as discovery.
+function socialEnergyFit() {
+  const neutral = Object.fromEntries(personalityQuestions.map(question => [question.id, 'C']));
+  const fit = reciprocalTraitFit(
+    { personalityVersion, personalityAnswers: { ...neutral, group_energy: 'B', start_conversation: 'B', quiet_settings: 'E', partner_social_energy: 'A' } },
+    { personalityVersion, personalityAnswers: { ...neutral, group_energy: 'E', start_conversation: 'D', quiet_settings: 'A', partner_social_energy: 'C' } },
+  );
+  return fit === null ? null : Math.round(fit * 100);
+}
+
+export const welcomePairs = [
+  story('بعد الدوام', 'متفقين إنها تكمّل بوظيفتها. هي تبي يتقاسمون شغل البيت، وهو يشوف أغلبه عليها.',
+    noura, 'إذا رجعنا من الدوام، نتقاسم اللي علينا.', abdullah, 'ودي تشتغل، وأشوف أغلب شغل البيت عليها.'),
+  story('قرار العيال', 'العيال شرط عند لولوة، وفهد يبي عيال مثلها.',
+    lulwa, 'أبي عيال، ويهمّني يكون حاسم قراره.', fahad, 'إيه، أبي أكون أب.'),
+  { ...story('طبع الويكند', 'هي تبي شريك يحب الهدوء مثلها. هو تعطيه اللمة طاقة.',
+    sarah, 'أرتاح مع شخص يحب القعدة الهادية مثلي.', omar, 'إذا طولت الجمعة زاد نشاطي.'),
+    score: socialEnergyFit() },
+  story('كلمة الأهل', 'كلهم يشاورون أهلهم. هي تبي القرار بينهم، وهو ينتظر موافقة أهله.',
+    lulwa, 'نسمع رأي أهلنا ونقرر سوا.', abdullah, 'إذا أهلي ما وافقوا، أفضّل ننتظر.'),
+  story('أول بيت', 'السكن مع أهله يناسبها لفترة. هو يبيه على طول.',
+    manal, 'نسكن معهم إذا اتفقنا متى نستقل.', nawaf, 'ودي نستقر مع أهلي على طول.'),
+  story('بين الرياض والخبر', 'هي تبي تبقى بالرياض. هو بالخبر ومستعد ينقل لها.',
+    noura, 'ودي أبقى بالرياض بعد الزواج.', saud, 'أنا بالخبر ويناسبني أنقل للرياض.'),
+  story('موعد الخطبة', 'هي تبي الخطبة خلال ست شهور، وهو يبي أكثر من سنة.',
+    noura, 'ودي بالخطوة الرسمية خلال ست شهور.', nawaf, 'أحتاج أكثر من سنة قبل ما أتقدّم.'),
+  story('مصروف البيت', 'كلهم يدّخرون. هي تبي المصاريف بالنص، وهو يبيها على قدّ الراتب.',
+    lulwa, 'أفضل ندفع الأساسيات بالنص.', saud, 'أشوف كل واحد يدفع على قدّ راتبه.'),
+  story('حدود الطلعات', 'هي تكتفي بجمعات الأهل، ومرتاحين إنه يحضر الفعاليات لحاله.',
+    sarah, 'أنا أحب جمعات الأهل، وعادي يروح الفعالية بدوني.', omar, 'أحب بعض الفعاليات، وعادي ما تجي معي.'),
+  story('وقت الزعل', 'هي تبي تعرف متى يرجعون للسالفة. هو يفضّل يتركها مفتوحة.',
+    noura, 'نهدأ، بس نتفق متى نرجع نتكلم.', omar, 'إذا زعلت أنسحب وما أحب أرجع للموضوع بسرعة.'),
+  story('بداية التعارف', 'هو يرتاح لكلمة اهتمام واضحة. هي تشارك تفاصيلها شوي شوي.',
+    manal, 'أشارك تفاصيلي شوي شوي.', fahad, 'أرتاح إذا سمعت منها إنّي مهم عندها.'),
+  story('وقت للعبادة', 'ودّها يخصّصون وقت يقرون فيه سوا. هو يفضّل يقرأ لحاله.',
+    manal, 'ودي يكون لنا وقت ثابت نقرأ فيه قرآن سوا.', nawaf, 'أفضل أرتّب وقت عبادتي بنفسي.'),
+  story('لو خالف ولدهم اتفاق', 'هي تسمع عذره أول. هو يطبّق اللي اتفقوا عليه، ثم يسمعه.',
+    sarah, 'ودي أسمع وش صار قبل أقرر.', fahad, 'أطبّق اللي اتفقنا عليه، وبعدين أسمع منه.'),
+];

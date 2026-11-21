@@ -46,14 +46,13 @@
 .wd-preview-description { min-height: 135px; }
 .wd-welcome .wd-preview-description h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
 .wd-preview-description p { margin: 0; max-width: 39ch; font-size: 14px; line-height: 1.85; color: #71646a; }
-.wd-preview-description > span { display: block; margin-top: 12px; font-size: 11px; color: #8b6976; }
 .wd-product-copy .wd-why-link { justify-content: flex-start; min-height: 44px; padding: 6px 0; margin-top: 6px; font-size: 12px; }
 .wd-product-figure { position: relative; margin: 0; isolation: isolate; display: flex; flex-direction: column; align-items: center; padding: 14px 10px 0; }
 .wd-product-halo { position: absolute; z-index: -1; inset: 13% -24px 16%; border-radius: 50% 50% 8px 8px; background: #eee4de; }
 .wd-device { width: min(100%, 300px); overflow: hidden; border: 5px solid #fffdfa; outline: 1px solid #ded3cd; border-radius: 26px; background: #fff; box-shadow: 0 18px 40px -18px #62473335; transform: rotate(-2deg); }
 .wd-device-top { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 17px; background: #fff; font-size: 10px; color: #917e86; }
 .wd-device-top i { width: 40px; height: 5px; border-radius: 8px; background: #e8e2df; }
-.wd-device-screen { aspect-ratio: 390/560; overflow: hidden; background: #fff; }
+.wd-device-screen { aspect-ratio: 402/580; overflow: hidden; background: #fff; }
 .wd-device-screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .wd-product-figure figcaption { margin-top: 22px; text-align: center; font-size: 11px; color: #75636a; }
 .wd-intention { display: grid; gap: 14px; padding: 38px 0 45px; border-top: 1px solid #e8dfdb; }

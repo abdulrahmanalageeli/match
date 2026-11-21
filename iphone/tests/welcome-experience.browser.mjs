@@ -33,6 +33,14 @@ const url='http://127.0.0.1:5286/__welcome-experience';
 const recordWelcome=process.env.WUDAYN_RECORD_WELCOME==='1';
 const captureStills=process.env.WUDAYN_CAPTURE_STILLS!=='0';
 const viewport=recordWelcome ? {width:402,height:874} : {width:390,height:844};
+// Pin what visitors actually see, including the domain-specific personality score.
+const rotation = [
+ ['بعد الدوام', '٧٧٪'], ['قرار العيال', '٨١٪'], ['طبع الويكند', '٣١٪'],
+ ['كلمة الأهل', '٧٨٪'], ['أول بيت', '٧٩٪'], ['بين الرياض والخبر', '١٠٠٪'],
+ ['موعد الخطبة', '٧٧٪'], ['مصروف البيت', '٨٦٪'], ['حدود الطلعات', '٨١٪'],
+ ['وقت الزعل', '٧٨٪'], ['بداية التعارف', '٧٦٪'], ['وقت للعبادة', '٧٩٪'],
+ ['لو خالف ولدهم اتفاق', '٨٥٪'],
+];
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});
  const context=await browser.newContext({viewport,deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'ar-SA'});
@@ -51,37 +59,52 @@ try{
  assert(await page.locator('.wd-hero-copy').evaluate(node=>Number(getComputedStyle(node).opacity)>.5),'hero entrance is already in progress when intro ends');
  const pair=page.locator('.wd-welcome-nav .wd-pair-preview');
  const next=pair.getByRole('button',{name:'القصة التالية'});
- const score=pair.locator('.wd-pair-score strong');
- const reading=pair.locator('.wd-pair-reading');
+ const activeRow=pair.locator('.wd-pair-row:not([inert])');
+ const score=activeRow.locator('.nf-score-tile strong');
+ const reading=activeRow.locator('.wd-pair-reading');
  await pair.waitFor();
- assert.equal(await score.textContent(),'٨٦٪');
- await page.waitForFunction(()=>document.querySelector('.wd-pair-score strong')?.textContent==='٩٢٪');
- assert.match(await reading.innerText(),/مسؤولياتنا المالية/);
- assert(await pair.locator('img').evaluateAll(nodes=>nodes.every(n=>n.complete && n.naturalWidth>0)));
+ const scale=await pair.evaluate(node=>node.getBoundingClientRect().width/node.offsetWidth);
+ assert(Math.abs(scale-.7)<.002,'welcome preview renders at 70% of its layout width');
+ assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
+ assert.match(await pair.locator('.wd-pair-footer').innerText(),/لنختصر وقتك/);
+ assert.equal(await score.textContent(),rotation[0][1]);
+ await page.waitForFunction(topic=>document.querySelector('.wd-pair-row:not([inert]) .wd-pair-identity > span')?.textContent===topic,rotation[1][0]);
+ assert.equal(await score.textContent(),rotation[1][1]);
+ assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
+ await activeRow.locator('img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
  await pair.getByRole('button',{name:'من كلام فهد'}).click();
- assert.match(await reading.innerText(),/التزاماتنا لأهلنا/);
+ assert.match(await reading.innerText(),/أبي أكون أب/);
  assert.equal(await pair.getByRole('button',{name:'تشغيل التبديل التلقائي'}).count(),1);
  await page.waitForTimeout(6950);
- assert.equal(await score.textContent(),'٩٢٪');
+ assert.equal(await score.textContent(),rotation[1][1]);
  await next.focus();await page.keyboard.press('Enter');
- assert.equal(await score.textContent(),'٧٨٪');
- await next.click();assert.equal(await score.textContent(),'٨٩٪');
- await next.click();assert.equal(await score.textContent(),'٨٦٪');
+ await page.waitForFunction(()=>{const rows=[...document.querySelectorAll('.wd-pair-window[data-moving] .wd-pair-row')];return rows.length===2 && rows.every(row=>Math.abs(new DOMMatrixReadOnly(getComputedStyle(row).transform).m42)>1);});
+ assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
+ for(let i=2;i<=rotation.length;i++){
+  const [topic,percent]=rotation[i%rotation.length];
+  if(i>2)await next.click();
+  assert.equal(await activeRow.locator('.wd-pair-identity > span').innerText(),topic);
+  assert.equal(await score.textContent(),percent);
+  assert((await reading.innerText()).trim().split(/\s+/).length<=14,'one short reading per rotation');
+  const fits=await reading.evaluate(node=>node.scrollWidth<=node.clientWidth+1 && node.clientHeight<=2*parseFloat(getComputedStyle(node).lineHeight)+1);
+  assert(fits,'reading fits within two lines: '+topic);
+ }
+ await pair.locator('[data-outgoing]').waitFor({state:'detached'});await next.blur();
  if(captureStills)await page.screenshot({path:resolve(output,'welcome-pair-stories.png'),animations:'disabled'});
  assert.equal(await page.getByRole('dialog').count(),0);
  assert(await page.locator('.nf-join,.nf-mast-login').evaluateAll(nodes=>nodes.every(node=>{
   const b=node.getBoundingClientRect();return node.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));
  })));
- checks.push('pairs rotate together with their portraits, overall scores and marriage decisions; reading a portrait pauses, keyboard navigation wraps through all four');
+ checks.push('pairs rotate together with their portraits, overall scores and marriage decisions; reading a portrait pauses, keyboard navigation wraps through all thirteen');
  const settled=await page.evaluate(()=>({inert:document.querySelector('.wd-welcome').inert,overflow:getComputedStyle(document.body).overflow}));
  assert(launchElapsed<3200,'intro finishes promptly: '+launchElapsed);assert.equal(settled.inert,false);assert.notEqual(settled.overflow,'hidden');assert.deepEqual(await page.evaluate(()=>window.__actions),[]);
  checks.push('full-screen logo intro locks background, finishes within three seconds, and restores interaction');
  await page.locator('.nf-join').click();await page.locator('.nf-mast-login').click();await page.getByRole('button',{name:'الخصوصية وشروط الاستخدام',exact:true}).click();
  assert.deepEqual(await page.evaluate(()=>window.__actions),['register','login','privacy']);checks.push('registration, login and privacy callbacks after intro');
- await page.evaluate(()=>window.__remount());await page.waitForFunction(()=>window.__introSamples.length===2);assert.equal(await page.locator('.wd-welcome').getAttribute('data-opening'),null);assert.equal(await page.locator('.wd-launch-screen').count(),0);assert.equal(await score.textContent(),'٨٦٪');checks.push('returning to welcome keeps the inline preview visible without replaying it');
- const controls=page.getByRole('group',{name:'استكشف شاشات التطبيق'}).getByRole('button');assert.equal(await controls.count(),3);
- for(let i=0;i<3;i++){await controls.nth(i).click();assert.equal(await controls.nth(i).getAttribute('aria-pressed'),'true');assert.equal(await page.locator('.wd-preview-controls button[aria-pressed="true"]').count(),1);await page.locator('.wd-device-screen img').scrollIntoViewIfNeeded();await page.waitForFunction(()=>{const image=document.querySelector('.wd-device-screen img');return image.complete&&image.naturalWidth>0;});}
- checks.push('all three preview images load and selection state is accessible');
+ await page.evaluate(()=>window.__remount());await page.waitForFunction(()=>window.__introSamples.length===2);assert.equal(await page.locator('.wd-welcome').getAttribute('data-opening'),null);assert.equal(await page.locator('.wd-launch-screen').count(),0);assert.equal(await score.textContent(),rotation[0][1]);checks.push('returning to welcome keeps the inline preview visible without replaying it');
+ const controls=page.getByRole('group',{name:'استكشف شاشات التطبيق'}).getByRole('button');assert.equal(await controls.count(),4);
+ for(let i=0;i<4;i++){await controls.nth(i).click();assert.equal(await controls.nth(i).getAttribute('aria-pressed'),'true');assert.equal(await page.locator('.wd-preview-controls button[aria-pressed="true"]').count(),1);await page.locator('.wd-device-screen img').scrollIntoViewIfNeeded();await page.waitForFunction(()=>{const image=document.querySelector('.wd-device-screen img');return image.complete&&image.naturalWidth>0;});}
+ checks.push('all four preview images load and selection state is accessible');
  await page.getByRole('button',{name:'تعرّف على منهج وُدَين',exact:true}).click();await page.locator('.wd-why-dialog[open]').waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('.wd-why-dialog[open]').count(),0);checks.push('method dialog opens and closes');
  await controls.nth(0).click();await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(1800);
  for(const width of recordWelcome ? [viewport.width] : [320,390,1024]){
@@ -106,7 +129,7 @@ try{
   assert.equal(await page.locator('.wd-launch-screen').count(),0);
   assert.equal(await pair.getByRole('button',{name:'إيقاف التبديل التلقائي'}).count(),0);
   await next.click();
-  assert.equal(await score.textContent(),'٩٢٪');
+  assert.equal(await score.textContent(),rotation[1][1]);
   assert.equal(await pair.evaluate(node=>node.getAnimations({subtree:true}).length),0);
  }
  await page.emulateMedia({reducedMotion:'reduce'});await checkStaticPreview();checks.push('OS reduced motion shows the complete inline preview immediately');
@@ -115,14 +138,38 @@ try{
   const recording=await browser.newContext({viewport,deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'ar-SA',recordVideo:{dir:output,size:viewport}});
   try {
    const preview=await recording.newPage();
+   // Sample painted states during the actual launch handoff and subsequent scrolls.
+   await preview.addInitScript(()=>{
+    window.__pairMotion=[];
+    function sample(){
+     const card=document.querySelector('.wd-pair-preview:not([hidden])');
+     const row=card?.querySelector('.wd-pair-row:not([inert])');
+     if(row){
+      const level=row.querySelector('.nf-logo-level');
+      const offset=getComputedStyle(level).translate.split(' ')[1];
+      window.__pairMotion.push({topic:row.querySelector('.wd-pair-identity > span').textContent,
+       clip:getComputedStyle(card).clipPath,opacity:Number(getComputedStyle(card).opacity),
+       level:parseFloat(offset)||0});
+     }
+     requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+   });
    await preview.goto(url,{waitUntil:'domcontentloaded'});
    const stories=preview.locator('.wd-pair-preview');
    await stories.waitFor();
-   for(const value of ['٩٢٪','٧٨٪','٨٩٪','٨٦٪']){
-    await preview.waitForFunction(score=>document.querySelector('.wd-pair-score strong')?.textContent===score,value);
+   for(const [topic] of rotation.slice(1,4)){
+    await preview.waitForFunction(expected=>document.querySelector('.wd-pair-row:not([inert]) .wd-pair-identity > span')?.textContent===expected,topic);
    }
-   await stories.getByRole('button',{name:'من كلام نورة'}).click();
+   await stories.getByRole('button',{name:'من كلام لولوة'}).click();
    await preview.waitForTimeout(1100);
+   const frames=await preview.evaluate(()=>window.__pairMotion);
+   const entrance=frames.filter(frame=>frame.topic===rotation[0][0]);
+   assert(entrance.some(frame=>frame.clip!=='none'&&frame.opacity<.4&&frame.level>5));
+   assert(entrance.some(frame=>frame.clip==='none'&&frame.opacity===1&&frame.level===0));
+   const lowerScore=frames.filter(frame=>frame.topic===rotation[2][0]);
+   assert(lowerScore.some(frame=>frame.level < -5) && lowerScore.some(frame=>frame.level===0));
+   checks.push('recorded the card unfolding and the liquid settling at the initial and subsequent scores');
    const video=preview.video();
    await preview.close();
    await video.saveAs(resolve(output,'welcome-pair-stories.webm'));

@@ -5,7 +5,7 @@ import './score-tile.css';
 const number = new Intl.NumberFormat('ar-SA');
 const shoulders = 'M9.3 12.2C10.8 10.6 11.1 8.3 12.8 6.8L14.1 8C12.8 10.1 11.4 11.7 9.3 12.2ZM22.7 12.2C21.2 10.6 20.9 8.3 19.2 6.8L17.9 8C19.2 10.1 20.6 11.7 22.7 12.2Z';
 
-export function ScoreTile({ percentage, variant = 'ring' }: { percentage: number; variant?: 'ring' | 'logo' }) {
+export function ScoreTile({ percentage, variant = 'ring', label = 'توافق التفضيلات' }: { percentage: number; variant?: 'ring' | 'logo'; label?: string }) {
   const gradientId = useId();
   const shoulderGradientId = useId();
   const stoneGradientId = useId();
@@ -93,7 +93,7 @@ export function ScoreTile({ percentage, variant = 'ring' }: { percentage: number
       </g>
     </svg>}
     <span className="nf-score-tile-copy">
-      <span>توافق التفضيلات</span>
+      <span>{label}</span>
       <strong><bdi dir="ltr">{number.format(percentage)}٪</bdi></strong>
     </span>
   </span>;

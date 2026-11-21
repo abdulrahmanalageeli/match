@@ -9,7 +9,7 @@ import { Brand } from "../Brand";
 import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
-import { applicableDimensions, dimensionsForVersion, categories, interests } from "../compatibility/model";
+import { practicalAnswerKeys, hasPartnerQuestion, applicableDimensions, dimensionsForVersion, categories, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
 import { ageFromBirthday, latestAdultBirthday } from "../profile/birthday";
@@ -112,10 +112,10 @@ function interviewDraftVersion(p: Answers, legacy: boolean): Answers {
   const personalityVersion = legacy ? 'personality-v1' : 'personality-v2';
   if (p.assessmentVersion === version && p.personalityVersion === personalityVersion) return p;
   const topics = dimensionsForVersion(version);
-  const ids = new Set(topics.flatMap(d => [d.id,d.partnerId]));
+  const ids = new Set(topics.flatMap(d => practicalAnswerKeys(d, version)));
   return {...p, assessmentVersion:version, personalityVersion,
     surveyAnswers:Object.fromEntries(Object.entries(p.surveyAnswers ?? {}).filter(([id]) => ids.has(id))),
-    hardRequirements:p.hardRequirements?.filter(id => topics.some(d => d.id === id && d.hardAllowed)),
+    hardRequirements:p.hardRequirements?.filter(id => hasPartnerQuestion(id, version) && topics.some(d => d.id === id && d.hardAllowed)),
     personalityAnswers:p.personalityVersion === personalityVersion ? p.personalityAnswers : {},
   };
 }
@@ -154,7 +154,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
   const requirements = dimensions.filter(item => p.hardRequirements?.includes(item.id));
   const styles = dimensions.flatMap(dimension => {
     const self = dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.id]);
-    const partner = dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.partnerId]);
+    const partner = hasPartnerQuestion(dimension.id, p.assessmentVersion) && dimension.options.find(option => option.code === p.surveyAnswers?.[dimension.partnerId]);
     return [self && { key: dimension.id, label: dimension.selfPrompt, value: self.self },
       partner && { key: dimension.partnerId, label: dimension.partnerPrompt, value: partner.partner }].filter(item => !!item);
   });
@@ -662,7 +662,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     return { "data-field": key, "aria-invalid": error?.field === key || undefined, "aria-describedby": error?.field === key ? "nf-intake-error" : undefined };
   }
   const assessmentStep = !editing && consents.assessment && ['compatibility','personality','beena'].includes(chapter.key);
-  const savedCompatibilityCount = dimensions.reduce((count,d) => count + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.id])) + Number(d.options.some(o=>o.code===p.surveyAnswers?.[d.partnerId])),0);
+  const compatibilityComplete = dimensions.every(topic => practicalAnswerKeys(topic, p.assessmentVersion)
+    .every(key => topic.options.some(option => option.code === p.surveyAnswers?.[key])));
   const savedPersonalityCount = personalityQuestions.filter(q=>q.options.some(o=>o.code===p.personalityAnswers?.[q.id])).length;
   const choosingAssessment = !editing && chapter.key==='compatibility' && !aiComplete && !(fallbackAvailable && assessmentPath==='questions') && !demo && !preview;
   const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
@@ -749,14 +750,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. راجع الملف قبل حفظه.</p>}
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
-                  {aiComplete && savedCompatibilityCount===dimensions.length*2 && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
+                  {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
                     <p className="nf-intake-note">{demo||preview?'هذه معاينة للأسئلة. عند التسجيل تبدأ جلسة التوافق مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
                     <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
-                    {savedCompatibilityCount===dimensions.length*2 && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
+                    {compatibilityComplete && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
                   </div>}
                 </div>}
               </>}

@@ -40,8 +40,9 @@ function mount(code, component, initial) {
 }
 const emptyCompatibility = { interestIds: [], surveyAnswers: {}, hardRequirements: [], priorityCategories: [], registration: true };
 
-test('all 16 partner choices require their own answer', () => {
-  assert.equal(compatibility.dimensions.length, 16);
+test('current residence is self-only, and manual choices never imply partner answers', () => {
+  assert.equal(compatibility.dimensions.flatMap(q=>compatibility.practicalAnswerKeys(q)).length, 31);
+  assert.equal(compatibility.dimensions.flatMap(q=>compatibility.practicalAnswerKeys(q,'marriage-v3')).length, 32);
   assert.ok(compatibility.dimensions.every(d => !d.partnerDefault));
 });
 
@@ -68,7 +69,13 @@ test('manual self answers leave partner choices open', () => {
     ...emptyCompatibility, required: true, remainingOnly: true,
     surveyAnswers: { children_plan: 'A', partner_children_plan: 'A' },
   });
-  tree = complement.render(); byClass(tree, 'compat-choice')[0].props.onClick(); complement.render();
+  tree = complement.render();
+  assert.equal(byClass(tree, 'compat-perspective').length,0);
+  byClass(tree, 'compat-choice')[0].props.onClick();
+  tree = complement.render();
+  byClass(tree, 'compat-next')[0].props.onClick();
+  tree = complement.render();
+  assert.notEqual(textOf(nodes(tree).find(node=>node.type==='h3')),residence.partnerPrompt);
   assert.equal(complement.props.surveyAnswers[residence.id], 'A');
   assert.equal(complement.props.surveyAnswers[residence.partnerId], undefined);
 });

@@ -345,7 +345,7 @@ test('sending follows the new turn, while reading history during processing pres
   ui.render();await tick();let tree=ui.render();const scrolls=[];
   const viewport={scrollHeight:2400,scrollTop:0,clientHeight:400,scrollTo(value){this.scrollTop=value.top;scrolls.push(value.top);}};
   nodes(tree).find(node=>node.props?.role==='log').props.ref.current=viewport;
-  ui.render({open:false});ui.render({open:true});tree=ui.render();assert.equal(scrolls.length,1,'opening the conversation starts at its latest turn');
+  ui.render({open:false});ui.render({open:true});tree=ui.render();assert.deepEqual(scrolls,[0],'a fresh conversation starts at its opening prompt');
   nodes(tree).find(node=>node.type==='textarea').props.onChange({target:{value:'أحب الوضوح في علاقتنا'}});tree=ui.render();sendAction(tree).props.onClick();tree=ui.render();assert.equal(scrolls.length,2,'own send follows the pending reply');
   viewport.scrollTop=100;nodes(tree).find(node=>node.props?.role==='log').props.onScroll({currentTarget:viewport});
   const sent=ui.calls.find(call=>call.action==='answer');waiting.resolve({document:{...initial.document,lastRequestId:sent.requestId,turns:[{id:'new',topic:'intent',question:initial.document.currentQuestion.text,answer:sent.answer,skipped:false}],currentQuestion:{topic:'family',text:'كيف تتصور وقت العائلة؟',suggestions:[]}},revision:2});await tick();ui.render();

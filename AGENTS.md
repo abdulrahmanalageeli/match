@@ -61,6 +61,7 @@ Keep this file durable and concise. Put architecture detail and dated developmen
 - Use one onboarding entry button, «ابدأ الحوار مع لونا», to open the guided session. A fresh session starts with the free-text introduction in `opening-prompts.json`. The example explains carry-forward and closes 10 seconds after opening. Ask the optional open-ended next-step question only when the introduction lacks a grounded next step. Keep the private reflection editable and separate from compatibility scoring. A skip preserves the attested transcript and introduces no additional model call.
 - Animate new Luna prompts right-to-left with intact Arabic words. Render history immediately. Tie the emblem glow to a pending reply and reveal only eligible carry-forward suggestions in the guided assessment. Respect system and app reduced-motion settings and keep controls available throughout.
 - Show the actual guided stage («قصتك», «اختياراتك», «المراجعة»). Rebuild the introduction recap from eligible suggestions and their quoted turn on resume. Use current catalog selections for review previews and exclude corrected suggestions from the count attributed to Luna.
+- Keep the introduction in the conversation while Luna reads it. The returned session determines whether to ask the optional next-step question or enter the questionnaire.
 
 - Start with `iphone/api/_lib/interview.mjs` and `iphone/api/_lib/interview-grounding.mjs`. An exact transcript quote establishes provenance. The suggestion also needs support for its field, subject, and option. The regression example is «بناء أسرة» (“building a family”), which cannot support `personality:depth:self = E`.
 - Recognized complete statements can be checked locally. Other eligible candidates share one independent catalog check per analysis. The checker receives the consent-filtered transcript and catalog options, without the first model’s proposed codes. It must independently agree and supply supporting evidence. Ambiguity, disagreement, an unavailable checker, or exhausted quota leaves the field for manual selection.
@@ -69,9 +70,9 @@ Keep this file durable and concise. Put architecture detail and dated developmen
 
 ### Card interaction
 
-`iphone/src/interview/HybridAssessment.tsx` shows unresolved fields during forward navigation. A deliberate choice that completes a card advances to the next incomplete card. Keep Back, individual corrections, editable final review, and protection against repeated taps. Members can inspect the evidence or save pending suggestions as a batch without an extra required confirmation.
+`iphone/src/interview/HybridAssessment.tsx` presents one unresolved field at a time. Back retraces the individual questions visited, including multiple questions in the same topic. In edit mode, choosing a replacement stays on the question until Continue. Keep the scroll inside the assessment pane and preserve focus, evidence, editable review, and protection against repeated taps.
 
-`iphone/src/interview/AnswerScale.tsx` also serves other onboarding screens. Its deliberate-commit behavior is opt-in for Luna. Arrow keys preview a score. Enter, Space, the explicit commit button, or a completed pointer selection records it. Preserve keyboard focus, recorded-answer feedback, and reduced-motion behavior when editing the cards or `hybrid-assessment.css`.
+Luna uses five labeled buttons for personality responses. Preserve their original option codes, keyboard activation, and system/app reduced-motion settings. Current assessments ask only where the member can live, yielding 46 answers or 44 when parenting is inapplicable. Historical contracts keep their original fields.
 
 
 The enrolled conversation pilot offers private day-two, weekly and exit feedback. See `iphone/docs/matching-model-and-feedback.md` for enrollment, timing, and the training export.

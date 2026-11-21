@@ -1,7 +1,7 @@
 import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
-import { assessmentVersion, dimensionsForVersion, applicableDimensions } from "../compatibility/model";
+import { assessmentVersion, dimensionsForVersion, practicalAnswerKeys, hasPartnerQuestion, applicableDimensions } from "../compatibility/model";
 import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
 import { personalityVersion, personalityQuestionsFor } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
@@ -79,8 +79,8 @@ export function initialDraft(owner: string, initial: Profile | null): Applicatio
     age: initial ? String(initial.birthDate ? ageFromBirthday(initial.birthDate) ?? initial.age : initial.age) : "",
     preferredMinAge: String(initial?.preferredMinAge ?? 18),
     preferredMaxAge: String(initial?.preferredMaxAge ?? 110),
-    interestIds: initial?.interestIds ?? [], surveyAnswers: Object.fromEntries(dimensions.flatMap(d => [d.id, d.partnerId]).filter(id => initial?.surveyAnswers?.[id]).map(id => [id, initial!.surveyAnswers![id]])),
-    assessmentVersion: version, hardRequirements: initial?.hardRequirements ?? [], priorityCategories: initial?.priorityCategories ?? [],
+    interestIds: initial?.interestIds ?? [], surveyAnswers: Object.fromEntries(dimensions.flatMap(d => practicalAnswerKeys(d, version)).filter(id => initial?.surveyAnswers?.[id]).map(id => [id, initial!.surveyAnswers![id]])),
+    assessmentVersion: version, hardRequirements: initial?.hardRequirements?.filter(id => hasPartnerQuestion(id, version)) ?? [], priorityCategories: initial?.priorityCategories ?? [],
     personalityVersion: initial?.personalityVersion ?? (initial && version !== assessmentVersion ? "personality-v1" : personalityVersion), personalityAnswers: initial?.personalityAnswers ?? {},
     appearanceVersion: "appearance-v1",
   };
@@ -124,7 +124,7 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
   const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   switch (step) {
     case 'compatibility':
-      if (requireAssessment && dimensions.some(d => [d.id, d.partnerId].some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
+      if (requireAssessment && dimensions.some(d => practicalAnswerKeys(d, p.assessmentVersion).some(key => !d.options.some(o => o.code === p.surveyAnswers?.[key])))) return { field: 'surveyAnswers', text: 'نكمل كل نقاط التوافق أولًا، ثم نتابع إعداد ملفك.' };
       if (requireAssessment && personalityQuestions.some(q => !q.options.some(o => o.code === p.personalityAnswers?.[q.id]))) return { field: 'personalityAnswers', text: 'بقيت نقاط عن شخصيتك. أكملها في الجلسة قبل المتابعة.' };
       return null;
     case 'personality':
@@ -183,6 +183,10 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
 
 export function toProfile(p: Answers): Profile {
   p = withFamilyDefaults(applicableFamilyAnswers(p));
+  if (!hasPartnerQuestion('residence_plan', p.assessmentVersion)) {
+    const { partner_residence_plan: _retired, ...surveyAnswers } = p.surveyAnswers ?? {};
+    p = { ...p, surveyAnswers, hardRequirements: p.hardRequirements?.filter(id => id !== 'residence_plan') };
+  }
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
     ...publicApplicationAnswers(p), assessmentVersion: p.assessmentVersion ?? assessmentVersion, personalityVersion: p.personalityVersion ?? personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],

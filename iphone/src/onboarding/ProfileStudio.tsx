@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import type { CommunitySource } from '../community/data';
-import { applicableDimensions, interests } from '../compatibility/model';
+import { practicalAnswerKeys, applicableDimensions, interests } from '../compatibility/model';
 import { personalityQuestionsFor } from '../compatibility/personality';
 import { beenaProgress } from '../beena/model';
 import { arabicNumber, type Answers, type Chapter } from './draft';
@@ -40,7 +40,8 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
   useLayoutEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
   const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
-  const answered = dimensions.reduce((sum, q) => sum + Number(Boolean(p.surveyAnswers?.[q.id])) + Number(Boolean(p.surveyAnswers?.[q.partnerId])), 0);
+  const answerKeys = dimensions.flatMap(topic => practicalAnswerKeys(topic, p.assessmentVersion));
+  const answered = answerKeys.filter(key => p.surveyAnswers?.[key]).length;
   const personality = personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length;
   const promptCount = answeredProfilePrompts(p).length;
   const groups = [
@@ -53,7 +54,7 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
     { title: 'تفضيلاتي والتوافق', note: 'إجابات التقييم وشروط الشريك خاصة. يظهر تفضيل إشراك الأسرة وأي قصة تختار مشاركتها في «بيننا».', items: [
       ...(withCompatibility ? [
         { key: 'criteria', title: 'ما يهمك في الشريك', note: 'تفضيلاتك، وما لا تتنازل عنه', icon: HeartHandshake },
-        { key: 'compatibility', title: 'توافق أسلوب الحياة', note: `${arabicNumber(answered)} من ${arabicNumber(dimensions.length * 2)} إجابة`, icon: Sparkles },
+        { key: 'compatibility', title: 'توافق أسلوب الحياة', note: `${arabicNumber(answered)} من ${arabicNumber(answerKeys.length)} إجابة`, icon: Sparkles },
         { key: 'personality', title: 'تقييم شخصيتي', note: `${arabicNumber(personality)} من ${arabicNumber(personalityQuestions.length)} إجابة`, icon: Sparkles },
         { key: 'beena', title: 'بيننا · مواقف الحياة', note: `${arabicNumber(beenaProgress(p.beena).answered)} من ٦ مواقف · وقصة بكلماتك`, icon: Feather },
       ] : []),

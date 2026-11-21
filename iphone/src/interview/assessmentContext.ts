@@ -8,6 +8,7 @@ import type { InterviewAnswers } from './model';
 export function assessmentContextFromAnswers(answers: InterviewAnswers & {assessmentVersion?:string;personalityVersion?:string}): Array<{ id: string; values: string[] }> {
   const context: Array<{ id: string; values: string[] }> = [];
   for (const dimension of (answers.assessmentVersion && answers.assessmentVersion!=='marriage-v4'?archived.dimensions:dimensions)) for (const side of ['self', 'partner'] as const) {
+    if ((!answers.assessmentVersion || answers.assessmentVersion === 'marriage-v4') && dimension.id === 'residence_plan' && side === 'partner') continue;
     const value = answers.surveyAnswers?.[side === 'self' ? dimension.id : dimension.partnerId];
     if (dimension.options.some(option => option.code === value)) context.push({ id: `preference:${dimension.id}:${side}`, values: [value!] });
   }

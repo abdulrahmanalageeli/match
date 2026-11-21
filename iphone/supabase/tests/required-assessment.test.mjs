@@ -131,6 +131,22 @@ test('direct card confirmation earns an ordinary completion receipt and stores t
  assert.equal((await evidence()).find(e=>e.key==='answer:partner_children_plan').provenance,'unverified');
 });
 
+test('current registration accepts the self-only residence receipt end to end',async()=>{
+ const u=await user(), form=profile(u);
+ delete form.surveyAnswers.partner_residence_plan;
+ const doc=review();
+ const expected=doc.proposals.filter(p=>p.id!=='preference:residence_plan:partner');
+ assert.equal(expected.length,46);
+ let s=await start(u);
+ s=await save(u,s,{...doc,proposals:expected});
+ await attest(u,s,'analyzed');
+ s=await save(u,s,{...s.document,status:'confirmed',confirmed:expected});
+ await attest(u,s,'complete');
+ await apply(u,form);
+ const stored=(await db.query("select question_code from marriage.member_answers where member_id=$1 and question_code in ('partner_residence_plan','residence_plan')",[u.id])).rows;
+ assert.deepEqual(stored,[{question_code:'residence_plan'}]);
+});
+
 test('v5 shortened receipts and applications require all three child-free facts',async()=>{
  const confirmed=structuredClone(proposals).filter(p=>p.fieldId!=='parenting_approach');
  confirmed.find(p=>p.fieldId==='children_plan'&&p.side==='self').values=['B'];
@@ -139,6 +155,9 @@ test('v5 shortened receipts and applications require all three child-free facts'
  const doc={...review(),confirmed,status:'confirmed',profileContext:[count,strict]};
  assert.equal(await q('marriage.interview_complete_v5($1)',[doc]),true);
  assert.equal(await q('marriage.interview_document_valid($1)',[doc]),true);
+ const selfOnly={...doc,confirmed:confirmed.filter(item=>item.id!=='preference:residence_plan:partner')};
+ assert.equal(await q('marriage.interview_complete_v5($1)',[selfOnly]),true);
+ assert.equal(await q('marriage.interview_complete_v5($1)',[{...selfOnly,profileContext:[]}]),false);
  assert.equal(await q('marriage.interview_complete_v5($1)',[{...doc,profileContext:[]}]),false);
  for(const criterion of [[],[{...strict,mode:'prefer'}],[{...strict,mode:'any',values:[]}],[{...strict,values:['any']}]]) {
    assert.equal(await q('marriage.interview_complete_v5($1)',[{...doc,profileContext:[count,...criterion]}]),false);

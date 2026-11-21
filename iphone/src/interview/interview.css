@@ -460,7 +460,11 @@ html[data-nf-keyboard] .wi-session-compass:has(.wi-luna-steps):not(:has(button))
 .wi-loading[data-stopped] .wi-loading-brand { animation:none; }
 @media (prefers-reduced-motion:no-preference) {
   html:not([data-nf-motion=reduced]) .wi-dialog[data-luna-motion] :is(.wi-opening-insights,.wi-next-step-review,.wi-self-echo,.wi-confirmation-mark) { animation:wi-turn-in 230ms ease-out both; }
-  html:not([data-nf-motion=reduced]) .wi-dialog[data-luna-motion] :is(.wi-hybrid-field,.wi-opening-insights[open] dl,.wi-hybrid-review details[open] .wi-hybrid-review-fields) { animation:wi-field-appear 180ms ease-out; }
+  html:not([data-nf-motion=reduced]) .wi-dialog :is(.wi-opening-insights[open] dl,.wi-hybrid-review details[open] .wi-hybrid-review-fields) { animation:wi-field-appear 180ms ease-out; }
+  html:not([data-nf-motion=reduced]) .wi-dialog .wi-hybrid-field { animation:wi-question-enter 260ms cubic-bezier(.2,.7,.25,1) both; }
+  .wi-hybrid-stage[data-back] { --wi-question-offset:12px; }
   html:not([data-nf-motion=reduced]) .wi-confirmation-mark > svg { animation:wi-emblem-reveal 200ms ease-out 130ms backwards; }
 }
 @keyframes wi-field-appear { from { opacity:.6; } }
+@keyframes wi-question-enter { from { opacity:.25; transform:translateX(var(--wi-question-offset,-12px)); } to { opacity:1; transform:none; } }
+.wi-content, .wi-thread { overflow-anchor:none; }

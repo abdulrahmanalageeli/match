@@ -276,31 +276,34 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     setEditedProfile([]);
   }, [profileVersion]);
 
-  useEffect(() => {
-    if (open && loaded) { dialog.current?.scrollTo({ top: 0 }); heading.current?.focus({ preventScroll: true }); }
-  }, [open, loaded, doc?.status, fallbackReview, profileReview]);
+  useLayoutEffect(() => {
+    if (!open || !loaded) return;
+    const viewport = dialog.current?.querySelector<HTMLElement>('.wi-content');
+    if (viewport) viewport.scrollTop = 0;
+    heading.current?.focus({ preventScroll: true });
+  }, [open, loaded, doc?.status, applied, fallbackReview, profileReview]);
 
   useEffect(() => {
     if (!open || !loaded || doc || !consentGranted || autoStarted.current) return;
     autoStarted.current = true;
     void call('start', { consentVersion: 'wudayn-interview-v1', ...(hybridEnabled ? { hybrid: true } : {}) }, true);
   }, [open, loaded, doc, consentGranted, call, hybridEnabled]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const viewport = thread.current;
     if (open && viewport && (firstConversation.current || followConversation.current)) {
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+      viewport.scrollTo({top: doc?.turns.length || pendingReply ? viewport.scrollHeight : 0, behavior:'instant'});
       firstConversation.current = false;
     }
-  }, [open, doc?.turns.length, doc?.currentQuestion?.text, pendingReply?.id, busy === 'answer']);
+  }, [open, doc?.turns.length, doc?.currentQuestion?.text, pendingReply?.id]);
   useEffect(() => {
     const viewport = thread.current;
     if (!open || !viewport || typeof ResizeObserver === 'undefined') return;
     const resize = new ResizeObserver(() => {
-      if (document.activeElement === composer.current && followConversation.current) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+      if (doc?.turns.length && document.activeElement === composer.current && followConversation.current) viewport.scrollTop = viewport.scrollHeight;
     });
     resize.observe(viewport);
     return () => resize.disconnect();
-  }, [open, loaded, doc?.status, fallbackReview]);
+  }, [open, loaded, doc?.status, doc?.turns.length, fallbackReview]);
   useLayoutEffect(() => {
     const input = composer.current;
     if (!open || !input) return;
@@ -455,7 +458,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   }
   function changeProfileChoice(choice:ProfileChoice) { setProfileEdits(previous=>({...previous,[choice.id]:choice}));setEditedProfile(previous=>previous.includes(choice.id)?previous:[...previous,choice.id]); }
   const validProposals = (snapshot.structuredConfirmation && doc?.status === 'confirmed' ? doc.confirmed : doc?.proposals ?? [])
-    .filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0);
+    .filter(item => (!onboarding || item.kind !== 'beena') && proposalOptions(item).length > 0
+      && !(doc?.promptVersion === 'wudayn-interview-5' && item.id === 'preference:residence_plan:partner'));
   const receiptChoices = snapshot.structuredConfirmation ? doc?.confirmed ?? [] : [];
   // On a fresh device the receipt can outlive the application draft.
   const savedStructuredChoices = Object.fromEntries([...receiptChoices, ...(assessmentContext ?? [])].map(({ id, values }) => [id, values]));
@@ -509,7 +513,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     !doc.confirmed.some(item=>item.fieldId==='parenting_approach') &&
     parentingApplicable({children_plan:structuredChoices['preference:children_plan:self']?.[0]}, family.childrenCount, family.partnerChildren);
   const hybrid = Boolean(hybridEnabled && doc && ['wudayn-interview-4','wudayn-interview-5'].includes(doc.promptVersion) && (needsParenting ||
-    doc.status !== 'confirmed' && !fallbackReview && (direct || (openingTurn && responding) || (hasOpening && doc.status === 'review'))));
+    doc.status !== 'confirmed' && !fallbackReview && (direct || (hasOpening && doc.status === 'review'))));
   const hasFollowUp = doc?.status === 'review' && questionParts.length === 2 && scenarioIndex >= 0;
   const hybridReady = Boolean(direct || (hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis));
   const isChat = Boolean(loaded && doc && !applied && !profileReview && !hybrid && !reviewMode);

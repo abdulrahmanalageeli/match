@@ -426,6 +426,12 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
     const perfect = await compare();
     assert.equal(perfect.percentage,100);
     assert.equal(perfect.personality.percentage,100);
+    await db.query("delete from marriage.member_answers where member_id in($1,$2) and question_code='partner_residence_plan'",[a.id,b.id]);
+    delete a.surveyAnswers.partner_residence_plan;
+    delete b.surveyAnswers.partner_residence_plan;
+    const selfOnly=await compare();
+    assert.equal(selfOnly.percentage,100);
+    assert.equal(selfOnly.preferenceEvidence.topics.find(t=>t.id==='residence_plan').status,'aligned');
     const {rows:[{catalog}]}=await db.query("select catalog from marriage.assessment_versions where id='marriage-v4'");
     assert.deepEqual(catalog,currentCatalog);
     for(const trait of newPersonality.slice(0,3)) {

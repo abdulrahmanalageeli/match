@@ -66,6 +66,10 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
       const catalog = dimensionsForVersion(String(data.answers.assessmentVersion));
       data.answers.surveyAnswers = Object.fromEntries(Object.entries(data.answers.surveyAnswers).filter(([id]) => catalog.some(d => d.id === id || d.partnerId === id)));
     }
+    if (data.answers.assessmentVersion === assessmentVersion) {
+      if (isRecord(data.answers.surveyAnswers)) delete data.answers.surveyAnswers.partner_residence_plan;
+      if (Array.isArray(data.answers.hardRequirements)) data.answers.hardRequirements = data.answers.hardRequirements.filter(id => id !== 'residence_plan');
+    }
     delete data.answers.portrait;
     delete data.answers.signupConsents;
   }

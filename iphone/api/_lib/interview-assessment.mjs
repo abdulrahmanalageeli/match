@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import catalog from '../../src/compatibility/catalog.json' with {type:'json'};
+import currentCatalog from '../../src/compatibility/catalog.json' with {type:'json'};
 import legacyCatalog from '../../src/compatibility/catalog-v3.json' with {type:'json'};
 import traits from '../../src/compatibility/personality-catalog.json' with {type:'json'};
 import legacyTraits from '../../src/compatibility/personality-catalog-v1.json' with {type:'json'};
@@ -62,7 +62,8 @@ function buildAssessment(catalog, traits, personalityThemes, personalityFollowUp
   }));
   return {
     dimensions, traits, personalityThemes, personalityFollowUps,
-    requiredFields: [...preferenceFields, ...personalityFields],
+    acceptedFields: [...preferenceFields, ...personalityFields],
+    requiredFields: [...preferenceFields.filter(field => catalog !== currentCatalog || field.id !== 'preference:residence_plan:partner'), ...personalityFields],
     preferenceById: new Map(dimensions.map(dimension => [dimension.id, dimension])),
     personalityById: new Map(traits.map(trait => [trait.id, trait])),
     options: labels.map((label, index) => ({ code: 'ABCDE'[index], label })),
@@ -71,7 +72,7 @@ function buildAssessment(catalog, traits, personalityThemes, personalityFollowUp
 
 export const historicalAssessment = buildAssessment(legacyCatalog, legacyTraits, priorThemes, priorFollowUps,
   ['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا']);
-export const currentAssessment = buildAssessment(catalog, traits, currentThemes, currentFollowUps,
+export const currentAssessment = buildAssessment(currentCatalog, traits, currentThemes, currentFollowUps,
   ['لا يشبهني إطلاقًا','لا يشبهني كثيرًا','يشبهني إلى حد ما','يشبهني','يشبهني كثيرًا']);
 
 // The authenticated member RPC resolves the persisted questionnaire for this request.

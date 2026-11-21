@@ -89,7 +89,9 @@ const server = await createServer({
 const firstId = 'preference:children_plan:self';
 const firstPartnerId = 'preference:children_plan:partner';
 const expectedIds = [
-  ...preferences.dimensions.flatMap(({ id }) => [`preference:${id}:self`, `preference:${id}:partner`]),
+  ...preferences.dimensions.flatMap(({ id }) => id === 'residence_plan'
+    ? ['preference:residence_plan:self']
+    : [`preference:${id}:self`, `preference:${id}:partner`]),
   ...personality.map(({ id }) => `personality:${id}:self`),
 ].sort();
 const opening = 'أرغب في الإنجاب وأفضّل شريكًا يرغب في الإنجاب. أحب كثيرًا أفهم وجهات نظر أو أفكار تختلف عن رأيي.';
@@ -111,9 +113,9 @@ const supported = [
   proposal,
   {...proposal, id:firstPartnerId, side:'partner', evidence:[{turnId:'intro',quote:'أفضّل شريكًا يرغب في الإنجاب'}]},
 ];
-let snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
+let snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: expectedIds.length } };
 let releaseOpening;
-const openingResponse = new Promise(resolveOpening => { releaseOpening = resolveOpening; });
+let openingResponse = new Promise(resolveOpening => { releaseOpening = resolveOpening; });
 let browser;
 
 try {
@@ -146,7 +148,7 @@ try {
         assert.equal(payload.hybrid, true);
         assert.equal(payload.assessmentContext, undefined);
         await openingResponse;
-        snapshot = { revision: snapshot.revision + 1, carryForwardIds:supported.slice(0,suggestionCount).map(p=>p.id), coverage: { answered: suggestionCount, required: 47 }, document: {
+        snapshot = { revision: snapshot.revision + 1, carryForwardIds:supported.slice(0,suggestionCount).map(p=>p.id), coverage: { answered: suggestionCount, required: expectedIds.length }, document: {
           ...snapshot.document, status: 'review', currentQuestion: null, pendingAnalysis: false, draftAnswer: '',
           turns: [{ id: 'intro', topic: 'intent', question: snapshot.document.currentQuestion.text, answer: opening, skipped: false }],
           lastMode: 'luna', lastRequestId: payload.requestId, proposals:supported.slice(0,suggestionCount),
@@ -193,7 +195,8 @@ try {
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name: 'إرسال الرسالة', exact: true }).click();
   const card = page.locator('.wi-hybrid-card');
-  await card.waitFor();
+  await page.locator('.wi-typing').waitFor();
+  assert.equal(await card.count(), 0, 'stay in the conversation until the introduction is analyzed');
   assert.equal(await dialog.getAttribute('data-reading'), 'true');
   assert.equal(calls.some(call => call.action === 'structuredConfirm'), false);
   releaseOpening();
@@ -225,13 +228,19 @@ try {
   assert.notEqual(await fill.getAttribute('style'), emptyFill);
   assert.equal(await card.locator('fieldset').getAttribute('data-side'), 'partner');
   assert.equal(draft[firstPartnerId], undefined);
+  await page.getByRole('button',{name:'السابق',exact:true}).click();
+  assert.equal(await card.locator('fieldset').getAttribute('data-side'),'self');
+  assert.equal(await card.getByRole('button',{pressed:true}).count(),1);
+  await page.getByRole('button',{name:'متابعة',exact:true}).click();
+  assert.equal(await card.locator('fieldset').getAttribute('data-side'),'partner');
+  assert.equal(draft[firstPartnerId], undefined, 'Returning to the partner question must not fill it');
   await portrait.locator(':scope > summary').click();
   await portrait.locator('.wi-portrait-theme > summary').first().click();
   const mirror = portrait.getByRole('combobox', { name:'الأطفال، في حياتي' });
   assert.equal(await mirror.inputValue(), 'C');
   await mirror.selectOption('B');
   await portrait.locator(':scope > summary').click();
-  const inferred = card.locator('.wi-partner-default');
+  const inferred = page.locator('.wi-partner-default');
   assert.match(await inferred.innerText(), /اقتراح للشريك/);
   assert.equal(draft[firstPartnerId], undefined);
   await inferred.locator('summary').click();
@@ -242,52 +251,64 @@ try {
   assert.deepEqual(draft[firstId], ['B']);
   assert.deepEqual(draft[firstPartnerId], ['A']);
   const actionsBeforeCards = calls.length;
+  const title = page.locator('.wi-hybrid-stage h1');
+  const timelineTitle = await title.innerText();
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:1,clientX:140,clientY:360});
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:2,clientX:140,clientY:360});
   assert.equal(draft['preference:residence_plan:self'],undefined,'Tap-through cannot answer the next self question');
-  await page.getByRole('button',{name:'السابق',exact:true}).click();
-  await page.getByRole('button',{name:'متابعة',exact:true}).click();
-  let scaleChecked = false;
-  for (let index = 0; index < 47 && await card.count(); index++) {
-      const group = card.locator('fieldset').first();
-      const scale = group.getByRole('slider');
-      if (await scale.count()) {
-        if (!scaleChecked) assert.equal(await scale.getAttribute('aria-valuetext'), 'لم تحدد إجابتك بعد');
-        await scale.focus();
-        await page.keyboard.press('Home');
-        assert.equal(await scale.getAttribute('aria-valuetext'), 'لا يشبهني إطلاقًا');
-        const before = await page.locator('.wi-hybrid-stage h1').innerText();
-        const saved = JSON.stringify(draft);
-        await page.keyboard.press('ArrowLeft');
-        assert.equal(await page.locator('.wi-hybrid-stage h1').innerText(),before);
-        assert.equal(JSON.stringify(draft),saved);
-        if (!scaleChecked) {
-          await page.screenshot({ path: resolve(output, 'personality-scale-390.png') });
-          scaleChecked = true;
-        }
-        await page.keyboard.press('Enter');
-      } else await group.locator('button').first().press('Space');
+  const residenceTitle = await title.innerText();
+  assert.match(residenceTitle,/مدينة السكن/);
+  await card.locator('.wi-hybrid-option').first().press('Space');
+  const followingTitle = await title.innerText();
+  assert.notEqual(followingTitle,residenceTitle,'Residence asks only about the member');
+  const back = page.getByRole('button',{name:'السابق',exact:true});
+  const forward = page.getByRole('button',{name:'متابعة',exact:true});
+  await back.click();
+  assert.equal(await title.innerText(),residenceTitle);
+  await card.locator('.wi-hybrid-option').nth(1).press('Space');
+  assert.equal(await title.innerText(),residenceTitle,'Editing does not advance unexpectedly');
+  await back.click();
+  assert.equal(await title.innerText(),timelineTitle);
+  await forward.click();
+  assert.equal(await title.innerText(),residenceTitle);
+  assert.equal(await card.locator('.wi-hybrid-option').nth(1).getAttribute('aria-pressed'),'true');
+  await forward.click();
+  assert.equal(await title.innerText(),followingTitle);
+  let testedKeyboardChoice = false;
+  for (let index = 0; index < expectedIds.length && await card.count(); index++) {
+    const group = card.locator('fieldset').first();
+    const options = group.locator('.wi-hybrid-option');
+    if (await group.getAttribute('data-compact') === 'true' && !testedKeyboardChoice) {
+      assert.equal(await group.getByRole('slider').count(),0);
+      assert.equal(await options.count(),5);
+      assert.equal(await group.getByRole('button',{pressed:true}).count(),0);
+      const before = await title.innerText();
+      const saved = JSON.stringify(draft);
+      await options.nth(2).focus();
+      await page.keyboard.press('Tab');
+      assert.equal(await title.innerText(),before);
+      assert.equal(JSON.stringify(draft),saved,'Keyboard navigation does not choose a response');
+      await page.screenshot({path:resolve(output,'personality-choices-390.png')});
+      await options.nth(2).press('Enter');
+      testedKeyboardChoice = true;
+    } else await options.first().press('Space');
   }
   assert.equal(await card.count(), 0);
-  assert.equal(scaleChecked, true);
+  assert.equal(testedKeyboardChoice, true);
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   const review = page.locator('.wi-hybrid-review');
   assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'المراجعة');
   assert.match(await review.locator('summary').first().innerText(),/الأطفال/);
-  assert.equal(await review.locator('select').count(),47);
+  assert.equal(await review.locator('select').count(),expectedIds.length);
   await review.locator('summary').first().click();
   const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
   const residencePartner = review.getByRole('combobox',{name:/مدينة السكن، تفضيلي في الشريك/});
-  assert.equal(await residencePartner.inputValue(),'A');
-  await residenceSelf.selectOption('B');
-  assert.equal(await residencePartner.inputValue(),'A');
-  assert.doesNotMatch(await residencePartner.getAttribute('aria-label'),/اقتراح/);
-  await residencePartner.selectOption('C');
-  await residenceSelf.selectOption('B');
-  assert.equal(await residencePartner.inputValue(),'C');
-  assert.doesNotMatch(await residencePartner.getAttribute('aria-label'),/اقتراح/);
+  assert.equal(await residencePartner.count(),0);
+  assert.equal(await residenceSelf.inputValue(),'B');
+  await residenceSelf.selectOption('C');
+  assert.equal(await residenceSelf.inputValue(),'C');
   const confirmation = page.getByRole('button', { name: 'اعتماد إجاباتي', exact: true });
   assert.equal(await confirmation.isDisabled(), false);
   assert.equal(calls.length, actionsBeforeCards, 'Reviewing the choices stays local');
@@ -295,9 +316,9 @@ try {
   await page.locator('.wi-complete').waitFor();
   await page.screenshot({path:resolve(output,'confirmed.png'),animations:'disabled'});
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
-  assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
+  assert.equal(await page.evaluate(() => window.applied[0]?.length), expectedIds.length);
   draft = {};
-  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: expectedIds.length } };
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button', { name:'إرسال الرسالة', exact:true }).click();
@@ -329,7 +350,7 @@ try {
   assert.deepEqual(draft,{ 'personality:explore_views:self':['C'], [firstId]:['A'] });
   assert.equal(calls.length,beforeBatch);
   assert.equal(await card.locator('fieldset').first().getByRole('button',{pressed:true}).count(),0);
-  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:47}};
+  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:expectedIds.length}};
   snapshot.document.currentQuestion = { topic:scenarios[0].topic, text:scenarios[0].clarification, suggestions:[] };
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('#wi-answer').waitFor();
@@ -339,7 +360,7 @@ try {
   draft = Object.fromEntries(guidedChoices.map(({ id, values }) => [id, values]));
   delete draft[firstId];
   delete draft[firstPartnerId];
-  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
+  snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: expectedIds.length } };
   const directStart = calls.length;
   await page.goto(url + '#direct');
   await page.reload({waitUntil:'domcontentloaded'});
@@ -358,7 +379,7 @@ try {
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'load', 'directConfirm']);
-  assert.equal(await page.evaluate(() => window.applied[0]?.length), 47);
+  assert.equal(await page.evaluate(() => window.applied[0]?.length), expectedIds.length);
   assert.deepEqual(calls.at(-1).inferredPartnerIds,[firstPartnerId]);
   // Otherwise identical scripted assessments. One text entry or control activation counts as one action.
   benchmark = true;
@@ -366,7 +387,7 @@ try {
   for (suggestionCount of [-1, 0, 1, 3]) {
     const directTrial = suggestionCount === -1;
     draft = {};
-    snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: 47 } };
+    snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: expectedIds.length } };
     await page.goto(url + '?gender=' + (suggestionCount === 1 ? 'woman' : 'man') + (directTrial ? '#direct' : ''));
     let actions = 0;
     const startCalls = calls.length;
@@ -382,33 +403,31 @@ try {
       if (legend.includes('في حياتي') && (await page.locator('.wi-hybrid-stage h1').innerText()).includes('عمل')) {
         assert.match(legend, suggestionCount === 1 ? /ترغبين في العمل/ : /العمل|عمل|الزوجة/);
       }
-      const scale = group.getByRole('slider');
-      if (await scale.count()) await scale.click({position:{x:4,y:22}});
-      else {
-        // Distinct deliberate taps, outside the double-tap window.
-        await page.waitForTimeout(360);
-        await group.locator('button').first().click();
-      }
+      // Use the same explicit personality value as the carried-forward fixture.
+      const options = group.locator('.wi-hybrid-option');
+      await page.waitForTimeout(360);
+      if (await group.getAttribute('data-compact') === 'true') await options.last().click();
+      else await options.first().click();
       if (!suggestionCount && actions === 2) await page.screenshot({path:resolve(output,'partner-after.png')});
       actions++;
     }
     await confirmation.click(); actions++;
     await page.locator('.wi-complete').waitFor();
     assert.equal(await page.locator('.wi-confirmed-answers dd').count(), 2);
-    assert.match(await page.locator('.wi-complete').innerText(), /٤٧ إجابة/);
+    assert.match(await page.locator('.wi-complete').innerText(), /٤٦ إجابة/);
     const requests = calls.slice(startCalls);
     const submitted = requests.find(call => call.action === (directTrial ? 'directConfirm' : 'structuredConfirm'));
     const confirmed = submitted.choices;
     assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
     assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 8 : 9);
-    assert.equal(confirmed.length,47);
+    assert.equal(confirmed.length,expectedIds.length);
     assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,directTrial ? 0 : 1);
     trials.push({ actions, confirmed });
   }
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[3].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[39,41,40,39]);
+  assert.deepEqual(trials.map(trial => trial.actions),[38,40,39,38]);
   console.log('Assessment actions (direct / guided zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   // Resume the same confirmed answers through the real panel with different family facts.
   const reviewedDoc={...snapshot.document,status:'review',proposals:[],confirmed:[],currentQuestion:null};
@@ -417,13 +436,13 @@ try {
   draft[firstId]=['B'];
   for(const side of ['self','partner']) delete draft['preference:parenting_approach:'+side];
   expectedReceipt=expectedIds.filter(id=>!id.startsWith('preference:parenting_approach:'));
-  snapshot={revision:1,document:reviewedDoc,coverage:{answered:0,required:45}};
+  snapshot={revision:1,document:reviewedDoc,coverage:{answered:0,required:expectedReceipt.length}};
   await page.goto(url+'?children=0&mode=require');
   await page.locator('.wi-hybrid-review').waitFor();
-  assert.equal(await page.locator('.wi-hybrid-review select').count(),45);
+  assert.equal(await page.locator('.wi-hybrid-review select').count(),expectedReceipt.length);
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
-  assert.equal(snapshot.document.confirmed.length,45);
+  assert.equal(snapshot.document.confirmed.length,expectedReceipt.length);
 
   expectedReceipt=expectedIds;
   draft={}; // A new device recovers the completed fields directly from the receipt.
@@ -436,7 +455,7 @@ try {
   }
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
-  assert.equal(snapshot.document.confirmed.length,47);
+  assert.equal(snapshot.document.confirmed.length,expectedIds.length);
 
   resumedFamily=false;
   const legacyIds=[...archivedDimensions.dimensions.flatMap(d=>['self','partner'].map(side=>'preference:'+d.id+':'+side)),
@@ -450,11 +469,12 @@ try {
   await confirmation.click();
   await page.locator('.wi-complete').waitFor();
   assert.equal(await page.locator('.wi-confirmed-answers li').count(),44);
-  console.log('PASS: reviewed 45 with a strict child-free preference, reopened both parenting questions after relaxing it, and resumed a 44-answer legacy receipt');
+  console.log('PASS: reviewed 44 with a strict child-free preference, reopened both parenting questions after relaxing it, and resumed a 44-answer legacy receipt');
 
   openingExperience = true;
+  openingResponse = new Promise(resolveOpening => { releaseOpening = resolveOpening; });
   draft = {};
-  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:47}};
+  snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:expectedIds.length}};
   await page.goto(url + '?entry');
   const start = page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true});
   await start.waitFor();
@@ -466,6 +486,19 @@ try {
   const typedWord = page.locator('.wi-current-question .wi-type-word').first();
   const wordAnimation = () => typedWord.evaluate(el => getComputedStyle(el).animationName);
   assert.equal(await wordAnimation(), 'wi-type-rtl');
+  const typewriterMoves = await page.locator('.wi-current-question .wi-type-word').last().evaluate(el => {
+    const animation = el.getAnimations().find(item => item.animationName === 'wi-type-rtl');
+    if (!animation || !animation.effect) return false;
+    const {delay, duration} = animation.effect.getTiming();
+    animation.pause();
+    animation.currentTime = delay;
+    const start = getComputedStyle(el).clipPath;
+    animation.currentTime = delay + Number(duration);
+    const end = getComputedStyle(el).clipPath;
+    animation.play();
+    return start !== end;
+  });
+  assert.ok(typewriterMoves,'the Arabic typewriter changes the rendered clipping position');
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await wordAnimation(), 'none');
   await page.emulateMedia({reducedMotion:'no-preference'});
@@ -485,7 +518,11 @@ try {
   await page.screenshot({path:resolve(output,'opening-saudia.png'), animations:'disabled'});
   await page.locator('#wi-answer').fill(opening);
   await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();
+  await page.locator('.wi-typing').waitFor();
+  assert.equal(await card.count(), 0, 'no questionnaire card before the follow-up reply');
+  releaseOpening();
   await page.getByRole('heading',{name:'كيف تتصوّر التعارف الجاد؟'}).waitFor();
+  assert.equal(await card.count(), 0);
   assert.equal(await dialog.getAttribute('data-reading'), null);
   assert.equal(await page.locator('.wi-bubble-history .wi-type-word').count(), 0);
   assert.equal(await wordAnimation(), 'wi-type-rtl');
@@ -509,9 +546,34 @@ try {
   await card.waitFor();
   assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'اختياراتك');
   assert.ok(calls.at(-1).skip);
+  const field = card.locator('fieldset').first();
+  const entryMotion = async () => field.evaluate(el => {
+    const animation = el.getAnimations().find(item=>item.animationName==='wi-question-enter');
+    if (!animation) return null;
+    animation.pause();
+    animation.currentTime = 0;
+    const start = new DOMMatrixReadOnly(getComputedStyle(el).transform).m41;
+    animation.finish();
+    const settled = getComputedStyle(el).transform;
+    const end = settled === 'none' ? 0 : new DOMMatrixReadOnly(settled).m41;
+    return {start,end};
+  });
+  assert.equal(await entryMotion(),null,'system reduced motion suppresses card movement');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.evaluate(()=>{document.documentElement.dataset.nfMotion='reduced'});
+  assert.equal(await entryMotion(),null,'app reduced motion suppresses card movement');
+  await page.evaluate(()=>{document.documentElement.dataset.nfMotion='system'});
+  const pageScroll = await page.evaluate(()=>window.scrollY);
+  await field.locator('.wi-hybrid-option').first().press('Enter');
+  const forwardMotion = await entryMotion();
+  assert.ok(forwardMotion && forwardMotion.start < 0 && forwardMotion.end === 0,'new question animates into its final RTL position');
+  await back.click();
+  const backMotion = await entryMotion();
+  assert.ok(backMotion && backMotion.start > 0 && backMotion.end === 0,'Back reverses the card transition');
+  assert.equal(await page.evaluate(()=>window.scrollY),pageScroll,'question navigation leaves the outer page scroll unchanged');
   console.log('PASS: timed example and optional free-text next step');
   assert.deepEqual(errors, []);
-  console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 47-field confirmation');
+  console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 46-field confirmation');
 } finally {
   releaseOpening();
   await browser?.close();

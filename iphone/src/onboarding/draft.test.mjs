@@ -193,14 +193,19 @@ test('contact accepts email and formatted phone numbers but rejects arbitrary te
 });
 
 
-test('new onboarding requires all 44 answers while legacy edits stay compatible', () => {
+test('new onboarding requires each applicable self and partner answer', () => {
   const p = answers();
   assert.equal(validateStep('compatibility',p,true,false,true)?.field,'surveyAnswers');
   p.surveyAnswers = Object.fromEntries(dimensions.flatMap(d => [[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
   assert.equal(validateStep('compatibility',p,true,false,true)?.field,'personalityAnswers');
   p.personalityAnswers = Object.fromEntries(personalityQuestions.map(q => [q.id,q.options[0].code]));
   assert.equal(validateStep('compatibility',p,true,false,true),null);
-  for (const d of dimensions) for (const key of [d.id,d.partnerId]) assert.equal(validateStep('compatibility',{...p,surveyAnswers:{...p.surveyAnswers,[key]:'invalid'}},true,false,true)?.field,'surveyAnswers');
+  delete p.surveyAnswers.partner_residence_plan;
+  assert.equal(validateStep('compatibility',p,true,false,true),null);
+  const restored = toProfile({...p,surveyAnswers:{...p.surveyAnswers,partner_residence_plan:'B'},hardRequirements:['residence_plan']});
+  assert.equal(restored.surveyAnswers.partner_residence_plan,undefined);
+  assert.ok(!restored.hardRequirements.includes('residence_plan'));
+  for (const d of dimensions) for (const key of d.id==='residence_plan'?[d.id]:[d.id,d.partnerId]) assert.equal(validateStep('compatibility',{...p,surveyAnswers:{...p.surveyAnswers,[key]:'invalid'}},true,false,true)?.field,'surveyAnswers');
   for (const q of personalityQuestions) assert.equal(validateStep('compatibility',{...p,personalityAnswers:{...p.personalityAnswers,[q.id]:''}},true,false,true)?.field,'personalityAnswers');
   assert.equal(validateStep('compatibility',answers(),true),null);
 });

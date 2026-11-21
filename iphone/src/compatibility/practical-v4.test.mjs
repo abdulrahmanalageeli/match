@@ -12,6 +12,20 @@ function member(id, overrides={}) {
 const a = member('a'), b = member('b');
 const change = (p, answers) => ({...p,surveyAnswers:{...p.surveyAnswers,...answers}});
 
+test('residence uses feasible shared cities from both self plans and ignores stale partner preferences', () => {
+  const first = change(a,{residence_plan:'A',partner_residence_plan:undefined});
+  const second = change({...b,city:'جدة'},{residence_plan:'B',partner_residence_plan:undefined});
+  const fit = comparePreferences(first,second).fit;
+  assert.equal(fit.percentage,100);
+  assert.ok(fit.strengths.includes('residence_plan'));
+  assert.deepEqual(comparePreferences(change({...first,hardRequirements:['residence_plan']},{partner_residence_plan:'C'}),second).fit,fit);
+  const incompatible = change(second,{residence_plan:'A'});
+  assert.ok(describeFit(first,incompatible).fit.discussion.includes('residence_plan'));
+  assert.equal(comparePreferences(first,incompatible),null);
+  assert.ok(describeFit(first,change(second,{residence_plan:undefined})).fit.missing.includes('residence_plan'));
+  assert.ok(describeFit(first,{...second,city:''}).fit.missing.includes('residence_plan'));
+});
+
 test('v4 keeps shared IDs and never translates the three retired arrangements', () => {
   const old = dimensionsForVersion('marriage-v3');
   const fresh = dimensions.filter(q=>!old.some(prior=>prior.id===q.id)).map(q=>q.id).sort();

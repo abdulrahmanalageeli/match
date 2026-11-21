@@ -1,13 +1,13 @@
 # Current Wudayn questions and weights
 
-The standard assessment has 32 practical answers and 15 personality answers. The two parenting answers are skipped only when the member explicitly reports zero existing children, selects no future children and requires a partner with no existing children. The shortened assessment has 30 practical answers and 15 personality answers. An unanswered criterion, «أفضل» or «لا يهمني» keeps both parenting questions. The existing criterion covers children of any age.
+The standard assessment has 31 practical answers and 15 personality answers. The two parenting answers are skipped only when the member explicitly reports zero existing children, selects no future children and requires a partner with no existing children. The shortened assessment has 29 practical answers and 15 personality answers. An unanswered criterion, «أفضل» or «لا يهمني» keeps both parenting questions. The existing criterion covers children of any age. Residence uses only each member’s own plan. When both locations and plans are known, its existing 8 points reflect whether they have a feasible shared city, including explicitly permitted relocation cities. Historical pairs retain their original contract.
 
 ## Practical questions
 
 | Topic | About you | About your partner | Baseline points per direction |
 |---|---|---|---:|
 | الأطفال | كيف تتصور موضوع الإنجاب بعد الزواج؟ | أي رغبة في الإنجاب تفضّلها لدى شريك الحياة؟ | 10 |
-| مدينة السكن | ما المدن التي يمكنك أن تبني فيها حياتك الزوجية؟ | أي موقف من الانتقال يناسبك لدى شريك الحياة؟ | 8 |
+| مدينة السكن | ما المدن التي يمكنك أن تبني فيها حياتك الزوجية؟ | — | 8 |
 | عمل الزوجة وطموحها | أي ترتيب للعمل بعد الزواج يناسب تصورك لحياة الزوجة المهنية؟ | ما الموقف الذي تتمنى أن يشاركك فيه الطرف الآخر؟ | 7 |
 | موعد الخطوة الرسمية | متى يناسبك الانتقال إلى خطوة رسمية إذا وجدت الشخص المناسب؟ | ما توقيت أول خطوة رسمية الذي يناسبك لدى الطرف الآخر؟ | 3 |
 | دور الأهل في القرار | إذا اعترض الأهل على قرار كبير يخص بيتكم، كيف تحب تحسمونه؟ | لو أراد الطرف الآخر إشراك أهله في قرار يخصّ بيتكما، وش الدور اللي يناسبك؟ | 7 |

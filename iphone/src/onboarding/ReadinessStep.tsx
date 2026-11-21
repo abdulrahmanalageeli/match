@@ -32,7 +32,7 @@ export function ReadinessResult({ value, familyPreference, formalTiming, answers
       {blueprint.preferences.length > 0 && <div className="nf-readiness-preferences">
         {blueprint.preferences.map(preference => <article key={preference.id}>
           <h4>{preference.title}{preference.firm && <small>شرط أساسي عندك</small>}{!preference.firm && preference.priority && <small>ضمن أولوياتك</small>}</h4>
-          <dl><div><dt>في حياتك</dt><dd>{preference.own}</dd></div><div><dt>في شريكك</dt><dd>{preference.partner}</dd></div></dl>
+          <dl><div><dt>في حياتك</dt><dd>{preference.own}</dd></div>{preference.partner && <div><dt>في شريكك</dt><dd>{preference.partner}</dd></div>}</dl>
         </article>)}
       </div>}
     </details>}

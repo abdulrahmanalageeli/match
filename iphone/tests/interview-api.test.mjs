@@ -70,7 +70,7 @@ async function start(h) { return h.service({ action: 'start', consentVersion: CO
 async function send(h, revision, text = answer, requestId = randomUUID()) { return h.service({ action: 'answer', revision, requestId, answer: text }, headers); }
 
 const structuredChoices = () => [
-  ...preferenceCatalog.dimensions.flatMap(dimension => ['self','partner'].map(side => ({id:`preference:${dimension.id}:${side}`,values:[dimension.options[side === 'self' ? 0 : 1].code]}))),
+  ...preferenceCatalog.dimensions.flatMap(dimension => (dimension.id==='residence_plan' ? ['self'] : ['self','partner']).map(side => ({id:`preference:${dimension.id}:${side}`,values:[dimension.options[side === 'self' ? 0 : 1].code]}))),
   ...personalityCatalog.map(question => ({id:`personality:${question.id}:self`,values:['D']})),
 ];
 
@@ -166,7 +166,7 @@ test('direct onboarding validates exactly the same catalog, with no AI calls, be
   assert.deepEqual(saved.inferredPartnerIds,[id]);
   assert.deepEqual((await h.service({action:'load'},headers)).inferredPartnerIds,[id]);
   assert.equal(saved.structuredConfirmation,true);
-  assert.deepEqual(saved.coverage,{answered:47,required:47});
+  assert.deepEqual(saved.coverage,{answered:46,required:46});
   assert.deepEqual(saved.document.turns,[]);
   assert.deepEqual(saved.document.confirmed.map(({id,values})=>({id,values})),choices);
   assert.equal((await h.service({action:'load'},headers)).document.status,'confirmed');
@@ -192,7 +192,7 @@ test('structured confirmation retains the attested conversation and persists all
     await assert.rejects(h.service({action:'structuredConfirm',revision:analyzed.revision,choices:invalidChoices},headers),error => error.status === 400);
   }
   const confirmed = await confirm(analyzed.revision);
-  assert.deepEqual(confirmed.coverage, {answered:47,required:47});
+  assert.deepEqual(confirmed.coverage, {answered:46,required:46});
   assert.equal(confirmed.structuredConfirmation, true);
   assert.equal(confirmed.document.status, 'confirmed');
   assert.deepEqual(h.state.document.turns, attested.turns);
@@ -220,13 +220,13 @@ test('a reviewed housing suggestion retains its inferred origin on reload and sh
   assert.deepEqual(loaded.inferredPartnerIds,[id]);
   const shared = await h.service({action:'confirm',revision:loaded.revision,choices,shareReview:true},headers);
   assert.deepEqual(shared.inferredPartnerIds,[id]);
-  assert.equal(shared.document.confirmed.length,47);
+  assert.equal(shared.document.confirmed.length,46);
 });
 
 test('resharing a historical relocation suggestion preserves its origin after the rule is retired', async () => {
   const h=harness(), first=await start(h);
   const analyzed=await h.service({action:'answer',revision:first.revision,requestId:randomUUID(),answer,hybrid:true},headers);
-  const choices=structuredChoices();
+  const choices=[...structuredChoices(),{id:'preference:residence_plan:partner',values:['A']}];
   await h.service({action:'structuredConfirm',revision:analyzed.revision,choices},headers);
   const legacy=h.state;
   const id='preference:residence_plan:partner';
@@ -324,7 +324,7 @@ test('session start does not call model; draft autosaves privately and answer us
   assert.match(request.messages[0].content,/summary بحد أقصى8 كلمات/);
   assert.match(request.messages[0].content,/readiness=\[\]/);
   assert.equal(h.calls.at(-1).init.headers.Authorization, 'Bearer service-secret');
-  assert.equal(sent.coverage.required,47); assert.equal(sent.coverage.answered,1); assert.equal(sent.fallbackAvailable,false);
+  assert.equal(sent.coverage.required,46); assert.equal(sent.coverage.answered,1); assert.equal(sent.fallbackAvailable,false);
 });
 
 test('submitted answers survive provider outage; retry uses saved transcript without duplicate turn', async () => {
@@ -604,7 +604,7 @@ test('required sessions reject skipping and early review cannot end missing answ
   const sent=await send(h,empty.revision),reviewed=await h.service({action:'review',revision:sent.revision},headers);
   assert.equal(reviewed.document.status,'active');assert.ok(reviewed.document.currentQuestion);
   const request=h.modelCalls.at(-1).request,context=JSON.parse(request.messages[1].content);
-  assert.equal(context.beenaCatalog,undefined);assert.equal(context.missingFields.length,46);
+  assert.equal(context.beenaCatalog,undefined);assert.equal(context.missingFields.length,45);
   assert.deepEqual(request.response_format.json_schema.schema.properties.proposals.items.properties.kind.enum,['preference','personality']);
   assert.match(request.messages[0].content,/خانات التفضيلات والشخصية/);
 });
@@ -657,15 +657,15 @@ test('HTTP handler enforces methods, native preflight, no-store and body bounds'
   const foreign = recorder(); await handler({ method: 'OPTIONS', headers: { origin: 'https://other.example', 'access-control-request-method': 'POST' } }, foreign); assert.equal(foreign.statusCode, 403);
 });
 
-test('all 47 explicit interpretations can be reviewed once, edited and attested without Beena',async()=>{
+test('all 46 explicit interpretations can be reviewed once, edited and attested without Beena',async()=>{
  const proposals=turns=>preferenceCatalog.dimensions.flatMap(d=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turns[0].id,quote:turns[0].answer}]}))).concat(personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:turns[0].answer}]})));
  const h=harness({proposals}),first=await start(h),sent=await send(h,first.revision);
- assert.equal(sent.document.status,'review');assert.deepEqual(sent.coverage,{answered:47,required:47});
+ assert.equal(sent.document.status,'review');assert.deepEqual(sent.coverage,{answered:46,required:46});
  assert.equal(h.calls.at(-1).event,'analyzed');
  const choices=sent.document.proposals.map(p=>({id:p.id,values:p.values}));
  await assert.rejects(h.service({action:'confirm',revision:sent.revision,choices:choices.slice(1)},headers),e=>e.code==='assessment_incomplete');
  const confirmed=await h.service({action:'confirm',revision:sent.revision,choices},headers);
- assert.equal(confirmed.document.confirmed.length,47);assert.equal(confirmed.document.reviewSharing,false);
+ assert.equal(confirmed.document.confirmed.length,46);assert.equal(confirmed.document.reviewSharing,false);
  assert.equal(h.calls.at(-1).event,'complete');assert.equal(h.calls.at(-1).member_id,'11111111-1111-4111-8111-111111111111');
  assert.equal((await h.service({action:'load'},headers)).document.status,'confirmed');
 });
@@ -681,7 +681,7 @@ test('required final review cannot infer completion from visited topics or perso
  const strict={...initialInterviewDocument(true),turns:['intent','communication','closeness','family','practical','everyday'].map(topic=>({...turn,id:randomUUID(),topic}))};
  const proposals=personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:strict.turns[0].id,quote:'خلال ستة أشهر'}]}));
  const out=applyInterviewCompletion(strict,completion({...result,proposals}),true);
- assert.equal(out.status,'active');assert.deepEqual(interviewCoverage(out),{answered:15,required:47});
+ assert.equal(out.status,'active');assert.deepEqual(interviewCoverage(out),{answered:15,required:46});
  assert.throws(()=>confirmInterviewChoices({...out,status:'review'},out.proposals.map(p=>({id:p.id,values:p.values}))),e=>e.code==='assessment_incomplete');
 });
 
@@ -696,7 +696,7 @@ test('interrupted service attestation keeps analysis retryable and never grants 
 
 test('required dialogue scopes follow-up context to missing sides and avoids survey headings',()=>{
  const turns=['intent','communication','closeness','family','practical','everyday'].map(topic=>({...turn,id:randomUUID(),topic}));
- const all=preferenceCatalog.dimensions.flatMap(d=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).concat(personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).map(p=>validateProposal(p,turns));
+ const all=preferenceCatalog.dimensions.flatMap(d=>['self','partner'].map(side=>({...candidate,fieldId:d.id,side,values:[d.options[0].code],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).concat(personalityCatalog.map(p=>({...candidate,kind:'personality',fieldId:p.id,side:'self',values:['D'],evidence:[{turnId:turns[0].id,quote:'خلال ستة أشهر'}]}))).map(p=>validateProposal(p,turns)).filter(Boolean);
  const partial=all.filter(p=>p.id!=='preference:repair_after_conflict:partner');
  const source={...initialInterviewDocument(true),turns,proposals:partial};
  const request=interviewCompletionRequest(source),context=JSON.parse(request.messages[1].content);
@@ -722,7 +722,7 @@ test('required dialogue can clarify a genuinely missing current topic after two 
  assert.equal(context.possibleFollowUpTopic.id,'intent');
  assert.deepEqual(context.possibleFollowUpTopic.dimensionIds,['marriage_timeline']);
  assert.ok(context.possibleFollowUpTopic.missingFields.every(field=>['marriage_timeline','prepare_early','follow_through'].includes(field.fieldId)));
- assert.equal(interviewCoverage(source).required,47);
+ assert.equal(interviewCoverage(source).required,46);
 });
 
 test('fresh extraction may advance the route without discarding the contextual model response',()=>{
@@ -1203,18 +1203,18 @@ test('short v5 receipt requires explicit no children and expands when the family
     await assert.rejects(request(abbreviated,[...zero,...criteria]),{status:400});
   }
   const short=await request(abbreviated,[...zero,strict]);
-  assert.equal(short.document.confirmed.length,45);
-  assert.deepEqual((await h.service({action:'load'},headers)).coverage,{answered:45,required:45});
+  assert.equal(short.document.confirmed.length,44);
+  assert.deepEqual((await h.service({action:'load'},headers)).coverage,{answered:44,required:44});
   const oldDoc=structuredClone(short.document);
   oldDoc.profileContext=zero;
   const historicalShort=harness({initial:{document:oldDoc,revision:short.revision}});
   const restored=await historicalShort.service({action:'load'},headers);
   assert.equal(restored.document.status,'review');
-  assert.deepEqual(restored.coverage,{answered:45,required:47});
+  assert.deepEqual(restored.coverage,{answered:44,required:46});
   assert.deepEqual(restored.document.confirmed,short.document.confirmed);
   const expanded=await request(all,[...zero,{...strict,mode:'prefer'}],short.revision);
-  assert.equal(expanded.document.confirmed.length,47);
-  assert.deepEqual(expanded.coverage,{answered:47,required:47});
+  assert.equal(expanded.document.confirmed.length,46);
+  assert.deepEqual(expanded.coverage,{answered:46,required:46});
   assert.equal(h.modelCalls.length,1);
 });
 
@@ -1233,7 +1233,7 @@ test('archived and current sessions isolate their own question IDs, including co
   const [oldLoaded,newLoaded]=await Promise.all([old.service({action:'load'},headers),current.service({action:'load'},headers)]);
   assert.equal(oldLoaded.document.confirmed.length,44);
   assert.equal(oldLoaded.document.promptVersion,'wudayn-interview-4');
-  assert.equal(newLoaded.document.confirmed.length,47);
+  assert.equal(newLoaded.document.confirmed.length,46);
   assert.equal(newLoaded.document.promptVersion,'wudayn-interview-5');
 });
 

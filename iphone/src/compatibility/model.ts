@@ -11,7 +11,7 @@ import { createPersonalityEvidence, validatedPersonalityEvidence, type Personali
 import { preferenceCategoryCounts, type PreferenceEvidence, type PreferenceTopic } from './preference-evidence.ts';
 
 import { assessmentVersion, dimensions, applicableDimensions } from './practical-catalog.ts';
-export { assessmentVersion, categories, dimensions, applicableDimensions, dimensionsForVersion } from './practical-catalog.ts';
+export { assessmentVersion, categories, dimensions, applicableDimensions, dimensionsForVersion, practicalAnswerKeys, hasPartnerQuestion } from './practical-catalog.ts';
 export const maxPriorities = 2;
 export type MatchFit = {
   version: "marriage-v1" | "marriage-v2" | "marriage-v3" | typeof assessmentVersion;
@@ -290,6 +290,12 @@ function legacyDirectedFit(member: PairProfile, peer: PairProfile) {
   return { score: denominator ? numerator / denominator : 0, penalty, criteria, observedWeight: 0 };
 }
 
+// Current residence compatibility is reciprocal: both members must be able to live in a common city.
+function residenceCredit(member: PairProfile, peer: PairProfile, topic: Dimension) {
+  if (!answer(member, topic, 'self') || !answer(peer, topic, 'self') || !cityKnown(member) || !cityKnown(peer)) return undefined;
+  return Number(shareCity(member, peer) || canShareCity(member, peer));
+}
+
 function unresolvedPractical(topic: Dimension, wanted: string, observed: string) {
   const undecided = topic.id === 'children_plan' ? 'C'
     : ['marriage_timeline', 'parenting_approach'].includes(topic.id) ? 'D' : undefined;
@@ -303,10 +309,17 @@ function currentDirectedFit(member: PairProfile, peer: PairProfile, topics: Curr
     .some(key => member.partnerCriteria?.[key]?.mode === 'require' && criterionFit(member, peer, key) !== true);
   for (const topic of topics) {
     const wanted = answer(member, topic, 'partner'), observed = answer(peer, topic, 'self');
-    if (!wanted || !observed) continue;
-    const credit = agreement(member, peer, topic, wanted, observed);
-    if (credit === 0 && topic.hardAllowed && member.hardRequirements?.includes(topic.id)) strictConflict = true;
-    if (unresolvedPractical(topic, wanted, observed)) continue;
+    let credit: number;
+    if (topic.id === 'residence_plan') {
+      const residence = residenceCredit(member, peer, topic);
+      if (residence === undefined) continue;
+      credit = residence;
+    } else {
+      if (!wanted || !observed) continue;
+      credit = agreement(member, peer, topic, wanted, observed);
+      if (credit === 0 && topic.hardAllowed && member.hardRequirements?.includes(topic.id)) strictConflict = true;
+      if (unresolvedPractical(topic, wanted, observed)) continue;
+    }
     const weight = topic.weight * (member.priorityCategories?.includes(topic.category) ? 1.35 : 1);
     observedWeight += topic.weight;
     numerator += weight * credit;
@@ -365,9 +378,12 @@ export function describeFit(first: PairProfile, second: PairProfile) {
     const selfB = answer(second, dim, "self");
     const wantA = answer(first, dim, "partner");
     const wantB = answer(second, dim, "partner");
-    if (!selfA || !selfB || !wantA || !wantB) { missing.push(dim.id); topics.push({ id: dim.id, status: 'missing' }); continue; }
+    const residence = current && dim.id === 'residence_plan';
+    const commonCity = residence ? residenceCredit(first, second, dim) : undefined;
+    const ab = residence ? commonCity : wantA && selfB ? agreement(first, second, dim, wantA, selfB) : undefined;
+    const ba = residence ? commonCity : wantB && selfA ? agreement(second, first, dim, wantB, selfA) : undefined;
+    if (ab === undefined || ba === undefined) { missing.push(dim.id); topics.push({ id: dim.id, status: 'missing' }); continue; }
     coveredCategories.add(dim.category);
-    const ab = agreement(first, second, dim, wantA, selfB), ba = agreement(second, first, dim, wantB, selfA);
     const forwardMatch = ab === 1, reverseMatch = ba === 1;
     topics.push({ id: dim.id, status: forwardMatch && reverseMatch ? 'aligned' : Math.min(ab, ba) === 0.5 ? 'conditional' : forwardMatch || reverseMatch ? 'one_sided' : 'different' });
     if (forwardMatch && reverseMatch) {

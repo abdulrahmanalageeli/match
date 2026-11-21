@@ -231,11 +231,12 @@ function unclearConfirmation(turn) {
   return /(?:^|\s)(?:كيف|متى|وش|ايش|كم|اي|ماذا|لماذا|ليش|او)(?:\s|$)/.test(normalize(turn.question.split(/\u2029|\n\s*\n/).at(-1)));
 }
 
-export function validateProposal(value, turns, assessmentContext = [], allowContextEdit = false) {
+export function validateProposal(value, turns, assessmentContext = [], allowContextEdit = false, allowArchivedResidence = false) {
   if (!record(value) || !validValues(value.kind, value.fieldId, value.side, value.values)
     || !safeText(value.summary, 240) || typeof value.needsClarification !== 'boolean'
     || (value.source !== undefined && value.source !== 'self_default')
     || (value.source === 'self_default' && (value.kind !== 'beena' || value.side !== 'partner'))) return null;
+  if (!allowContextEdit && !allowArchivedResidence && assessment() === currentAssessment && value.kind === 'preference' && value.fieldId === 'residence_plan' && value.side === 'partner') return null;
   const evidence = evidenceFor(value.evidence, turns, assessmentContext);
   if (!allowContextEdit && evidence?.every(e => genericEvidence(e.quote))) return null;
   if (!evidence || evidence.every(item => { const turn=turns.find(turn => turn.id===item.turnId); return turn ? unclearConfirmation(turn) : false; })) return null;
@@ -372,8 +373,8 @@ function withPartnerDefaults(proposals, blocked = new Set()) {
   return [...known.values()];
 }
 export function validateAssessmentContext(value,strict=false) {
-  if (!Array.isArray(value) || value.length>assessment().requiredFields.length) { if(strict)throw invalid();return []; }
-  const seen=new Set();return value.flatMap(item=>{const field=assessment().requiredFields.find(field=>field.id===item?.id);
+  if (!Array.isArray(value) || value.length>assessment().acceptedFields.length) { if(strict)throw invalid();return []; }
+  const seen=new Set();return value.flatMap(item=>{const field=assessment().acceptedFields.find(field=>field.id===item?.id);
     if(!keysOnly(item,['id','values'])||!field||seen.has(item.id)||!validValues(field.kind,field.fieldId,field.side,item.values)){if(strict)throw invalid();return [];}
     seen.add(item.id);return [{id:item.id,values:item.values}];});
 }
@@ -381,6 +382,7 @@ function withContextProposals(document,proposals) {
   const known=new Map(proposals.map(item=>[item.id,item]));
   for(const item of validateAssessmentContext(document.assessmentContext)) {
     if(known.has(item.id))continue;const field=assessment().requiredFields.find(field=>field.id===item.id);
+    if(!field)continue;
     known.set(item.id,{id:item.id,kind:field.kind,fieldId:field.fieldId,side:field.side,values:item.values,summary:'من إجابتك المسجلة في الملف',evidence:[{turnId:'context:'+item.id,quote:JSON.stringify(item.values)}],needsClarification:false});
   }
   return withPartnerDefaults([...known.values()]);
@@ -681,7 +683,9 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
       profileCatalog:(sensitiveProfileAllowed?profileCatalog:safeProfileCatalog).filter(field=>!publicWriting.has(field.fieldId)).map(({path:_path,options,...field})=>({...field,...(options?{options:options.map(option=>option.value===option.label?option.value:[option.value,option.label])}:{})})),previousProfileProposals:providerSafe.profileProposals??[],profileConfirmed:providerSafe.profileConfirmed??[],knownProfileContext:providerSafe.profileContext??[],knownAssessmentContext:providerSafe.assessmentContext??[],
       nextTopic: topicContext(next),
       possibleFollowUpTopic: topicContext(same),
-      preferenceCatalog: assessment().dimensions.map(({ id, title, selfPrompt, partnerPrompt, options }) => ({ id, title, selfPrompt, partnerPrompt, options })),
+      preferenceCatalog: assessment().dimensions.map(({ id, title, selfPrompt, partnerPrompt, options }) => assessment() === currentAssessment && id === 'residence_plan'
+        ? { id, title, selfPrompt, options: options.map(({code,self}) => ({code,self})) }
+        : { id, title, selfPrompt, partnerPrompt, options }),
       ...(requiredInterview(document) ? { missingFields: missingFields(document).map(({ topic, ...field }) => ({ ...field, topic: topic.id })) } : { beenaCatalog: scenarios.map(({ id, title, scene, options }) => ({ id, title, scene, options })) }),
       personalityCatalog: assessment().traits, personalityOptions:assessment().options,
     }) }],
@@ -861,10 +865,13 @@ const hasAnalyzedIntroduction = document => requiredInterview(document) && docum
 
 // The attested v4 receipt permits a summary but forbids custom source keys.
 const inferredSelectionSummary = 'اقتراح توافق من إجابتك عن نفسك، راجعته ضمن الاعتماد النهائي';
+function receiptFields(choices) {
+  return choices.some(item => item.id === 'preference:residence_plan:partner') ? assessment().acceptedFields : assessment().requiredFields;
+}
 function isStructuredConfirmation(document) {
   if (document.status !== 'confirmed' || !document.confirmed.every(item =>
     item.summary === structuredSelectionSummary || item.summary === inferredSelectionSummary)) return false;
-  const fields = assessment().requiredFields;
+  const fields = receiptFields(document.confirmed);
   const expected = document.promptVersion === PROMPT_VERSION && document.confirmed.length === fields.length - 2
     ? fields.filter(field => field.fieldId !== 'parenting_approach') : fields;
   const ids = new Set(document.confirmed.map(item => item.id));
@@ -878,7 +885,9 @@ function confirmStructuredChoices(document, savedProposals, choices, shareReview
   }
   const context = new Map(document.assessmentContext.map(item => [item.id, item]));
   const selections = new Map(validateAssessmentContext(choices, true).map(item => [item.id, item]));
-  const fields = selections.size === assessment().requiredFields.length ? assessment().requiredFields : applicableFields(document,choices);
+  const catalog = receiptFields(choices);
+  const applicable = applicableFields(document,choices);
+  const fields = selections.size === catalog.length ? catalog : catalog.filter(field => field.fieldId !== 'parenting_approach' || applicable.includes(field));
   if (selections.size !== fields.length || fields.some(field=>!selections.has(field.id))) throw invalid();
   const inferred = new Set(inferredPartnerIds ?? document.confirmed.filter(item =>
     item.summary === inferredSelectionSummary && item.values[0] === selections.get(item.id)?.values[0] &&
@@ -1072,7 +1081,17 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       return saved;
     }
     if (input.action === 'confirm') {
-      let confirmed = confirmInterviewChoices(document, input.choices, input.shareReview);
+      // A released client can still confirm a previously analyzed partner-residence
+      // proposal. Validate it against its original evidence without offering it in new sessions.
+      let reviewed = document;
+      if (assessment() === currentAssessment && input.choices.some(choice => choice.id === 'preference:residence_plan:partner')) {
+        const original = snapshot.document.proposals.find(item => item.id === 'preference:residence_plan:partner');
+        const archived = validateProposal(original, document.turns, document.assessmentContext, false, true);
+        if (archived) reviewed = { ...document, proposals: [...document.proposals, archived] };
+      }
+      let confirmed = confirmInterviewChoices(reviewed, input.choices, input.shareReview);
+      // Attestation binds the exact stored proposal set and array order.
+      confirmed = { ...confirmed, proposals: snapshot.document.proposals };
       if(input.profileChoices)confirmed=confirmProfileChoices(confirmed,input.profileChoices);
       const saved = await save(confirmed);
       if (requiredInterview(document)) await certify('complete', saved);

@@ -29,7 +29,7 @@ before(async () => {
 after(() => loader?.close());
 
 function preferences(code) {
-  return compatibility.dimensions.flatMap(dimension => ['self', 'partner'].map(side => ({
+  return compatibility.dimensions.flatMap(dimension => (compatibility.hasPartnerQuestion(dimension.id) ? ['self', 'partner'] : ['self']).map(side => ({
     id: `${dimension.id}:${side}`, kind: 'preference', fieldId: dimension.id, side, values: [code],
     summary: 'اختيار مؤكد للاختبار', evidence: [{ turnId: 'synthetic', quote: 'إجابة افتراضية' }], needsClarification: false,
   })));
@@ -116,7 +116,7 @@ test('confirmed changes alter compatibility explanations and recommendation orde
   assert.equal(updated[0].fit.percentage, 100);
   // Both candidates live in Riyadh; different residence letters can describe
   // the same city. Compare the mapped answers to the ordinary form route.
-  const manual = { ...first, surveyAnswers:Object.fromEntries(compatibility.dimensions.flatMap(d => [[d.id,'B'],[d.partnerId,'B']])) };
+  const manual = { ...first, surveyAnswers:Object.fromEntries(compatibility.dimensions.flatMap(d => compatibility.practicalAnswerKeys(d).map(id=>[id,'B']))) };
   assert.deepEqual(plain(updated.map(item => item.fit)),plain(compatibility.rankPreferences(manual,[a,b]).map(item => item.fit)));
   assert.equal(updated[0].fit.strengths.length, compatibility.dimensions.length);
   assert.equal(updated[1].fit.discussion.length, compatibility.dimensions.length - 1);

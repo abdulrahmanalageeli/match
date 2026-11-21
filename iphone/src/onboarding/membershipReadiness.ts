@@ -64,7 +64,7 @@ export function readinessComplete(value: MembershipReadiness, topics: ReadinessT
   return Boolean(value.family && value.nextStep && value.agreement === membershipAgreementVersion &&
     topics.every(topic => value.clarifications?.[topic]));
 }
-import { applicableDimensions } from '../compatibility/practical-catalog.ts';
+import { hasPartnerQuestion, applicableDimensions } from '../compatibility/practical-catalog.ts';
 import type { Profile } from '../types';
 
 
@@ -76,15 +76,16 @@ export function readinessBlueprint(answers: ReadinessAnswers, value: MembershipR
   const survey = answers.surveyAnswers ?? {};
   const described = applicableDimensions(answers.assessmentVersion, survey, answers.marriageBasics?.childrenCount, answers.partnerCriteria?.children).flatMap(dimension => {
     const own = dimension.options.find(option => option.code === survey[dimension.id]);
-    const partner = dimension.options.find(option => option.code === survey[dimension.partnerId]);
-    if (!own || !partner) return [];
-    const firm = answers.hardRequirements?.includes(dimension.id) ?? false;
+    const paired = hasPartnerQuestion(dimension.id, answers.assessmentVersion);
+    const partner = paired ? dimension.options.find(option => option.code === survey[dimension.partnerId]) : undefined;
+    if (!own || (paired && !partner)) return [];
+    const firm = paired && Boolean(answers.hardRequirements?.includes(dimension.id));
     const priority = answers.priorityCategories?.includes(dimension.category) ?? false;
     const femaleWork = memberAr.womanWork;
     return [{
       id: dimension.id, title: dimension.title, own: dimension.id === 'wife_work' && answers.gender === 'woman'
         ? (femaleWork as Record<string,string>)[own.code] ?? own.self : own.self,
-      partner: partner.partner, firm, priority,
+      partner: partner?.partner, firm, priority,
     }];
   });
   const ranked = [...described].sort((a, b) => Number(b.firm) - Number(a.firm) || Number(b.priority) - Number(a.priority));

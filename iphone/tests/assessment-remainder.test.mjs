@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
-import {applicableDimensions} from '../src/compatibility/practical-catalog.ts';
+import {applicableDimensions,hasPartnerQuestion,practicalAnswerKeys} from '../src/compatibility/practical-catalog.ts';
 import catalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../src/beena/catalog.json' with { type: 'json' };
 import { hasPreferenceAnswer, hasScenarioAnswer } from '../src/onboarding/remainingAssessments.ts';
@@ -14,7 +14,7 @@ const codes = Object.fromEntries(await Promise.all(['compatibility/Compatibility
 const text = node => typeof node==='string'||typeof node==='number'?String(node):Array.isArray(node)?node.map(text).join(''):text(node?.props?.children??'');
 const nodes = node => Array.isArray(node)?node.flatMap(nodes):node&&typeof node==='object'?[node,...nodes(node.props?.children)]:[];
 const byClass=(tree,name)=>nodes(tree).find(node=>node.props?.className?.split(' ').includes(name));
-const preferences=()=>Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
+const preferences=()=>Object.fromEntries(catalog.dimensions.flatMap(d=>practicalAnswerKeys(d).map(key=>[key,d.options[0].code])));
 const beena=()=>({version:'beena-v1',answers:Object.fromEntries(scenarios.map(s=>[s.id,{self:s.options[0].code,partner:[s.options[0].code],importance:2}]))});
 
 function mount(name, initial) {
@@ -27,7 +27,7 @@ function mount(name, initial) {
     if(name==='react/jsx-runtime')return{jsx:(type,props,key)=>({type,props,key}),jsxs:(type,props,key)=>({type,props,key})};
     if(name==='../BrandIcons')return icons;
     if(name==='../onboarding/remainingAssessments')return{hasPreferenceAnswer,hasScenarioAnswer};
-    if(name==='./model')return{name:'fixture',categories:catalog.categories,applicableDimensions, dimensions:catalog.dimensions,interests:[],maxInterests:3,maxPriorities:2,beenaScenarios:scenarios,beenaVersion:'beena-v1',beenaProgress:value=>{const answered=scenarios.filter(s=>hasScenarioAnswer(s.options,value?.answers[s.id],'self')&&hasScenarioAnswer(s.options,value?.answers[s.id],'partner')).length;return{answered,total:scenarios.length,complete:answered===scenarios.length}}};
+    if(name==='./model')return{name:'fixture',categories:catalog.categories,applicableDimensions,hasPartnerQuestion,practicalAnswerKeys, dimensions:catalog.dimensions,interests:[],maxInterests:3,maxPriorities:2,beenaScenarios:scenarios,beenaVersion:'beena-v1',beenaProgress:value=>{const answered=scenarios.filter(s=>hasScenarioAnswer(s.options,value?.answers[s.id],'self')&&hasScenarioAnswer(s.options,value?.answers[s.id],'partner')).length;return{answered,total:scenarios.length,complete:answered===scenarios.length}}};
     if(name==='../ui/SheetChoiceSelect')return{SheetChoiceSelect:()=>null};
     if(name.endsWith('.css'))return{};throw Error(name);
   };

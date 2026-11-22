@@ -129,6 +129,10 @@ export async function runRegistrationMatching(profiles, identities, portraits) {
       const approved = await member(user,'public.marriage_state()');
       assert.equal(approved.user.applicationStatus,'approved');
       assert.equal(approved.membership.active,false);
+      const freeDirectory = await member(user,'public.marriage_browse($1)',[{mode:'all',eligibleOnly:true}]);
+      assert.ok(Array.isArray(freeDirectory),'Directory must open immediately as a free member');
+      const existingPeer = users[gender==='man'?'woman':'man'];
+      if (existingPeer) assert.ok(freeDirectory.some(card=>card.id===existingPeer.id),'Free member cannot find the eligible peer');
       // Start at the trusted boundary after Apple's signed transaction has been verified.
       const productId = 'com.blindmatch.marriage.monthly.'+(gender === 'man' ? 'men' : 'women');
       const receipt = {bundleId:'com.blindmatch.marriage',productId,appAccountToken:approved.user.appAccountToken,
@@ -138,7 +142,7 @@ export async function runRegistrationMatching(profiles, identities, portraits) {
       const state = await member(user,'public.marriage_state()');
       assert.equal(state.user.applicationStatus,'approved');
       assert.equal(state.membership.active,true);
-      result[gender] = {answers,photo:photo?.status ?? 'skipped',...(photo && {blur:photo.portrait.blur,revealPolicy:photo.portrait.revealPolicy}),approved:true,productId};
+      result[gender] = {answers,photo:photo?.status ?? 'skipped',...(photo && {blur:photo.portrait.blur,revealPolicy:photo.portrait.revealPolicy}),approved:true,freeDirectory:true,productId};
     }
     for (const [gender,other] of [['man','woman'],['woman','man']]) {
       const cards = await member(users[gender],'public.marriage_browse($1)',[{mode:'all',eligibleOnly:true}]);

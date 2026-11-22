@@ -1,11 +1,11 @@
 /* Focused account screens with iPhone-style grouped controls. */
 .phone-app main.nf-auth-frame {
-  --auth-ink: var(--ink, #242326);
-  --auth-muted: var(--muted, #716b70);
-  --auth-line: var(--line, #e5e2de);
+  --auth-ink: #30232c;
+  --auth-muted: #665a62;
+  --auth-line: #e7e1e2;
   max-width: 520px; margin-inline: auto; min-height: 100svh;
   padding: var(--nf-safe-top) clamp(16px, 4.6vw, 26px) 0;
-  background: var(--paper, #fdfdfd); color: var(--auth-ink);
+  background: #f8f6f5; color: var(--auth-ink);
 }
 .phone-app :is(.demo-notice, .nf-tester-tools) ~ main.nf-auth-frame { padding-block-start: 0; }
 .phone-app .nf-auth-frame .flow-header {
@@ -33,7 +33,7 @@
 .nf-auth-input-group { min-width: 0; overflow: hidden; border: 1px solid var(--auth-line); border-radius: 16px; background: #fff; }
 .phone-app .nf-auth-frame .nf-auth-input-group > label { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: center; min-width: 0; gap: 10px; padding: 2px 12px; color: var(--auth-ink); font-size: .875rem; font-weight: 550; }
 .phone-app .nf-auth-frame .nf-auth-input-group > label + label { border-top: 1px solid var(--auth-line); }
-.phone-app .nf-auth-frame .nf-auth-input-group > label:focus-within { background: #fbfafb; box-shadow: inset -3px 0 var(--accent); color: var(--accent); }
+.phone-app .nf-auth-frame .nf-auth-input-group > label:focus-within { background: #fffafd; box-shadow: inset -3px 0 var(--accent); color: var(--accent); }
 .phone-app .nf-auth-frame .nf-auth-input-group > label:has(input:user-invalid) { color: #922b43; box-shadow: inset -3px 0 currentColor; }
 .phone-app .nf-auth-frame .flow-form .nf-auth-input-group input {
   width: 100%; max-width: 100%; min-width: 0; min-height: 44px; padding: 8px 0;
@@ -42,7 +42,7 @@
 }
 .phone-app .nf-auth-frame .flow-form .nf-auth-input-group input:focus { outline: none; border: 0; box-shadow: none; }
 .phone-app .nf-auth-frame .nf-auth-input-group:focus-within { box-shadow: 0 0 0 1px #b796a2; }
-.phone-app .nf-auth-frame .flow-form .nf-auth-input-group input::placeholder { color: var(--auth-muted); }
+.phone-app .nf-auth-frame .flow-form .nf-auth-input-group input::placeholder { color: #8c8287; }
 .phone-app .nf-auth-frame .password-wrap button { right: -6px; top: 0; width: 44px; height: 44px; color: #756b70; }
 .phone-app .nf-auth-frame .nf-auth-field-help { margin: -1px 2px 0; color: var(--auth-muted); font-size: .8125rem; font-weight: 400; line-height: 1.55; }
 .nf-auth-account-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 0 2px; border-block-end: 1px solid var(--auth-line); }

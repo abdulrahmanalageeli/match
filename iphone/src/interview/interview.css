@@ -52,7 +52,7 @@
 .wi-topic-progress>span { flex:1; height:4px; background:#eee9ec; border-radius:4px; overflow:hidden; }
 .wi-topic-progress i { width:100%; height:100%; background:#b993a4; transform:scaleX(0); transform-origin:right; transition:transform .5s cubic-bezier(.22,.78,.28,1),background .3s; }
 .wi-topic-progress [data-state=done] i { transform:scaleX(1); background:#bb9ba9; }
-.wi-topic-progress [data-state=current] i { transform:scaleX(.55); background:var(--accent,#54152a); }
+.wi-topic-progress [data-state=current] i { transform:scaleX(.55); background:#68213c; }
 .wi-question h1 { font-size:1.4375rem; line-height:1.65; margin:0 0 24px; }
 .wi-answer-label { color:#73616c; font-size:0.75rem; margin-bottom:10px; }
 .wi-dialog textarea { min-height:138px; background:#fff; border-color:#e4dce0; padding:15px 16px; transition:border-color .2s,box-shadow .2s; }
@@ -165,7 +165,7 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-dialog .wi-compose-row textarea { display:block; flex:1 1 0; width:100%; min-width:0; min-height:48px; max-height:140px; padding:8px; resize:none; border:0; outline:none; background:transparent; font:inherit; font-size:1rem; line-height:1.6; direction:rtl; text-align:right; unicode-bidi:plaintext; white-space:pre-wrap; overflow-wrap:anywhere; overflow-x:hidden; overflow-y:auto; color:#3c2e37; box-shadow:none; }
 .wi-compose-row:focus-within { border-color:#956176; box-shadow:0 0 0 2px #9561760b; }
 .wi-dialog .wi-compose-row textarea::placeholder { color:#9b8792; font-size:1rem; direction:rtl; text-align:right; }
-.wi-send { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:50%; color:#fff; background:var(--accent,#54152a); }
+.wi-send { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:50%; color:#fff; background:#59172f; }
 .wi-send:disabled { opacity:.4; }
 .wi-compose-meta { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:.8125rem; color:#685761; }
 .wi-compose-meta button { min-height:34px; padding:0; border:0; background:none; color:#856476; font:inherit; cursor:pointer; }
@@ -175,7 +175,7 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-review-group>h2 { color:#765268; font-size:0.875rem; margin:0 2px 12px; font-weight:500; }
 .wi-review-group>summary { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:18px; border-radius:16px; background:#fff; list-style:none; cursor:pointer; }
 .wi-review-group>summary strong { display:block; font-size:0.9375rem; font-weight:600; color:#614152; }
-.wi-review-group>summary small { display:block; font-size:0.75rem; color:var(--muted,#716b70); margin-top:5px; }
+.wi-review-group>summary small { display:block; font-size:0.75rem; color:#967788; margin-top:5px; }
 .wi-review-group>summary>svg { flex:none; color:#9b7c8d; }
 .wi-review-group[open]>summary { border-radius:16px 16px 0 0; border-bottom:1px solid #eee5e9; }
 .wi-review-group[open]>summary>svg { transform:rotate(180deg); }
@@ -186,7 +186,7 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-proposal .wi-proposal-summary { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:16px 18px; list-style:none; cursor:pointer; }
 .wi-proposal-summary>span { min-width:0; flex:1; }
 .wi-proposal-summary>svg { flex:none; margin-top:5px; color:#9b7c8d; }
-.wi-proposal-summary small { display:block; font-size:0.75rem; color:var(--muted,#716b70); margin-bottom:5px; }
+.wi-proposal-summary small { display:block; font-size:0.75rem; color:#8a7280; margin-bottom:5px; }
 .wi-proposal-summary .wi-default-note { display:inline-flex; align-items:center; width:fit-content; margin:0 0 6px; padding:3px 7px; border-radius:999px; background:#f6f0f3; color:#775466; font-size:0.625rem; font-weight:500; line-height:1.5; }
 .wi-proposal-summary strong { display:block; font-size:0.9375rem; font-weight:500; line-height:1.8; color:#4b3340; }
 .wi-proposal-summary .wi-personality-statement { display:block; color:#4b3340; line-height:1.8; font-size:0.875rem; margin-bottom:4px; }
@@ -217,7 +217,7 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-session-progress > span { display:block; height:100%; width:100%; background:#8b4b65; transform-origin:right; transition:transform .6s cubic-bezier(.22,.7,.3,1); }
 .wi-thread { padding:8px 22px 22px; scroll-padding-block:18px; }
 .wi-opening-note { padding:clamp(20px,4vh,38px) 0 20px; text-align:start; }
-.wi-dialog .wi-opening-note h1 { margin:0; color:var(--accent,#54152a); font-size:clamp(1.75rem,7vw,2.35rem); font-weight:700; line-height:1.4; }
+.wi-dialog .wi-opening-note h1 { margin:0; color:var(--accent,#68213c); font-size:clamp(1.75rem,7vw,2.35rem); font-weight:700; line-height:1.4; }
 .wi-opening-note p { max-inline-size:35ch; margin:7px 0 0; color:#665861; font-size:.9375rem; line-height:1.8; }
 .wi-topic-divider { display:flex; align-items:center; gap:12px; padding:17px 0 13px; color:#917282; font-size:0.6875rem; }
 .wi-topic-divider::before,.wi-topic-divider::after { content:''; height:1px; flex:1; background:#e9dfe5; }
@@ -233,7 +233,7 @@ html[data-nf-keyboard] .wi-chat-suggestions { display:none; }
 .wi-closing .wi-link { min-block-size:44px; margin-block-start:.5rem; }
 .wi-current-question[data-settled] { box-shadow:none; }
 .wi-new-answer { animation:wi-turn-in .18s ease-out both; }
-.wi-new-answer small { display:block; margin-top:6px; color:var(--muted,#716b70); font-size:0.75rem; }
+.wi-new-answer small { display:block; margin-top:6px; color:#967886; font-size:0.625rem; }
 .wi-typing { display:flex; align-items:center; gap:10px; background:none; border-radius:0; padding:3px 8px 14px; color:#99798a; }
 .wi-typing > span:last-child { font-size:0.6875rem; color:#826573; }
 .wi-composer { padding-top:12px; background:#fbfafbf5; }
@@ -344,7 +344,7 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
 .wi-profile-uncertain{margin:0;color:#97724b;line-height:1.8}
 @media(prefers-reduced-motion:reduce){.wi-message-captures{animation:none}}
 .wi-compose-row { position:relative; isolation:isolate; transition:border-color .2s,box-shadow .25s; }
-.wi-dialog .wi-composer .wi-compose-row:focus-within { border-color:#86526a; box-shadow:0 0 0 2px #54152a15; }
+.wi-dialog .wi-composer .wi-compose-row:focus-within { border-color:#86526a; box-shadow:0 0 0 2px #68213c15; }
 .wi-opening-note + .wi-current-question {
   border: 0;
   border-inline-start: 2px solid #b98d9f;
@@ -354,7 +354,7 @@ html[data-nf-keyboard] .wi-session-milestones{display:none}
   box-shadow: none;
 }
 .wi-opening-note + .wi-current-question .wi-speaker { font-size:.8125rem; margin-bottom:6px; }
-.wi-send:not(:disabled) { transition:background .18s,transform .15s; box-shadow:0 2px 8px #54152a17; }
+.wi-send:not(:disabled) { transition:background .18s,transform .15s; box-shadow:0 2px 8px #68213c17; }
 .wi-send:not(:disabled):active { transform:scale(.94); }
 .wi-typing .wi-loading-dots { padding-inline:3px; }
 .wi-loading { gap: 8px; }
@@ -370,7 +370,7 @@ html[data-nf-motion=reduced] .wi-loading-brand { animation:none; }
 
 .wi-opening-benefit { margin:0 0 2px; color:#60505b; font-size:.9375rem; line-height:1.75; }
 .wi-opening-example { margin-block-end:7px; }
-.wi-opening-example > button { display:flex; align-items:center; gap:6px; min-height:36px; padding:0; border:0; background:none; color:var(--accent,#54152a); font:inherit; font-size:.8125rem; font-weight:700; cursor:pointer; }
+.wi-opening-example > button { display:flex; align-items:center; gap:6px; min-height:36px; padding:0; border:0; background:none; color:var(--accent,#68213c); font:inherit; font-size:.8125rem; font-weight:700; cursor:pointer; }
 .wi-opening-example > button svg { transition:transform .26s ease; }
 .wi-opening-example[data-expanded=true] > button svg { transform:rotate(180deg); }
 .wi-example-panel { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows .28s ease,opacity .22s ease; }

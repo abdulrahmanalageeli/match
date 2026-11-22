@@ -7,6 +7,7 @@ import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
 import * as parenting from '../src/compatibility/parenting.mjs';
+import * as openingEvidence from '../src/interview/openingEvidence.ts';
 import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 
@@ -62,7 +63,7 @@ function mount(initial, intercept = () => null) {
       restore: async () => null, save: async () => null, clear: async () => null,
     } };
     if (name === './api') return { requestInterview, InterviewError: class extends Error {} };
-    if (name === './HybridAssessment') return { HybridAssessment: 'hybrid-assessment' };
+    if (name === './HybridAssessment') return { HybridAssessment: 'hybrid-assessment', ConfirmedAnswers: 'confirmed-answers' };
     if (name === './model') return {
       proposalOptions: item => item.kind==='personality' ? ['A','B','C','D','E'].map((value,index)=>({value,label:['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'][index]})) : options,
       proposalSide: () => 'ما يصفني',
@@ -73,6 +74,7 @@ function mount(initial, intercept = () => null) {
     if (name === './opening-scenarios.json') return { default: openingScenarios };
     if (name === './opening-prompts.json') return { default: openingPrompts };
     if (name === './profileCapture') return profileHelpers;
+    if (name === './openingEvidence') return openingEvidence;
     if (name === '../compatibility/parenting.mjs') return parenting;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected import ${name}`);
@@ -163,6 +165,74 @@ test('one explicit confirmation applies the whole summary without per-answer app
   assert.equal(nodes(rows[0].type(rows[0].props)).filter(node=>node.type==='input'&&node.props.type==='checkbox').length,0);
   find(tree,'اعتماد الملخص').props.onClick();await tick();tree=ui.render();assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/مسودة ملفك/);
   find(tree,'عرض الملخص').props.onClick();ui.render();assert.equal(ui.applied.length,1);ui.unmount();
+});
+
+test('editing a saved portrait reopens the receipt, supports cancel, and only applies a deliberate reconfirmation', async () => {
+  const self = {...proposal, id:'preference:children_plan:self'};
+  const partner = {...proposal, id:'preference:children_plan:partner', side:'partner'};
+  const document = {...baseDocument(), promptVersion:'wudayn-interview-4', status:'confirmed', lastMode:'guided',
+    currentQuestion:null, proposals:[self,partner], confirmed:[self,partner]};
+  const initial = {document,revision:3,structuredConfirmation:true,inferredPartnerIds:[partner.id]};
+  const ui = mount(initial, payload => payload.action === 'structuredConfirm' ? {
+    ...initial, revision:4, inferredPartnerIds:payload.inferredPartnerIds,
+    document:{...document,confirmed:payload.choices.map(item => ({...(item.id === self.id ? self : partner),...item}))},
+  } : null);
+  const get = (tree,type) => nodes(tree).find(node => node.type === type);
+  let draftChanges = 0;
+  ui.render({onboarding:true,onStructuredDraftChange:() => { draftChanges++; }}); await tick();
+  get(ui.render(),'confirmed-answers').props.onEdit(self.id,'B');
+  let tree = ui.render();
+  assert.equal(get(tree,'hybrid-assessment').props.savedChoices[self.id][0],'B');
+  assert.equal(get(tree,'hybrid-assessment').props.savedChoices[partner.id],undefined);
+  assert.ok(!get(tree,'hybrid-assessment').props.unresolvedPartnerIds.includes(partner.id), 'A confirmed receipt is not an ungrounded model proposal');
+  find(tree,'العودة دون تعديل').props.onClick();
+  assert.equal(get(ui.render(),'confirmed-answers').props.confirmed[0].values[0],'A');
+  assert.deepEqual(ui.calls.map(call => call.action),['load']);
+  get(ui.render(),'confirmed-answers').props.onEdit(partner.id,'B');
+  const hybrid = get(ui.render(),'hybrid-assessment');
+  assert.equal(hybrid.props.receiptInferredPartnerIds.length,0);
+  assert.equal(hybrid.props.completingUnavailable,false);
+  assert.equal(draftChanges,0);
+  assert.equal(ui.applied.length,0);
+  hybrid.props.onComplete([{id:self.id,values:['A']},{id:partner.id,values:['B']}],[]); await tick();
+  tree = ui.render();
+  assert.equal(ui.calls.at(-1).action,'structuredConfirm');
+  assert.equal(ui.calls.at(-1).revision,3);
+  assert.deepEqual(ui.calls.at(-1).inferredPartnerIds,[]);
+  assert.equal(ui.applied.length,1);
+  assert.equal(get(tree,'confirmed-answers').props.confirmed[1].values[0],'B');
+  ui.unmount();
+});
+
+test('a lost reconfirmation response is recovered only when the saved partner source matches the correction', async () => {
+  const self = {...proposal, id:'preference:children_plan:self'};
+  const partner = {...proposal, id:'preference:children_plan:partner', side:'partner'};
+  const document = {...baseDocument(), promptVersion:'wudayn-interview-4', status:'confirmed', lastMode:'guided',
+    currentQuestion:null, proposals:[self,partner], confirmed:[self,partner]};
+  let receipt = {document,revision:3,structuredConfirmation:true,inferredPartnerIds:[partner.id]};
+  let attempts = 0;
+  const ui = mount(receipt, payload => {
+    if (payload.action === 'load') return receipt;
+    if (payload.action !== 'structuredConfirm') return null;
+    assert.deepEqual([...payload.inferredPartnerIds], []);
+    if (++attempts === 2) receipt = {...receipt,revision:4,inferredPartnerIds:[]};
+    return Promise.reject(new Error('تعذّر الاتصال'));
+  });
+  const get = type => nodes(ui.render()).find(node => node.type === type);
+  ui.render({onboarding:true,onStructuredDraftChange:noop});
+  await tick();
+  get('confirmed-answers').props.onEdit(partner.id,'B');
+  const edited = get('hybrid-assessment');
+  edited.props.onChange({...edited.props.choices, [partner.id]:['A']}, [partner.id]);
+  const selections = [self,partner].map(({id,values}) => ({id,values}));
+  get('hybrid-assessment').props.onComplete(selections, []);
+  await tick();
+  assert.equal(ui.applied.length,0,'An older inferred answer with the same code is still a different receipt');
+  get('hybrid-assessment').props.onComplete(selections, []);
+  await tick();
+  assert.equal(ui.applied.length,1,'The lost success can be recovered after the explicit correction was stored');
+  assert.deepEqual(ui.calls.map(call => call.action),['load','structuredConfirm','load','structuredConfirm','load']);
+  ui.unmount();
 });
 
 test('partner defaults are clearly labelled and remain editable in the final review', async () => {

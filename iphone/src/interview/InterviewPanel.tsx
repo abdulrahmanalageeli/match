@@ -1,4 +1,5 @@
 import { interviewWritingDrafts } from './writingDraft';
+import { groundedSuggestions } from './openingEvidence';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
@@ -14,6 +15,7 @@ import openingScenarios from './opening-scenarios.json';
 import openingPrompts from './opening-prompts.json';
 import type { InterviewDocument, InterviewProposal, InterviewSnapshot } from './types';
 import './interview.css';
+import './luna-journey.css';
 
 const number = (value: number) => value.toLocaleString('ar-SA');
 const interviewChapters = [
@@ -162,6 +164,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const [shareReview, setShareReview] = useState(false);
   const [deleteWarning, setDeleteWarning] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [receiptDraft, setReceiptDraft] = useState<Record<string, string[]> | null>(null);
+  const [showReceiptSummary, setShowReceiptSummary] = useState(false);
   const [fallbackReview, setFallbackReview] = useState(false);
   const [sharingSaved, setSharingSaved] = useState(false);
   const requestId = useRef<{ answer: string; skip: boolean; id: string } | null>(null);
@@ -182,6 +186,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const versionCallback = useRef(onAssessmentVersion); versionCallback.current = onAssessmentVersion;
   const assign = useCallback((next: InterviewSnapshot, replaceAnswer = false) => {
     if (next.document) versionCallback.current?.(next.document.promptVersion !== 'wudayn-interview-5');
+    else {
+      editedReceiptChoices.current.clear();
+      setReceiptDraft(null);
+      setShowReceiptSummary(false);
+    }
     current.current = next;
     setSnapshot(next);
     if (replaceAnswer) { answerRef.current = next.document?.draftAnswer ?? ''; setAnswer(answerRef.current); setDraftState('saved'); }
@@ -239,7 +248,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             if (['directConfirm','structuredConfirm'].includes(action) && recovered.structuredConfirmation && recovered.document?.status === 'confirmed') {
               const committed = new Map(recovered.document.confirmed.map(item => [item.id, item.values[0]]));
               const submitted = payload.choices as InterviewSelection[];
-              if (committed.size === submitted.length && submitted.every(item => committed.get(item.id) === item.values[0])) {
+              const requestedInferred = payload.inferredPartnerIds as string[] | undefined;
+              const committedInferred = new Set(recovered.inferredPartnerIds);
+              const sameSources = !requestedInferred || (recovered.inferredPartnerIds !== undefined &&
+                committedInferred.size === requestedInferred.length && requestedInferred.every(id => committedInferred.has(id)));
+              if (sameSources && committed.size === submitted.length && submitted.every(item => committed.get(item.id) === item.values[0])) {
                 setError(''); setErrorCode('');
                 return recovered;
               }
@@ -280,8 +293,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (!open || !loaded) return;
     const viewport = dialog.current?.querySelector<HTMLElement>('.wi-content');
     if (viewport) viewport.scrollTop = 0;
-    heading.current?.focus({ preventScroll: true });
-  }, [open, loaded, doc?.status, applied, fallbackReview, profileReview]);
+    const title = heading.current ?? viewport?.querySelector<HTMLElement>('.wi-hybrid-stage h1');
+    title?.focus({ preventScroll: true });
+  }, [open, loaded, doc?.status, applied, fallbackReview, profileReview, !!receiptDraft, showReceiptSummary]);
 
   useEffect(() => {
     if (!open || !loaded || doc || !consentGranted || autoStarted.current) return;
@@ -427,7 +441,13 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     if (result?.document) {
       const selectedProfile = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
       if (!direct && selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
-      if (result.document.confirmed.length) { onApply(result.document.confirmed); setApplied(true); }
+      if (result.document.confirmed.length) {
+        onApply(result.document.confirmed);
+        editedReceiptChoices.current.clear();
+        setReceiptDraft(null);
+        setShowReceiptSummary(false);
+        setApplied(true);
+      }
       else setSharingSaved(true);
       feedback('success');
     }
@@ -462,8 +482,19 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       && !(doc?.promptVersion === 'wudayn-interview-5' && item.id === 'preference:residence_plan:partner'));
   const receiptChoices = snapshot.structuredConfirmation ? doc?.confirmed ?? [] : [];
   // On a fresh device the receipt can outlive the application draft.
-  const savedStructuredChoices = Object.fromEntries([...receiptChoices, ...(assessmentContext ?? [])].map(({ id, values }) => [id, values]));
-  const aiProposals = direct ? [] : validProposals.filter(item => snapshot.carryForwardIds?.includes(item.id) && !item.needsClarification && item.source !== 'self_default' && item.evidence.some(e => !e.turnId.startsWith('context:')));
+  const savedStructuredChoices = receiptDraft ? { ...receiptDraft } : Object.fromEntries([...receiptChoices, ...(assessmentContext ?? [])].map(({ id, values }) => [id, values]));
+  const priorValues = new Map(receiptChoices.map(item => [item.id, item.values[0]]));
+  const receiptInferredPartnerIds = (snapshot.inferredPartnerIds ?? []).filter(id => {
+    if (editedReceiptChoices.current.has(id) || savedStructuredChoices[id]?.[0] !== priorValues.get(id)) return false;
+    const self = id.replace(/:partner$/, ':self');
+    if (receiptDraft && savedStructuredChoices[self]?.[0] !== priorValues.get(self)) {
+      // A change to the source answer invalidates its old partner suggestion.
+      delete savedStructuredChoices[id];
+      return false;
+    }
+    return true;
+  });
+  const aiProposals = direct ? [] : groundedSuggestions(validProposals, snapshot.carryForwardIds, doc?.turns);
   const openingTurnId = !direct && !snapshot.structuredConfirmation && doc?.lastMode === 'luna' && !doc.pendingAnalysis && !doc.turns[0]?.skipped ? doc.turns[0]?.id : undefined;
   const structuredChoices = {
     ...Object.fromEntries(aiProposals.map(({ id, values }) => [id, values])),
@@ -478,9 +509,17 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     for (const id of Object.keys(explicit)) {
       if (!next[id]?.length) delete explicit[id];
     }
-    onStructuredDraftChange?.(explicit);
+    if (receiptDraft) setReceiptDraft(explicit);
+    else onStructuredDraftChange?.(explicit);
   }
-  const blockedPartnerIds = [...hardRequirements.map(id => `preference:${id}:partner`), ...validProposals.filter(item => item.side === 'partner' && item.source !== 'self_default' && !aiProposals.includes(item)).map(item => item.id)];
+  function reviseReceipt(id?: string, code?: string) {
+    editedReceiptChoices.current.clear();
+    if (id && code) editedReceiptChoices.current.add(id);
+    setReceiptDraft({ ...savedStructuredChoices, ...(id && code ? { [id]: [code] } : {}) });
+    setApplied(false);
+  }
+  const unresolvedPartnerProposals = snapshot.structuredConfirmation ? [] : validProposals.filter(item => item.side === 'partner' && item.source !== 'self_default' && !aiProposals.some(grounded => grounded.id === item.id));
+  const blockedPartnerIds = [...hardRequirements.map(id => `preference:${id}:partner`), ...unresolvedPartnerProposals.map(item => item.id)];
   const profileProposals = (doc?.profileProposals ?? []).filter(p => Boolean(profileField(p.fieldId)));
   const profileChoices = profileProposals.flatMap(p => {
     const choice = profileEdits[p.id];
@@ -510,10 +549,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
   const needsParenting = doc?.promptVersion === 'wudayn-interview-5' && doc.status === 'confirmed' && snapshot.structuredConfirmation &&
     !doc.confirmed.some(item=>item.fieldId==='parenting_approach') &&
     parentingApplicable({children_plan:structuredChoices['preference:children_plan:self']?.[0]}, family.childrenCount, family.partnerChildren);
-  const hybrid = Boolean(hybridEnabled && doc && ['wudayn-interview-4','wudayn-interview-5'].includes(doc.promptVersion) && (needsParenting ||
+  const structuredReceipt = hybridEnabled && snapshot.structuredConfirmation && doc?.status === 'confirmed';
+  const hybrid = Boolean(hybridEnabled && doc && ['wudayn-interview-4','wudayn-interview-5'].includes(doc.promptVersion) && (needsParenting || (structuredReceipt && receiptDraft) ||
     doc.status !== 'confirmed' && !fallbackReview && (direct || (hasOpening && doc.status === 'review'))));
   const hasFollowUp = doc?.status === 'review' && questionParts.length === 2 && scenarioIndex >= 0;
-  const hybridReady = Boolean(direct || (hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis));
+  const hybridReady = Boolean(direct || (structuredReceipt && !doc.pendingAnalysis) || (hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis));
   const isChat = Boolean(loaded && doc && !applied && !profileReview && !hybrid && !reviewMode);
   useEffect(() => {
     if (unavailable && !failureNotified.current) { failureNotified.current = true; unavailableCallback.current?.(); }
@@ -541,9 +581,9 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
     unavailableCallback.current?.(); onDirectQuestions();
   }
 
-  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-chat={isChat || undefined} data-luna-motion={!direct || undefined} data-reading={!direct && responding || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
+  return createPortal(<dialog ref={dialog} className="wi-dialog" dir="rtl" aria-labelledby="wi-dialog-name" data-journey={hybridEnabled || undefined} data-chat={isChat || undefined} data-luna-motion={!direct || undefined} data-reading={!direct && responding || undefined} onCancel={event => { event.preventDefault(); void close(); }}>
     <div className="wi-shell">
-      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>لونا من وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','clarify','review','retry'].includes(busy))} aria-label="حفظ وإغلاق الجلسة"><X size={20}/></button></header>
+      <header className="wi-header"><div><img src="/brand/wudayn-emblem-v2.png" width="27" height="31" alt=""/><span id="wi-dialog-name">جلسة التوافق<small>لونا من وُدَين</small></span></div><button type="button" className="wi-icon" onClick={() => void close()} disabled={!!queuedIntent || (!!busy && !['draft','answer','clarify','review','retry'].includes(busy))} aria-label={receiptDraft ? 'إغلاق المراجعة دون اعتماد التغييرات' : 'حفظ وإغلاق الجلسة'}><X size={20}/></button></header>
       <div className="wi-content" data-chat={isChat || undefined}>
         {direct && consentGranted && !doc && error ? <section>
           <p role="status">يمكنك اختيار إجاباتك الآن. يلزم الاتصال لاعتمادها.</p>
@@ -551,7 +591,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             const result=await call('load', {}, true);
             if(result){setLoaded(true);if(!result.document)await call('start',{consentVersion:'wudayn-interview-v1',hybrid:true},true);}
           }}>إعادة الاتصال</button>
-          <HybridAssessment direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
+          <HybridAssessment memberId={auth.token} direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
             completingUnavailable onComplete={()=>{}}/>
         </section> : !loaded ? <div className="wi-loading" data-stopped={Boolean(error) || undefined} role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>{error ? 'تعذّر فتح جلستك' : 'نفتح جلستك…'}</p>{error ? <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button> : <TypingDots/>}</div>
         : !doc ? <section className="wi-welcome">
@@ -570,15 +610,18 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {profileChoices.length<profileProposals.length-ignoredProfile.length && <p className="wi-review-attention">التفاصيل غير الواضحة تبقى معلّقة حتى توضّحها؛ لن نملأها بالتخمين.</p>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
-        : applied && !needsParenting ? <section className="wi-complete">
+        : (applied || (structuredReceipt && !receiptDraft && !showReceiptSummary)) && !needsParenting ? <section className="wi-complete">
           <span className="wi-confirmation-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="34" height="38" alt=""/><Check size={17}/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>تمّ حفظ ملخصك</h1>
           <p>{snapshot.structuredConfirmation ? `أضفنا ${number(doc.confirmed.length)} إجابة اعتمدتها إلى مسودة ملفك.` : 'أضفنا إجاباتك إلى مسودة ملفك.'} يمكنك مراجعتها قبل إرساله.</p>
-          {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender}/>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton>
-          <button type="button" className="wi-link wi-centered" onClick={() => setApplied(false)}>عرض الملخص</button>
+          {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender} onEdit={structuredReceipt ? reviseReceipt : undefined}/>}
+          <button type="button" className="wi-link wi-centered" onClick={() => { setShowReceiptSummary(true); setApplied(false); }}>عرض الملخص</button>
         </section>
         : hybrid ? <section aria-label="أسئلة جلسة التوافق" className="wi-card-session">
+          {receiptDraft && <div className="wi-receipt-revision" role="status">راجع اختياراتك ثم اعتمدها لتحديث الملخص المحفوظ.
+            <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => { editedReceiptChoices.current.clear(); setReceiptDraft(null); setApplied(true); }}>العودة دون تعديل</button>
+          </div>}
           {!direct && !responding && doc.status === 'review' && hybridReady && doc.currentQuestion && (hasFollowUp || !/[؟?]/u.test(doc.currentQuestion.text)) &&
             <div className="wi-bubble wi-bubble-guide wi-closing"><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>
               {renderLunaMessage(doc.currentQuestion.text, true, 'wi-reflection')}
@@ -588,11 +631,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
           {!direct && profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
             <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
           </button>}
-          {nextStepText && !clarifying && <details className="wi-private-notes wi-next-step-review" open>
+          {nextStepText && !clarifying && <details className="wi-private-notes wi-next-step-review">
             <summary>خطوتك الجاية من كلامك <ChevronDown size={14}/></summary>
             <p dir="auto">{nextStepText}</p>
-            <button className="wi-link" type="button" disabled={actionBlocked || !hybridReady || Boolean(answer.trim())}
-              onClick={() => { setClarifying('nextStep'); changeAnswer(nextStepText); }}>تعديل خطوتي</button>
+            {!structuredReceipt && <button className="wi-link" type="button" disabled={actionBlocked || !hybridReady || Boolean(answer.trim())}
+              onClick={() => { setClarifying('nextStep'); changeAnswer(nextStepText); }}>تعديل خطوتي</button>}
           </details>}
           {clarifying && <form className="wi-clarification" onSubmit={event => { event.preventDefault(); void send(); }}>
             <label htmlFor="wi-clarification">{clarifying === 'nextStep' ? 'عدّل وصف خطوتك الجاية' : clarifying === 'followUp' ? 'ردّك على لونا' : 'وش تحب توضّح عن إجاباتك؟'}</label>
@@ -604,8 +647,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
-          <HybridAssessment direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} onChange={changeStructuredChoices}
-            onChoiceHelp={hybridReady ? async (fieldId, description, priorAnswer) => {
+          <HybridAssessment memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
+            onChoiceHelp={hybridReady && !structuredReceipt ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,
                 ...(gender ? { gender } : {}), ...(description ? { answer: description } : {}),
@@ -615,9 +658,11 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               return result.choiceHelp;
             } : undefined}
             unresolvedPartnerIds={blockedPartnerIds}
+            receiptInferredPartnerIds={receiptInferredPartnerIds}
+            portraitPartnerSourceKnown={!structuredReceipt || snapshot.inferredPartnerIds !== undefined}
             onComplete={(choices, inferredIds) => void confirm(choices, inferredIds)} gender={gender} disabled={busy === 'structuredConfirm' || busy === 'directConfirm'}
             completingUnavailable={!hybridReady || actionBlocked || (!direct && (Boolean(clarifying) || Boolean(answer.trim())))}
-            onClarify={!direct && hybridReady && !actionBlocked && !clarifying ? () => setClarifying('correction') : undefined}
+            onClarify={!direct && !structuredReceipt && hybridReady && !actionBlocked && !clarifying ? () => setClarifying('correction') : undefined}
             reviewExtras={<>
               {!direct && profileProposals.length > 0 && <details className="wi-review-group wi-profile-group">
                 <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
@@ -686,7 +731,8 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
               {index === 0 && nextStepTurn && openingTurnId && <OpeningInsights {...family} gender={gender} historical={doc.promptVersion === 'wudayn-interview-4'}
-                openingTurnId={openingTurnId} choices={structuredChoices} savedChoices={savedStructuredChoices} proposals={aiProposals}
+                openingTurnId={openingTurnId} openingText={turn.answer} choices={structuredChoices} savedChoices={savedStructuredChoices} proposals={aiProposals}
+                onChoose={(id, code) => changeStructuredChoices({ ...structuredChoices, [id]: [code] }, [id])} disabled={actionBlocked}
                 unresolvedPartnerIds={blockedPartnerIds}/>}
               {changes.length > 0 && <div className="wi-message-captures" role="status" aria-label="ما أضافته هذه الرسالة"><span className="wi-capture-caption"><Check size={13}/>من كلامك</span><div>{changes.map(change=>change.profile
                 ? <button key={change.id} type="button" className="wi-capture-chip" data-changed={change.changed || undefined} disabled={actionBlocked} onClick={()=>setProfileReview(true)} title={change.value}><small>{captureBadge(change)}</small><span>{change.title}</span><Pencil size={11}/></button>

@@ -54,7 +54,9 @@ const conflict = () => new InterviewError(409, 'conflict', 'تغيّرت الج�
 const consentRequired = () => new InterviewError(403, 'consent_required', 'وافق على معالجة إجابات هذه الجلسة قبل البدء.');
 const header = (headers, name) => typeof (headers?.[name] ?? headers?.get?.(name)) === 'string' ? (headers[name] ?? headers.get(name)) : '';
 
-export function parseInterviewInput(body) {
+const retiredResidencePartner = 'preference:residence_plan:partner';
+
+export function parseInterviewInput(body, allowRetainedResidence = false) {
   if (typeof body === 'string') {
     if (Buffer.byteLength(body) > MAX_BODY) throw new InterviewError(413, 'too_large', 'الطلب أطول من المسموح.');
     try { body = JSON.parse(body); } catch { throw invalid(); }
@@ -116,6 +118,8 @@ export function parseInterviewInput(body) {
         if (typeof id !== 'string') throw invalid();
         const [kind, dimension, side] = id.split(':');
         const self = selected.get(`preference:${dimension}:self`);
+        if (allowRetainedResidence && assessment() === historicalAssessment && ['directConfirm','structuredConfirm'].includes(body.action)
+          && id === retiredResidencePartner && self && selected.has(id)) continue;
         if (kind !== 'preference' || side !== 'partner' || !selected.has(id) ||
           !Object.hasOwn(partnerDefaults, dimension) || partnerDefaults[dimension][self] !== selected.get(id)) throw invalid();
       }
@@ -878,6 +882,16 @@ function isStructuredConfirmation(document) {
   return expected.length === document.confirmed.length && expected.every(field => ids.has(field.id));
 }
 
+function retainsHistoricalResidence(document, input) {
+  if (assessment() !== historicalAssessment || !input.inferredPartnerIds?.includes(retiredResidencePartner) ||
+    !isStructuredConfirmation(document)) return false;
+  const partner = document.confirmed.find(item => item.id === retiredResidencePartner);
+  const self = document.confirmed.find(item => item.id === 'preference:residence_plan:self');
+  // The retired rule only ever proposed B for a member who selected A.
+  if (partner?.summary !== inferredSelectionSummary || self?.values[0] !== 'A' || partner.values[0] !== 'B') return false;
+  return [self, partner].every(item => input.choices.find(choice => choice.id === item.id)?.values[0] === item.values[0]);
+}
+
 function confirmStructuredChoices(document, savedProposals, choices, shareReview, direct = false, inferredPartnerIds) {
   if (!requiredInterview(document)) throw invalid();
   if (!direct && !hasAnalyzedIntroduction(document)) {
@@ -918,7 +932,8 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     try { input=parseInterviewInput(body); }
     catch (error) {
       assessmentScope.getStore().catalog=historicalAssessment;
-      try { input=parseInterviewInput(body); } catch { throw error; }
+      // The authenticated receipt below establishes whether a retired v4 origin can be kept.
+      try { input=parseInterviewInput(body, true); } catch { throw error; }
     }
     const identity = identityHeaders(headers);
     const withAccountPolicy = document => {
@@ -1021,12 +1036,14 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       if (snapshot.revision !== input.revision) throw conflict();
       return rpc('delete', { expectedRevision: snapshot.revision });
     }
-    parseInterviewInput(input);
     const document = withMemberContext(withAccountPolicy(validDocument(snapshot.document)),input);
+    const retainResidence = retainsHistoricalResidence(document, input);
+    parseInterviewInput(input, retainResidence);
     // A retry of an accepted answer returns the saved result even with the old
     // revision; it never appends a duplicate turn or spends another AI request.
     if (['answer', 'clarify'].includes(input.action) && document.lastRequestId === input.requestId) return decorate(snapshot);
     if (snapshot.revision !== input.revision) throw conflict();
+    if (retainResidence) await attest('complete', snapshot);
     if (input.action === 'choiceHelp') {
       if (!requiredInterview(document) || document.status === 'confirmed') throw invalid();
       if (!env.OPENAI_API_KEY) throw unavailable();

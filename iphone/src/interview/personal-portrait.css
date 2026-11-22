@@ -1,0 +1,77 @@
+.wi-personal-sheet {
+  margin-block: 1rem;
+  padding: clamp(.75rem, 3.5vw, 1.15rem);
+  border: 1px solid #e7d8d7;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fcf8f1, #fffafb 75%);
+  color: #452f39;
+}
+.wi-dialog .wi-personal-sheet h2,
+.wi-portrait-title > strong {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.wi-dialog .wi-personal-sheet h2 {
+  margin: 0;
+  color: #62243f;
+  font-size: 1.15rem;
+  line-height: 1.55;
+}
+.wi-dialog .wi-personal-sheet > p {
+  margin: .2rem 0 .45rem;
+  color: #66525b;
+  font-size: .9rem;
+  line-height: 1.65;
+}
+.wi-personal-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-block-size: 44px;
+  padding-block: .5rem;
+  color: #4e3240;
+}
+.wi-personal-line + .wi-personal-line { border-block-start: 1px solid #e9dedd; }
+.wi-personal-line > span { display: grid; min-inline-size: 0; gap: .12rem; }
+.wi-personal-line > svg { flex: none; color: #793951; }
+.wi-dialog .wi-personal-line small { color: #68535c; font-size: .85rem; line-height: 1.55; }
+.wi-dialog .wi-personal-line strong { font-size: 1.05rem; line-height: 1.65; font-weight: 600; overflow-wrap: anywhere; }
+.wi-personal-line > select {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  opacity: 0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.wi-personal-line:focus-within { outline: 2px solid #7b3d58; outline-offset: 2px; border-radius: 5px; }
+.wi-personal-line:has(select:active) { background: #f3e7eb; }
+.wi-living-portrait .wi-portrait-title > strong { font-size: .96rem; }
+.wi-living-portrait .wi-portrait-body > .wi-personal-lines { padding-inline: 4px; }
+.wi-confirmed-answers > h3 { margin-block: .75rem .4rem; font-size: .98rem; color: #4e3240; }
+.wi-receipt-revision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .2rem .75rem;
+  margin-block-end: .65rem;
+  padding-inline-start: .6rem;
+  border-inline-start: 2px solid #ac7490;
+  color: #604750;
+  font-size: .92rem;
+  line-height: 1.65;
+}
+.wi-receipt-revision > button { min-block-size: 44px; }
+@media (prefers-reduced-motion: no-preference) {
+  .wi-personal-line strong { animation: wi-portrait-ink .24s ease-out both; }
+  @keyframes wi-portrait-ink {
+    from { opacity: .4; transform: translateY(2px); }
+    to { opacity: 1; transform: none; }
+  }
+}

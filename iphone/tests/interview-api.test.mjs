@@ -238,6 +238,42 @@ test('resharing a historical relocation suggestion preserves its origin after th
   assert.deepEqual(shared.inferredPartnerIds,[id]);
 });
 
+test('v4 corrections keep a retired partner residence origin only for its verified unchanged pair', async () => {
+  const initial = initialInterviewDocument(true);
+  initial.promptVersion = 'wudayn-interview-4';
+  const h = harness({initial:{document:initial, revision:2}});
+  const analyzed = await h.service({action:'answer', revision:2, requestId:randomUUID(), answer, hybrid:true}, headers);
+  const choices = [
+    ...priorPractical.dimensions.flatMap(dimension => ['self','partner'].map(side => ({id:`preference:${dimension.id}:${side}`,values:['A']}))),
+    ...priorTraits.map(trait => ({id:`personality:${trait.id}:self`,values:['D']})),
+  ];
+  const partner = 'preference:residence_plan:partner', self = 'preference:residence_plan:self';
+  choices.find(item => item.id === partner).values = ['B'];
+  const submit = (service, revision, selections, inferredPartnerIds) =>
+    service({action:'structuredConfirm', revision, choices:selections, inferredPartnerIds}, headers);
+  await assert.rejects(submit(h.service,analyzed.revision,choices,[partner]), {status:400});
+  const manual = await submit(h.service,analyzed.revision,choices,[]);
+  await assert.rejects(submit(h.service,manual.revision,choices,[partner]), {status:400});
+
+  const archived = h.state;
+  archived.document.confirmed.find(item => item.id === partner).summary = 'اقتراح توافق من إجابتك عن نفسك، راجعته ضمن الاعتماد النهائي';
+  const historical = harness({initial:archived});
+  const changed = id => choices.map(item => item.id === id ? {...item,values:[item.values[0] === 'A' ? 'B' : 'A']} : item);
+  for (const id of [self,partner]) await assert.rejects(submit(historical.service,archived.revision,changed(id),[partner]), {status:400});
+  const impossible = structuredClone(archived);
+  impossible.document.confirmed.find(item => item.id === partner).values = ['A'];
+  await assert.rejects(submit(harness({initial:impossible}).service,archived.revision,changed(partner),[partner]), {status:400});
+  const unverified = harness({initial:archived,completionAttestationFailure:true});
+  await assert.rejects(submit(unverified.service,archived.revision,choices,[partner]), {status:503});
+  assert.equal(unverified.state.revision,archived.revision);
+
+  const revised = await submit(historical.service,archived.revision,changed('preference:children_plan:self'),[partner]);
+  assert.deepEqual(revised.inferredPartnerIds,[partner]);
+  assert.deepEqual(revised.document.confirmed.find(item => item.id === 'preference:children_plan:self').values,['B']);
+  assert.ok(historical.calls.some(call => call.event === 'complete' && call.expected_revision === archived.revision));
+  assert.equal(historical.modelCalls.length,0);
+});
+
 test('a failed structured receipt is retryable without repeating Luna analysis', async () => {
   const options = {checkFingerprint:true}, h = harness(options), first = await start(h);
   const analyzed = await send(h, first.revision);

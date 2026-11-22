@@ -86,10 +86,10 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
 
     <section className="wd-welcome-hero">
       <MotionReveal className="wd-hero-copy" delay={revealDelay} duration={700} distance={14}>
-        <span className="wd-welcome-kicker"><span/> للجادّين في الزواج</span>
+        <span className="wd-welcome-kicker"><span/> تعارف بنية زواج واضحة</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
-        <p>توافق مبني على شخصيتك وتفضيلاتك.</p>
-        <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ رحلتك للزواج <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton><a className="wd-welcome-explore" href="#welcome-experience">اكتشف وُدَين <ArrowDown size={15} aria-hidden="true"/></a></div>
+        <p>توافق واضح قبل ما يبدأ التعارف.</p>
+        <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton><p className="wd-seriousness-proof">توافق قبل التواصل <i/> مدة متفق عليها <i/> خطوة رسمية واضحة</p><a className="wd-welcome-explore" href="#welcome-experience">اكتشف وُدَين <ArrowDown size={15} aria-hidden="true"/></a></div>
       </MotionReveal>
       <figure className="wd-hero-art">
         <picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future.webp"/><img src="/brand/welcome/shared-future.webp" alt="مشهد تعبيري لشريكين يبدآن حياة مشتركة" width="1200" height="800" fetchPriority="high"/></picture>
@@ -118,7 +118,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       <li><span>٠٣</span><div><h3>محادثة خاصة للأهل</h3><p>إذا وافقتوا، يفتح «جسر الأهل» مساحة منفصلة لترتيب الخطوة الرسمية. حديثكم الأول يبقى بينكم.</p></div></li>
     </ol></section>
 
-    <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">خلّ البداية<br/>تشبهك.</h2><p>ابدأ باللي يهمّك في زواجك، وخذ وقتك في اختيار الشخص اللي تشاركه هالحياة.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ رحلتك للزواج <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>
+    <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">خلّ البداية<br/>تشبهك.</h2><p>ابدأ باللي يهمّك في زواجك، وخذ وقتك في اختيار الشخص اللي تشاركه هالحياة.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>
     <footer className="wd-welcome-footer"><BrandWordmark/><span>بداية لحياة مشتركة</span><button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
   </main></>;
 }

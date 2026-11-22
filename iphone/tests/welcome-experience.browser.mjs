@@ -35,11 +35,11 @@ const captureStills=process.env.WUDAYN_CAPTURE_STILLS!=='0';
 const viewport=recordWelcome ? {width:402,height:874} : {width:390,height:844};
 // Pin what visitors actually see, including the domain-specific personality score.
 const rotation = [
- ['بعد الدوام', '٧٧٪'], ['قرار العيال', '٨١٪'], ['طبع الويكند', '٣١٪'],
- ['كلمة الأهل', '٧٨٪'], ['أول بيت', '٧٩٪'], ['بين الرياض والخبر', '١٠٠٪'],
- ['موعد الخطبة', '٧٧٪'], ['مصروف البيت', '٨٦٪'], ['حدود الطلعات', '٨١٪'],
- ['وقت الزعل', '٧٨٪'], ['بداية التعارف', '٧٦٪'], ['وقت للعبادة', '٧٩٪'],
- ['لو خالف ولدهم اتفاق', '٨٥٪'],
+ ['الخطوة الرسمية', '77%'], ['عملها بعد الزواج', '77%'], ['قرار العيال', '81%'],
+ ['طبع الويكند', '31%'], ['كلمة الأهل', '78%'], ['أول بيت', '79%'],
+ ['بين الرياض والخبر', '100%'], ['مصروف البيت', '91%'], ['حدود الطلعات', '81%'],
+ ['وقت الزعل', '78%'], ['بداية التعارف', '76%'], ['وقت للعبادة', '79%'],
+ ['لو خالف ولدهم اتفاق', '85%'],
 ];
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});
@@ -64,17 +64,26 @@ try{
  const reading=activeRow.locator('.wd-pair-reading');
  await pair.waitFor();
  const scale=await pair.evaluate(node=>node.getBoundingClientRect().width/node.offsetWidth);
- assert(Math.abs(scale-.7)<.002,'welcome preview renders at 70% of its layout width');
+ assert(Math.abs(scale-1)<.002,'welcome preview renders without transformed text');
  assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
- assert.match(await pair.locator('.wd-pair-footer').innerText(),/لنختصر وقتك/);
+ assert.equal(await pair.locator('.wd-pair-footer,.wd-pair-controls').count(),0,'evidence strip has no decorative playback controls');
  assert.equal(await score.textContent(),rotation[0][1]);
+ const firstScore=await score.elementHandle();
+ await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+ await page.waitForFunction(()=>!document.querySelector('.wd-pair-preview').hasAttribute('data-rotating'));
+ await page.waitForTimeout(7000);
+ assert.equal(await activeRow.locator('.wd-pair-identity > span').innerText(),rotation[0][0],'offscreen captions stay put');
+ await page.evaluate(()=>window.scrollTo(0,0));
+ await page.waitForFunction(()=>document.querySelector('.wd-pair-identity > span')?.textContent==='أول بيت');
+ assert(await firstScore.evaluate(node=>node.isConnected),'changing the factor preserves the score element');
+ assert.equal(await score.textContent(),rotation[0][1]);
+ assert.match(await reading.innerText(),/بيت مستقل/);
  await page.waitForFunction(topic=>document.querySelector('.wd-pair-row:not([inert]) .wd-pair-identity > span')?.textContent===topic,rotation[1][0]);
  assert.equal(await score.textContent(),rotation[1][1]);
  assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
  await activeRow.locator('img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
- await pair.getByRole('button',{name:'من كلام فهد'}).click();
- assert.match(await reading.innerText(),/أبي أكون أب/);
- assert.equal(await pair.getByRole('button',{name:'تشغيل التبديل التلقائي'}).count(),1);
+ await pair.getByRole('button',{name:'من كلام عبدالله'}).click();
+ assert.match(await reading.innerText(),/أغلب شغل البيت عليها/);
  await page.waitForTimeout(6950);
  assert.equal(await score.textContent(),rotation[1][1]);
  await next.focus();await page.keyboard.press('Enter');
@@ -82,11 +91,11 @@ try{
  assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
  for(let i=2;i<=rotation.length;i++){
   const [topic,percent]=rotation[i%rotation.length];
-  if(i>2)await next.click();
+  if(i>2){await next.click();await next.click();}
   assert.equal(await activeRow.locator('.wd-pair-identity > span').innerText(),topic);
   assert.equal(await score.textContent(),percent);
   assert((await reading.innerText()).trim().split(/\s+/).length<=14,'one short reading per rotation');
-  const fits=await reading.evaluate(node=>node.scrollWidth<=node.clientWidth+1 && node.clientHeight<=2*parseFloat(getComputedStyle(node).lineHeight)+1);
+  const fits=await reading.evaluate(node=>{const range=document.createRange();range.selectNodeContents(node);return node.scrollWidth<=node.clientWidth+1&&range.getBoundingClientRect().height<=2*parseFloat(getComputedStyle(node).lineHeight)+1;});
   assert(fits,'reading fits within two lines: '+topic);
  }
  await pair.locator('[data-outgoing]').waitFor({state:'detached'});await next.blur();
@@ -129,6 +138,9 @@ try{
   assert.equal(await page.locator('.wd-launch-screen').count(),0);
   assert.equal(await pair.getByRole('button',{name:'إيقاف التبديل التلقائي'}).count(),0);
   await next.click();
+  assert.match(await reading.innerText(),/بيت مستقل/);
+  assert.equal(await score.textContent(),rotation[0][1]);
+  await next.click();
   assert.equal(await score.textContent(),rotation[1][1]);
   assert.equal(await pair.evaluate(node=>node.getAnimations({subtree:true}).length),0);
  }
@@ -147,7 +159,10 @@ try{
      if(row){
       const level=row.querySelector('.nf-logo-level');
       const offset=getComputedStyle(level).translate.split(' ')[1];
+      const people=row.querySelector('.wd-pair-people');
       window.__pairMotion.push({topic:row.querySelector('.wd-pair-identity > span').textContent,
+       ring:people.dataset.ringEnding, bandPosition:parseFloat(getComputedStyle(people.querySelector('.wd-portrait-rings')).backgroundPositionY),
+       portraitOpacity:Number(getComputedStyle(people.querySelector('img')).opacity), at:performance.now(),
        clip:getComputedStyle(card).clipPath,opacity:Number(getComputedStyle(card).opacity),
        level:parseFloat(offset)||0});
      }
@@ -158,16 +173,29 @@ try{
    await preview.goto(url,{waitUntil:'domcontentloaded'});
    const stories=preview.locator('.wd-pair-preview');
    await stories.waitFor();
-   for(const [topic] of rotation.slice(1,4)){
+   for(const [topic] of rotation.slice(1,7)){
     await preview.waitForFunction(expected=>document.querySelector('.wd-pair-row:not([inert]) .wd-pair-identity > span')?.textContent===expected,topic);
    }
-   await stories.getByRole('button',{name:'من كلام لولوة'}).click();
+   await stories.getByRole('button',{name:'من كلام نورة'}).click();
    await preview.waitForTimeout(1100);
    const frames=await preview.evaluate(()=>window.__pairMotion);
+   for(const ending of ['part','link']){
+    const samples=frames.filter(frame=>frame.ring===ending);
+    assert(samples.some(frame=>frame.portraitOpacity>.8) && samples.some(frame=>frame.portraitOpacity<.1));
+    assert(new Set(samples.map(frame=>frame.bandPosition)).size>=12,ending+' shows distinct band poses');
+    console.log(ending,'first ring cue (seconds)',samples[0].at/1000);
+   }
+   const firstCaption=frames[0];
+   const secondCaption=frames.find(frame=>frame.topic!==firstCaption.topic);
+   const firstEnding=frames.find(frame=>frame.ring);
+   assert(secondCaption.at-firstCaption.at>=6500,'first caption has reading time');
+   assert(firstEnding.at-secondCaption.at>=6500,'second caption has reading time before the rings');
+   const held=frames.filter(frame=>frame.topic===secondCaption.topic && frame.ring && frame.bandPosition===100);
+   assert(held.at(-1).at-held[0].at>=800,'rings settle before the next portraits appear');
    const entrance=frames.filter(frame=>frame.topic===rotation[0][0]);
    assert(entrance.some(frame=>frame.clip!=='none'&&frame.opacity<.4&&frame.level>5));
    assert(entrance.some(frame=>frame.clip==='none'&&frame.opacity===1&&frame.level===0));
-   const lowerScore=frames.filter(frame=>frame.topic===rotation[2][0]);
+   const lowerScore=frames.filter(frame=>frame.topic===rotation[3][0]);
    assert(lowerScore.some(frame=>frame.level < -5) && lowerScore.some(frame=>frame.level===0));
    checks.push('recorded the card unfolding and the liquid settling at the initial and subsequent scores');
    const video=preview.video();

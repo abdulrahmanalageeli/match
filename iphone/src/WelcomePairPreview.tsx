@@ -1,76 +1,105 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { ArrowDown } from './BrandIcons';
-import { ScoreTile } from './compatibility/ScoreTile';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { LogoCompatibilityMark } from './compatibility/LogoCompatibilityMark';
 import { welcomePairs } from './welcomePairStories';
 import './welcomePairPreview.css';
 
-type Selection = { index: number; speaker: number | null; fromScore: number };
+type Selection = { index: number; alternate: boolean; speaker: number | null; fromScore: number };
+
+const readingMs = 6800;
+const ringEndingMs = 2400;
+const handoffMs = 960;
 
 export function WelcomePairPreview({ visible, reduced }: { visible: boolean; reduced: boolean }) {
-  const [selection, setSelection] = useState<Selection>({ index: 0, speaker: null, fromScore: 0 });
-  const [previous, setPrevious] = useState<Selection | null>(null);
+  const [selection, setSelection] = useState<Selection>({ index: 0, alternate: false, speaker: null, fromScore: 0 });
+  const [previous, setPrevious] = useState<(Selection & { finished: boolean }) | null>(null);
   const [paused, setPaused] = useState(false);
-  const rotating = visible && !reduced && !paused;
+  const [ending, setEnding] = useState(false);
+  const card = useRef<HTMLElement>(null);
+  const [onScreen, setOnScreen] = useState(false);
+  const rotating = visible && onScreen && !reduced && !paused && selection.speaker === null;
 
-  const nextPair = useCallback(() => {
-    setPrevious(reduced ? null : selection);
-    setSelection({ index: (selection.index + 1) % welcomePairs.length, speaker: null,
+  useEffect(() => {
+    const node = card.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.intersectionRatio >= .75), { threshold: .75 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const next = welcomePairs[(selection.index + 1) % welcomePairs.length];
+    for (const person of next.people) {
+      const portrait = new Image();
+      portrait.src = '/demo/portraits/' + person.image + '.webp';
+      void portrait.decode().catch(() => {});
+    }
+  }, [selection.index, visible]);
+
+  const advance = useCallback((automatic = false) => {
+    setEnding(false);
+    if (!selection.alternate && selection.speaker === null) {
+      setSelection({ ...selection, alternate: true });
+      return;
+    }
+    setPrevious(reduced ? null : { ...selection, finished: automatic && selection.alternate });
+    setSelection({ index: (selection.index + 1) % welcomePairs.length, alternate: false, speaker: null,
       fromScore: welcomePairs[selection.index].score ?? 0 });
   }, [reduced, selection]);
 
   useEffect(() => {
     if (!rotating) return;
-    const timer = window.setTimeout(nextPair, 6800);
+    const timer = window.setTimeout(() => {
+      if (selection.alternate && !ending) setEnding(true);
+      else advance(true);
+    }, ending ? ringEndingMs : readingMs);
     return () => window.clearTimeout(timer);
-  }, [rotating, nextPair]);
+  }, [rotating, advance, selection.alternate, ending]);
 
   useEffect(() => {
     if (!previous) return;
-    const timer = window.setTimeout(() => setPrevious(null), 500);
+    const timer = window.setTimeout(() => setPrevious(null), handoffMs);
     return () => window.clearTimeout(timer);
   }, [previous]);
 
-  function row({ index, speaker, fromScore }: Selection, outgoing: boolean) {
+  function row({ index, alternate, speaker, fromScore }: Selection, outgoing: boolean) {
     const pair = welcomePairs[index];
+    const showRings = outgoing ? previous?.finished : !reduced && ending && alternate && speaker === null;
+    const [topic, reading] = alternate ? pair.alternate : [pair.topic, pair.reading];
     return <div key={index} className="wd-pair-row" data-outgoing={outgoing || undefined}
       inert={outgoing || undefined} aria-hidden={outgoing || undefined}>
       <div className="wd-pair-top">
-        {pair.people.map((person, i) => <button key={person.image} className="wd-pair-person" type="button"
+        <div className="wd-pair-people" data-ring-ending={showRings ? pair.ringEnding : undefined}>{pair.people.map((person, i) => <button key={person.image} className="wd-pair-person" type="button"
           aria-label={'من كلام ' + person.name} aria-pressed={speaker === i} onFocus={() => setPaused(true)} onClick={() => {
+            setEnding(false);
             setPaused(true);
-            setSelection({ index, speaker: speaker === i ? null : i, fromScore });
+            setSelection({ index, alternate: false, speaker: speaker === i ? null : i, fromScore });
           }}>
           <img src={'/demo/portraits/' + person.image + '.webp'} width="44" height="44" alt=""/>
-        </button>)}
+        </button>)}<span aria-hidden="true" className="wd-portrait-rings" data-bands={pair.ringEnding}/></div>
         <div className="wd-pair-identity">
+          <span key={topic} className="wd-pair-factor">{topic}</span>
           <strong className="wd-pair-names">{pair.people[0].name} و{pair.people[1].name}</strong>
-          <span>{pair.topic}</span>
         </div>
         {pair.score !== null && <div className="wd-pair-score" style={{
           '--wd-level-travel': (pair.score - fromScore) * 48 / 100 + 'px',
         } as CSSProperties}>
-          <ScoreTile percentage={pair.score} variant="logo" label="التوافق"/>
+          <span className="nf-score-tile" dir="rtl"><LogoCompatibilityMark percentage={pair.score}/><span className="nf-score-tile-copy"><span>التوافق</span><strong><bdi dir="ltr">{pair.score}%</bdi></strong></span></span>
         </div>}
       </div>
-      <p className="wd-pair-reading">{speaker === null ? pair.reading : pair.people[speaker].name + ' — «' + pair.people[speaker].quote + '»'}</p>
+      <button className="wd-pair-reading" type="button" aria-label="القصة التالية" onClick={() => {
+        setPaused(true);
+        advance();
+      }}><span key={topic} className="wd-pair-factor">{speaker === null ? reading : pair.people[speaker].name + ' — «' + pair.people[speaker].quote + '»'}</span></button>
     </div>;
   }
 
-  return <section className="wd-pair-preview" aria-label="قصص التوافق" hidden={!visible}
-    aria-live={rotating ? 'off' : 'polite'} data-rotating={rotating || undefined}>
+  return <section ref={card} style={{ '--wd-handoff': handoffMs + 'ms' } as CSSProperties} className="wd-pair-preview" aria-label="قصص التوافق" hidden={!visible}
+    aria-live={rotating ? 'off' : 'polite'} data-rotating={rotating || undefined}
+    onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
     <div className="wd-pair-window" data-moving={(previous !== null && !reduced) || undefined}>
       {row(selection, false)}
       {previous && !reduced && row(previous, true)}
-    </div>
-    <div className="wd-pair-footer">
-      <p>نقارن الطباع والأولويات لنختصر وقتك.</p>
-      <div className="wd-pair-controls">
-        {!reduced && <button type="button" aria-label={paused ? 'تشغيل التبديل التلقائي' : 'إيقاف التبديل التلقائي'}
-          onClick={() => setPaused(!paused)}><svg viewBox="0 0 16 16" aria-hidden="true">
-          {paused ? <path d="M5 3 13 8 5 13Z" fill="currentColor"/> : <path d="M5.5 3v10m5-10v10" stroke="currentColor" strokeWidth="2"/>}
-        </svg></button>}
-        <button type="button" aria-label="القصة التالية" onClick={nextPair}><ArrowDown size={16}/></button>
-      </div>
     </div>
   </section>;
 }

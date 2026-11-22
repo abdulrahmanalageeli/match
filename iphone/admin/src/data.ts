@@ -10,6 +10,7 @@ export const liveApi: AdminApi = {
   applications: (status, before) => call('marriage_admin_applications', { status_filter: status, before_id: before || null }),
   member: id => call('marriage_admin_member', { member_id: id }),
   async review(id, action, revision, reason, requestId) { await call('marriage_admin_review', { member_id: id, action, expected_revision: revision, reason, request_id: requestId }); },
+  async clearRegistrationReview(id, revision, reason) { await call('marriage_admin_clear_registration_review', { member_id: id, expected_revision: revision, reason }); },
   async manage(id, action, changes, revision, reason, requestId) { await call('marriage_admin_manage', { member_id: id, action, changes, expected_revision: revision, reason, request_id: requestId }); },
   reportExcerpt: id => call("marriage_report_excerpt", {target:id}),
   reports: (status, before) => call('marriage_admin_reports', { status_filter: status, before_id: before || null }),
@@ -34,6 +35,8 @@ export function createDemoApi(storage?: Pick<Storage, 'getItem' | 'setItem'>): A
   const members: MemberDetail[] = names.map((displayName, i) => ({ memberId: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, displayName, age: 26 + i, gender: i % 2 ? 'man' : 'woman', city: 'الرياض', profession: jobs[i], status: i < 5 ? 'pending' : 'approved', suspended: i === 7, submittedAt: day(i / 3), revision: '1', bio: 'أقدّر الوضوح والتفاهم، وأبحث عن بداية جادة نشارك فيها الاهتمامات وتفاصيل الحياة.', interests: ['القراءة', 'السفر'], familyPreference: 'بعد التعارف الأول', preferredMinAge: 25, preferredMaxAge: 38, consentVersion: '2026-11-06-assessment', consentedAt: day(i / 3), assessmentVersion: 'marriage-v1', answeredTopics: 24 + i % 7 }));
   members[0].marriageBasics = { heightCm: 165, weightKg: 60, nationality: 'سعودية', tribalBackground: 'tribal', tribeName: 'قبيلة تجريبية', maritalStatus: 'never_married', childrenCount: 0, smoking: 'never', skinTone: 'tone_4', dressStyle: 'hijab', dressFlexibility: 'keep' };
   members[0].publicAvatar = { style: 'hijab', skinTone: 'tone_3' };
+  members[6].applicationDecision = 'automatic';
+  members[6].applicationReviewReasons = ['open_safety_report'];
   members[1].marriageBasics = { heightCm: 178, weightKg: 78, nationality: 'سعودية', tribalBackground: 'non_tribal', maritalStatus: 'divorced', childrenCount: 1, smoking: 'sometimes' };
   const reports: ReportRow[] = [6, 7].map((index, i) => ({ reportId: `10000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, reportedId: members[index].memberId, reportedName: members[index].displayName, reason: i ? 'بلاغ تجريبي عن تواصل غير مرغوب بعد طلب التوقف.' : 'بلاغ تجريبي يحتاج إلى مراجعة أسلوب التواصل.', createdAt: day(i / 2), resolvedAt: null, assignedTo: null, assignedName: null, revision: '1' }));
   const familyLinks: FamilyReviewRow[] = ['محمد العتيبي', 'أم نورة', 'خالد الدوسري', 'أم ريم'].map((guardianName, index) => ({ id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, guardianId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, guardianName, memberId: members[index].memberId, memberName: members[index].displayName, relationship: index % 2 ? 'والدة' : 'والد', memberStatus: index === 1 ? 'pending' : 'active', adminReview: index < 2 ? 'pending' : index === 2 ? 'approved' : 'rejected', submittedAt: day(index / 4), memberApprovedAt: index === 1 ? null : day(index / 5), reviewedAt: index < 2 ? null : day(index / 6), reviewedByName: index < 2 ? null : demoOwner.displayName, reason: index < 2 ? null : 'قرار توضيحي لحسابات خيالية فقط.', revision: '1' }));
@@ -77,9 +80,29 @@ export function createDemoApi(storage?: Pick<Storage, 'getItem' | 'setItem'>): A
       row.status = status; row.response = response.trim(); row.revision++; row.updatedAt = day(0); op.save(); return structuredClone(row);
     },
     async overview() { return { counts: { pendingApplications: members.filter(m => m.status === 'pending' && !m.suspended).length, openReports: reports.filter(r => !r.resolvedAt).length, suspendedMembers: members.filter(m => m.suspended).length, approvedMembers: members.filter(m => m.status === 'approved' && !m.suspended).length, totalMembers: members.length }, daily: [{ day: day(0).slice(0, 10), event: 'accepted', total: 7 }, { day: day(0).slice(0, 10), event: 'requested', total: 12 }], cohorts: [{ offer_week: day(6).slice(0, 10), version: 'marriage-v1', band: 'strong', returned: 42, opened: 31, requested: 12, accepted: 7, formal: 2 }] }; },
-    async applications(status, before) { return structuredClone(members.filter(m => (status === 'all' || (status === 'dummy' ? m.isDummy : status === 'suspended' ? m.suspended : !m.suspended && m.status === status)) && (!before || m.memberId < before)).sort((a, b) => b.memberId.localeCompare(a.memberId)).slice(0, 50).map(currentMember)); },
+    async applications(status, before) {
+      const rows = members.filter(m => {
+        if (before && m.memberId >= before) return false;
+        if (status === 'registration_review') return !m.suspended && !m.applicationReviewResolvedAt && !!m.applicationReviewReasons?.length;
+        if (status === 'all') return true;
+        if (status === 'dummy') return m.isDummy;
+        if (status === 'suspended') return m.suspended;
+        return !m.suspended && m.status === status;
+      });
+      return structuredClone(rows.sort((a, b) => b.memberId.localeCompare(a.memberId)).slice(0, 50).map(currentMember));
+    },
     async member(id) { const row = member(id); log('member_viewed', 'member', id, 'مراجعة ملف تجريبي'); return structuredClone(currentMember(row)); },
     async interviewSummary() { return null; },
+    async clearRegistrationReview(id, revision, reason) {
+      const row = member(id);
+      if (reason.trim().length < 3 || reason.trim().length > 500) throw new AdminError('أدخل سببًا واضحًا لإغلاق المتابعة.');
+      if (row.applicationReviewResolvedAt) return;
+      if (row.revision !== revision) throw new AdminError('تغيّر الملف. أعد فتحه قبل اتخاذ القرار.', '40001');
+      if (row.suspended || row.status !== 'approved' || !row.applicationReviewReasons?.length) throw new AdminError('لا توجد متابعة مفتوحة لهذا الحساب.');
+      row.applicationReviewResolvedAt = new Date().toISOString();
+      row.revision = String(Number(row.revision) + 1);
+      log('registration_review_cleared', 'member', id, reason.trim());
+    },
     async review(id, action, revision, reason, requestId) {
       const op = operation(requestId, [id, action, revision, reason]); if (op.done) return;
       const row = member(id); if (row.revision !== revision) throw new AdminError('تغيّر الملف. أعد فتحه قبل اتخاذ القرار.', '40001');

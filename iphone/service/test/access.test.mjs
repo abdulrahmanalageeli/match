@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, rmdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openStore, SKU, BUNDLE, CONSENT_VERSION } from "../domain.mjs";
+import { openStore, SKU, BUNDLE, CONSENT_VERSION, APPLICATION_INTEGRITY_VERSION } from "../domain.mjs";
 import { createService } from "../server.mjs";
 
 const stores = [];
@@ -35,6 +35,7 @@ async function applicant(store, gender = "woman") {
     bio: "أفضل التواصل بوضوح.",
     contact: form.email,
     consentVersion: CONSENT_VERSION,
+    _applicationIntegrity: APPLICATION_INTEGRITY_VERSION,
   };
   store.apply(id, profile);
   return { id, token, form, profile, accountToken: state.user.appAccountToken };
@@ -381,11 +382,15 @@ test("HTTP authentication, waitlist submission and membership boundary reject fo
       400,
     );
     assert.equal(s.state(state.user.id).user.applicationStatus, "draft");
+    for (const integrity of [undefined, true, "expired"]) {
+      const rejected = await request("/application", "PUT", {...profile, consentVersion: "2026-11-07-privacy", _applicationIntegrity: integrity}, token);
+      assert.equal(rejected.status, 400);
+    }
     const pending = await (
       await request(
         "/application",
         "PUT",
-        { ...profile, consentVersion: CONSENT_VERSION, receivedAt: 0 },
+        { ...profile, consentVersion: "2026-11-07-privacy", _applicationIntegrity: APPLICATION_INTEGRITY_VERSION, receivedAt: 0 },
         token,
       )
     ).json();
@@ -394,9 +399,9 @@ test("HTTP authentication, waitlist submission and membership boundary reject fo
         "SELECT version,received_at FROM application_consents WHERE user_id=?",
       )
       .all(state.user.id);
-    assert.equal(recorded.length, 1);
-    assert.equal(recorded[0].version, CONSENT_VERSION);
-    assert.ok(recorded[0].received_at >= start);
+    assert.deepEqual(recorded.map(row=>row.version).sort(), ["2026-11-07-privacy", APPLICATION_INTEGRITY_VERSION]);
+    assert.ok(recorded.every(row=>row.received_at >= start));
+    assert.equal(pending.profile._applicationIntegrity, undefined);
     assert.equal(pending.user.applicationStatus, "pending");
     assert.equal(pending.membership.active, false);
     const fake = await request(

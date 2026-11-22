@@ -1,6 +1,7 @@
 export type StaffRole = 'owner' | 'reviewer' | 'moderator';
 export type Access = { authorized: boolean; userId: string; role: StaffRole | null; displayName: string | null; mfaRequired: boolean };
-export type MemberRow = { memberId: string; displayName: string; age: number; gender: 'woman' | 'man'; city: string; profession: string; status: 'draft' | 'pending' | 'approved'; suspended: boolean; submittedAt: string | null; revision: string; isDummy?: boolean; paused?: boolean; accessUntil?: string | null; manualAccessUntil?: string | null; accessActive?: boolean; accountSource?: 'member' | 'pair_test' };
+export type ApplicationDecision = 'automatic' | 'manual_review' | 'awaiting_photo';
+export type MemberRow = { applicationDecision?: ApplicationDecision | null; applicationReviewReasons?: string[]; applicationReviewResolvedAt?: string | null; memberId: string; displayName: string; age: number; gender: 'woman' | 'man'; city: string; profession: string; status: 'draft' | 'pending' | 'approved'; suspended: boolean; submittedAt: string | null; revision: string; isDummy?: boolean; paused?: boolean; accessUntil?: string | null; manualAccessUntil?: string | null; accessActive?: boolean; accountSource?: 'member' | 'pair_test' };
 export type PublicMarriageBasics = {
   heightCm?: number;
   weightKg?: number;
@@ -45,6 +46,7 @@ export interface AdminApi {
   applications(status: string, before?: string): Promise<MemberRow[]>;
   member(id: string): Promise<MemberDetail>;
   review(id: string, action: ReviewAction, revision: string, reason: string, requestId: string): Promise<void>;
+  clearRegistrationReview(id: string, revision: string, reason: string): Promise<void>;
   manage(id: string, action: ManageAction, changes: Record<string, unknown>, revision: string, reason: string, requestId: string): Promise<void>;
   reportExcerpt?(id: string): Promise<{body: string|null; kind: string|null; expiresAt: string}|null>;
   reports(status: string, before?: string): Promise<ReportRow[]>;

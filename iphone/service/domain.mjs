@@ -17,6 +17,8 @@ const digest = (token) => createHash("sha256").update(token).digest("hex");
 export const SKU = "com.blindmatch.marriage.monthly";
 export const BUNDLE = "com.blindmatch.marriage";
 export const CONSENT_VERSION = "2026-11-05";
+const currentPrivacyNotice = "2026-11-07-privacy";
+export const APPLICATION_INTEGRITY_VERSION = "wudayn-application-integrity-v1";
 export class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -307,7 +309,7 @@ class Store {
   }
   apply(id, input) {
     requireThat(
-      input.consentVersion === CONSENT_VERSION,
+      input.consentVersion === CONSENT_VERSION || input.consentVersion === currentPrivacyNotice,
       400,
       "يلزم الاطّلاع على سياسة الخصوصية الحالية والموافقة عليها.",
     );
@@ -332,11 +334,14 @@ class Store {
     return this.atomic(() => {
       const current = this.user(id);
       const previous = current.profile ? JSON.parse(current.profile) : null;
-      this.db
-        .prepare(
-          "INSERT INTO application_consents (user_id,version,received_at) VALUES (?,?,?)",
-        )
-        .run(id, CONSENT_VERSION, Date.now());
+      const receipts = this.db.prepare("INSERT INTO application_consents (user_id,version,received_at) VALUES (?,?,?)");
+      const recordedIntegrity = this.db.prepare("SELECT 1 FROM application_consents WHERE user_id=? AND version=? LIMIT 1").get(id, APPLICATION_INTEGRITY_VERSION);
+      const needsIntegrity = current.application_status === "draft" || (!recordedIntegrity && current.application_status !== "approved");
+      if (needsIntegrity || input._applicationIntegrity !== undefined) {
+        requireThat(input._applicationIntegrity === APPLICATION_INTEGRITY_VERSION, 400, "يلزم إقرار صدق الإجابات وقبول سياسة الحظر الدائم قبل الإرسال.");
+        if (needsIntegrity) receipts.run(id, APPLICATION_INTEGRITY_VERSION, Date.now());
+      }
+      receipts.run(id, input.consentVersion, Date.now());
       if (
         current.application_status !== "draft" &&
         previous &&
@@ -361,9 +366,9 @@ class Store {
     requireThat(
       this.db
         .prepare(
-          "SELECT 1 FROM application_consents WHERE user_id=? AND version=? LIMIT 1",
+          "SELECT 1 FROM application_consents WHERE user_id=? AND version IN (?,?) LIMIT 1",
         )
-        .get(id, CONSENT_VERSION),
+        .get(id, CONSENT_VERSION, currentPrivacyNotice),
       409,
       "الطلب يحتاج إلى موافقة صاحبه على سياسة الخصوصية.",
     );

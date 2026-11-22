@@ -71,7 +71,7 @@ try{
  await page.goto('http://127.0.0.1:5295/__onboarding-interview?chapter=avatar&interview',{waitUntil:'networkidle',timeout:60000});
  await page.locator('main[data-chapter=avatar]').waitFor();
  await page.evaluate(()=>{window.__photoCalls=[]});
- if(gender==='woman')await page.getByRole('button',{name:/صورة بتمويه اختياري/}).click();
+ if(gender==='woman')await page.getByRole('tab',{name:/صورة بتمويه اختياري/}).click();
  const imageBytes=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=500;c.height=600;const x=c.getContext('2d');x.fillStyle='#c4a3a3';x.fillRect(0,0,c.width,c.height);return c.toDataURL('image/png').split(',')[1]});
  await page.locator('input[type=file]').setInputFiles({name:'fictional.png',mimeType:'image/png',buffer:Buffer.from(imageBytes,'base64')});
  await page.getByRole('button',{name:'اعتماد الإطار',exact:true}).click();
@@ -85,6 +85,12 @@ try{
  await page.getByRole('button',{name:'أقدر أبدأ خطوة رسمية قريب',exact:true}).click();
  await page.getByRole('checkbox',{name:'أوافق على اتفاق العضوية'}).check();
  await next();await page.locator('main[data-chapter=review]').waitFor();await capture('review-'+gender);
+ const integrity=page.getByRole('checkbox',{name:/أقرّ بصدق إجاباتي/});
+ assert.equal(await integrity.isChecked(),false);
+ await next();await page.getByRole('alert').filter({hasText:'إقرار صدق الإجابات'}).waitFor();
+ assert.equal(await page.evaluate(()=>Boolean(window.__submitted)),false);
+ await page.screenshot({path:resolve(artifacts,'honesty-consent.png'),animations:'disabled'});
+ await integrity.check();
  await next();await page.waitForFunction(()=>window.__submitted!=null);
  const submitted=await page.evaluate(()=>({gender:window.__submitted.profile.gender,consents:window.__submitted.profile.signupConsents,photo:window.__submitted.portrait?.staged?.status,answers:Object.keys(window.__submitted.profile.personalityAnswers||{}).length}));
  assert.equal(submitted.gender,gender);assert.equal(submitted.consents.assessment,true);assert.equal(submitted.consents.sensitivePublication,true);assert.equal(submitted.photo,gender==='man'?'verified':'ready');assert.equal(submitted.answers,15);

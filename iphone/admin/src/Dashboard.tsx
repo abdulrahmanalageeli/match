@@ -18,6 +18,7 @@ const roleNames: Record<string, string> = { owner: 'مالك مساحة الإد
 const actionNames: Record<string, string> = { membership_managed:"إدارة العضوية ولونا", approve: 'اعتماد العضوية', suspend: 'تعليق الحساب', restore: 'رفع التعليق', return_pending: 'إعادة للمراجعة', pause: 'إيقاف الظهور', resume: 'استئناف الظهور', edit_profile: 'تعديل الملف', grant_access: 'منح وصول مجاني', revoke_access: 'إلغاء الوصول المجاني', set_dummy: 'تغيير تصنيف الحساب', assign_self: 'استلام البلاغ', resolve: 'إغلاق البلاغ', reopen: 'إعادة فتح البلاغ', member_viewed: 'مراجعة الملف', staff_granted: 'تفعيل صلاحية', staff_changed: 'تعديل صلاحية', staff_removed: 'إزالة صلاحية', staff_invited: 'حجز صلاحية', staff_invitation_claimed: 'تفعيل الحجز', staff_invitation_changed: 'تحديث حجز الصلاحية', staff_invitation_removed: 'إزالة حجز الصلاحية' };
 Object.assign(actionNames, { family_link_approved: 'اعتماد ربط الأهل', family_link_rejected: 'رفض طلب ربط الأهل', family_link_revoked: 'سحب اعتماد ربط الأهل' });
 actionNames.release_phone_block = 'رفع حظر رقم حساب محذوف';
+actionNames.registration_review_cleared = 'إغلاق متابعة التسجيل';
 Object.assign(actionNames, { view_evidence: 'فتح رسالة مرفقة ببلاغ', verification_approve: 'اعتماد تحقق يدوي', verification_reject: 'رفض طلب التحقق', verification_request_changes: 'طلب استكمال التحقق', verification_revoke: 'سحب شارة التحقق', verification_evidence_viewed: 'فتح مستند تحقق خاص', verification_evidence_access: 'فتح مستند تحقق خاص' });
 const number = new Intl.NumberFormat('ar-SA');
 const date = (value: string | null) => value ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—';
@@ -26,7 +27,21 @@ const initials = (name: string | null) => name?.trim().slice(0, 1) || 'ن';
 function Empty({ title, children }: { title: string; children?: ReactNode }) { return <div className="empty"><span><CheckCircle2 size={27} /></span><h3>{title}</h3><p>{children}</p></div>; }
 function Loading() { return <div className="list-loading" role="status"><span className="loading-line" />جارٍ تحميل البيانات…</div>; }
 function Notice({ error, children }: { error?: boolean; children: ReactNode }) { return <p className={error ? 'notice error' : 'notice'} role={error ? 'alert' : 'status'}>{children}</p>; }
-function Badge({ member }: { member: MemberRow }) { return <span className={'badge ' + (member.suspended ? 'rose' : member.status === 'approved' ? 'green' : 'gold')}>{member.suspended ? 'معلّق' : member.status === 'approved' ? 'معتمد' : member.status === 'pending' ? 'بانتظار المراجعة' : 'مسودة'}</span>; }
+const registrationReasons: Record<string, string> = {
+  repeat_registration: 'ارتباط برقم جوال أو جهاز سبق ربطه بحساب موقوف. تحقّق من السياق قبل اتخاذ قرار.',
+  application_changed: 'تغيّرت بيانات الطلب أو الصورة أثناء التحقق. راجع أحدث نسخة قبل القرار.',
+  photo_review: 'تحتاج صورة الملف إلى مراجعة المطابقة.',
+  open_safety_report: 'يوجد بلاغ سلامة مفتوح يحتاج إلى مراجعة.',
+  phone_unverified: 'لم يكتمل توثيق رقم الجوال.',
+  readiness_unconfirmed: 'تحتاج إجابات الجاهزية واتفاق العضوية إلى تأكيد.',
+  assessment_unconfirmed: 'لم يتأكّد اكتمال تقييم التوافق.',
+  consent_unconfirmed: 'لم يتأكّد تسجيل الموافقات المطلوبة.',
+  eligibility_unconfirmed: 'تعذّر التحقّق من استيفاء شروط التسجيل.',
+};
+function canCloseRegistrationReview(row: MemberRow, role: StaffRole) {
+  return role !== 'moderator' && row.status === 'approved' && !row.suspended && !row.applicationReviewResolvedAt && !!row.applicationReviewReasons?.length;
+}
+function Badge({ member }: { member: MemberRow }) { return <span className={'badge ' + (member.suspended ? 'rose' : member.status === 'approved' ? 'green' : 'gold')}>{member.suspended ? 'معلّق' : member.status === 'approved' ? (member.applicationDecision === 'automatic' ? 'معتمد تلقائيًا' : 'معتمد') : member.status === 'pending' ? (member.applicationDecision === 'awaiting_photo' ? 'بانتظار الصورة' : 'بانتظار المراجعة') : 'مسودة'}</span>; }
 function AccountTags({ member }: { member: MemberRow }) { return <span className="account-tags"><Badge member={member}/>{member.isDummy && <span className="badge dummy">وهمي · Dummy</span>}{member.paused && <span className="badge gold">الظهور متوقف</span>}</span>; }
 
 function Modal({ title, close, busy, children }: { title: string; close: () => void; busy?: boolean; children: ReactNode }) {
@@ -44,14 +59,15 @@ function Modal({ title, close, busy, children }: { title: string; close: () => v
 
 function MemberSheet({ id, api, role, close, completed, onError }: { id: string; api: AdminApi; role: StaffRole; close: () => void; completed: () => void; onError: (e: unknown) => void }) {
   const [detail, setDetail] = useState<MemberDetail | null>(null), [error, setError] = useState(''), [attempt, setAttempt] = useState(0), [busy, setBusy] = useState(false);
-  const [action, setAction] = useState<ReviewAction>('approve'), [reason, setReason] = useState(''), [verified, setVerified] = useState(false);
+  const [action, setAction] = useState<ReviewAction | 'registration_review_cleared'>('approve'), [reason, setReason] = useState(''), [verified, setVerified] = useState(false);
   const intent = useRef<{ fingerprint: string; id: string } | null>(null);
   useEffect(() => {
     let live = true; setDetail(null); setError(''); setVerified(false); setReason('');
-    void api.member(id).then(value => { if (live) { setDetail(value); setAction(value.suspended ? 'restore' : value.status === 'pending' && role !== 'moderator' ? 'approve' : role === 'reviewer' ? 'return_pending' : 'suspend'); } }, problem => { if (live) { setError(friendly(problem)); onError(problem); } });
+    void api.member(id).then(value => { if (live) { setDetail(value); setAction(canCloseRegistrationReview(value, role) ? 'registration_review_cleared' : value.suspended ? 'restore' : value.status === 'pending' && role !== 'moderator' ? 'approve' : role === 'reviewer' ? 'return_pending' : 'suspend'); } }, problem => { if (live) { setError(friendly(problem)); onError(problem); } });
     return () => { live = false; };
   }, [id, api, attempt, role, onError]);
-  const actions: ReviewAction[] = detail ? [
+  const actions: (ReviewAction | 'registration_review_cleared')[] = detail ? [
+    ...(canCloseRegistrationReview(detail, role) ? ['registration_review_cleared' as const] : []),
     ...(!detail.suspended && detail.status === 'pending' && role !== 'moderator' ? ['approve' as const] : []),
     ...(!detail.suspended && detail.status !== 'pending' && role !== 'moderator' ? ['return_pending' as const] : []),
     ...(role !== 'reviewer' ? [detail.suspended ? 'restore' as const : 'suspend' as const] : []),
@@ -76,7 +92,11 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
     const fingerprint = JSON.stringify([id, action, detail.revision, reason.trim()]);
     if (intent.current?.fingerprint !== fingerprint) intent.current = { fingerprint, id: crypto.randomUUID() };
     setBusy(true); setError('');
-    try { await api.review(id, action, detail.revision, reason.trim(), intent.current.id); completed(); }
+    try {
+      if (action === 'registration_review_cleared') await api.clearRegistrationReview(id, detail.revision, reason.trim());
+      else await api.review(id, action, detail.revision, reason.trim(), intent.current.id);
+      completed();
+    }
     catch (problem) { setError(friendly(problem)); onError(problem); }
     finally { setBusy(false); }
   }
@@ -89,7 +109,12 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
       {role !== 'moderator' && <InterviewReview key={id} id={id} api={api} onError={onError} />}
       <dl className="member-facts"><div><dt>الوصول للتعارف</dt><dd>{detail.accessActive ? 'مفعّل' : 'غير مفعّل'}</dd></div><div><dt>تاريخ انتهاء الوصول</dt><dd>{date(detail.accessUntil || null)}</dd></div><div><dt>انتهاء منحة الوصول المجاني</dt><dd>{date(detail.manualAccessUntil || null)}</dd></div></dl>
       <dl className="member-facts"><div><dt>المهنة</dt><dd>{detail.profession}</dd></div><div><dt>تاريخ التقديم</dt><dd>{date(detail.submittedAt)}</dd></div><div><dt>العمر المفضّل للطرف الآخر</dt><dd>{number.format(detail.preferredMinAge)}–{number.format(detail.preferredMaxAge)}</dd></div><div><dt>إشراك الأسرة</dt><dd>{detail.familyPreference || 'لم يُحدد'}</dd></div></dl>
-      {detail.repeatReview && <p className="quiet-box">يتشارك هذا الحساب جهازًا أو رقمًا موثّقًا مع حساب موقوف. تحقّق من السياق قبل اتخاذ أي إجراء.</p>}
+      {role !== 'moderator' && !!detail.applicationReviewReasons?.length && <section className="quiet-box">
+        <strong>{detail.applicationReviewResolvedAt ? 'أُغلقت متابعة التسجيل' : 'سبب إحالة الطلب للفريق'}</strong>
+        <ul>{(detail.applicationReviewReasons ?? []).map(code => <li key={code}>{registrationReasons[code] ?? 'يلزم التحقق من بيانات الطلب.'}</li>)}</ul>
+        {detail.applicationReviewResolvedAt ? <small>{date(detail.applicationReviewResolvedAt)}</small> : canCloseRegistrationReview(detail, role) && <p>حساب العضو مفعّل أثناء المتابعة.</p>}
+      </section>}
+      {detail.repeatReview && !detail.applicationReviewReasons?.includes('repeat_registration') && <p className="quiet-box">يتشارك هذا الحساب جهازًا أو رقمًا موثّقًا مع حساب موقوف. تحقّق من السياق قبل اتخاذ أي إجراء.</p>}
       <section className="profile-bio"><h3>النبذة الشخصية</h3><p>{detail.bio}</p><div className="interest-list">{detail.interests.map(interest => <span key={interest}>{interest}</span>)}</div></section>
       {(detail.education || detail.marriageIntent) && <dl className="member-facts">
         {detail.education && <div><dt>التعليم</dt><dd>{detail.education}</dd></div>}
@@ -112,7 +137,7 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
         ['قيمه واحتياجاته الأساسية', detail.valuesStatement],
       ] as const).map(([label, content]) => content ? <section className="profile-bio" key={label}><h3>{label}</h3><p dir="auto">{content}</p></section> : null)}
       {detail.beenaStory && <section className="profile-bio"><h3>قصة بيننا · موقف من الحياة</h3><p className="muted">اختار العضو مشاركة هذه القصة على ملفه. راجع النص قبل اعتماد العضوية.</p><p dir="auto" style={{ whiteSpace: 'pre-wrap' }}>{detail.beenaStory.text}</p></section>}
-      <section className="review-section quiet-box"><h3><ShieldCheck size={17} /> الموافقة والجاهزية</h3><p>{number.format(detail.answeredTopics)} إجابة مسجّلة · {detail.assessmentVersion}</p><p>آخر موافقة: {date(detail.consentedAt)}</p><small>العمر إفادة من العضو. يلزم التحقق وفق إجراء الفريق قبل اعتماد العضوية.</small></section>
+      <section className="review-section quiet-box"><h3><ShieldCheck size={17} /> الموافقة والجاهزية</h3><p>{number.format(detail.answeredTopics)} إجابة مسجّلة · {detail.assessmentVersion}</p><p>آخر موافقة: {date(detail.consentedAt)}</p><small>يعتمد التسجيل على تاريخ الميلاد المُدخل وإقرار العضو ببلوغه ١٨ عامًا. تحقّق من الأهلية عند وجود ما يستدعي المتابعة.</small></section>
       {!!actions.length && <section className="review-section"><h3>قرار المراجعة</h3><div className="choice-row">{actions.map(choice => <button key={choice} className={action === choice ? 'choice selected' : 'choice'} onClick={() => setAction(choice)} disabled={busy}>{actionNames[choice]}</button>)}</div>
         {action === 'restore' && <p className="muted">يعود الملف للمراجعة. المحادثات السابقة تبقى مغلقة.</p>}{action === 'return_pending' && <p className="muted">يحتاج الحساب اعتمادًا جديدًا قبل العودة للتعارف.</p>}{action === 'pause' && <p className="muted">يتوقف ظهور الحساب في الاكتشاف.</p>}
         {action === 'approve' && <label className="check-label"><input type="checkbox" checked={verified} onChange={e => setVerified(e.target.checked)} disabled={busy} />تحققت من أهلية العضو والعمر وفق إجراء الفريق.</label>}
@@ -225,11 +250,11 @@ export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: 
     <aside className="sidebar"><Brand /><span className="sidebar-caption">العناية بكل بداية</span><nav aria-label="التنقل الرئيسي">{nav.map(item => <button key={item.page} className={page === item.page ? 'nav-item active' : 'nav-item'} aria-current={page === item.page ? 'page' : undefined} onClick={() => navigate(item.page)}>{item.icon}<span>{titles[item.page]}</span>{page === item.page && <i />}</button>)}</nav><div className="sidebar-bottom"><span className="staff-avatar">{initials(staff.displayName)}</span><div><strong>{staff.displayName}</strong><small>{roleNames[role]}</small></div><button className="icon-button" aria-label={demo ? 'إنهاء التجربة' : 'تسجيل الخروج'} onClick={onExit}><LogOut size={17} /></button></div></aside>
     <main className="dashboard-main"><header className="workspace-top"><span><ShieldCheck size={15} /> مساحة الفريق</span><span className={demo ? 'environment demo' : 'environment'}>{demo ? 'بيانات تجريبية' : mode === 'staging' ? 'بيئة الاختبار' : 'بيئة الإنتاج'}</span></header>
       {demo && <div className="demo-banner"><span><SparkleMark /> تجربة مستقلة · حسابات وهمية، وتُحفظ قراراتها على هذا المتصفح عند توفر التخزين.</span><button onClick={onExit}>إنهاء التجربة<ArrowLeft size={14} /></button></div>}
-      <section className="page-title"><div><p className="eyebrow">وُدَين / مساحة الإدارة</p><h1 ref={mainHeading} tabIndex={-1}>{titles[page]}</h1><p>{page === 'overview' ? 'ما يحتاج عنايتك اليوم، في مكان واحد.' : page === 'applications' ? 'كل ملف يُراجع بعناية، وكل قرار يبقى موثّقًا.' : page === 'family' ? 'روابط عائلية بموافقة العضو ومراجعة الفريق.' : page === 'verification' ? 'مراجعة خاصة، وشارة تصف بالضبط ما تم التحقق منه.' : page === 'reports' ? 'متابعة واضحة تحفظ خصوصية الأطراف وسلامتهم.' : page === 'audit' ? 'سجل موثّق للاطلاع والقرارات، متاح لمالك المساحة.' : 'مؤشرات محددة تساعدك على متابعة جاهزية الخدمة.'}</p></div>{page !== 'operations' && <button className="secondary refresh-button" onClick={() => setRevision(v => v + 1)} disabled={loading}><RefreshCw size={16} />تحديث</button>}</section>
+      <section className="page-title"><div><p className="eyebrow">وُدَين / مساحة الإدارة</p><h1 ref={mainHeading} tabIndex={-1}>{titles[page]}</h1><p>{page === 'overview' ? 'ما يحتاج عنايتك اليوم، في مكان واحد.' : page === 'applications' ? 'تُعتمد الطلبات المستوفية تلقائيًا، ويمكنك مراجعة الطلبات المُحالة للفريق هنا.' : page === 'family' ? 'روابط عائلية بموافقة العضو ومراجعة الفريق.' : page === 'verification' ? 'مراجعة خاصة، وشارة تصف بالضبط ما تم التحقق منه.' : page === 'reports' ? 'متابعة واضحة تحفظ خصوصية الأطراف وسلامتهم.' : page === 'audit' ? 'سجل موثّق للاطلاع والقرارات، متاح لمالك المساحة.' : 'مؤشرات محددة تساعدك على متابعة جاهزية الخدمة.'}</p></div>{page !== 'operations' && <button className="secondary refresh-button" onClick={() => setRevision(v => v + 1)} disabled={loading}><RefreshCw size={16} />تحديث</button>}</section>
       {toast && <Notice>{toast}</Notice>}{error && <Notice error>{error} <button className="inline-button" onClick={() => setRevision(v => v + 1)}>إعادة المحاولة</button></Notice>}
       {page === 'overview' && (loading ? <Loading /> : overview && <OverviewPanel data={overview} navigate={navigate} />)}
       {page === 'applications' && <MemberLookup open={setMemberId}/>}
-      {page === 'applications' && <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>دليل الحسابات</h2><p>الحسابات الحقيقية والوهمية، مع حالة العضوية والوصول.</p></div><div className="filters" role="group" aria-label="حالة العضوية">{(role === 'moderator' ? ['suspended'] : ['all', 'pending', 'approved', 'suspended', 'draft', 'dummy', ...(demo ? [] : ['repeat_review'])]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{{ all: 'الكل', pending: 'للمراجعة', approved: 'معتمدة', suspended: 'معلّقة', draft: 'مسودات', dummy: 'وهمية', repeat_review: 'مؤشرات تسجيل متكرر' }[value]}</button>)}</div></div>
+      {page === 'applications' && <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>دليل الحسابات</h2><p>الحسابات الحقيقية والوهمية، مع حالة العضوية والوصول.</p></div><div className="filters" role="group" aria-label="حالة العضوية">{(role === 'moderator' ? ['suspended'] : ['all', 'pending', 'approved', 'suspended', 'draft', 'dummy', 'registration_review', ...(demo ? [] : ['repeat_review'])]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{{ all: 'الكل', pending: 'طلبات معلّقة', approved: 'معتمدة', suspended: 'معلّقة', draft: 'مسودات', dummy: 'وهمية', registration_review: 'متابعة التسجيل', repeat_review: 'مؤشرات تسجيل متكرر' }[value]}</button>)}</div></div>
         {!members.length ? loading ? <Loading /> : !error && <Empty title="لا توجد ملفات في هذه القائمة">ستظهر هنا الملفات المطابقة لحالة المراجعة.</Empty> : <div className="member-list">{members.map(member => <button className="member-row" key={member.memberId} onClick={() => setMemberId(member.memberId)} aria-label={'مراجعة ملف ' + member.displayName}><span className="avatar">{initials(member.displayName)}</span><span className="row-person"><strong>{member.displayName}</strong><small>{number.format(member.age)} عامًا · {member.city}</small></span><span className="row-job">{member.profession}<small>{date(member.submittedAt)}</small></span><AccountTags member={member} /><ChevronLeft size={17} /></button>)}</div>}
       </section>}
       {page === 'reports' && <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>متابعة البلاغات</h2><p>إسناد واضح وسبب موثق لكل إجراء.</p></div><div className="filters" role="group" aria-label="حالة البلاغ">{['open', 'resolved'].map(value => <button key={value} aria-pressed={reportFilter === value} onClick={() => setReportFilter(value)}>{value === 'open' ? 'مفتوحة' : 'مغلقة'}</button>)}</div></div>

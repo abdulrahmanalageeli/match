@@ -31,8 +31,8 @@ VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 Keep all service-role credentials and Apple verification secrets on trusted servers. The client explicitly rejects the event database host. Use [Supabase setup and migrations](supabase/README.md) for Auth settings, private normalized tables, RLS, narrowly scoped RPCs, trusted Apple functions, and verification instructions.
 
 1. The member registers and submits a profile with preferences and explicit consent. Private drafts save automatically to the member account. Logging out clears local state and preserves the account draft for later sign-in; submitting or deleting the account removes it.
-2. An operator independently verifies adulthood and reviews the application. Checkout becomes available when a compatible approved counterpart exists.
-3. Apple handles the subscription. A server-verified active entitlement opens discovery and requests. Only mutually accepted requests open a chat. An operator-curated introduction can share the member’s designated contact after both people accept it.
+2. A first-time applicant confirms that all answers are truthful. The server checks the recorded birth date and 18+ declaration, verified phone, required answers, privacy consents, readiness agreement and applicable portrait. A completed application opens the member platform immediately. A registration linked to a suspended account or an open safety report can also enter the staff follow-up queue.
+3. Members enter on their existing tier. Paid features still require the corresponding entitlement. Apple handles subscriptions. A mutually accepted request opens a chat. An operator-curated introduction can share the designated contact after both people accept it.
 4. Members can pause matching, block, report, and delete their account. An operator reviews reports and can suspend accounts. Apple handles future billing and cancellations.
 
 ## Run on an iPhone

@@ -46,6 +46,42 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 8px; }
+.wd-registration-progress { margin-block: -4px 4px; }
+.wd-registration-progress > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: center;
+  gap: 5px 8px;
+  min-block-size: 44px;
+  color: var(--journey-ink);
+  cursor: pointer;
+  list-style: none;
+}
+.wd-registration-progress > summary::-webkit-details-marker { display: none; }
+.wd-registration-progress > summary:focus-visible { border-radius: 7px; outline: 2px solid #702941; outline-offset: 2px; }
+.wd-stage-label { display: flex; align-items: center; gap: 5px; font-size: .9rem; line-height: 1.4; font-weight: 600; }
+.wd-stage-label svg { flex: none; color: var(--journey-muted); }
+.wd-stage-count { color: var(--journey-muted); font-size: .8125rem; line-height: 1.5; }
+.wd-registration-progress .nf-intake-meter { grid-column: 1 / -1; }
+.wd-registration-progress[open] .wd-stage-label svg { transform: rotate(180deg); }
+.wd-registration-progress ol {
+  display: grid;
+  list-style: none;
+  padding: 3px 12px;
+  margin: 2px 0 8px;
+  border: 1px solid var(--journey-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.wd-registration-progress li { display: flex; align-items: baseline; gap: 8px; padding-block: 6px; color: var(--journey-muted); font-size: .875rem; }
+.wd-registration-progress li + li { border-block-start: 1px solid var(--journey-line); }
+.wd-registration-progress li > span { min-inline-size: 1em; text-align: center; font-variant-numeric: tabular-nums; }
+.wd-registration-progress li[aria-current] { color: #591b32; font-weight: 600; }
+.wd-registration-progress li > small { margin-inline-start: auto; font-size: .8125rem; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .wd-stage-label svg { transition: transform 160ms ease-out; }
+}
 .phone-app .nf-intake.nf-intake--new .nf-intake-progress {
   padding: 0 0 12px; margin: 0;
   border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;

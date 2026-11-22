@@ -196,7 +196,7 @@ async function register(browser, gender) {
     }
     await next(); await button('أبحث عن زواج جاد').click(); await next();
     await chapter('avatar');
-    if(gender==='woman') await button(/صورة بتمويه اختياري/).click();
+    if(gender==='woman') await page.getByRole('tab',{name:/صورة بتمويه اختياري/}).click();
     const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=500;c.height=600;const ctx=c.getContext('2d');ctx.fillStyle='#bd9a9a';ctx.fillRect(0,0,500,600);return c.toDataURL().split(',')[1]});
     await page.locator('input[type=file]').setInputFiles({name:'fictional.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await button('اعتماد الإطار').click();
@@ -210,7 +210,14 @@ async function register(browser, gender) {
     await button('أرتاح لإشراك الأهل من البداية').click();await button('أقدر أبدأ خطوة رسمية قريب').click();
     await page.getByRole('checkbox',{name:'أوافق على اتفاق العضوية'}).check(); await next();
     await chapter('review');
+    const integrity = page.getByRole('checkbox',{name:/أقرّ بصدق إجاباتي/});
+    assert.equal(await integrity.isChecked(),false);
+    await next();
+    await page.getByRole('alert').filter({hasText:'إقرار صدق الإجابات'}).waitFor();
+    assert.equal(await integrity.evaluate(node=>node===document.activeElement),true);
+    assert.equal(await page.evaluate(()=>Boolean(window.__submitted)),false);
     if(carry) {
+      await integrity.check();
       const personal = page.locator('.nf-intake-review-group').filter({has:page.locator('summary',{hasText:'تفاصيلك الشخصية'})});
       if(!await personal.evaluate(node => node.open)) await personal.locator('summary').click();
       await personal.getByRole('button',{name:'تعديل تفاصيلك الشخصية'}).click();
@@ -221,7 +228,9 @@ async function register(browser, gender) {
       }
       await page.getByRole('heading',{name:'خطط الحياة الزوجية',exact:true}).waitFor();
       await next(); await chapter('review');
+      assert.equal(await integrity.isChecked(),false,'returning from corrections requires a fresh acknowledgment');
     }
+    await integrity.check();
     await next(); await page.getByRole('heading',{name:'تم إرسال الملف'}).waitFor();
     const {account,profile,photo,photoStatus}=await page.evaluate(()=>window.__submitted);
     assert.equal(profile.displayName,person);assert.equal(profile.gender,gender);
@@ -230,6 +239,7 @@ async function register(browser, gender) {
     assert.equal(photoStatus,gender==='man'?'verified':'ready');
     assert.equal(Object.keys(profile.personalityAnswers).length,15);
     assert(profile.signupConsents.assessment && profile.signupConsents.sensitivePublication);
+    assert.equal(profile._applicationIntegrity,'wudayn-application-integrity-v1');
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
     console.log('PASS',gender,'account entry, identity, assessment, sensitive draft recovery, photo, readiness and application submission');
     if(gender==='woman') assert.deepEqual(photo,{blur:100,revealPolicy:'family'});

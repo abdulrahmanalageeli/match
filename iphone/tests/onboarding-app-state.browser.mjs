@@ -17,16 +17,43 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import App from '/src/App';
 import {demoProfile} from '/src/community/data';
+import {initialDraft} from '/src/onboarding/draft';
+import {intakeVault} from '/src/onboarding/persistence';
+import {dimensionsForVersion,practicalAnswerKeys} from '/src/compatibility/model';
+import {personalityQuestionsFor} from '/src/compatibility/personality';
 import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';import '/src/typography.css';
 const gender=new URLSearchParams(location.search).get('gender')==='woman'?'woman':'man';
-const id='fixture-'+gender;
+const journey=new URLSearchParams(location.search).get('journey')||'pending';
+const id=gender==='man'?'11111111-1111-4111-8111-111111111111':'22222222-2222-4222-8222-222222222222';
+window.__journey=journey;
+const stageId='synthetic-portrait-'+gender;
+const stagePhoto={id:stageId,path:'fixture.jpg',blur:gender==='woman'?100:0,revealPolicy:'never'};
+window.__stage=['verified','recovery','private'].includes(journey)?{id:stageId,status:gender==='man'?'verified':'ready',portrait:stagePhoto}:null;
 window.__state=JSON.parse(sessionStorage.getItem(id)||'null')??{
- user:{id,email:id+'@example.test',applicationStatus:'pending',appAccountToken:'account-'+id,paused:false},
- profile:{...demoProfile,gender},membership:{active:false,canStart:false,tier:'free',connectionLimit:1,status:'free',expiresAt:null},introduction:null
+ user:{id,email:id+'@example.test',applicationStatus:journey==='pending'?'pending':'draft',appAccountToken:'account-'+id,paused:false},
+ profile:journey==='pending'?{...demoProfile,gender}:null,membership:{active:false,canStart:false,tier:'free',connectionLimit:1,status:'free',expiresAt:null},introduction:null
 };
+window.__holdFinalization=journey==='verified';
+window.__failFinalization=journey==='recovery'&&!sessionStorage.getItem('photo-retry');
 window.__calls=[];window.__issued=null;window.__purchaseMode='cancel';
 window.__peer={id:gender==='man'?'fixture-woman':'fixture-man',alias:gender==='man'?'سارة':'سعود',gender:gender==='man'?'woman':'man',age:29,city:'الرياض',occupation:'مهندس',bio:'أقدّر الحوار الهادئ.',interests:[],reasons:[],marriageBasics:{},eligible:true,online:true};
-createRoot(document.getElementById('root')).render(<App/>);
+async function start(){
+ if(window.__state.user.applicationStatus==='draft'){
+  const draft=initialDraft(id,null);
+  draft.step='review';
+  draft.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:true,sensitivePublication:true};
+  Object.assign(draft.answers,{displayName:gender==='man'?'سعود':'سارة',gender,age:'28',birthDate:'1998-05-12',city:'الرياض',
+    profession:'التقنية والبرمجة',education:'بكالوريوس',bio:'نبذة تجريبية عن الحياة والاهتمامات',lookingFor:'شريك متفهم',lifeTogether:'حياة هادئة',marriageIntent:'الزواج',valuesStatement:'الاحترام',contact:id+'@example.test',familyPreference:'من البداية',
+    marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open',heightCm:165,weightKg:65,skinTone:'tone_4',dressStyle:'hijab',dressFlexibility:'keep',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together',tribalBackground:'prefer_not_to_say',religiousAffiliation:'prefer_not_to_say',prayerPractice:'prefer_not_to_say'},
+    partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),
+    membershipReadiness:{family:'early',nextStep:'soon',agreement:'wudayn-membership-v1'},
+    surveyAnswers:Object.fromEntries(dimensionsForVersion(draft.answers.assessmentVersion).flatMap(d=>practicalAnswerKeys(d,draft.answers.assessmentVersion).map(key=>[key,d.options[0].code]))),
+    personalityAnswers:Object.fromEntries(personalityQuestionsFor(draft.answers.personalityVersion).map(q=>[q.id,'C']))});
+  await intakeVault.save(draft,intakeVault.revision(id));
+ }
+ createRoot(document.getElementById('root')).render(<App/>);
+}
+void start();
 `;
 const fakeSupabase=`
 const state=()=>window.__state;
@@ -35,6 +62,34 @@ function answer(name,params){
  switch(name){
   case 'marriage_social_onboarding_status':return {required:false};
   case 'marriage_state':return structuredClone(member);
+  case 'marriage_onboarding_draft':
+   if(params.command==='save')window.__draft=structuredClone(params.payload);
+   if(params.command==='delete')window.__draft=null;
+   return params.command==='load'?window.__draft:null;
+  case 'marriage_apply':{
+   const p=params.payload;
+   if(member.user.applicationStatus!=='draft'||p._applicationIntegrity!=='wudayn-application-integrity-v1'||!p.signupConsents?.sensitivePublication||!p._membershipReadiness?.agreement)throw Error('Unexpected application');
+   if(Boolean(window.__stage)!==p.signupConsents.photo)throw Error('Unexpected photo selection');
+   member.profile={...p};
+   member.user.applicationStatus=window.__stage||window.__journey==='staff-hold'?'pending':'approved';
+   if(window.__journey==='follow-up')window.__staffFollowup='open_safety_report';
+   window.__calls.push({action:'apply',status:member.user.applicationStatus,photo:p.signupConsents.photo,avatar:Boolean(p.publicAvatar)});
+   sessionStorage.setItem(member.user.id,JSON.stringify(member));
+   return structuredClone(member);
+  }
+  case 'marriage_portrait_stage_resume':return member.profile?.portrait?null:window.__stage;
+  case 'marriage_portrait_stage_action':{
+   if(params.action!=='finalize'||params.photo!==window.__stage?.id||!member.profile?.signupConsents.photo)throw Error('Unexpected finalization');
+   window.__calls.push({action:'finalize',id:params.photo});
+   if(window.__failFinalization){sessionStorage.setItem('photo-retry','1');throw Error('تعذّر حفظ الصورة.');}
+   return (async()=>{
+    if(window.__holdFinalization)await new Promise(resolve=>{window.__releaseFinalization=resolve});
+    member.profile.portrait=window.__stage.portrait;
+    member.user.applicationStatus='approved';
+    sessionStorage.setItem(member.user.id,JSON.stringify(member));
+    return structuredClone(member.profile.portrait);
+   })();
+  }
   case 'marriage_unread_count':return 0;
   case 'marriage_inbox':case 'marriage_notifications':case 'marriage_conversation_pilot_notices':case 'marriage_request_history':return [];
   case 'marriage_browse':{
@@ -50,8 +105,9 @@ export function createClient(){
  return {
   auth:{getSession:async()=>({data:{session:{user:state().user,access_token:'fixture-only'}}}),getUser:async()=>({data:{user:state().user}})},
   channel:()=>({on(){return this},subscribe(){return this}}),removeChannel:async()=>{},
+  storage:{from:()=>({download:async()=>({data:new Blob(['synthetic'],{type:'image/jpeg'})})})},
   rpc(name,params){
-   const result=Promise.resolve().then(()=>({data:answer(name,params),error:null}));
+   const result=Promise.resolve().then(async()=>({data:await answer(name,params),error:null}));
    result.abortSignal=()=>result;
    return result;
   },
@@ -128,6 +184,26 @@ const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),
  }]});
 await server.listen();
 let browser;
+async function submitRestoredDraft(page) {
+ const review=page.locator('main[data-chapter=review]');
+ await review.getByRole('checkbox',{name:/أقرّ بصدق إجاباتي/}).waitFor();
+ for(const box of await review.locator('.nf-consent-review > .nf-consent-choice input').all())await box.check();
+ await review.getByRole('checkbox',{name:/أقرّ بصدق إجاباتي/}).check();
+ await review.getByRole('button',{name:'إرسال طلب العضوية',exact:true}).tap();
+}
+async function localPage(page) {
+ const errors=[],external=[];
+ page.setDefaultTimeout(30000);
+ page.setDefaultNavigationTimeout(90000);
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>{
+  const url=new URL(route.request().url());
+  if(url.hostname==='127.0.0.1'&&url.pathname==='/api/interview')return route.fulfill({json:{document:null,revision:0,fallbackAvailable:true}});
+  if(url.hostname==='127.0.0.1'||['blob:','data:'].includes(url.protocol))return route.continue();
+  external.push(url.origin);return route.abort();
+ });
+ return {errors,external};
+}
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});
  for(const [gender,plan,productId,expectedPrice,peer] of [
@@ -135,22 +211,22 @@ try{
   ['woman','seriousness','com.blindmatch.marriage.monthly.seriousness.women','199.99 SAR','سعود']
  ]){
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,locale:'ar-SA'});
-  const errors=[];page.on('pageerror',error=>errors.push(error.message));page.setDefaultTimeout(20000);
-  const external=[];await page.route('**/*',route=>{
-   const url=new URL(route.request().url());
-   if(url.hostname==='127.0.0.1'||url.protocol==='data:')return route.continue();
-   external.push(url.origin);return route.abort();
-  });
+  const {errors,external}=await localPage(page);
   try{
-   await page.goto('http://127.0.0.1:5294/__app-state?gender='+gender,{waitUntil:'domcontentloaded'});
-   await page.getByRole('heading',{name:'طلبك قيد المراجعة'}).waitFor();
-   assert.equal(await page.locator('.df-discovery,.wd-paywall').count(),0);
-   await page.screenshot({path:resolve(output,gender+'-pending.png')});
-   await page.evaluate(()=>{window.__state.user.applicationStatus='approved'});
-   await page.getByRole('button',{name:'تحديث حالة الطلب'}).tap();
+   const journey=gender==='man'?'verified':'avatar';
+   await page.goto('http://127.0.0.1:5294/__app-state?gender='+gender+'&journey='+journey,{waitUntil:'domcontentloaded'});
+   await submitRestoredDraft(page);
+   if(gender==='man'){
+    await page.waitForFunction(()=>typeof window.__releaseFinalization==='function');
+    assert.equal(await page.getByRole('heading',{name:'طلبك قيد المراجعة'}).count(),0);
+    assert.equal(await page.locator('.df-discovery,.wd-paywall').count(),0);
+    await page.evaluate(()=>window.__releaseFinalization());
+   }
    const directory=page.locator('.df-discovery');
    await directory.locator('.wd-membership-entry[data-tier=free]').waitFor();
    await directory.getByRole('button',{name:'عرض ملف '+peer,exact:true}).waitFor();
+   assert.deepEqual(await page.evaluate(()=>window.__calls.filter(c=>c.action==='apply'||c.action==='finalize').map(c=>c.action)),gender==='man'?['apply','finalize']:['apply']);
+   if(gender==='woman')assert(await page.evaluate(()=>window.__calls.find(c=>c.action==='apply').avatar));
    if(plan==='premium')await directory.getByRole('button',{name:'عرض العضوية لفتح نسبة التوافق'}).tap();
    else{
     await directory.getByRole('button',{name:'ابحث مع لونا'}).tap();
@@ -182,9 +258,45 @@ try{
    await page.reload({waitUntil:'domcontentloaded'});await directory.locator('.wd-membership-entry[data-tier='+plan+']').waitFor();
    assert.equal(await page.locator('.wd-tier-change').count(),0,'a restored session does not announce a new purchase');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-   console.log('PASS '+gender+' '+plan+': pending, approved free discovery, cancel, sandbox-authorized retry, verification before finish, paid matching and retained app entry');
+   console.log('PASS '+gender+' '+plan+': final form submission, automatic approval, immediate free discovery, cancel, sandbox-authorized retry, verification before finish, paid matching and retained app entry');
   }catch(error){
    console.error(gender,errors,external,await page.locator('body').innerText().catch(()=>''));throw error;
   }finally{await page.close();}
+ }
+ for(const [gender,journey] of [['woman','private'],['man','recovery'],['woman','follow-up'],['woman','staff-hold']]){
+  const page=await browser.newPage({viewport:{width:375,height:667},isMobile:true,hasTouch:true,locale:'ar-SA'});
+  const {errors,external}=await localPage(page);
+  try{
+   await page.goto('http://127.0.0.1:5294/__app-state?gender='+gender+'&journey='+journey,{waitUntil:'domcontentloaded'});
+   await submitRestoredDraft(page);
+   if(journey==='recovery'){
+    await page.getByRole('heading',{name:'بقي حفظ صورتك'}).waitFor();
+    assert.equal(await page.locator('.df-discovery,.wd-paywall').count(),0);
+    assert.equal(await page.getByRole('heading',{name:'طلبك قيد المراجعة'}).count(),0);
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.getByRole('button',{name:'إعادة محاولة حفظ الصورة'}).tap();
+   } else if(journey==='staff-hold'){
+    await page.getByRole('heading',{name:'طلبك قيد المراجعة'}).waitFor();
+    assert.equal(await page.locator('.df-discovery,.wd-paywall').count(),0);
+    await page.screenshot({path:resolve(output,'woman-pending.png')});
+    await page.getByRole('button',{name:'تحديث حالة الطلب'}).tap();
+    assert.equal(await page.locator('.df-discovery').count(),0);
+    await page.evaluate(()=>{window.__state.user.applicationStatus='approved';window.dispatchEvent(new Event('focus'))});
+   }
+   await page.locator('.df-discovery .wd-membership-entry[data-tier=free]').waitFor();
+   assert.equal(await page.getByRole('button',{name:'إعادة محاولة حفظ الصورة'}).count(),0);
+   if(journey==='follow-up'){
+    assert.equal(await page.evaluate(()=>window.__staffFollowup),'open_safety_report');
+    assert.equal(await page.getByRole('heading',{name:'طلبك قيد المراجعة'}).count(),0);
+    assert.equal(await page.getByText('open_safety_report').count(),0);
+   }
+   if(journey==='private'||journey==='recovery'){
+    assert(await page.evaluate(()=>window.__state.profile.portrait.id===window.__stage.id));
+    assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.action==='finalize').length),1);
+   }
+   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+   console.log('PASS '+gender+' '+journey+': server status enforced through free app entry');
+  }catch(error){console.error(journey,errors,external,await page.locator('body').innerText().catch(()=>''));throw error;}
+  finally{await page.close();}
  }
 }finally{await browser?.close();await server.close();}

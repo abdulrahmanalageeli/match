@@ -15,7 +15,7 @@ import { readRecoveryLink, type RecoveryLink } from './auth/passwordRecovery';
 import type { SignupReturn, SignupAgreements } from './auth/signupReturn';
 import "./ambient.css";
 import type { PortraitDraft } from './photos/portraitPreparation';
-import { LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
+import { APPLICATION_INTEGRITY_VERSION, LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
 import { socialSignIn } from './auth/social';
 import { SocialOnboarding } from './auth/SocialOnboarding';
 import { SupportContact, SupportProvider } from './help/SupportContact';
@@ -649,6 +649,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [portraitRetry, setPortraitRetry] = useState<{ owner: string; id: string; previousId?: string } | null>(null);
   const recoverPortrait = !demo && cloud && token && live?.profile && !live.profile.portrait
     && live.profile.signupConsents?.photo && live.user.applicationStatus !== 'draft' && view !== 'application';
+  const pendingPhoto = portraitRetry?.owner === token && !demo ? portraitRetry : null;
   useEffect(() => {
     if (!recoverPortrait || !token) return;
     let active = true;
@@ -661,7 +662,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const retry = portraitRetry;
     if (!retry || tokenRef.current !== retry.owner) return;
     void run(async () => {
-      const latest = await refresh(retry.owner);
+      let latest = await refresh(retry.owner);
       if (!latest || tokenRef.current !== retry.owner) return;
       if (!latest.profile?.signupConsents?.photo || (latest.profile.portrait?.id !== retry.previousId && latest.profile.portrait?.id !== retry.id)) {
         setPortraitRetry(null);
@@ -669,52 +670,61 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       }
       if (latest.profile.portrait?.id !== retry.id) {
         await finalizePortraitStage(retry.id);
-        await refresh(retry.owner);
+        latest = await refresh(retry.owner);
+        if (!latest || tokenRef.current !== retry.owner) return;
       }
       if (tokenRef.current === retry.owner) {
         setPortraitRetry(null);
-        setNotice('اكتمل حفظ خطوة الصورة.');
+        if (latest.profile?.portrait?.id === retry.id) setNotice('اكتمل حفظ خطوة الصورة.');
       }
     });
   }
-  function saveApplication(p: Profile, portraitChange?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:MembershipReadiness) {
+  function saveApplication(p: Profile, portraitChange?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:MembershipReadiness, integrity?:typeof APPLICATION_INTEGRITY_VERSION) {
     const editingExisting = demo ? !newDemoIntake : Boolean(live?.profile) && live?.user.applicationStatus !== 'draft';
     if (tester) p = { ...p, gender: tester.actor === 'reham' ? 'woman' : 'man' };
     const currentNavigation = navigationVersion.current;
     void run(async () => {
       const owner = demo ? null : liveDraftOwner.current;
-      let canSeeMatches = demo && !samplePaused;
+      let submitted: AccountState | undefined;
+      const member = tokenRef.current;
+      const submissionVersion = member && !demo ? ++version.current : version.current;
       if(pair && tester) { const saved = await pair.save(p); p = testProfile(tester.actor, saved.profiles[tester.actor]); }
       if (!demo) {
-        const saved = await update("/application", "PUT", {
+        if (!member) throw Error("سجّل الدخول أولًا.");
+        submitted = await request<AccountState>("/application", "PUT", member, {
           ...p,
           ...(provenance ? { _answerProvenance: provenance } : {}),
           ...(readiness ? { _membershipReadiness: readiness } : {}),
+          ...(integrity ? { _applicationIntegrity: integrity } : {}),
           consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2", "marriage-v3", "marriage-v4"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
         });
-        if (!saved) return;
-        canSeeMatches = Boolean(cloud && saved.user.applicationStatus === "approved" && !saved.user.paused);
+        if (tokenRef.current !== member || version.current !== submissionVersion) return;
       }
       if(portraitChange!==undefined||(portraitPolicy!==undefined&&p.portrait&&portraitPolicy!==(p.portrait.revealPolicy??'never'))){
         try {
           if(portraitChange){if(portraitChange.staged){p={...p,portrait:await finalizeStagedPortrait(portraitChange)};}else{if(!source?.setPortrait)throw Error('خدمة صور الملف غير متاحة.');p={...p,portrait:await source.setPortrait(portraitChange.blob,portraitChange.blur,{policy:portraitChange.revealPolicy,clearBlob:portraitChange.clearBlob})};}}
           else if(portraitChange===null){await source?.removePortrait?.();p={...p,portrait:null};}
           else if(p.portrait&&portraitPolicy!==undefined){if(!source?.setPortraitPolicy)throw Error('إعداد كشف الصورة غير متاح.');p={...p,portrait:await source.setPortraitPolicy(p.portrait,portraitPolicy)};}
-          if(!demo&&token)await refresh(token);
+          if (!demo && member) {
+            submitted = await request<AccountState>("/me", "GET", member);
+          }
         } catch(e){
           if (!demo && owner && portraitChange?.staged) {
             if (tokenRef.current === owner) setPortraitRetry({ owner, id: portraitChange.staged.id, previousId: live?.profile?.portrait?.id });
-          } else throw Error('حُفظت بيانات الملف، لكن لم يُحفظ تغيير الصورة. '+(e instanceof Error?e.message:'حاول مجددًا.'));
+          } else {
+            if (submitted && member) acceptLive(submitted, member, submissionVersion);
+            throw Error('حُفظت بيانات الملف، لكن لم يُحفظ تغيير الصورة. '+(e instanceof Error?e.message:'حاول مجددًا.'));
+          }
         }
+      }
+      if (member && submitted) {
+        if (tokenRef.current !== member || version.current !== submissionVersion) return;
+        acceptLive(submitted, member, submissionVersion);
       }
       // Clearing the signed-in member's device draft is ordered by the vault.
       // Once the server has saved the profile, the next screen needn't wait for Keychain I/O.
       const cleanup = owner ? clearSavedIntake(owner).then(() => true, () => false) : null;
-      let weeklyReady = canSeeMatches;
-      if (canSeeMatches && !editingExisting && !warmCommunity) {
-        try { await loadCommunity(); }
-        catch { weeklyReady = false; }
-      }
+      const approved = demo || submitted?.user.applicationStatus === 'approved';
       if (navigationVersion.current !== currentNavigation) return;
       if (demo) {
         if (sampleProfileRef.current.gender !== p.gender) setSampleSession(s => s + 1);
@@ -725,16 +735,15 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         setNewDemoIntake(false);
       }
       intakeDraft.current = null;
-      go(editingExisting ? "settings" : weeklyReady ? "discover" : "main");
+      go(editingExisting ? "settings" : approved && source ? "discover" : "main");
       feedback('success');
-      setFromIntake(!editingExisting);
+      setFromIntake(!editingExisting && approved);
       if(editingExisting)setNotice("حُفظت تعديلات ملفك. يمكنك معاينته من الإعدادات.");
       const destination = navigationVersion.current;
       void cleanup?.then(cleared => {
         if (!cleared && navigationVersion.current === destination && liveDraftOwner.current === owner)
           setError("حُفظ ملفك، لكن تعذّر مسح المسودة من هذا الجهاز.");
       });
-      if (canSeeMatches && !weeklyReady) setNotice("حُفظ ملفك. يمكنك فتح ترشيحات الأسبوع من «استكشف».");
     });
   }
   function verifyPurchase(restore: boolean,plan: 'premium'|'seriousness'='premium',offer?:MembershipOffer) {
@@ -1053,6 +1062,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     screen = (
       <Pending
         back={openAccount}
+        retryPhoto={pendingPhoto ? retryPortrait : undefined}
         refresh={() =>
           void run(async () => {
             if (token) await refresh(token);
@@ -1155,7 +1165,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       </details>}
       {demo && !tester && !onboardingPreview && <DemoNotice onExit={exitDemo} gender={sampleProfile.gender}
         onGenderChange={view === "application" ? undefined : changeDemoPool} />}
-      {portraitRetry && portraitRetry.owner === token && !demo && <div className="feedback" role="status">
+      {pendingPhoto && (memberAccess || view === 'settings') && <div className="feedback" role="status">
         <span>حُفظ ملفك. بقي إكمال خطوة الصورة.</span>
         <button type="button" onClick={retryPortrait} disabled={busy}>إعادة محاولة حفظ الصورة</button>
       </div>}

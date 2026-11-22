@@ -71,6 +71,9 @@ try {
     return geometry;
   }
   const back = button('رجوع');
+  const route = page.locator('.wd-registration-progress');
+  const routeSummary = route.locator('summary');
+  const photoTabs = page.getByRole('tablist',{name:'طريقة ظهورك'});
   await page.addInitScript(() => {
     const apply = () => {
       const homeIndicator = new URLSearchParams(location.search).get('inset') === 'home';
@@ -84,6 +87,14 @@ try {
     await open('identity');
     await page.locator('[data-field=displayName]').waitFor();
     await measure('identity',{fit:true,capture:true});
+    await routeSummary.focus();
+    await routeSummary.press('Enter');
+    assert.equal(await route.locator('li').count(),6);
+    assert.match(await route.locator('[aria-current=step]').innerText(),/الأساسيات/);
+    assert.equal(await route.locator('ol a, ol button').count(),0,'The stage overview preserves required navigation');
+    assert.ok(await routeSummary.evaluate(el=>el.getBoundingClientRect().height>=44));
+    if(width===375) await page.screenshot({path:resolve(output,'stage-overview-375.png')});
+    await routeSummary.press('Enter');
     await next.click();
     await page.locator('#wd-slide-error').waitFor();
     assert.equal(await slide.getAttribute('data-slide-index'),'0');
@@ -92,6 +103,8 @@ try {
     await button('امرأة').click();
     await next.click();
     await page.locator('[data-field=birthDate]').waitFor();
+    assert.match(await routeSummary.innerText(),/المرحلة ١ من ٦/);
+    assert.match(await slide.locator('.wd-step-count').innerText(),/خطوة ٢ من ٤/);
     await measure('birth-date',{fit:true,capture:true});
     await page.locator('[data-field=birthDate]').fill('1998-05-12');
     await next.click();
@@ -129,6 +142,9 @@ try {
     assert.equal(await page.locator('[data-field=displayName]').inputValue(),'نورة');
     for (const chapter of ['story', 'compatibility', 'details', 'preferences', 'avatar', 'readiness', 'criteria', 'review']) {
       await open(chapter);
+      const phase = {story:5,compatibility:2,details:3,preferences:4,avatar:5,readiness:6,criteria:4,review:6}[chapter];
+      assert.equal(await route.locator('li[aria-current=step]').count(),1);
+      assert.equal(await route.locator('li').nth(phase-1).getAttribute('aria-current'),'step');
       if (chapter==='compatibility') {
         await measure('assessment-consent',{fit:width>=375});
         await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
@@ -153,6 +169,16 @@ try {
         assert.equal(await contact.inputValue(),'new@example.test');
       }
       if (chapter==='avatar') {
+        const photo = photoTabs.getByRole('tab',{name:'صورة بتمويه اختياري'});
+        const avatar = photoTabs.getByRole('tab',{name:'صورة رمزية'});
+        assert.equal(await avatar.getAttribute('aria-selected'),'true');
+        await avatar.press('ArrowRight');
+        assert.equal(await photo.getAttribute('aria-selected'),'true');
+        assert.ok(await photo.evaluate(el=>el===document.activeElement && el.getBoundingClientRect().height>=44));
+        assert.equal(await page.getByRole('tabpanel',{name:'صورة بتمويه اختياري'}).count(),1);
+        await photo.press('End');
+        assert.ok(await avatar.evaluate(el=>el===document.activeElement));
+        assert.equal(await page.getByRole('tabpanel',{name:'صورة رمزية'}).count(),1);
         const settings = page.locator('details.nf-avatar-settings');
         assert.equal(await settings.evaluate(el => el.open),false);
         await settings.locator('summary').click();

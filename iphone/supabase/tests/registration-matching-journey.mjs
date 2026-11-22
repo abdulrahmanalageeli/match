@@ -100,12 +100,20 @@ export async function runRegistrationMatching(profiles, identities, portraits) {
       }
       const user = {...await account('qa-'+gender,identity),gender};
       users[gender] = user;
+      // Model the verified phone claim established by the signup SMS service.
+      await db.query("insert into marriage.signup_phone_verifications(user_id,phone,verified_at) values($1,$2,now())",[user.id,gender==='man'?'+966500000101':'+966500000102']);
       const answers = await confirmAnswers(user,profile,member,service);
       if (portraits) assert.equal(Boolean(portraits[gender]),profile.signupConsents.photo);
       const photo = profile.signupConsents.photo ? await stagePhoto(db,user,member,service,portraits?.[gender]) : null;
       assert.ok(gender !== 'man' || photo, 'The submitted male profile must include the verified portrait consent');
       const submitted = await member(user,'public.marriage_apply($1)',[{...profile,consentVersion:profile.signupConsents.version}]);
-      assert.equal(submitted.user.applicationStatus,'pending');
+      assert.equal(submitted.user.applicationStatus,photo?'pending':'approved');
+      if (photo) {
+        const pending = await review('public.marriage_admin_member($1)',[user.id]);
+        assert.equal(pending.applicationDecision,'awaiting_photo');
+        await assert.rejects(review('public.marriage_admin_review($1,$2,$3,$4,$5)',
+          [user.id,'approve',pending.revision,'فحص قبل نشر الصورة',randomUUID()]),/صورة/);
+      }
       assert.deepEqual(submitted.profile.surveyAnswers,profile.surveyAnswers);
       assert.deepEqual(submitted.profile.personalityAnswers,profile.personalityAnswers);
       if (photo) {
@@ -116,8 +124,8 @@ export async function runRegistrationMatching(profiles, identities, portraits) {
       }
 
       const application = await review('public.marriage_admin_member($1)',[user.id]);
-      const approval = await review("public.marriage_admin_review($1,'approve',$2,$3,$4)",[user.id,application.revision,'اكتملت مراجعة الطلب التجريبي',randomUUID()]);
-      assert.equal(approval.ok,true);
+      assert.equal(application.applicationDecision,'automatic');
+      assert.deepEqual(application.applicationReviewReasons,[]);
       const approved = await member(user,'public.marriage_state()');
       assert.equal(approved.user.applicationStatus,'approved');
       assert.equal(approved.membership.active,false);

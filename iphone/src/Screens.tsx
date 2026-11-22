@@ -152,7 +152,7 @@ export function Auth({
         <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "بعد الموافقة، نؤكّد رقم جوالك السعودي." : "أكّد جوالك السعودي واحفظ تقدّمك في طلب العضوية."}</p>
         {!login && !reviewing && <details className="nf-auth-brief">
           <summary><ShieldCheck size={17} aria-hidden="true"/><span>طلب العضوية مجاني</span><ChevronDown size={15} aria-hidden="true"/></summary>
-          <p>تكمل جلسة التوافق وتراجع إجاباتك، ثم نراجع ملفك. بعد القبول، يمكنك الاستكشاف مجانًا. إذا اخترت الاشتراك، يظهر السعر والمدة قبل التأكيد.</p>
+          <p>بعد جلسة التوافق، راجع إجاباتك وأرسل ملفك. إذا اكتمل التحقق، يفتح لك الاستكشاف المجاني مباشرة. إذا بقيت خطوة للاعتماد، تتابعها من حالة الطلب. تقدر تختار باقة مدفوعة لاحقًا.</p>
         </details>}
       </section>
       <section className="nf-auth-panel">
@@ -248,16 +248,25 @@ export function Pending({
   back,
   refresh,
   busy,
+  retryPhoto,
 }: {
   back: Click;
   refresh: Click;
   busy: boolean;
+  retryPhoto?: Click;
 }) {
+  if (retryPhoto) return (
+    <Frame title="حالة الطلب" back={back} className="nf-signup-status">
+      <h1><ShieldCheck size={23} aria-hidden="true"/>بقي حفظ صورتك</h1>
+      <p className="flow-intro">وصلتنا إجاباتك. أعد محاولة حفظ الصورة التي جهّزتها حتى يكتمل التحقق من طلبك.</p>
+      <button className="f-primary" disabled={busy} onClick={retryPhoto}>{busy ? 'جارٍ حفظ الصورة…' : 'إعادة محاولة حفظ الصورة'}</button>
+    </Frame>
+  );
   return (
     <Frame title="حالة الطلب" back={back} className="nf-signup-status">
       <h1><ShieldCheck size={23} aria-hidden="true"/> طلبك قيد المراجعة</h1>
       <p className="flow-intro">
-        وصلنا ملفك. تظهر نتيجة المراجعة والخطوة التالية هنا في حسابك.
+        وصلنا ملفك. نتحقّق من الطلب، ويتولى الفريق مراجعته عند الحاجة. تتحدّث حالته هنا تلقائيًا.
       </p>
       <div className="flow-card timeline">
         <strong>

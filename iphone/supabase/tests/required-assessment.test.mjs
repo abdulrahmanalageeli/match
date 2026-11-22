@@ -15,8 +15,144 @@ const save=(u,s,document)=>call(u,'save',{expectedRevision:s.revision,document})
 const turn={id:randomUUID(),topic:'intent',question:'ما الذي يناسبك؟',answer:'هذه إجابة تجريبية صريحة محفوظة للتأكد من حماية الجلسة.',skipped:false};
 const proposals=preferences.dimensions.flatMap(d=>['self','partner'].map(side=>({id:`preference:${d.id}:${side}`,kind:'preference',fieldId:d.id,side,values:[d.options[0].code]}))).concat(personality.map(p=>({id:`personality:${p.id}:self`,kind:'personality',fieldId:p.id,side:'self',values:['C']}))).map(p=>({...p,summary:'إجابة واضحة.',needsClarification:false,evidence:[{turnId:turn.id,quote:turn.answer}]}));
 const review=()=>({...initialInterviewDocument(true),status:'review',currentQuestion:null,turns:[turn],proposals,lastMode:'luna'});
-const profile=u=>({displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,skinTone:'tone_4',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
+const profile=u=>({_applicationIntegrity:'wudayn-application-integrity-v1',displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,skinTone:'tone_4',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
 const apply=(u,p)=>asMember(db,u.id,u.sessionId,()=>q('public.marriage_apply($1)',[p]));
+
+async function validApplication(u, phone) {
+  let session = await start(u);
+  session = await save(u,session,{...review(),pendingAnalysis:true});
+  await attest(u,session,'fallback','capacity');
+  if (phone) await db.query('update auth.users set phone=$2,phone_confirmed_at=now() where id=$1',[u.id,phone]);
+  return {...profile(u),_membershipReadiness:{family:'early',nextStep:'soon',agreement:'wudayn-membership-v1'}};
+}
+const integrity = async u => (await db.query('select * from marriage.application_integrity_receipts where member_id=$1',[u.id])).rows[0];
+
+test('signed first-time registration is atomic, private, automatically admitted and retry-safe',async()=>{
+  const u=await user(),form=await validApplication(u,'+966500001001');
+  const unsigned={...form};delete unsigned._applicationIntegrity;
+  for(const invalid of [unsigned,{...form,_applicationIntegrity:true},{...form,_applicationIntegrity:'wudayn-application-integrity-v0'}]) {
+    await assert.rejects(apply(u,invalid),/حدّث التطبيق/);
+    assert.equal(await integrity(u),undefined);
+    assert.equal(await q('exists(select 1 from marriage.profiles where member_id=$1)',[u.id]),false);
+  }
+  await assert.rejects(apply(u,{...form,birthDate:'2017-04-10',age:36}),/١٨/);
+  const submitted=await apply(u,form);
+  assert.equal(submitted.user.applicationStatus,'approved');
+  assert.equal(submitted.membership.active,false);
+  assert.equal('_applicationIntegrity' in submitted.profile,false);
+  const receipt=await integrity(u);
+  assert.equal(receipt.agreement_version,form._applicationIntegrity);
+  assert.ok(receipt.accepted_at);
+  assert.equal(receipt.decision,'automatic');
+  assert.deepEqual(receipt.review_reasons,[]);
+  assert.equal((await apply(u,form)).user.applicationStatus,'approved');
+  assert.equal(await q("(select count(*)::int from marriage.reviews where member_id=$1 and action='approve')",[u.id]),1);
+  for(const role of ['anon','authenticated','service_role']) {
+    await db.exec('set role '+role);
+    try {
+      await assert.rejects(db.query('select * from marriage.application_integrity_receipts'),/permission denied/);
+      await assert.rejects(db.query('select marriage.decide_registration($1)',[u.id]),/permission denied/);
+    } finally { await db.exec('reset role'); }
+  }
+  assert.equal((await apply(u,{...unsigned,profession:'مهندسة معمارية'})).user.applicationStatus,'pending');
+  const reverted=await apply(u,form);
+  assert.equal(reverted.user.applicationStatus,'pending');
+  assert.equal(reverted.profile.profession,form.profession);
+  assert.equal(await q("(select count(*)::int from marriage.reviews where member_id=$1 and action='approve')",[u.id]),1);
+});
+
+test('a linked device is privately flagged after admission; authorized review clears once without changing access',async()=>{
+  const u=await user(),linked=await user(),staff=await user(),form=await validApplication(u,'+966500001002');
+  const device='b'.repeat(64);
+  await db.query('update marriage.members set suspended=true where id=$1',[linked.id]);
+  await db.query('insert into marriage.registration_devices(user_id,device_hash) values($1,$3),($2,$3)',[u.id,linked.id,device]);
+  await db.query('insert into marriage.reports(member_id,reported_id,reason) values($1,$2,$3)',[linked.id,u.id,'بلاغ تجريبي لم يُراجع']);
+  await db.query("insert into marriage.staff_accounts(user_id,role,display_name) values($1,'reviewer','فريق المراجعة')",[staff.id]);
+  const staffCall=(sql,args)=>asMember(db,staff.id,staff.sessionId,async()=>{
+    await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:staff.id,session_id:staff.sessionId,role:'authenticated',aal:'aal2'})]);
+    return q(sql,args);
+  });
+  const queue="public.marriage_admin_applications('registration_review',null)";
+  const clear='public.marriage_admin_clear_registration_review($1,$2,$3)';
+  assert.equal((await apply(u,form)).user.applicationStatus,'approved');
+  assert.deepEqual((await integrity(u)).review_reasons,['repeat_registration','open_safety_report']);
+  await assert.rejects(asMember(db,u.id,u.sessionId,()=>q(queue)),/42501|صلاحية|غير مصرح|الوصول|موظف/);
+  const flagged=(await staffCall(queue)).find(row=>row.memberId===u.id);
+  assert.equal(flagged.applicationDecision,'automatic');
+  assert.deepEqual(flagged.applicationReviewReasons,['repeat_registration','open_safety_report']);
+  assert.equal(flagged.applicationReviewResolvedAt,null);
+  await assert.rejects(asMember(db,u.id,u.sessionId,()=>q(clear,[u.id,flagged.revision,'فحص تجريبي'])));
+  await assert.rejects(staffCall(clear,[u.id,'outdated','فحص تجريبي']),/تغيّر/);
+  const args=[u.id,flagged.revision,'راجعت ارتباط الجهاز التجريبي.'];
+  const resolved=await staffCall(clear,args);
+  assert.ok(resolved.applicationReviewResolvedAt);
+  assert.equal((await staffCall(clear,args)).applicationReviewResolvedAt,resolved.applicationReviewResolvedAt);
+  assert.equal((await staffCall(queue)).some(row=>row.memberId===u.id),false);
+  assert.equal(await q("(select count(*)::int from marriage.staff_audit where target_id=$1 and action='registration_review_cleared')",[u.id]),1);
+  assert.equal(await q('exists(select 1 from marriage.reports where reported_id=$1 and resolved_at is null)',[u.id]),true);
+  await db.query('update marriage.members set suspended=true where id=$1',[u.id]);
+  await assert.rejects(apply(u,form),/مراجعة/);
+  assert.equal((await db.query('select suspended from marriage.members where id=$1',[u.id])).rows[0].suspended,true);
+});
+
+test('missing trusted phone verification holds the application and retry cannot replace a staff decision',async()=>{
+  const u=await user(),form=await validApplication(u);
+  const submitted=await apply(u,{...form,reviewStatus:'approved',applicationDecision:'automatic'});
+  assert.equal(submitted.user.applicationStatus,'pending');
+  assert.deepEqual((await integrity(u)).review_reasons,['phone_unverified']);
+  assert.equal((await apply(u,form)).user.applicationStatus,'pending');
+});
+
+test('a historical unverified finalized male portrait cannot authorize first admission',async()=>{
+  const u=await user(),form=await validApplication(u,'+966500001003');
+  form.gender='man';
+  form.signupConsents.photo=true;
+  await db.query("insert into marriage.member_portraits(member_id,path,blur,ready) values($1,$2,0,true)",[u.id,u.id+'/old.jpg']);
+  assert.equal((await apply(u,form)).user.applicationStatus,'pending');
+  assert.deepEqual((await integrity(u)).review_reasons,['photo_review']);
+  await assert.rejects(asService(db,()=>q("public.marriage_review($1,'approve')",[u.id])),/صورة/);
+});
+
+for (const staffAction of [null,'return_pending','suspend']) test('approved first portrait respects '+(staffAction ?? 'ordinary immediate admission'),async()=>{
+  const phone=staffAction==='return_pending'?'+966500001006':staffAction==='suspend'?'+966500001007':'+966500001005';
+  const u=await user(),staff=await user(),form=await validApplication(u,phone);
+  form.gender='man';
+  form.signupConsents.photo=true;
+  const memberCall=(sql,args)=>asMember(db,u.id,u.sessionId,()=>q(sql,args));
+  const photo=await memberCall("public.marriage_portrait_stage_prepare(0,'never','man',true)");
+  await db.query("select set_config('storage.operation','object.upload',false)");
+  try {
+    await asMember(db,u.id,u.sessionId,()=>db.query(
+      "insert into storage.objects(bucket_id,name,metadata) values('nisfayn-profile-portraits',$1,$2)",
+      [photo.path,{mimetype:'image/jpeg',size:2048}]));
+  } finally { await db.query("select set_config('storage.operation','',false)"); }
+  await memberCall("public.marriage_portrait_stage_action($1,'uploaded')",[photo.id]);
+  await memberCall("public.marriage_portrait_stage_action($1,'moderation')",[photo.id]);
+  assert.equal((await apply(u,form)).user.applicationStatus,'pending');
+  assert.deepEqual((await integrity(u)).review_reasons,['photo_review']);
+  await db.query("insert into marriage.staff_accounts(user_id,role,display_name) values($1,'owner','فريق الصور')",[staff.id]);
+  await asMember(db,staff.id,staff.sessionId,async()=>{
+    await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:staff.id,session_id:staff.sessionId,role:'authenticated',aal:'aal2'})]);
+    if (staffAction) {
+      const detail=await q('public.marriage_admin_member($1)',[u.id]);
+      await q('public.marriage_admin_review($1,$2,$3,$4,$5)',[u.id,staffAction,detail.revision,'قرار مراجعة منفصل',randomUUID()]);
+    }
+    assert.equal(await q("public.marriage_admin_portrait_decide($1,true,'موافقة تجريبية')",[photo.id]),true);
+  });
+  const state=(await db.query('select suspended,review_status from marriage.members where id=$1',[u.id])).rows[0];
+  assert.deepEqual(state,{suspended:staffAction==='suspend',review_status:staffAction?'pending':'approved'});
+  assert.equal((await integrity(u)).decision,staffAction?'manual_review':'automatic');
+  if (!staffAction) assert.deepEqual((await integrity(u)).review_reasons,[]);
+});
+
+test('admission checks the stored assessment, birth date and current publication consents',async()=>{
+  const u=await user(),form=await validApplication(u,'+966500001004');
+  assert.equal((await apply(u,form)).user.applicationStatus,'approved');
+  await db.query('delete from marriage.member_birth_dates where member_id=$1',[u.id]);
+  await db.query("delete from marriage.interview_receipts where owner_key='member:'||$1::text",[u.id]);
+  await db.query("delete from marriage.signup_consent_events where member_id=$1 and purpose='sensitive_publication'",[u.id]);
+  assert.deepEqual(await q('marriage.registration_review_reasons($1)',[u.id]),['consent_unconfirmed','eligibility_unconfirmed','assessment_unconfirmed']);
+});
 
 test('required coverage rejects omissions, missing consent and Beena; existing versions remain readable',async()=>{
  const u=await user(),p=profile(u);assert.equal(await q('marriage.required_onboarding_answers($1)',[p]),true);

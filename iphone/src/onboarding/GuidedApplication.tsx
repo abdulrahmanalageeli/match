@@ -2,6 +2,7 @@ import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
 import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { SignupBasicsSlides, type SignupSlidesHandle } from './SignupBasicsSlides';
+import { RegistrationProgress } from './RegistrationProgress';
 import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "../BrandIcons";
@@ -25,6 +26,7 @@ import type { PortraitDraft } from '../photos/portraitPreparation';
 import { discardStagedPortrait, resumeStagedPortrait } from '../photos/stagedPortrait';
 import type { CommunitySource } from '../community/data';
 import { emptyConsents, recordedAccountAgreements, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
+import { APPLICATION_INTEGRITY_VERSION, applicationIntegrityRule } from '../legal/LegalNotice';
 import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
 import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
 import { ProfilePromptFields } from './ProfilePromptFields';
@@ -56,7 +58,7 @@ type Props = {
   busy: boolean;
   back: () => void;
   onPrivacy: () => void;
-  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:Readiness) => void;
+  save: (p: Profile, portrait?:PortraitDraft|null, portraitPolicy?:PortraitRevealPolicy, provenance?:ProfileAnswerProvenance[], readiness?:Readiness, integrity?:typeof APPLICATION_INTEGRITY_VERSION) => void;
   portraitSource?:CommunitySource|null;
   preview?:boolean;
   exitPreview?: () => void;
@@ -324,12 +326,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }, [demo, preview, portraitSource, checkingDevice, draftOwner]);
   const [storageState, setStorageState] = useState<"restored" | "loadError" | "saveError" | null>(null);
   const [error, setError] = useState<Issue | null>(null);
+  const [integrityAccepted, setIntegrityAccepted] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const basicSlides = useRef<SignupSlidesHandle>(null);
   const previousStep = useRef(draft.step);
   const direction = useRef<"next" | "back">("next");
   const editing = Boolean(initial);
+  const requiresIntegrity = !editing || (!demo && !previouslyApproved);
   const registrationOrder: Chapter[] = ['identity','compatibility','details','criteria','preferences','story','avatar','readiness','review'];
   const steps = (editing ? chapters.filter(entry => entry.key !== 'readiness') : registrationOrder.map(key => chapters.find(entry => entry.key === key)!))
     .filter(entry => includeCompatibility || !['compatibility','criteria','personality','beena','readiness'].includes(entry.key));
@@ -337,7 +341,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const chapter = steps[idx];
   const milestones = registrationMilestones.filter(milestone => milestone.chapters.some(key => steps.some(step => step.key === key)));
   const milestoneIdx = Math.max(0, milestones.findIndex(milestone => (milestone.chapters as readonly Chapter[]).includes(chapter.key)));
-  const milestone = milestones[milestoneIdx];
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
@@ -537,8 +540,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   useLayoutEffect(() => {
     if (editorHome) return;
     previousStep.current = draft.step;
-    heading.current?.focus({ preventScroll: true });
-    heading.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
+    const visibleHeading = form.current?.querySelector<HTMLElement>('.wd-slide-heading h1') ?? heading.current;
+    visibleHeading?.focus({ preventScroll: true });
+    visibleHeading?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo(0, 0);
   }, [draft.step, editorHome]);
   useLayoutEffect(() => {
@@ -581,6 +585,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
   }
   function move(step: Chapter, returnToReview = false) {
+    if (step !== 'review') setIntegrityAccepted(false);
     setEditorHome(false);
     direction.current = steps.findIndex(entry => entry.key === step) < idx ? "back" : "next";
     setError(null);
@@ -663,9 +668,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if(portraitChange&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة عرض الصورة، أو أزيليها للمتابعة.'});return;}
       if(portraitChange&&portraitPolicy!==undefined&&portraitChange.revealPolicy!==portraitPolicy){move('avatar',true);setError({field:'portrait',text:'لم يكتمل تجهيز إعداد الصورة الجديد. أعيدي اختيار الصورة قبل الحفظ.'});return;}
       if(portraitPolicy&&portraitPolicy!=='never'&&!consents.photo){move('avatar',true);setError({field:'consent',text:'راجعي موافقة استخدام الصورة قبل تفعيل كشفها.'});return;}
+      if (requiresIntegrity && !integrityAccepted) {
+        setError({field: 'applicationIntegrity', text: 'راجع إقرار صدق الإجابات ووافق عليه قبل إرسال طلبك.'});
+        return;
+      }
       const profile=applyConsentChoices(toProfile(reviewAnswers),consents);
       save(profile, portraitChange, portraitPolicy, buildProfileAnswerProvenance(profile, confirmedProfileProposals.current, interviewVersion.current),
-        !editing && includeCompatibility ? readiness : undefined);
+        !editing && includeCompatibility ? readiness : undefined, requiresIntegrity && integrityAccepted ? APPLICATION_INTEGRITY_VERSION : undefined);
     } else if (editing && !draft.returnToReview) {
       setEditorHome(true); window.scrollTo(0, 0);
     } else {
@@ -674,7 +683,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       move(draft.returnToReview ? "review" : storyComplete ? 'avatar' : next);
     }
   }
-  function field(key: keyof Answers | "consent") {
+  function field(key: Issue['field']) {
     return { "data-field": key, "aria-invalid": error?.field === key || undefined, "aria-describedby": error?.field === key ? "nf-intake-error" : undefined };
   }
   const assessmentStep = !editing && consents.assessment && ['compatibility','personality','beena'].includes(chapter.key);
@@ -697,12 +706,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك. <button type="button" className="nf-intake-policy" onClick={() => { touched.current=false;setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
        {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
-        <div className="nf-intake-progress">
-          <div className="nf-intake-kicker"><span>{editing ? `ملفك / ${chapter.label}` : milestone?.label ?? chapter.label}</span><span>{editing ? 'تعديل الملف' : `المرحلة ${arabicNumber(milestoneIdx + 1)} من ${arabicNumber(milestones.length)}`}</span></div>
-          {!editing && <div className="nf-intake-meter" aria-label="مراحل إعداد الملف" role="progressbar" aria-valuemin={1} aria-valuemax={milestones.length} aria-valuenow={milestoneIdx + 1} aria-valuetext={`المرحلة ${arabicNumber(milestoneIdx + 1)} من ${arabicNumber(milestones.length)}: ${milestone?.label ?? chapter.label}`}>
-            {milestones.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < milestoneIdx ? "done" : n === milestoneIdx ? "current" : undefined} />)}
-          </div>}
-        </div>
+        {editing ? <div className="nf-intake-progress"><div className="nf-intake-kicker"><span>ملفك / {chapter.label}</span><span>تعديل الملف</span></div></div>
+          : <RegistrationProgress key={chapter.key} stages={milestones} index={milestoneIdx}/>}
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
           <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={editing ? 240 : 175} fromOpacity={editing ? 0 : .9} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
             <div className="nf-intake-title">
@@ -799,7 +804,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 {familyContext(p.gender, p.marriageBasics).suggestNoChildren && <p className="nf-intake-private">عدد الأبناء المقترح: صفر. بإرسال الملف تعتمد هذا العدد. <button type="button" className="nf-intake-policy" onClick={() => move('details', true)}>تعديل عدد الأبناء</button></p>}
                 {!editing && includeCompatibility && p.membershipReadiness?.family && p.membershipReadiness?.nextStep && <ReadinessResult value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline} answers={p} edit={() => move('readiness', true)}/>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
-                {!editing && <div className="nf-studio-finish"><div><strong>مراجعة تفاصيل ملفك</strong><p>{preview || demo ? 'افتح أي قسم لمراجعة إجاباتك أو تعديلها.' : 'افتح أي قسم للتعديل قبل الإرسال. بعد اعتماد ملفك، يمكنك استكشاف خيارات العضوية.'}</p></div></div>}
+                {!editing && <div className="nf-studio-finish"><div><strong>مراجعة تفاصيل ملفك</strong><p>{preview || demo ? 'افتح أي قسم لمراجعة إجاباتك أو تعديلها.' : 'افتح أي قسم للتعديل قبل الإرسال. عند اكتمال التحقق يفتح لك الاستكشاف المجاني. وإذا بقيت خطوة للاعتماد، تتابعها من حالة الطلب.'}</p></div></div>}
                 <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
                 {includeCompatibility && <details className="nf-intake-audience" aria-label="ما يراه الآخرون">
                   <summary><ShieldCheck size={17} aria-hidden="true" /> ما يراه الآخرون وما يبقى خاصًا<ChevronLeft size={16}/></summary>
@@ -811,6 +816,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. إجابات «بيننا» الخاصة لا تستهلك هذا التعديل، أما نشر قصة جديدة فيخضع له.</p>}
                 {profileReviewPending ? <p className="nf-intake-note">ملفك الآن قيد مراجعة التعديل. يمكنك إرسال التصحيحات اللازمة دون انتظار موعد التعديل التالي.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. يمكنك حفظ مسودتك لهذا الموعد، وتحديث إجاباتك الخاصة دون انتظار.</p>}
                 <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} requiredSensitive={!editing&&includeCompatibility} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
+                {requiresIntegrity && <label className="nf-consent-choice">
+                  <input {...field('applicationIntegrity')} type="checkbox" required checked={integrityAccepted} onChange={event => {
+                    setIntegrityAccepted(event.target.checked);
+                    if (error?.field === 'applicationIntegrity') setError(null);
+                  }}/>
+                  <span><strong>أقرّ بصدق إجاباتي وأقبل سياسة الحظر الدائم</strong><small>{applicationIntegrityRule}</small></span>
+                </label>}
               </>}
             </div>
           </MotionReveal>

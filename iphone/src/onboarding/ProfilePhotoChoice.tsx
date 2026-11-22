@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Camera, Check, Eye, ImagePlus, LockKeyhole, Pencil, Sparkles, Trash2 } from "../BrandIcons";
 import { AvatarPicker } from './AvatarPicker';
+import { feedback } from '../feedback/haptics';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { initialPortraitCrop, matchesPortraitCrop, preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';
 import { PortraitCropDialog } from '../photos/PortraitCropDialog';
@@ -15,6 +16,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
   existing?:ProfilePortrait|null;source?:CommunitySource|null;consented:boolean;onConsent:(v:boolean)=>Promise<boolean>;consentError?:string;sensitiveAllowed:boolean;onSensitiveConsent:()=>void;onBusy:(v:boolean)=>void;
   revealPolicy?:PortraitRevealPolicy;onPolicyChange?:(policy:PortraitRevealPolicy)=>void;immediateVerification?:boolean;compact?:boolean;
 }) {
+  const tabId=useId();
   const [mode,setMode]=useState<'photo'|'avatar'>(change||existing?'photo':'avatar');
   const [file,setFile]=useState<File|null>(change?.framing?.file??null),[blur,setBlur]=useState(change?.blur??existing?.blur??65),[preparing,setPreparing]=useState(false),[error,setError]=useState('');
   const [policy,setPolicy]=useState<PortraitRevealPolicy>(revealPolicy??change?.revealPolicy??existing?.revealPolicy??'never');
@@ -27,6 +29,11 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
   },[file,blur,policy,crop]);
   const showingExisting=change===undefined&&existing;
   const canReveal=Boolean(file||change?.clearBlob||(change===undefined&&existing?.hasClear));
+  function selectMode(next:'photo'|'avatar'){
+    if(preparing||next===mode)return;
+    setMode(next);
+    feedback('selection');
+  }
   function choosePolicy(next:PortraitRevealPolicy){
     if(next!=='never'&&(!canReveal||blur===0))return;
     setPolicy(next);onPolicyChange?.(next);setError('');
@@ -35,8 +42,21 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
   async function upload(draft:PortraitDraft){setPreparing(true);onBusy(true);setError('');try{onChange(await stageOnboardingPortrait(draft,'woman',true));}catch(e){setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}finally{setPreparing(false);onBusy(false);}}
   async function removePhoto(){setPreparing(true);try{if(await onConsent(false)){setFile(null);setPolicy('never');onPolicyChange?.('never');}}finally{setPreparing(false);}}
   return <section className="nf-photo-choice" data-field="portrait" tabIndex={-1} aria-label="صورتك وخصوصيتك">
-    <div className="nf-photo-mode" role="group" aria-label="طريقة ظهورك"><button type="button" disabled={preparing} aria-pressed={mode==='photo'} onClick={()=>setMode('photo')}><Camera size={18}/> صورة بتمويه اختياري</button><button type="button" disabled={preparing} aria-pressed={mode==='avatar'} onClick={()=>setMode('avatar')}><Sparkles size={18}/> صورة رمزية</button></div>
-    {mode==='photo'?<>
+    <div className="nf-photo-mode" role="tablist" aria-label="طريقة ظهورك">
+      {(['photo','avatar'] as const).map((item,index)=><button key={item} type="button" role="tab" disabled={preparing}
+        id={tabId+'-tab-'+item} aria-controls={tabId+'-panel-'+item} aria-selected={mode===item} tabIndex={mode===item?0:-1}
+        onClick={()=>selectMode(item)} onKeyDown={event=>{
+          if(!['Home','End','ArrowLeft','ArrowRight'].includes(event.key))return;
+          event.preventDefault();
+          const next=event.key==='Home'?0:event.key==='End'?1:1-index;
+          selectMode(next===0?'photo':'avatar');
+          event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]')[next]?.focus();
+        }}>
+        {item==='photo'?<><Camera size={18} aria-hidden="true"/> صورة بتمويه اختياري</>:<><Sparkles size={18} aria-hidden="true"/> صورة رمزية</>}
+      </button>)}
+    </div>
+    <div className="nf-photo-tab-panel" role="tabpanel" id={tabId+'-panel-photo'} aria-labelledby={tabId+'-tab-photo'} hidden={mode!=='photo'}>
+    {mode==='photo'&&<>
       <p className="nf-photo-intro">لمحة أقرب لكِ، بالقدر الذي ترتاحين له. يمكنكِ إظهار انطباع عن حضورك مع اختيار درجة التمويه، أو الاكتفاء بصورة رمزية.</p>
       <details className="nf-photo-privacy"><summary><LockKeyhole size={16} aria-hidden="true"/> كيف تُحفظ صورتي ومن يراها؟</summary>
         <p>يرى الأعضاء المؤهلون الصورة بدرجة التمويه التي تختارينها. نحتفظ بنسخة واضحة خاصة فقط إذا اخترتِ إزالة التمويه تلقائيًا. نزيل بيانات الموقع من الصور.</p>
@@ -64,10 +84,14 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
       {immediateVerification&&change?.staged?.status==='ready'&&<p className="nf-photo-result" role="status"><Check size={17}/> صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.</p>}
       {immediateVerification&&error&&change&&consented&&!preparing&&<button type="button" className="btn-secondary" onClick={()=>void upload(change)}>إعادة رفع الصورة</button>}
       <p className="nf-photo-safety"><LockKeyhole size={16}/><span>التمويه يقلّل التفاصيل ولا يضمن إخفاء الهوية أو منع حفظ الصورة.</span></p>
-    </>:<>
+    </>}
+    </div>
+    <div className="nf-photo-tab-panel" role="tabpanel" id={tabId+'-panel-avatar'} aria-labelledby={tabId+'-tab-avatar'} hidden={mode!=='avatar'}>
+    {mode==='avatar'&&<>
       {sensitiveAllowed?<AvatarPicker compact={compact} suggested={avatar===undefined} value={avatar===undefined?inferred:avatar} onChange={v=>{onAvatar(v);if(v)removePhoto();}}/>:<div className="nf-photo-avatar-gate"><Sparkles size={26}/><h3>بديل بلا صورة شخصية</h3><p>يمكننا اقتراح رسم حسب اللباس ودرجة البشرة اللذين تختارينهما بنفسك. تخصيص هذه التفاصيل اختياري ويحتاج موافقتك.</p><button className="btn-secondary" type="button" onClick={onSensitiveConsent}>مراجعة اختيار التفاصيل الحساسة</button></div>}
       {!compact&&sensitiveAllowed&&avatar===undefined&&<p className="nf-photo-safety"><Check size={16}/> اقتُرح الرسم من اختياراتك عن اللباس والبشرة. يمكنك تغييره أو المتابعة دون صورة.</p>}
       {sensitiveAllowed&&(change||showingExisting)&&<button type="button" className="btn-secondary" onClick={()=>{removePhoto();onAvatar(inferred);}}>استخدام الصورة الرمزية بدل صورتي</button>}
     </>}
+    </div>
   </section>;
 }

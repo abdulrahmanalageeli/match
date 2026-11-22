@@ -28,7 +28,11 @@ The seven-day pilot defaults off. Enabling it in `marriage.testing_signup_config
 
 ## Operator workflow
 
-Use an authorized SQL Editor/database operator, or call the service-only public RPCs from a trusted server. Profile age is self-declared. Confirm identity and adulthood independently before approving a member. The following examples use symbolic member IDs.
+New applications record the version and time of the honesty acknowledgment privately. Automatic admission checks the stored birth date, 18+ declaration, verified phone, assessment, privacy and readiness agreements, and required portrait. The birth date and adulthood declaration are self-reported. An applicant who passes can enter immediately, including on the free tier.
+
+Reviewers and owners can open **متابعة التسجيل** for follow-up. A verified phone or device shared with a suspended account, or an open safety report, flags an admitted member for review. Check the underlying evidence and record a reason when closing the flag. Closing a flag preserves access. Confirmed misconduct can be handled through the existing suspension workflow. Existing suspensions, reviews explicitly requested by staff, and corrections to previously submitted profiles retain their own safeguards.
+
+Use an authorized SQL Editor/database operator, or call the service-only public RPCs from a trusted server. The following examples use symbolic member IDs.
 
 ```sql
 select * from public.marriage_review_queue();

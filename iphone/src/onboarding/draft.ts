@@ -99,7 +99,7 @@ export function withFamilyDefaults(p: Answers): Answers {
 function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
-export type Issue = { field: keyof Answers | "consent"; text: string };
+export type Issue = { field: keyof Answers | "consent" | "applicationIntegrity"; text: string };
 
 /** Only unresolved requirements belong on the forward signup path. */
 export function remainingDetailFields(p: Answers, sensitive: boolean) {

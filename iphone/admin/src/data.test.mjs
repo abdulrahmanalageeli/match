@@ -12,6 +12,23 @@ const { createDemoApi } = await import('data:text/javascript;base64,' + Buffer.f
 const memory = () => { const values = new Map(); return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }; };
 const reason = 'تمت مراجعة الإجراء في حساب تجريبي';
 
+test('staff can close a flagged registration while the member keeps access', async () => {
+  const storage = memory(), api = createDemoApi(storage);
+  const [row] = await api.applications('registration_review');
+  assert.equal(row.status, 'approved');
+  assert.deepEqual(row.applicationReviewReasons, ['open_safety_report']);
+  await assert.rejects(api.clearRegistrationReview(row.memberId, 'old', reason), error => error.code === '40001');
+  await assert.rejects(api.clearRegistrationReview(row.memberId, row.revision, ''));
+  await api.clearRegistrationReview(row.memberId, row.revision, reason);
+  const reopened = createDemoApi(storage);
+  await reopened.clearRegistrationReview(row.memberId, row.revision, reason);
+  assert.deepEqual(await reopened.applications('registration_review'), []);
+  const detail = await reopened.member(row.memberId);
+  assert.equal(detail.status, 'approved');
+  assert.ok(detail.applicationReviewResolvedAt);
+  assert.equal((await reopened.audit()).filter(item => item.action === 'registration_review_cleared').length, 1);
+});
+
 test('support replies persist across reopening, retry once, and reject stale or reused decisions', async () => {
   const storage = memory(), api = createDemoApi(storage), row = (await api.support('open')).items[0];
   const args = [row.id, row.revision, 'in_review', 'نراجع طلب الربط التجريبي.', randomUUID()];

@@ -3,6 +3,8 @@ import { ChevronDown, FileCheck2, HeartHandshake, Image, LockKeyhole, Mail, Spar
 import './legal.css';
 
 export const LEGAL_NOTICE_VERSION = '2026-11-07-privacy';
+export const APPLICATION_INTEGRITY_VERSION = 'wudayn-application-integrity-v1';
+export const applicationIntegrityRule = 'تعمّد الكذب أو تقديم إجابة مضلِّلة في أي سؤال من أسئلة طلب العضوية سبب للحظر الدائم من وُدَين. يشمل الحظر جميع حساباتك وأجهزتك الحالية واللاحقة.';
 
 const officialSources = [
   ['نظام حماية البيانات الشخصية', 'https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL/'],
@@ -145,6 +147,7 @@ export function LegalNotice({ preview = false }: { preview?: boolean }) {
     </NoticeSection>
 
     <NoticeSection title="شروط الاستخدام والعضوية">
+      <p>{applicationIntegrityRule} يمكنك مراجعة إجاباتك وتصحيحها قبل إرسال الطلب.</p>
       <p>عند فتح التجربة المجانية، تتاح مرة واحدة لكل رقم جوال مؤكّد. نحتفظ ببصمة محمية للرقم لمنع تكرار العرض بعد حذف الحساب، دون حفظ الرقم نفسه في سجل التجربة.</p>
       <p>الخدمة للبالغين من عمر ١٨ عامًا فأكثر وللتعارف الجاد بقصد الزواج. قدّم معلومات صحيحة واستخدم صورًا تملك حق استخدامها. يُمنع انتحال الشخصية والتحرش والتهديد والابتزاز والإعلانات واستغلال الخدمة أو نشر محتوى غير مشروع.</p>
       <p>احترم حدود الطرف الآخر. يمكنك إنهاء التعارف أو الحظر أو الإبلاغ عند الحاجة، وقد تُراجع البلاغات وتُقيّد الحسابات المخالفة. لا يضمن وُدَين قبول طلبك أو توفر شريك أو الوصول إلى الزواج، ولا يحل محل الإجراءات النظامية لعقد الزواج.</p>

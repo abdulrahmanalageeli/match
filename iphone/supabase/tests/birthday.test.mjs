@@ -30,7 +30,7 @@ test('private birthday drives age, rejects underage signup, and survives account
   await assert.rejects(call('public.marriage_apply($1)',[p]),/تاريخ ميلاد/);
   await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'2020-01-01'}]),/١٨/);
   await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'2001-02-29'}]),/غير صالح/);
-  const result=await call('public.marriage_apply($1)',[{...p,birthDate:'1998-01-01'}]);
+  const result=await call('public.marriage_apply($1)',[{...p,birthDate:'1998-01-01',_applicationIntegrity:'wudayn-application-integrity-v1'}]);
   const expected=(await db.query("select marriage.birthday_age('1998-01-01') age")).rows[0].age;
   assert.equal(result.profile.age,expected);
   assert.equal(result.profile.birthDate,'1998-01-01');

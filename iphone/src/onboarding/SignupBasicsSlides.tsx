@@ -1,6 +1,6 @@
 import { familyContext } from './familyContext';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { Check, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
+import { Check, Eye, MapPin, Sparkles } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { cityOptions, professionOptions, educationOptions, nationalityChoices } from '../profile/profileOptions';
@@ -23,7 +23,6 @@ const slideSubtitles = {
   story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'جملة صادقة تكفي لبداية جميلة.', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'اختيارك يوضح أن التعارف هنا بقصد الزواج.'],
   details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'تفاصيل عملية تجعل التوافق أدق.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.', 'توقعات واضحة للسكن والمصاريف وبداية حياتكما.'],
 } as const;
-const slideLabels = { identity: 'الأساسيات', story: 'حياتك', details: 'تفاصيلك' } as const;
 export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:9; }
 
 /** Validates only the visible cluster. Missing later answers never move this slide. */
@@ -112,7 +111,13 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   }));
   useEffect(()=>{if(error&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication))setError(null);},[p,consents.sensitiveProfile,consents.sensitivePublication,error,chapter,visibleIndex,required]);
   useEffect(()=>{if(chapter!=='story'||!p.profession.trim())return;if(p.bio.trim())return;const bio=generatedBio(p);if(bio){update({bio});setGeneratedDraft(true);}},[chapter]);
-  useLayoutEffect(()=>{if(previous.current===index)return;previous.current=index;heading.current?.focus({preventScroll:true});container.current?.scrollIntoView({block:'start',behavior:'instant'});},[index]);
+  useLayoutEffect(()=>{
+    if(previous.current===index)return;
+    previous.current=index;
+    heading.current?.focus({preventScroll:true});
+    container.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({top:0,behavior:'instant'});
+    window.scrollTo({top:0,behavior:'instant'});
+  },[index]);
   const draftReady=generatedDraft && visibleIndex === 1;
   const consentSlide = chapter === 'details' && visibleIndex === 0;
   const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):consentSlide?'من يطّلع على تفاصيلك الحساسة؟':details[visibleIndex-1];
@@ -121,7 +126,6 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
   const rephraseBio=()=>{rewriteVersion.current+=1;answer({bio:generatedBio(p,rewriteVersion.current)});setGeneratedDraft(true);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
-  const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = consentSlide
     ? required
       ? consents.sensitiveProfile && consents.sensitivePublication
@@ -133,12 +137,12 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
   const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
   return <section ref={container} className="wd-signup-slides" aria-label="خطوات إعداد الملف" data-chapter={chapter} data-slide-index={visibleIndex}>
-    <div className="wd-slide-progress"><span>{slideLabels[slideChapter]}</span><span className="wd-slide-position" data-complete={complete||undefined}>خطوة {arabicNumber(index+1)} <i>من {arabicNumber(count)}</i>{complete&&<Check size={13} aria-label="اكتملت الخطوة"/>}</span></div>
-    <div className="wd-slide-track" role="progressbar" aria-label="الخطوة الحالية في هذا القسم" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index+1}>{Array.from({length:count},(_,i)=><span key={i} data-state={i<index?'done':i===index?'current':undefined}/>)}</div>
     <MotionReveal key={`${chapter}:${index}`} className="wd-slide-content" data-complete={complete||undefined} axis="x" distance={direction==='next'?-10:10} fromOpacity={0.86} duration={200}>
       <div className="wd-slide-heading">
-        <div><h2 ref={heading} tabIndex={-1}>{title}</h2><p className="wd-slide-kicker">{subtitle}</p></div>
-        <span className="wd-slide-icon" data-complete={complete||undefined} aria-hidden="true">{complete?<Check size={20} strokeWidth={1.9}/>:<SlideIcon size={20} strokeWidth={1.7}/>}</span>
+        <h1 ref={heading} tabIndex={-1}>{title}</h1>
+        <span className="wd-step-count" role="progressbar" aria-label="خطوات هذا القسم" aria-valuemin={1} aria-valuemax={count}
+          aria-valuenow={index+1} aria-valuetext={`الخطوة ${arabicNumber(index+1)} من ${arabicNumber(count)}${complete?'، اكتملت الإجابة':''}`}>خطوة {arabicNumber(index+1)} من {arabicNumber(count)}</span>
+        <p className="wd-slide-kicker">{subtitle}</p>
       </div>
       <div className="wd-slide-body">
       {chapter==='story'&&draftReady&&<div className="wd-slide-draft-note" role="status"><Sparkles size={17} aria-hidden="true"/><div><strong>جهزنا لك مسودة من إجاباتك.</strong><span>راجع النص وعدّل أي كلمة قبل أن يظهر في ملفك.</span></div></div>}
@@ -170,7 +174,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       </div>}
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<small>تظهر النبذة للأعضاء المؤهلين. اكتب فقط ما ترغب في مشاركته معهم.</small><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
-      {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
+      {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'تقدر تعدّل المسودة قبل الإرسال. تظهر نبذتك للأعضاء المؤهلين عند اعتماد ملفك.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
       {consentSlide && <>
         <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>
         {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}

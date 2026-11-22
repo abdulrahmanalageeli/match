@@ -71,7 +71,7 @@
   background: transparent;
   transition: border-color 180ms ease, color 180ms ease;
 }
-.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button[aria-pressed=true] { background: transparent; border-bottom-color: #54152a; color: #54152a; box-shadow: none; }
+.phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button:is([aria-pressed=true],[aria-selected=true]) { background: transparent; border-bottom-color: #54152a; color: #54152a; box-shadow: none; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-chips button, .nf-question-map button, .bn-map button, .bn-importance button, .compat-sections button) { min-height: 46px; background: #fff; border-color: #d9d4d1; border-radius: 10px; font-size: 14px; font-weight: 500; transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-chips button, .bn-importance button, .compat-sections button)[aria-pressed=true],
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-question-map button, .bn-map button)[aria-current=step] { background: #f4eef0; color: #54152a; border-color: #54152a; }
@@ -156,4 +156,34 @@ html[data-nf-motion=reduced] .phone-app .nf-intake :is(.compat-fields, .nf-perso
   .wi-dialog[data-journey] .wi-chat[data-opening] .wi-opening-note + .wi-current-question { padding-block: 9px; }
   .wi-dialog[data-journey] .wi-chat[data-opening] .wi-prompt-benefit { margin-block: 6px 0; }
   .wi-dialog[data-journey] .wi-chat[data-opening] .wi-composer { padding-top: 4px; }
+}
+
+/* Registration uses the same segmented choice treatment for switching views and setting preferences. */
+.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) {
+  padding: 3px;
+  gap: 3px;
+  border: 0;
+  border-radius: 12px;
+  background: #ebe6e8;
+}
+.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) > button {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  padding: 5px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #66565d;
+  font-size: .875rem;
+  line-height: 1.5;
+}
+.phone-app .nf-intake.nf-intake--new :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) > button:is([aria-pressed=true],[aria-selected=true]) {
+  color: #591b32;
+  font-weight: 600;
+  background: #fff;
+  box-shadow: 0 1px 3px #45233126;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .nf-intake--new .nf-photo-mode > button { transition: background-color 150ms ease-out, color 150ms ease-out; }
 }

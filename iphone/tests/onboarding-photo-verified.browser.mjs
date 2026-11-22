@@ -73,7 +73,7 @@ try{
  await page.goto('http://127.0.0.1:5296/__onboarding-interview?chapter=avatar&interview',{waitUntil:'networkidle',timeout:60000});
  await page.locator('main[data-chapter=avatar]').waitFor();
  await page.evaluate(()=>{window.__photoCalls=[]});
- if(gender==='woman')await page.getByRole('button',{name:/صورة بتمويه اختياري/}).click();
+ if(gender==='woman')await page.getByRole('tab',{name:/صورة بتمويه اختياري/}).click();
  const imageBytes=await page.evaluate(()=>{
    const chart=document.createElement('canvas'); chart.width=900; chart.height=500;
    const ctx=chart.getContext('2d'),gradient=ctx.createLinearGradient(0,0,900,500);

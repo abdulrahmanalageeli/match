@@ -1,13 +1,11 @@
 /* Registration controls use iPhone-sized rows; labels can grow with the text setting. */
 .nf-intake--new .wd-signup-slides { padding-block: 0; }
-.nf-intake--new .wd-slide-progress { margin-block-end: 5px; }
-.nf-intake--new .wd-slide-track { margin-block-end: 12px; height: 2px; }
 .nf-intake--new .wd-slide-content { padding-block: 0; }
-.nf-intake--new .wd-slide-heading { gap: 8px; }
-.nf-intake--new .wd-slide-heading h2 { font-size: clamp(1.25rem, 5vw, 1.5rem); line-height: 1.45; }
-.nf-intake--new .wd-slide-icon { width: 27px; height: 27px; }
-.nf-intake--new .wd-slide-icon svg { width: 16px; height: 16px; }
-.phone-app .nf-intake--new .wd-slide-heading .wd-slide-kicker { margin-top: 4px; font-size: .9375rem; line-height: 1.65; }
+.nf-intake--new .wd-slide-heading { gap: 3px 8px; }
+.nf-intake--new .wd-slide-heading h1 { font-size: var(--text-title, 1.3125rem); line-height: 1.45; }
+.nf-intake--new .wd-step-count { align-self: baseline; color: var(--journey-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.nf-intake--new .wd-slide-content[data-complete] .wd-step-count { color: #591b32; }
+.phone-app .nf-intake--new .wd-slide-heading .wd-slide-kicker { grid-column: 1 / -1; margin-top: 0; font-size: .9375rem; line-height: 1.65; }
 .nf-intake--new .wd-slide-body { gap: 10px; margin-block-start: 14px; }
 .nf-intake--new .wd-slide-body label { gap: 5px; }
 .nf-intake--new .wd-slide-description { margin-block: 0 !important; }
@@ -128,3 +126,8 @@
 .phone-app .nf-intake--new .nf-readiness-choices > button:first-child { border-start-start-radius: 11px; border-start-end-radius: 11px; }
 .phone-app .nf-intake--new .nf-readiness-choices > button:last-child { border-end-start-radius: 11px; border-end-end-radius: 11px; }
 .phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button + button { border-block-start: 1px solid var(--journey-line); }
+.phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button[aria-pressed=true] {
+  background: #f5edf1;
+  color: var(--journey-ink);
+  font-weight: 600;
+}

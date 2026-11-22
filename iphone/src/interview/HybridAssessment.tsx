@@ -428,7 +428,7 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
 export function HybridAssessment({
   memberId,
   portraitPartnerSourceKnown = true,
-  choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
+  choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
 }: {
   memberId?: string;
   choices: Choices;
@@ -450,6 +450,7 @@ export function HybridAssessment({
   aiProposals?: readonly InterviewProposal[];
   onClarify?: () => void;
   onChoiceHelp?: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
+  reviewOptions?: ReactNode;
   reviewExtras?: ReactNode;
 }) {
   const { choices, inferred, themeCards, cards, fields, relevant, blocked } = assessmentLayout(explicit, savedChoices, { gender, historical, direct, childrenCount, partnerChildren, unresolvedPartnerIds });
@@ -501,6 +502,17 @@ export function HybridAssessment({
     ? sharedDecisionPrompt(sharedTopic, gender) : undefined;
   const sharedPrompt = activeField === card?.self ? jointPrompt : undefined;
   const savedArrangement = jointPrompt && activeField === card?.partner && selfAnswer ? selfAnswer : undefined;
+  const capturedPartner = !historical && !editField && card && activeField === card.self && sharedTopic
+    && sharedDecisionPrompt(sharedTopic, gender)
+    && aiProposals.some(proposal => proposal.id === card.partner.id && proposal.values[0] === choices[card.partner.id]?.[0])
+    ? selected(card.partner, choices) : undefined;
+  const confirmOwn = capturedPartner && card && separateFor !== card.self.id
+    ? card.self.options.find(option => option.code === capturedPartner.code) : undefined;
+  const displayField = activeField && (sharedPrompt ? {
+    ...activeField, prompt: sharedPrompt, options: activeField.options.map(option => ({
+      ...option, label: sharedDecisionLabel(sharedTopic!, option.code, option.label),
+    })),
+  } : activeField);
   const currentEvidence = activeField && progress.extracted.has(activeField.id)
     ? aiProposals.find(proposal => proposal.id === activeField.id)?.evidence.find(item => !item.turnId.startsWith('context:'))?.quote
     : undefined;
@@ -677,6 +689,7 @@ export function HybridAssessment({
         {pendingIds.has(card.self.id) ? <span>في حياتي · اقتراح لونا</span> : <span><Check size={15} aria-hidden="true"/> اختياري عن نفسي</span>}
         <strong>{selfAnswer.label}</strong>
       </p>}
+      {capturedPartner && <p className="wi-self-echo" data-suggested><span>تفضيلك في الشريك من كلامك</span><strong>{capturedPartner.label}</strong></p>}
       {currentEvidence && <p className="wi-question-evidence"><span>من كلامك</span><q>{currentEvidence}</q></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
@@ -693,12 +706,17 @@ export function HybridAssessment({
           <p>{sharedDecisionLabel(sharedTopic!,savedArrangement.code,savedArrangement.label)}</p>
           <MotionPressButton type="button" className="wi-button wi-button-primary" disabled={disabled} onClick={()=>commitField(card.partner,savedArrangement.code)}>أعتمد هذا الترتيب لنا</MotionPressButton>
         </div>}
-        {activeField && !savedArrangement && <ChoiceCard key={activeField.id} shared={Boolean(sharedPrompt)} field={sharedPrompt ? {...activeField,prompt:sharedPrompt,options:activeField.options.map(option=>({...option,label:sharedDecisionLabel(sharedTopic!,option.code,option.label)}))} : activeField} value={selected(activeField, choices)?.code}
+        {confirmOwn && card && <div className="wi-saved-arrangement">
+          <MotionPressButton type="button" className="wi-button wi-button-primary" disabled={disabled} onClick={() => commitField(card.self, confirmOwn.code)}>{sharedTopic === 'children_plan' && confirmOwn.code === 'A' ? 'الإنجاب ضمن خطتي أيضًا' : 'أعتمد هذا الاختيار لنفسي أيضًا'}</MotionPressButton>
+          <button type="button" className="wi-link" disabled={disabled} onClick={() => setSeparateFor(card.self.id)}>أختار لنفسي بشكل مختلف</button>
+        </div>}
+        {activeField && displayField && !savedArrangement && !confirmOwn && <ChoiceCard key={activeField.id} shared={Boolean(sharedPrompt)} field={displayField} value={selected(activeField, choices)?.code}
           onChoose={code => commitField(activeField, code, Boolean(sharedPrompt))} disabled={disabled}
           compact={card.personality.includes(activeField)} help={helpFor(activeField)}/>}
         {jointPrompt && <button type="button" className="wi-link" onClick={()=>setSeparateFor(card.self.id)}>أختار لنفسي ولشريكي بشكل مختلف</button>}
       </div> : <>
         <p className="wi-lead">هذه ملامحك من اختياراتك. افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
+        {reviewOptions}
         <div className="wi-hybrid-review">
           <SummaryTopics groups={themeCards} choices={choices} lines={portrait} mode="review" inferred={implicitPartner}
             sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>

@@ -97,6 +97,25 @@ test('the optional next step preserves grounded answers and allows confirmation 
   assert.equal(confirmed.structuredConfirmation,true);
 });
 
+test('the optional follow-up retains independently verified decisions without another catalog check', async () => {
+  const fieldId = 'housing_arrangement';
+  const id = 'preference:' + fieldId + ':partner';
+  const phrase = 'أبي شريكة تفضّل بيت مستقل عن الأهل';
+  const h = harness({
+    proposals: turns => turns.length === 1 ? [{
+      kind:'preference',fieldId,side:'partner',values:['A'],summary:'السكن',needsClarification:false,
+      evidence:[{turnId:turns[0].id,quote:phrase}],
+    }] : [],
+    checkChoices: ({turns}) => [{id,code:'A',turnId:turns[0].id,quote:phrase}],
+  });
+  const startState = await start(h);
+  const intro = await h.service({action:'answer',revision:startState.revision,requestId:randomUUID(),answer:phrase,hybrid:true,openingFlow:true},headers);
+  assert.deepEqual(intro.carryForwardIds,[id]);
+  const after = await h.service({action:'answer',revision:intro.revision,requestId:randomUUID(),answer:'أكلم أهلي بعد ما نتفاهم.',hybrid:true,openingFlow:true},headers);
+  assert.deepEqual(after.carryForwardIds,[id]);
+  assert.equal(h.modelCalls.length,3);
+});
+
 test('a grounded next step avoids a second prompt and remains editable', async () => {
   const step = 'أبي نتفاهم عن السكن والعمل أول، وإذا اتفقنا نرتّب كيف يدخل الأهل.';
   const edited = 'أرتاح إذا الأهل كانوا بالصورة من بدري.';
@@ -1165,6 +1184,41 @@ test('general intent and wrong subject or polarity cannot fill a personality or 
     assert.deepEqual(snapshot.carryForwardIds,expected);
     assert.equal(calls,1);
   }
+});
+
+test('an explicit colloquial partner wishlist carries the children preference even if Luna omits it', async () => {
+  const partner = 'preference:children_plan:partner';
+  const phrase = 'ابي انجابيه ومقابله وقصيره وبيضاء';
+  const { snapshot, calls } = await checkIntroduction(phrase, []);
+  assert.deepEqual(snapshot.carryForwardIds, [partner]);
+  assert.deepEqual(snapshot.document.proposals.map(p => [p.side, p.values, p.evidence[0].quote]), [
+    ['partner', ['A'], 'ابي انجابيه'],
+  ]);
+  assert.equal(calls, 1);
+
+  const withModelMistake = await checkIntroduction(phrase, [[partner, 'C', 'ابي انجابيه']]);
+  assert.deepEqual(withModelMistake.snapshot.document.proposals[0].values, ['A']);
+
+  for (const answer of ['ما أبي إنجابية', 'أبي إنجابية بس ما أبي أطفال', 'أبي إنجابية لو غيرت رأيي', 'قالت أختي أبي إنجابية', 'أبي إنجاب']) {
+    const result = await checkIntroduction(answer, []);
+    assert.deepEqual(result.snapshot.carryForwardIds, [], answer);
+  }
+});
+
+test('a saved Luna session recovers the explicit partner preference without re-running the analysis', async () => {
+  const document = initialInterviewDocument(true);
+  document.turns = [{id:randomUUID(),topic:'intent',question:document.currentQuestion.text,answer:'أبي شريكة إنجابية وطويلة',skipped:false}];
+  document.status = 'review';
+  document.lastMode = 'luna';
+  document.currentQuestion = null;
+  const {service, modelCalls} = harness({initial:{document,revision:2}});
+  const snapshot = await service({action:'load'},headers);
+  assert.deepEqual(snapshot.carryForwardIds,['preference:children_plan:partner']);
+  assert.equal(snapshot.document.proposals[0].evidence[0].quote,'أبي شريكة إنجابية');
+  assert.equal(modelCalls.length,0);
+  document.turns.push({id:randomUUID(),topic:'intent',question:'وش تحب توضح؟',answer:'غيّرت رأيي، ما أبي عيال',skipped:false});
+  const corrected = harness({initial:{document,revision:3}});
+  assert.deepEqual((await corrected.service({action:'load'},headers)).carryForwardIds,[]);
 });
 
 test('blind catalog agreement permits paraphrases, preserves clear clauses, and abstains on disagreement', async () => {

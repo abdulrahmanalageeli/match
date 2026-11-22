@@ -20,6 +20,29 @@ function catalogStatement(turns) {
   }
 }
 
+const partnerChildrenId = 'preference:children_plan:partner';
+const partnerWishlist = /^(?:انا )?(?:ابي|ابغى|اريد|افضل|اتمنى)(?:ها|ه)? (?:(?:بنت|رجل|زوج[هة]?|شريك[هة]?) )?انجابي(?:ة|ه)?$/u;
+const otherWishlistTraits = /^(?:\s*(?:[،,]\s*و?|و)\s*(?:مقابل[ةه]|قصير[ةه]?|طويل[ةه]?|بيض(?:اء|ا)|ابيض|جميل[ةه]?|متدين[ةه]?|موظف[ةه]?|هادي[ةه]?|هادئ[ةه]?|متعلم[ةه]?|\[تفصيل حساس محجوب\]))*$/u;
+const reproductiveContext = /(?:انجاب|اطفال|عيال|ابناء|اولاد|خصوب|عقيم)/u;
+
+export function explicitPartnerChildren(turns) {
+  const [opening, ...later] = turns;
+  if (!opening || later.some(turn => reproductiveContext.test(normalize(turn.answer)))) return;
+  // Keep the evidence verbatim and omit other traits in the same list.
+  const words = [...opening.answer.matchAll(/[^\s،,]+/gu)].slice(0, 5);
+  for (const word of words) {
+    const end = word.index + word[0].length;
+    const quote = opening.answer.slice(0, end).trim().replace(/[.!؟]+$/u, '');
+    if (!partnerWishlist.test(normalize(quote))) continue;
+    if (!otherWishlistTraits.test(normalize(opening.answer.slice(end)))) return;
+    const proposal = {
+      id: partnerChildrenId, kind: 'preference', fieldId: 'children_plan', side: 'partner',
+      values: ['A'], evidence: [{ turnId: opening.id, quote }], needsClarification: false,
+    };
+    return { ...proposal, summary: reviewedSummary(proposal) };
+  }
+}
+
 function directlySupported(p, statement) {
   return statement && p.id === statement.id && p.values[0] === statement.code &&
     p.evidence.some(e => normalize(e.quote).includes(statement.claim));
@@ -66,13 +89,22 @@ export async function checkCatalogAnswers(client, model, data, timeout) {
   return Array.isArray(rows) && rows.length <= data.fields.length ? rows : [];
 }
 
-export async function groundHybridChoices(proposals, turns, gender, verify) {
+export async function groundHybridChoices(proposals, turns, gender, verify, previouslyGrounded = []) {
   const eligible = proposals.filter(p => ['preference','personality'].includes(p.kind) && !p.source && !p.needsClarification &&
     p.evidence.every(e => !genericEvidence(e.quote) && turns.some(t => t.id === e.turnId && t.answer.includes(e.quote))));
   const statement = catalogStatement(turns);
   const direct = eligible.filter(p => directlySupported(p, statement));
-  const remaining = statement ? [] : eligible;
   const accepted = new Map(direct.map(p => [p.id, p]));
+  const explicitPartner = explicitPartnerChildren(turns);
+  if (explicitPartner) accepted.set(explicitPartner.id, explicitPartner);
+  for (const proposal of eligible) {
+    if (previouslyGrounded.some(previous => previous.id === proposal.id && previous.values[0] === proposal.values[0] &&
+      eligibleCarryForward(previous, turns) && previous.evidence.length === proposal.evidence.length &&
+      previous.evidence.every(evidence => proposal.evidence.some(item => item.turnId === evidence.turnId && item.quote === evidence.quote)))) {
+      accepted.set(proposal.id, proposal);
+    }
+  }
+  const remaining = statement ? [] : eligible.filter(p => !accepted.has(p.id));
   if (remaining.length && verify) {
     const fields = remaining.map(p => {
       const trait = assessment().traits.find(item => item.id === p.fieldId);
@@ -95,7 +127,8 @@ export async function groundHybridChoices(proposals, turns, gender, verify) {
       accepted.set(p.id, {...p, evidence:[{ turnId:row.turnId, quote:row.quote }]});
     }
   }
-  return proposals.flatMap(p => {
+  const candidates = explicitPartner && !proposals.some(p => p.id === explicitPartner.id) ? [...proposals, explicitPartner] : proposals;
+  return candidates.flatMap(p => {
     const grounded = accepted.get(p.id);
     if (grounded) return [{...grounded, summary:reviewedSummary(grounded)}];
     return p.needsClarification || p.evidence.every(e => e.turnId.startsWith('context:')) ? [p] : [];

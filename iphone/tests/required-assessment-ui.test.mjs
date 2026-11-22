@@ -115,6 +115,23 @@ test('an existing children answer can be endorsed for both or given a different 
   }
 });
 
+test('saved partner housing and expenses can be kept or given a different own answer', () => {
+  for (const id of ['housing_arrangement', 'financial_provision']) {
+    const dimension = compatibility.dimensions.find(item => item.id === id);
+    for (const separate of [false, true]) {
+      const answers = Object.fromEntries(compatibility.dimensions.flatMap(topic => compatibility.practicalAnswerKeys(topic).map(key => [key, 'A'])));
+      delete answers[id];
+      const ui = mount(compatibilityCode, 'CompatibilityFields', { ...emptyCompatibility, required:true, remainingOnly:true, surveyAnswers:answers });
+      if (separate) {
+        button(ui.render(), 'أختار لنفسي ولشريكي بشكل مختلف').props.onClick();
+        byClass(ui.render(), 'compat-choice')[1].props.onClick();
+      } else button(ui.render(), 'أعتمد هذا الاختيار لنفسي أيضًا').props.onClick();
+      assert.equal(ui.props.surveyAnswers[id], separate ? 'B' : 'A');
+      assert.equal(ui.props.surveyAnswers[dimension.partnerId], 'A');
+    }
+  }
+});
+
 test('manual partner choices survive later self edits', () => {
   const ui = mount(compatibilityCode, 'CompatibilityFields', emptyCompatibility);
   let tree = ui.render(); byClass(tree, 'compat-choice')[0].props.onClick(); tree = ui.render();

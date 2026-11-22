@@ -48,11 +48,14 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
   const answered = hasPreferenceAnswer(dim.options, value);
   const [separateTopic,setSeparateTopic] = useState<string>();
   const [jointlyAnsweredTopic, setJointlyAnsweredTopic] = useState<string>();
-  const jointPrompt = registration && remainingOnly && (!version || version === 'marriage-v4')
-    && !hardRequirements.includes(dim.id) && separateTopic !== dim.id && (!surveyAnswers[dim.partnerId] || (side === 'self' && jointlyAnsweredTopic === dim.id))
+  const jointDecision = registration && remainingOnly && (!version || version === 'marriage-v4')
+    && !hardRequirements.includes(dim.id) && separateTopic !== dim.id
     ? sharedDecisionPrompt(dim.id,gender) : undefined;
-  const sharedPrompt = side === 'self' ? jointPrompt : undefined;
-  const saved = side === 'partner' && jointPrompt ? dim.options.find(option=>option.code===surveyAnswers[dim.id]) : undefined;
+  const otherAnswer = surveyAnswers[side === 'partner' ? dim.id : dim.partnerId];
+  const saved = jointDecision && jointlyAnsweredTopic !== dim.id && (!value || value === otherAnswer)
+    ? dim.options.find(option => option.code === otherAnswer) : undefined;
+  const sharedPrompt = side === 'self' && (!otherAnswer || jointlyAnsweredTopic === dim.id) ? jointDecision : undefined;
+  const jointPrompt = sharedPrompt || saved;
   const prompt = sharedPrompt ?? (dim.id === "wife_work" && side === "self" && gender === "woman" ? "هل ترغبين في العمل بعد الزواج؟" : side === "self" ? dim.selfPrompt : dim.partnerPrompt);
   function change(partial: Partial<CompatibilitySelection>) { onChange({ interestIds, surveyAnswers, hardRequirements, priorityCategories, ...partial }); }
   function toggleInterest(id: string) {
@@ -130,7 +133,7 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
         <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{saved ? dim.title : prompt}</h3>
         <p className="compat-hint">{saved ? sharedDecisionLabel(dim.id,saved.code,saved.self) : sharedPrompt ? 'ترتيب أفضّله لنا' : side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
         <div className="compat-answer-options" role="group" aria-labelledby={prefix + "-heading"}>
-          {saved ? <button type="button" className="compat-choice" onClick={()=>selectAnswer(saved.code)}>أعتمد هذا الترتيب لنا</button> : dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? (memberAr.womanWork as Record<string,string>)[option.code] : sharedPrompt ? sharedDecisionLabel(dim.id,option.code,option.self) : option[side]}</span></button>)}
+          {saved ? <button type="button" className="compat-choice" onClick={()=>selectAnswer(saved.code)}>{side === 'self' ? 'أعتمد هذا الاختيار لنفسي أيضًا' : 'أعتمد هذا الترتيب لنا'}</button> : dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? (memberAr.womanWork as Record<string,string>)[option.code] : sharedPrompt ? sharedDecisionLabel(dim.id,option.code,option.self) : option[side]}</span></button>)}
         </div>
         {jointPrompt && <button type="button" className="f-link" onClick={() => {
           if (jointlyAnsweredTopic === dim.id) completedHere.current.add(topicIndex * 2 + 1);

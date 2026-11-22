@@ -1,6 +1,6 @@
 import memberAr from '../../src/member-ar.json' with { type: 'json' };
 import OpenAI from 'openai';
-import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, genericEvidence, groundHybridChoices } from './interview-grounding.mjs';
+import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, explicitPartnerChildren, genericEvidence, groundHybridChoices } from './interview-grounding.mjs';
 import { randomUUID } from 'node:crypto';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
 import topics from '../../src/interview/catalog.json' with { type: 'json' };
@@ -653,6 +653,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   const liveOpening = hybrid && !finalReview && isOpeningTurn(last);
   if (liveOpening) instructions += `\nأنتِ لونا في بداية تعارف خاص. اكتبي في reply جملة سعودية قصيرة تردّ على معنى محدد من آخر رسالة، حتى لو كانت جملة واحدة. replyEvidence عبارة حرفية قصيرة من آخر answer تسند ردك. احفظي الفرق بين الرغبة والشرط والتردّد. مثال توضيحي فقط: من «أبي بيت مستقل بس قريب من أهلي» يمكن أن تقولي «يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.» لا تكرري المثال مع شخص آخر. إذا طلب شرحًا فاشرحي المقصود باختصار. تجنّبي المدح الجاهز ووصف الشخصية ووعد الحفظ، ولا تضعي سؤالًا في reply. إذا لم تجدي معنى تسندينه اتركي reply وreplyEvidence فارغين.
 في هذه البداية وحدها، question اختياري. اقترحي سؤالًا واحدًا فقط إذا أضاف معلومة تفرق في فهم آخر إجابة أو تناول جانبًا مرتبطًا بها ما زال مفتوحًا. إذا حسم الشخص السكن أو المصاريف أو طريقة التعامل مع اختلاف الرأي، لا تعيدي السؤال عنها. لا تسألي عن استثناء افتراضي أو تبرير قرار واضح. عند وجود سؤال، حددي questionTopic وquestionFields للجانب الناقص من openingTopics. إذا لم يوجد سؤال مفيد اتركي question وquestionTopic فارغين وquestionFields=[] وfollowUp=false. دعي الانتقال للموقف التالي للتطبيق.`;
+  if (hybrid) instructions += '\nعند تحليل التعريف، راجع كل الجمل والقائمة كاملة، وافصل بين معلومات العضو وتفضيلاته لشريكه واتفاقاتهما المشتركة. اكتب اقتراحًا لكل جواب صريح يطابق خيارًا كاملًا مع اقتباسه ولو بقيت جملة أخرى غامضة. راجع بنود العمل والسكن والمصاريف وتوقيت الخطوة الرسمية، وبنود الملف مثل الدراسة والعمل واللغة وإشراك الأهل والعمر والتدخين والطول. لا تحوّل «قصيرة» إلى رقم. عند الرد على سؤال الخطوة القادمة، لا تسحب إجابة سبق تأكيدها بالأدلة إلا إذا صحّحها العضو أو ناقضها.';
   if (hybrid) instructions += '\nاستثناء من تأجيل readiness: أخرج nextStep الآن فقط إذا وصف العضو بوضوح خطوة هو مستعد لها عند القبول المتبادل. اكتبها باختصار وبضمير المتكلم مع اقتباس حرفي داعم. ذكر التوقيت وحده أو قول «أنا جاد» أو وصف ما ينتظره من الطرف الآخر لا يكفي. عند تعديل الخطوة، اتبع آخر وصف صريح من العضو. لا تحوّلها إلى درجة أو تقييم للجدية.';
   return {
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
@@ -756,7 +757,7 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   for(const item of profileProposalsFrom(result.profileProposals,document.turns)) {
     const prior=profileRetained.get(item.id),invalidPosition=profileInvalidated.get(item.id);
     if(invalidPosition!==undefined&&evidencePosition(item.evidence)<invalidPosition)continue;
-    if(needsClarification&&item.evidence.some(e=>e.turnId===last?.id))continue;
+    if (needsClarification && !(hybrid && result.answerDisposition === 'clarify' && !unclearConfirmation(last)) && item.evidence.some(e => e.turnId === last?.id)) continue;
     if(!prior||evidencePosition(item.evidence)>=evidencePosition(prior.evidence))profileRetained.set(item.id,item);
   }
   const profileProposals=[...profileRetained.values()];
@@ -966,6 +967,11 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       if (openingScenario) document.currentQuestion = openingScenario;
       const structuredConfirmation = isStructuredConfirmation(document);
       if (structuredConfirmation) document.proposals = document.confirmed;
+      else if (document.promptVersion === PROMPT_VERSION && document.status !== 'confirmed' && !document.pendingAnalysis &&
+        document.lastMode === 'luna' && !document.turns[0]?.skipped && isOpeningQuestion(document.turns[0]?.question)) {
+        const proposal = explicitPartnerChildren(providerDocument(document, false).turns.filter(turn => !turn.skipped));
+        if (proposal && !document.proposals.some(item => item.id === proposal.id)) document.proposals.push(proposal);
+      }
       return { ...value, document, coverage: interviewCoverage(document), fallbackAvailable: value.fallbackAvailable === true,
         carryForwardIds:document.proposals.filter(p => eligibleCarryForward(p, document.turns)).map(p => p.id),
         ...(structuredConfirmation ? { structuredConfirmation, inferredPartnerIds: document.confirmed.filter(item => item.summary === inferredSelectionSummary).map(item => item.id) } : {}) };
@@ -1171,7 +1177,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
             const timeout = Math.min(6000,budget());
             return timeout > 0 ? await checkCatalogAnswers(openai, INTERVIEW_MODEL, data, timeout) : [];
           } catch { return []; } // Verification is optional. The ordinary question remains available.
-        });
+        }, isNextStep(next.turns.at(-1)?.question) ? document.proposals : []);
       }
       if (requiredInterview(analyzed) && (input.cardsAfterReply || (hybrid && (document.promptVersion === PROMPT_VERSION || !isOpeningTurn(next.turns.at(-1)))))) {
         const message = analyzed.currentQuestion;

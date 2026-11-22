@@ -580,6 +580,23 @@ try {
   assert.equal(await page.locator('.wi-confirmed-answers .wi-summary-answer').count(),44);
   console.log('PASS: reviewed 44 with a strict child-free preference, reopened both parenting questions after relaxing it, and resumed a 44-answer legacy receipt');
 
+  const wishlist = 'أبي إنجابية ومقابله وقصيره وبيضاء';
+  const capturedPartner = { ...proposal, id: firstPartnerId, side: 'partner', evidence: [{ turnId: 'intro', quote: 'أبي إنجابية' }] };
+  draft = {};
+  snapshot = {
+    revision: 1, carryForwardIds: [firstPartnerId], coverage: { answered: 1, required: expectedIds.length },
+    document: {
+      ...initialInterviewDocument(true), status: 'review', lastMode: 'luna', currentQuestion: null, proposals: [capturedPartner],
+      turns: [{ id: 'intro', topic: 'intent', question: openingPrompts.introduction, answer: wishlist, skipped: false }],
+    },
+  };
+  await page.goto(url);
+  await page.getByText('تفضيلك في الشريك من كلامك', {exact:true}).waitFor();
+  await card.getByRole('button', {name:'الإنجاب ضمن خطتي أيضًا',exact:true}).click();
+  await card.locator('[data-field-id="preference:marriage_timeline:self"]').waitFor();
+  assert.equal(await card.locator('[data-field-id="' + firstPartnerId + '"]').count(), 0);
+  console.log('PASS: the expressed partner preference is retained and only the unresolved self answer is requested');
+
   openingExperience = true;
   openingResponse = new Promise(resolveOpening => { releaseOpening = resolveOpening; });
   draft = {};

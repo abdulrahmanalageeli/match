@@ -101,7 +101,8 @@ function withDefaultContact(draft: ApplicationDraft, value?: string): Applicatio
 }
 
 function SavedPreference({saved, summary, children}: {saved:boolean; summary:string; children:ReactNode}) {
-  if (!saved) return <>{children}</>;
+  const [savedOnEntry] = useState(saved);
+  if (!saved || !savedOnEntry) return <>{children}</>;
   return <details className="nf-intake-review-group"><summary><span>{summary}</span><span>تعديل<ChevronLeft size={14} aria-hidden="true"/></span></summary>{children}</details>;
 }
 
@@ -805,11 +806,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   })}
                 </div></fieldset>
                 {p.gender === 'woman' && (
+                  <SavedPreference saved={!editing && !draft.returnToReview && Boolean(p.marriageBasics?.mahrRange)}
+                    summary={`نطاق المهر · ${p.marriageBasics?.mahrRange ? mahrRanges[p.marriageBasics.mahrRange] : ''}`}>
                   <ChoiceSelect id="nf-mahr-range" searchable={false} label="نطاق المهر" value={p.marriageBasics?.mahrRange ?? ''} placeholder="اختياري" allowClear
                     options={Object.entries(mahrRanges).map(([value,label]) => ({ value, label }))}
                     onChange={value => update({ marriageBasics: { ...p.marriageBasics, mahrRange: value ? value as keyof typeof mahrRanges : undefined } })}/>
+                  </SavedPreference>
                 )}
-                <SavedPreference saved={savedPreference('familyPreference')} summary={`وقت إشراك الأهل: ${p.familyPreference}`}>
+                <SavedPreference saved={!editing && !draft.returnToReview && !!p.familyPreference.trim()} summary={`وقت إشراك الأهل: ${p.familyPreference}`}>
                   <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div></fieldset>
                 </SavedPreference>
                 <div className="nf-intake-private"><label><span>وسيلة التواصل الخاصة</span><input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="بريد أو رقم جوال" /></label>

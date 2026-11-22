@@ -665,6 +665,10 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             onComplete={(choices, inferredIds) => void confirm(choices, inferredIds)} gender={gender} disabled={busy === 'structuredConfirm' || busy === 'directConfirm'}
             completingUnavailable={!hybridReady || actionBlocked || (!direct && (Boolean(clarifying) || Boolean(answer.trim())))}
             onClarify={!direct && !structuredReceipt && hybridReady && !actionBlocked && !clarifying ? () => setClarifying('correction') : undefined}
+            reviewOptions={!direct && onboarding && profileChoices.length > 0 && <label className="wi-sharing wi-profile-carry-choice">
+              <input type="checkbox" checked={includeProfile} onChange={event=>setIncludeProfile(event.target.checked)}/>
+              <span>أضيف هذه التفاصيل إلى مسودة ملفي<small>{profileChoices.map(choice=>profileProposalLabel(choice)+' · '+profileProposalValue(choice)).join('، ')}</small></span>
+            </label>}
             reviewExtras={<>
               {!direct && profileProposals.length > 0 && <details className="wi-review-group wi-profile-group">
                 <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
@@ -675,10 +679,6 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
                   onIgnore={() => setIgnoredProfile(previous => previous.includes(proposal.id) ? previous.filter(id => id !== proposal.id) : [...previous, proposal.id])}
                 />)}</div>
               </details>}
-              {!direct && onboarding && profileChoices.length > 0 && <label className="wi-sharing wi-profile-carry-choice">
-                <input type="checkbox" checked={includeProfile} onChange={event=>setIncludeProfile(event.target.checked)}/>
-                <span>أضيف هذه التفاصيل إلى مسودة ملفي<small>{profileChoices.map(choice=>profileProposalLabel(choice)+' · '+profileProposalValue(choice)).join('، ')}</small><small>تظهر إجاباتك في خطوات الملف التالية ويمكنك تعديلها.</small></span>
-              </label>}
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
                 <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>

@@ -131,3 +131,25 @@
   color: var(--journey-ink);
   font-weight: 600;
 }
+.nf-intake--new .nf-partner-traits-list {
+  overflow: hidden;
+  border-block: 1px solid var(--journey-line);
+}
+.phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row {
+  min-height: 54px;
+  padding: 10px 0;
+  border-radius: 0;
+  background: transparent;
+}
+.phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row + .nf-sheet-choice-row {
+  border-block-start: 1px solid var(--journey-line);
+}
+.phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Keep the draft privacy help centered beneath the primary action. */
+.nf-intake--new .nf-intake-action-meta > .nf-intake-draft-help {
+  flex: 1 0 100%;
+  margin-inline: 0;
+}

@@ -1,0 +1,35 @@
+.wi-hybrid {
+  position: relative;
+}
+
+.wi-opening-notice {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 14px;
+  border: 1px solid #e6d9df;
+  border-radius: 12px;
+  background: #fffdfb;
+  box-shadow: 0 5px 20px #43233118;
+  color: #543344;
+  font-size: .875rem;
+  line-height: 1.65;
+  pointer-events: none;
+}
+
+.wi-opening-notice svg { flex: none; margin-block-start: 3px; }
+.wi-hybrid-captured-review > .wi-opening-result { padding: 0 14px 10px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .wi-opening-notice {
+    animation: wi-opening-notice-in 240ms ease-out both;
+  }
+  @keyframes wi-opening-notice-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}

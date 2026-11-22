@@ -4,12 +4,21 @@ import { criteriaModes, type MarriageBasics, type PartnerCriteria, type Criteria
 import type { ReactNode } from "react";
 import "./appearance-fields.css";
 
+const currentTones = skinTones.filter(tone => tone.value !== "tone_3" && tone.value !== "tone_7");
+const retiredTones = skinTones.filter(tone => tone.value === "tone_3" || tone.value === "tone_7");
+
 export function ToneChoices({ selected, change, multiple = false }: { selected: readonly SkinTone[]; change: (tone: SkinTone) => void; multiple?: boolean }) {
-  return <div className="nf-tone-choices" role="group" aria-label={multiple ? "درجات البشرة المقبولة" : "درجة البشرة"}>
-    {skinTones.map(tone => <button type="button" key={tone.value} aria-label={tone.label} aria-pressed={selected.includes(tone.value)} onClick={() => change(tone.value)}>
+  return <><div className="nf-tone-choices" role="group" aria-label={multiple ? "درجات البشرة المقبولة" : "درجة البشرة"}>
+    {currentTones.map(tone => <button type="button" key={tone.value} aria-label={tone.label} aria-pressed={selected.includes(tone.value)} onClick={() => change(tone.value)}>
       <span className="nf-tone-sample" style={{ backgroundColor: tone.color }} aria-hidden="true">{selected.includes(tone.value) && <Check size={15} />}</span><small>{tone.label}</small>
     </button>)}
-  </div>;
+  </div>
+    {retiredTones.filter(tone => selected.includes(tone.value)).map(tone =>
+      multiple
+        ? <button type="button" className="nf-appearance-clear" key={tone.value} onClick={() => change(tone.value)}>إزالة الاختيار السابق · {tone.label}</button>
+        : <small key={tone.value}>الدرجة المحفوظة · {tone.label}</small>
+    )}
+  </>;
 }
 
 export function SelfAppearanceFields({ value, gender, onChange, sensitiveAllowed = true, skinRequired = false, showDress = true }: { showDress?: boolean; skinRequired?: boolean; value: MarriageBasics; gender?: string; onChange: (patch: Partial<MarriageBasics>) => void; sensitiveAllowed?: boolean }) {

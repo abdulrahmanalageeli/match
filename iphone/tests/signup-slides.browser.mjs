@@ -87,7 +87,7 @@ try{
  await page.getByRole('button',{name:'الرياض',exact:true}).click();await next();await page.getByRole('alert').filter({hasText:'اختر جنسيتك'}).waitFor();await page.getByRole('button',{name:/^ما جنسيتك/}).click();await page.getByRole('option',{name:'سعودي',exact:true}).click();await page.locator('.nf-intake-header').getByRole('button',{name:'رجوع',exact:true}).click();assert.equal(await page.locator('[data-field=birthDate]').inputValue(),'1998-05-12');await next();assert.equal(await page.getByRole('button',{name:'الرياض',exact:true}).getAttribute('aria-pressed'),'true');await next();await page.getByText('هل يناسبك مسار وُدَين؟',{exact:true}).waitFor();await page.getByRole('button',{name:/^لم يسبق.*الزواج$/}).click();assert.equal(await page.getByRole('button',{name:'لا أقبل التعدد',exact:true}).count(),0);await next();await page.locator('.nf-intake[data-chapter=compatibility]').waitFor();checks.push('identity validation, Enter advances one slide, cities require selection, eligibility is cleared, Luna follows the essentials');await capture('03-assessment');
  await open('details');
  const disclosure=page.locator('.wd-slide-kicker'),processing=page.getByRole('checkbox',{name:/أوافق على معالجة/}),publication=page.getByRole('checkbox',{name:/أوافق على عرض/});
- assert.match(await disclosure.innerText(),/موافقتين منفصلتين.*للأعضاء المؤهلين/);
+ assert.match(await disclosure.innerText(),/موافقتين للمعالجة والعرض/);
  assert.ok((await disclosure.boundingBox()).y < (await processing.boundingBox()).y);
  await capture('privacy-before-consent');
  const previousViewport=page.viewportSize();

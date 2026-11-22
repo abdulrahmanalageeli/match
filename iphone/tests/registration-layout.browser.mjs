@@ -142,6 +142,15 @@ try {
     assert.equal(await page.locator('[data-field=displayName]').inputValue(),'نورة');
     for (const chapter of ['story', 'compatibility', 'details', 'preferences', 'avatar', 'readiness', 'criteria', 'review']) {
       await open(chapter);
+      const draftHelp = page.locator('.nf-intake-action-meta > .nf-intake-draft-help > summary');
+      if (await draftHelp.count()) {
+        const centered = await draftHelp.evaluate(node => {
+          const label = node.querySelector('span').getBoundingClientRect();
+          const parent = node.closest('.nf-intake-action-meta').getBoundingClientRect();
+          return Math.abs((label.left + label.right) / 2 - (parent.left + parent.right) / 2);
+        });
+        assert(centered < 3, 'saved-answers help should be centered');
+      }
       const phase = {story:5,compatibility:2,details:3,preferences:4,avatar:5,readiness:6,criteria:4,review:6}[chapter];
       assert.equal(await route.locator('li[aria-current=step]').count(),1);
       assert.equal(await route.locator('li').nth(phase-1).getAttribute('aria-current'),'step');

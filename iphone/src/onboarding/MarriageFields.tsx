@@ -1,6 +1,6 @@
 import { familyContext } from './familyContext';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type FocusEvent } from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, Sparkles, Users, type LucideIcon } from "../BrandIcons";
+import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, UserRound, Users, type LucideIcon } from "../BrandIcons";
 import { languageOptions, languageOpennessLabels, criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type CriteriaMode, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
 import { personalityQuestionsFor, personalityVersion } from "../compatibility/personality";
 import { normalizeNationality } from "../compatibility/model";
@@ -68,7 +68,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       {marriagePlanKeys.map(key => <Choices key={key} title={marriagePlanQuestions[key].question} value={value[key]} labels={marriagePlanQuestions[key].options} onChange={answer => change({[key]:answer})}/>)}
       <small>سؤال توقيت الإنجاب لمن يرغب فيه؛ اتركه دون إجابة إن لم يكن مناسبًا لك.</small>
     </Group>
-    <Group activeSection={activeSection} title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={Sparkles} open={reveal === "المظهر واللباس" || (required && reveal === null)} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
+    <Group activeSection={activeSection} title="المظهر واللباس" note="تفاصيل تختار مشاركتها" icon={UserRound} open={reveal === "المظهر واللباس" || (required && reveal === null)} summary={[value.heightCm && `${arabicNumber(value.heightCm)} سم`, value.weightKg && `${arabicNumber(value.weightKg)} كجم`, value.skinTone && 'درجة البشرة محددة'].filter(Boolean).join(' · ')}>
       <div className="field-pair">{show('heightCm') && <NumberField label="الطول" unit="سم" value={value.heightCm} min={120} max={230} required={required} onChange={heightCm=>change({heightCm})}/>}
         {show('weightKg') && <NumberField label="الوزن" unit="كجم" value={value.weightKg} min={35} max={250} required={required} onChange={weightKg=>change({weightKg})}/>}</div>
       <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed && show('skinTone')} showDress={!fields} skinRequired={skinRequired} />
@@ -148,8 +148,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
     return `لا يهمني · ${arabicNumber(answered.length)}`;
   };
   return <div className="nf-marriage-fields" data-field="partnerCriteria" tabIndex={-1} onFocus={revealMissing}>
-    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>مساحة لما يهمّك أنت.</strong><span>تفضيلات خاصة تساعدنا على ترتيب الأشخاص الأقرب لاختياراتك.</span></p></div>
-    <p className="nf-intake-note">«أفضل» يغيّر ترتيب الترشيحات. «شرط أساسي» يستبعد من لا يستوفيه أو لم يذكره. اختر «لا يهمني» حين تكون مرنًا.</p>
+    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفضيلاتك خاصة بك.</strong><span>«أفضل» يؤثر في الترتيب. «شرط أساسي» يستبعد غير المطابق ومن لم يذكر إجابته.</span></p></div>
     {required && remaining.length > 0 && <button type="button" className="f-link" onClick={() => {
       const next = { ...value };
       for (const key of remaining) next[key] = { mode: 'any' };
@@ -169,7 +168,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
         <ChoiceSelect label={'أضف اختيارًا: '+title} value="" placeholder="ابحث واختر · يمكنك إضافة أكثر من خيار" options={options.filter(option => !value[key]?.values?.includes(option.value))} onChange={option => {if(options.some(item=>item.value===option)&&!value[key]?.values?.includes(option))change({[key]:{...value[key],mode:value[key]?.mode??'prefer',values:[...(value[key]?.values??[]),option]}});}} />
       </Mode>)}
     </Group>
-    <Group title="المظهر واللباس" note="ما تفضّله، وما لا يهمّك" icon={Sparkles} open={reveal === "المظهر واللباس"} summary={selected(['height','weight','skinTone','dressStyle','dressFlexibility'])}><Range required={required} title="الطول (سم)" options={heightOptions} value={value.height} onChange={height => change({ height })} /><Range required={required} title="الوزن (كجم)" options={weightOptions} value={value.weight} onChange={weight => change({ weight })} /><AppearanceCriteriaFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} /></Group>
+    <Group title="المظهر واللباس" note="ما تفضّله، وما لا يهمّك" icon={UserRound} open={reveal === "المظهر واللباس"} summary={selected(['height','weight','skinTone','dressStyle','dressFlexibility'])}><Range required={required} title="الطول (سم)" options={heightOptions} value={value.height} onChange={height => change({ height })} /><Range required={required} title="الوزن (كجم)" options={weightOptions} value={value.weight} onChange={weight => change({ weight })} /><AppearanceCriteriaFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed} /></Group>
     <Group title="من تتقبّله شريكًا؟" note="الخلفية القبلية والجنسية، باختيارك أنت" icon={Users} open={reveal === "من تتقبّله شريكًا؟" || (!required && reveal === null)} summary={selected(['tribalBackground','nationality'])}>
       <p>خلفيتك وجنسيتك لا تحدّدان ما تقبله في الشريك. أنت تختار هنا، وتبقى هذه التفضيلات خاصة.</p>
       {sensitiveAllowed && <Mode title="هل تقبل شريكًا قبليًا أو غير قبلي؟" anyLabel="أقبل الحالتين" value={value.tribalBackground?.mode ?? "any"} onChange={mode => change({ tribalBackground: mode === "any" ? { mode } : { target: "tribal", ...value.tribalBackground, mode } })}>
@@ -192,7 +191,7 @@ export function PartnerCriteriaFields({ value = {}, basics, gender, onChange, se
       <Mode title="وجود أبناء" value={value.children?.mode ?? (required ? undefined : "any")} onChange={mode => change({ children: mode === "any" ? { mode } : { target: "none", ...value.children, mode } })}><p>أفضل أن يكون الطرف الآخر دون أبناء.</p><small>اختر «لا يهمني» إذا كنت منفتحًا على الحالتين.</small></Mode>
       <Mode title="التدخين" value={value.smoking?.mode ?? (required ? undefined : "any")} onChange={mode => change({ smoking: mode === "any" ? { mode } : { target: "never", mode } })}><p>أفضل شريكًا لا يدخّن.</p></Mode>
     </Group>
-    {!sensitiveAllowed && <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>تفضيلات البشرة والخلفية القبلية تتطلب موافقتك الاختيارية على معالجة المعلومات الحساسة. لا تحتاج إليها لإكمال التسجيل.</span></p>}
+    {!sensitiveAllowed && <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>{required ? 'تفضيلات البشرة والخلفية القبلية تحتاج موافقتك على معالجة المعلومات الحساسة في «تفاصيلك» لإكمال التسجيل.' : 'تفضيلات البشرة والخلفية القبلية تحتاج موافقتك على معالجة المعلومات الحساسة.'}</span></p>}
   </div>;
 }
 

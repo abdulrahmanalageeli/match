@@ -1,6 +1,6 @@
 import { useEffect,useRef,useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ShieldCheck,X } from '../BrandIcons';
+import { X } from '../BrandIcons';
 import { registrationDeviceId,type SignupVerification } from './registrationDevice';
 import './signup-sms.css';
 
@@ -37,12 +37,12 @@ function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(res
  }
  return <dialog ref={dialog} className="nf-sms-dialog" dir="rtl" aria-labelledby="signup-sms-title" aria-describedby="signup-sms-description" onCancel={e=>{e.preventDefault();if(!busy)done(null);}}>
   <button type="button" className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
-  <ShieldCheck size={28}/><p className="nf-sms-eyebrow">حسابك · خطوة الأمان</p><h2 id="signup-sms-title">{proof?'رمز واحد، وبداية أوثق':'نؤكّد رقم جوالك'}</h2>
-  <p id="signup-sms-description">{proof?'أدخل رمز التحقق الذي وصلك برسالة نصية. رقمك لا يظهر للأعضاء.':'نرسل لك رمزًا برسالة نصية للتأكد من أنك تملك الرقم. رقمك لا يظهر للأعضاء.'}</p>
+  <h2 id="signup-sms-title">{proof?'أدخل رمز التحقق':'تأكيد رقم الجوال'}</h2>
+  <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'نرسل رمزًا للتأكد من ملكيتك للرقم. رقمك لا يظهر للأعضاء.'}</p>
   {!proof&&<p className="nf-sms-precision">تأكيد الجوال يحمي الحساب، لكنه لا يُعد تحققًا من الهوية الوطنية.</p>}
   {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر خلال فترة الاختبار.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
-   <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} readOnly={Boolean(proof)} aria-describedby={!proof && error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>
+   {!proof && <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>}
    {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setCode(e.target.value.replace(/[^0-9٠-٩]/g,''));setError('');}}/></label>}
    {error&&<p id="signup-sms-error" role="alert" className="form-error">{error}</p>}
    <button className="f-primary" disabled={busy||(!proof&&cooldown>0)}>{busy?'لحظات…':!proof&&cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:proof?'تأكيد وإنشاء حسابي':'إرسال رمز التحقق'}</button>

@@ -129,16 +129,16 @@ function interviewDraftVersion(p: Answers, legacy: boolean): Answers {
 
 const domainNumber = new Intl.NumberFormat('ar-SA',{ maximumFractionDigits: 1 });
 function PartnerTraitFields({ p, update }: { p: Answers; update: (values: Partial<Answers>) => void }) {
-  return <fieldset><legend>ما الذي ترتاح له في شخصية شريكك؟</legend>
+  return <fieldset className="nf-partner-traits"><legend>ما الذي ترتاح له في شخصية شريكك؟</legend>
     <p>اختياري. حدّد ما يهمك فقط. نقارن اختيار كل طرف بوصف الآخر لنفسه.</p>
-    {partnerTraitQuestions.map(q => <ChoiceSelect key={q.id} label={q.label} value={p.personalityAnswers?.[q.id] ?? 'flexible'}
+    <div className="nf-partner-traits-list">{partnerTraitQuestions.map(q => <ChoiceSelect key={q.id} label={q.label} value={p.personalityAnswers?.[q.id] ?? 'flexible'}
       options={[{ value: 'flexible', label: 'مرن · لا تفضيل محدد' }, ...partnerTraitRanges.map((r, i) => ({value: r.code, label: q.options[i]}))]}
       onChange={value => {
         const answers = { ...p.personalityAnswers };
         if (value === 'flexible') delete answers[q.id];
         else answers[q.id] = value;
         update({ personalityAnswers: answers });
-      }}/> )}
+      }}/> )}</div>
   </fieldset>;
 }
 
@@ -717,7 +717,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </svg>
               <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div></div>
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <>
-                <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1>
+                <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'راجع ملفك.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1>
                 {(editing || (chapter.key !== 'preferences' && chapter.key !== 'avatar')) && <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p>}
               </>}
             </div>

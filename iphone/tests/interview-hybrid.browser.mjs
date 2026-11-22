@@ -205,6 +205,11 @@ try {
   assert.equal(calls.some(call => call.action === 'structuredConfirm'), false);
   releaseOpening();
   await page.locator('.wi-hybrid-captured-review').waitFor();
+  const openingNotice = page.locator('.wi-opening-notice');
+  await openingNotice.waitFor();
+  assert.equal(await openingNotice.evaluate(node => getComputedStyle(node).pointerEvents), 'none');
+  await openingNotice.waitFor({state:'detached',timeout:6000});
+  assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'suggestions remain available after the notice disappears');
   const self = card.locator('fieldset').first();
   const portrait = page.locator('.wi-living-portrait');
   const fill = portrait.locator('.wi-portrait-mark i > span').first();
@@ -288,6 +293,13 @@ try {
       await portrait.locator(':scope > summary').click();
     }
     const group = card.locator('fieldset').first();
+    const position = await group.locator('legend').first().evaluate(node => {
+      const scroller = node.closest('.wi-content');
+      const prompt = node.getBoundingClientRect();
+      const viewport = scroller.getBoundingClientRect();
+      return { top: prompt.top - viewport.top, bottom: prompt.bottom - viewport.top, height: viewport.height };
+    });
+    assert(position.top >= 0 && position.bottom <= position.height, 'the active question must remain visible after navigation: ' + JSON.stringify(position));
     const options = group.locator('.wi-hybrid-option');
     if (await group.getAttribute('data-compact') === 'true' && !testedKeyboardChoice) {
       assert.equal(await group.getByRole('slider').count(),0);
@@ -468,12 +480,13 @@ try {
     }
     await card.waitFor();
     if (!directTrial) {
-      const receipt = page.locator('.wi-opening-result:visible');
-      assert.equal(await receipt.count(),1);
-      assert.equal(Number(await receipt.getAttribute('data-proposed')),suggestionCount);
-      assert.equal(Number(await receipt.getAttribute('data-pending')),suggestionCount);
-      assert.equal(Number(await receipt.getAttribute('data-matched')),0);
-      assert.ok((await receipt.innerText()).trim());
+      const receipt = page.locator('.wi-hybrid-captured-review .wi-opening-result');
+      assert.equal(await receipt.count(),suggestionCount ? 1 : 0);
+      if (suggestionCount) {
+        assert.equal(Number(await receipt.getAttribute('data-proposed')),suggestionCount);
+        assert.equal(Number(await receipt.getAttribute('data-pending')),suggestionCount);
+        assert.equal(Number(await receipt.getAttribute('data-matched')),0);
+      }
       if (suggestionCount === 0 || suggestionCount === 3) {
         await page.screenshot({path:resolve(output,'opening-result-'+suggestionCount+'.png'),animations:'disabled'});
       }

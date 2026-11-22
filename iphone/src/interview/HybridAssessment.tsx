@@ -19,6 +19,7 @@ import type { InterviewSelection } from './model';
 import type { InterviewChoiceHelp, InterviewProposal } from './types';
 import './hybrid-assessment.css';
 import './personal-portrait.css';
+import './hybrid-notice.css';
 
 type Choices = Record<string, string[]>;
 const sessionSteps = ['قصتك', 'اختياراتك', 'المراجعة'] as const;
@@ -465,6 +466,9 @@ export function HybridAssessment({
   const backwards = useRef(false);
   const previousTap = useRef<{x:number; y:number; at:number} | null>(null);
   const [portraitOpen, setPortraitOpen] = useState(false);
+  const [showOpeningNotice, setShowOpeningNotice] = useState(false);
+  const openingNoticeShown = useRef(false);
+  const openingNoticeTimer = useRef<number | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
   const focusQuestion = useRef(false);
   const headingId = useId();
@@ -482,6 +486,9 @@ export function HybridAssessment({
   const wasCaptured = (field: Field) => progress.retained.has(field.id);
   const extracted = fields.filter(field => progress.extracted.has(field.id));
   const capturedCount = extracted.length;
+  const highlights = openingHighlights(openingText, openingTurnId, aiProposals, progress.extracted);
+  const openingIds = new Set(highlights.flatMap(part => part.sources.map(source => source.id)));
+  const openingCount = openingIds.size;
   const pendingIds = progress.pending;
   const pendingSuggestions = fields.filter(field => pendingIds.has(field.id));
   const sourceOf = (field: Field) => pendingIds.has(field.id) ? 'مقترح من لونا' : wasCaptured(field) ? 'يطابق اقتراح لونا' : undefined;
@@ -491,6 +498,14 @@ export function HybridAssessment({
   const screen = activeField?.id ?? card?.self.id ?? 'review';
   const retainSelf = selfAnswer && activeField === card?.partner;
   const firstNeeded = nextTopicCard(routes, card?.themeIndex ?? startTopic);
+
+  useEffect(() => {
+    if (!card || !openingTurnId || !openingCount || openingNoticeShown.current) return;
+    openingNoticeShown.current = true;
+    setShowOpeningNotice(true);
+    openingNoticeTimer.current = window.setTimeout(() => setShowOpeningNotice(false), 4000);
+  }, [Boolean(card), openingTurnId, openingCount]);
+  useEffect(() => () => window.clearTimeout(openingNoticeTimer.current), []);
 
   useEffect(() => {
     if ((!started.current && capturedCount > 0) || (index < 0 && firstNeeded >= 0) || (card && !relevant(card,choices))) setIndex(firstNeeded);
@@ -515,6 +530,7 @@ export function HybridAssessment({
   }, [screen]);
 
   function choose(id: string, code: string) {
+    setShowOpeningNotice(false);
     started.current = true;
     const field = fields.find(item => item.id === id);
     const option = field?.options.find(item => item.code === code);
@@ -596,13 +612,12 @@ export function HybridAssessment({
   }
   const canAdvance = card && (editField ? activeField && selected(activeField, choices) : !needsCard(card, choices));
   const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => commitField(field, code)} disabled={disabled}/>;
-  const highlights = openingHighlights(openingText, openingTurnId, aiProposals, progress.extracted);
-  const openingIds = new Set(highlights.flatMap(part => part.sources.map(source => source.id)));
   const otherExtracted = extracted.filter(field => !openingIds.has(field.id));
   const capturedChoice = (field: Field) => <ReviewChoice field={field} value={selected(field, choices)?.code}
     source={sourceOf(field)} side={openingSide(field)} onChoose={code => choose(field.id, code)} disabled={disabled}/>;
   const suggestionsReview = capturedCount > 0 ? <details key={card ? 'suggestions' : 'review-suggestions'} className="wi-hybrid-captured-review">
-      <summary>{openingTurnId ? <OpeningCounts progress={progress} proposed={openingIds.size} total={fields.length}/> : <span>اقتراحات من حوارك</span>}<span className="wi-receipt-link"><span>مراجعة</span><ChevronDown size={17} aria-hidden="true"/></span></summary>
+      <summary><span>مراجعة اقتراحات لونا · {number.format(capturedCount)}</span><ChevronDown size={17} aria-hidden="true"/></summary>
+      {openingTurnId && <OpeningCounts progress={progress} proposed={openingIds.size} total={fields.length}/>}
       <OpeningWords text={openingText} fields={fields} highlights={highlights} proposals={aiProposals} saved={savedChoices}
         disabled={disabled} onChoose={choose} renderChoice={id => capturedChoice(extracted.find(field => field.id === id)!)}/>
       {otherExtracted.length > 0 && <div className="wi-hybrid-review-fields">
@@ -619,10 +634,12 @@ export function HybridAssessment({
         event.currentTarget.closest('details')?.removeAttribute('open');
         heading.current?.focus({preventScroll:true});
       }}>اعتماد المقترحات في مسودتي</button>}
-    </details> : openingTurnId ? <div className="wi-opening-empty"><OpeningCounts progress={progress} proposed={0} total={fields.length}/></div> : null;
+    </details> : null;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     {!direct && <LunaSessionSteps current={card ? 'اختياراتك' : 'المراجعة'}/>}
-    {card && suggestionsReview}
+    {showOpeningNotice && card && <div className="wi-opening-notice" role="status">
+      <Check size={16} aria-hidden="true"/><span>لدى لونا {number.format(openingCount)} من الاقتراحات من رسالتك. راجعها في أي وقت.</span>
+    </div>}
     {card && <details ref={topicMenu} className="wi-topic-route" data-active-topic={card.themeIndex}>
       <summary>
         <span className="wi-chapter-position" aria-hidden="true">
@@ -684,6 +701,7 @@ export function HybridAssessment({
         </div>
       </>}
     </div>
+    {card && suggestionsReview}
     {previous && (!card || previous.themeIndex === card.themeIndex) && !previous.selfOnly && inferred.has(previous.partner.id) && suggestionRow(previous)}
     <div className="wi-hybrid-actions">
       {(!card || canAdvance) && <MotionPressButton

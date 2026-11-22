@@ -74,7 +74,7 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  await page.getByRole('button',{name:'استخدام البريد الإلكتروني'}).click();await page.locator('input[name=email]').waitFor();
  assert.equal(await page.locator('h1').evaluate(el=>el===document.activeElement),true);
  await page.goto(base+'?native');await apple.waitFor();await measureEntry('native-signup','.nf-social-login button');
- const brief=page.locator('.nf-auth-brief');await brief.locator('summary').click();await brief.getByText(/بعد القبول/).waitFor();await brief.locator('summary').click();
+ const brief=page.locator('.nf-auth-brief');await brief.locator('summary').click();await brief.getByText(/إذا اكتمل التحقق/).waitFor();await brief.locator('summary').click();
  await page.getByRole('button',{name:'المتابعة بالبريد الإلكتروني'}).click();
  await page.setViewportSize({width:320,height:568});
  await page.evaluate(()=>{document.documentElement.dataset.nfText='large'});

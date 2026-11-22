@@ -105,7 +105,13 @@ async function register(browser, gender) {
   });
   const button = name => page.getByRole('button',{name,exact:typeof name === 'string'});
   const next = () => page.locator('.nf-intake-actions > button[type=submit]').click();
-  const chapter = key => page.locator('main[data-chapter='+key+']').waitFor();
+  const chapter = async key => {
+    await page.locator('main[data-chapter='+key+']').waitFor();
+    await page.waitForFunction(() => {
+      const form = document.querySelector('[data-nf-keyboard-form]');
+      return window.scrollY < 2 && (!form || form.scrollTop < 2);
+    }, null, {timeout:5000});
+  };
   const select = async (label,value) => {await button(label).click();await page.getByRole('option',{name:value,exact:true}).click()};
   const person = gender==='man'?'خالد':'سارة';
   try {
@@ -140,7 +146,13 @@ async function register(browser, gender) {
     await button('اعتماد إجاباتي').click();
     await button('متابعة إعداد الملف').click(); await next();
     await chapter('details');
+    await next();
+    await page.getByRole('alert').filter({hasText:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها'}).waitFor();
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على معالجة/}).isChecked(),false);
     await page.getByRole('checkbox',{name:/أوافق على معالجة/}).click();
+    await next();
+    await page.getByRole('alert').filter({hasText:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها'}).waitFor();
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على عرض/}).isChecked(),false);
     await page.getByRole('checkbox',{name:/أوافق على عرض/}).check(); await next();
     await page.waitForFunction(() => {
       const d = JSON.parse(sessionStorage.getItem('qa-draft') || 'null');

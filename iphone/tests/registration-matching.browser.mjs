@@ -122,6 +122,8 @@ async function register(browser, gender) {
     for (const consent of await page.getByRole('checkbox').all()) await consent.check();
     await button('إنشاء الحساب').click();
     await chapter('identity');
+    await page.getByLabel('الاسم الأول',{exact:true}).fill(person);
+    await page.getByLabel('اسم العائلة',{exact:true}).fill('الناصر');
     await page.locator('[data-field=displayName]').fill(person);
     await button(gender==='man'?'رجل':'امرأة').click(); await next();
     await page.locator('[data-field=birthDate]').fill(gender==='man'?'1995-03-02':'1997-04-15'); await next();
@@ -219,7 +221,9 @@ async function register(browser, gender) {
     await page.locator('.nf-photo-consent input').check();
     await page.getByText(gender==='man'?'صورتك جاهزة، اكتملت مطابقة الصورة.':'صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.',{exact:true}).waitFor();
     await next(); await chapter('readiness');
-    await button('أرتاح لإشراك الأهل من البداية').click();await button('أقدر أبدأ خطوة رسمية قريب').click();
+    await page.getByText('أرتاح لإشراك الأهل من البداية',{exact:true}).waitFor();
+    assert.equal(await button('أرتاح لإشراك الأهل من البداية').count(),0,'readiness carries forward the family timing');
+    await button('أقدر أبدأ خطوة رسمية قريب').click();
     await page.getByRole('checkbox',{name:'أوافق على اتفاق العضوية'}).check(); await next();
     await chapter('review');
     const integrity = page.getByRole('checkbox',{name:/أقرّ بصدق إجاباتي/});
@@ -252,6 +256,7 @@ async function register(browser, gender) {
     assert.equal(Object.keys(profile.personalityAnswers).length,15);
     assert(profile.signupConsents.assessment && profile.signupConsents.sensitivePublication);
     assert.equal(profile._applicationIntegrity,'wudayn-application-integrity-v1');
+    assert.equal(profile._membershipReadiness.family,'early');
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
     console.log('PASS',gender,'account entry, identity, assessment, sensitive draft recovery, photo, readiness and application submission');
     if(gender==='woman') assert.deepEqual(photo,{blur:100,revealPolicy:'family'});

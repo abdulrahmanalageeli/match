@@ -1,3 +1,4 @@
+import * as shared from '../src/compatibility/sharedDecisions.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -26,6 +27,7 @@ function mount(code, component, initial) {
   };
   const placeholders = new Proxy({}, { get: (_, key) => key });
   const exports = {}, require = name => {
+    if (name === './sharedDecisions') return shared;
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'fragment' };
     if (name === './model' || name === '../compatibility/model') return compatibility;
@@ -54,12 +56,12 @@ test('required compatibility groups each prompt with its choices and prevents sk
   byClass(tree, 'compat-choice')[0].props.onClick(); tree = ui.render();
   assert.equal(byClass(tree, 'compat-next')[0].props.disabled, false); assert.equal(byClass(tree, 'compat-skip').length, 0);
   byClass(tree, 'compat-next')[0].props.onClick(); tree = ui.render(); assert.equal(byClass(tree, 'compat-next')[0].props.disabled, true);
-  assert.equal(Object.keys(ui.props.surveyAnswers).length, 1);
+  assert.equal(Object.keys(ui.props.surveyAnswers).length, 2);
 });
 
 test('manual self answers leave partner choices open', () => {
   const same = mount(compatibilityCode, 'CompatibilityFields', { ...emptyCompatibility, required: true, remainingOnly: true });
-  let tree = same.render(); byClass(tree, 'compat-choice')[0].props.onClick(); tree = same.render();
+  let tree = same.render(); button(tree,'أختار لنفسي ولشريكي بشكل مختلف').props.onClick(); tree=same.render(); byClass(tree, 'compat-choice')[0].props.onClick(); tree = same.render();
   assert.equal(same.props.surveyAnswers.children_plan, 'A');
   assert.equal(same.props.surveyAnswers.partner_children_plan, undefined);
   assert.equal(textOf(byClass(tree, 'compat-next')[0]), 'السؤال التالي');
@@ -78,6 +80,39 @@ test('manual self answers leave partner choices open', () => {
   assert.notEqual(textOf(nodes(tree).find(node=>node.type==='h3')),residence.partnerPrompt);
   assert.equal(complement.props.surveyAnswers[residence.id], 'A');
   assert.equal(complement.props.surveyAnswers[residence.partnerId], undefined);
+});
+
+test('every current topic has a deliberate shared or individual treatment', () => {
+  const joint=['children_plan','wife_work','marriage_timeline','family_authority','financial_provision','domestic_labor','housing_arrangement','faith_routine','money_management'];
+  const individual=['residence_plan','social_rhythm','social_boundaries','conflict_response','repair_after_conflict','closeness_pace','parenting_approach'];
+  assert.deepEqual(compatibility.dimensions.map(d=>d.id).sort(),[...joint,...individual].sort());
+  for(const dim of compatibility.dimensions){
+    const answers=Object.fromEntries(compatibility.dimensions.filter(d=>d.id!==dim.id).flatMap(d=>compatibility.practicalAnswerKeys(d).map(key=>[key,'A'])));
+    const ui=mount(compatibilityCode,'CompatibilityFields',{...emptyCompatibility,required:true,remainingOnly:true,surveyAnswers:answers});
+    byClass(ui.render(),'compat-choice')[1].props.onClick();
+    assert.equal(ui.props.surveyAnswers[dim.id],'B');
+    assert.equal(ui.props.surveyAnswers[dim.partnerId],joint.includes(dim.id)?'B':undefined,dim.id);
+  }
+});
+test('changing the shared children decision updates both answers and skips the partner question', () => {
+  const ui = mount(compatibilityCode, 'CompatibilityFields', { ...emptyCompatibility, required: true, remainingOnly: true });
+  byClass(ui.render(), 'compat-choice')[0].props.onClick();
+  byClass(ui.render(), 'compat-choice')[1].props.onClick();
+  assert.equal(ui.props.surveyAnswers.children_plan, 'B');
+  assert.equal(ui.props.surveyAnswers.partner_children_plan, 'B');
+  byClass(ui.render(), 'compat-next')[0].props.onClick();
+  assert.doesNotMatch(textOf(byClass(ui.render(), 'compat-panel')[0]), /الإنجاب/);
+});
+
+test('an existing children answer can be endorsed for both or given a different partner answer',()=>{
+  for(const split of [false,true]){
+    const ui=mount(compatibilityCode,'CompatibilityFields',{...emptyCompatibility,required:true,remainingOnly:true,surveyAnswers:{children_plan:'B'}});
+    let tree=ui.render();
+    assert.equal(ui.props.surveyAnswers.partner_children_plan,undefined);
+    if(split){button(tree,'أختار لنفسي ولشريكي بشكل مختلف').props.onClick();tree=ui.render();byClass(tree,'compat-choice')[0].props.onClick();}
+    else button(tree,'أعتمد هذا الترتيب لنا').props.onClick();
+    assert.equal(ui.props.surveyAnswers.children_plan,'B');assert.equal(ui.props.surveyAnswers.partner_children_plan,split?'A':'B');
+  }
 });
 
 test('manual partner choices survive later self edits', () => {

@@ -110,6 +110,14 @@ export function validMarriageBasicsDraft(value: unknown): value is MarriageBasic
   return validMarriageBasics(value, true);
 }
 
+export const requiredPartnerCriteria = ['sharedLanguage','education','profession','height','weight','nationality','maritalStatus','children','smoking'] as const;
+export const criterionLabels: Record<keyof PartnerCriteria, string> = {
+  sharedLanguage:'اللغة المشتركة', education:'المؤهل التعليمي', profession:'مجال العمل',
+  height:'طول الشريك', weight:'وزن الشريك', nationality:'الجنسيات المقبولة',
+  maritalStatus:'الحالات الاجتماعية المقبولة', children:'وجود أبناء لدى الشريك', smoking:'التدخين',
+  tribalBackground:'الخلفية القبلية', skinTone:'لون البشرة', dressStyle:'اللباس', dressFlexibility:'الانفتاح على تغيير اللباس',
+};
+
 export function validPartnerCriteria(value: unknown, basics: MarriageBasics = {}, allowIncomplete = false): value is PartnerCriteria {
   if (!object(value)) return false;
   for (const [key, rule] of Object.entries(value)) {

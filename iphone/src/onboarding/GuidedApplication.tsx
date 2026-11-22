@@ -1,4 +1,5 @@
 import { MemberNameFields } from './MemberNameFields';
+import { privateNextStep } from '../interview/privateNextStep';
 import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
 import { applicableFamilyAnswers, familyContext } from './familyContext';
@@ -257,6 +258,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
+  const [lunaStep, setLunaStep] = useState<ReturnType<typeof privateNextStep>>();
   const [aiComplete, setAiComplete] = useState(false);
   const [interviewApplied, setInterviewApplied] = useState(false);
   const [interviewRevision, setInterviewRevision] = useState(0);
@@ -377,7 +379,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,sensitivePublication:next.sensitivePublication,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
+    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
     return true;
   }
@@ -393,6 +395,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     void requestInterview(interviewAuth, { action: 'load' }).then(snapshot => {
       if (!active) return;
       setFallbackAvailable(snapshot.fallbackAvailable === true);
+      setLunaStep(privateNextStep(snapshot.document));
       confirmedProfileProposals.current = snapshot.document?.profileConfirmed ?? [];
       interviewVersion.current = snapshot.document ? { model:snapshot.document.model, promptVersion:snapshot.document.promptVersion, confirmedAt:snapshot.document.confirmedAt } : {};
       if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
@@ -422,7 +425,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (draftRef) draftRef.current = null;
       setStorageState(null);
       setDraft(fresh);
-      confirmedProfileProposals.current=[];interviewVersion.current={};
+      confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);
       setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
     }
     if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
@@ -550,7 +553,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   }, [draft.step, editorHome]);
   useLayoutEffect(() => {
     if (!error) return;
-    const target = form.current?.querySelector<HTMLElement>('[data-field="' + error.field + '"]');
+    const target = error.criterion
+      ? form.current?.querySelector<HTMLElement>(`[data-criterion="${error.criterion}"]`)
+      : form.current?.querySelector<HTMLElement>('[data-field="' + error.field + '"]');
     for (let parent = target?.parentElement; parent; parent = parent.parentElement) {
       if (parent instanceof HTMLDetailsElement) parent.open = true;
     }
@@ -758,7 +763,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               {chapter.key === 'beena' && consents.assessment && <>
                 <BeenaFields key={interviewRevision} value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing} remainingOnly={!editing&&!reviewAllBeena}/>
               </>}
-              {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields required={!editing&&includeCompatibility} value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
+              {chapter.key === "criteria" && consents.assessment && <PartnerCriteriaFields reviewing={draft.returnToReview} feedback={error}
+                confirmedKeys={confirmedProfileProposals.current.filter(item=>item.fieldId.startsWith('partnerCriteria.')).map(item=>item.fieldId.slice('partnerCriteria.'.length))}
+                required={!editing&&includeCompatibility} value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
               {consents.assessment && p.personalityVersion === 'personality-v2' &&
                 chapter.key === (editing ? 'personality' : 'criteria') && <PartnerTraitFields p={p} update={update}/>}
               {chapter.key === "personality" && consents.assessment && <>
@@ -787,12 +794,16 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div>}
               </>}
               {chapter.key === "preferences" && <>
-                <SavedPreference saved={savedPreference('preferredMinAge') && savedPreference('preferredMaxAge')} summary={`عمر الشريك المفضّل: ${arabicNumber(Number(p.preferredMinAge))}–${arabicNumber(Number(p.preferredMaxAge))}`}>
                 <fieldset><legend>العمر المناسب للطرف الآخر</legend>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' && <small>النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.</small>}<div className="field-pair">
-                  <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
-                  <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
+                  {(['preferredMinAge','preferredMaxAge'] as const).map(key => {
+                    const minimum = key === 'preferredMinAge';
+                    const label = minimum ? 'من عمر' : 'إلى عمر';
+                    const options = ageOptions.filter(option => minimum ? !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge) : !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge));
+                    return <SavedPreference key={key} saved={savedPreference(key)} summary={label + ' ' + arabicNumber(Number(p[key]))}>
+                      <ChoiceSelect {...field(key)} label={label} value={p[key]} onChange={value=>update({[key]:value})} options={options} required/>
+                    </SavedPreference>;
+                  })}
                 </div></fieldset>
-                </SavedPreference>
                 {p.gender === 'woman' && (
                   <ChoiceSelect id="nf-mahr-range" searchable={false} label="نطاق المهر" value={p.marriageBasics?.mahrRange ?? ''} placeholder="اختياري" allowClear
                     options={Object.entries(mahrRanges).map(([value,label]) => ({ value, label }))}
@@ -805,7 +816,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
               {chapter.key === 'readiness' && <div data-field="membershipReadiness" tabIndex={-1}>
-                <ReadinessStep answers={p} value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline}
+                <ReadinessStep plan={consents.assessment ? lunaStep : undefined} answers={p} value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline}
                   onChange={membershipReadiness => update({ membershipReadiness })}/>
               </div>}
               {chapter.key === "review" && <>
@@ -835,7 +846,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             </div>
           </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
-            {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
+            {error && !(chapter.key === "criteria" && error.criterion) && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
             {!(choosingAssessment && consents.assessment && interviewAuth) &&
               <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
             <KeyboardDismiss/>
@@ -878,7 +889,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           setAssessmentPath('questions');
           void saveProgressNow();
         }}
-        onApply={confirmed => {
+        onApply={(confirmed, document) => {
+          setLunaStep(privateNextStep(document));
           setAiComplete(true);
           update(applyInterviewAnswers(current.current.answers, !editing ? confirmed.filter(item => item.kind !== 'beena') : confirmed));
           setInterviewApplied(true);

@@ -1,3 +1,4 @@
+import { sharedDecisionLabel, sharedDecisionPrompt } from './sharedDecisions';
 import memberAr from '../member-copy.ts';
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, CookingPot, Dice5, Footprints, Heart, Landmark, PenLine, Plane, SlidersHorizontal, Sparkles, Star, UserRound } from "../BrandIcons";
@@ -45,7 +46,14 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
   const isPriority = priorityCategories.includes(category.id);
   const remainingDone = remainingOnly && (positions.length === 0 || remainingFinished) && (!required || filled === total);
   const answered = hasPreferenceAnswer(dim.options, value);
-  const prompt = dim.id === "wife_work" && side === "self" && gender === "woman" ? "هل ترغبين في العمل بعد الزواج؟" : side === "self" ? dim.selfPrompt : dim.partnerPrompt;
+  const [separateTopic,setSeparateTopic] = useState<string>();
+  const [jointlyAnsweredTopic, setJointlyAnsweredTopic] = useState<string>();
+  const jointPrompt = registration && remainingOnly && (!version || version === 'marriage-v4')
+    && !hardRequirements.includes(dim.id) && separateTopic !== dim.id && (!surveyAnswers[dim.partnerId] || (side === 'self' && jointlyAnsweredTopic === dim.id))
+    ? sharedDecisionPrompt(dim.id,gender) : undefined;
+  const sharedPrompt = side === 'self' ? jointPrompt : undefined;
+  const saved = side === 'partner' && jointPrompt ? dim.options.find(option=>option.code===surveyAnswers[dim.id]) : undefined;
+  const prompt = sharedPrompt ?? (dim.id === "wife_work" && side === "self" && gender === "woman" ? "هل ترغبين في العمل بعد الزواج؟" : side === "self" ? dim.selfPrompt : dim.partnerPrompt);
   function change(partial: Partial<CompatibilitySelection>) { onChange({ interestIds, surveyAnswers, hardRequirements, priorityCategories, ...partial }); }
   function toggleInterest(id: string) {
     if (interestIds.includes(id)) change({ interestIds: interestIds.filter(value => value !== id) });
@@ -55,6 +63,14 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
     if (required && !next) return;
     completedHere.current.add(activePosition);
     const answers = { ...surveyAnswers };
+    if (sharedPrompt) {
+      if (next) {
+        answers[dim.partnerId] = next;
+        setJointlyAnsweredTopic(dim.id);
+      } else {
+        delete answers[dim.partnerId];
+      }
+    }
     if (next) answers[answerKey] = next; else delete answers[answerKey];
     change({ surveyAnswers: answers, hardRequirements: !next && side === "partner" ? hardRequirements.filter(id => id !== dim.id) : hardRequirements });
   }
@@ -63,6 +79,7 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
     if (required && next > activePosition && !answered) return;
     setRemainingFinished(false);
     if (next === activePosition) return;
+    setJointlyAnsweredTopic(undefined);
     shouldFocus.current = true;
     setDirection(next > activePosition ? "next" : "back");
     setPosition(next);
@@ -104,17 +121,22 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
         </div>
       </details>
 
-      {hasPartnerQuestion(dim.id, version) && <div className="compat-perspective" role="group" aria-label="زاوية الإجابة">
+      {!jointPrompt && hasPartnerQuestion(dim.id, version) && <div className="compat-perspective" role="group" aria-label="زاوية الإجابة">
         {(!remainingOnly || positions.includes(topicIndex * 2)) && <button type="button" aria-pressed={side === "self"} onClick={() => move(topicIndex * 2)}><UserRound size={15} aria-hidden="true"/>أنا{surveyAnswers[dim.id] && <Check size={13} aria-label="أجبت"/>}</button>}
         {positions.includes(topicIndex * 2 + 1) && <button type="button" disabled={required && !answered && side === "self"} aria-pressed={side === "partner"} onClick={() => move(topicIndex * 2 + 1)}><Heart size={15} aria-hidden="true"/>شريك الحياة{surveyAnswers[dim.partnerId] && <Check size={13} aria-label="أجبت"/>}</button>}
       </div>}
       <div className="compat-panel" key={answerKey} data-dir={direction}>
         <span className="compat-topic-label"><span>{dim.title}</span>{registration && <span className="compat-question-position" aria-label={`السؤال ${number.format(questionIndex + 1)} من ${number.format(positions.length)}`}>{number.format(questionIndex + 1)} / {number.format(positions.length)}</span>}</span>
-        <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{prompt}</h3>
-        <p className="compat-hint">{side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
+        <h3 ref={heading} id={prefix + "-heading"} tabIndex={-1}>{saved ? dim.title : prompt}</h3>
+        <p className="compat-hint">{saved ? sharedDecisionLabel(dim.id,saved.code,saved.self) : sharedPrompt ? 'ترتيب أفضّله لنا' : side === "self" ? "اختر الأقرب إلى حياتك كما تتصورها." : "اختر ما تتمنى مشاركته مع الطرف الآخر."}</p>
         <div className="compat-answer-options" role="group" aria-labelledby={prefix + "-heading"}>
-          {dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? (memberAr.womanWork as Record<string,string>)[option.code] : option[side]}</span></button>)}
+          {saved ? <button type="button" className="compat-choice" onClick={()=>selectAnswer(saved.code)}>أعتمد هذا الترتيب لنا</button> : dim.options.map(option => <button className="compat-choice" type="button" key={option.code} aria-pressed={value === option.code} onClick={() => selectAnswer(option.code)}><span className="compat-choice-dot" aria-hidden="true">{value === option.code && <Check size={13}/>}</span><span>{dim.id === "wife_work" && side === "self" && gender === "woman" ? (memberAr.womanWork as Record<string,string>)[option.code] : sharedPrompt ? sharedDecisionLabel(dim.id,option.code,option.self) : option[side]}</span></button>)}
         </div>
+        {jointPrompt && <button type="button" className="f-link" onClick={() => {
+          if (jointlyAnsweredTopic === dim.id) completedHere.current.add(topicIndex * 2 + 1);
+          setSeparateTopic(dim.id);
+          setJointlyAnsweredTopic(undefined);
+        }}>أختار لنفسي ولشريكي بشكل مختلف</button>}
         {!required && <button className="compat-skip" type="button" onClick={() => { selectAnswer(""); if (!value && questionIndex < positions.length-1) move(positions[questionIndex+1]); else if (!value && remainingOnly) setRemainingFinished(true); }}>{value ? "إزالة اختياري" : side === "self" ? "أتجاوز هذا السؤال الآن" : "ليس لدي تفضيل محدد — متابعة"}</button>}
         {dim.id === "residence_plan" && <p className="compat-footnote">إذا اخترت مدينة نتفق عليها، حدّد مدن الانتقال من تصفية الملفات بعد التسجيل.</p>}
         <details className="compat-refine">

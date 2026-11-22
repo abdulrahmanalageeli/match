@@ -1,4 +1,5 @@
 import { MemberNameFields } from './MemberNameFields';
+import { dimensionsForVersion } from '../compatibility/practical-catalog';
 import { familyContext } from './familyContext';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Check, Eye, MapPin, Pencil } from '../BrandIcons';
@@ -18,10 +19,10 @@ import './signup-slides.css';
 export type SignupSlidesHandle = { advance: () => boolean; back: () => boolean };
 const details = ['المظهر واللباس','اللغات والتواصل','الخلفية والعائلة','بداية تناسبك','الزواج والتعدد','الأبناء والعادات','الدين في حياتي','خطط الحياة الزوجية'];
 const identityTitles = ['أهلًا بك. نبدأ باسمك.','متى يوم ميلادك؟','مدينة إقامتك وجنسيتك','هل يناسبك مسار وُدَين؟'];
-const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.','ثلاث لمحات تشبهك.','خطوتك القادمة.'];
+const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.','ثلاث لمحات تشبهك.','نيّتك في ملفك.'];
 const slideSubtitles = {
   identity: ['', 'نستخدمه لحساب العمر فقط؛ يبقى التاريخ خاصًا.', 'نقرّب لك الخيارات من المكان الذي تعيش فيه.', 'نتأكد من الأهلية قبل بدء جلسة التوافق.'],
-  story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'نبذتك للأعضاء المؤهلين. وش تحب يعرفون عنك؟', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'اختيارك يوضح أن التعارف هنا بقصد الزواج.'],
+  story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'نبذتك للأعضاء المؤهلين. وش تحب يعرفون عنك؟', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'وش تبي الطرف الآخر يعرف عن نيّتك من التعارف؟'],
   details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'تفاصيل عملية تجعل التوافق أدق.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.', 'توقعات واضحة للسكن والمصاريف وبداية حياتكما.'],
 } as const;
 export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:9; }
@@ -59,7 +60,7 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   if(!required)return null;
   if(index===2&&(!b.spokenLanguages?.length||!b.preferredLanguage||!b.languageOpenness))return 'حدّد لغاتك وطريقة التواصل التي تناسبك.';
   if(index===3&&!b.nationality)return 'اختر جنسيتك.';
-  if(index===4&&(!b.marriageTimeline||!b.meetingPreference))return 'اختر توقيت الزواج والخطوة الرسمية.';
+  if(index===4&&(!b.marriageTimeline||!b.meetingPreference))return 'حدّد توقيت إتمام الزواج وطريقة اللقاء.';
   if(index===5&&(!b.maritalStatus||!b.polygynyPreference||(familyContext(p.gender,b).askWifeCount&&!b.currentWives)))return 'أكمل وضعك الحالي وموقفك من التعدد.';
   if(index===6&&(familyContext(p.gender,b).childrenCount===undefined||!b.smoking))return 'اختر عدد الأبناء وما يصف عاداتك.';
   return null;
@@ -127,13 +128,16 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
   const rephraseBio=()=>{rewriteVersion.current+=1;answer({bio:generatedBio(p,rewriteVersion.current)});setGeneratedDraft(true);};
   const slideChapter: 'identity'|'story'|'details' = chapter==='identity' ? 'identity' : chapter==='story' ? 'story' : 'details';
+  const formalTiming = chapter === 'details' && visibleIndex === 4 && remaining?.some(item => item.field === 'marriageTimeline')
+    ? dimensionsForVersion(p.assessmentVersion).find(topic => topic.id === 'marriage_timeline')?.options.find(option => option.code === p.surveyAnswers?.marriage_timeline)?.self
+    : undefined;
   const subtitle = consentSlide
     ? required
       ? consents.sensitiveProfile && consents.sensitivePublication
         ? 'بعد دخول التطبيق، يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
         : 'يتطلّب التسجيل درجة البشرة وموافقتين للمعالجة والعرض. يمكنك إيقاف العرض لاحقًا من الإعدادات.'
       : 'يمكنك الموافقة على استخدام التفاصيل في التوافق، ثم اختيار ما إذا كنت تسمح بعرضها للأعضاء المؤهلين.'
-    : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
+    : formalTiming ? `أول خطوة رسمية: ${formalTiming}. بقي توقيت الزواج نفسه.` : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
   const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
   const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
@@ -174,7 +178,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
         {(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}
       </div>}
       {chapter==='story'&&visibleIndex===1&&<>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
-      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
+      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields remainingOnly={required && !reviewing} answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div></>}
       {consentSlide && <>
         <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>

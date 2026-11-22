@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Check, ChevronDown, HeartHandshake, LockKeyhole, ShieldCheck } from '../BrandIcons';
 import { dimensionsForVersion } from '../compatibility/model';
 import { marriageTimelineLabels } from '../compatibility/marriage';
 import { MotionReveal } from '../motion/Reanimated';
-import { membershipAgreementVersion, readinessBlueprint, readinessClarifications, readinessComplete, readinessConflicts, readinessScenarios, type MembershipReadiness as Readiness, type ReadinessAnswers, type ReadinessTopic } from './membershipReadiness';
+import { declaredNextStep, membershipAgreementVersion, readinessBlueprint, readinessClarifications, readinessComplete, readinessConflicts, readinessScenarios, type MembershipReadiness as Readiness, type ReadinessAnswers, type ReadinessTopic } from './membershipReadiness';
 import './membership-readiness.css';
 
 export function ReadinessResult({ value, familyPreference, formalTiming, answers = {}, edit }: {
@@ -44,7 +45,8 @@ export function ReadinessResult({ value, familyPreference, formalTiming, answers
   </section>;
 }
 
-export function ReadinessStep({ value, familyPreference, formalTiming, answers, onChange }: {
+export function ReadinessStep({ value, familyPreference, formalTiming, answers, plan, onChange }: {
+  plan?: {text:string; answer:string};
   value: Readiness;
   familyPreference: string;
   formalTiming?: string;
@@ -54,6 +56,9 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
   const conflicts = readinessConflicts(value, familyPreference, formalTiming);
   const formalLabel = dimensionsForVersion(answers?.assessmentVersion).find(item => item.id === 'marriage_timeline')?.options.find(option => option.code === formalTiming)?.self;
   const wedding = answers?.marriageBasics?.marriageTimeline;
+  const [editStep, setEditStep] = useState(false);
+  const carriedStep = declaredNextStep(plan?.answer);
+  const showSavedStep = Boolean(plan && !editStep && (value.nextStep || (carriedStep && !value.agreement)));
   const reviewed = value.family && value.nextStep && conflicts.every(topic => value.clarifications?.[topic]);
   function selectScenario(topic: ReadinessTopic, choice: string) {
     if (value[topic] === choice) return;
@@ -70,12 +75,19 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
       </dl>
     </details>}
     {(['family','nextStep'] as const).map(topic => <div className="nf-readiness-card" key={topic}>
-      <fieldset>
-        <legend>{readinessScenarios[topic].question}</legend>
+      {topic === 'nextStep' && plan && <details className="nf-readiness-timing">
+        <summary><span>خطتك من حديثك مع لونا</span><ChevronDown size={15}/></summary>
+        <p dir="auto">{plan.text}</p>
+      </details>}
+      {topic === 'nextStep' && showSavedStep ? <div className="nf-readiness-result-heading">
+        <div><small>استعدادك للخطوة الرسمية</small><p>{readinessScenarios.nextStep.options[(value.nextStep ?? carriedStep)!]}</p></div>
+        <button type="button" onClick={() => setEditStep(true)}>تعديل</button>
+      </div> : <fieldset>
+        <legend>{topic === 'nextStep' && plan ? 'ومتى تقدر تبدأ الخطوة الرسمية؟' : readinessScenarios[topic].question}</legend>
         <div className="nf-readiness-choices">{Object.entries(readinessScenarios[topic].options).map(([choice,label]) => <button key={choice} type="button" aria-pressed={value[topic] === choice} onClick={() => selectScenario(topic, choice)}>
           <span>{label}</span>{value[topic] === choice && <Check size={16} aria-hidden="true"/>}
         </button>)}</div>
-      </fieldset>
+      </fieldset>}
       {conflicts.includes(topic) && <MotionReveal className="nf-readiness-clarify" duration={200} distance={5}>
         <dl className="nf-readiness-declarations">
           <div><dt>اختيارك السابق</dt><dd>{topic === 'family' ? familyPreference : formalLabel}</dd></div>
@@ -98,7 +110,7 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
         <li>أحترم حدود التواصل وخصوصية الصور والمعلومات.</li>
         <li>أتفق مع الطرف الآخر على التوقيت وإشراك الأهل قبل الانتقال للخطوة الرسمية.</li>
       </ul>
-      <label><input type="checkbox" checked={value.agreement === membershipAgreementVersion} onChange={event => onChange({ ...value, agreement: event.target.checked ? membershipAgreementVersion : undefined })}/> أوافق على اتفاق العضوية</label>
+      <label><input type="checkbox" checked={value.agreement === membershipAgreementVersion} onChange={event => onChange({ ...value, ...(event.target.checked && showSavedStep && !value.nextStep ? {nextStep: carriedStep} : {}), agreement: event.target.checked ? membershipAgreementVersion : undefined })}/> أوافق على اتفاق العضوية</label>
     </div>
     {reviewed && <MotionReveal className="nf-readiness-summary" duration={240} distance={6}>
       <ReadinessResult value={value} familyPreference={familyPreference} formalTiming={formalTiming} answers={answers}/>

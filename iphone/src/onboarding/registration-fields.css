@@ -181,3 +181,23 @@
   flex: 1 0 100%;
   margin-inline: 0;
 }
+
+.nf-criteria-section {
+  display: grid; gap: 8px; min-width: 0;
+  padding-block: 6px; border-block-start: 1px solid var(--nf-field-line, #e9e4e5);
+}
+.nf-criteria-section:not(:has(.nf-criterion)) { display: none; }
+.nf-criteria-section > h3 { margin: 0; font-size: 1rem; }
+.nf-criteria-section > p { margin: 0; }
+.phone-app .nf-intake .nf-criteria-section .nf-criterion {
+  margin: 0; padding: 0; border: 0; scroll-margin-block: 72px;
+}
+.nf-criteria-section .nf-criterion:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px;
+}
+
+.nf-criteria-section:not(:has(.nf-criterion ~ .nf-criterion)) > h3 { display: none; }
+.phone-app .nf-criteria-section .nf-criterion > .nf-intake-error {
+  margin: 0 0 6px; padding: 0; border: 0; background: transparent;
+  font-size: .875rem; line-height: 1.6;
+}

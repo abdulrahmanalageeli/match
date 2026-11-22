@@ -2,7 +2,7 @@ import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
 import { assessmentVersion, dimensionsForVersion, practicalAnswerKeys, hasPartnerQuestion, applicableDimensions } from "../compatibility/model";
-import { validMarriageBasics, validPartnerCriteria, type MarriageBasics } from "../compatibility/marriage";
+import { criterionLabels, requiredPartnerCriteria, validMarriageBasics, validPartnerCriteria, type MarriageBasics } from "../compatibility/marriage";
 import { personalityVersion, personalityQuestionsFor } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
@@ -100,7 +100,7 @@ export function withFamilyDefaults(p: Answers): Answers {
 function validAge(value: string) {
   return /^\d{2,3}$/.test(value) && Number(value) >= 18 && Number(value) <= 110;
 }
-export type Issue = { field: keyof Answers | "consent" | "applicationIntegrity"; text: string };
+export type Issue = { field: keyof Answers | "consent" | "applicationIntegrity"; text: string; criterion?: keyof NonNullable<Answers["partnerCriteria"]> };
 
 /** Only unresolved requirements belong on the forward signup path. */
 export function remainingDetailFields(p: Answers, sensitive: boolean) {
@@ -180,8 +180,17 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
       if (p.marriageBasics && !validMarriageBasics(p.marriageBasics)) return { field: "marriageBasics", text: "راجع التفاصيل: الطول من ١٢٠ إلى ٢٣٠ سم، والوزن من ٣٥ إلى ٢٥٠ كجم بأعداد صحيحة، والأبناء من صفر إلى ٢٠. اسم القبيلة اختياري للخلفية القبلية فقط." };
       return null;
     case "criteria":
-      if (requireAssessment && (['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'] as const).some(key => !p.partnerCriteria?.[key]?.mode)) return { field: 'partnerCriteria', text: 'حدّد موقفك من كل معيار. «لا يهمني» إجابة كاملة عندما لا يكون لديك تفضيل.' };
-      if (p.partnerCriteria && !validPartnerCriteria(p.partnerCriteria, p.marriageBasics)) return { field: "partnerCriteria", text: "حدّد الخيارات لكل معيار مهم لك، بما فيها البشرة واللباس إذا اخترتهما. راجع نطاق الطول والوزن والحالات الاجتماعية. «نفس قبيلتي» يحتاج اسم قبيلتك في تفاصيلك." };
+      for (const key of Object.keys(criterionLabels) as (keyof typeof criterionLabels)[]) {
+        const rule = p.partnerCriteria?.[key];
+        if (!rule && requireAssessment && requiredPartnerCriteria.some(required => required === key))
+          return { field: 'partnerCriteria', criterion:key, text:`حدّد تفضيلك في «${criterionLabels[key]}».` };
+        if (rule && !validPartnerCriteria({[key]:rule},p.marriageBasics))
+          return { field: 'partnerCriteria', criterion:key, text:key === 'sharedLanguage' && !p.marriageBasics?.spokenLanguages?.length
+            ? 'أضف لغة تتحدثها في «تفاصيلك» أو اختر «لا يهمني» للغة المشتركة.'
+            : `أكمل اختيارك في «${criterionLabels[key]}» أو اختر «لا يهمني».` };
+      }
+      if (p.partnerCriteria && !validPartnerCriteria(p.partnerCriteria,p.marriageBasics))
+        return {field:'partnerCriteria',text:'راجع معايير الشريك المحفوظة.'};
       return null;
     case "avatar":
       if (p.publicAvatar !== undefined && !validPublicAvatar(p.publicAvatar)) return { field: "publicAvatar", text: "اختاري شكل الصورة الرمزية ودرجة البشرة، أو تابعي دون صورة." };

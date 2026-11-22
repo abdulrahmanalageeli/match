@@ -7,6 +7,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, transformWithEsbuild } from 'vite';
 import catalog from '../src/compatibility/catalog.json' with { type: 'json' };
+import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 import personality from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -38,6 +39,8 @@ let snapshot={document:null,revision:0,coverage:{answered:0,required:44},fallbac
 export class InterviewError extends Error{}
 export async function requestInterview(auth,payload){
  (window.__interviewCalls??=[]).push(payload);await new Promise(resolve=>setTimeout(resolve,40));
+ const plan=new URLSearchParams(location.search).get('plan');
+ if(payload.action==='load' && plan) return {...snapshot,document:{...base,status:'confirmed',turns:[{id:'step',topic:'intent',question:${JSON.stringify(openingPrompts.nextStep)},answer:plan,skipped:false}]}};
  if(payload.action==='start')snapshot={...snapshot,document:structuredClone(base),revision:1};
  if(payload.action==='draft')snapshot={...snapshot,document:{...snapshot.document,draftAnswer:payload.answer},revision:snapshot.revision+1};
  if(payload.action==='answer')snapshot=new URLSearchParams(location.search).has('failure')?{...snapshot,fallbackAvailable:true,document:{...snapshot.document,pendingAnalysis:true,lastMode:'guided',proposals:proposals.slice(0,3).map((item,index)=>({...item,needsClarification:index===2})),draftAnswer:''},revision:snapshot.revision+1}:{...snapshot,coverage:{answered:44,required:44},document:{...snapshot.document,status:'review',turns:[{id:'t1',topic:'intent',question:base.currentQuestion.text,answer:payload.answer,skipped:false}],currentQuestion:null,proposals,draftAnswer:''},revision:snapshot.revision+1};
@@ -61,7 +64,7 @@ import React,{useRef,useState}from'react';import{createRoot}from'react-dom/clien
 import'/src/ambient.css';import'/src/home.css';import'/src/design.css';import'/src/flows.css';import'/src/screens.css';import'/src/motion.css';import'/src/onboarding/arrivalJourney.css';import'/src/onboarding/arrivalAssessments.css';import'/src/arrivalSurfaces.css';import'/src/typography.css';
 import{GuidedApplication}from'/src/onboarding/GuidedApplication';import{initialDraft}from'/src/onboarding/draft';import{initializeDevicePreferences}from'/src/settings/preferences';
 initializeDevicePreferences();
-function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current&&!query.has('recovery')){ref.current=initialDraft('${owner}',null);ref.current.step=chapter;if(chapter!=='identity'){Object.assign(ref.current.answers,{firstName:'سارة',lastName:'الناصر',displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}});}if(['criteria','review'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
+function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current&&!query.has('recovery')){ref.current=initialDraft('${owner}',null);ref.current.step=chapter;if(chapter!=='identity'){Object.assign(ref.current.answers,{firstName:'سارة',lastName:'الناصر',displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}});}if(query.has('saved-criteria'))ref.current.answers.partnerCriteria={profession:{mode:'any'},height:{mode:'prefer',min:160}};if(['criteria','review','readiness'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
 createRoot(document.getElementById('root')).render(<div className='phone-app' dir='rtl' lang='ar'><Fixture/></div>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),cacheDir:resolve(root,'node_modules/.vite-onboarding-interview'),server:{host:'127.0.0.1',port:5287,strictPort:true},optimizeDeps:{entries:[],include:['react','react-dom/client','react/jsx-runtime','lucide-react','@capacitor/core','react-native-reanimated','react-native-worklets'],esbuildOptions:{resolveExtensions:['.web.tsx','.web.ts','.web.jsx','.web.js','.tsx','.ts','.jsx','.js','.mjs','.json']}},plugins:[simulatedKeychain,{name:'isolated-onboarding-interview',enforce:'pre',resolveId(id){if(id==='virtual:onboarding-interview')return '\0onboarding-interview'},async load(id){const path=id.replaceAll('\\','/');if(path.endsWith('/src/cloud.ts'))return cloudMock;if(path.endsWith('/src/interview/api.ts'))return apiMock;if(path.endsWith('/src/motion/SkiaSurface.tsx'))return `import{createElement}from'react';export function SkiaSurface({className,fallback}){return createElement('div',{className,'aria-hidden':true},fallback)}`;if(id==='\0onboarding-interview')return(await transformWithEsbuild(fixture,'fixture.tsx',{loader:'tsx',jsx:'automatic'})).code},configureServer(dev){dev.middlewares.use(async(req,res,next)=>{
@@ -81,6 +84,27 @@ try{
  const next=()=>page.locator('.nf-intake-actions>button[type=submit]').click();
  async function open(chapter){await page.goto('http://127.0.0.1:5287/__onboarding-interview?chapter='+chapter,{waitUntil:'networkidle',timeout:60000});await page.locator('.wd-signup-slides').waitFor();}
  async function capture(name){await page.evaluate(async()=>{await document.fonts.ready;document.activeElement?.blur();scrollTo(0,0)});await page.waitForTimeout(400);await page.screenshot({path:resolve(artifacts,name+'.png'),fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
+ const readinessUrl='http://127.0.0.1:5287/__onboarding-interview?chapter=readiness&interview&plan=';
+ for(const [plan,explicit] of [['إذا ارتحنا لبعض أكلم أهلي',false],['أقدر أتقدم رسميًا قريب',true]]){
+   await page.goto(readinessUrl+encodeURIComponent(plan),{waitUntil:'networkidle'});
+   await page.getByText('خطتك من حديثك مع لونا',{exact:true}).click();
+   await page.getByText(plan,{exact:true}).waitFor();
+   assert.equal(await page.getByText('لو كان التوافق واضحًا، وش الخطوة اللي تقدر تبدأها؟',{exact:true}).count(),0);
+   assert.equal(await page.getByText('ومتى تقدر تبدأ الخطوة الرسمية؟',{exact:true}).count(),explicit?0:1);
+   if(explicit){
+     const agreement=page.getByRole('checkbox',{name:'أوافق على اتفاق العضوية'});
+     assert.equal(await agreement.isChecked(),false);
+     await agreement.check();
+     assert.equal(await page.evaluate(()=>window.__onboardingDraft.current.answers.membershipReadiness.nextStep),'soon');
+     await page.locator('.nf-readiness-card').getByRole('button',{name:'تعديل',exact:true}).click();
+     await page.getByRole('button',{name:'ما أقدر أبدأ خطوة رسمية الآن',exact:true}).click();
+     assert.equal(await page.evaluate(()=>window.__onboardingDraft.current.answers.membershipReadiness.nextStep),'not_yet');
+   }else{
+     assert.equal(await page.evaluate(()=>window.__onboardingDraft.current.answers.membershipReadiness?.nextStep),undefined);
+   }
+ }
+ console.log('PASS: private Luna plan on resume, no repeated plan question, timing only if unresolved, editable declaration and explicit agreement');
+ if(!process.argv.includes('--readiness-only')){
  await open('identity');assert.equal(await page.locator('.nf-intake-title').isVisible(),false);assert.equal(await page.getByRole('progressbar').count(),1);await capture('01-name');await next();await page.locator('.wd-slide-error').waitFor();assert.equal(await page.locator('[data-field=city]').count(),0);
  await page.getByLabel('الاسم الأول',{exact:true}).fill('سارة');await page.getByLabel('اسم العائلة',{exact:true}).fill('الناصر');
  await page.locator('[data-field=displayName]').fill('نورة');await page.getByRole('button',{name:'امرأة',exact:true}).click();assert.equal(await page.locator('.wd-slide-content').getAttribute('data-complete'),'true');await capture('01-name-complete');await page.locator('[data-field=displayName]').press('Enter');await page.getByText('متى يوم ميلادك؟',{exact:true}).waitFor();assert.equal(await page.locator('.nf-intake').getAttribute('data-chapter'),'identity');
@@ -125,6 +149,19 @@ try{
  assert.equal(modes.sharedLanguage.mode,'require');
  assert.equal(Object.values(modes).filter(rule=>rule.mode==='any').length,8);
  checks.push('flexible criteria preserve a previously selected hard requirement');
+ await page.goto('http://127.0.0.1:5287/__onboarding-interview?chapter=criteria&saved-criteria',{waitUntil:'networkidle'});
+ assert.equal(await criteria.locator('details, [data-criterion=profession], [data-criterion=height]').count(),0);
+ await next();
+ await criteria.locator('[data-criterion=sharedLanguage] [role=alert]').waitFor();
+ assert.equal(await page.evaluate(()=>document.activeElement.dataset.criterion),'sharedLanguage');
+ await criteria.locator('[data-criterion=sharedLanguage]').getByRole('button').first().click();
+ await criteria.locator('[data-criterion=education]').getByRole('button').nth(1).click();
+ await next();
+ assert.equal(await page.evaluate(()=>document.activeElement.dataset.criterion),'education');
+ assert.match(await criteria.locator('[data-criterion=education] [role=alert]').innerText(),/المؤهل التعليمي/);
+ await criteria.getByRole('button',{name:'مراجعة المعايير المحفوظة'}).click();
+ assert.equal(await criteria.locator('[data-criterion=height] input').first().inputValue(),'160');
+ checks.push('criteria show unresolved fields, preserve saved targets, and identify and focus the exact invalid question');
  await page.goto('http://127.0.0.1:5287/__onboarding-interview?chapter=preferences',{waitUntil:'networkidle',timeout:60000});await page.locator('.nf-family-choice').waitFor();assert.equal(await page.locator('.nf-family-choice button').count(),3);await page.getByRole('button',{name:'من البداية',exact:true}).click();assert.equal(await page.getByRole('button',{name:'من البداية',exact:true}).getAttribute('aria-pressed'),'true');const mahr=page.getByRole('button',{name:/نطاق المهر/});
  await mahr.click();await page.getByRole('option',{name:'من ٣٠ إلى أقل من ٥٠ ألف ريال',exact:true}).click();assert.match(await mahr.innerText(),/٥٠ ألف/);
  await mahr.click();await page.getByRole('button',{name:'إزالة الاختيار',exact:true}).click();assert.match(await mahr.innerText(),/اختياري/);
@@ -149,4 +186,5 @@ try{
  assert.equal(deviceRecords.size,0);
  checks.push('protected checkpoint survives an offline reload and reconciles with the account copy');
  await page.emulateMedia({reducedMotion:'reduce'});await open('identity');await page.waitForTimeout(400);assert.equal(await page.locator('[data-motion-reveal]').last().evaluate(n=>getComputedStyle(n).opacity),'1');assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);await writeFile(resolve(artifacts,'results.json'),JSON.stringify({checks,errors,externalRequests},null,2));console.log(JSON.stringify({checks,artifacts}));
+ }
 }catch(error){await page?.screenshot({path:resolve(artifacts,'failure.png'),fullPage:true}).catch(()=>{});console.error(await page?.locator('body').innerText().catch(()=>''));throw error;}finally{await browser?.close();await server.close();}

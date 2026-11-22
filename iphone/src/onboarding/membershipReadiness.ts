@@ -20,6 +20,19 @@ export const readinessScenarios = {
   },
 } as const;
 
+// Only a complete first-person declaration can supply a readiness choice.
+export function declaredNextStep(answer?: string): MembershipReadiness['nextStep'] {
+  const normalize = (text: string) => text.trim().replace(/[ً-ْ]/gu, '').replace(/[أإآ]/gu, 'ا').replace(/[.!،؟]+$/u, '').trim();
+  const text = normalize(answer ?? '');
+  const options = readinessScenarios.nextStep.options;
+  const phrases = {
+    soon: [options.soon, 'أقدر أتقدم رسميًا قريب', 'مستعدة أبدأ خطوة رسمية قريب'],
+    after_agreement: [options.after_agreement, 'أحتاج نتفق على الخطوة والوقت أول'],
+    not_yet: [options.not_yet, 'ما أقدر أبدأ خطوة رسمية الحين', 'مو جاهزة للخطوة الرسمية الحين'],
+  };
+  return (Object.keys(phrases) as (keyof typeof phrases)[]).find(key => phrases[key].some(phrase => normalize(phrase) === text));
+}
+
 export const readinessClarifications = {
   family: {
     question: 'قلت إنك تفضّل إشراك الأهل من البداية، وفي الموقف اخترت وقتًا أطول. وش يوضّح الفرق؟',

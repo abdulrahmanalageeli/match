@@ -212,6 +212,7 @@ try {
   const fill = portrait.locator('.wi-portrait-mark i > span').first();
   const emptyFill = await fill.getAttribute('style');
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
+  await card.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
   const help = self.getByRole('button',{name:'مو عارف وش أختار؟'});
   await help.click();
   assert.equal(calls.filter(call => call.action === 'choiceHelp').length, 0);
@@ -258,6 +259,7 @@ try {
   const actionsBeforeCards = calls.length;
   const title = page.locator('.wi-hybrid-stage h1');
   const timelineTitle = await title.innerText();
+  await card.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:1,clientX:140,clientY:360});
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:2,clientX:140,clientY:360});
   assert.equal(draft['preference:residence_plan:self'],undefined,'Tap-through cannot answer the next self question');
@@ -448,10 +450,9 @@ try {
   await card.waitFor();
   assert.equal(await page.locator('#wi-answer').count(), 0);
   await card.locator('.wi-hybrid-option').first().click();
-  assert.equal(await card.locator('fieldset[data-side="partner"]').count(), 1,
-    'A self answer must leave the partner question unanswered');
-  assert.equal(draft[firstPartnerId], undefined);
-  await card.locator('fieldset[data-side="partner"] .wi-hybrid-option').first().click();
+  assert.deepEqual(draft[firstId],['A']);
+  assert.deepEqual(draft[firstPartnerId],['A'],'One explicit shared decision on children records both perspectives');
+  await confirmation.waitFor();
   await page.reload({waitUntil:'domcontentloaded'});
   await confirmation.waitFor();
   assert.equal(await confirmation.isEnabled(), true);
@@ -460,6 +461,16 @@ try {
   assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'load', 'directConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), expectedIds.length);
   assert.deepEqual(calls.at(-1).inferredPartnerIds,[]);
+  draft = Object.fromEntries(guidedChoices.map(({id,values})=>[id,values]));
+  delete draft['preference:wife_work:self'];
+  delete draft['preference:wife_work:partner'];
+  snapshot={document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:expectedIds.length}};
+  await page.goto(url+'?gender=woman&work=separate#direct');
+  await page.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
+  await card.locator('.wi-hybrid-option').first().press('Space');
+  await card.locator('[data-side=partner] .wi-hybrid-option').last().press('Space');
+  assert.deepEqual(draft['preference:wife_work:self'],['A']);
+  assert.deepEqual(draft['preference:wife_work:partner'],['C']);
   // Otherwise identical scripted assessments. One text entry or control activation counts as one action.
   benchmark = true;
   const trials = [];
@@ -500,7 +511,7 @@ try {
       lastTopic = topic;
       const legend = await group.locator('legend').innerText();
       if (legend.includes('في حياتي') && (await page.locator('.wi-hybrid-stage h1').innerText()).includes('عمل')) {
-        assert.match(legend, suggestionCount === 1 ? /ترغبين في العمل/ : /العمل|عمل|الزوجة/);
+        assert.match(legend, suggestionCount === 1 ? /عملك|ترغبين في العمل/ : /العمل|عمل|الزوجة/);
       }
       // Use the same explicit personality value as the carried-forward fixture.
       const options = group.locator('.wi-hybrid-option');
@@ -525,7 +536,7 @@ try {
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[3].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[47,49,48,46]);
+  assert.deepEqual(trials.map(trial => trial.actions),[38,40,39,38]);
   console.log('Assessment actions (direct / guided zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   // Resume the same confirmed answers through the real panel with different family facts.
   const reviewedDoc={...snapshot.document,status:'review',proposals:[],confirmed:[],currentQuestion:null};

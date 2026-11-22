@@ -2,6 +2,8 @@
 
 The standard assessment has 31 practical answers and 15 personality answers. The two parenting answers are skipped only when the member explicitly reports zero existing children, selects no future children and requires a partner with no existing children. The shortened assessment has 29 practical answers and 15 personality answers. An unanswered criterion, «أفضل» or «لا يهمني» keeps both parenting questions. The existing criterion covers children of any age. Residence uses only each member’s own plan. When both locations and plans are known, its existing 8 points reflect whether they have a feasible shared city, including explicitly permitted relocation cities. Historical pairs retain their original contract.
 
+For children, timing of the first formal step, work after marriage, housing arrangements, family involvement in decisions, financial provision, shared extra money, household chores and faith routines, Luna lets a member explicitly select one arrangement for both perspectives or answer separately. Each perspective remains editable and retains its original weight. A saved self answer can be endorsed for both or paired with a different preference. A separate partner answer or hard requirement is preserved.
+
 ## Practical questions
 
 | Topic | About you | About your partner | Baseline points per direction |

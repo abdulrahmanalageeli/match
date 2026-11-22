@@ -107,7 +107,7 @@ type Props = {
   direct?: boolean;
   onUnavailable?: () => void;
   onFallbackApply?: (confirmed: InterviewProposal[]) => void;
-  onApply: (confirmed: InterviewProposal[]) => void;
+  onApply: (confirmed: InterviewProposal[], document: InterviewDocument) => void;
   profileContext?: ProfileContext;
   onAssessmentVersion?: (legacy:boolean)=>void;
   assessmentContext?: InterviewSelection[];
@@ -442,7 +442,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       const selectedProfile = result.document.profileConfirmed?.filter(p=>profileChoices.some(choice=>choice.id===p.id)) ?? [];
       if (!direct && selectedProfile.length) profileApplyRef.current?.(selectedProfile, result.document);
       if (result.document.confirmed.length) {
-        onApply(result.document.confirmed);
+        onApply(result.document.confirmed, result.document);
         editedReceiptChoices.current.clear();
         setReceiptDraft(null);
         setShowReceiptSummary(false);

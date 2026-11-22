@@ -1,7 +1,7 @@
+import { CriteriaQuestion as Criterion } from './CriteriaQuestion';
 import { Check } from "../BrandIcons";
 import { skinTones, dressStyles, dressFlexibilities, type SkinTone, type DressStyle } from "../compatibility/appearance";
-import { criteriaModes, type MarriageBasics, type PartnerCriteria, type CriteriaMode } from "../compatibility/marriage";
-import type { ReactNode } from "react";
+import { type MarriageBasics, type PartnerCriteria } from "../compatibility/marriage";
 import "./appearance-fields.css";
 
 const currentTones = skinTones.filter(tone => tone.value !== "tone_3" && tone.value !== "tone_7");
@@ -35,25 +35,21 @@ export function SelfAppearanceFields({ value, gender, onChange, sensitiveAllowed
   </>;
 }
 
-function Criterion({ title, mode, change, children }: { title: string; mode: CriteriaMode; change: (mode: CriteriaMode) => void; children: ReactNode }) {
-  return <fieldset className="nf-criterion"><legend>{title}</legend><div className="nf-criterion-modes" role="group" aria-label={"أهمية " + title}>{criteriaModes.map(item => <button key={item.value} type="button" aria-pressed={mode === item.value} onClick={() => change(item.value)}>{item.label}{mode === item.value && <Check size={12} aria-hidden="true" />}</button>)}</div>{mode !== "any" && <div className="nf-criterion-target">{children}</div>}</fieldset>;
-}
-
-export function AppearanceCriteriaFields({ value, gender, onChange, sensitiveAllowed = true }: { value: PartnerCriteria; gender?: string; onChange: (patch: Partial<PartnerCriteria>) => void; sensitiveAllowed?: boolean }) {
+export function AppearanceCriteriaFields({ show = () => true, value, gender, onChange, sensitiveAllowed = true }: { show?:(key:keyof PartnerCriteria)=>boolean; value: PartnerCriteria; gender?: string; onChange: (patch: Partial<PartnerCriteria>) => void; sensitiveAllowed?: boolean }) {
   const selectedTones = value.skinTone?.values ?? [];
   const selectedStyles = value.dressStyle?.values ?? [];
   return <>
-    {sensitiveAllowed && <Criterion title="لون البشرة" mode={value.skinTone?.mode ?? "any"} change={mode => onChange({ skinTone: mode === "any" ? { mode } : { ...value.skinTone, mode } })}>
+    {sensitiveAllowed && show("skinTone") && <Criterion criterion="skinTone" title="لون البشرة" value={value.skinTone?.mode ?? "any"} onChange={mode => onChange({ skinTone: mode === "any" ? { mode } : { ...value.skinTone, mode } })}>
       <p>اختر كل الدرجات التي تناسب تفضيلك.</p><ToneChoices multiple selected={selectedTones} change={tone => onChange({ skinTone: { mode: value.skinTone?.mode ?? "prefer", values: selectedTones.includes(tone) ? selectedTones.filter(v => v !== tone) : [...selectedTones, tone] } })} />
     </Criterion>}
     {gender === "man" && <>
-      <Criterion title="لباس الشريكة الحالي" mode={value.dressStyle?.mode ?? "any"} change={mode => onChange({ dressStyle: mode === "any" ? { mode } : { ...value.dressStyle, mode } })}>
+      {show("dressStyle") && <Criterion criterion="dressStyle" title="لباس الشريكة الحالي" value={value.dressStyle?.mode ?? "any"} onChange={mode => onChange({ dressStyle: mode === "any" ? { mode } : { ...value.dressStyle, mode } })}>
         <p>اختر الخيارات التي تناسبك كما هي الآن.</p><div className="nf-criterion-checks">{dressStyles.map(style => <label key={style.value}><input type="checkbox" checked={selectedStyles.includes(style.value)} onChange={e => onChange({ dressStyle: { mode: value.dressStyle?.mode ?? "prefer", values: e.target.checked ? [...selectedStyles, style.value] : selectedStyles.filter(v => v !== style.value) } })} />{style.label}</label>)}</div>
-      </Criterion>
-      <Criterion title="الانفتاح على تغيير اللباس" mode={value.dressFlexibility?.mode ?? "any"} change={mode => onChange({ dressFlexibility: mode === "any" ? { mode } : { target: "open_to_discussion", ...value.dressFlexibility, mode } })}>
+      </Criterion>}
+      {show("dressFlexibility") && <Criterion criterion="dressFlexibility" title="الانفتاح على تغيير اللباس" value={value.dressFlexibility?.mode ?? "any"} onChange={mode => onChange({ dressFlexibility: mode === "any" ? { mode } : { target: "open_to_discussion", ...value.dressFlexibility, mode } })}>
         <label>ما الذي يناسبك؟<select value={value.dressFlexibility?.target ?? "open_to_discussion"} onChange={e => onChange({ dressFlexibility: { mode: value.dressFlexibility?.mode ?? "prefer", target: e.target.value as "open_to_discussion" | "open_to_change" } })}><option value="open_to_discussion">منفتحة على النقاش</option><option value="open_to_change">منفتحة على التغيير إذا اقتنعت به</option></select></label>
         <small>الانفتاح على النقاش وحده لا يعني الاستعداد للتغيير. هذه الاختيارات لا تُلغي تفضيلك للباس الحالي.</small>
-      </Criterion>
+      </Criterion>}
     </>}
   </>;
 }

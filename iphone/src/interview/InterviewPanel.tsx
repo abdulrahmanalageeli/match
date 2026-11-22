@@ -682,7 +682,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
                 <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>
-                <p>تراجع ملخصك بنفسك، وتأكيده يكمل جلسة التوافق. طلب العضوية له مراجعته الخاصة.</p>
+                <p>تراجع ملخصك بنفسك، وتأكيده يكمل جلسة التوافق. بعدها تكمل بيانات ملفك وترسل طلب العضوية.</p>
               </details>
               {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>ملخصك الخاص عن الخطوة القادمة <ChevronDown size={14}/></summary><p>يعكس ما ذكرتَه في الحوار، وقد تبقى بعض التفاصيل مفتوحة للنقاش.</p><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
               {doc.clarifications.length > 0 && <details className="wi-private-notes"><summary>نقاط للنقاش لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
@@ -749,7 +749,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             </div>;})}
             {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1><p>خطوتك الجاية بكلماتك. هذا السؤال اختياري.</p></div>}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟', true)}</div>
-            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit">بعد رسالتك، تشوف كم إجابة للتوافق جهّزتها لونا وكم إجابة باقي تكملها. تقدر تراجع المقترحات وتعدّلها.</p>}
+            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit">أي إجابة واضحة من كلامك تظهر لك لتراجعها وتعدّلها، والباقي تكمله باختياراتك.</p>}
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
             {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
             {!hybridEnabled && !responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}

@@ -141,6 +141,50 @@
 .wi-hybrid-option[aria-pressed=true] .wi-hybrid-option-mark { color: #fff; background: var(--side-accent); border-color: var(--side-accent); }
 .wi-hybrid-field[data-compact] .wi-hybrid-option-mark { width:27px; height:27px; border-radius:9px; background:var(--hybrid-tint); border-color:transparent; color:var(--side-accent); font-size:.8125rem; }
 .wi-hybrid-field[data-compact] .wi-hybrid-option[aria-pressed=true] .wi-hybrid-option-mark { background:var(--side-accent); color:#fff; }
+.wi-hybrid-field[data-compact] .wi-hybrid-options {
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.wi-hybrid-field[data-compact] .wi-hybrid-option {
+  min-height: 48px;
+  padding: 7px 10px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.wi-hybrid-field[data-compact] .wi-hybrid-option[aria-pressed=true] {
+  border-color: var(--side-accent);
+  background: var(--side-tint);
+  color: var(--side-accent);
+  font-weight: 650;
+}
+.wi-question-evidence {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid #b98198;
+  color: #60434f;
+  font-size: .875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.wi-question-evidence span { color: var(--hybrid-accent); font-weight: 650; }
+.wi-summary-perspective {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f7eef2;
+  color: #68213c;
+  font-size: .8125rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.wi-summary-perspective[data-side=partner] { background: #eaf3ef; color: #315d50; }
+.wi-summary-source { color: #685861; }
 .wi-hybrid-field legend:focus { outline:none; }
 .wi-step-nav { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin-block:-8px 4px; }
 .wi-step-nav > span { font-size:.8125rem; color:var(--hybrid-accent); }
@@ -229,20 +273,24 @@
 .wi-clarification > .wi-link { justify-self: start; }
 
 .wi-living-portrait {
-  background: #fff;
-  border: 1px solid var(--hybrid-line);
-  border-radius: 16px;
+  background: transparent;
+  border-block-start: 1px solid var(--hybrid-line);
 }
 .wi-living-portrait > summary {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-height: 44px;
   cursor: pointer;
   list-style: none;
-  padding: 7px 12px;
+  padding: 5px 2px;
   color: var(--hybrid-accent);
 }
+.wi-living-portrait > summary > svg:last-child { margin-inline-start: auto; }
+.wi-living-portrait .wi-portrait-mark { inline-size: 30px; block-size: 30px; }
+.wi-living-portrait .wi-portrait-mark svg { width: 15px; height: 15px; }
+.wi-hybrid > .wi-hybrid-captured-review { margin: 0; border: 0; border-block-start: 1px solid var(--hybrid-line); border-radius: 0; background: transparent; }
+.wi-hybrid > .wi-hybrid-captured-review > summary { min-height: 44px; padding-inline: 2px; }
 .wi-living-portrait > summary::-webkit-details-marker { display: none; }
 .wi-portrait-title { display: grid; gap: 2px; }
 .wi-living-portrait strong { font-size: 0.8125rem; }
@@ -375,8 +423,9 @@
 .wi-opening-result strong { font-size:.9375rem; }
 .wi-opening-result span, .wi-opening-result small { font-size:.875rem; font-weight:400; line-height:1.55; }
 .wi-opening-result bdi { color:var(--hybrid-accent,#68213c); font-weight:700; font-variant-numeric:tabular-nums; }
-.wi-opening-empty { padding:10px 14px; border-inline-start:2px solid var(--hybrid-line,#e9dfe4); }
+.wi-opening-empty { margin:6px 0; color:#76666f; font-size:.8125rem; line-height:1.65; }
 .wi-hybrid-captured-review:has(.wi-opening-result) { margin:0; }
 .wi-hybrid-captured-review > summary > .wi-opening-result { display:grid; gap:2px; }
+.wi-hybrid-captured-review > .wi-opening-result { padding:0 14px 10px; }
 .wi-receipt-link { display:inline-flex; gap:.3em; align-items:center; color:var(--hybrid-accent); white-space:nowrap; }
 .wi-opening-insights > summary > .wi-opening-result small { font-size:.875rem; }

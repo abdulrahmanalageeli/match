@@ -19,7 +19,6 @@ import type { InterviewSelection } from './model';
 import type { InterviewChoiceHelp, InterviewProposal } from './types';
 import './hybrid-assessment.css';
 import './personal-portrait.css';
-import './hybrid-notice.css';
 
 type Choices = Record<string, string[]>;
 const sessionSteps = ['قصتك', 'اختياراتك', 'المراجعة'] as const;
@@ -175,7 +174,9 @@ function SummaryTopics({ groups, choices, lines, mode, inferred, hiddenPartnerId
             const answer = selected(field, choices);
             const side = perspective(field);
             const source = [inferred.has(field.id) && 'اقتراح من إجابتك', sourceOf?.(field)].filter(Boolean).join(' · ');
-            const content = <><span><small>{field.label} · {side}{source && ' · ' + source}</small>
+            const content = <><span><small>{field.label}</small>
+              <span className="wi-summary-perspective" data-side={field.id.endsWith(':partner') ? 'partner' : 'self'}>{side}</span>
+              {source && <small className="wi-summary-source">{source}</small>}
               <strong>{answer?.label ?? 'اختر إجابتك'}</strong>
               {field.id === 'preference:marriage_timeline:self' && answer?.code === 'D' && <small>يمكنك ترك الموعد مفتوحًا إلى أن تتضح خطتك.</small>}
             </span>{onChoose && <Pencil size={15} aria-hidden="true"/>}</>;
@@ -387,14 +388,13 @@ type Progress = ReturnType<typeof assessmentProgress>;
 function OpeningCounts({progress, proposed, total}: {progress: Progress; proposed: number; total: number}) {
   const corrected = proposed - progress.openingPending - progress.openingMatched;
   return <span className="wi-opening-result" data-proposed={proposed} data-pending={progress.openingPending} data-matched={progress.openingMatched} data-remaining={progress.remaining}>
-    <strong className="wi-opening-count-title">اقتراحات من رسالتك الأولى <span className="wi-opening-count-pair"><bdi>{number.format(proposed)}</bdi> من <bdi>{number.format(total)}</bdi></span></strong>
+    <strong className="wi-opening-count-title">اختصرنا لك من رسالتك الأولى <span className="wi-opening-count-pair"><bdi>{number.format(proposed)}</bdi> من أصل <bdi>{number.format(total)}</bdi> إجابة</span></strong>
     <span className="wi-opening-count-states">
       {progress.openingPending > 0 && <span><bdi>{number.format(progress.openingPending)}</bdi> للمراجعة</span>}
       {progress.openingMatched > 0 && <span><bdi>{number.format(progress.openingMatched)}</bdi> محفوظة كما هي</span>}
       {corrected > 0 && <span><bdi>{number.format(corrected)}</bdi> عدّلتها</span>}
       <span aria-label={`إجابات التوافق المتبقية ${number.format(progress.remaining)}`}><bdi>{number.format(progress.remaining)}</bdi> متبقية</span>
     </span>
-    {!proposed && progress.remaining > 0 && <small>تكمل ما تبقّى من الأسئلة باختياراتك.</small>}
   </span>;
 }
 
@@ -410,7 +410,7 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
   const progress = assessmentProgress(layout.fields, layout.choices, savedChoices, proposals, openingTurnId);
   const highlights = openingHighlights(openingText, openingTurnId, proposals, progress.extracted);
   const proposed = new Set(highlights.flatMap(part => part.sources.map(source => source.id))).size;
-  if (!highlights.length) return <div className="wi-opening-empty"><OpeningCounts progress={progress} proposed={0} total={layout.fields.length}/></div>;
+  if (!highlights.length) return <p className="wi-opening-empty">نكمّل اختياراتك سؤالًا سؤالًا، ولن نحفظ عنك إجابة لم تقلها.</p>;
   return <details className="wi-opening-insights">
     <summary><OpeningCounts progress={progress} proposed={proposed} total={layout.fields.length}/><ChevronDown size={16} aria-hidden="true"/></summary>
     <OpeningWords text={openingText} fields={layout.fields} highlights={highlights} proposals={proposals} saved={savedChoices}
@@ -466,9 +466,6 @@ export function HybridAssessment({
   const backwards = useRef(false);
   const previousTap = useRef<{x:number; y:number; at:number} | null>(null);
   const [portraitOpen, setPortraitOpen] = useState(false);
-  const [showOpeningNotice, setShowOpeningNotice] = useState(false);
-  const openingNoticeShown = useRef(false);
-  const openingNoticeTimer = useRef<number | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
   const focusQuestion = useRef(false);
   const headingId = useId();
@@ -488,24 +485,18 @@ export function HybridAssessment({
   const capturedCount = extracted.length;
   const highlights = openingHighlights(openingText, openingTurnId, aiProposals, progress.extracted);
   const openingIds = new Set(highlights.flatMap(part => part.sources.map(source => source.id)));
-  const openingCount = openingIds.size;
   const pendingIds = progress.pending;
   const pendingSuggestions = fields.filter(field => pendingIds.has(field.id));
   const sourceOf = (field: Field) => pendingIds.has(field.id) ? 'مقترح من لونا' : wasCaptured(field) ? 'يطابق اقتراح لونا' : undefined;
   const selfAnswer = card && selected(card.self, choices);
   const topicFields = card ? assessmentFields(card) : [];
   const activeField = topicFields.find(field => field.id === editField) ?? topicFields.find(field => !selected(field, choices));
+  const currentEvidence = activeField && progress.extracted.has(activeField.id)
+    ? aiProposals.find(proposal => proposal.id === activeField.id)?.evidence.find(item => !item.turnId.startsWith('context:'))?.quote
+    : undefined;
   const screen = activeField?.id ?? card?.self.id ?? 'review';
   const retainSelf = selfAnswer && activeField === card?.partner;
   const firstNeeded = nextTopicCard(routes, card?.themeIndex ?? startTopic);
-
-  useEffect(() => {
-    if (!card || !openingTurnId || !openingCount || openingNoticeShown.current) return;
-    openingNoticeShown.current = true;
-    setShowOpeningNotice(true);
-    openingNoticeTimer.current = window.setTimeout(() => setShowOpeningNotice(false), 4000);
-  }, [Boolean(card), openingTurnId, openingCount]);
-  useEffect(() => () => window.clearTimeout(openingNoticeTimer.current), []);
 
   useEffect(() => {
     if ((!started.current && capturedCount > 0) || (index < 0 && firstNeeded >= 0) || (card && !relevant(card,choices))) setIndex(firstNeeded);
@@ -530,7 +521,6 @@ export function HybridAssessment({
   }, [screen]);
 
   function choose(id: string, code: string) {
-    setShowOpeningNotice(false);
     started.current = true;
     const field = fields.find(item => item.id === id);
     const option = field?.options.find(item => item.code === code);
@@ -616,8 +606,8 @@ export function HybridAssessment({
   const capturedChoice = (field: Field) => <ReviewChoice field={field} value={selected(field, choices)?.code}
     source={sourceOf(field)} side={openingSide(field)} onChoose={code => choose(field.id, code)} disabled={disabled}/>;
   const suggestionsReview = capturedCount > 0 ? <details key={card ? 'suggestions' : 'review-suggestions'} className="wi-hybrid-captured-review">
-      <summary><span>مراجعة اقتراحات لونا · {number.format(capturedCount)}</span><ChevronDown size={17} aria-hidden="true"/></summary>
-      {openingTurnId && <OpeningCounts progress={progress} proposed={openingIds.size} total={fields.length}/>}
+      <summary><span>من كلامك · {number.format(capturedCount)} إجابات للمراجعة</span><ChevronDown size={17} aria-hidden="true"/></summary>
+      {openingTurnId && openingIds.size > 0 && <OpeningCounts progress={progress} proposed={openingIds.size} total={fields.length}/>}
       <OpeningWords text={openingText} fields={fields} highlights={highlights} proposals={aiProposals} saved={savedChoices}
         disabled={disabled} onChoose={choose} renderChoice={id => capturedChoice(extracted.find(field => field.id === id)!)}/>
       {otherExtracted.length > 0 && <div className="wi-hybrid-review-fields">
@@ -633,13 +623,10 @@ export function HybridAssessment({
         onChange(explicit, pendingSuggestions.map(field => field.id));
         event.currentTarget.closest('details')?.removeAttribute('open');
         heading.current?.focus({preventScroll:true});
-      }}>اعتماد المقترحات في مسودتي</button>}
+      }}>حفظ هذه الإجابات في مسودتي</button>}
     </details> : null;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
-    {!direct && <LunaSessionSteps current={card ? 'اختياراتك' : 'المراجعة'}/>}
-    {showOpeningNotice && card && <div className="wi-opening-notice" role="status">
-      <Check size={16} aria-hidden="true"/><span>لدى لونا {number.format(openingCount)} من الاقتراحات من رسالتك. راجعها في أي وقت.</span>
-    </div>}
+    {!direct && !card && <LunaSessionSteps current="المراجعة"/>}
     {card && <details ref={topicMenu} className="wi-topic-route" data-active-topic={card.themeIndex}>
       <summary>
         <span className="wi-chapter-position" aria-hidden="true">
@@ -650,7 +637,7 @@ export function HybridAssessment({
           </svg>
           <bdi>{number.format(card.themeIndex + 1)}</bdi>
         </span>
-        <span className="wi-topic-current" key={card.themeIndex}><strong>{routes[card.themeIndex].label}</strong>
+        <span className="wi-topic-current" key={card.themeIndex}><strong>{!direct && 'اختياراتك · '}{routes[card.themeIndex].label}</strong>
           <small>{routes[card.themeIndex].remaining ? <>المتبقي في هذا الموضوع · {number.format(routes[card.themeIndex].remaining)}</> : 'جاهز للمراجعة'}</small>
         </span>
         <span className="wi-topic-trigger">وين نكمّل؟ <ChevronDown size={15} aria-hidden="true"/></span>
@@ -675,6 +662,7 @@ export function HybridAssessment({
         {pendingIds.has(card.self.id) ? <span>في حياتي · اقتراح لونا</span> : <span><Check size={15} aria-hidden="true"/> اختياري عن نفسي</span>}
         <strong>{selfAnswer.label}</strong>
       </p>}
+      {currentEvidence && <p className="wi-question-evidence"><span>من كلامك</span><q>{currentEvidence}</q></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
         const previous = previousTap.current;
@@ -701,7 +689,6 @@ export function HybridAssessment({
         </div>
       </>}
     </div>
-    {card && suggestionsReview}
     {previous && (!card || previous.themeIndex === card.themeIndex) && !previous.selfOnly && inferred.has(previous.partner.id) && suggestionRow(previous)}
     <div className="wi-hybrid-actions">
       {(!card || canAdvance) && <MotionPressButton
@@ -724,7 +711,7 @@ export function HybridAssessment({
           })}
           <HeartHandshake size={17}/>
         </span>
-        <span className="wi-portrait-title"><strong>ملامحي <LockKeyhole size={12} aria-hidden="true"/></strong><small>{portrait.length ? portrait[portrait.length - 1].preview : 'تبدأ ملامحي مع أول اختيار أحفظه'}</small></span>
+        <span className="wi-portrait-title"><strong>ملامحي <LockKeyhole size={12} aria-hidden="true"/></strong></span>
         <ChevronDown size={17} aria-hidden="true"/>
       </summary>
       {portraitOpen && <div className="wi-portrait-body">
@@ -733,5 +720,6 @@ export function HybridAssessment({
           : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
       </div>}
     </details>}
+    {card && suggestionsReview}
   </section>;
 }

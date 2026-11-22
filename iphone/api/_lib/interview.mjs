@@ -351,30 +351,8 @@ function validDocument(document) {
 }
 
 const requiredInterview = document => [priorPrompt,PROMPT_VERSION].includes(document.promptVersion);
-function withPartnerDefaults(proposals, blocked = new Set()) {
-  const known = new Map(proposals.map(item => [item.id, item]));
-  const apply = (kind, fieldId, valueFor) => {
-    const selfId = `${kind}:${fieldId}:self`, partnerId = `${kind}:${fieldId}:partner`;
-    const self = known.get(selfId), partner = known.get(partnerId);
-    if (!self || self.needsClarification) {
-      if (partner?.source === 'self_default') known.delete(partnerId);
-      return;
-    }
-    const value = valueFor(self.values[0]);
-    if (!value) {
-      if (partner?.source === 'self_default') known.delete(partnerId);
-      return;
-    }
-    // A grounded partner preference always wins. A withdrawn default remains
-    // missing until the member supplies a replacement instead of reappearing.
-    if (partner && partner.source !== 'self_default') return;
-    if (blocked.has(partnerId)) { known.delete(partnerId); return; }
-    known.set(partnerId, { id: partnerId, kind, fieldId, side: 'partner', values: [value],
-      summary: 'اقتراح مبدئي من إجابتك — يمكنك تغييره', evidence: self.evidence,
-      needsClarification: false, source: 'self_default' });
-  };
-  for (const scenario of scenarios) apply('beena', scenario.id, value => value);
-  return [...known.values()];
+function withPartnerDefaults(proposals) {
+  return proposals.filter(item => item.source !== 'self_default');
 }
 export function validateAssessmentContext(value,strict=false) {
   if (!Array.isArray(value) || value.length>assessment().acceptedFields.length) { if(strict)throw invalid();return []; }

@@ -1008,11 +1008,11 @@ test('Luna keeps an explicit partner preference independent across corrections a
  assert.deepEqual(next.proposals.find(p=>p.side==='partner').values,['B']);
 });
 
-test('Beena self choices prepare one editable acceptable partner choice',()=>{
+test('Beena self choices do not create a partner preference',()=>{
  const beena={...candidate,kind:'beena',fieldId:'finances',side:'self',values:['A']};
  const out=applyInterviewCompletion({...initialInterviewDocument(),turns:[turn]},completion({...result,proposals:[beena]}));
  const partner=out.proposals.find(item=>item.id==='beena:finances:partner');
- assert.deepEqual(partner.values,['A']);assert.equal(partner.source,'self_default');
+ assert.equal(partner,undefined);
 });
 
 

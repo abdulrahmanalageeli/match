@@ -205,11 +205,8 @@ try {
   assert.equal(calls.some(call => call.action === 'structuredConfirm'), false);
   releaseOpening();
   await page.locator('.wi-hybrid-captured-review').waitFor();
-  const openingNotice = page.locator('.wi-opening-notice');
-  await openingNotice.waitFor();
-  assert.equal(await openingNotice.evaluate(node => getComputedStyle(node).pointerEvents), 'none');
-  await openingNotice.waitFor({state:'detached',timeout:6000});
-  assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'suggestions remain available after the notice disappears');
+  assert.equal(await page.locator('.wi-opening-notice').count(),0,'the question starts without a suggestion banner');
+  assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'answers from the introduction remain available below the question');
   const self = card.locator('fieldset').first();
   const portrait = page.locator('.wi-living-portrait');
   const fill = portrait.locator('.wi-portrait-mark i > span').first();
@@ -250,11 +247,9 @@ try {
   assert.equal(await mirror.inputValue(), 'C');
   await mirror.selectOption('B');
   await portrait.locator(':scope > summary').click();
-  const inferred = page.locator('.wi-partner-default');
-  assert.match(await inferred.innerText(), /اقتراح للشريك/);
+  assert.equal(await page.locator('.wi-partner-default').count(), 0);
   assert.equal(draft[firstPartnerId], undefined);
-  await inferred.locator('summary').click();
-  await inferred.locator('.wi-hybrid-option').first().click();
+  await card.locator('fieldset[data-side="partner"] .wi-hybrid-option').first().click();
   assert.deepEqual(draft[firstPartnerId], ['A']);
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('.wi-hybrid').waitFor();
@@ -266,6 +261,8 @@ try {
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:1,clientX:140,clientY:360});
   await card.locator('.wi-hybrid-option').first().dispatchEvent('click',{detail:2,clientX:140,clientY:360});
   assert.equal(draft['preference:residence_plan:self'],undefined,'Tap-through cannot answer the next self question');
+  assert.equal(await card.locator('fieldset').getAttribute('data-side'),'partner');
+  await card.locator('.wi-hybrid-option').first().press('Space');
   const residenceTitle = await title.innerText();
   assert.match(residenceTitle,/مدينة السكن/);
   await card.locator('.wi-hybrid-option').first().press('Space');
@@ -280,6 +277,7 @@ try {
   await back.click();
   assert.equal(await title.innerText(),timelineTitle);
   await forward.click();
+  if (await title.innerText() === timelineTitle) await forward.click();
   assert.equal(await title.innerText(),residenceTitle);
   assert.equal(await card.locator('.wi-hybrid-option').nth(1).getAttribute('aria-pressed'),'true');
   await forward.click();
@@ -426,7 +424,7 @@ try {
   await suggestions.locator('[data-opening-field="' + firstId + '"] select').waitFor();
   assert.deepEqual(draft,{ 'personality:explore_views:self':['C'] });
   const beforeBatch = calls.length;
-  await suggestions.getByRole('button',{name:'اعتماد المقترحات في مسودتي'}).click();
+  await suggestions.getByRole('button',{name:'حفظ هذه الإجابات في مسودتي'}).click();
   await page.waitForFunction(() => !document.querySelector('.wi-hybrid-captured-review')?.open);
   assert.deepEqual(draft,{ 'personality:explore_views:self':['C'], [firstId]:['A'] });
   assert.equal(Number(await settled.getAttribute('data-pending')),0);
@@ -450,12 +448,10 @@ try {
   await card.waitFor();
   assert.equal(await page.locator('#wi-answer').count(), 0);
   await card.locator('.wi-hybrid-option').first().click();
-  assert.equal(await card.locator('fieldset[data-side="partner"]').count(), 0,
-    'A definite children answer must not open a mandatory partner field');
-  const childrenSuggestion = page.locator('.wi-partner-default');
-  assert.match(await childrenSuggestion.locator('summary').innerText(), /اقتراح للشريك.*تعديل/s);
-  assert.equal(await childrenSuggestion.getAttribute('open'), null);
-  assert.equal(draft[firstPartnerId], undefined, 'Inferred values stay out of the explicit draft');
+  assert.equal(await card.locator('fieldset[data-side="partner"]').count(), 1,
+    'A self answer must leave the partner question unanswered');
+  assert.equal(draft[firstPartnerId], undefined);
+  await card.locator('fieldset[data-side="partner"] .wi-hybrid-option').first().click();
   await page.reload({waitUntil:'domcontentloaded'});
   await confirmation.waitFor();
   assert.equal(await confirmation.isEnabled(), true);
@@ -463,7 +459,7 @@ try {
   await page.locator('.wi-complete').waitFor();
   assert.deepEqual(calls.slice(directStart).map(call => call.action), ['load', 'load', 'directConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), expectedIds.length);
-  assert.deepEqual(calls.at(-1).inferredPartnerIds,[firstPartnerId]);
+  assert.deepEqual(calls.at(-1).inferredPartnerIds,[]);
   // Otherwise identical scripted assessments. One text entry or control activation counts as one action.
   benchmark = true;
   const trials = [];
@@ -521,8 +517,7 @@ try {
     const requests = calls.slice(startCalls);
     const submitted = requests.find(call => call.action === (directTrial ? 'directConfirm' : 'structuredConfirm'));
     const confirmed = submitted.choices;
-    assert.equal(submitted.inferredPartnerIds.includes(firstPartnerId), suggestionCount !== 3);
-    assert.equal(submitted.inferredPartnerIds.length, suggestionCount === 3 ? 8 : 9);
+    assert.deepEqual(submitted.inferredPartnerIds,[]);
     assert.equal(confirmed.length,expectedIds.length);
     assert.equal(requests.filter(call => ['answer','retry','clarify','choiceHelp'].includes(call.action)).length,directTrial ? 0 : 1);
     trials.push({ actions, confirmed });
@@ -530,7 +525,7 @@ try {
   assert.deepEqual(trials[0].confirmed, trials[1].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[2].confirmed);
   assert.deepEqual(trials[0].confirmed, trials[3].confirmed);
-  assert.deepEqual(trials.map(trial => trial.actions),[38,40,39,38]);
+  assert.deepEqual(trials.map(trial => trial.actions),[47,49,48,46]);
   console.log('Assessment actions (direct / guided zero / one / three supported suggestions):', trials.map(trial => trial.actions));
   // Resume the same confirmed answers through the real panel with different family facts.
   const reviewedDoc={...snapshot.document,status:'review',proposals:[],confirmed:[],currentQuestion:null};
@@ -700,7 +695,7 @@ try {
   assert.ok(await dialog.evaluate(el=>el.scrollWidth <= el.clientWidth + 1));
   await page.getByRole('button',{name:'تخطّي السؤال'}).click();
   await card.waitFor();
-  assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'اختياراتك');
+  assert.match(await page.locator('.wi-topic-current strong').innerText(),/^اختياراتك · /);
   assert.ok(calls.at(-1).skip);
   const field = card.locator('fieldset').first();
   const entryMotion = async () => field.evaluate(el => {

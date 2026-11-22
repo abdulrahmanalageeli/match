@@ -30,7 +30,7 @@ export function OpeningWords({ text, highlights, proposals, fields, saved, rende
     trigger.current?.focus();
   }
   return <div className="wi-opening-words">
-    <div className="wi-opening-words-caption"><strong>من كلامك</strong><span>اختر عبارة ملوّنة لمراجعة معناها</span></div>
+    <div className="wi-opening-words-caption"><strong>من كلامك</strong><span>اضغط على عبارة لمراجعة اقتراح لونا وتعديله</span></div>
     <p className="wi-opening-transcript" dir="auto">{highlights.map((part, index) => <Fragment key={part.start}>
       {text.slice(index ? highlights[index - 1].end : 0, part.start)}
       <span role="button" tabIndex={0} className="wi-opening-phrase" aria-expanded={part === active}

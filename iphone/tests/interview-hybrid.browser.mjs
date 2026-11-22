@@ -631,8 +631,10 @@ try {
   const myInterpretation = insight.locator('[data-opening-field="' + firstId + '"] select');
   await myInterpretation.selectOption('B');
   assert.deepEqual(draft[firstId],['B']);
-  await page.clock.runFor(240);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await insight.locator('.wi-opening-interpretation').evaluate(el=>getComputedStyle(el).opacity),'1');
   await page.screenshot({path:resolve(output,'opening-evidence.png'),animations:'disabled'});
+  await page.emulateMedia({reducedMotion:'no-preference'});
   const answersBeforeResume = calls.filter(call=>call.action==='answer').length;
   await page.goto(url+'?resumed&routecase&gender=woman');
   await insight.locator('summary').waitFor();

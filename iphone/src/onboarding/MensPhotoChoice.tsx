@@ -10,7 +10,7 @@ import './profile-photo-choice.css';
 
 export function MensPhotoChoice({ change, onChange, existing, source, consented, onConsent, onBusy, immediateVerification = false }: {
   change: PortraitDraft | null | undefined; onChange: (v: PortraitDraft) => void; existing?: ProfilePortrait | null;
-  source?: CommunitySource | null; consented: boolean; onConsent: (v: boolean) => void; onBusy: (v: boolean) => void; immediateVerification?: boolean;
+  source?: CommunitySource | null; consented: boolean; onConsent: (v: boolean) => Promise<boolean>; onBusy: (v: boolean) => void; immediateVerification?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -32,6 +32,12 @@ export function MensPhotoChoice({ change, onChange, existing, source, consented,
   }
   const checked = change?.staged?.status === 'verified' || change?.staged?.status === 'approved';
   const pending = change?.staged?.status === 'moderation';
+  async function chooseConsent(value: boolean) {
+    setBusy(true);
+    try {
+      if (await onConsent(value) && value && immediateVerification && change && !checked && !pending) await check(change);
+    } finally { setBusy(false); }
+  }
   return <section className="nf-photo-choice" data-field="portrait" tabIndex={-1} aria-label="صورة ملفك">
     <p className="nf-photo-intro">اختر صورة يظهر فيها وجهك وحدك، واضبط إطارها. بعدها نطابق صورتك مع لقطة من الكاميرا.</p>
     <details className="nf-photo-privacy"><summary><ShieldCheck size={16} aria-hidden="true"/> من يرى صورتي ولقطة المطابقة؟</summary>
@@ -42,7 +48,7 @@ export function MensPhotoChoice({ change, onChange, existing, source, consented,
     {pendingFile && <PortraitCropDialog file={pendingFile} initialCrop={framing?.file === pendingFile ? framing.crop : undefined} cancel={() => setPendingFile(null)} apply={crop => {setPendingFile(null); void choose(pendingFile, crop);}}/>}
     {change && framing && <button type="button" className="nf-photo-reframe" disabled={busy} onClick={() => setPendingFile(framing.file)}><Pencil size={16}/> تعديل الإطار</button>}
     <button type="button" className="btn-secondary" disabled={busy} onClick={() => input.current?.click()}><Camera size={18}/>{busy ? 'تجهيز الصورة…' : change || existing ? 'اختيار صورة أخرى' : 'اختيار صورتي'}</button>
-    {(change || existing) && <label className="nf-photo-consent"><input type="checkbox" checked={consented} disabled={busy} onChange={e => { onConsent(e.target.checked); if (e.target.checked && immediateVerification && change && !checked && !pending) void check(change); }}/><span>هذه صورتي وأوافق على عرضها في ملفي للأعضاء المؤهلين بعد اعتمادها.</span></label>}
+    {(change || existing) && <label className="nf-photo-consent"><input type="checkbox" checked={consented} disabled={busy} onChange={e => void chooseConsent(e.target.checked)}/><span>هذه صورتي وأوافق على عرضها في ملفي للأعضاء المؤهلين بعد اعتمادها.</span></label>}
     {immediateVerification && <>{busy && <p className="nf-photo-result" role="status">نجهّز صورتك ونتحقق منها…</p>}{checked && <p className="nf-photo-result" role="status"><ShieldCheck size={18}/>{change?.staged?.status === 'approved' ? 'صورتك جاهزة، اعتمدها فريق المراجعة.' : 'صورتك جاهزة، اكتملت مطابقة الصورة.'}</p>}{pending && <p className="nf-photo-result" role="status">أُرسلت للمراجعة. يمكنك إكمال ملفك، وستبقى الصورة خاصة حتى يوافق الفريق.</p>}{change && consented && !busy && !checked && !pending && <div className="nf-photo-retry"><button type="button" className="btn-secondary" onClick={() => void check(change)}>إعادة المحاولة</button>{change.staged && <button type="button" className="btn-secondary" onClick={() => void check(change, true)}>إرسال الصورة للمراجعة</button>}</div>}</>}
     {error && <p role="alert" className="nf-intake-error">{error}</p>}
   </section>;

@@ -4,10 +4,10 @@ import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
-import {addUser,asMember,asService,createDatabase} from '../supabase/tests/harness.mjs';
-import {seedCommunicationMember} from '../supabase/tests/communication-fixture.mjs';
+import {addUser,asMember,asService,createDatabase} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
-const code=ts.transpileModule(await readFile(new URL('../supabase/functions/_shared/apple.ts',import.meta.url),'utf8'),{
+const code=ts.transpileModule(await readFile(new URL('../functions/_shared/apple.ts',import.meta.url),'utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
 }).outputText;
 const production='wupkifqbwhhebwrgvwai.supabase.co';

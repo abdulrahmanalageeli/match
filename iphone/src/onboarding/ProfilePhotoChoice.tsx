@@ -35,7 +35,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
   async function upload(draft:PortraitDraft){setPreparing(true);onBusy(true);setError('');try{onChange(await stageOnboardingPortrait(draft,'woman',true));}catch(e){setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}finally{setPreparing(false);onBusy(false);}}
   async function removePhoto(){setPreparing(true);try{if(await onConsent(false)){setFile(null);setPolicy('never');onPolicyChange?.('never');}}finally{setPreparing(false);}}
   return <section className="nf-photo-choice" data-field="portrait" tabIndex={-1} aria-label="صورتك وخصوصيتك">
-    <div className="nf-photo-mode" role="group" aria-label="طريقة ظهورك"><button type="button" aria-pressed={mode==='photo'} onClick={()=>setMode('photo')}><Camera size={18}/> صورة بتمويه اختياري</button><button type="button" aria-pressed={mode==='avatar'} onClick={()=>setMode('avatar')}><Sparkles size={18}/> صورة رمزية</button></div>
+    <div className="nf-photo-mode" role="group" aria-label="طريقة ظهورك"><button type="button" disabled={preparing} aria-pressed={mode==='photo'} onClick={()=>setMode('photo')}><Camera size={18}/> صورة بتمويه اختياري</button><button type="button" disabled={preparing} aria-pressed={mode==='avatar'} onClick={()=>setMode('avatar')}><Sparkles size={18}/> صورة رمزية</button></div>
     {mode==='photo'?<>
       <p className="nf-photo-intro">لمحة أقرب لكِ، بالقدر الذي ترتاحين له. يمكنكِ إظهار انطباع عن حضورك مع اختيار درجة التمويه، أو الاكتفاء بصورة رمزية.</p>
       <details className="nf-photo-privacy"><summary><LockKeyhole size={16} aria-hidden="true"/> كيف تُحفظ صورتي ومن يراها؟</summary>

@@ -34,33 +34,41 @@
   border: 0; border-radius: 50%;
   background: transparent; box-shadow: none; color: var(--journey-ink);
 }
+.phone-app .nf-intake.nf-intake--new .nf-intake-header {
+  min-height: 0;
+  padding: max(3px, var(--nf-safe-top)) var(--intake-pad) 3px;
+  border-bottom: 1px solid var(--journey-line);
+}
+.phone-app .nf-intake.nf-intake--new {
+  --intake-pad: clamp(15px, 4.5vw, 23px);
+  --text-title: 1.3125rem;
+}
 .phone-app .nf-intake.nf-intake--new .nf-intake-brand { gap: 7px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-later { color: #54152a; font-size: 14px; font-weight: 500; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 6px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-main { padding-top: 8px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-progress {
-  padding: 0 0 22px; margin: 0;
+  padding: 0 0 12px; margin: 0;
   border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
 }
-.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 9px; font-size: 12px; line-height: 1.6; color: var(--journey-muted); }
+.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { padding: 0 0 5px; font-size: .8125rem; line-height: 1.5; color: var(--journey-muted); }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child { color: var(--journey-ink); font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-kicker > :first-child::before { content: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter { gap: 5px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i { height: 2px; background: #e1dade; border-radius: 99px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=done]::after { background: #ad8b96; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-meter i[data-state=current]::after { background: #54152a; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-meter i::after { transition: transform 360ms ease-out, background-color 240ms ease; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-title,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title {
   display: flex; flex-direction: column; align-items: stretch;
-  padding: 0; margin: 0 0 24px; min-height: 0;
+  padding: 0; margin: 0 0 14px; min-height: 0;
   border: 0; background: none; overflow: visible;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::before,
 .phone-app .nf-intake.nf-intake--new .nf-intake-title::after,
 .phone-app .nf-intake.nf-intake--new .nf-intake-ridge,
 .phone-app .nf-intake.nf-intake--new .nf-intake-seal { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: 24px; font-weight: 700; line-height: 1.45; letter-spacing: 0; text-wrap: balance; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: 14px; font-weight: 400; line-height: 1.8; margin: 7px 0 0; text-wrap: pretty; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { color: var(--journey-ink); font-size: var(--text-title); font-weight: 700; line-height: 1.45; letter-spacing: 0; text-wrap: balance; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-title > p { max-width: 40ch; color: var(--journey-muted); font-size: .875rem; font-weight: 400; line-height: 1.65; margin: 4px 0 0; text-wrap: pretty; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools,
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-heading-tools {
   position: static; inset: auto; order: 2;
@@ -75,12 +83,12 @@
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 20px; line-height: 1.5; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title { margin-bottom: 16px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-section-guide p { font-size: 14px; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 22px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 14px; }
 .phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
-  min-height: 54px; padding: 14px 16px; border: 1px solid transparent; border-radius: 14px;
-  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 16px; font-weight: 400;
+  min-height: 46px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px;
+  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 1rem; font-weight: 400;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: #817b80; }
@@ -92,8 +100,8 @@
 .phone-app .nf-intake.nf-intake--new .choice-row button[aria-pressed=true] .nf-intake-choice-check { background: #54152a; border-color: #54152a; color: #fff; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions {
   position: static;
-  z-index: 8; margin-top: 26px; padding-top: 14px;
-  border-top: 0; background: transparent; backdrop-filter: blur(16px);
+  z-index: auto; margin: 14px 0 0; padding: 0 0 max(8px, var(--nf-safe-bottom));
+  border: 0; background: transparent; backdrop-filter: none;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary {
@@ -102,9 +110,15 @@
   box-shadow: none; transition: transform 120ms ease-out, background-color 160ms ease;
 }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary::after { content: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary {
+  min-height: 46px;
+  padding: 9px 15px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions .f-primary:active,
 .phone-app .nf-onboarding-sandbox .nf-sandbox-primary:active { transform: scale(.98); }
-.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { margin-top: 8px; gap: 7px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { margin: 2px 0 0; gap: 0 8px; }
 .phone-app .nf-intake.nf-intake--new :is(.nf-intake-action-meta > small, .nf-intake-draft-help, .nf-intake-note, .nf-intake-wordcount) { color: var(--journey-muted); font-size: 14px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter { position: static; background: transparent; border-top-color: var(--journey-line); backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-actions--chapter .f-primary { background: transparent; color: #54152a; border-color: #bfaeb4; box-shadow: none; }
@@ -116,7 +130,6 @@
 .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions .nf-help-link { width: 44px; height: 44px; min-height: 44px; justify-content: center; padding: 0; font-size: 0; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions .nf-help-link svg { width: 19px; height: 19px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-heading-tools { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-kicker { font-size: 12px; }
 .phone-app .nf-intake.nf-intake--new .nf-name-entry { display: flex; align-items: center; gap: 15px; padding: 18px 16px; border-radius: 18px; background: #fff; }
 .phone-app .nf-intake.nf-intake--new .nf-name-avatar { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; background: #f3ecef; color: #683148; }
 .phone-app .nf-intake.nf-intake--new .nf-name-entry label { flex: 1; min-width: 0; gap: 0; font-size: 12px; color: var(--journey-muted); }
@@ -139,16 +152,25 @@
 .phone-app .nf-intake.nf-intake--new .nf-story-more > summary small { font-size: 12px; }
 .phone-app .nf-intake.nf-intake--new .nf-story-prompts .nf-prompt-editor { border: 0; padding: 0; }
 .phone-app .nf-intake.nf-intake--new .nf-story-prompts .nf-prompt-editor > header { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { justify-content: center; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta > small { display: none; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-draft-help { font-size: 12px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta { justify-content: space-between; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-action-meta:empty { display: none; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-save-status { margin: 0; font-size: .8125rem; line-height: 1.55; text-align: start; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-draft-help { font-size: .8125rem; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-actions > .wd-why-link { min-height: 44px; padding-block: 4px; font-size: .8125rem; }
 
 /* Status and local preview completion share the same quiet layout. */
-.nf-signup-status .flow-body { padding-top: 32px; }
-.nf-signup-status .flow-symbol { color: #54152a; border: 1px solid var(--journey-line); background: #fff; border-radius: 12px; box-shadow: none; }
-.nf-signup-status .flow-body > h1 { color: var(--journey-ink); }
-.nf-signup-status .flow-card { border: 0; border-radius: 50%; background: #fff; box-shadow: none; }
-.nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 52px; }
+.nf-signup-status .flow-body { padding-top: 16px; }
+.nf-signup-status .flow-body > h1 { display: flex; align-items: center; gap: 9px; color: var(--journey-ink); font-size: 1.375rem; }
+.nf-signup-status .flow-body > h1 svg { flex: none; color: #54152a; }
+.nf-signup-status .timeline { gap: 0; margin-block: 12px 4px; padding: 2px 12px; border: 1px solid var(--journey-line); border-radius: 12px; background: #fff; box-shadow: none; }
+.nf-signup-status .timeline > * { min-height: 38px; padding-block: 5px; }
+.nf-signup-status .timeline > * + * { border-block-start: 1px solid var(--journey-line); }
+.nf-signup-status .timeline [aria-current=step] { color: #54152a; }
+.nf-signup-status .nf-waiting-guidance { margin-block: 0 8px; }
+.nf-signup-status .nf-waiting-guidance summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; list-style: none; cursor: pointer; }
+.nf-signup-status .nf-waiting-guidance summary::-webkit-details-marker { display: none; }
+.nf-signup-status .nf-waiting-guidance[open] summary svg { transform: rotate(180deg); }
+.nf-signup-status .f-secondary { border-color: #c9c4c1; color: #54152a; background: #fff; border-radius: 12px; min-height: 46px; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-bar { background: #f5f3f4f5; border-bottom: 0; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish { position: relative; isolation: isolate; padding: 32px 28px max(24px, var(--nf-safe-bottom)); background: none; }
 .phone-app .nf-onboarding-sandbox .nf-sandbox-finish-copy { text-align: start; }
@@ -162,6 +184,7 @@
 
 @keyframes nf-join-complete { from { stroke-dashoffset: 1; opacity: .3; } to { stroke-dashoffset: 0; opacity: 1; } }
 @media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .phone-app .nf-intake--new .nf-intake-meter i::after { transition: transform 360ms ease-out, background-color 240ms ease; }
   html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-title,
   html:not([data-nf-motion="reduced"]) .nf-intake--new .nf-intake-fields { animation: none; }
   html:not([data-nf-motion="reduced"]) .phone-app .nf-onboarding-sandbox .nf-sandbox-check polyline { stroke-dasharray: 1; animation: nf-join-complete 700ms 150ms ease both; }
@@ -173,21 +196,11 @@
 html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) * { animation: none !important; transition: none !important; }
 html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) button:active { transform: none !important; }
 @media (max-width: 360px) {
-  .phone-app .nf-intake.nf-intake--new { --intake-pad: 20px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header { padding-inline: 12px; gap: 8px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 4px; }
-  .phone-app .nf-intake.nf-intake--new .nf-intake-title h1 { font-size: 24px; }
-  .phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 20px; }
 }
 
 /* Keep assessment navigation compact so the question leads the viewport. */
-.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-header {
-  min-height: 64px;
-  padding-block: max(10px, var(--nf-safe-top)) 10px;
-}
-.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-main { padding-top: 12px; }
-.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-progress { padding-bottom: 12px; }
-.phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-kicker { padding-bottom: 8px; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -215,6 +228,38 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
 }
 
 /* Shared type scale for section controls and the review step. */
+.phone-app .nf-intake--new[data-chapter="preferences"] .nf-intake-private {
+  gap: 4px;
+  padding-block-start: 0;
+  border: 0;
+}
+.phone-app .nf-intake--new[data-chapter="preferences"] .nf-intake-private label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-inline-start: 12px;
+  border: 1px solid var(--journey-line);
+  border-radius: 10px;
+  background: #fff;
+}
+.phone-app .nf-intake--new[data-chapter="preferences"] .nf-intake-private label:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.phone-app .nf-intake.nf-intake--new[data-chapter="preferences"] .nf-intake-fields .nf-intake-private input[type="text"] {
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+@media (max-width: 22em) {
+  .phone-app .nf-intake--new[data-chapter="preferences"] .nf-intake-private label {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 5px 10px 0;
+  }
+}
 .nf-intake--new .nf-intake-reviews {
   gap: 0;
   padding-inline: clamp(12px, 4vw, 20px);

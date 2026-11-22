@@ -26,7 +26,7 @@ export function ReadinessResult({ value, familyPreference, formalTiming, answers
       <div><dt>إشراك الأهل</dt><dd>{value.family && (value.clarifications?.family && conflicts.includes('family') ? readinessClarifications.family.options[value.clarifications.family] : readinessScenarios.family.options[value.family])}</dd></div>
       <div><dt>خطوتك القادمة</dt><dd>{value.nextStep && (value.clarifications?.nextStep && conflicts.includes('nextStep') ? readinessClarifications.nextStep.options[value.clarifications.nextStep] : readinessScenarios.nextStep.options[value.nextStep])}</dd></div>
     </dl>
-    {(blueprint.preferences.length > 0 || blueprint.partnership) && <details className="nf-readiness-blueprint" open>
+    {(blueprint.preferences.length > 0 || blueprint.partnership) && <details className="nf-readiness-blueprint">
       <summary><span>خريطة شراكتك</span><ChevronDown size={15} aria-hidden="true"/></summary>
       {blueprint.partnership && <div className="nf-readiness-partnership"><small>الشراكة التي وصفتها</small><p>{blueprint.partnership}</p></div>}
       {blueprint.preferences.length > 0 && <div className="nf-readiness-preferences">
@@ -62,17 +62,19 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
     onChange({ ...value, [topic]: choice, clarifications });
   }
   return <section className="nf-readiness-intake" aria-label="مواقف الجاهزية واتفاق العضوية">
-    <p className="nf-readiness-intro">حفظنا تفضيلاتك. بقي موقفان عن الخطوة التي تقدر عليها عند التعارف، ثم تراجع اتفاق العضوية.</p>
-    <dl className="nf-readiness-declarations">
-      <div><dt>توقيت أول خطوة رسمية</dt><dd>{formalLabel ?? 'لم يُحدّد'}</dd></div>
-      <div><dt>توقيت إتمام الزواج</dt><dd>{wedding ? marriageTimelineLabels[wedding] : 'لم يُحدّد'}</dd></div>
-    </dl>
+    {(formalLabel || wedding) && <details className="nf-readiness-timing">
+      <summary><span>اختياراتك السابقة للتوقيت</span><ChevronDown size={15} aria-hidden="true"/></summary>
+      <dl className="nf-readiness-declarations">
+        {formalLabel && <div><dt>توقيت أول خطوة رسمية</dt><dd>{formalLabel}</dd></div>}
+        {wedding && <div><dt>توقيت إتمام الزواج</dt><dd>{marriageTimelineLabels[wedding]}</dd></div>}
+      </dl>
+    </details>}
     {(['family','nextStep'] as const).map(topic => <div className="nf-readiness-card" key={topic}>
       <fieldset>
         <legend>{readinessScenarios[topic].question}</legend>
-        {Object.entries(readinessScenarios[topic].options).map(([choice,label]) => <button key={choice} type="button" aria-pressed={value[topic] === choice} onClick={() => selectScenario(topic, choice)}>
+        <div className="nf-readiness-choices">{Object.entries(readinessScenarios[topic].options).map(([choice,label]) => <button key={choice} type="button" aria-pressed={value[topic] === choice} onClick={() => selectScenario(topic, choice)}>
           <span>{label}</span>{value[topic] === choice && <Check size={16} aria-hidden="true"/>}
-        </button>)}
+        </button>)}</div>
       </fieldset>
       {conflicts.includes(topic) && <MotionReveal className="nf-readiness-clarify" duration={200} distance={5}>
         <dl className="nf-readiness-declarations">
@@ -82,10 +84,10 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
         <small><HeartHandshake size={15} aria-hidden="true"/> لونا · خلّنا نوضحها</small>
         <fieldset>
           <legend>{readinessClarifications[topic].question}</legend>
-          {Object.entries(readinessClarifications[topic].options).map(([choice,label]) => <button key={choice} type="button" aria-pressed={value.clarifications?.[topic] === choice}
+          <div className="nf-readiness-choices">{Object.entries(readinessClarifications[topic].options).map(([choice,label]) => <button key={choice} type="button" aria-pressed={value.clarifications?.[topic] === choice}
             onClick={() => onChange({ ...value, clarifications: { ...value.clarifications, [topic]: choice as 'context' | 'review' } })}>
             <span>{label}</span>{value.clarifications?.[topic] === choice && <Check size={16} aria-hidden="true"/>}
-          </button>)}
+          </button>)}</div>
         </fieldset>
       </MotionReveal>}
     </div>)}

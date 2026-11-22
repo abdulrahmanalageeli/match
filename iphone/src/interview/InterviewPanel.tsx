@@ -88,10 +88,10 @@ function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
   </div>;
 }
 
-export function InterviewEntry({ available, open }: { available: boolean; open: () => void }) {
+export function InterviewEntry({ available, open, registration = false }: { available: boolean; open: () => void; registration?: boolean }) {
   if (!available) return null;
-  return <section className="wi-entry" aria-labelledby="wi-entry-title">
-    <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>
+  return <section className="wi-entry" data-registration={registration || undefined} aria-labelledby={registration ? undefined : 'wi-entry-title'} aria-label={registration ? 'بدء الحوار مع لونا' : undefined}>
+    {!registration && <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>}
     <p>احكِ للونا عنك وعن الشريك اللي تتمناه. إذا وضّحت إجابة في كلامك، تجهّزها لونا للمراجعة. بعدها تختار إجابات التوافق المتبقية وتكمل تفاصيل ملفك.</p>
     <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار مع لونا <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;

@@ -21,7 +21,6 @@
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-start: max(4px, var(--nf-safe-top)); }
 .phone-app .cm-chat-arrival-paths { opacity: .08; inset: -40px 0 0; }
 .phone-app main.nf-intake.nf-intake--new::before { content: none; }
-.phone-app .nf-intake-arrival-paths { inset: 15px -24px auto; height: 280px; opacity: .14; }
 .phone-app .mi-tabbar {
   border-top: 1px solid var(--line);
   background: var(--chrome);

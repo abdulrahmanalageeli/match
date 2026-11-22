@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronDown,
   Eye,
   EyeOff,
   ShieldCheck,
@@ -110,7 +111,7 @@ export function Auth({
     heading.current?.focus({ preventScroll: true });
     heading.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [entryStep, login]);
+  }, [entryStep, login, emailMode, phoneMode]);
   async function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!ready || locked) return;
@@ -131,9 +132,12 @@ export function Auth({
     finally{setPhonePending(false);}
   }
   if (recovering) return <MemberPasswordRecovery onBack={() => setRecovering(false)}/>;
+  const switchAccount = ready && <button type="button" className="f-link centered" onClick={switchMode} disabled={locked}>
+    {login ? "إنشاء حساب جديد" : "لدي حساب بالفعل"}
+  </button>;
   const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
     <legend className="nf-auth-sr-only">الموافقات المطلوبة لإنشاء الحساب</legend>
-    <p id="auth-agreement-help">هذه الموافقات الثلاث لإنشاء حسابك. عند إعداد ملفك، ستحتاج إلى موافقتين منفصلتين لمعالجة تفاصيلك الحساسة وعرضها للأعضاء المؤهلين. وللصورة والتقييم أذونات خاصة بهما.</p>
+    <p id="auth-agreement-help">إعداد ملفك يتطلّب موافقتين منفصلتين لمعالجة التفاصيل الحساسة وعرضها للأعضاء المؤهلين، وأذونات للصورة والتقييم.</p>
     {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
       setAgreements(current => ({ ...current, [kind]: value }));
       setAgreementError("");
@@ -144,25 +148,18 @@ export function Auth({
   return (
     <Frame back={reviewing ? () => setEntryStep('credentials') : back} backDisabled={locked} title={login ? "تسجيل الدخول" : reviewing ? "مراجعة الحساب" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section className="nf-auth-hero">
-        <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : reviewing ? "قبل أن نبدأ" : "حسابك في وُدَين"}</h1>
-        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "راجع الموافقات، ثم نؤكد رقم جوالك السعودي وننشئ حسابك." : "أنشئ حسابك الآمن أولًا؛ بعدها نؤكد الجوال ونحفظ تقدّمك في طلب العضوية."}</p>
-        {!login && !reviewing && <section className="nf-auth-brief" aria-label="مسار طلب العضوية وتكلفته">
-          <p><strong>المسار واضح من البداية</strong><span>لا قبول ولا دفع بمجرد إنشاء الحساب.</span></p>
-          <ul>
-            <li><ShieldCheck size={18} aria-hidden="true"/><span><strong>مراجعة عضوية</strong><small>بعد اكتمال الملف</small></span></li>
-            <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>تراجع إجاباتك بنفسك</small></span></li>
-            <li><Check size={18} aria-hidden="true"/><span><strong>استكشاف مجاني</strong><small>بعد اعتماد الملف</small></span></li>
-          </ul>
-          <p className="nf-auth-price">بعد قبول ملفك يمكنك الاستكشاف مجانًا. إذا اخترت الاشتراك، يظهر لك السعر والمدة قبل التأكيد.</p>
-        </section>}
+        <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : reviewing ? "موافقات الحساب" : "حسابك في وُدَين"}</h1>
+        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "بعد الموافقة، نؤكّد رقم جوالك السعودي." : "أكّد جوالك السعودي واحفظ تقدّمك في طلب العضوية."}</p>
+        {!login && !reviewing && <details className="nf-auth-brief">
+          <summary><ShieldCheck size={17} aria-hidden="true"/><span>طلب العضوية مجاني</span><ChevronDown size={15} aria-hidden="true"/></summary>
+          <p>تكمل جلسة التوافق وتراجع إجاباتك، ثم نراجع ملفك. بعد القبول، يمكنك الاستكشاف مجانًا. إذا اخترت الاشتراك، يظهر السعر والمدة قبل التأكيد.</p>
+        </details>}
       </section>
       <section className="nf-auth-panel">
-      {nativeSocial && !reviewing && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
+      {nativeSocial && !emailMode && !reviewing && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
         <button type="button" disabled={locked} onClick={() => onSocial('apple')}>المتابعة باستخدام Apple</button>
         <button type="button" disabled={locked} onClick={() => onSocial('google')}>المتابعة باستخدام Google</button>
-        <p>سنؤكد رقم جوالك عند إنشاء حساب جديد.</p>
       </div>}
-      {nativeSocial && !reviewing && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setEmailMode(value => !value)}>{emailMode ? 'إخفاء البريد الإلكتروني' : 'المتابعة بالبريد الإلكتروني للحسابات الحالية'}</button>}
       {phoneMode && consentReview}
       {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready && (!nativeSocial || emailMode || reviewing) ? (
         <form className="flow-form" onSubmit={send} aria-busy={locked} data-entry-step={reviewing ? 'consent' : 'credentials'}>
@@ -213,10 +210,13 @@ export function Auth({
           </label></div>}
           {!login && !reviewing && <p id="nf-password-help" className="nf-auth-field-help">اختر كلمة مرور من ١٠ أحرف على الأقل، خاصة بهذا الحساب.</p>}
           {reviewing && <><div className="nf-auth-account-summary"><span>البريد الإلكتروني</span><bdi dir="ltr">{credentials.email.trim()}</bdi><button type="button" onClick={() => setEntryStep('credentials')} disabled={locked}>تعديل</button></div>{consentReview}</>}
-          <button className="f-primary" disabled={locked || (reviewing && !accepted)}>
-            {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : reviewing ? "إنشاء الحساب" : "متابعة"}
-            <ArrowLeft size={18} />
-          </button>
+          <div className={reviewing ? 'nf-auth-review-actions' : 'nf-auth-submit'}>
+            <button className="f-primary" disabled={locked || (reviewing && !accepted)}>
+              {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : reviewing ? "إنشاء الحساب" : "متابعة"}
+              <ArrowLeft size={18} />
+            </button>
+            {reviewing && switchAccount}
+          </div>
         </form>
       ) : !ready ? (
         <div className="flow-card">
@@ -226,17 +226,19 @@ export function Auth({
           <SupportContact subject="المساعدة في إنشاء الحساب أو تسجيل الدخول" />
         </div>
       ) : null}
-      {login && !phoneMode && <button type="button" className="f-link centered" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
-      {ready && (
-        <>
-        {phoneOtpEnabled && login && <button className="f-secondary" disabled={locked} type="button" onClick={() => setPhoneMode(mode => !mode)}>
+      <div className="nf-auth-alternatives">
+        {nativeSocial && !reviewing && !phoneMode && <button type="button" className="f-link" disabled={locked} onClick={() => setEmailMode(value => !value)}>
+          {emailMode ? 'خيارات الدخول الأخرى' : 'المتابعة بالبريد الإلكتروني'}
+        </button>}
+        {login && !phoneMode && <button type="button" className="f-link" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
+        {ready && phoneOtpEnabled && login && <button className="f-secondary" disabled={locked} type="button" onClick={() => {
+          if (phoneMode && nativeSocial) setEmailMode(true);
+          setPhoneMode(mode => !mode);
+        }}>
           {phoneMode ? "استخدام البريد الإلكتروني" : "استخدام رقم الجوال"}
         </button>}
-        <button className="f-link centered" onClick={switchMode} disabled={locked}>
-          {login ? "إنشاء حساب جديد" : "لدي حساب بالفعل"}
-        </button>
-        </>
-      )}
+        {!reviewing && switchAccount}
+      </div>
       </section>
     </Frame>
   );
@@ -253,18 +255,15 @@ export function Pending({
 }) {
   return (
     <Frame title="حالة الطلب" back={back} className="nf-signup-status">
-      <div className="flow-symbol">
-        <ShieldCheck />
-      </div>
-      <h1>طلبك قيد المراجعة</h1>
+      <h1><ShieldCheck size={23} aria-hidden="true"/> طلبك قيد المراجعة</h1>
       <p className="flow-intro">
-        وصل ملفك، والخطوة الحالية هي مراجعته. بعد المراجعة نوضح لك النتيجة والخطوة المتاحة في حسابك، دون وعد بموعد أو ترشيح محدد.
+        وصلنا ملفك. تظهر نتيجة المراجعة والخطوة التالية هنا في حسابك.
       </p>
       <div className="flow-card timeline">
         <strong>
           <Check size={18} /> استلمنا الطلب
         </strong>
-        <strong>
+        <strong aria-current="step">
           <span className="timeline-dot" /> نراجع الملف
         </strong>
         <span>
@@ -274,16 +273,18 @@ export function Pending({
           <span className="timeline-dot hollow" /> اختيار العضوية عند توفرها وتأكيد الشراء
         </span>
       </div>
-      <div className="flow-card nf-waiting-guidance">
-        <h2>ماذا أفعل الآن؟</h2>
-        <p>راجع الحالة من هذه الصفحة. لا توجد مدة مراجعة ثابتة معلنة، ولا يعني الانتظار رفضًا أو حكمًا عليك. إن احتجت توضيحًا، تواصل مع الفريق أدناه.</p>
-        <p>يمكنك متابعة حالة طلبك هنا. يبدأ الاشتراك المدفوع فقط إذا اخترت باقة وأكّدت الشراء.</p>
-        <p>في الويب، تظهر التحديثات أثناء فتح الموقع؛ لا تعتمد على تنبيه بعد إغلاق المتصفح.</p>
-      </div>
+      <details className="nf-waiting-guidance">
+        <summary>ماذا يحدث بعد المراجعة؟ <ChevronDown size={16} aria-hidden="true"/></summary>
+        <p>بعد القبول، يمكنك الاستكشاف مجانًا. يبدأ الاشتراك المدفوع إذا اخترت باقة وأكّدت الشراء.</p>
+        <p>يمكنك تحديث الحالة هنا أو سؤال الفريق عن طلبك.{!Capacitor.isNativePlatform() && ' في المتصفح، تصلك التحديثات أثناء فتح الموقع.'}</p>
+      </details>
       <button className="f-secondary" onClick={refresh} disabled={busy}>
         {busy ? "جارٍ تحديث الحالة…" : "تحديث حالة الطلب"}
       </button>
-      <SupportContact subject="استفسار عن مراجعة ملف وُدَين" context="أرغب في الاستفسار عن حالة مراجعة ملفي." />
+      <details className="nf-waiting-guidance">
+        <summary>تواصل مع فريق وُدَين <ChevronDown size={16} aria-hidden="true"/></summary>
+        <SupportContact subject="استفسار عن مراجعة ملف وُدَين" context="أرغب في الاستفسار عن حالة مراجعة ملفي." />
+      </details>
     </Frame>
   );
 }

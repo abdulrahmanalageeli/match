@@ -15,6 +15,7 @@ import '../../src/onboarding/arrivalJourney.css';
 import '../../src/onboarding/arrivalAssessments.css';
 import '../../src/arrivalSurfaces.css';
 import '../../src/typography.css';
+import '../../src/accessibility.css';
 import { initializeKeyboardViewport } from '../../src/mobile/keyboardViewport';
 import { initializeDevicePreferences } from '../../src/settings/preferences';
 
@@ -23,7 +24,9 @@ initializeDevicePreferences();
 const stopKeyboardViewport = initializeKeyboardViewport();
 if (import.meta.hot) import.meta.hot.dispose(stopKeyboardViewport);
 function RegistrationQa() {
-  const chapter = chapters.find(item => item.key === new URLSearchParams(location.search).get('chapter'))?.key;
+  const params = new URLSearchParams(location.search);
+  const chapter = chapters.find(item => item.key === params.get('chapter'))?.key;
+  const registration = params.has('registration');
   const draft = useRef<ApplicationDraft | null>(null);
   const [closed, setClosed] = useState(false);
   if (chapter && !draft.current) {
@@ -54,7 +57,25 @@ function RegistrationQa() {
         membershipReadiness: { family: 'later', nextStep: 'not_yet' },
       });
     }
+    if (registration && chapter === 'identity') draft.current = initialDraft('registration-qa', null);
+    if (registration && params.get('gender') === 'man') draft.current.answers.gender = 'man';
+    if (registration && chapter === 'readiness') draft.current.answers.familyPreference = 'من البداية';
+    if (registration && chapter === 'details' && draft.current.permissions) {
+      draft.current.permissions.sensitiveProfile = false;
+      draft.current.permissions.sensitivePublication = false;
+    }
+    if (registration && chapter === 'compatibility' && draft.current.permissions) {
+      draft.current.permissions.assessment = false;
+      draft.current.answers.surveyAnswers = {};
+      draft.current.answers.personalityAnswers = {};
+    }
   }
-  return <div className="phone-app">{closed ? <p role="status">انتهت المعاينة</p> : chapter ? <GuidedApplication initial={null} previouslyApproved={false} busy={false} demo preview includeCompatibility startAt={chapter} draftRef={draft} draftOwner="registration-qa" back={()=>setClosed(true)} exitPreview={()=>setClosed(true)} onPrivacy={()=>{}} save={()=>setClosed(true)}/> : <OnboardingSandbox close={()=>setClosed(true)}/>}</div>;
+  return <div className="phone-app">{closed ? <p role="status">انتهت المعاينة</p> : chapter ? <GuidedApplication
+    initial={null} previouslyApproved={false} busy={false} includeCompatibility startAt={chapter}
+    defaultContact={registration ? 'qa@example.com' : undefined}
+    interviewAuth={registration && chapter==='compatibility' ? {testSession:'local-registration-layout'} : undefined}
+    draftRef={draft} draftOwner="registration-qa" demo={!registration} preview={!registration}
+    back={()=>setClosed(true)} exitPreview={registration ? undefined : ()=>setClosed(true)}
+    onPrivacy={()=>{}} save={()=>setClosed(true)}/> : <OnboardingSandbox close={()=>setClosed(true)}/>}</div>;
 }
 createRoot(document.getElementById('root')!).render(<RegistrationQa/>);

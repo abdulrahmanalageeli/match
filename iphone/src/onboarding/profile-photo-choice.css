@@ -5,6 +5,7 @@
   border-block: 1px solid var(--line);
   color: var(--accent);
 }
+.nf-photo-picker-row, .nf-photo-picker-actions { display: contents; }
 .nf-photo-privacy > summary {
   display: flex;
   align-items: center;

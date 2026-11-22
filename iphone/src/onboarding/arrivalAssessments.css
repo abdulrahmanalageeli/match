@@ -144,3 +144,16 @@ html[data-nf-motion=reduced] .phone-app .nf-intake :is(.compat-fields, .nf-perso
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button { font-weight: 500; letter-spacing: 0; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.compat-perspective, .bn-modes, .bn-perspectives, .nf-photo-mode, .nf-criterion-modes) button[aria-pressed=true] { font-weight: 500; }
 .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) .compat-refine > summary > span { border-radius: 4px; font-size: 13px; font-weight: 500; }
+
+.nf-session-stage .wi-entry[data-registration] { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.nf-session-stage .wi-entry[data-registration] > p { margin: 0 0 12px; }
+.nf-session-stage .wi-entry[data-registration] .wi-entry-footer { display: grid; gap: 10px; }
+.nf-session-stage .wi-entry[data-registration] .wi-entry-footer > span { font-size: .875rem; color: #6c6166; }
+.wi-dialog[data-journey] .wi-chat[data-opening] .wi-opening-example > button { min-height: 44px; }
+
+@media (max-width: 600px) and (max-height: 700px) {
+  .wi-dialog[data-journey] .wi-chat[data-opening] .wi-opening-note { padding-block: 8px; }
+  .wi-dialog[data-journey] .wi-chat[data-opening] .wi-opening-note + .wi-current-question { padding-block: 9px; }
+  .wi-dialog[data-journey] .wi-chat[data-opening] .wi-prompt-benefit { margin-block: 6px 0; }
+  .wi-dialog[data-journey] .wi-chat[data-opening] .wi-composer { padding-top: 4px; }
+}

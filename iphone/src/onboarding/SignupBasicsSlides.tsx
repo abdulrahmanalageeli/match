@@ -1,6 +1,6 @@
 import { familyContext } from './familyContext';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { Check, ChevronRight, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
+import { Check, Eye, HeartHandshake, MapPin, ShieldCheck, Sparkles } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { cityOptions, professionOptions, educationOptions, nationalityChoices } from '../profile/profileOptions';
@@ -124,7 +124,9 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const SlideIcon = slideChapter==='identity' ? ShieldCheck : slideChapter==='story' ? HeartHandshake : Sparkles;
   const subtitle = consentSlide
     ? required
-      ? 'يلزم اختيار درجة البشرة لإكمال طلب العضوية. نطلب موافقتين منفصلتين لاستخدام التفاصيل الحساسة في التوافق وعرضها للأعضاء المؤهلين. بعد دخول التطبيق يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
+      ? consents.sensitiveProfile && consents.sensitivePublication
+        ? 'بعد دخول التطبيق، يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
+        : 'يتطلّب التسجيل درجة البشرة وموافقتين منفصلتين للمعالجة بغرض التوافق وللعرض للأعضاء المؤهلين. يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
       : 'يمكنك الموافقة على استخدام التفاصيل في التوافق، ثم اختيار ما إذا كنت تسمح بعرضها للأعضاء المؤهلين.'
     : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
@@ -155,26 +157,31 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
           </div>
         </div>
       </>}
-      {chapter==='identity'&&visibleIndex===2&&<><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div><SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/>
-        <SheetChoiceSelect label="ما جنسيتك؟" value={basics.nationality ?? ''} options={nationalityChoices} onChange={nationality=>answer({marriageBasics:{...basics,nationality}})} placeholder="اختر الجنسية" required/>
+      {chapter==='identity'&&visibleIndex===2&&<><div className="wd-slide-shortcuts" role="group" aria-label="اختيارات سريعة للمدينة">{['الرياض','جدة','الدمام'].map(city=><MotionPressButton type="button" key={city} aria-pressed={p.city===city} onClick={()=>answer({city})}><MapPin size={16}/>{city}{p.city===city&&<Check size={14}/>}</MotionPressButton>)}</div>
+        <div className="wd-slide-picker-group">
+          <SheetChoiceSelect label="مدينة الإقامة" value={p.city} options={cityOptions} onChange={city=>answer({city})} placeholder="اختر مدينة أخرى" required/>
+          <SheetChoiceSelect label="ما جنسيتك؟" value={basics.nationality ?? ''} options={nationalityChoices} onChange={nationality=>answer({marriageBasics:{...basics,nationality}})} placeholder="اختر الجنسية" required/>
+        </div>
       </>}
       {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">نبدأ بالحالة الاجتماعية للتأكد من الأهلية. يمكنك تحديد تفضيلاتك للزواج لاحقًا في تفاصيل ملفك.</p><MarriageBasicsFields eligibilityOnly activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
-      {chapter==='story'&&visibleIndex===0&&<>{(reviewing || !entryAnswers.profession.trim() || knownSlide(0)) && <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>}{(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}</>}
+      {chapter==='story'&&visibleIndex===0&&<div className="wd-slide-picker-group">
+        {(reviewing || !entryAnswers.profession.trim() || knownSlide(0)) && <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>}
+        {(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}
+      </div>}
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<small>تظهر النبذة للأعضاء المؤهلين. اكتب فقط ما ترغب في مشاركته معهم.</small><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
       {consentSlide && <>
         <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>
-        {required && !reviewing && <details className="nf-intake-draft-help"><summary>تعديل التفاصيل المحفوظة وإضافة الاختياري</summary>
+        {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
+        {required && !reviewing && consents.sensitiveProfile && consents.sensitivePublication && <details className="nf-intake-draft-help"><summary>تعديل التفاصيل المحفوظة وإضافة الاختياري</summary>
           <p>يمكنك تعديل إجاباتك أو إضافة تفاصيل مثل مدينة الأصل وخطط السكن هنا أو في المراجعة الأخيرة.</p>
           <button type="button" className="nf-intake-policy" aria-pressed={allDetails} onClick={()=>setAllDetails(!allDetails)}>{allDetails?'عرض الأسئلة المتبقية فقط':'عرض كل تفاصيل الملف'}</button>
         </details>}
-        {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
       </>}
       {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields fields={remaining?.filter(item=>item.slide===visibleIndex).map(item=>item.field)} activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>
     {error&&<p id="wd-slide-error" className="wd-slide-error" role="alert">{error}</p>}
-    <div className="wd-slide-foot">{index>0?<button type="button" onClick={()=>move(index-1)}><ChevronRight size={16}/>السابق</button>:<span/>}</div>
   </section>;
 });

@@ -25,7 +25,12 @@ export function ConsentGate({kind,checked,change,compact=false,required=false}:{
  },[checked,compact]);
  if(compact&&checked&&required&&kind==='assessment')return <section className="nf-consent-manage nf-consent-required-receipt"><div><Check size={15} aria-hidden="true"/><span>موافقة تحليل التوافق محفوظة<small>مطلوبة لإكمال التسجيل، وتبقى قابلة للإدارة من الإعدادات بعد إنشاء الحساب.</small></span></div></section>;
  if(compact&&checked)return <details className="nf-consent-manage"><summary ref={summary}><Check size={15} aria-hidden="true"/><span>{kind==='assessment'?'تحليل التوافق مفعّل':'معالجة التفاصيل الحساسة مفعّلة'}<small>إدارة موافقتي</small></span><ChevronDown size={15} aria-hidden="true"/></summary><ConsentChoice kind={kind} checked={checked} change={choose} required={required}/></details>;
- return <section ref={gate} className="nf-consent-gate"><div><LockKeyhole size={18}/><span>{required?(kind==='assessment'?'قبل أن نبدأ الحوار':'قبل إضافة التفاصيل'):'القرار لك، قبل الإجابة'}</span></div><ConsentChoice kind={kind} checked={checked} change={choose} required={required}/>{!checked&&<p>{required?(kind==='assessment'?'جلسة التوافق جزء أساسي من إعداد ملفك. إذا تعذّرت الخدمة، نساعدك على إكمال الأسئلة مباشرة.':'موافقتك الصريحة مطلوبة لإكمال التسجيل. لا نحفظ هذه التفاصيل الحساسة قبل موافقتك.'):'يمكنك المتابعة دون هذه التفاصيل والعودة إليها من الإعدادات.'}</p>}</section>;
+ const showHeading = !(compact && required && kind==='sensitiveProfile');
+ return <section ref={gate} className="nf-consent-gate">
+  {showHeading&&<div><LockKeyhole size={18}/><span>{required?(kind==='assessment'?'قبل أن نبدأ الحوار':'قبل إضافة التفاصيل'):'القرار لك، قبل الإجابة'}</span></div>}
+  <ConsentChoice kind={kind} checked={checked} change={choose} required={required}/>
+  {!checked&&<p>{required?(kind==='assessment'?'جلسة التوافق جزء أساسي من إعداد ملفك. إذا تعذّرت الخدمة، نساعدك على إكمال الأسئلة مباشرة.':'موافقتك الصريحة مطلوبة لإكمال التسجيل. لا نحفظ هذه التفاصيل الحساسة قبل موافقتك.'):'يمكنك المتابعة دون هذه التفاصيل والعودة إليها من الإعدادات.'}</p>}
+ </section>;
 }
 export function SignupConsentReview({value,change,onPrivacy,requiredAssessment=false,requiredSensitive=false,recorded=false}:{value:SignupConsents;change:(kind:Key,v:boolean)=>void;onPrivacy:()=>void;preview?:boolean;requiredAssessment?:boolean;requiredSensitive?:boolean;recorded?:boolean}){
  const accepted=recorded;

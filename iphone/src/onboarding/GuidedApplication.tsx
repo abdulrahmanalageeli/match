@@ -6,7 +6,6 @@ import { MensPhotoChoice } from './MensPhotoChoice';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "../BrandIcons";
 import { Brand } from "../Brand";
-import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { CompatibilityFields } from "../compatibility/CompatibilityFields";
 import { practicalAnswerKeys, hasPartnerQuestion, applicableDimensions, dimensionsForVersion, categories, interests } from "../compatibility/model";
@@ -43,6 +42,7 @@ import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
 import type { SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
+import './registration-fields.css';
 import { ReadinessStep, ReadinessResult } from './ReadinessStep';
 import { readinessComplete, readinessConflicts, type MembershipReadiness as Readiness } from './membershipReadiness';
 
@@ -686,7 +686,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-basic-slides={usesBasicSlides||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
-      {!editing && <ScenePaths className="nf-intake-arrival-paths" parallax />}
       <header className="nf-intake-header">
         <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving || photoBusy} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
         <div className="nf-intake-brand"><Brand compact /></div>
@@ -704,16 +703,18 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             {milestones.map((entry, n) => <i key={entry.key} aria-hidden="true" data-state={n < milestoneIdx ? "done" : n === milestoneIdx ? "current" : undefined} />)}
           </div>}
         </div>
-        {assessmentStep&&<WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
-          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={240} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
+          <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={editing ? 240 : 175} fromOpacity={editing ? 0 : .9} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
             <div className="nf-intake-title">
               <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
                 <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
               </svg>
               <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div></div>
-              {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <><h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1><p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p></>}
+              {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <>
+                <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'هذه صورتك الأولى.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1>
+                {(editing || (chapter.key !== 'preferences' && chapter.key !== 'avatar')) && <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p>}
+              </>}
             </div>
             <div className="flow-form nf-intake-fields">
               {usesBasicSlides && <SignupBasicsSlides reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
@@ -744,7 +745,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
               {!usesBasicSlides && chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" required={!editing&&includeCompatibility} checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={!editing&&includeCompatibility} checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
               {chapter.key === "avatar" && p.gender === "man" && <MensPhotoChoice change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} onBusy={setPhotoBusy}/>}
-              {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
+              {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice compact={!editing} avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {((editing&&['criteria','personality','compatibility','beena'].includes(chapter.key)&&!consents.assessment)||(!editing&&chapter.key==='compatibility'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing} required={!editing}/>}
               {chapter.key === 'beena' && consents.assessment && <>
                 <BeenaFields key={interviewRevision} value={p.beena} onChange={beena=>update({beena})} storyReview={!demo} registration={!editing} remainingOnly={!editing&&!reviewAllBeena}/>
@@ -767,7 +768,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا إجابات التوافق. نكمل ما ينقص ملفك، مثل معايير البحث والنبذة والصورة، ثم تراجع طلبك قبل إرساله.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
-                    {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
+                    {interviewAuth && <InterviewEntry registration available open={()=>setInterviewOpen(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
@@ -787,7 +788,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 <SavedPreference saved={savedPreference('familyPreference')} summary={`وقت إشراك الأهل: ${p.familyPreference}`}>
                 <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
                 </SavedPreference>
-                <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
+                <div className="nf-intake-private"><label><span>وسيلة التواصل الخاصة</span><input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="بريد أو رقم جوال" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}
               {chapter.key === 'readiness' && <div data-field="membershipReadiness" tabIndex={-1}>
@@ -815,12 +816,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-            <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton><KeyboardDismiss/>
-            {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='local'?<>حُفظت تعديلاتك على هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={reconnect}>مزامنة مع الحساب</button></>:saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
+            {!(choosingAssessment && consents.assessment && interviewAuth) &&
+              <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
+            <KeyboardDismiss/>
             <div className="nf-intake-action-meta">
-              {!editing && chapter.key !== 'review' && !draft.returnToReview && <small>التالي: {steps[idx + 1]?.label}</small>}
+              {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='local'?<>حُفظت تعديلاتك على هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={reconnect}>مزامنة مع الحساب</button></>:saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
               {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "تُحفظ إجاباتك تلقائيًا في مسودة خاصة بحسابك لمدة ثلاثين يومًا من آخر حفظ. يمكنك تسجيل الدخول والمتابعة من جهاز آخر. لا تظهر للأعضاء قبل إرسال الملف ومراجعته، ولا تُعد موافقة على نشره." : deviceDraft ? "تُحفظ إجاباتك تلقائيًا على هذا الجهاز لثلاثين يومًا." : "يمكنك إكمال إجاباتك لاحقًا ما دام التطبيق مفتوحًا."} الصورة التي أكملت رفعها محفوظة بخصوصية مع حالة التحقق. أما اختيار صورة لم يكتمل رفعها أو تعديل إعداداتها، فيحتاج إلى إكماله قبل المغادرة.</p></details>}
             </div>
+            {assessmentStep && <WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
           </footer>
           {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>هذا التعديل على الصورة لم يُحفظ بعد. يمكنك العودة لإكماله، أو حفظ إجاباتك الآن واختياره مجددًا لاحقًا. صورتك المحفوظة لن تتغير.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
         </form>

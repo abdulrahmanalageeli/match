@@ -14,9 +14,9 @@
 .nf-intake--new .wd-slide-picker-group, .nf-intake--new .wd-slide-options {
   display: grid;
   gap: 0;
-  border: 1px solid var(--journey-line);
+  border: 0;
   border-radius: 12px;
-  background: #fff;
+  background: var(--nf-input-fill);
 }
 .phone-app .nf-intake--new :is(.wd-slide-picker-group, .wd-slide-options) > button {
   min-height: 46px;
@@ -27,7 +27,7 @@
 }
 .nf-intake--new :is(.wd-slide-picker-group, .wd-slide-options) > button:first-child { border-start-start-radius: 11px; border-start-end-radius: 11px; }
 .nf-intake--new :is(.wd-slide-picker-group, .wd-slide-options) > button:last-child { border-end-start-radius: 11px; border-end-end-radius: 11px; }
-.phone-app .nf-intake--new :is(.wd-slide-picker-group, .wd-slide-options) > button + button { border-top: 1px solid var(--journey-line); }
+.phone-app .nf-intake--new :is(.wd-slide-picker-group, .wd-slide-options) > button + button { border-block-start: 1px solid var(--nf-field-line); }
 .phone-app .nf-intake--new .wd-slide-options button[aria-pressed=true] { background: #f5edf1; }
 .nf-intake--new .wd-age-window { gap: 5px; padding: 8px 12px; background: #f1ece7; border-radius: 12px; border: 0; }
 .nf-intake--new .wd-window-opening { min-block-size: 0; padding: 7px 10px; border: 0; border-radius: 8px; box-shadow: none; }
@@ -36,12 +36,18 @@
 
 .phone-app .nf-intake--new .wd-slide-body .nf-marriage-fields .nf-marriage-content {
   padding: 0;
-  gap: 12px;
+  gap: 8px;
   border: 0;
   background: transparent;
 }
 .phone-app .nf-intake--new .wd-slide-body .nf-marriage-group { background: none; }
-.phone-app .nf-intake--new .nf-intake-fields .nf-detail-choices button { min-height: 44px; padding: 7px 10px; }
+.phone-app .nf-intake--new .nf-intake-fields .nf-detail-choices button {
+  min-height: 44px; padding: 7px 10px; border-color: transparent;
+  background: var(--nf-input-fill); color: var(--nf-field-value);
+}
+.phone-app .nf-intake--new .nf-intake-fields .nf-detail-choices button[aria-pressed=true] {
+  background: #f1ebed; color: var(--accent);
+}
 .phone-app .nf-intake--new .nf-intake-fields .nf-tone-choices { gap: 4px; padding-top: 4px; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-tone-choices button { min-height: 52px; padding: 4px 3px; gap: 3px; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-tone-sample { width: 25px; height: 25px; }
@@ -53,7 +59,7 @@
 .phone-app .nf-intake--new .nf-intake-fields :is(.nf-consent-choice small, .nf-consent-gate > p) { line-height: 1.65; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-intake-private { padding-top: 8px; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-family-choice { gap: 5px; }
-.phone-app .nf-intake--new .nf-intake-fields .nf-family-choice > div { gap: 3px; padding: 3px; border-radius: 11px; background: #ebe6e8; }
+.phone-app .nf-intake--new .nf-intake-fields .nf-family-choice > div { gap: 2px; padding: 2px; border-radius: 10px; background: #efeded; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-family-choice button { min-height: 44px; padding: 5px 4px; border: 0; border-radius: 8px; background: transparent; }
 .phone-app .nf-intake--new .nf-intake-fields .nf-family-choice button[aria-pressed=true] { background: #fff; box-shadow: 0 1px 3px #48233120; }
 
@@ -118,35 +124,57 @@
 .nf-intake--new .nf-readiness-card legend { margin-block-end: 6px; }
 .nf-intake--new .nf-readiness-choices {
   display: grid;
-  background: #fff;
-  border: 1px solid var(--journey-line);
+  background: var(--nf-input-fill);
+  border: 0;
   border-radius: 12px;
 }
 .phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button { min-height: 44px; border: 0; padding: 7px 10px; border-radius: 0; }
 .phone-app .nf-intake--new .nf-readiness-choices > button:first-child { border-start-start-radius: 11px; border-start-end-radius: 11px; }
 .phone-app .nf-intake--new .nf-readiness-choices > button:last-child { border-end-start-radius: 11px; border-end-end-radius: 11px; }
-.phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button + button { border-block-start: 1px solid var(--journey-line); }
+.phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button { background: transparent; }
+.phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button + button { border-block-start: 1px solid var(--nf-field-line); }
 .phone-app .nf-intake--new .nf-readiness-intake .nf-readiness-choices > button[aria-pressed=true] {
   background: #f5edf1;
   color: var(--journey-ink);
   font-weight: 600;
 }
-.nf-intake--new .nf-partner-traits-list {
-  overflow: hidden;
-  border-block: 1px solid var(--journey-line);
-}
-.phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row {
-  min-height: 54px;
-  padding: 10px 0;
-  border-radius: 0;
-  background: transparent;
-}
-.phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row + .nf-sheet-choice-row {
-  border-block-start: 1px solid var(--journey-line);
-}
 .phone-app .nf-intake--new .nf-partner-traits-list .nf-sheet-choice-row:focus-visible {
   outline-offset: -2px;
 }
+
+/* Reuse the age picker row for single-value questions across registration. */
+.phone-app .nf-intake--new .nf-intake-fields .nf-sheet-choice-row {
+  min-height: 60px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+}
+.nf-intake--new #nf-mahr-range :is(.nf-sheet-choice-label, .nf-sheet-choice-value) { font-size: .875rem; }
+.phone-app .nf-intake--new :is(.wd-slide-picker-group, .nf-partner-traits-list) {
+  display: grid; gap: 4px; border: 0; background: transparent;
+}
+.phone-app .nf-intake--new .nf-intake-fields .wd-slide-picker-group > .nf-sheet-choice-row + .nf-sheet-choice-row,
+.phone-app .nf-intake--new .nf-intake-fields .nf-partner-traits-list > .nf-sheet-choice-row + .nf-sheet-choice-row { border: 0; }
+.phone-app .nf-intake--new .nf-marriage-content > :is(fieldset, label, .field-pair):has(~ :is(fieldset, label, .field-pair, .nf-sheet-choice-row)) {
+  border-block-end: 1px solid var(--nf-field-line);
+}
+.phone-app .nf-intake--new .nf-marriage-content .nf-criterion + .nf-criterion {
+  padding-block-start: 4px; border-block-start: 0;
+}
+.phone-app .nf-intake--new .nf-intake-fields .nf-marriage-content:has(.nf-appearance-self) > .field-pair {
+  padding-block: 8px; background: var(--nf-input-fill);
+}
+.phone-app .nf-intake--new .nf-readiness-choices > button:focus-visible {
+  outline-offset: -2px;
+}
+
+.nf-intake--new .wi-hybrid .wi-hybrid-card { gap: 10px; }
+.nf-intake--new .wi-hybrid-field:has(+ .wi-hybrid-field) {
+  border-block-end: 1px solid var(--nf-field-line);
+}
+.nf-intake--new .wi-hybrid-field legend { margin-block-end: 5px; }
+.phone-app .nf-intake--new .compat-question-workspace .compat-answer-options { gap: 4px; }
 
 /* Keep the draft privacy help centered beneath the primary action. */
 .nf-intake--new .nf-intake-action-meta > .nf-intake-draft-help {

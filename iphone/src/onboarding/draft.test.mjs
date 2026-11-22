@@ -14,7 +14,7 @@ after(() => loader?.close());
 
 function answers() {
   return { ...initialDraft("11111111-1111-4111-8111-111111111111", null).answers,
-    displayName: "نور", gender: "woman", age: "28", city: "الرياض", profession: "مهندسة",
+    firstName: "سارة", lastName: "الناصر", displayName: "نور", gender: "woman", age: "28", city: "الرياض", profession: "مهندسة",
     preferredMinAge:"24", preferredMaxAge:"40", familyPreference:"من البداية", bio: "نبذة تجريبية", contact: "sample@example.invalid" };
 }
 

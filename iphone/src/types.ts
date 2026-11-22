@@ -8,7 +8,11 @@ export type PortraitRevealPolicy = 'never' | 'matched' | 'serious' | 'family';
 export type ProfilePortrait = { id: string; path: string; blur: number; revealPolicy?: PortraitRevealPolicy; hasClear?: boolean; revealed?: boolean };
 
 export type Profile = {
+  /** Member-chosen public nickname. */
   displayName: string;
+  /** Owner-only identity fields. */
+  firstName?: string;
+  lastName?: string;
   /** Private date-only Gregorian birthday; never part of public person cards. */
   birthDate?: string;
   age: number;

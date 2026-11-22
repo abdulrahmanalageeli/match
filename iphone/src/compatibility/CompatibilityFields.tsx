@@ -82,7 +82,7 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
           return <button key={id} type="button" aria-pressed={selected} disabled={!selected && interestIds.length >= maxInterests} onClick={() => toggleInterest(id)}><Icon size={17} aria-hidden="true"/>{label}</button>;
         })}
       </div>
-      <p className="compat-interest-note" aria-live="polite">{number.format(interestIds.length)} من {number.format(maxInterests)} اهتمامات · اختيارية وتظهر في ملفك</p>
+      <p className="compat-interest-note" aria-live="polite">{number.format(interestIds.length)} من {number.format(maxInterests)} اهتمامات</p>
     </details>;
   const nextQuestionPosition = positions[questionIndex + 1];
   const assessmentNote = <p className="compat-assessment-note">اختر ما يصفك، ثم حدّد ما يناسبك من شريكك. يمكن أن تختلف الإجابتان. {required ? 'لا توجد إجابة صحيحة أو خاطئة.' : 'ويمكنك تجاوز أي سؤال.'}</p>;

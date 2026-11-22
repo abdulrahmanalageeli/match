@@ -16,12 +16,13 @@ async function member() {
 }
 const call = (u, command, payload = {}) => asMember(db, u.id, u.sessionId, () => rpc('public.marriage_onboarding_draft($1,$2)', [command, payload]));
 const document = (u, patch = {}) => ({ version: 1, owner: u.id, baseline, step: 'details', returnToReview: false,
-  savedAt: 1, answers: { displayName: 'مسودة خاصة', bio: 'نبذة لم تُنشر', marriageBasics: { heightCm: 170 } }, permissions, ...patch });
+  savedAt: 1, answers: { firstName:'خاص',lastName:'عائلة',displayName: 'مسودة خاصة', bio: 'نبذة لم تُنشر', marriageBasics: { heightCm: 170 } }, permissions, ...patch });
 
 test('drafts belong only to the confirmed active session; direct reads/writes and service/anonymous RPCs are denied', async () => {
   const a = await member(), b = await member();
   await call(a, 'save', document(a));
   assert.equal((await call(a, 'load')).owner, a.id);
+  assert.equal((await call(a,'load')).answers.firstName,'خاص');
   assert.equal(await call(b, 'load', { owner: a.id }), null);
   await assert.rejects(call(b, 'save', document(a)), /المسودة غير صالحة/);
   await call(b, 'delete', { owner: a.id });

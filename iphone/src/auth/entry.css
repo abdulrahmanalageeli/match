@@ -31,6 +31,16 @@
 .phone-app .nf-auth-frame .nf-auth-panel { min-width: 0; padding: 0; gap: 8px; background: none; border: 0; box-shadow: none; }
 .phone-app .nf-auth-frame .flow-form { gap: 10px; }
 .nf-auth-input-group { min-width: 0; overflow: hidden; border: 1px solid var(--auth-line); border-radius: 16px; background: #fff; }
+.nf-auth-frame:has(.nf-auth-brief) .nf-auth-input-group {
+  display: grid; gap: 4px; border: 0; border-radius: 0; overflow: visible; background: transparent;
+}
+.phone-app .nf-auth-frame:has(.nf-auth-brief) .nf-auth-input-group > label {
+  border: 0; border-radius: 14px; background: #fff;
+}
+.phone-app .nf-auth-frame:has(.nf-auth-brief) .nf-auth-input-group:focus-within { box-shadow: none; }
+.phone-app .nf-auth-frame:has(.nf-auth-brief) .flow-form > label > input:is([type=tel], [autocomplete=one-time-code]):not([aria-invalid=true]) {
+  border-color: transparent; border-radius: 14px; background: #fff;
+}
 .phone-app .nf-auth-frame .nf-auth-input-group > label { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: center; min-width: 0; gap: 10px; padding: 2px 12px; color: var(--auth-ink); font-size: .875rem; font-weight: 550; }
 .phone-app .nf-auth-frame .nf-auth-input-group > label + label { border-top: 1px solid var(--auth-line); }
 .phone-app .nf-auth-frame .nf-auth-input-group > label:focus-within { background: #fffafd; box-shadow: inset -3px 0 var(--accent); color: var(--accent); }

@@ -15,7 +15,7 @@ const save=(u,s,document)=>call(u,'save',{expectedRevision:s.revision,document})
 const turn={id:randomUUID(),topic:'intent',question:'ما الذي يناسبك؟',answer:'هذه إجابة تجريبية صريحة محفوظة للتأكد من حماية الجلسة.',skipped:false};
 const proposals=preferences.dimensions.flatMap(d=>['self','partner'].map(side=>({id:`preference:${d.id}:${side}`,kind:'preference',fieldId:d.id,side,values:[d.options[0].code]}))).concat(personality.map(p=>({id:`personality:${p.id}:self`,kind:'personality',fieldId:p.id,side:'self',values:['C']}))).map(p=>({...p,summary:'إجابة واضحة.',needsClarification:false,evidence:[{turnId:turn.id,quote:turn.answer}]}));
 const review=()=>({...initialInterviewDocument(true),status:'review',currentQuestion:null,turns:[turn],proposals,lastMode:'luna'});
-const profile=u=>({_applicationIntegrity:'wudayn-application-integrity-v1',displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,skinTone:'tone_4',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
+const profile=u=>({_applicationIntegrity:'wudayn-application-integrity-v1',firstName:'اسم خاص',lastName:'عائلة خاصة',displayName:'عضوة تجريبية',birthDate:'1998-01-01',age:28,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة للتجربة',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'من البداية',education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',consentVersion:'2026-11-07-privacy',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},marriageBasics:{heightCm:165,weightKg:65,skinTone:'tone_4',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open',childrenCount:0,smoking:'never',marriageTimeline:'when_ready',meetingPreference:'discuss_together'},partnerCriteria:Object.fromEntries(['sharedLanguage','height','weight','nationality','education','profession','maritalStatus','children','smoking'].map(k=>[k,{mode:'any'}])),surveyAnswers:Object.fromEntries(preferences.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]])),personalityAnswers:Object.fromEntries(personality.map(p=>[p.id,'C']))});
 const apply=(u,p)=>asMember(db,u.id,u.sessionId,()=>q('public.marriage_apply($1)',[p]));
 
 async function validApplication(u, phone) {
@@ -36,7 +36,18 @@ test('signed first-time registration is atomic, private, automatically admitted 
     assert.equal(await q('exists(select 1 from marriage.profiles where member_id=$1)',[u.id]),false);
   }
   await assert.rejects(apply(u,{...form,birthDate:'2017-04-10',age:36}),/١٨/);
+  await assert.rejects(apply(u,{...form,firstName:'  '}),/اسمك الأول/);
+  await assert.rejects(apply(u,{...form,marriageBasics:{...form.marriageBasics,mahrRange:'unknown'}}));
+  form.marriageBasics.mahrRange='from_50000';
   const submitted=await apply(u,form);
+  assert.equal(submitted.profile.firstName,form.firstName);
+  assert.equal(submitted.profile.lastName,form.lastName);
+  assert.equal(submitted.profile.marriageBasics.mahrRange,'from_50000');
+  const card=(await q('marriage.public_profile_snapshot($1)',[u.id])).card;
+  assert.equal(card.alias,form.displayName);
+  assert.equal(card.marriageBasics.mahrRange,'from_50000');
+  assert.ok(!JSON.stringify(card).includes(form.firstName) && !JSON.stringify(card).includes(form.lastName));
+  await assert.rejects(db.query("select marriage.validate_marriage_eligibility('man',$1)",[{mahrRange:'from_50000'}]),/للنساء/);
   assert.equal(submitted.user.applicationStatus,'approved');
   assert.equal(submitted.membership.active,false);
   assert.equal('_applicationIntegrity' in submitted.profile,false);
@@ -50,6 +61,7 @@ test('signed first-time registration is atomic, private, automatically admitted 
   for(const role of ['anon','authenticated','service_role']) {
     await db.exec('set role '+role);
     try {
+      await assert.rejects(db.query('select * from marriage.member_private_names'),/permission denied/);
       await assert.rejects(db.query('select * from marriage.application_integrity_receipts'),/permission denied/);
       await assert.rejects(db.query('select marriage.decide_registration($1)',[u.id]),/permission denied/);
     } finally { await db.exec('reset role'); }

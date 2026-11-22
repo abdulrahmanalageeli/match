@@ -119,15 +119,21 @@
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-section-guide h1 { font-size: 20px; line-height: 1.5; }
 .phone-app .nf-intake.nf-intake--new[data-assessment] .nf-intake-title { margin-bottom: 16px; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-section-guide p { font-size: 14px; }
-.phone-app .nf-intake.nf-intake--new .nf-intake-fields { gap: 14px; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields {
+  --nf-input-fill: #fff;
+  --nf-field-line: rgb(65 53 61 / 9%);
+  --nf-field-value: #494449;
+  --nf-field-muted: #746e72;
+  gap: 12px;
+}
 .phone-app .nf-intake.nf-intake--new[data-chapter=identity] .nf-intake-fields { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(label, legend) { color: var(--journey-ink); font-size: 16px; font-weight: 500; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) {
   min-height: 46px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px;
-  background: #fff; color: var(--journey-ink); box-shadow: none; font-size: 1rem; font-weight: 400;
+  background: var(--nf-input-fill); color: var(--nf-field-value); box-shadow: none; font-size: 1rem; font-weight: 400;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
-.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: #817b80; }
+.phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea)::placeholder { color: var(--nf-field-muted); }
 .phone-app .nf-intake .nf-intake-fields textarea { resize: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select):focus-visible { border-color: #54152a; background: #fff; outline: 3px solid #54152a16; box-shadow: none; }
 .phone-app .nf-intake.nf-intake--new .nf-intake-fields :is(input, textarea, select, button)[aria-invalid=true] { border-color: #a12b45; }
@@ -275,9 +281,9 @@ html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) butt
   align-items: center;
   gap: 8px;
   padding-inline-start: 12px;
-  border: 1px solid var(--journey-line);
-  border-radius: 10px;
-  background: #fff;
+  border: 0;
+  border-radius: 12px;
+  background: var(--nf-input-fill);
 }
 .phone-app .nf-intake--new[data-chapter="preferences"] .nf-intake-private label:focus-within {
   outline: 2px solid var(--accent);

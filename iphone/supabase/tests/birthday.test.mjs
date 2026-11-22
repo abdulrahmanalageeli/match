@@ -12,7 +12,7 @@ test('private birthday drives age, rejects underage signup, and survives account
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
   await addUser(db,u);
   const call=(q,args=[])=>asMember(db,u.id,u.sessionId,async()=> (await db.query('select '+q+' value',args)).rows[0].value);
-  const p={displayName:'مثال',age:99,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة',contact:u.email,
+  const p={firstName:'اسم',lastName:'عائلة',displayName:'مثال',age:99,gender:'woman',city:'الرياض',profession:'مهندسة',bio:'نبذة',contact:u.email,
    preferredMinAge:18,preferredMaxAge:65,familyPreference:'من البداية',consentVersion:'2026-11-07-privacy',
    signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:true,assessment:true,photo:false},
    education:'بكالوريوس',marriageIntent:'تعارف جاد يهدف إلى الزواج',lookingFor:'شريك متفاهم',lifeTogether:'حياة متوازنة',valuesStatement:'التفاهم والاحترام',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v4',personalityVersion:'personality-v2',hardRequirements:[],priorityCategories:[],

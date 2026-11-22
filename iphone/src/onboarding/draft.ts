@@ -61,6 +61,7 @@ export function profileBaseline(p: Profile | null) {
   if (p.publicAvatar !== undefined || p.appearanceVersion) values.push(p.publicAvatar ?? null, p.appearanceVersion ?? "");
   if (p.portrait !== undefined) values.push(['portrait',p.portrait ? [p.portrait.id,p.portrait.path,p.portrait.blur] : null]);
   if (p.portrait?.revealPolicy) values.push(['portraitReveal',p.portrait.revealPolicy,p.portrait.hasClear===true]);
+  if (p.firstName || p.lastName) values.push(['privateNames',p.firstName,p.lastName]);
   if (p.birthDate) values.push(["birthDate",p.birthDate]);
   if (p.beena !== undefined) values.push(['beena',p.beena]);
   return JSON.stringify(values);
@@ -138,6 +139,10 @@ export function validateStep(step: Chapter, p: Answers, consent: boolean, requir
     case 'personality':
       return requireAssessment && personalityQuestions.some(q => !q.options.some(o => o.code === p.personalityAnswers?.[q.id])) ? { field: 'personalityAnswers', text: 'أكمل إجابات الشخصية قبل المتابعة.' } : null;
     case "identity":
+      if (requireBirthday || p.firstName !== undefined || p.lastName !== undefined) {
+        if (!p.firstName?.trim()) return { field: 'firstName', text: 'أدخل اسمك الأول.' };
+        if (!p.lastName?.trim()) return { field: 'lastName', text: 'أدخل اسم العائلة.' };
+      }
       if (!p.displayName.trim()) return { field: "displayName", text: "أدخل اسمًا يظهر في ملفك." };
       if (!p.gender) return { field: "gender", text: "اختر الجنس لإكمال ملفك." };
       if ((requireBirthday || p.birthDate !== undefined) && (ageFromBirthday(p.birthDate ?? '') === null || ageFromBirthday(p.birthDate ?? '')! < 18 || ageFromBirthday(p.birthDate ?? '')! > 110)) return { field: "birthDate", text: "أدخل تاريخ ميلاد صحيحًا. وُدَين متاح لمن أتمّ ١٨ عامًا، حتى ١١٠ أعوام." };
@@ -197,7 +202,7 @@ export function toProfile(p: Answers): Profile {
   }
   if (!p.gender) throw new Error("اختر الجنس لإكمال ملفك.");
   return {
-    ...publicApplicationAnswers(p), assessmentVersion: p.assessmentVersion ?? assessmentVersion, personalityVersion: p.personalityVersion ?? personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
+    ...publicApplicationAnswers(p), firstName: p.firstName?.trim() || undefined, lastName: p.lastName?.trim() || undefined, assessmentVersion: p.assessmentVersion ?? assessmentVersion, personalityVersion: p.personalityVersion ?? personalityVersion, appearanceVersion: "appearance-v1", hardRequirements: p.hardRequirements ?? [],
     priorityCategories: p.priorityCategories ?? [], gender: p.gender, age: p.birthDate ? ageFromBirthday(p.birthDate ?? '')! : Number(p.age), preferredMinAge: Number(p.preferredMinAge),
     preferredMaxAge: Number(p.preferredMaxAge), displayName: p.displayName.trim(),
     city: canonicalCity(p.city), profession: p.profession.trim(), bio: p.bio.trim(), contact: p.contact.trim(),

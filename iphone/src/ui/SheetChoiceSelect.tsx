@@ -5,7 +5,7 @@ import { ChoiceSelect, normalizeChoiceSearch } from './ChoiceSelect';
 import './SheetChoiceSelect.css';
 
 /** A value row opens a focused picker; opening it does not summon the keyboard. */
-export function SheetChoiceSelect({ label, value, onChange, options, placeholder = 'اختر', allowClear = false, disabled = false, required = false, id, ...field }: ComponentProps<typeof ChoiceSelect>) {
+export function SheetChoiceSelect({ label, value, onChange, options, placeholder = 'اختر', allowClear = false, searchable = true, disabled = false, required = false, id, ...field }: ComponentProps<typeof ChoiceSelect> & { searchable?: boolean }) {
   const generated = useId();
   const triggerId = id ?? `nf-sheet-choice-${generated}`;
   const listId = `${triggerId}-list`;
@@ -104,13 +104,13 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
       onCancel={event => { event.preventDefault(); close(); }} onClose={() => setOpen(false)}
       onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }}>
       <header className="nf-choice-sheet-header"><button ref={cancel} type="button" onClick={close}>إلغاء</button><h2 id={`${triggerId}-title`}>{label}</h2><span aria-hidden="true"/></header>
-      <div className="nf-choice-sheet-search"><Search size={18} aria-hidden="true"/>
+      {searchable && <div className="nf-choice-sheet-search"><Search size={18} aria-hidden="true"/>
         <input type="search" role="combobox" aria-label={`بحث في ${label}`} aria-autocomplete="list" aria-expanded="true" aria-controls={listId}
           aria-activedescendant={filtered[activeIndex] ? `${listId}-${activeIndex}` : undefined} value={query}
           onChange={event => { setQuery(event.target.value); setActive(0); }} onKeyDown={event => keyboard(event, true)}
           placeholder="بحث" autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="search"/>
         {query && <button type="button" onClick={() => { setQuery(''); setActive(0); }} aria-label="مسح البحث"><X size={16}/></button>}
-      </div>
+      </div>}
       <div ref={list} id={listId} role="listbox" aria-label={label} className="nf-choice-sheet-list" onKeyDown={event => keyboard(event)}>
         {filtered.map((option, index) => <div key={option.value} role="presentation">
           {option.group && option.group !== filtered[index - 1]?.group && <div className="nf-choice-sheet-group" role="presentation">{option.group}</div>}

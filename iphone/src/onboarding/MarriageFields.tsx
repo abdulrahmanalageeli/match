@@ -35,7 +35,7 @@ function Group({ title, note, children, open = false, icon: Icon, summary, activ
 
 function Choices<T extends string>({ title, value, labels, onChange, required = false }: { required?: boolean; title: string; value?: T; labels: Partial<Record<T, string>>; onChange: (value: T | undefined) => void }) {
   const id = useId();
-  return <fieldset className="nf-detail-choices"><legend id={id}>{title}{!required && <small>اختياري</small>}</legend><div role="group" aria-labelledby={id}>
+  return <fieldset className="nf-detail-choices"><legend id={id}>{title}</legend><div role="group" aria-labelledby={id}>
     {(Object.keys(labels) as T[]).map(key => <button type="button" key={key} aria-pressed={key === value} onClick={() => onChange(!required && key === value ? undefined : key)}><span>{labels[key]}</span><i aria-hidden="true">{key === value && <Check size={13}/>}</i></button>)}
   </div></fieldset>;
 }
@@ -64,7 +64,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
   return <div className="nf-marriage-fields" data-slideshow={Boolean(activeSection) || undefined} data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
     <div className="nf-detail-intro"><Leaf size={20} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفاصيل تُكمل الصورة.</strong><span>{required ? "لمسات بسيطة تُكمل ملفك. راجع ما يظهر عنك قبل إرساله." : "افتح ما ترغب بإضافته. هذه التفاصيل اختيارية وتظهر للأعضاء المؤهلين."}</span></p></div>
     <Group activeSection={activeSection} title="خطط الحياة الزوجية" note="السكن، والمصاريف، وحفل الزواج، وتوقيت الإنجاب" icon={Home}>
-      <small>تظهر اختياراتك في ملفك كبداية للحوار. يمكنك ترك ما لم تحسمه دون إجابة.</small>
+      <small>أضف من هذه الخطط ما حسمته.</small>
       {marriagePlanKeys.map(key => <Choices key={key} title={marriagePlanQuestions[key].question} value={value[key]} labels={marriagePlanQuestions[key].options} onChange={answer => change({[key]:answer})}/>)}
       <small>سؤال توقيت الإنجاب لمن يرغب فيه؛ اتركه دون إجابة إن لم يكن مناسبًا لك.</small>
     </Group>
@@ -74,24 +74,22 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       <SelfAppearanceFields value={value} gender={gender} onChange={change} sensitiveAllowed={sensitiveAllowed && show('skinTone')} showDress={!fields} skinRequired={skinRequired} />
     </Group>
     <Group activeSection={activeSection} title="اللغات والتواصل" note="كيف تعبّر عن نفسك وتتواصل مع شريكك؟" icon={BookOpen} open={reveal === "اللغات والتواصل"} summary={value.spokenLanguages?.join(' · ')}>
-      {show('spokenLanguages') && <fieldset className="nf-criterion-checks nf-language-options"><legend>ما اللغات التي تتحدثها؟{!required && " · اختياري"}</legend>{languageOptions.map(language => <label key={language}><input type="checkbox" checked={value.spokenLanguages?.includes(language) ?? false} onChange={e => change({spokenLanguages: e.target.checked ? [...(value.spokenLanguages ?? []), language] : value.spokenLanguages?.filter(item => item !== language)})}/>{language}</label>)}</fieldset>}
+      {show('spokenLanguages') && <fieldset className="nf-criterion-checks nf-language-options"><legend>ما اللغات التي تتحدثها؟</legend>{languageOptions.map(language => <label key={language}><input type="checkbox" checked={value.spokenLanguages?.includes(language) ?? false} onChange={e => change({spokenLanguages: e.target.checked ? [...(value.spokenLanguages ?? []), language] : value.spokenLanguages?.filter(item => item !== language)})}/>{language}</label>)}</fieldset>}
       {show('preferredLanguage') && <ChoiceSelect label="ما اللغة التي تفضّل التواصل بها مع شريكك؟" value={value.preferredLanguage ?? ''} options={languageOptions.map(value => ({value,label:value}))} onChange={preferredLanguage => change({preferredLanguage: preferredLanguage || undefined})} placeholder={required ? "اختر اللغة" : "لا تفضيل محدد"} required={required} allowClear={!required} />}
       {show('languageOpenness') && <Choices title="كيف ترى اختلاف اللغة بينكما؟" required={required} value={value.languageOpenness} labels={languageOpennessLabels} onChange={languageOpenness => change({languageOpenness})}/>}
-      <small>تظهر اللغات في ملفك. حدّد أهمية اللغة المشتركة في تفضيلات الشريك لتؤثر في الترشيحات.</small>
+      <small>تقدر تحدّد أهمية اللغة المشتركة في تفضيلات الشريك.</small>
     </Group>
     <Group activeSection={activeSection} title="الخلفية والعائلة" note="جزء من حكايتك" icon={Users} open={reveal === "الخلفية والعائلة"} summary={[value.nationality, value.tribalBackground && tribalLabels[value.tribalBackground]].filter(Boolean).join(' · ')}>
-      {show('nationality') && <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder={required ? "اختر الجنسية" : "اختر الجنسية · اختياري"} required={required} allowClear={!required} />}
+      {show('nationality') && <ChoiceSelect label="جنسيتك" value={value.nationality ?? ''} options={nationalityChoices} onChange={nationality => change({ nationality: nationality || undefined })} placeholder="اختر الجنسية" required={required} allowClear={!required} />}
       {show('originCity') && <label>مدينة الأصل — اختياري<input value={value.originCity ?? ''} maxLength={80} onChange={event => change({originCity:event.target.value.trim() ? event.target.value : undefined})} placeholder="المدينة التي ترجع إليها بالأصل" /></label>}
-      {show('originCity') && <small>تختلف عن مدينة إقامتك الحالية، وتظهر في تفاصيل ملفك إذا أضفتها.</small>}
-      {!fields && sensitiveAllowed && <Choices title="الخلفية القبلية" value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
+      {!fields && sensitiveAllowed && <Choices title={required ? "الخلفية القبلية · اختياري" : "الخلفية القبلية"} value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
       {!fields && sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
       <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>
     </Group>
     <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت إتمام الزواج وطريقتك المفضلة للقاء. يحدّد استبيان التوافق توقيت أول خطوة رسمية." icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
       {show('marriageTimeline') && <Choices title="متى تود إتمام الزواج إذا وجدت الشخص المناسب؟" required={required} value={value.marriageTimeline} labels={marriageTimelineLabels} onChange={marriageTimeline => change({ marriageTimeline })} />}
-      {show('marriageTimeline') && <small>هذا توقيت الزواج نفسه، وهو منفصل عن موعد الخطوة الرسمية في تقييم التوافق. يظهر اختيارك للأعضاء في الاستكشاف وملفك.</small>}
       {show('meetingPreference') && <Choices title="كيف تفضّل ترتيب اللقاء والخطوة الرسمية؟" required={required} value={value.meetingPreference} labels={meetingPreferenceLabels} onChange={meetingPreference => change({ meetingPreference })} />}
-      {show('meetingPreference') && <small>يظهر تفضيل اللقاء في ملفك، وهو بداية للحوار وليس موافقة على لقاء بعينه. تبقى التفاصيل باتفاق الطرفين.</small>}
+      {show('meetingPreference') && <small>ترتيب أي لقاء يحتاج إلى موافقتكما.</small>}
     </Group>
     <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
       {show('maritalStatus') && <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined })} />}
@@ -103,7 +101,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       </>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
-      {show('childrenCount') && <ChoiceSelect label="عدد الأبناء" value={family.childrenCount === undefined ? '' : String(family.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder={required ? "اختر العدد" : "لم أحدّد · اختياري"} required={required} allowClear={!required} />}
+      {show('childrenCount') && <ChoiceSelect label="عدد الأبناء" value={family.childrenCount === undefined ? '' : String(family.childrenCount)} options={childrenOptions} onChange={children => change({ childrenCount: optionalNumber(children) })} placeholder="اختر العدد" required={required} allowClear={!required} />}
       {show('childrenCount') && family.suggestNoChildren&&<small>حددنا «دون أبناء» مبدئيًا. يمكنك تغييره إذا احتجت.</small>}
       {show('smoking') && <Choices title="التدخين · ما الذي تستخدمه غالبًا؟" required={required} value={value.smoking} labels={{never:smokingLabels.never,cigarettes:smokingLabels.cigarettes,vape:smokingLabels.vape,shisha:smokingLabels.shisha,...(value.smoking==='yes'||value.smoking==='sometimes'?{[value.smoking]:smokingLabels[value.smoking]}:{})}} onChange={smoking => change({ smoking })} />}
     </Group>

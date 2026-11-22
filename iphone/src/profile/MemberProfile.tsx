@@ -1,3 +1,4 @@
+import { mahrRanges } from '../compatibility/marriage';
 import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { languageOpennessLabels } from "../compatibility/marriage";
@@ -185,6 +186,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
           person.marriageIntent&&['النية من التعارف',person.marriageIntent],
           b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['التوقيت المرغوب لإتمام الزواج',marriageTimelineLabels[b.marriageTimeline]],
           b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['تفضيل اللقاء',meetingPreferenceLabels[b.meetingPreference]],
+          b?.mahrRange && ['المهر', mahrRanges[b.mahrRange]],
           person.familyPreference&&['إشراك الأهل',person.familyPreference],
         ]}/>
         <Facts title="خطط الحياة الزوجية" note="تفضيلات صريحة للنقاش والاتفاق" icon={Heart} items={marriagePlanKeys.map(key => {

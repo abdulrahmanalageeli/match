@@ -1,3 +1,4 @@
+import { MemberNameFields } from './MemberNameFields';
 import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
 import { applicableFamilyAnswers, familyContext } from './familyContext';
@@ -19,7 +20,7 @@ import { intakeVault, pendingIntake, accountDraftsAvailable } from "./persistenc
 import "./onboarding.css";
 import { MarriageBasicsFields, PartnerCriteriaFields, PersonalityFields, maritalLabels, tribalLabels, smokingLabels } from "./MarriageFields";
 import { partnerTraitQuestions, partnerTraitRanges, personalityQuestionsFor, personalityProfile } from "../compatibility/personality";
-import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels } from "../compatibility/marriage";
+import { mahrRanges, criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels } from "../compatibility/marriage";
 import { dressStyles, dressFlexibilities, skinTones } from "../compatibility/appearance";
 import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
 import type { PortraitDraft } from '../photos/portraitPreparation';
@@ -75,7 +76,7 @@ type Props = {
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, readiness: ShieldCheck, review: CheckCheck };
 const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
 const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
-  identity:['displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
+  identity:['firstName','lastName','displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
   details:['marriageBasics'], avatar:['publicAvatar','portrait'], criteria:['partnerCriteria'],
   compatibility:['interestIds','surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
   beena:['beena'],
@@ -245,6 +246,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
       <ReviewGroup title="تفضيلات التعارف" edit={() => edit("preferences")} {...groupProps('preferences')}>
         <p>العمر من {arabicNumber(Number(p.preferredMinAge))} إلى {arabicNumber(Number(p.preferredMaxAge))} عامًا</p>
         <p>إشراك الأهل: {p.familyPreference}</p>
+        {p.gender === 'woman' && p.marriageBasics?.mahrRange && <p>المهر: {mahrRanges[p.marriageBasics.mahrRange]}</p>}
         <p className="nf-review-contact"><LockKeyhole size={13} aria-hidden="true" />وسيلة التواصل الخاصة <bdi dir="auto">{p.contact}</bdi></p>
       </ReviewGroup>
     </div>
@@ -354,6 +356,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [editorHome, setEditorHome] = useState(() => Boolean(initial) && draft.step === 'identity' && !draft.returnToReview);
   const originalAnswers=initialDraft(draftOwner,initial).answers;
   const changedSections=new Set<Chapter>((Object.keys(chapterFields) as Chapter[]).filter(key=>chapterFields[key]!.some(field=>JSON.stringify(p[field])!==JSON.stringify(originalAnswers[field]))));
+  if (p.marriageBasics?.mahrRange !== originalAnswers.marriageBasics?.mahrRange) changedSections.add('preferences');
   if(portraitChange!==undefined)changedSections.add('avatar');
   if(portraitPolicy!==undefined&&portraitPolicy!==(initial?.portrait?.revealPolicy??'never'))changedSections.add('avatar');
   if((['sensitiveProfile','sensitivePublication','assessment','photo'] as const).some(kind=>consents[kind] !== (initial?.signupConsents?.[kind] === true))
@@ -580,7 +583,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   async function selectGender(gender: Profile["gender"]) {
     if (gender === p.gender || photoBusy || !await chooseConsent('photo',false)) return;
     const marriageBasics = { ...p.marriageBasics }, partnerCriteria = { ...p.partnerCriteria };
-    if (gender === "man") { delete marriageBasics.dressStyle; delete marriageBasics.dressFlexibility; }
+    if (gender === "man") { delete marriageBasics.mahrRange; delete marriageBasics.dressStyle; delete marriageBasics.dressFlexibility; }
     else { delete partnerCriteria.dressStyle; delete partnerCriteria.dressFlexibility; }
     update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
   }
@@ -724,7 +727,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
             <div className="flow-form nf-intake-fields">
               {usesBasicSlides && <SignupBasicsSlides reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
-                <div className="nf-name-entry"><span className="nf-name-avatar" aria-hidden="true"><UserRound size={25} strokeWidth={1.4}/></span><label>الاسم المعروض<input {...field("displayName")} autoComplete="nickname" enterKeyHint="done" value={p.displayName} onChange={e => update({ displayName: e.target.value })} maxLength={60} placeholder="اسمك الأول أو اسم مستعار" required /></label></div>
+                <MemberNameFields answers={p} update={update} required={!editing || !!initial?.firstName}/>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
                   {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
                     aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span>{p.gender === gender && <Check size={15} aria-hidden="true"/>}</button>)}
@@ -785,13 +788,18 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
               {chapter.key === "preferences" && <>
                 <SavedPreference saved={savedPreference('preferredMinAge') && savedPreference('preferredMaxAge')} summary={`عمر الشريك المفضّل: ${arabicNumber(Number(p.preferredMinAge))}–${arabicNumber(Number(p.preferredMaxAge))}`}>
-                <fieldset><legend>العمر المناسب للطرف الآخر</legend><small>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' ? 'النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.' : 'هذا نطاق العمر المفضّل في ملفك. يمكنك تعديله.'}</small><div className="field-pair">
+                <fieldset><legend>العمر المناسب للطرف الآخر</legend>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' && <small>النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.</small>}<div className="field-pair">
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
                 </SavedPreference>
+                {p.gender === 'woman' && (
+                  <ChoiceSelect id="nf-mahr-range" searchable={false} label="نطاق المهر" value={p.marriageBasics?.mahrRange ?? ''} placeholder="اختياري" allowClear
+                    options={Object.entries(mahrRanges).map(([value,label]) => ({ value, label }))}
+                    onChange={value => update({ marriageBasics: { ...p.marriageBasics, mahrRange: value ? value as keyof typeof mahrRanges : undefined } })}/>
+                )}
                 <SavedPreference saved={savedPreference('familyPreference')} summary={`وقت إشراك الأهل: ${p.familyPreference}`}>
-                <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
+                  <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div></fieldset>
                 </SavedPreference>
                 <div className="nf-intake-private"><label><span>وسيلة التواصل الخاصة</span><input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="بريد أو رقم جوال" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>

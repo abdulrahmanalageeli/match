@@ -34,7 +34,7 @@ try {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('http://127.0.0.1:5288/tests/fixtures/registration-qa.html?chapter=identity', { waitUntil: 'domcontentloaded' });
     const name = page.locator('input[data-field="displayName"]');
-    await name.waitFor(); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(700); await name.fill('نورة');
+    await name.waitFor(); await page.getByLabel('الاسم الأول',{exact:true}).fill('سارة'); await page.getByLabel('اسم العائلة',{exact:true}).fill('الناصر'); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(700); await name.fill('نورة');
     await page.evaluate(() => { window.__keyboard.height = 440; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-nf-form-viewport'));
     await page.waitForTimeout(200);

@@ -15,7 +15,7 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
   const answeredCount=answeredProfilePrompts(answers).length;
   return <section className="nf-prompt-editor" aria-label="أسئلة تضيف لحكايتك">
     <header><span><Feather size={17} aria-hidden="true"/><strong>تفاصيل تشبهك</strong></span><span className="nf-prompt-progress" aria-label={`${new Intl.NumberFormat('ar-SA').format(answeredCount)} من ٣ مكتملة`}>{profilePrompts.map((item,index)=><i key={item.key} data-done={index<answeredCount||undefined}/>)}<b>{new Intl.NumberFormat('ar-SA').format(answeredCount)} / ٣</b></span></header>
-    <p className="nf-prompt-note">{required ? 'ثلاث لمحات عنك. جملة أو اثنتان لكل منها تكفي.' : 'اختياري · أجب عن سؤال يعبّر عنك، بجملة أو اثنتين.'} تظهر إجاباتك في ملفك.</p>
+    <p className="nf-prompt-note">{required ? 'ثلاث لمحات عنك. جملة أو اثنتان لكل منها تكفي.' : 'اختر السؤال اللي يعبّر عنك.'}</p>
     <div className="nf-prompt-choices" role="group" aria-label="اختر سؤالًا">
       {profilePrompts.map(item => <MotionPressButton key={item.key} aria-pressed={selected === item.key} aria-controls={`${id}-editor`} onClick={() => setSelected(item.key)}>{item.title}{answers[item.key]?.trim() && <Check size={13} aria-label="أُجيب عنه"/>}</MotionPressButton>)}
     </div>
@@ -23,8 +23,8 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
       <label htmlFor={`${id}-${selected}`}>{prompt.question}</label><p id={`${id}-hint`}>{prompt.hint}</p>
       {rephrase&&<MotionPressButton type="button" className="nf-prompt-rephrase" onClick={()=>rephrase(selected)}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</MotionPressButton>}
       <textarea id={`${id}-${selected}`} data-field={selected} value={value} onChange={event => update({ [selected]: event.target.value })} maxLength={600} rows={3} placeholder={prompt.placeholder} aria-invalid={invalidField === selected || undefined} aria-describedby={`${id}-hint${invalidField === selected ? ' nf-intake-error' : ''}`} dir="auto"/>
-      <small className="nf-prompt-counter">{new Intl.NumberFormat('ar-SA').format(value.length)} / ٦٠٠ · {required ? 'بكلماتك، دون إجابة مثالية' : 'يمكنك تركها فارغة أو تعديلها لاحقًا'}</small>
+      <small className="nf-prompt-counter">{new Intl.NumberFormat('ar-SA').format(value.length)} / ٦٠٠</small>
     </MotionReveal>
-    <small className="nf-prompt-privacy">شارك ما ترتاح لظهوره؛ تجنّب أرقام التواصل والتفاصيل التي تفضّل إبقاءها خاصة.</small>
+    <small className="nf-prompt-privacy">خلّ بيانات التواصل خارج إجاباتك.</small>
   </section>;
 }

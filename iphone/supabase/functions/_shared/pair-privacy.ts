@@ -29,6 +29,8 @@ function peerProfile(value: unknown, publishSensitive: boolean): RecordValue {
   const result = pick(value, publicFields);
   if (record(value.marriageBasics)) result.marriageBasics = pick(value.marriageBasics,
     publishSensitive ? [...publicBasics, ...sensitiveBasics] : publicBasics);
+  if (value.gender === 'woman' && record(value.marriageBasics) && record(result.marriageBasics) && typeof value.marriageBasics.mahrRange === 'string')
+    result.marriageBasics.mahrRange = value.marriageBasics.mahrRange;
   if (publishSensitive && record(value.publicAvatar)) result.publicAvatar = pick(value.publicAvatar, ['style', 'skinTone']);
   if (record(value.portrait)) result.portrait = pick(value.portrait, ['id', 'path', 'blur', 'revealPolicy', 'hasClear', 'revealed']);
   // SQL has already applied the member's explicit story-sharing choice.

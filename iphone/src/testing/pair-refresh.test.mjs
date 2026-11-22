@@ -9,13 +9,16 @@ import { compareBeena } from '../beena/model.ts';
 import { conversationInsights } from '../compatibility/conversation-insights.ts';
 
 const fixture = { city:'الرياض', age:29, preferredMinAge:22, preferredMaxAge:40, interestIds:[], surveyAnswers:{}, marriageBasics:{} };
+const peers = Object.entries(pairAssessmentFixture).map(([actor, assessment]) => ({
+  ...fixture, ...assessment, id: actor, gender: actor === 'reham' ? 'woman' : 'man', currentAssessment: assessment,
+}));
 let compiled = ts.transpileModule(await readFile(new URL('./pair.ts', import.meta.url), 'utf8'),
   { compilerOptions:{ target:ts.ScriptTarget.ES2022, module:ts.ModuleKind.ESNext } }).outputText;
 compiled = isolateCommunityServices(compiled)
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/ai\/client['"];?/, "const requestAi=async()=>{throw Error('offline')};")
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/verification\/client['"];?/, 'const manualVerificationSource=()=>({});')
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/, "const marriageProjectUrl='https://test.invalid';const marriagePublishableKey='public';")
-  .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile=${JSON.stringify(fixture)};
+  .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile=${JSON.stringify(fixture)}, demoPeople=${JSON.stringify(peers)};
     const matchesDiscoveryFilters=()=>true; const demoCommunity=viewer=>({inbox:async()=>[],watch:()=>()=>{},discover:async()=>[{id:'fictional',age:29,viewer:viewer()}]});`)
   .replace(/from (['"])(\.{1,2}\/[^'"]+)\1/g, (_all,_quote,path)=>'from '+JSON.stringify(new URL(path+'.ts',import.meta.url).href));
 const { pairSource, testProfile } = await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
@@ -98,7 +101,9 @@ test('two independent clients refresh percentages, evidence and chat starters af
 });
 
 test('own edits on another device refresh discovery but preserve open drafts and their write revision',async t=>{
-  const h=harness(t),account=h.account('abdulrahman'),offers=[];
+  const h=harness(t),offers=[];
+  h.profiles.abdulrahman.marriageBasics.polygynyPreference='not_open';
+  const account=h.account('abdulrahman');
   let editing=true,viewer={...account.profile,gender:'woman'};
   const pair=pairSource(account,()=>viewer,(profile,revision)=>{
     offers.push({profile,revision});if(editing)return false;viewer={...profile,gender:viewer.gender};return true;

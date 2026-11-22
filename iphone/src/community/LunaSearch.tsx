@@ -46,7 +46,7 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
       <span className="luna-search-orb"><Sparkles size={22}/></span><span><strong>ابحث مع لونا</strong></span>{tier==='seriousness'?<Search size={19}/>:<LockKeyhole size={19}/>}
     </button>
     {expanded&&<div className="luna-search-conversation">
-      {tier!=='seriousness'?<div className="luna-search-upgrade"><p>البحث حسب الوصف متاح مع وسام الجدية.</p><button className="f-primary" onClick={upgrade}>اكتشف وسام الجدية</button></div>:!source.lunaSearch?<p role="status">البحث متاح عند تسجيل الدخول بحساب عضوية حقيقي.</p>:<>
+      {tier!=='seriousness'?<div className="luna-search-upgrade"><p>البحث حسب الوصف متاح مع وسام الجدية.</p><button className="f-primary" onClick={()=>upgrade("seriousness")}>اكتشف وسام الجدية</button></div>:!source.lunaSearch?<p role="status">البحث متاح عند تسجيل الدخول بحساب عضوية حقيقي.</p>:<>
         <form onSubmit={event=>{event.preventDefault();void search();}}>
           <label htmlFor="luna-discovery-query">تفضيلاتك</label>
           <textarea id="luna-discovery-query" rows={2} maxLength={600} minLength={3} required value={query} disabled={busy} onChange={event=>setQuery(event.target.value)} placeholder="مثلًا: شخص من الرياض ذكر التصوير في نبذته"/>

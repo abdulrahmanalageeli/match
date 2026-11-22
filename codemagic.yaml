@@ -13,7 +13,6 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.blindmatch.marriage
       vars:
-        VITE_MARRIAGE_ENV: production
         VITE_MARRIAGE_PUSH_ENABLED: "true"
     scripts:
       - name: Install locked frontend dependencies
@@ -26,6 +25,8 @@ workflows:
           set -euo pipefail
           cd "$CM_BUILD_DIR/iphone"
           node scripts/check-ios-icons.mjs
+          export VITE_MARRIAGE_ENV="${VITE_MARRIAGE_ENV:-production}"
+          node --experimental-strip-types --input-type=module -e 'import { resolveDeployment } from "./src/deployment.ts"; const { VITE_MARRIAGE_ENV:mode, VITE_MARRIAGE_SUPABASE_URL:url, VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY:key } = process.env; if (!resolveDeployment({mode,url,key}).ready) throw Error("Invalid membership backend for this build");'
           npm run build
           npx cap sync ios
       - name: Resolve native Swift packages

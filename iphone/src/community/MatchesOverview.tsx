@@ -1,7 +1,7 @@
 import memberAr from '../member-copy.ts';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { useId, useState } from 'react';
-import { ArrowLeft, Check, CircleMinus, MessageCircle, Ring, Search } from '../BrandIcons';
+import { ArrowLeft, Check, CircleMinus, LockKeyhole, MessageCircle, Ring, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -23,7 +23,7 @@ const dates = new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short',
 const stamp = (row: Connection) => Date.parse(row.updatedAt || row.createdAt || '') || 0;
 
 export function MatchesOverview({ source, connections, loading, error, onRetry, onBrowse, onProfile, onConversation, busy, onAccept, onDecline, onRemove }: Props) {
-  const {premium,connectionLimit}=useMembershipAccess();
+  const {premium,connectionLimit,upgrade}=useMembershipAccess();
   const capacity=connectionLimit??(premium?2:1);
   const logoMaskId = useId();
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
@@ -42,7 +42,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
       <section aria-labelledby="mo-current-title">
         <div className="mo-section-heading"><h2 id="mo-current-title">الارتباطات الحالية</h2><span>{number.format(current.length)} / {number.format(capacity)}</span></div>
         {current.length ? <div className="mo-current-grid">{current.map((row,index) => {
-          const score = premium?preferencePercentage(row.person.fit):null;
+          const score = premium&&!row.person.compatibilityLocked?preferencePercentage(row.person.fit):null;
           const unread = row.unreadCount ? number.format(row.unreadCount) : null;
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
             <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
@@ -75,6 +75,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
               </span>
               <span className="nf-score-tile mo-compatibility-caption"><span className="nf-score-tile-copy"><span>توافق التفضيلات</span><strong><bdi>{number.format(score)} من ١٠٠</bdi></strong></span></span>
             </span>}
+            {!premium&&<button type="button" className="mo-action" onClick={()=>upgrade('premium')} aria-label="عرض العضوية لفتح نسبة التوافق"><LockKeyhole size={16} aria-hidden="true"/>فتح النسبة</button>}
             {score !== null && <span className="mo-action-divider" aria-hidden="true"/>}
             <MotionPressButton
               className="mo-action mo-action-current"

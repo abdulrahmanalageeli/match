@@ -1,4 +1,5 @@
-// Local-only integration check: actual onboarding, interview, fields, and private draft persistence.
+// Interruption, editable partial suggestions and signed-in draft recovery on the current form.
+// The complete routes are covered by registration-matching.browser.mjs.
 // Run: node tests/onboarding-interview.browser.mjs. No production services or member records.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -7,26 +8,36 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, transformWithEsbuild } from 'vite';
 import catalog from '../src/compatibility/catalog.json' with { type: 'json' };
-import personality from '../src/compatibility/personality-catalog.json' with { type: 'json' };
+import { initialInterviewDocument } from '../api/_lib/interview.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 process.chdir(root);
 const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
+const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'playwright');
 const artifacts=resolve(root,'.tmp/onboarding-interview-review');await mkdir(artifacts,{recursive:true});
 const owner='11111111-1111-1111-1111-111111111111',drafts=new Map(),calls=[];
-const quote='أحب الهدوء والوضوح، وتكوين أسرة مستقرة. أفضّل أن نتحدث بصراحة عن اختلافاتنا.';
-const proposed=[...catalog.dimensions.flatMap(item=>['self','partner'].map(side=>({id:`preference:${item.id}:${side}`,kind:'preference',fieldId:item.id,side,values:[item.options[0].code]}))),...personality.map(item=>({id:`personality:${item.id}`,kind:'personality',fieldId:item.id,side:'self',values:['C']}))].map(item=>({...item,summary:'من إجابتك',evidence:[{turnId:'t1',quote}],needsClarification:false}));
-const base={version:'interview-v1',consentVersion:'wudayn-interview-v1',model:'gpt-6-luna',promptVersion:'wudayn-interview-3',status:'active',turns:[],currentQuestion:{topic:'intent',text:'كيف تتصور حياتك المشتركة؟',suggestions:[]},proposals:[],readiness:[],clarifications:[],confirmed:[],lastRequestId:null,lastMode:'luna',pendingAnalysis:false,draftAnswer:'',reviewSharing:false,confirmedAt:null};
+const quote='أرغب في الإنجاب وأفضّل شريكًا يرغب في الإنجاب. لم أحسم بعد أين سأعيش.';
+const children = catalog.dimensions.find(d => d.id === 'children_plan');
+const proposed = [
+  {fieldId:children.id,side:'self'},
+  {fieldId:children.id,side:'partner'},
+  {fieldId:'residence_plan',side:'self'},
+].map(({fieldId,side}) => ({id:['preference',fieldId,side].join(':'),kind:'preference',fieldId,side,values:['A'],
+  summary:'من الإجابة التجريبية',evidence:[{turnId:'t1',quote}],needsClarification:fieldId === 'residence_plan'}));
+const base = initialInterviewDocument(true);
 const apiMock=`
-let snapshot={document:null,revision:0,coverage:{answered:0,required:44},fallbackAvailable:false};const base=${JSON.stringify(base)},proposals=${JSON.stringify(proposed)};
+let snapshot=JSON.parse(sessionStorage.getItem('local-qa-interview') || 'null') ?? {document:null,revision:0,fallbackAvailable:false};
+const base=${JSON.stringify(base)},proposals=${JSON.stringify(proposed)};
 export class InterviewError extends Error{}
 export async function requestInterview(auth,payload){
- (window.__interviewCalls??=[]).push(payload);await new Promise(resolve=>setTimeout(resolve,40));
- if(payload.action==='start')snapshot={...snapshot,document:structuredClone(base),revision:1};
- if(payload.action==='draft')snapshot={...snapshot,document:{...snapshot.document,draftAnswer:payload.answer},revision:snapshot.revision+1};
- if(payload.action==='answer')snapshot=new URLSearchParams(location.search).has('failure')?{...snapshot,fallbackAvailable:true,document:{...snapshot.document,pendingAnalysis:true,lastMode:'guided',proposals:proposals.slice(0,3).map((item,index)=>({...item,needsClarification:index===2})),draftAnswer:''},revision:snapshot.revision+1}:{...snapshot,coverage:{answered:44,required:44},document:{...snapshot.document,status:'review',turns:[{id:'t1',topic:'intent',question:base.currentQuestion.text,answer:payload.answer,skipped:false}],currentQuestion:null,proposals,draftAnswer:''},revision:snapshot.revision+1};
- if(payload.action==='confirm')snapshot={...snapshot,document:{...snapshot.document,status:'confirmed',confirmed:payload.choices.map(choice=>({...proposals.find(item=>item.id===choice.id),values:choice.values})),reviewSharing:payload.shareReview},revision:snapshot.revision+1};
+ (window.__interviewCalls??=[]).push(payload);
+ if(payload.action==='start') snapshot={document:structuredClone(base),revision:1};
+ else if(payload.action==='draft') snapshot={...snapshot,document:{...snapshot.document,draftAnswer:payload.answer},revision:snapshot.revision+1};
+ else if(payload.action==='answer'){
+   snapshot={...snapshot,fallbackAvailable:true,document:{...snapshot.document,pendingAnalysis:true,lastMode:'guided',proposals,draftAnswer:'',
+     turns:[{id:'t1',topic:'intent',question:base.currentQuestion.text,answer:payload.answer,skipped:false}]},revision:snapshot.revision+1};
+ } else if(payload.action!=='load') throw Error('Unexpected interview request '+payload.action);
+ sessionStorage.setItem('local-qa-interview',JSON.stringify(snapshot));
  return structuredClone(snapshot);
 }`;
 const cloudMock=`
@@ -46,7 +57,7 @@ import React,{useRef,useState}from'react';import{createRoot}from'react-dom/clien
 import'/src/ambient.css';import'/src/home.css';import'/src/design.css';import'/src/flows.css';import'/src/screens.css';import'/src/motion.css';import'/src/onboarding/arrivalJourney.css';import'/src/onboarding/arrivalAssessments.css';import'/src/arrivalSurfaces.css';import'/src/typography.css';
 import{GuidedApplication}from'/src/onboarding/GuidedApplication';import{initialDraft}from'/src/onboarding/draft';import{initializeDevicePreferences}from'/src/settings/preferences';
 initializeDevicePreferences();
-function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current){ref.current=initialDraft('${owner}',null);Object.assign(ref.current.answers,{displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',profession:'مهندسة',bio:'أحب الهدوء والقراءة والوقت مع العائلة.',contact:'qa@example.com'});ref.current.step=chapter;if(['criteria','review'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
+function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current){ref.current=initialDraft('${owner}',null);Object.assign(ref.current.answers,{displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',profession:'مهندسة',bio:'أحب الهدوء والقراءة والوقت مع العائلة.',contact:'qa@example.invalid',marriageBasics:{nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open'}});ref.current.step=chapter;if(['criteria','review'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
 createRoot(document.getElementById('root')).render(<div className='phone-app' dir='rtl' lang='ar'><Fixture/></div>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),cacheDir:resolve(root,'node_modules/.vite-onboarding-interview'),server:{host:'127.0.0.1',port:5279,strictPort:true},optimizeDeps:{entries:[],include:['react','react-dom/client','react/jsx-runtime','lucide-react','@capacitor/core','react-native-reanimated','react-native-worklets'],esbuildOptions:{resolveExtensions:['.web.tsx','.web.ts','.web.jsx','.web.js','.tsx','.ts','.jsx','.js','.mjs','.json']}},plugins:[{name:'isolated-onboarding-interview',enforce:'pre',resolveId(id){if(id==='virtual:onboarding-interview')return '\0onboarding-interview'},async load(id){const path=id.replaceAll('\\','/');if(path.endsWith('/src/cloud.ts'))return cloudMock;if(path.endsWith('/src/interview/api.ts'))return apiMock;if(path.endsWith('/src/motion/SkiaSurface.tsx'))return `import{createElement}from'react';export function SkiaSurface({className,fallback}){return createElement('div',{className,'aria-hidden':true},fallback)}`;if(id==='\0onboarding-interview')return(await transformWithEsbuild(fixture,'fixture.tsx',{loader:'tsx',jsx:'automatic'})).code},configureServer(dev){dev.middlewares.use(async(req,res,next)=>{
@@ -57,28 +68,41 @@ let browser,page;const errors=[],externalRequests=[],checks=[];
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'ar-SA',reducedMotion:'reduce'});page.setDefaultTimeout(30000);page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/*',route=>{const url=new URL(route.request().url());if(['localhost','127.0.0.1'].includes(url.hostname)||url.protocol==='data:')return route.continue();externalRequests.push(url.origin);return route.abort()});
- const next=()=>page.locator('.nf-intake-actions>button[type=submit]').click();
+
  async function open(query){await page.goto('http://127.0.0.1:5279/__onboarding-interview?'+query,{waitUntil:'networkidle',timeout:60000});await page.locator('.nf-intake').waitFor();}
  async function capture(name){await page.evaluate(async()=>{await document.fonts.ready;document.activeElement?.blur();scrollTo(0,0)});await page.waitForTimeout(200);await page.screenshot({path:resolve(artifacts,name+'.png'),fullPage:true})}
  await open('interview');
- await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();await page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true}).click();
- await page.locator('#wi-answer').waitFor();assert.equal(await page.locator('.wi-consent').count(),0,'accepted consent is reused');assert.equal(await page.locator('.nf-session-fallback').count(),0,'AI remains the normal registration path');
- await page.locator('#wi-answer').fill(quote);await page.getByRole('button',{name:'إرسال الرسالة'}).click();await page.locator('.wi-review').waitFor();
- assert.equal(await page.locator('.wi-proposal input[type=checkbox]').count(),0);assert.equal(await page.locator('.wi-review-group').count(),3);await capture('01-grouped-review');
- await page.getByRole('button',{name:'هذا يمثّلني، اعتماد الملخص'}).click();await page.locator('.wi-complete').waitFor();await page.locator('.wi-complete>.wi-button-primary').click();
- await page.waitForFunction(()=>Object.keys(window.__onboardingDraft.current.answers.personalityAnswers??{}).length===12);
- assert.equal(await page.evaluate(()=>Object.keys(window.__onboardingDraft.current.answers.surveyAnswers).length),32);
- assert.equal(await page.evaluate(()=>window.__interviewCalls.filter(call=>call.action==='confirm').length),1);
- await next();await page.locator('[data-chapter=criteria]').waitFor();checks.push('required AI session reuses consent, confirms all44 once, then moves directly to partner criteria');await capture('02-after-ai-criteria');
- await open('interview&failure');await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();await page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true}).click();await page.locator('#wi-answer').fill(quote);await page.getByRole('button',{name:'إرسال الرسالة'}).click();await page.getByRole('button',{name:'إكمال الأسئلة مباشرة',exact:true}).click();await page.getByText('نكمل من حيث وصلنا',{exact:true}).waitFor();await capture('02-fallback-summary');await page.getByRole('button',{name:'اعتماد ما راجعته وإكمال المتبقي'}).click();await page.locator('.compat-panel').waitFor();assert.equal(await page.evaluate(()=>Object.keys(window.__onboardingDraft.current.answers.surveyAnswers).length),2);assert.equal(await page.evaluate(()=>window.__interviewCalls.filter(call=>call.action==='confirm').length),0);assert.equal(await page.locator('.compat-next').isDisabled(),true);checks.push('server-attested failure reviews partial answers once and opens only the required remainder');
- for(const chapter of ['story','details','criteria']){await open('chapter='+chapter);await next();await page.locator('#nf-intake-error').waitFor();assert.equal(await page.locator('.nf-intake').getAttribute('data-chapter'),chapter);assert(await page.locator('#nf-intake-error').innerText());const focus=await page.evaluate(()=>document.activeElement?.getAttribute('data-field')||document.activeElement?.closest('[data-section]')?.getAttribute('data-section'));assert(focus,chapter+' validation focuses its field');await capture('03-required-'+chapter);if(chapter!=='story')assert.equal(await page.locator('details.nf-marriage-group[open]').count(),1,chapter+' expands only the first incomplete group');checks.push(chapter+' blocks missing required answers and focuses a usable field');}
- await open('chapter=compatibility');await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();await page.locator('.compat-panel').waitFor();assert.equal(await page.locator('.compat-skip').count(),0);assert.equal(await page.locator('.compat-next').isDisabled(),true);await next();await page.locator('#nf-intake-error').waitFor();
- for(let index=0;index<32;index++){await page.locator('.compat-choice').first().click();if(index<31)await page.locator('.compat-next').click();}
- await page.locator('.nf-personality-card').waitFor();assert.equal(await page.locator('.nf-personality-later').count(),0);assert.equal(await page.locator('.nf-personality-next').isDisabled(),true);
- for(let index=0;index<12;index++){await page.locator('.nf-personality-options button').first().click();if(index<11)await page.locator('.nf-personality-next').click();}
- await next();await page.locator('[data-chapter=criteria]').waitFor();checks.push('demo fallback requires all32 preferences and12 personality answers in one chapter');
- await open('chapter=review');assert.equal(await page.getByRole('checkbox',{name:/عمري ١٨|شروط الاستخدام|اطّلعت على إشعار/}).count(),0);assert.equal(await page.getByText('بيننا · مواقف الحياة',{exact:true}).count(),0);await page.getByText('ملامح شخصيتك',{exact:true}).click();await page.getByRole('button',{name:'تعديل ملامح شخصيتك'}).click();await page.locator('[data-chapter=compatibility]').waitFor();checks.push('account consent receipts are reused and review edit returns to the combined assessment');
- await open('chapter=review');await capture('04-review');
+ await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
+ await page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true}).click();
+ await page.locator('#wi-answer').fill(quote);
+ await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();
+ await page.getByRole('button',{name:'إكمال الأسئلة مباشرة',exact:true}).click();
+ await page.getByRole('heading',{name:'نكمل من حيث وصلنا',exact:true}).waitFor();
+ const selfGroup=page.locator('.wi-review-group').filter({has:page.getByText('عن حياتك',{exact:true})});
+ const first=selfGroup.locator('.wi-proposal').first();
+ await first.locator(':scope > summary').click();
+ await first.locator('select').selectOption('C');
+ await capture('01-corrected-partial-review');
+ await page.getByRole('button',{name:'اعتماد ما راجعته وإكمال المتبقي',exact:true}).click();
+ await page.locator('.compat-panel').waitFor();
+ const expected={children_plan:'C',partner_children_plan:'A'};
+ assert.deepEqual(await page.evaluate(()=>window.__onboardingDraft.current.answers.surveyAnswers),expected);
+ assert.equal(await page.locator('.compat-next').isDisabled(),true);
+ assert.equal(await page.evaluate(()=>window.__interviewCalls.some(call=>['confirm','structuredConfirm','directConfirm'].includes(call.action))),false);
+ await new Promise((resolve,reject)=>{
+   const until=Date.now()+10000;
+   const interval=setInterval(()=>{
+     if(drafts.get(owner)?.answers.surveyAnswers?.children_plan==='C'){clearInterval(interval);resolve();}
+     else if(Date.now()>until){clearInterval(interval);reject(Error('Corrected choices were not saved to the account draft'));}
+   },50);
+ });
+ checks.push('Corrected one self answer, kept the reviewed partner choice, left the uncertain residence question unanswered');
+ await page.reload({waitUntil:'networkidle'});
+ await page.waitForFunction(()=>window.__onboardingDraft?.current?.answers.surveyAnswers?.children_plan==='C');
+ assert.deepEqual(await page.evaluate(()=>window.__onboardingDraft.current.answers.surveyAnswers),expected);
+ assert.equal(drafts.get(owner).permissions.assessment,true);
+ checks.push('Reload recovered the same private draft and two exact answers after the synthetic provider interruption');
+ await capture('02-recovered-partial-assessment');
  assert.deepEqual(errors,[],'no browser rendering errors');assert.deepEqual(externalRequests,[],'no external service access');await writeFile(resolve(artifacts,'results.json'),JSON.stringify({checks,errors,externalRequests,artifacts},null,2));console.log(JSON.stringify({checks,artifacts}));
-}catch(error){await page?.screenshot({path:resolve(artifacts,'failure.png'),fullPage:true}).catch(()=>{});await writeFile(resolve(artifacts,'failure.json'),JSON.stringify({error:error.message,errors,externalRequests},null,2));throw error}
+}catch(error){await page?.screenshot({path:resolve(artifacts,'failure.png'),fullPage:true}).catch(()=>{});await writeFile(resolve(artifacts,'failure.json'),JSON.stringify({error:error.message,dom:await page?.locator('body').innerText(),errors,externalRequests},null,2));throw error}
 finally{await browser?.close();await server.close()}

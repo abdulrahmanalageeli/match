@@ -158,7 +158,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const canManageMatching = Boolean(demo || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending);
   const canSeeMembership = canManageMatching || state?.membership.active;
   const tier = state?.membership.tier ?? (state?.membership.active ? 'premium' : 'free');
-  const membershipDetail = demo ? 'عضوية تجريبية' : state?.membership.status==='expired'?'انتهت صلاحية العضوية': state?.membership.status==='trial'?'تجربتك المجانية مفعّلة': {free:'العضوية المجانية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
+  const membershipDetail = demo ? 'عضوية تجريبية' : state?.membership.status==='expired'?'انتهت صلاحية العضوية': state?.membership.status==='trial'?'تجربتك المجانية مفعّلة': {free:'العضوية المجانية · استكشف مزايا الترقية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
   const location = member?.city || state?.user.email;
   const visibility = demo ? (paused ? 'paused' : 'eligible') : summary.data?.visibility;
   const visibilityText = visibility ? {

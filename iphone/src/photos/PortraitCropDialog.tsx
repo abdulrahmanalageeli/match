@@ -6,19 +6,23 @@ function CropPreview({ image, crop }: { image: HTMLImageElement; crop: PortraitC
   const canvas = useRef<HTMLCanvasElement>(null);
   useLayoutEffect(() => {
     const rect = portraitCropRect(image.naturalWidth, image.naturalHeight, crop);
-    canvas.current?.getContext('2d')?.drawImage(image, rect.x, rect.y, rect.w, rect.h, 0, 0, 320, 400);
+    const ctx = canvas.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#faf6ee';
+    ctx.fillRect(0, 0, 320, 400);
+    ctx.drawImage(image, rect.x, rect.y, rect.w, rect.h, 0, 0, 320, 400);
   }, [image, crop]);
   return <canvas ref={canvas} width={320} height={400} aria-hidden="true"/>;
 }
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
-export function PortraitCropDialog({ file, apply, cancel }: { file: File; apply: (crop: PortraitCrop) => void; cancel: () => void }) {
+export function PortraitCropDialog({ file, initialCrop = initialPortraitCrop, apply, cancel }: { file: File; initialCrop?: PortraitCrop; apply: (crop: PortraitCrop) => void; cancel: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; crop: PortraitCrop } | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [error, setError] = useState('');
-  const [crop, setCrop] = useState(initialPortraitCrop);
+  const [crop, setCrop] = useState(initialCrop);
   useEffect(() => {
     const node = dialog.current;
     node?.showModal();
@@ -43,7 +47,7 @@ export function PortraitCropDialog({ file, apply, cancel }: { file: File; apply:
   return <dialog ref={dialog} className="portrait-crop" aria-label="ضبط إطار الصورة" dir="rtl" onCancel={e => {e.preventDefault(); cancel();}}>
     <h2>ضبط إطار الصورة</h2>
     {image && <>
-      <p>اسحب الصورة لضبط موضعها، أو استخدم الأسهم.</p>
+      <p>حرّك الصورة ليظهر وجهك داخل الإطار. هذا هو القصّ المستخدم في ملفك.</p>
       <div className="portrait-crop-stage" tabIndex={0} role="group" aria-label="موضع الصورة، استخدم مفاتيح الأسهم"
         onPointerDown={e => {
           if (!e.isPrimary || e.button !== 0) return;
@@ -67,10 +71,10 @@ export function PortraitCropDialog({ file, apply, cancel }: { file: File; apply:
         }}>
         <CropPreview image={image} crop={crop}/>
       </div>
-      <label className="portrait-crop-zoom">التكبير<input type="range" min="1" max="2.5" step=".05" value={crop.zoom} onChange={e => setCrop({...crop, zoom:Number(e.target.value)})}/></label>
+      <label className="portrait-crop-zoom">التكبير<input type="range" min="1" max="2.5" step=".05" value={crop.zoom} aria-valuetext={new Intl.NumberFormat('ar-SA',{style:'percent'}).format(crop.zoom)} onChange={e => setCrop({...crop, zoom:Number(e.target.value)})}/><output>{new Intl.NumberFormat('ar-SA',{style:'percent'}).format(crop.zoom)}</output></label>
       <div className="portrait-crop-previews">
-        <figure><CropPreview image={image} crop={crop}/><figcaption>بطاقة الاستكشاف</figcaption></figure>
         <figure><CropPreview image={image} crop={crop}/><figcaption>الملف الشخصي</figcaption></figure>
+        <figure><CropPreview image={image} crop={crop}/><figcaption>الصورة المصغّرة</figcaption></figure>
       </div>
     </>}
     {error ? <p role="alert">{error}</p> : !image && <p role="status">جارٍ فتح الصورة…</p>}

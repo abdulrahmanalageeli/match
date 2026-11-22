@@ -2,7 +2,7 @@ import { blurPixels } from './portraitBlur';
 import type { ProfilePortrait, PortraitRevealPolicy } from '../types';
 export { blurPixels } from './portraitBlur';
 export type PortraitStage = { id: string; status: 'uploaded' | 'ready' | 'verified' | 'moderation' | 'approved' | 'rejected'; portrait: ProfilePortrait };
-export type PortraitDraft = { blob: Blob; url: string; blur: number; revealPolicy: PortraitRevealPolicy; clearBlob?: Blob; staged?: PortraitStage };
+export type PortraitDraft = { blob: Blob; url: string; blur: number; revealPolicy: PortraitRevealPolicy; clearBlob?: Blob; staged?: PortraitStage; framing?: {file:File; crop:PortraitCrop} };
 
 export async function blurPortraitPixels(data: Uint8ClampedArray,width:number,height:number,radius:number):Promise<void> {
   if (!radius) return;
@@ -36,6 +36,11 @@ export async function blurPortraitPixels(data: Uint8ClampedArray,width:number,he
 
 export type PortraitCrop = { x: number; y: number; zoom: number };
 export const initialPortraitCrop: PortraitCrop = { x: .5, y: .35, zoom: 1 };
+
+export function matchesPortraitCrop(draft: PortraitDraft | null | undefined, file: File, crop: PortraitCrop) {
+  const prior = draft?.framing;
+  return prior?.file === file && prior.crop.x === crop.x && prior.crop.y === crop.y && prior.crop.zoom === crop.zoom;
+}
 
 export function portraitCropRect(width: number, height: number, crop: PortraitCrop) {
   const w = Math.min(width, height * .8) / crop.zoom;
@@ -74,6 +79,7 @@ export async function preparePortrait(file: File, blur: number, revealPolicy: Po
     if(blur){const pixels=ctx.getImageData(0,0,640,800);await blurPortraitPixels(pixels.data,640,800,Math.max(1,Math.round(blur*.3)));ctx.putImageData(pixels,0,0);}
     const blob=await encode();
     canvas.width=0;canvas.height=0;if(!blob)throw Error('تعذّر تجهيز الصورة.');
-    return {blob,blur,revealPolicy:policy,...(clearBlob ? {clearBlob} : {}),url:URL.createObjectURL(blob)};
+    // Framing stays in this open form. Staging uploads only the prepared JPEGs.
+    return {blob,blur,revealPolicy:policy,...(clearBlob ? {clearBlob} : {}),url:URL.createObjectURL(blob),framing:{file,crop}};
   } finally {image.src='';URL.revokeObjectURL(original);}
 }

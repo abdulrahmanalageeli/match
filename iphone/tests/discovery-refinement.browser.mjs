@@ -13,15 +13,29 @@ import React from 'react';import {createRoot} from 'react-dom/client';
 import {Discovery} from '/src/community/Community.tsx';
 import {Settings} from '/src/settings/Settings.tsx';
 import {MembershipAccess} from '/src/membership/access.tsx';
+import {Membership} from '/src/membership/Membership.tsx';
+import {MembershipChangeNotice} from '/src/membership/MembershipEntry.tsx';
 import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
 const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:[],discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:32,total:32,percentage:72-i*3}}));
-people[0].recommendationPercentage=65;people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
+people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 source.blockPerson=async()=>{throw Error('not part of fixture')};
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
-createRoot(document.getElementById('root')).render(<MembershipAccess.Provider value={{premium:!new URLSearchParams(location.search).has('free'),upgrade:noop}}><div className="phone-app"><main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main></div></MembershipAccess.Provider>);
+function Fixture(){
+ const [initialPlan,openOffer]=React.useState(null);
+ const [tier,setTier]=React.useState(new URLSearchParams(location.search).has('free')?'free':'premium');
+ window.__setTier=setTier;
+ const premium=tier!=='free';
+ return <MembershipAccess.Provider value={{tier,premium,upgrade:(plan='premium')=>openOffer(plan)}}>
+  <div className="phone-app"><MembershipChangeNotice tier={tier}/>
+   {initialPlan?<Membership initialPlan={initialPlan} gender="woman" currentTier={tier} active={premium} demo={false}
+    canBuy={false} canStart={false} busy={false} price={null} expiry={null} back={()=>openOffer(null)}
+    buy={noop} restore={noop} manage={noop} refresh={noop} onPolicy={noop}/>:<main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main>}</div>
+ </MembershipAccess.Provider>;
+}
+createRoot(document.getElementById('root')).render(<Fixture/>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),server:{host:'127.0.0.1',port:5281,strictPort:true},
  plugins:[{name:'local-discovery-fixture',enforce:'pre',resolveId(id){if(id==='virtual:discovery-fixture')return '\0discovery-fixture'},
@@ -36,6 +50,7 @@ try{
  const percent = value => new Intl.NumberFormat('ar-SA',{style:'percent',numberingSystem:'arab'}).format(value/100).replace(/[\u061c\u200e\u200f]/g,'');
  const scoreText = async tile => (await tile.locator('.nf-score-tile strong').innerText()).replace(/[\u061c\u200e\u200f]/g,'');
  assert.equal(await scoreText(weekly),percent(72));
+ await weekly.getByText('تختلف رغبتكما في الإنجاب.',{exact:true}).waitFor();
  await page.screenshot({path:resolve(output,'recommended-390.png'),fullPage:true});
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  await page.locator('.mp-profile h1').waitFor();
@@ -98,10 +113,48 @@ try{
  assert.equal(await scoreText(page.getByRole('article',{name:'ملف نورة',exact:true})),percent(0));
  assert.equal(await page.getByRole('article',{name:'ملف ريم',exact:true}).locator('.nf-score-tile').count(),0);
  assert.equal(await page.getByRole('article',{name:'ملف لولو',exact:true}).locator('.nf-score-tile').count(),0);
+ await page.setViewportSize({width:390,height:844});
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?free');
  assert.equal(await scoreText(weekly),percent(65));assert.equal(await page.locator('.df-recommendation .nf-score-tile').count(),1);
+ assert.doesNotMatch(await weekly.ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%/);
+ const selected=plan=>page.locator('.wd-plan-choice').getByRole('button',{name:plan,pressed:true});
+ const back=page.getByRole('button',{name:'رجوع',exact:true});
+ await weekly.locator('.wd-weekly-upgrade').tap();
+ await selected(/المميزة/).waitFor();
+ await page.locator('.wd-plan-portrait img').evaluate(img=>img.decode());
+ await page.screenshot({path:resolve(output,'paywall-premium-390.png')});
+ assert.match(await page.locator('.wd-current-membership').innerText(),/المجانية/);
+ const seriousnessButton=page.locator('.wd-plan-choice').getByRole('button',{name:/وسام الجدية/});
+ await seriousnessButton.focus();await page.keyboard.press('Enter');await selected(/وسام الجدية/).waitFor();
+ assert.equal(await page.locator('.wd-plan-portrait').evaluate(n=>getComputedStyle(n).animationName),'none');
+ await page.locator('.wd-plan-portrait img').evaluate(img=>img.decode());
+ await page.screenshot({path:resolve(output,'paywall-seriousness-390.png')});
+ await page.setViewportSize({width:320,height:640});
+ const summary=page.locator('.wd-comparison-detail>summary');await summary.focus();await page.keyboard.press('Space');
+ await page.getByRole('table',{name:/مقارنة العضوية/}).waitFor();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=320),'comparison fits a narrow iPhone');
+ assert.equal(await page.locator('.wd-tier-comparison').getAttribute('data-plan'),'seriousness');
+ await page.locator('.wd-plan-choice').getByRole('button',{name:/المميزة/}).click();await selected(/المميزة/).waitFor();
+ assert.equal(await page.locator('.wd-tier-comparison').getAttribute('data-plan'),'premium');
+ assert.equal(await page.locator('.wd-tier-change').count(),0,'previewing never changes membership');
+ await back.click();await page.setViewportSize({width:390,height:844});
  await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
- await first.getByRole('button',{name:'اشترك لعرض نسبة التوافق'}).waitFor();assert.equal(await first.locator('.nf-score-tile').count(),0);
+ const directoryLock=first.getByRole('button',{name:'اشترك لعرض نسبة التوافق'});
+ await directoryLock.waitFor();assert.equal(await first.locator('.nf-score-tile').count(),0);
+ assert.doesNotMatch(await first.ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);
+ await directoryLock.tap();await selected(/المميزة/).waitFor();await back.click();
+ await first.getByRole('button',{name:/عرض ملف سارة/}).click();
+ assert.doesNotMatch(await page.locator('.mp-profile').ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);
+ await page.getByRole('button',{name:'فتح تفاصيل التوافق مع العضوية المميزة'}).press('Enter');
+ await selected(/المميزة/).waitFor();await back.click();
+ await page.getByRole('button',{name:'ابحث مع لونا'}).click();
+ await page.getByRole('button',{name:'اكتشف وسام الجدية'}).click();await selected(/وسام الجدية/).waitFor();await back.click();
+ for(const [tier,label] of [['premium','تفعّلت عضويتك المميزة'],['seriousness','تفعّل وسام الجدية'],['premium','عضويتك الآن المميزة'],['free','عضويتك الآن مجانية']]){
+  await page.evaluate(value=>window.__setTier(value),tier);
+  await page.getByRole('status').filter({hasText:label}).waitFor();
+  await page.getByRole('button',{name:'إغلاق إشعار العضوية'}).click();
+  assert.equal(await page.locator('.wd-tier-change').count(),0);
+ }
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings');await page.getByRole('heading',{name:'الإعدادات',exact:true}).waitFor();await page.waitForTimeout(250);assert.equal(await page.locator('.st-verification-entry').count(),0);
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
  assert.deepEqual(errors,[]);console.log('PASS: phone/tablet layout, online labels, interest send/undo/failure, unused verification hidden, legacy access retained.');

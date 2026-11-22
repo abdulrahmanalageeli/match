@@ -89,7 +89,7 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
     {criteria && criteria.total > 0 && <details className="nf-pref-criteria"><summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true" /><span>تفضيلاتكما الإضافية<small>التفاصيل التي تهمّكما</small></span></summary><div><p>من {ar.format(criteria.total)} تفضيلًا إضافيًا عبر الاتجاهين: {ar.format(criteria.matched)} متوافق، و{ar.format(criteria.different)} غير متوافق، و{ar.format(criteria.missing)} لا تتوفر إجابته.</p><p>يشمل ذلك التفضيلات المحددة مثل الدراسة والعمل والتفاصيل الشخصية. لا نكشف اختيارات الشريك الخاصة أو ننسب هذه الأعداد إلى طرف بعينه.</p></div></details>}
     <details className="nf-pref-method"><summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true" /><span>كيف نقرأ توافقكما؟</span></summary><div>
       <p>نقارن تفضيلات كل طرف بإجابات الآخر، مع مراعاة الأولويات التي تهمّكما. يتحقق الاتفاق المتبادل عندما يكون اختيار كل طرف ضمن ما يقبله الآخر.</p>
-      <p>درجة الترتيب من ١٠٠ تعطي وزنًا للأولويات، وتنخفض عند اختلافكما في موضوع أساسي. الأوزان يحدّدها التطبيق. نسبة المواضيع المتفق عليها تحسب كل موضوع مرة واحدة. احتمال نجاح الزواج لا يُقاس بهذا التقييم.</p>
+      <p>درجة الترتيب من ١٠٠ تعطي وزنًا للأولويات، وتنخفض عند اختلافكما في موضوع أساسي. نسبة المواضيع المتفق عليها تحسب كل موضوع مرة واحدة. احتمال نجاح الزواج لا يُقاس بهذا التقييم.</p>
     </div></details>
     {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> هذه النتيجة تدعم ملخّص المواضيع؛ التفصيل في اتجاهي المقارنة غير متاح لها حاليًا.</p>}
   </section>;

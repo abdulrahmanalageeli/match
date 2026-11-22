@@ -3,19 +3,22 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {seedCommunicationMember} from './communication-fixture.mjs';
-test('boost preserves eligibility and score truth; free score allowance is stable and capped',async()=>{
+test('membership preserves SQL compatibility order and eligibility; free score allowance is stable and capped',async()=>{
  const db=await createDatabase();
  const rpc=async(sql,args=[])=>(await db.query('select '+sql+' as value',args)).rows[0].value;
  const member=async gender=>{const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);u.token=await seedCommunicationMember(db,u,gender);return u};
  try {
   const viewer=await member('man'),women=[];for(let i=0;i<5;i++)women.push(await member('woman'));
-  const seal=women[4];
+  const browse=()=>asMember(db,viewer.id,viewer.sessionId,()=>rpc('public.marriage_browse($1)',[{mode:'all'}]));
+  const before=await browse();
+  assert.deepEqual(before.map(p=>p.id).sort(),women.map(w=>w.id).sort());
+  const seal=women.find(w=>w.id===before.at(-1).id);
   const receipt={bundleId:'com.blindmatch.marriage',appAccountToken:seal.token,originalTransactionId:randomUUID(),transactionId:randomUUID(),signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox',productId:'com.blindmatch.marriage.monthly.seriousness.women'};
   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[seal.id,receipt]));
-  const browse=()=>asMember(db,viewer.id,viewer.sessionId,()=>rpc('public.marriage_browse($1)',[{mode:'all'}]));
-  const cards=await browse();assert.equal(cards[0].id,seal.id,'bonus orders otherwise equal candidates first');
-  assert.equal(cards[0].membershipTier,'seriousness');
-  assert.equal(cards[0].fit,undefined,'paid candidate cannot leak score to free viewer');
+  const cards=await browse();
+  assert.deepEqual(cards.map(p=>p.id),before.map(p=>p.id),'buying visibility does not change SQL compatibility order');
+  assert.equal(cards.find(p=>p.id===seal.id).membershipTier,'seriousness');
+  assert(cards.every(p=>p.fit===undefined && p.recommendationPercentage===undefined),'a free directory response hides all compatibility scores');
   await db.query('insert into marriage.blocks(member_id,blocked_id) values($1,$2)',[viewer.id,seal.id]);
   assert.ok(!(await browse()).some(p=>p.id===seal.id),'boost never bypasses a block');
   await db.query('insert into marriage.weekly_batches(member_id,week_start) values($1,marriage.current_week()) on conflict do nothing',[viewer.id]);

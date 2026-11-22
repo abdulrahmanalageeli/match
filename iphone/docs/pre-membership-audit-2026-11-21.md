@@ -169,3 +169,15 @@ The browser checks covered the opening and privacy text at 320 CSS pixels with t
 ### Integration with main
 
 The screenshots above record the audit-branch build. On main, an approved account can enter the app on the free tier and open Membership from the home screen to purchase an upgrade. The app-state browser fixture follows that route using synthetic approval and billing responses. Main also groups city and nationality during signup and asks the residence question once in the assessment.
+
+### November 22 · Registration through mutual contact
+
+The current end-to-end fixture is `tests/registration-matching.browser.mjs`. It starts two fictional accounts at the signup form, enters each answer, reloads the sensitive-details draft, crops a profile photo and submits the application. It passes the same account IDs and submitted answers to a disposable PostgreSQL database. An authorized reviewer approves each application through the admin RPC. Both members then find each other in the eligible directory, accept a contact request, agree to communicate and exchange a message.
+
+The browser uses local substitutes for SMS, interview responses and portrait verification. The database exercises entitlement activation with simulated Apple evidence. The separate camera fixture checks permission denial, retake and crop geometry with generated media. Physical iPhone capture, the external face comparison and an Apple sandbox purchase remain unverified.
+
+To reproduce, install the locked dependencies in `iphone` and `iphone/supabase/tests`. Supply Playwright through `NISFAYN_PLAYWRIGHT_MODULE` or an installed `playwright` package, with Chrome available, then run `node iphone/tests/registration-matching.browser.mjs` from the repository root.
+
+The app-state fixture separately exercises the actual app with local account and StoreKit services. The male account opened Premium from a locked compatibility score. The female account opened Seriousness from Luna. In both cases cancellation preserved free access, retry activated the selected tier, the app displayed the change, and the new access survived a reload.
+
+On November 22, the dedicated Wudayn production backend gained the missing membership offer endpoint and the receipt lifecycle migration. The offer, verification, notification and reconciliation endpoints are deployed. Unsigned requests were rejected. Production configuration is still incomplete: the Apple verifier reported missing configuration, and the scheduled reconciliation function and its Vault entries require setup. See `docs/APPLE_SUBSCRIPTIONS.md` and `supabase/README.md` for the configuration names.

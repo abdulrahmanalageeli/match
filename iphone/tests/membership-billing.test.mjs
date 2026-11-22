@@ -6,11 +6,11 @@ import ts from 'typescript';
 import * as pricing from '../src/membershipPricing.ts';
 
 const code=ts.transpileModule(await readFile(new URL('../src/billing.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-function bridge({native=true,wrongProduct=false,eligible=true,account='account-uuid',offerError=false}={}) {
+function bridge({native=true,wrongProduct=false,eligible=true,account='account-uuid',offerError=false,sandboxCheckout=false}={}) {
   const calls=[],exports={};
   let productId;
   const plugin={offer:async options=>{productId=options.productId;calls.push(['offer',options]);return {price:'localized Apple price',currency:'SAR',period:'شهر',introduction:'أسبوع مجاني',appleEligible:true,signedAppTransaction:'apple-app-jws',productId:wrongProduct?'legacy':options.productId};},purchase:async options=>{calls.push(['purchase',options]);return {jws:'signed'};}};
-  const cloud={functions:{invoke:async(name,{body})=>{calls.push(['authorize',body]);return {error:offerError,data:{productId,eligible,accountToken:account,eligibilityJws:'server-jws'}};}}};
+  const cloud={functions:{invoke:async(name,{body})=>{calls.push(['authorize',body]);return {error:offerError,data:{productId,eligible,sandboxCheckout,accountToken:account,eligibilityJws:'server-jws'}};}}};
   vm.runInNewContext(code,{exports,require:name=>name==='@capacitor/core'?{Capacitor:{isNativePlatform:()=>native,getPlatform:()=>native?'ios':'web'},registerPlugin:()=>plugin}:name==='./cloud'?{cloud}:pricing});
   return {api:exports,calls};
 }
@@ -88,5 +88,20 @@ test('higher-tier offer and checkout select the correct gender product',async()=
   const expected=pricing.membershipProductId(gender,'seriousness');
   assert.equal(b.calls.find(([kind])=>kind==='purchase')[1].productId,expected);
   assert.equal(b.calls.find(([kind])=>kind==='authorize')[1].productId,expected);
+ }
+});
+
+test('sandbox-only checkout is confirmed again for each gender and plan before invoking StoreKit',async()=>{
+ for(const gender of ['man','woman'])for(const plan of ['premium','seriousness']){
+  const b=bridge({eligible:plan==='premium',sandboxCheckout:true});
+  const offer=await b.api.getMembershipOffer(gender,plan);
+  assert.equal(offer.sandboxCheckout,true);
+  await b.api.purchaseMembership('account-uuid',gender,offer.trialEligible,offer,plan,true);
+  assert.equal(b.calls.filter(([kind])=>kind==='authorize')[1][1].sandboxOnly,true);
+  const purchase=b.calls.find(([kind])=>kind==='purchase')[1];
+  assert.equal(purchase.currency,'SAR');assert.equal(purchase.productId,pricing.membershipProductId(gender,plan));
+  const production=bridge();
+  await assert.rejects(production.api.purchaseMembership('account-uuid',gender,false,offer,plan,true),production.api.MembershipOfferChangedError);
+  assert.equal(production.calls.some(([kind])=>kind==='purchase'),false);
  }
 });

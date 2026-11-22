@@ -167,29 +167,6 @@
 .wd-paywall .wd-membership-card{padding:10px 14px}
 .wd-paywall .wd-billing-note{margin:7px 0;line-height:1.6}
 
-/* A single light follows the pricing card perimeter without moving the card. */
-.wd-price-orbit{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 3px #efbbd080)}
-.wd-price-orbit rect{width:calc(100% - 2px);height:calc(100% - 2px);fill:none;stroke-linecap:round;animation:wd-price-perimeter 11s linear infinite}
-.wd-price-orbit-trail{--orbit-tail:5px;stroke:#d9a4bc;stroke-width:1;stroke-dasharray:5 95;opacity:.25}
-.wd-price-orbit-glow{--orbit-tail:1.8px;stroke:#edc4d2;stroke-width:1.5;stroke-dasharray:1.8 98.2;opacity:.65}
-.wd-price-orbit-tip{--orbit-tail:0px;stroke:#fff0e9;stroke-width:2.2;stroke-dasharray:.15 99.85}
-@keyframes wd-price-perimeter{from{stroke-dashoffset:var(--orbit-tail)}to{stroke-dashoffset:calc(var(--orbit-tail) - 100px)}}
-@media(prefers-reduced-motion:reduce){.wd-price-orbit{display:none}}
-
-/* A tiny jewellery-like glint travels on the outline, with a soft halo. */
-.wd-price-spark-tail{display:none}
-@supports (offset-path: inset(1px round 18px)) {
- .wd-paywall .wd-membership-card{overflow:visible}
- .wd-price-orbit{display:none}
- .wd-price-spark,.wd-price-spark-tail{position:absolute;inset:0 auto auto 0;pointer-events:none;z-index:2;offset-path:inset(0 round 18px);offset-anchor:center;offset-rotate:auto;animation:wd-spark-orbit 9s linear infinite;animation-delay:-9s}
- .wd-price-spark{width:9px;height:9px;filter:drop-shadow(0 0 3px #e5b78f99)}
- .wd-price-spark-tail{display:block;width:3px;height:1.5px;border-radius:50%;background:currentColor;box-shadow:0 0 3px currentColor}
- .wd-price-spark::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,#fff7e7 15%,#f4d6ad 55%,#d796aa);clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%);animation:wd-spark-breathe 3s ease-in-out infinite}
- .wd-price-spark::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:radial-gradient(circle,#f2cf9d33,#c77c9820 38%,transparent 70%)}
-}
-@keyframes wd-spark-orbit{to{offset-distance:100%}}
-@keyframes wd-spark-breathe{0%,100%{transform:scale(.7);opacity:.75}50%{transform:scale(1);opacity:1}}
-@media(prefers-reduced-motion:reduce){.wd-price-spark,.wd-price-spark-tail{display:none}}
 .wd-tier-comparison .wd-tier-emblem{display:block;width:21px;height:21px;object-fit:contain;margin:0 auto 3px}
 .wd-tier-comparison .wd-seriousness-heading{white-space:nowrap;font-size:10px}
 .wd-plan-choice{display:flex;gap:8px;margin:10px 0}
@@ -227,3 +204,45 @@ html[data-nf-motion=reduced] .wd-row-sheen{display:none}
 .phone-app .mp-hero-copy>.wd-member-badge-labeled[data-tier=seriousness]{background:linear-gradient(110deg,#eaf5f1,#f7fbf9);border-color:#4a898536;color:#245d58}
 .phone-app .wd-member-badge-labeled>.wd-membership-mark{width:20px;height:20px;flex:none}
 .phone-app .wd-member-badge-labeled:after{mask:none;-webkit-mask:none;border-radius:inherit}
+
+.phone-app .wd-membership-entry[data-tier=free]{background:#f7f1ef;border-color:#d9c3c9;color:#5b293d;box-shadow:none}
+.wd-membership-entry[data-tier=free]::after{display:none}
+.phone-app .wd-entry-copy strong{font-size:.75rem}
+.wd-paywall .wd-current-membership{display:flex;align-items:center;gap:.55rem;margin:10px 0 6px;font-size:.83rem;color:#deccd3}
+.wd-current-membership strong{padding:3px 11px;border:1px solid #ad899a80;border-radius:99px;color:#fff7f1}
+.wd-plan-choice>button{min-height:54px;font-size:.9rem}
+.wd-plan-choice small{font-size:.75rem;white-space:normal}
+.wd-choice-name{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.wd-choice-name svg{flex:none}
+.wd-plan-choice button:focus-visible,.wd-comparison-detail>summary:focus-visible{outline:2px solid #f5d7b7;outline-offset:3px}
+.wd-paywall .wd-membership-card{margin:5px 0 2px;padding:20px;background:linear-gradient(130deg,#6b2940,#421628 70%);border-color:#bf8d93}
+.wd-paywall-seriousness .wd-membership-card{background:linear-gradient(130deg,#235653,#153638 70%);border-color:#8cbbb0}
+.wd-plan-portrait{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:14px}
+.wd-plan-portrait>img{width:clamp(44px,14vw,60px);height:auto}
+.wd-paywall .wd-plan-portrait h2{margin:0;color:#fff9f4;font-size:1.28rem;line-height:1.5}
+.wd-paywall .wd-plan-portrait p,.wd-paywall .wd-plan-capacity{margin:4px 0 0;color:#f2e3e7;font-size:.875rem;line-height:1.65}
+.wd-paywall .wd-plan-capacity{margin:14px 0 4px;padding-top:9px;border-top:1px solid #ffffff35}
+.wd-paywall .wd-billing-note,.wd-membership-card .wd-price-context{font-size:.8rem}
+.wd-paywall-seriousness .wd-purchase{background:linear-gradient(120deg,#d8eee6,#9dcabf);color:#173735}
+.wd-paywall .wd-purchase:disabled{opacity:.55}
+.wd-comparison-detail{margin:8px 0 12px;border-block:1px solid #bb91a244}
+.wd-comparison-detail>summary{padding:11px 2px;color:#f3e5df;min-height:44px;cursor:pointer;font-size:.9rem;font-weight:600}
+.wd-paywall .wd-tier-comparison :is(th,td){white-space:normal;overflow-wrap:break-word}
+.wd-paywall .wd-tier-comparison th:first-child{width:43%}
+.wd-paywall .wd-tier-comparison :is(th,td):nth-child(n+2){width:19%}
+.wd-paywall .wd-tier-comparison :is(thead th,tbody th,td){height:auto;padding:7px 3px;font-size:.76rem;line-height:1.55}
+.wd-paywall .wd-tier-comparison .wd-benefit-info>summary{opacity:.85;width:21px;height:21px}
+.wd-tier-comparison[data-plan=premium] tr>:nth-child(3){color:#ffeae7;background:#81384e66}
+.wd-tier-comparison[data-plan=seriousness] tr>:nth-child(4){color:#e4fff6;background:#315d5866}
+.phone-app .wd-tier-change{justify-content:flex-start;background:#fbf1f4;color:#561c34;border-color:#d7b1bf}
+.phone-app .wd-tier-change[data-tier=seriousness]{background:#eaf5f1;color:#21504a;border-color:#96c4b7}
+.phone-app .wd-tier-change[data-tier=free]{background:var(--paper);color:var(--ink)}
+.wd-tier-change>div{display:grid;line-height:1.55}
+.phone-app .wd-tier-change>.wd-membership-mark{width:34px;height:34px}
+.wd-tier-change button{margin-inline-start:auto;min-width:44px;min-height:44px}
+.wd-tier-change span{font-size:.8rem}
+.wd-chat-upgrade,.mp-locked-section,.wd-weekly-upgrade{display:inline-flex;align-items:center;gap:5px;min-height:44px}
+@media(prefers-reduced-motion:no-preference){
+ html:not([data-nf-motion=reduced]) .wd-plan-portrait{animation:wd-plan-reveal 150ms ease-out}
+ @keyframes wd-plan-reveal{from{opacity:.65}to{opacity:1}}
+}

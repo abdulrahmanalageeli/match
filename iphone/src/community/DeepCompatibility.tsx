@@ -145,7 +145,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
           {status === 'cancelled' && <p className="wd-deep-note">أُلغي التحليل السابق وسُحب الوصول إلى محتواه.</p>}
           <ConsentCopy/>
           {snapshot?.canRequest ? <button className="btn-primary" disabled={busy} onClick={() => void act('request')}>أوافق وأرسل طلب التحليل</button>
-            : membership.tier !== 'seriousness' ? <><p className="wd-deep-note">إرسال الطلب من مزايا وسام الجدية. يستطيع الطرف الآخر الموافقة وقراءة التقرير بأي عضوية.</p><button className="btn-primary" onClick={() => { onOpenChange(false); membership.upgrade(); }}>اكتشف وسام الجدية</button></>
+            : membership.tier !== 'seriousness' ? <><p className="wd-deep-note">إرسال الطلب من مزايا وسام الجدية. يستطيع الطرف الآخر الموافقة وقراءة التقرير بأي عضوية.</p><button className="btn-primary" onClick={() => { onOpenChange(false); membership.upgrade("seriousness"); }}>اكتشف وسام الجدية</button></>
             : <p className="wd-deep-note">طلب تحليل جديد غير متاح الآن. يلزم اكتمال إجابات الطرفين وتوفّر طلب ضمن حد الاستخدام.</p>}
         </>}
         {status === 'requested' && <>
@@ -180,7 +180,13 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
 }
 
 function ConsentCopy() {
-  return <div className="wd-deep-consent"><h3><LockKeyhole size={17}/> قبل أن توافق</h3><ul><li>تُحلّل لونا إجاباتكما المحفوظة: تفضيلاتكما، متطلبات الشريك وعبارات الشخصية، وخطط الزواج والسكن والإنجاب والمصاريف إن أضفتماها، عبر OpenAI، مزوّد الذكاء الاصطناعي.</li><li>تشمل القراءة عبارات الشخصية التي أجاب عنها كل منكما: ١٢ عبارة في النسخة السابقة، أو ١٥ عبارة عن التعامل مع الضغط والتنظيم ومراعاة الآخرين والطاقة الاجتماعية والانفتاح على التجربة. يلزم رضاكما قبل استخدام النسخة الجديدة.</li><li>لا تُستخدم المحادثات أو الصور أو بيانات التواصل أو مدينة الأصل أو نص «بيننا». لا استبيان إضافي.</li><li>قد يكشف التقرير تفضيلات خاصة عبر استنتاجاته. تراجعان نطاق مشاركة كل نقطة؛ لا تُفتح إلا بموافقتكما.</li></ul><small>يمكنك رفض الدعوة أو إلغاء التحليل وسحب الوصول إلى التقرير داخل التطبيق. لا يمكن سحب نسخة سبق أن حفظها الطرف الآخر.</small></div>;
+  return <div className="wd-deep-consent"><h3><LockKeyhole size={17}/> قبل أن توافق</h3>
+    <p>تستخدم لونا إجاباتكما عن التفضيلات والشخصية وخطط الزواج لإعداد قراءة مشتركة عبر OpenAI. يبدأ التحليل بعد موافقتكما.</p>
+    <details><summary>ما الذي تشمله القراءة؟</summary>
+      <p>تشمل الإجابات المحفوظة عن متطلبات الشريك والشخصية والسكن والإنجاب والمصاريف. تبقى المحادثات والصور وبيانات التواصل ومدينة الأصل ونص «بيننا» خارج القراءة.</p>
+    </details>
+    <p>قد تعكس النتائج تفضيلات خاصة. تختاران معًا ما تشاركانه من التقرير. يمكنك رفض الدعوة أو سحب الوصول لاحقًا. تبقى أي نسخة حفظها الطرف الآخر لديه.</p>
+  </div>;
 }
 
 function Revoke({ busy, shared, apply }: { busy: boolean; shared: boolean; apply(): void }) {

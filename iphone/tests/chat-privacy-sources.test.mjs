@@ -57,7 +57,7 @@ test('live discovery forwards every filter in both modes and keeps request dates
  const source=cloudCommunity('member');
  const filters={city:'الرياض',search:'عضو',nationality:'السعودية',excludeCities:['جدة'],onlineOnly:true,minFit:70,work:'A',availableOnly:true};
  await source.discover({...filters,mode:'recommended'});await source.discover({...filters,mode:'all'});
- assert.deepEqual(calls.slice(0,2),['recommended','all'].map(mode=>['marriage_browse',{options:{...filters,mode}},'member']));
+ assert.deepEqual(calls.slice(0,2),['recommended','all'].map(mode=>['marriage_browse',{options:{...filters,mode,includeIneligible:mode==='all'}},'member']));
  assert.deepEqual(await source.inbox(),[request]);
  await source.requestHistory();assert.deepEqual(calls.at(-1),['marriage_request_history',{},'member']);
  assert.equal(source.callPermission,undefined,'ordinary live calls use the recipient answer flow');

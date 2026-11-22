@@ -1,9 +1,34 @@
-.nf-face-dialog{border:1px solid #e9e5e5;border-radius:24px;background:#fff;color:#30282c;width:min(420px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;box-sizing:border-box;overflow:auto;font:inherit;box-shadow:0 24px 80px #28121d22;animation:face-arrive .22s ease-out}
-.nf-face-dialog::backdrop{background:#20151b99;backdrop-filter:blur(8px)}
-.nf-face-dialog h2{font-size:23px;margin:10px 0 8px}.nf-face-dialog p{font-size:14px;line-height:1.75;color:#665d62}.nf-face-dialog>svg{color:#5a0f28}
-.nf-face-close{position:absolute;left:14px;top:14px;background:transparent;border:0;width:40px;height:40px;color:inherit}
-.nf-face-camera{position:relative;height:min(30dvh,250px);background:#f5f3f3;border-radius:18px;overflow:hidden;display:grid;place-items:center;margin:16px 0;color:#76656e}
-.nf-face-camera video,.nf-face-camera img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}.nf-face-camera video{transform:scaleX(-1)}.nf-face-camera video[hidden]{display:none}
-.nf-face-consent{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.8}.nf-face-consent input{margin-top:5px;accent-color:#5a0f28;flex-shrink:0;width:18px;height:18px}
-.nf-face-dialog .nf-face-detail{font-size:11px}.nf-face-detail a{color:#5a0f28}.nf-face-dialog button.btn-primary,.nf-face-dialog button.btn-secondary{width:100%;min-height:44px;border-radius:12px;font:inherit}.nf-face-actions{display:grid;gap:8px}
-@keyframes face-arrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.nf-face-dialog{animation:none}}
+.nf-face-dialog {
+  position:fixed; box-sizing:border-box; width:min(430px,calc(100vw - 24px)); max-height:calc(100dvh - 28px);
+  margin:auto; padding:22px; overflow:auto; border:1px solid #e7dde1; border-radius:22px;
+  background:#fffdfa; color:#392e34; font:inherit; text-align:start; box-shadow:0 20px 68px #27111c30;
+}
+.nf-face-dialog::backdrop { background:#24192196; backdrop-filter:blur(5px); }
+.nf-face-dialog h2 { padding-inline-end:40px; margin:0; font-size:1.45rem; line-height:1.5; }
+.nf-face-dialog p { margin:6px 0 14px; color:#64565e; font-size:.9375rem; line-height:1.7; }
+.nf-face-close { position:absolute; inset-inline-end:10px; top:10px; display:grid; place-items:center; width:44px; height:44px; border:0; border-radius:50%; background:transparent; color:inherit; cursor:pointer; }
+.nf-face-pair { display:grid; justify-content:center; grid-template-columns:minmax(0,180px); margin:16px 0; }
+.nf-face-pair[data-reference] { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.nf-face-pair figure { min-width:0; margin:0; }
+.nf-face-frame { position:relative; display:grid; place-items:center; overflow:hidden; aspect-ratio:4 / 5; border-radius:14px; background:#eee8e9; color:#725565; }
+.nf-face-frame img,.nf-face-frame video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.nf-face-camera img,.nf-face-camera video { object-fit:contain; transform:scaleX(-1); }
+.nf-face-camera video:not([data-ready]) { opacity:0; }
+.nf-face-camera video[hidden] { display:none; }
+.nf-face-camera:has([data-ready]), .nf-face-camera:has(img) { background:#29232a; }
+.nf-face-guide { position:absolute; pointer-events:none; width:64%; height:72%; border:2px dashed #fff; border-radius:50%; box-shadow:0 0 0 1px #46333b44; }
+.nf-face-pair figcaption { display:flex; justify-content:center; align-items:center; gap:4px; margin-top:6px; color:#605059; font-size:.875rem; }
+.nf-face-consent { display:flex; gap:10px; align-items:flex-start; font-size:.9375rem; line-height:1.7; }
+.nf-face-consent input { margin-top:4px; accent-color:#68213c; flex:none; width:19px; height:19px; }
+.nf-face-detail { margin:0 0 10px; font-size:.875rem; color:#684657; }
+.nf-face-detail summary { padding-block:10px; cursor:pointer; }
+.nf-face-detail a { color:#68213c; }
+.nf-face-actions { display:grid; gap:8px; }
+.nf-face-dialog button.btn-primary,.nf-face-dialog button.btn-secondary {
+  width:100%; min-height:46px; padding:8px 14px; border-radius:12px; font:inherit; font-weight:600; cursor:pointer;
+}
+.nf-face-dialog button.btn-primary { border:1px solid #68213c; background:#68213c; color:white; }
+.nf-face-dialog button.btn-primary:disabled { border-color:#e2dadd; background:#e2dadd; color:#675c61; cursor:default; }
+.nf-face-dialog button.btn-secondary { border:1px solid #d9cbd0; background:transparent; color:#68213c; }
+.nf-face-dialog :focus-visible { outline:2px solid #783751; outline-offset:2px; }
+@media(max-width:350px) { .nf-face-dialog { padding:17px; } }

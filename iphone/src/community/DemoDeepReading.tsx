@@ -25,7 +25,7 @@ export function DemoDeepReading({ person, open, sheet }: {
   if (!open) return null;
   if (!demo && tier !== 'seriousness') return sheet(<div className="wd-deep">
     <p>التحليل المعمّق من مزايا وسام الجدية.</p>
-    <button type="button" className="btn-primary" onClick={upgrade}>اكتشف وسام الجدية</button>
+    <button type="button" className="btn-primary" onClick={()=>upgrade("seriousness")}>اكتشف وسام الجدية</button>
   </div>);
   if (demo || exampleOpen) return sheet(<div className="wd-deep wd-deep-shared">
     {!demo && <button type="button" className="btn-text" onClick={()=>setExampleOpen(false)}>العودة إلى قراءتي</button>}

@@ -30,7 +30,7 @@ test('complete evidence shows supported insights without exposing scoring arithm
  assert.match(html,/٨ من ١٢ عبارة متقاربة/);
  assert.doesNotMatch(html,/٩٢٥|÷|نقاط كل عبارة|لكل عبارة الوزن نفسه/);
  assert.match(html,/نقطة تقارب/);assert.match(html,/مساحة لفهم أعمق/);
- assert.match(html,/كيف نقرأ انسجام الشخصية/);assert.match(html,/المرجع يوضح حدود التنبؤ/);
+ assert.match(html,/كيف نقرأ انسجام الشخصية/);assert.match(html,/تبقى إجابات كل طرف خاصة/);
  assert.doesNotMatch(html,/personalityAnswers|option_code|social_energy|value="[A-E]"/);
 });
 

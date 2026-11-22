@@ -33,7 +33,7 @@ export async function stageOnboardingPortrait(draft: PortraitDraft, gender: 'man
 
 export async function retryStagedPortrait(draft: PortraitDraft): Promise<PortraitDraft> {
   if (!draft.staged) throw Error('اختر صورتك مجددًا.');
-  const selfie = await captureForPhoto(true, draft.staged.id);
+  const selfie = await captureForPhoto(true, draft.staged.id, draft.url);
   await verifyUploadedPhoto(draft.staged.id, 'portrait', selfie, true);
   return { ...draft, staged: await stageAction(draft.staged.id, 'status') as PortraitStage };
 }
@@ -57,7 +57,10 @@ export async function finalizeStagedPortrait(draft: PortraitDraft): Promise<Prof
   return finalizePortraitStage(draft.staged.id);
 }
 export async function discardStagedPortrait(draft: PortraitDraft | null | undefined): Promise<void> {
-  if (draft?.staged && cloud) await cloud.rpc('marriage_photo_discard', { photo: draft.staged.id, photo_kind: 'portrait' });
+  if (!draft?.staged) return;
+  if (!cloud) throw Error('تعذّر الاتصال بخدمة الصور.');
+  const { error } = await cloud.rpc('marriage_photo_discard', { photo: draft.staged.id, photo_kind: 'portrait' });
+  if (error) throw Error('تعذّر إزالة الصورة المحفوظة.');
 }
 
 /** Recover an interrupted application without another upload or camera match. */

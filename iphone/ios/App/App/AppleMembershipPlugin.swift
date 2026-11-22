@@ -116,7 +116,11 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         // Never show the requested Saudi price while Apple would charge a different one.
         if product.priceFormatStyle.currencyCode == "SAR" && product.price != expected {
-            throw NSError(domain: "WudaynMembership", code: 2, userInfo: [NSLocalizedDescriptionKey: "سعر العضوية في المتجر يحتاج إلى تحديث."])
+            // Sandbox price changes can precede the production catalog. Checkout
+            // still compares the displayed StoreKit quote immediately before purchase.
+            guard case .verified(let app) = try await AppTransaction.shared, app.environment == .sandbox else {
+                throw NSError(domain: "WudaynMembership", code: 2, userInfo: [NSLocalizedDescriptionKey: "سعر العضوية في المتجر يحتاج إلى تحديث."])
+            }
         }
         return product
     }
@@ -136,7 +140,8 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 let product = try await selectedProduct(call)
                 guard let terms = await MembershipStoreOffer(product), let price = call.getString("price"),
-                      product.displayPrice == price, terms.period == call.getString("period") else {
+                      product.displayPrice == price, terms.period == call.getString("period"),
+                      product.priceFormatStyle.currencyCode == call.getString("currency") else {
                     call.reject("تغيّر عرض المتجر. راجع السعر والمدة قبل الشراء.", "OFFER_CHANGED")
                     return
                 }

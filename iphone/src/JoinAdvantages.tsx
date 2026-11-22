@@ -14,7 +14,7 @@ export function JoinAdvantages({animate=true}:{animate?:boolean}) {
     <path className="wd-join-path" d="M24 47h16"/>
     <g className="wd-join-arrive"><rect className="wd-join-seal" x="24" y="39" width="16" height="16" rx="8"/><path className="wd-join-check" d="m28.5 47 2.3 2.3 4.7-4.6"/></g>
    </svg>
-   <div><h2>خوارزمية ترى ما يجمعكما</h2><p>قيمك · شخصيتك · مواقف الحياة</p><span>توافق مُفسّر، ونقاط تستحق الحوار.</span></div>
+   <div><h2>اكتشف ما يجمعكما</h2><p>قيمك · شخصيتك · مواقف الحياة</p><span>توافق مُفسّر، ونقاط تستحق الحوار.</span></div>
   </MotionReveal>
   <MotionReveal className="wd-join-benefit" active={animate} delay={330} distance={7} duration={650}>
    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">

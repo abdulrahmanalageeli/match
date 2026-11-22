@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { CheckCheck, ChevronLeft, ChevronRight, CircleHelp, MessageCircle, PenLine, Sparkles } from "../BrandIcons";
+import { CheckCheck, LockKeyhole, ChevronLeft, ChevronRight, CircleHelp, MessageCircle, PenLine, Sparkles } from "../BrandIcons";
 import type { MatchFit } from '../compatibility/model';
 import { conversationInsights, type ConversationPrompt } from '../compatibility/conversation-insights';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -32,7 +32,7 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
   const [position, setPosition] = useState(0);
   const [discussion, setDiscussion] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const {premium} = useMembershipAccess();
+  const {premium,upgrade} = useMembershipAccess();
   const result = conversationInsights(premium ? fit : undefined);
   const used = new Set(usedMessages.map(normalizeMessage));
   const prompts = result.prompts.filter(item => !used.has(normalizeMessage(item.prompt)));
@@ -59,8 +59,9 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
   return <section className="cm-chat-insights" aria-labelledby={headingId}>
     <div className="cm-insights-heading">
       <h3 id={headingId}>اقتراح للحديث مع <bdi>{name}</bdi></h3>
-      <p>{result.source === 'general' ? 'أسئلة عامة للبداية. تتخصّص الاقتراحات عند اكتمال تقييميكما.' : 'أسئلة من نقاط اتفاقكما والمواضيع التي تحتاج إلى نقاش.'}</p>
+      <p>{!premium ? 'أسئلة عامة لبداية الحديث بينكما.' : result.source === 'general' ? 'أسئلة عامة للبداية. تتخصّص الاقتراحات عند اكتمال تقييميكما.' : 'أسئلة من نقاط اتفاقكما والمواضيع التي تحتاج إلى نقاش.'}</p>
     </div>
+    {!premium && <button type="button" className="wi-link wd-chat-upgrade" onClick={()=>upgrade('premium')}><LockKeyhole size={15} aria-hidden="true"/>افتح الأسئلة المبنية على توافقكما</button>}
     {kinds.length > 1 && <div className="cm-insights-filters" role="group" aria-label="نوع بداية الحديث">
       {(['all', ...kinds] as const).map(value => <button key={value} type="button" aria-pressed={activeKind === value} aria-controls={cardId} onClick={() => changeKind(value)}>{value === 'all' ? 'لكما' : kindLabels[value]}</button>)}
     </div>}

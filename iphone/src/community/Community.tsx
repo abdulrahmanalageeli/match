@@ -407,7 +407,7 @@ function FilterSheet({
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
         <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
         <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
-        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠ نقطة فأعلى</option><option value={75}>٧٥ نقطة فأعلى</option><option value={90}>٩٠ نقطة فأعلى</option></select><small>تظهر الدرجة من ١٠٠ عند اكتمال التقييمين.</small></label>:<button type="button" className="btn-text" onClick={upgrade}><LockKeyhole size={14}/>التصفية بدرجة التوافق مع العضوية المميزة</button>}
+        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠ نقطة فأعلى</option><option value={75}>٧٥ نقطة فأعلى</option><option value={90}>٩٠ نقطة فأعلى</option></select><small>تظهر الدرجة من ١٠٠ عند اكتمال التقييمين.</small></label>:<button type="button" className="btn-text" onClick={()=>upgrade("premium")}><LockKeyhole size={14}/>التصفية بدرجة التوافق مع العضوية المميزة</button>}
         <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
         <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="الجنسية المطلوبة" value={extra.nationality??''} options={nationalityChoices} placeholder="كل الجنسيات" allowClear onChange={nationality=>setExtra(current=>({...current,nationality:nationality||undefined}))}/>
@@ -493,8 +493,8 @@ function PersonCard({
   explain: () => void;
   priority?: boolean;
 }) {
-  const {premium}=useMembershipAccess();
-  const {personalLine, context} = decisionContext(person);
+  const {premium,upgrade}=useMembershipAccess();
+  const {personalLine, context} = decisionContext(person,premium);
   const descriptionId = useId();
   const canReadFit = premium && !person.compatibilityLocked && Boolean(person.fit);
   const score = canReadFit ? preferencePercentage(person.fit) : null;
@@ -515,8 +515,12 @@ function PersonCard({
           {score === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={score} variant="logo"/>}
           <ChevronLeft size={14} aria-hidden="true"/>
         </button>
-      </div> : !premium && person.recommendationPercentage != null && <div className="df-card-fit-summary">
-        <ScoreTile percentage={person.recommendationPercentage} variant="logo"/>
+      </div> : !premium && <div className="df-card-fit-summary">
+        <button type="button" className="df-read-fit wd-weekly-upgrade" onClick={()=>upgrade('premium')}
+          aria-label={person.recommendationPercentage == null ? 'عرض العضوية لفتح نسبة التوافق' : ar.format(person.recommendationPercentage)+'٪، عرض العضوية لقراءة تفاصيل التوافق'}>
+          {person.recommendationPercentage != null ? <ScoreTile percentage={person.recommendationPercentage} variant="logo"/> : <LockKeyhole size={16} aria-hidden="true"/>}
+          <span>{person.recommendationPercentage != null ? 'فتح تفاصيل التوافق' : 'فتح نسبة التوافق'}</span><ChevronLeft size={14} aria-hidden="true"/>
+        </button>
       </div>}
       <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span>
         <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
@@ -558,7 +562,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
   const score = premium && !person.compatibilityLocked ? preferencePercentage(person.fit) : null;
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
   const ineligible=person.eligible===false;
-  const {personalLine, context} = decisionContext(person);
+  const {personalLine, context} = decisionContext(person,premium);
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
   return <article className="dr-person-row" data-membership={person.membershipTier} aria-label={`ملف ${person.alias}`}>
@@ -582,7 +586,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
         aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
         {score === null ? <span className="dr-fit-pending">—<small>غير مكتمل</small></span> : <ScoreTile percentage={score} variant="logo"/>}
-      </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={upgrade} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>التوافق</span></button>}
+      </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={()=>upgrade("premium")} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>فتح النسبة</span></button>}
     </div>
 
     <div className="dr-row-detail">
@@ -1040,6 +1044,7 @@ function Discovery({
           action={
             <div className="cm-empty-actions">
               {(count > 0 || Boolean(query.trim())) && <button className="btn-secondary" onClick={() => { setQuery(''); setFilters(emptyFilters); }}>مسح البحث والتصفية</button>}
+              {!availability.exclusive && availability.loaded && availability.acceptedCount >= (connectionLimit??(premium?2:1)) && availability.acceptedCount < 3 && <button className="btn-secondary" onClick={()=>upgrade(availability.acceptedCount===2?'seriousness':'premium')}>عرض عضوية تتيح تعارفًا إضافيًا</button>}
               {!availability.exclusive && order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف جميع الملفات</button>}
               <button className="btn-text" onClick={onAccount}>مراجعة ملفي وتفضيلاتي</button>
               <SupportContact subject="المساعدة في الترشيحات"/>
@@ -1071,7 +1076,7 @@ function Discovery({
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
       </div>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
-      {premium&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
+      {premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
         <FilterSheet source={source} onSaved={()=>{setPreferenceRevision(n=>n+1);void refresh(false);}}
           filters={filters} allProfiles={order==='all'}
@@ -1663,7 +1668,7 @@ export function Chat({
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
       </MessageFocus>}
-      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
+      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.compatibilityLocked ? undefined : connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {libraryOpen && <ChatLibrary source={source} requestId={connection.id} name={connection.person.alias} onClose={() => setLibraryOpen(false)} onJump={id => { setLibraryOpen(false); atBottom.current = false; setJumpToId(id); }} />}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>

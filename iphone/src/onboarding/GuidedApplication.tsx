@@ -23,7 +23,7 @@ import { criteriaModes, polygynyLabels, religiousAffiliationLabels, prayerPracti
 import { dressStyles, dressFlexibilities, skinTones } from "../compatibility/appearance";
 import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
 import type { PortraitDraft } from '../photos/portraitPreparation';
-import { resumeStagedPortrait } from '../photos/stagedPortrait';
+import { discardStagedPortrait, resumeStagedPortrait } from '../photos/stagedPortrait';
 import type { CommunitySource } from '../community/data';
 import { emptyConsents, recordedAccountAgreements, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
 import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
@@ -349,8 +349,16 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   if(portraitPolicy!==undefined&&portraitPolicy!==(initial?.portrait?.revealPolicy??'never'))changedSections.add('avatar');
   if((['sensitiveProfile','sensitivePublication','assessment','photo'] as const).some(kind=>consents[kind] !== (initial?.signupConsents?.[kind] === true))
     || (['adult','terms','privacy'] as const).some(kind=>consents[kind] !== recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)[kind]))changedSections.add('review');
-  function chooseConsent(kind:Exclude<keyof SignupConsents,'version'>,value:boolean){
+  async function chooseConsent(kind:Exclude<keyof SignupConsents,'version'>,value:boolean){
     if(error?.field==='consent')setError(null);
+    if(kind==='photo'&&!value&&portraitChoice.current?.staged){
+      const staged=portraitChoice.current;
+      setPhotoBusy(true);
+      try { await discardStagedPortrait(staged); }
+      catch { setError({field:'consent',text:'تعذّر إلغاء حفظ الصورة. حاول مجددًا لإزالتها.'});return false; }
+      finally { setPhotoBusy(false); }
+      if(portraitChoice.current!==staged)return false;
+    }
     const next = {...consentRef.current,[kind]:value,...(kind==='sensitiveProfile'&&!value?{sensitivePublication:false}:{})};
     consentRef.current = next;
     touched.current = true;
@@ -359,6 +367,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
     if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
+    return true;
   }
 
   useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -558,12 +567,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     update(applyProfileProposals(current.current.answers, proposals, consentRef.current.sensitiveProfile));
     void saveProgressNow();
   }
-  function selectGender(gender: Profile["gender"]) {
-    if (gender === p.gender) return;
+  async function selectGender(gender: Profile["gender"]) {
+    if (gender === p.gender || photoBusy || !await chooseConsent('photo',false)) return;
     const marriageBasics = { ...p.marriageBasics }, partnerCriteria = { ...p.partnerCriteria };
     if (gender === "man") { delete marriageBasics.dressStyle; delete marriageBasics.dressFlexibility; }
     else { delete partnerCriteria.dressStyle; delete partnerCriteria.dressFlexibility; }
-    setPortraitChange(undefined); setPortraitPolicy(undefined); chooseConsent('photo',false);
     update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
   }
   function move(step: Chapter, returnToReview = false) {
@@ -583,7 +591,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     void leaveForLater();
   }
   async function leaveForLater(photoLossAcknowledged=false) {
-    if (busy || savingLater.current || (checkingDevice && !touched.current)) return;
+    if (busy || photoBusy || savingLater.current || (checkingDevice && !touched.current)) return;
     if (chooseRecovery) { back(); return; }
     if (!photoLossAcknowledged && ((portraitChange!==undefined&&!portraitChange?.staged) || (portraitPolicy!==undefined&&portraitPolicy!==portraitChange?.revealPolicy))) { setConfirmPhotoDraftLoss(true); return; }
     if (storageState === "loadError" && !touched.current) { back(); return; }
@@ -672,9 +680,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-basic-slides={usesBasicSlides||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       {!editing && <ScenePaths className="nf-intake-arrival-paths" parallax />}
       <header className="nf-intake-header">
-        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
+        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving || photoBusy} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
         <div className="nf-intake-brand"><Brand compact /></div>
-        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
+        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || photoBusy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
           {chooseRecovery && <section className="nf-intake-note" role="group" aria-label="اختيار المسودة"><strong>وجدنا تعديلات محفوظة على هذا الجهاز ونسخة في حسابك.</strong><p>بأي نسخة تود المتابعة؟</p><button type="button" className="f-secondary" onClick={()=>setRecoveryChoice('device')}>متابعة تعديلات هذا الجهاز</button><button type="button" className="f-link" onClick={()=>setRecoveryChoice('account')}>متابعة نسخة الحساب</button></section>}

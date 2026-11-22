@@ -4,7 +4,8 @@ import { finalizeStagedPortrait, finalizePortraitStage, pendingPortraitStage } f
 import type { SignupVerification } from './auth/registrationDevice';
 import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
-import {membershipPriceLabel} from './membershipPricing';
+import {membershipPriceLabel,type MembershipPlan} from './membershipPricing';
+import {MembershipChangeNotice} from './membership/MembershipEntry';
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
@@ -64,6 +65,7 @@ import {
   currentMembership,
   getMembershipOffer,
   MembershipOfferChangedError,
+  type MembershipOffer,
   isIOSBilling,
   manageMembership,
   onMembershipUpdate,
@@ -249,9 +251,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [reportCategory, setReportCategory] = useState("");
   const [reportReceipt, setReportReceipt] = useState<{ owner: string | null; reference: string; demo: boolean } | null>(null);
   useEffect(() => { setReportReceipt(null); }, [token, demo, sampleSession]);
-  const [price, setPrice] = useState<{gender:'man'|'woman';price:string;currency:string;trialEligible:boolean;period:string;introduction?:string}|null>(null);
+  const [price, setPrice] = useState<(MembershipOffer & {gender:'man'|'woman'})|null>(null);
+  const [priceFailed,setPriceFailed]=useState(false);
+  const [offerRevision,setOfferRevision]=useState(0);
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
+  const [requestedPlan,setRequestedPlan]=useState<MembershipPlan>();
   const active = tier !== 'free';
   const memberAccess = demo || Boolean(live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
@@ -372,7 +377,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   function openAccount() {
     go("settings");
   }
-  function openMembership() {
+  function openMembership(plan?:MembershipPlan) {
+    setRequestedPlan(plan);
     setReturnFromMembership(view === "membership" ? "main" : view);
     go("membership");
   }
@@ -575,17 +581,18 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     let disposed = false;
     const gender=live.profile.gender;
     setPrice(null);
+    setPriceFailed(false);
     getMembershipOffer(gender)
       .then((offer) => {
         if (!disposed) setPrice({gender,...offer});
       })
       .catch(() => {
-        if (!disposed) setPrice(null);
+        if (!disposed) setPriceFailed(true);
       });
     return () => {
       disposed = true;
     };
-  }, [ios, canSyncBilling, demo, view, live?.profile?.gender, token]);
+  }, [ios, canSyncBilling, demo, view, live?.profile?.gender, token, offerRevision]);
 
   function signIn(email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) {
     void run(async () => {
@@ -730,15 +737,21 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       if (canSeeMatches && !weeklyReady) setNotice("حُفظ ملفك. يمكنك فتح ترشيحات الأسبوع من «استكشف».");
     });
   }
-  function verifyPurchase(restore: boolean,plan: 'premium'|'seriousness'='premium',offer?:import('./billing').MembershipOffer) {
+  function verifyPurchase(restore: boolean,plan: 'premium'|'seriousness'='premium',offer?:MembershipOffer) {
     void run(async () => {
       if (!live || !ios) throw new Error("الشراء متاح عبر تطبيق iPhone.");
       let buyer=live;
-      if (!restore && token) {
+      let sandboxOnly=false;
+      const displayedOffer=plan==='seriousness'?offer:price??undefined;
+      if (!restore) {
+        if(!token || !displayedOffer)throw new MembershipOfferChangedError('حدّث عرض العضوية قبل إكمال الشراء.');
         const latest = await refresh(token);
-        if(latest) buyer=latest;
-        if (!latest?.membership.canStart && !(plan==='seriousness' && latest?.membership.active && latest.membership.tier!=='seriousness'))
-          throw new Error("لم تفتح مجموعتك بعد. حدّث الحالة لاحقًا.");
+        if(!latest || latest.user.id!==live.user.id)throw new Error('تعذّر تأكيد حساب العضوية. أعد المحاولة.');
+        buyer=latest;
+        const upgrading=plan==='seriousness' && latest.membership.active && latest.membership.tier==='premium';
+        sandboxOnly=!latest.membership.canStart && !upgrading;
+        if(sandboxOnly && !(displayedOffer.sandboxCheckout && latest.user.applicationStatus==='approved' && !latest.user.paused && !latest.user.profileReviewPending))
+          throw new Error('لا يتاح بدء هذا الاشتراك لحسابك حاليًا.');
         if (plan==='premium' && price?.gender !== buyer.profile?.gender) {
           setPrice(null);
           throw new Error('تغيّرت بيانات العضوية. حدّث السعر وراجعه قبل الشراء.');
@@ -748,9 +761,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       try {
         jws = restore
           ? await restoreMembership()
-          : await purchaseMembership(buyer.user.appAccountToken, buyer.profile?.gender, plan==='seriousness'?false:price?.trialEligible, plan==='seriousness'?offer:price ?? undefined,plan);
+          : await purchaseMembership(buyer.user.appAccountToken, buyer.profile?.gender, plan==='seriousness'?false:price?.trialEligible, displayedOffer,plan,sandboxOnly);
       } catch (error) {
-        if (error instanceof MembershipOfferChangedError) setPrice(null);
+        if (error instanceof MembershipOfferChangedError) { setPrice(null); setOfferRevision(revision=>revision+1); }
         throw error;
       }
       await update("/membership", "POST", { signedTransaction: jws });
@@ -878,6 +891,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       back={back}
       active={active}
       currentTier={tier}
+      initialPlan={requestedPlan}
       gender={(demo?sampleProfile:live?.profile)?.gender}
       currency={demo?"SAR":price?.gender===live?.profile?.gender?price?.currency:undefined}
       trialEligible={price?.gender===live?.profile?.gender&&price?.trialEligible}
@@ -892,6 +906,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       period={price?.gender===live?.profile?.gender?price?.period:undefined} introduction={price?.gender===live?.profile?.gender?price?.introduction:undefined} status={live?.membership.status}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
+      sandboxCheckout={Boolean(price?.gender===live?.profile?.gender && price?.sandboxCheckout)}
+      priceFailed={priceFailed}
+      offerRevision={offerRevision}
       canBuy={ios}
       busy={busy}
       buy={(plan,offer) => verifyPurchase(false,plan,offer)}
@@ -903,9 +920,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       }
       refresh={() =>
         void run(async () => {
-          setPrice(null);
-          const latest = token ? await refresh(token) : undefined;
-          if (ios && latest?.profile?.gender) { const gender=latest.profile.gender; setPrice({gender,...await getMembershipOffer(gender)}); }
+          if (token) await refresh(token);
+          setOfferRevision(revision=>revision+1);
         })
       }
       onPolicy={() => setPolicy(true)}
@@ -992,7 +1008,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         paused={demo ? samplePaused : Boolean(live?.user.paused)}
         demo={demo}
         onBack={memberAccess ? undefined : () => go("main")}
-        onMembership={openMembership}
+        onMembership={()=>openMembership()}
         onEdit={() => {setApplicationChapter(undefined);go("application");}}
         onBeena={demo||cloud ? ()=>{setApplicationChapter('beena');go('application');}:undefined}
         onToggle={togglePause}
@@ -1116,7 +1132,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         paused={demo ? samplePaused : Boolean(live?.user.paused)}
         onOpen={() => go("proposal")}
         onAccount={openAccount}
-        onSubscription={openMembership}
+        onSubscription={()=>openMembership()}
         onResume={togglePause}
         onDiscover={source ? () => go("discover") : undefined}
         onInbox={source ? () => go("inbox") : undefined}
@@ -1151,6 +1167,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           </button>
         </div>
       )}
+      {!demo&&live&&<MembershipChangeNotice key={live.user.id} tier={tier}/>}
       {notice && (
         <div className="feedback" role="status">
           {notice}

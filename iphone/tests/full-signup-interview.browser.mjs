@@ -1,40 +1,32 @@
 // Full new-member profile signup using captured real Luna responses. Auth/SMS and
 // persistence are isolated; this test never creates members or sends real messages.
-// Run after generating .tmp/full-interview-review/luna-session.json.
+// Pass --synthetic for the current registration and matching fixture.
+// Without that flag, replay the supplied historical interview capture.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, transformWithEsbuild } from 'vite';
-import { confirmInterviewChoices, initialInterviewDocument } from '../api/_lib/interview.mjs';
+import { confirmInterviewChoices } from '../api/_lib/interview.mjs';
 import personality from '../src/compatibility/personality-catalog.json' with { type:'json' };
 import preferences from '../src/compatibility/catalog.json' with { type:'json' };
 import topics from '../src/interview/catalog.json' with { type:'json' };
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const synthetic=process.argv.includes('--synthetic');
-const artifacts=resolve(root,'.tmp/full-interview-review',synthetic?'simulated-navigation':'');
-function navigationFixture(){
- const document=initialInterviewDocument(),initialSnapshot={document:structuredClone(document),revision:1},steps=[];
- for(let i=0;i<topics.length;i++){
-  const question=structuredClone(document.currentQuestion),answer=personality.slice(i*2,i*2+2).map(q=>'غالبًا '+q.prompt).join(' ')+' أرغب بالأطفال وأفضل شريكًا يرغب بالأطفال.';
-  document.turns.push({id:'nav-'+i,topic:question.topic,question:question.text,answer,skipped:false});
-  document.proposals=personality.slice(0,(i+1)*2).map((q,n)=>({id:'personality:'+q.id,kind:'personality',fieldId:q.id,side:'self',values:['D'],summary:'اختيار اصطناعي لتجربة واجهة التسجيل فقط.',evidence:[{turnId:'nav-'+Math.floor(n/2),quote:document.turns[Math.floor(n/2)].answer}],needsClarification:false}));
-  document.proposals.push(...['self','partner'].map(side=>({id:'children:'+side,kind:'preference',fieldId:'children_plan',side,values:['A'],summary:'اختيار اصطناعي لتجربة واجهة التسجيل فقط.',evidence:[{turnId:'nav-0',quote:'أرغب بالأطفال وأفضل شريكًا يرغب بالأطفال.'}],needsClarification:false})));
-  document.currentQuestion=i+1<topics.length?{topic:topics[i+1].id,text:topics[i+1].question,suggestions:[]}:null;document.status=document.currentQuestion?'active':'review';document.lastMode='guided';
-  steps.push({question,answer,snapshot:{document:structuredClone(document),revision:i+2}});
- }
- return{initialSnapshot,steps,finalSnapshot:steps.at(-1).snapshot,synthetic:true,provider:'simulated-navigation-only'};
+if (process.argv.includes('--synthetic')) {
+  await import('./registration-matching.browser.mjs');
+  process.exit(0);
 }
-const session=synthetic?navigationFixture():JSON.parse(await readFile(process.env.WUDAYN_INTERVIEW_SESSION||resolve(artifacts,'luna-session.json'),'utf8'));
+
+const artifacts=resolve(root,'.tmp/full-interview-review');
+const session=JSON.parse(await readFile(process.env.WUDAYN_INTERVIEW_SESSION||resolve(artifacts,'luna-session.json'),'utf8'));
 const require=createRequire(import.meta.url);
-const{chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
+const{chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'playwright');
 await mkdir(artifacts,{recursive:true});
-if(synthetic)await writeFile(resolve(artifacts,'navigation-session.json'),JSON.stringify(session,null,2));
 const owner='11111111-1111-4111-8111-111111111111',drafts=new Map(),calls=[];
 const steps=session.steps;
-assert(Array.isArray(steps)&&steps.length>0,'Capture an interview first, or pass --synthetic for UI navigation only');
+assert(Array.isArray(steps)&&steps.length>0,'Capture an interview first, or pass --synthetic for the current registration journey');
 const snapshotOf=value=>value?.snapshot??value;
 const initial=snapshotOf(session.initialSnapshot??session.initial);
 assert(initial?.document?.currentQuestion,'Capture must include initial snapshot');
@@ -115,11 +107,11 @@ try{
   if(expectedDocument.currentQuestion)await page.waitForFunction(question=>document.querySelector('.wi-question h1')?.textContent===question,expectedDocument.currentQuestion.text);
  }
  if(snapshotOf(steps.at(-1)).document.status==='active')await page.getByRole('button',{name:'مراجعة ما فهمناه',exact:true}).click();await page.locator('.wi-review').waitFor();
- assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.personalityAnswers??{}).length),0);assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.surveyAnswers??{}).length),0);checks.push(`${synthetic?'simulated navigation':'captured Luna'} turns rendered with animation and no identical repeats; no assessment writes before confirmation`);
- const proposed=snapshot.document.proposals,personalityProposal=(!synthetic&&proposed.find(p=>p.kind==='personality'&&p.fieldId==='planning'))||proposed.find(p=>p.kind==='personality'),excluded=proposed.find(p=>synthetic?p.kind!=='personality'&&!p.needsClarification:p.kind==='preference'&&p.side==='self'&&p.fieldId!=='children_plan'&&!p.needsClarification),reviewEdits=[];
+ assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.personalityAnswers??{}).length),0);assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.surveyAnswers??{}).length),0);checks.push(`Captured Luna turns rendered with animation and no identical repeats; no assessment writes before confirmation`);
+ const proposed=snapshot.document.proposals,personalityProposal=(proposed.find(p=>p.kind==='personality'&&p.fieldId==='planning'))||proposed.find(p=>p.kind==='personality'),excluded=proposed.find(p=>p.kind==='preference'&&p.side==='self'&&p.fieldId!=='children_plan'&&!p.needsClarification),reviewEdits=[];
  assert(personalityProposal,'capture contains a personality interpretation');await page.getByRole('button',{name:'اختيار الواضح منها',exact:true}).click();
- const personalityCard=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id===personalityProposal.fieldId).prompt})});await personalityCard.locator('details>summary').click();const changed=!synthetic&&personalityProposal.fieldId==='planning'?'D':personalityProposal.values[0]==='C'?'D':'C';await personalityCard.locator('select').selectOption(changed);await personalityCard.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:personalityProposal.fieldId,proposed:personalityProposal.values[0],confirmed:changed});
- if(!synthetic){const social=proposed.find(p=>p.kind==='personality'&&p.fieldId==='social_energy');if(social){const card=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id==='social_energy').prompt})});await card.locator('details>summary').click();await card.locator('select').selectOption('B');await card.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:social.fieldId,proposed:social.values[0],confirmed:'B',explicitlyReviewed:true})}}
+ const personalityCard=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id===personalityProposal.fieldId).prompt})});await personalityCard.locator('details>summary').click();const changed=personalityProposal.fieldId==='planning'?'D':personalityProposal.values[0]==='C'?'D':'C';await personalityCard.locator('select').selectOption(changed);await personalityCard.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:personalityProposal.fieldId,proposed:personalityProposal.values[0],confirmed:changed});
+ {const social=proposed.find(p=>p.kind==='personality'&&p.fieldId==='social_energy');if(social){const card=page.locator('.wi-proposal').filter({has:page.locator('.wi-personality-statement',{hasText:personality.find(q=>q.id==='social_energy').prompt})});await card.locator('details>summary').click();await card.locator('select').selectOption('B');await card.locator('input[type=checkbox]').check();reviewEdits.push({fieldId:social.fieldId,proposed:social.values[0],confirmed:'B',explicitlyReviewed:true})}}
  if(excluded){const rendered=['personality','self','partner','importance'].flatMap(group=>proposed.filter(p=>group==='personality'?p.kind==='personality':p.kind!=='personality'&&p.side===group));await page.locator('.wi-proposal').nth(rendered.findIndex(p=>p.id===excluded.id)).locator('input[type=checkbox]').uncheck();}
  await personalityCard.scrollIntoViewIfNeeded();await page.screenshot({path:resolve(artifacts,'signup-05-review-interpretation.png')});
  assert.equal(await page.evaluate(()=>Object.keys(window.__fullDraft.current.answers.personalityAnswers??{}).length),0);await page.locator('.wi-review>.wi-button-primary').click();await page.locator('.wi-complete').waitFor();await page.locator('.wi-complete>.wi-button-primary').click();await page.locator('[data-chapter="compatibility"]').waitFor();
@@ -133,6 +125,6 @@ try{
  const submitted=await page.evaluate(()=>window.__fullSubmitted);assert.equal(submitted.personalityAnswers[personalityProposal.fieldId],changed);assert.equal(submitted.personalityVersion,'personality-v1');assert.equal(submitted.signupConsents.assessment,true);assert.equal(submitted.displayName,'سارة');assert.equal(submitted.birthDate,'1997-04-15');assert.equal(submitted.city,'الرياض');
  for(const p of confirmed){if(p.kind==='personality')assert.equal(submitted.personalityAnswers[p.fieldId],p.values[0]);if(p.kind==='preference'){const d=preferences.dimensions.find(d=>d.id===p.fieldId);assert.equal(submitted.surveyAnswers[p.side==='self'?d.id:d.partnerId],p.values[0])}}
  const scores=await page.evaluate(profile=>window.__compareSignup(profile),submitted);assert.equal(scores.before.fit.personality.percentage,null);if(confirmedPersonality.length===12)assert.equal(scores.after.fit.personality.percentage,100);assert(scores.after.fit.covered>=scores.before.fit.covered);checks.push('confirmed choices survive final signup submission and feed the actual compatibility model');
- assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);await writeFile(resolve(artifacts,'full-signup-submitted.json'),JSON.stringify(submitted,null,2));await writeFile(resolve(artifacts,'full-signup-browser-results.json'),JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen,confirmed:confirmed.length,reviewEdits,excluded:excluded?.id??null,personalityCoverage:confirmedPersonality.length,preferenceCoverage:scores.after.fit.covered,scores,errors,externalRequests,screens},null,2));console.log(JSON.stringify({source:synthetic?'simulated-navigation-only':'captured-luna',checks,questions:seen.length,confirmed:confirmed.length,personalityCoverage:confirmedPersonality.length,artifacts}));
+ assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);await writeFile(resolve(artifacts,'full-signup-submitted.json'),JSON.stringify(submitted,null,2));await writeFile(resolve(artifacts,'full-signup-browser-results.json'),JSON.stringify({source:'captured-luna',checks,questions:seen,confirmed:confirmed.length,reviewEdits,excluded:excluded?.id??null,personalityCoverage:confirmedPersonality.length,preferenceCoverage:scores.after.fit.covered,scores,errors,externalRequests,screens},null,2));console.log(JSON.stringify({source:'captured-luna',checks,questions:seen.length,confirmed:confirmed.length,personalityCoverage:confirmedPersonality.length,artifacts}));
 }catch(error){await page?.screenshot({path:resolve(artifacts,'full-signup-failure.png'),fullPage:true}).catch(()=>{});await writeFile(resolve(artifacts,'full-signup-failure.json'),JSON.stringify({error:error.message,errors,externalRequests,answerIndex,chapter:await page?.locator('main[data-chapter]').getAttribute('data-chapter').catch(()=>null)},null,2));throw error}
 finally{await browser?.close();await server.close()}

@@ -153,7 +153,7 @@ export function Auth({
             <li><Sparkles size={18} aria-hidden="true"/><span><strong>جلسة توافق إلزامية</strong><small>تراجع إجاباتك بنفسك</small></span></li>
             <li><Check size={18} aria-hidden="true"/><span><strong>استكشاف مجاني</strong><small>بعد اعتماد الملف</small></span></li>
           </ul>
-          <p className="nf-auth-price">يمكنك متابعة الاستكشاف مجانًا. الاشتراك اختياري، وسترى السعر وأي تجربة متاحة لك قبل تأكيد الشراء في Apple.</p>
+          <p className="nf-auth-price">بعد قبول ملفك يمكنك الاستكشاف مجانًا. إذا اخترت الاشتراك، يظهر لك السعر والمدة قبل التأكيد.</p>
         </section>}
       </section>
       <section className="nf-auth-panel">
@@ -277,7 +277,7 @@ export function Pending({
       <div className="flow-card nf-waiting-guidance">
         <h2>ماذا أفعل الآن؟</h2>
         <p>راجع الحالة من هذه الصفحة. لا توجد مدة مراجعة ثابتة معلنة، ولا يعني الانتظار رفضًا أو حكمًا عليك. إن احتجت توضيحًا، تواصل مع الفريق أدناه.</p>
-        <p>إرسال الملف لا يبدأ اشتراكًا جديدًا. إن كان لديك اشتراك قائم، فإنه يستمر حتى تلغيه من Apple.</p>
+        <p>يمكنك متابعة حالة طلبك هنا. يبدأ الاشتراك المدفوع فقط إذا اخترت باقة وأكّدت الشراء.</p>
         <p>في الويب، تظهر التحديثات أثناء فتح الموقع؛ لا تعتمد على تنبيه بعد إغلاق المتصفح.</p>
       </div>
       <button className="f-secondary" onClick={refresh} disabled={busy}>

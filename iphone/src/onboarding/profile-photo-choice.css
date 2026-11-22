@@ -28,3 +28,5 @@
 }
 .nf-photo-privacy[open] > summary::after { transform: rotate(225deg); }
 .nf-photo-privacy > p { margin: 0 0 12px; color: var(--muted); font-size: .875rem; line-height: 1.8; }
+
+.nf-photo-reframe { display:inline-flex; justify-content:center; align-items:center; gap:7px; justify-self:center; min-height:44px; margin:0 auto; padding:6px 14px; border:0; background:transparent; color:var(--accent,#68213c); font:inherit; font-weight:600; cursor:pointer; }

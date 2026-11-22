@@ -10,10 +10,10 @@ const practicalTopics = [
   ['location_unknown', 'مدينة الاستقرار لم تتضح بعد.'],
 ] as const;
 
-export function decisionContext(person: PublicPerson) {
+export function decisionContext(person: PublicPerson, premium: boolean) {
   const personalLine = [person.lifeTogether, person.bio, person.valuesStatement, person.lookingFor]
     .find(value => value?.trim())?.trim();
-  const fit = person.fit;
+  const fit = premium && !person.compatibilityLocked ? person.fit : undefined;
   const practical = practicalTopics.find(([id]) => fit?.practicalConcerns?.includes(id));
   if (practical) return { personalLine, context: practical[1] };
   if (person.familyPreference?.trim()) return { personalLine, context: 'إشراك الأهل · ' + person.familyPreference.trim() };

@@ -1,27 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Eye, ImagePlus, LockKeyhole, Sparkles, Trash2 } from "../BrandIcons";
+import { Camera, Check, Eye, ImagePlus, LockKeyhole, Pencil, Sparkles, Trash2 } from "../BrandIcons";
 import { AvatarPicker } from './AvatarPicker';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
-import { initialPortraitCrop, preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';
+import { initialPortraitCrop, matchesPortraitCrop, preparePortrait, type PortraitDraft } from '../photos/portraitPreparation';
 import { PortraitCropDialog } from '../photos/PortraitCropDialog';
 import type { PublicAvatar } from '../compatibility/appearance';
 import type { ProfilePortrait, PortraitRevealPolicy } from '../types';
 import type { CommunitySource } from '../community/data';
-import { discardStagedPortrait, stageOnboardingPortrait } from '../photos/stagedPortrait';
+import { stageOnboardingPortrait } from '../photos/stagedPortrait';
 import './profile-photo-choice.css';
 
 export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,existing,source,consented,onConsent,consentError,sensitiveAllowed,onSensitiveConsent,onBusy,revealPolicy,onPolicyChange,immediateVerification=false}:{
   avatar?:PublicAvatar|null;onAvatar:(v:PublicAvatar|null)=>void;inferred:PublicAvatar;change:PortraitDraft|null|undefined;onChange:(v:PortraitDraft|null)=>void;
-  existing?:ProfilePortrait|null;source?:CommunitySource|null;consented:boolean;onConsent:(v:boolean)=>void;consentError?:string;sensitiveAllowed:boolean;onSensitiveConsent:()=>void;onBusy:(v:boolean)=>void;
+  existing?:ProfilePortrait|null;source?:CommunitySource|null;consented:boolean;onConsent:(v:boolean)=>Promise<boolean>;consentError?:string;sensitiveAllowed:boolean;onSensitiveConsent:()=>void;onBusy:(v:boolean)=>void;
   revealPolicy?:PortraitRevealPolicy;onPolicyChange?:(policy:PortraitRevealPolicy)=>void;immediateVerification?:boolean;
 }) {
   const [mode,setMode]=useState<'photo'|'avatar'>(change||existing?'photo':'avatar');
-  const [file,setFile]=useState<File|null>(null),[blur,setBlur]=useState(change?.blur??existing?.blur??65),[preparing,setPreparing]=useState(false),[error,setError]=useState('');
+  const [file,setFile]=useState<File|null>(change?.framing?.file??null),[blur,setBlur]=useState(change?.blur??existing?.blur??65),[preparing,setPreparing]=useState(false),[error,setError]=useState('');
   const [policy,setPolicy]=useState<PortraitRevealPolicy>(revealPolicy??change?.revealPolicy??existing?.revealPolicy??'never');
   const [pendingFile,setPendingFile]=useState<File|null>(null);
-  const [crop,setCrop]=useState(initialPortraitCrop);
-  const input=useRef<HTMLInputElement>(null),callbacks=useRef({onChange,onBusy,consented,immediateVerification});callbacks.current={onChange,onBusy,consented,immediateVerification};
-  useEffect(()=>{if(!file)return;let active=true;setPreparing(true);callbacks.current.onBusy(true);
+  const [crop,setCrop]=useState(change?.framing?.crop??initialPortraitCrop);
+  const input=useRef<HTMLInputElement>(null),callbacks=useRef({onChange,onBusy,consented,immediateVerification,change});callbacks.current={onChange,onBusy,consented,immediateVerification,change};
+  useEffect(()=>{const saved=callbacks.current.change;if(!file || (saved?.blur===blur && saved.revealPolicy===policy && matchesPortraitCrop(saved,file,crop)))return;let active=true;setPreparing(true);callbacks.current.onBusy(true);
     const timer=setTimeout(()=>{void preparePortrait(file,blur,policy,crop).then(async result=>{if(active){callbacks.current.onChange(result);setError('');if(callbacks.current.immediateVerification&&callbacks.current.consented){const staged=await stageOnboardingPortrait(result,'woman',true);if(active)callbacks.current.onChange(staged);}}else URL.revokeObjectURL(result.url);}).catch(e=>{if(active)setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}).finally(()=>{if(active){setPreparing(false);callbacks.current.onBusy(false);}});},140);
     return()=>{active=false;clearTimeout(timer);callbacks.current.onBusy(false);};
   },[file,blur,policy,crop]);
@@ -33,7 +33,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
     if(!file&&change){const {clearBlob,staged:previousStage,...draft}=change;void previousStage;const nextDraft={...draft,revealPolicy:next,...(next!=='never'&&clearBlob?{clearBlob}:{})};onChange(nextDraft);if(immediateVerification&&consented)void upload(nextDraft);}
   }
   async function upload(draft:PortraitDraft){setPreparing(true);onBusy(true);setError('');try{onChange(await stageOnboardingPortrait(draft,'woman',true));}catch(e){setError(e instanceof Error?e.message:'تعذّر تجهيز الصورة.');}finally{setPreparing(false);onBusy(false);}}
-  function removePhoto(){void discardStagedPortrait(change);setFile(null);setPreparing(false);setPolicy('never');onPolicyChange?.('never');onChange(null);onConsent(false);}
+  async function removePhoto(){setPreparing(true);try{if(await onConsent(false)){setFile(null);setPolicy('never');onPolicyChange?.('never');}}finally{setPreparing(false);}}
   return <section className="nf-photo-choice" data-field="portrait" tabIndex={-1} aria-label="صورتك وخصوصيتك">
     <div className="nf-photo-mode" role="group" aria-label="طريقة ظهورك"><button type="button" aria-pressed={mode==='photo'} onClick={()=>setMode('photo')}><Camera size={18}/> صورة بتمويه اختياري</button><button type="button" aria-pressed={mode==='avatar'} onClick={()=>setMode('avatar')}><Sparkles size={18}/> صورة رمزية</button></div>
     {mode==='photo'?<>
@@ -43,7 +43,8 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
       </details>
       <div className="nf-photo-stage">{change?<img src={change.url} alt="صورتك كما ستظهر للأعضاء"/>:showingExisting?<PortraitPhoto portrait={existing!} source={source} alt="صورة ملفك الحالية"/>:<div><Camera size={34}/><span>صورتك، باختيارك</span></div>}{preparing&&<span className="nf-photo-processing" role="status">تجهيز التمويه…</span>}</div>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{setPendingFile(e.target.files?.[0]??null);e.target.value='';}}/>
-      {pendingFile&&<PortraitCropDialog file={pendingFile} cancel={()=>setPendingFile(null)} apply={value=>{setError('');setCrop(value);setFile(pendingFile);setPendingFile(null);}}/>}
+      {pendingFile&&<PortraitCropDialog file={pendingFile} initialCrop={pendingFile===file?crop:undefined} cancel={()=>setPendingFile(null)} apply={value=>{setError('');setCrop(value);setFile(pendingFile);setPendingFile(null);}}/>}
+      {file&&change&&<button type="button" className="nf-photo-reframe" disabled={preparing} onClick={()=>setPendingFile(file)}><Pencil size={16}/> تعديل الإطار</button>}
       <button type="button" className="btn-secondary" disabled={preparing} onClick={()=>input.current?.click()}><ImagePlus size={17}/>{change||showingExisting?'اختيار صورة أخرى':'اختيار صورتي'}</button>
       {(file||change||showingExisting)&&<><div className="nf-photo-blur"><label htmlFor="portrait-blur">درجة التمويه <strong>{new Intl.NumberFormat('ar-SA').format(blur)}٪</strong></label><input id="portrait-blur" type="range" min="0" max="100" step="5" value={blur} disabled={!file||preparing} onChange={e=>{const next=Number(e.target.value);setBlur(next);if(next===0){setPolicy('never');onPolicyChange?.('never');}}} aria-valuetext={blur===0?'دون تمويه':new Intl.NumberFormat('ar-SA').format(blur)+' بالمئة'}/><div><span>واضحة</span><span>تمويه أعلى</span></div>{!file&&<small>لتعديل درجة التمويه اختاري الصورة مجددًا.</small>}</div>
       <section className="nf-photo-reveal" aria-label="إزالة التمويه تلقائيًا"><header><span><Eye size={20}/></span><div><h3>وضوح أكبر، في الوقت المناسب</h3><p>أنتِ تختارين متى تُرى صورتك بوضوح.</p></div></header>
@@ -54,7 +55,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
         {policy!=='never'&&<div className="nf-photo-reveal-detail"><LockKeyhole size={15}/><span>باختيار هذا الموعد، توافقين على حفظ نسخة واضحة خاصة ومشاركتها تلقائيًا مع الطرف المؤهل. يعود التمويه عند التراجع عن المرحلة أو إنهاء التعارف أو إلغاء هذا الخيار. لا يمكن سحب صورة حفظها الطرف الآخر سابقًا.</span></div>}
         <small>يسري اختيارك بعد مراجعة اختياراتك وحفظ التغييرات.</small>
       </section></>}
-      {(change||showingExisting)&&<><label className="nf-photo-consent"><input type="checkbox" data-field="consent" checked={consented} aria-invalid={Boolean(consentError)||undefined} aria-describedby={consentError?'nf-intake-error':undefined} disabled={preparing} onChange={e=>{onConsent(e.target.checked);if(e.target.checked&&immediateVerification&&change&&!change.staged)void upload(change);}}/><span>هذه صورتي ولدي حق استخدامها. أوافق على عرض النسخة المعروضة بدرجة التمويه المختارة، وعلى إعداد إزالة التمويه الذي حددته.</span></label><button type="button" className="nf-appearance-clear" onClick={removePhoto}><Trash2 size={14}/> إزالة صورة الملف</button></>}
+      {(change||showingExisting)&&<><label className="nf-photo-consent"><input type="checkbox" data-field="consent" checked={consented} aria-invalid={Boolean(consentError)||undefined} aria-describedby={consentError?'nf-intake-error':undefined} disabled={preparing} onChange={e=>{if(!e.target.checked){void removePhoto();return;}void onConsent(true);if(immediateVerification&&change&&!change.staged)void upload(change);}}/><span>هذه صورتي ولدي حق استخدامها. أوافق على عرض النسخة المعروضة بدرجة التمويه المختارة، وعلى إعداد إزالة التمويه الذي حددته.</span></label><button type="button" className="nf-appearance-clear" disabled={preparing} onClick={removePhoto}><Trash2 size={14}/> إزالة صورة الملف</button></>}
       {error&&<p role="alert" className="nf-intake-error">{error}</p>}
       {immediateVerification&&change?.staged?.status==='ready'&&<p className="nf-photo-result" role="status"><Check size={17}/> صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.</p>}
       {immediateVerification&&error&&change&&consented&&!preparing&&<button type="button" className="btn-secondary" onClick={()=>void upload(change)}>إعادة رفع الصورة</button>}

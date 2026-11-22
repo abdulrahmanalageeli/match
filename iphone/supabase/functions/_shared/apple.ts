@@ -27,7 +27,7 @@ export function admin() {
     {auth:{persistSession:false,autoRefreshToken:false}})
 }
 
-export async function currentUser(req: Request): Promise<string> {
+export async function currentMemberState(req: Request) {
   const bearer = /^Bearer ([^\s]+)$/i.exec(req.headers.get('Authorization') ?? '')
   if (!bearer) throw new HttpError(401, 'يلزم تسجيل الدخول.')
   const userClient = createClient(configured('SUPABASE_URL'), key('SUPABASE_PUBLISHABLE_KEYS','SUPABASE_ANON_KEY'),
@@ -37,13 +37,28 @@ export async function currentUser(req: Request): Promise<string> {
   // The SQL helper checks the session still exists, even for a signed JWT.
   const session=await userClient.rpc('marriage_state')
   if (session.error || session.data?.user?.id!==data.user.id) throw new HttpError(401,'انتهت الجلسة.')
-  return data.user.id
+  return session.data
+}
+
+export async function currentUser(req: Request): Promise<string> {
+  return (await currentMemberState(req)).user.id
+}
+
+function storeEnvironment(): Environment {
+  const env = configured('APPLE_STORE_ENV')
+  if (env!==Environment.SANDBOX && env!==Environment.PRODUCTION) throw new HttpError(503,'إعداد بيئة Apple غير صالح.')
+  if (env===Environment.SANDBOX) {
+    const project = new URL(configured('SUPABASE_URL'))
+    if (project.protocol!=='https:' || !/^[a-z0-9]+\.supabase\.co$/.test(project.hostname) ||
+        ['wupkifqbwhhebwrgvwai.supabase.co','xytwdgiihfmxiflwuxti.supabase.co'].includes(project.hostname))
+      throw new HttpError(503,'يتطلب اختبار الشراء بيئة الاختبار المخصصة.')
+  }
+  return env
 }
 
 function apple(): SignedDataVerifier {
   if (verifier) return verifier
-  const env = configured('APPLE_STORE_ENV')
-  if (env!==Environment.SANDBOX && env!==Environment.PRODUCTION) throw new HttpError(503,'إعداد بيئة Apple غير صالح.')
+  const env=storeEnvironment()
   const appId = Number(Deno.env.get('APPLE_APP_ID'))
   if (env===Environment.PRODUCTION && (!Number.isSafeInteger(appId) || appId<=0)) throw new HttpError(503,'معرّف Apple غير مهيأ.')
   const roots=configured('APPLE_ROOT_CERTS_BASE64').split(',').map(value=>Buffer.from(value.trim(),'base64'))
@@ -68,11 +83,11 @@ async function verify<T>(work:()=>Promise<T>):Promise<T>{
   }
 }
 
-export async function verifyAppPurchase(value:unknown):Promise<string>{
+export async function verifyAppPurchase(value:unknown){
   const receipt=await verify(()=>apple().verifyAndDecodeAppTransaction(validateJws(value)))
-  if(receipt.bundleId!==bundle || !receipt.appTransactionId || !/^[0-9]{1,80}$/.test(receipt.appTransactionId))
+  if(receipt.bundleId!==bundle || receipt.receiptType!==storeEnvironment() || !receipt.appTransactionId || !/^[0-9]{1,80}$/.test(receipt.appTransactionId))
     throw new HttpError(403,'تعذّر التحقق من حساب App Store.')
-  return receipt.appTransactionId
+  return {id:receipt.appTransactionId,sandbox:receipt.receiptType===Environment.SANDBOX}
 }
 
 type SubscriptionSnapshot = { signedRenewalInfo?: string; status?: number; observedAt: number; original?: string }
@@ -82,7 +97,7 @@ export async function ingest(jws: unknown, actor: string|null, notification: boo
   const receipt=await verify(()=>apple().verifyAndDecodeTransaction(signed))
   const supported = typeof receipt.productId === 'string' && products.has(receipt.productId)
   if(notification && !supported)return null
-  if(receipt.bundleId!==bundle || !supported || (!notification && !receipt.appAccountToken))
+  if(receipt.bundleId!==bundle || receipt.environment!==storeEnvironment() || !supported || (!notification && !receipt.appAccountToken))
     throw new HttpError(403,'الاشتراك لا يخص هذا التطبيق.')
   let lifecycle = null
   if (snapshot?.original && receipt.originalTransactionId !== snapshot.original)
@@ -117,8 +132,7 @@ export async function reconcile(req: Request) {
   const hash = (value: string) => createHash('sha256').update(value).digest()
   if (!timingSafeEqual(hash(req.headers.get('x-reconcile-secret') ?? ''), hash(configured('APPLE_RECONCILE_SECRET'))))
     throw new HttpError(401,'غير مصرح.')
-  const environment = configured('APPLE_STORE_ENV')
-  if (environment !== Environment.SANDBOX && environment !== Environment.PRODUCTION) throw new HttpError(503,'بيئة غير صالحة.')
+  const environment=storeEnvironment()
   const client = new AppStoreServerAPIClient(configured('APPLE_IAP_PRIVATE_KEY').replace(/\\n/g,'\n'),
     configured('APPLE_IAP_KEY_ID'), configured('APPLE_IAP_ISSUER_ID'), bundle, environment)
   const db = admin()

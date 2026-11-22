@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { Camera, ShieldCheck } from '../BrandIcons';
-import { preparePortrait, type PortraitCrop, type PortraitDraft } from '../photos/portraitPreparation';
+import { Camera, Pencil, ShieldCheck } from '../BrandIcons';
+import { matchesPortraitCrop, preparePortrait, type PortraitCrop, type PortraitDraft } from '../photos/portraitPreparation';
 import { PortraitCropDialog } from '../photos/PortraitCropDialog';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import type { ProfilePortrait } from '../types';
@@ -14,7 +14,9 @@ export function MensPhotoChoice({ change, onChange, existing, source, consented,
 }) {
   const input = useRef<HTMLInputElement>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const framing = change?.framing;
   async function choose(file: File, crop: PortraitCrop) {
+    if (matchesPortraitCrop(change, file, crop)) return;
     setBusy(true); onBusy(true); setError('');
     try { const draft = await preparePortrait(file, 0, 'never', crop); onChange(draft); if (immediateVerification && consented) await check(draft); }
     catch (e) { setError(e instanceof Error ? e.message : 'تعذّر تجهيز الصورة.'); }
@@ -31,17 +33,17 @@ export function MensPhotoChoice({ change, onChange, existing, source, consented,
   const checked = change?.staged?.status === 'verified' || change?.staged?.status === 'approved';
   const pending = change?.staged?.status === 'moderation';
   return <section className="nf-photo-choice" data-field="portrait" tabIndex={-1} aria-label="صورة ملفك">
-    <p className="nf-photo-intro">صورة واضحة لك تجعل البداية أكثر ثقة. اختر صورة يظهر فيها وجهك وحدك، ثم نطابقها مع لقطة جديدة من الكاميرا قبل أن تكمل.</p>
+    <p className="nf-photo-intro">اختر صورة يظهر فيها وجهك وحدك، واضبط إطارها. بعدها نطابق صورتك مع لقطة من الكاميرا.</p>
     <details className="nf-photo-privacy"><summary><ShieldCheck size={16} aria-hidden="true"/> من يرى صورتي ولقطة المطابقة؟</summary>
-      <p>تبقى لقطة المطابقة خارج ملفك، ولا تظهر الصورة للأعضاء قبل اعتمادها.</p>
+      <p>تظهر صورة الملف للأعضاء المؤهلين بعد اعتمادها. لقطة الكاميرا خاصة بالمطابقة. سنطلب موافقتك قبل مشاركة الصورتين مع مزوّد التحقق.</p>
     </details>
     <div className="nf-photo-stage">{change ? <img src={change.url} alt="صورتك المختارة"/> : existing ? <PortraitPhoto portrait={existing} source={source} alt="صورة ملفك"/> : <div><Camera size={34}/><span>صورتك، كما أنت</span></div>}</div>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => { setPendingFile(e.target.files?.[0] ?? null); e.target.value = ''; }}/>
-    {pendingFile && <PortraitCropDialog file={pendingFile} cancel={() => setPendingFile(null)} apply={crop => {setPendingFile(null); void choose(pendingFile, crop);}}/>}
+    {pendingFile && <PortraitCropDialog file={pendingFile} initialCrop={framing?.file === pendingFile ? framing.crop : undefined} cancel={() => setPendingFile(null)} apply={crop => {setPendingFile(null); void choose(pendingFile, crop);}}/>}
+    {change && framing && <button type="button" className="nf-photo-reframe" disabled={busy} onClick={() => setPendingFile(framing.file)}><Pencil size={16}/> تعديل الإطار</button>}
     <button type="button" className="btn-secondary" disabled={busy} onClick={() => input.current?.click()}><Camera size={18}/>{busy ? 'تجهيز الصورة…' : change || existing ? 'اختيار صورة أخرى' : 'اختيار صورتي'}</button>
-    {(change || existing) && <label className="nf-photo-consent"><input type="checkbox" checked={consented} disabled={busy} onChange={e => { onConsent(e.target.checked); if (e.target.checked && immediateVerification && change && !checked && !pending) void check(change); }}/><span>هذه صورتي وأوافق على عرضها في ملفي للأعضاء المؤهلين. نوضح استخدام لقطة التحقق قبل فتح الكاميرا.</span></label>}
+    {(change || existing) && <label className="nf-photo-consent"><input type="checkbox" checked={consented} disabled={busy} onChange={e => { onConsent(e.target.checked); if (e.target.checked && immediateVerification && change && !checked && !pending) void check(change); }}/><span>هذه صورتي وأوافق على عرضها في ملفي للأعضاء المؤهلين بعد اعتمادها.</span></label>}
     {immediateVerification && <>{busy && <p className="nf-photo-result" role="status">نجهّز صورتك ونتحقق منها…</p>}{checked && <p className="nf-photo-result" role="status"><ShieldCheck size={18}/>{change?.staged?.status === 'approved' ? 'صورتك جاهزة، اعتمدها فريق المراجعة.' : 'صورتك جاهزة، اكتملت مطابقة الصورة.'}</p>}{pending && <p className="nf-photo-result" role="status">أُرسلت للمراجعة. يمكنك إكمال ملفك، وستبقى الصورة خاصة حتى يوافق الفريق.</p>}{change && consented && !busy && !checked && !pending && <div className="nf-photo-retry"><button type="button" className="btn-secondary" onClick={() => void check(change)}>إعادة المحاولة</button>{change.staged && <button type="button" className="btn-secondary" onClick={() => void check(change, true)}>إرسال الصورة للمراجعة</button>}</div>}</>}
-    <p className="nf-photo-safety"><ShieldCheck size={16}/><span>هذه مطابقة بين صورتين، وليست توثيقًا للهوية الوطنية أو فحص حيوية مستقلًا.</span></p>
     {error && <p role="alert" className="nf-intake-error">{error}</p>}
   </section>;
 }

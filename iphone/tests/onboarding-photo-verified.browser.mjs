@@ -1,5 +1,5 @@
 // Local-only fictional image, with mocked portrait staging and matching. No external services.
-// Run: node tests/signup-slides.browser.mjs. No production services or member records.
+// Run with Playwright installed or set NISFAYN_PLAYWRIGHT_MODULE to its package path.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -12,7 +12,7 @@ import personality from '../src/compatibility/personality-catalog.json' with { t
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 process.chdir(root);
 const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
+const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'playwright');
 const gender=process.env.NISFAYN_QA_GENDER==='man'?'man':'woman';
 const width=Number(process.env.NISFAYN_QA_WIDTH||390),reducedMotion=process.env.NISFAYN_QA_REDUCED_MOTION==='1';
 const artifacts=resolve(root,'.tmp/photo-verification-review',`${width}-${reducedMotion?'reduced':'normal'}`);await mkdir(artifacts,{recursive:true});
@@ -52,10 +52,12 @@ function Fixture(){const query=new URLSearchParams(location.search),chapter=quer
 createRoot(document.getElementById('root')).render(<div className='phone-app' dir='rtl' lang='ar'><Fixture/></div>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),cacheDir:resolve(root,'node_modules/.vite-onboarding-interview'),server:{host:'127.0.0.1',port:5296,strictPort:true},optimizeDeps:{entries:[],include:['react','react-dom/client','react/jsx-runtime','lucide-react','@capacitor/core','react-native-reanimated','react-native-worklets'],esbuildOptions:{resolveExtensions:['.web.tsx','.web.ts','.web.jsx','.web.js','.tsx','.ts','.jsx','.js','.mjs','.json']}},plugins:[{name:'isolated-onboarding-interview',enforce:'pre',resolveId(id){if(id==='virtual:onboarding-interview')return '\0onboarding-interview'},async load(id){const path=id.replaceAll('\\','/');if(path.endsWith('/src/photos/stagedPortrait.ts'))return `
-export async function stageOnboardingPortrait(draft,gender,consented){if(!consented)throw Error('consent required');window.__photoCalls.push('stage:'+gender);return {...draft,staged:{id:'fictional-photo',status:gender==='woman'?'ready':'uploaded',portrait:{id:'fictional-photo',path:'synthetic',blur:draft.blur,revealPolicy:draft.revealPolicy}}}}
-export async function retryStagedPortrait(draft){window.__photoCalls.push('verify:mock');return {...draft,staged:{...draft.staged,status:'verified'}}}
+import {captureForPhoto} from '/src/photos/verifyPhoto';
+export async function stageOnboardingPortrait(draft,gender,consented){if(!consented)throw Error('consent required');if(draft.staged)return draft;window.__photoCalls.push('stage:'+gender);return {...draft,staged:{id:'fictional-photo',status:gender==='woman'?'ready':'uploaded',portrait:{id:'fictional-photo',path:'synthetic',blur:draft.blur,revealPolicy:draft.revealPolicy}}}}
+export async function retryStagedPortrait(draft){const image=await captureForPhoto(true,draft.staged.id,draft.url);if(!image)throw Error('Expected a new camera frame');window.__photoCalls.push('verify:mock');return {...draft,staged:{...draft.staged,status:'verified'}}}
 export async function requestPortraitModeration(draft){return {...draft,staged:{...draft.staged,status:'moderation'}}}
-export async function resumeStagedPortrait(){return null} export async function finalizeStagedPortrait(draft){return draft.staged.portrait} export async function discardStagedPortrait(){}
+export async function resumeStagedPortrait(){return null} export async function finalizeStagedPortrait(draft){return draft.staged.portrait}
+export async function discardStagedPortrait(draft){if(window.__failDiscard){window.__failDiscard=false;throw Error('synthetic outage');}window.__photoCalls.push('discard:'+draft.staged.id)}
 `;if(path.endsWith('/src/cloud.ts'))return cloudMock;if(path.endsWith('/src/interview/api.ts'))return apiMock;if(path.endsWith('/src/motion/SkiaSurface.tsx'))return `import{createElement}from'react';export function SkiaSurface({className,fallback}){return createElement('div',{className,'aria-hidden':true},fallback)}`;if(id==='\0onboarding-interview')return(await transformWithEsbuild(fixture,'fixture.tsx',{loader:'tsx',jsx:'automatic'})).code},configureServer(dev){dev.middlewares.use(async(req,res,next)=>{
  if(req.url==='/__interview-draft-rpc'&&req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);assert.equal(input.expectedUser,owner);assert.equal(input.name,'marriage_onboarding_draft');calls.push(input);const{command,payload}=input.params;if(command==='save')drafts.set(owner,structuredClone(payload));if(command==='delete')drafts.delete(owner);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(command==='load'?drafts.get(owner)??null:{saved:true}));return}
  if(req.url?.startsWith('/__onboarding-interview')){const html=await dev.transformIndexHtml('/__onboarding-interview','<!doctype html><html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module" src="/@id/__x00__onboarding-interview"></script></body></html>');res.setHeader('Content-Type','text/html');res.end(html);return}next();
@@ -72,15 +74,92 @@ try{
  await page.locator('main[data-chapter=avatar]').waitFor();
  await page.evaluate(()=>{window.__photoCalls=[]});
  if(gender==='woman')await page.getByRole('button',{name:/صورة بتمويه اختياري/}).click();
- const imageBytes=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=500;c.height=600;const x=c.getContext('2d');x.fillStyle='#c4a3a3';x.fillRect(0,0,c.width,c.height);return c.toDataURL('image/png').split(',')[1]});
+ const imageBytes=await page.evaluate(()=>{
+   const chart=document.createElement('canvas'); chart.width=900; chart.height=500;
+   const ctx=chart.getContext('2d'),gradient=ctx.createLinearGradient(0,0,900,500);
+   gradient.addColorStop(0,'#7a132f'); gradient.addColorStop(1,'#fae2a3');
+   ctx.fillStyle=gradient; ctx.fillRect(0,0,900,500);
+   return chart.toDataURL('image/png').split(',')[1];
+ });
  await page.locator('input[type=file]').setInputFiles({name:'fictional.png',mimeType:'image/png',buffer:Buffer.from(imageBytes,'base64')});
  await page.getByRole('button',{name:'اعتماد الإطار',exact:true}).click();
  await page.locator('.nf-photo-consent input').waitFor();
+ const reframe=page.getByRole('button',{name:'تعديل الإطار',exact:true});
+ await reframe.click();
+ const zoom=page.getByRole('slider',{name:'التكبير'});
+ await zoom.press('End');
+ await page.locator('.portrait-crop-stage').press('ArrowLeft');
+ await page.locator('.portrait-crop-stage').press('ArrowLeft');
+ const sample=await page.locator('.portrait-crop-stage canvas').evaluate(canvas=>[...canvas.getContext('2d').getImageData(160,200,1,1).data]);
+ await capture('crop-'+gender);
+ await page.getByRole('button',{name:'اعتماد الإطار',exact:true}).click();
+ await reframe.click();
+ assert.equal(await zoom.inputValue(),'2.5');
+ assert.deepEqual(await page.locator('.portrait-crop-stage canvas').evaluate(canvas=>[...canvas.getContext('2d').getImageData(160,200,1,1).data]),sample);
+ await page.getByRole('button',{name:'إلغاء',exact:true}).click();
+ const rendered=await page.locator('.nf-photo-stage img').evaluate(async img=>{
+   await img.decode();
+   const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+   const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+   return {width:c.width,height:c.height,pixel:[...ctx.getImageData(320,400,1,1).data]};
+ });
+ assert.deepEqual([rendered.width,rendered.height],[640,800]);
+ assert.ok(sample.every((value,i)=>Math.abs(value-rendered.pixel[i])<=4),'Public image must match the approved crop');
+ if(gender==='man')await page.evaluate(()=>{
+   window.__testTracks=[];
+   let attempts=0;
+   navigator.mediaDevices.getUserMedia=async()=>{
+     if(++attempts===1)throw new DOMException('Test permission denied','NotAllowedError');
+     const c=document.createElement('canvas'); c.width=240; c.height=320;
+     const ctx=c.getContext('2d'),media=c.captureStream(8),track=media.getVideoTracks()[0];
+     window.__testTracks.push(track);
+     let count=0;
+     const timer=setInterval(()=>{if(track.readyState==='ended'){clearInterval(timer);return;}ctx.fillStyle=count++%2?'#956274':'#a97688';ctx.fillRect(0,0,c.width,c.height);},80);
+     return media;
+   };
+ });
  await page.locator('.nf-photo-consent input').check();
+ if(gender==='man'){
+   const camera=page.getByRole('dialog',{name:'مطابقة صورتك'});
+   await camera.waitFor();
+   assert.equal(await camera.getByRole('button',{name:'فتح الكاميرا'}).isDisabled(),true);
+   assert.equal(await camera.locator('img').getAttribute('src'),await page.locator('.nf-photo-stage img').getAttribute('src'));
+   await camera.getByRole('button',{name:'إلغاء التحقق'}).click();
+   await page.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();
+   await camera.getByRole('checkbox').check();
+   await camera.getByRole('button',{name:'فتح الكاميرا'}).click();
+   await camera.getByRole('alert').waitFor();
+   await camera.getByRole('button',{name:'فتح الكاميرا'}).click();
+   await camera.getByRole('button',{name:'التقاط صورتي'}).click();
+   const review=page.getByRole('dialog',{name:'راجع لقطة المطابقة'});
+   await review.waitFor();
+   assert.equal(await page.evaluate(()=>window.__testTracks[0].readyState),'ended');
+   await review.getByRole('button',{name:'إعادة الالتقاط'}).click();
+   await camera.getByRole('button',{name:'التقاط صورتي'}).click();
+   await capture('compare-man');
+   assert.equal(await page.evaluate(()=>window.__testTracks.every(t=>t.readyState==='ended')),true);
+   await review.getByRole('button',{name:'مطابقة الصورة',exact:true}).click();
+ }
  await page.getByText(gender==='man'?'صورتك جاهزة، اكتملت مطابقة الصورة.':'صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.',{exact:true}).waitFor({timeout:30000});
  assert.deepEqual(await page.evaluate(()=>window.__photoCalls),gender==='man'?['stage:man','verify:mock']:['stage:woman']);
  await capture('verified-'+gender);
  await next();await page.locator('main[data-chapter=readiness]').waitFor();
+ await page.getByRole('button',{name:'رجوع',exact:true}).click();
+ await page.locator('main[data-chapter=avatar]').waitFor();
+ await reframe.click();
+ assert.equal(await zoom.inputValue(),'2.5');
+ await page.getByRole('button',{name:'اعتماد الإطار',exact:true}).click();
+ const stagedCalls=gender==='man'?['stage:man','verify:mock']:['stage:woman'];
+ assert.deepEqual(await page.evaluate(()=>window.__photoCalls),stagedCalls,'Back and unchanged framing must retain the staged image');
+ if(gender==='woman')assert.equal(await page.locator('#portrait-blur').isEnabled(),true);
+ await page.evaluate(()=>{window.__failDiscard=true;});
+ const consent=page.locator('.nf-photo-consent input');
+ await consent.click();
+ await page.getByText('تعذّر إلغاء حفظ الصورة. حاول مجددًا لإزالتها.',{exact:true}).waitFor();
+ assert.equal(await consent.isChecked(),true);
+ await consent.click();
+ await page.locator('.nf-photo-stage img').waitFor({state:'detached'});
+ assert.deepEqual(await page.evaluate(()=>window.__photoCalls),[...stagedCalls,'discard:fictional-photo']);
  assert.deepEqual(errors,[]);assert.deepEqual(externalRequests,[]);
- console.log('PASS: '+gender+' selected and cropped a fictional image; staging and '+(gender==='man'?'face matching':'photo readiness')+' were mocked; advanced to readiness');
+ console.log('PASS: '+gender+' crop, reframe, cancellation and exported pixels; '+(gender==='man'?'comparison, permission denial, retry, capture and retake with synthetic camera frames; ':'')+'mocked photo service advanced to readiness');
 }catch(error){await page?.screenshot({path:resolve(artifacts,'failure.png'),fullPage:true}).catch(()=>{});console.error(await page?.locator('body').innerText().catch(()=>''));throw error;}finally{await browser?.close();await server.close();}

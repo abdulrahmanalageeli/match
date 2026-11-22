@@ -52,10 +52,10 @@
   @keyframes wd-band-turn { from { background-position: 0 0%; } to { background-position: 0 100%; } }
   html:not([data-nf-motion="reduced"]) .wd-pair-factor { display: block; animation: wd-pair-factor-in 300ms ease-out; }
   @keyframes wd-pair-factor-in { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-  .wd-pair-preview:not([hidden]) { animation: wd-pair-unfold 760ms cubic-bezier(.22,.72,.2,1); }
+  .wd-pair-preview:not([hidden]) { animation: wd-pair-unfold 560ms cubic-bezier(.22,.72,.2,1); }
   .wd-pair-window[data-moving] .wd-pair-row { animation: wd-row-arrives var(--wd-handoff) ease-in-out both; }
   .wd-pair-window[data-moving] .wd-pair-row[data-outgoing] { visibility: visible; animation-name: wd-row-leaves; }
-  .wd-pair-row:not([data-outgoing]) .nf-logo-level { animation: wd-liquid-settle 1050ms cubic-bezier(.25,.65,.25,1); }
+  .wd-pair-row:not([data-outgoing]) .nf-logo-level { animation: wd-liquid-settle 800ms cubic-bezier(.25,.65,.25,1); }
   .wd-pair-preview[data-rotating] .nf-logo-wave { animation-duration: 3.2s; }
   .wd-pair-preview[data-rotating] .nf-logo-wave-back { animation-duration: 4.8s; animation-delay: -1.2s; }
   @keyframes wd-pair-unfold {

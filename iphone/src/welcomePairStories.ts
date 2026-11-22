@@ -1,5 +1,4 @@
 import { assessmentVersion, comparePreferences, dimensions, preferencePercentage } from './compatibility/model.ts';
-import { personalityQuestions, personalityVersion, reciprocalTraitFit } from './compatibility/personality.ts';
 
 // Completed fictional questionnaires, shared across the stories in which a person appears.
 const sharedAnswers = {
@@ -28,25 +27,15 @@ const manal = member('منال', 'manal', 'woman', { housing_arrangement: 'B', f
 const sarah = member('سارة', 'sarah', 'woman', { social_rhythm: 'A', social_boundaries: 'A' }, { wants: { social_boundaries: 'B' } });
 const abdullah = member('عبدالله', 'abdullah', 'man', { domestic_labor: 'A', financial_provision: 'A', family_authority: 'B' });
 const fahad = member('فهد', 'fahad', 'man', { parenting_approach: 'A', closeness_pace: 'B' });
-const nawaf = member('نواف', 'nawaf', 'man', { housing_arrangement: 'C', marriage_timeline: 'C', faith_routine: 'A', family_authority: 'B' });
-const omar = member('عمر', 'omar', 'man', { social_rhythm: 'C', conflict_response: 'D', repair_after_conflict: 'C' }, { wants: { social_boundaries: 'A' } });
-const saud = member('سعود', 'saud', 'man', { residence_plan: 'B', marriage_timeline: 'A' }, { city: 'الخبر', wants: { residence_plan: 'A' } });
+const nawaf = member('نواف', 'nawaf', 'man', { housing_arrangement: 'C', marriage_timeline: 'C', faith_routine: 'A', family_authority: 'B', financial_provision: 'A', closeness_pace: 'C' });
+const omar = member('عمر', 'omar', 'man', { social_rhythm: 'C', conflict_response: 'D', repair_after_conflict: 'C', domestic_labor: 'A' }, { wants: { social_boundaries: 'A' } });
+const saud = member('سعود', 'saud', 'man', { residence_plan: 'B', marriage_timeline: 'A', social_rhythm: 'C' }, { city: 'الخبر', wants: { social_rhythm: 'B', closeness_pace: 'B' } });
 
 function story(topic: string, reading: string, alternate: readonly [string, string, 'link' | 'part'], her: ReturnType<typeof member>, herQuote: string,
   him: ReturnType<typeof member>, hisQuote: string) {
   const result = comparePreferences(her, him);
   return { topic, reading, alternate, ringEnding: alternate[2], score: preferencePercentage(result?.fit),
     people: [{ name: her.name, image: her.image, quote: herQuote }, { name: him.name, image: him.image, quote: hisQuote }] };
-}
-
-// The personality row uses the same two-way partner-range calculation as discovery.
-function socialEnergyFit() {
-  const neutral = Object.fromEntries(personalityQuestions.map(question => [question.id, 'C']));
-  const fit = reciprocalTraitFit(
-    { personalityVersion, personalityAnswers: { ...neutral, group_energy: 'B', start_conversation: 'B', quiet_settings: 'E', partner_social_energy: 'A' } },
-    { personalityVersion, personalityAnswers: { ...neutral, group_energy: 'E', start_conversation: 'D', quiet_settings: 'A', partner_social_energy: 'C' } },
-  );
-  return fit === null ? null : Math.round(fit * 100);
 }
 
 export const welcomePairs = [
@@ -59,10 +48,9 @@ export const welcomePairs = [
   story('قرار العيال', 'العيال شرط عند لولوة، وفهد يبي عيال مثلها.',
     ['تربية العيال', 'هي تسمع عذر ولدها أول. هو يبدأ بتطبيق الاتفاق.', 'part'],
     lulwa, 'أبي عيال، ويهمّني يكون حاسم قراره.', fahad, 'إيه، أبي أكون أب.'),
-  { ...story('طبع الويكند', 'هي تبي شريك يحب الهدوء مثلها. هو تعطيه اللمة طاقة.',
-    ['بدء الحديث', 'عمر يبادر بالكلام مع ناس جدد أكثر من سارة.', 'part'],
-    sarah, 'أرتاح مع شخص يحب القعدة الهادية مثلي.', omar, 'إذا طولت الجمعة زاد نشاطي.'),
-    score: socialEnergyFit() },
+  story('طبع الويكند', 'هي تبي شريك يحب هدوء البيت. هو يستمتع بكثرة الزيارات.',
+    ['الادخار', 'إذا جاهم مبلغ إضافي، الاثنين يفضّلون يدّخرونه.', 'link'],
+    sarah, 'أرتاح مع شخص يحب القعدة الهادية مثلي.', omar, 'أستانس إذا كان الويكند مليان زيارات.'),
   story('كلمة الأهل', 'كلهم يشاورون أهلهم. هي تبي القرار بينهم، وهو ينتظر موافقة أهله.',
     ['مصروف البيت', 'لولوة تفضّل يتقاسمون المصاريف بالنص.', 'part'],
     lulwa, 'نسمع رأي أهلنا ونقرر سوا.', abdullah, 'إذا أهلي ما وافقوا، أفضّل ننتظر.'),

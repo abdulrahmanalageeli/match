@@ -5,9 +5,9 @@ import './welcomePairPreview.css';
 
 type Selection = { index: number; alternate: boolean; speaker: number | null; fromScore: number };
 
-const readingMs = 6800;
-const ringEndingMs = 2400;
-const handoffMs = 960;
+const readingMs = 5400;
+const ringEndingMs = 1850;
+const handoffMs = 720;
 
 export function WelcomePairPreview({ visible, reduced }: { visible: boolean; reduced: boolean }) {
   const [selection, setSelection] = useState<Selection>({ index: 0, alternate: false, speaker: null, fromScore: 0 });

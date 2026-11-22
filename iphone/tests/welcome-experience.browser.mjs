@@ -33,12 +33,12 @@ const url='http://127.0.0.1:5286/__welcome-experience';
 const recordWelcome=process.env.WUDAYN_RECORD_WELCOME==='1';
 const captureStills=process.env.WUDAYN_CAPTURE_STILLS!=='0';
 const viewport=recordWelcome ? {width:402,height:874} : {width:390,height:844};
-// Pin what visitors actually see, including the domain-specific personality score.
+// Pin the overall preference scores shown for the fictional pairs.
 const rotation = [
- ['الخطوة الرسمية', '77%'], ['عملها بعد الزواج', '77%'], ['قرار العيال', '81%'],
- ['طبع الويكند', '31%'], ['كلمة الأهل', '78%'], ['أول بيت', '79%'],
- ['بين الرياض والخبر', '100%'], ['مصروف البيت', '91%'], ['حدود الطلعات', '81%'],
- ['وقت الزعل', '78%'], ['بداية التعارف', '76%'], ['وقت للعبادة', '79%'],
+ ['الخطوة الرسمية', '65%'], ['عملها بعد الزواج', '77%'], ['قرار العيال', '81%'],
+ ['طبع الويكند', '74%'], ['كلمة الأهل', '78%'], ['أول بيت', '67%'],
+ ['بين الرياض والخبر', '96%'], ['مصروف البيت', '87%'], ['حدود الطلعات', '74%'],
+ ['وقت الزعل', '71%'], ['بداية التعارف', '76%'], ['وقت للعبادة', '67%'],
  ['لو خالف ولدهم اتفاق', '85%'],
 ];
 try{
@@ -188,15 +188,16 @@ try{
    const firstCaption=frames[0];
    const secondCaption=frames.find(frame=>frame.topic!==firstCaption.topic);
    const firstEnding=frames.find(frame=>frame.ring);
-   assert(secondCaption.at-firstCaption.at>=6500,'first caption has reading time');
-   assert(firstEnding.at-secondCaption.at>=6500,'second caption has reading time before the rings');
+   for(const elapsed of [secondCaption.at-firstCaption.at,firstEnding.at-secondCaption.at]){
+    assert(elapsed>=5000&&elapsed<6200,'each caption has time to read before advancing: '+elapsed);
+   }
    const held=frames.filter(frame=>frame.topic===secondCaption.topic && frame.ring && frame.bandPosition===100);
-   assert(held.at(-1).at-held[0].at>=800,'rings settle before the next portraits appear');
+   assert(held.at(-1).at-held[0].at>=300,'rings settle before the next portraits appear');
    const entrance=frames.filter(frame=>frame.topic===rotation[0][0]);
    assert(entrance.some(frame=>frame.clip!=='none'&&frame.opacity<.4&&frame.level>5));
    assert(entrance.some(frame=>frame.clip==='none'&&frame.opacity===1&&frame.level===0));
    const lowerScore=frames.filter(frame=>frame.topic===rotation[3][0]);
-   assert(lowerScore.some(frame=>frame.level < -5) && lowerScore.some(frame=>frame.level===0));
+   assert(lowerScore.some(frame=>frame.level < -2) && lowerScore.some(frame=>frame.level===0));
    checks.push('recorded the card unfolding and the liquid settling at the initial and subsequent scores');
    const video=preview.video();
    await preview.close();

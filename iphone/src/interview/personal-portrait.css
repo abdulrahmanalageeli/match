@@ -115,7 +115,6 @@
 .wi-dialog .wi-complete > .wi-button { margin-top: 0; }
 .wi-dialog .wi-complete:has(.wi-summary-heading) > .wi-lead { margin-bottom: 4px; }
 .wi-complete > .wi-link { min-height: 44px; }
-.wi-living-portrait .wi-portrait-title > strong { display: flex; align-items: center; gap: .45rem; font-size: .96rem; }
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-nf-motion=reduced]) .wi-summary-topic > summary svg { transition: transform 160ms ease-out; }
 }

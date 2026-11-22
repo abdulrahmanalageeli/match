@@ -172,8 +172,8 @@ async function register(browser, gender) {
         await page.getByRole('spinbutton',{name:/^الوزن/}).fill(gender==='man'?'75':'60');
         await page.locator('.nf-tone-choices button').nth(2).click();
       } else if(step===2) {
-        await page.getByRole('checkbox',{name:'العربية',exact:true}).check();
-        await select(/^ما اللغة التي تفضّل/,'العربية'); await button('أفضّل أن نتحدث لغة مشتركة').click();
+        await page.locator('.nf-language-chips').getByText('العربية',{exact:true}).click();
+        await select(/^عند اختلاف اللغة/,'أفضّل أن نتحدث لغة مشتركة');
       } else if(step===4) {
         const timing = button('خلال ٣–٦ أشهر');
         if(carry) assert.equal(await timing.count(),0,'accepted marriage timing must not be asked again');

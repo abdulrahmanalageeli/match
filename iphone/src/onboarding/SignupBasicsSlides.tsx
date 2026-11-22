@@ -5,7 +5,7 @@ import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, us
 import { Check, Eye, MapPin, Pencil } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
-import { cityOptions, professionOptions, educationOptions, nationalityChoices } from '../profile/profileOptions';
+import { cityOptions, professionOptions, professionShortcuts, educationOptions, educationShortcuts, nationalityChoices } from '../profile/profileOptions';
 import { ageFromBirthday, latestAdultBirthday } from '../profile/birthday';
 import { profilePrompts } from '../profile/profilePrompts';
 import { ProfilePromptFields } from './ProfilePromptFields';
@@ -23,7 +23,7 @@ const storyTitles = ['عن يومك وطموحك.','خلّنا نسمع منك.'
 const slideSubtitles = {
   identity: ['', 'نستخدمه لحساب العمر فقط؛ يبقى التاريخ خاصًا.', 'نقرّب لك الخيارات من المكان الذي تعيش فيه.', 'نتأكد من الأهلية قبل بدء جلسة التوافق.'],
   story: ['اختيار بسيط يساعد الطرف الآخر يفهم يومك.', 'نبذتك للأعضاء المؤهلين. وش تحب يعرفون عنك؟', 'إجابات قصيرة تُظهر ما يهمك من غير مقابلة طويلة.', 'وش تبي الطرف الآخر يعرف عن نيّتك من التعارف؟'],
-  details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'تفاصيل عملية تجعل التوافق أدق.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.', 'توقعات واضحة للسكن والمصاريف وبداية حياتكما.'],
+  details: ['لن نستخدمها إلا بالطريقة التي تختارها.', 'اختر لغة أو أكثر.', 'الخلفية التي تحب أن يعرفها الطرف الآخر.', 'التوقيت والطريقة التي تناسب بداية رسمية.', 'وضعك الحالي وما تقبله مستقبلًا.', 'تفاصيل يومية تؤثر في الحياة المشتركة.', 'إن اخترت مشاركتها، تساعد على فهم القيم المشتركة.', 'توقعات واضحة للسكن والمصاريف وبداية حياتكما.'],
 } as const;
 export function signupSlideCount(chapter: Chapter) { return chapter==='identity'?4:chapter==='story'?4:9; }
 
@@ -58,7 +58,11 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   if(index===5&&b.maritalStatus==='married'&&p.gender!=='man')return 'هذا المسار لا يتيح البحث عن زواج لحساب امرأة متزوجة حاليًا.';
   if(index===5&&b.currentWives===4)return 'لا يدعم وُدَين البحث عن زواج إضافي مع وجود أربع زوجات حاليًا.';
   if(!required)return null;
-  if(index===2&&(!b.spokenLanguages?.length||!b.preferredLanguage||!b.languageOpenness))return 'حدّد لغاتك وطريقة التواصل التي تناسبك.';
+  if (index === 2) {
+    if (!b.spokenLanguages?.length) return 'اختر لغة واحدة على الأقل تتحدثها.';
+    if (!b.preferredLanguage) return 'اختر لغة التواصل المفضّلة.';
+    if (!b.languageOpenness) return 'حدّد ما يناسبك إذا اختلفت لغتكما.';
+  }
   if(index===3&&!b.nationality)return 'اختر جنسيتك.';
   if(index===4&&(!b.marriageTimeline||!b.meetingPreference))return 'حدّد توقيت إتمام الزواج وطريقة اللقاء.';
   if(index===5&&(!b.maritalStatus||!b.polygynyPreference||(familyContext(p.gender,b).askWifeCount&&!b.currentWives)))return 'أكمل وضعك الحالي وموقفك من التعدد.';
@@ -174,8 +178,18 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       </>}
       {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">نبدأ بالحالة الاجتماعية للتأكد من الأهلية. يمكنك تحديد تفضيلاتك للزواج لاحقًا في تفاصيل ملفك.</p><MarriageBasicsFields eligibilityOnly activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
       {chapter==='story'&&visibleIndex===0&&<div className="wd-slide-picker-group">
-        {(reviewing || !entryAnswers.profession.trim() || knownSlide(0)) && <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>}
-        {(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}
+        {(reviewing || !entryAnswers.profession.trim() || knownSlide(0)) && <div className="wd-career-field">
+          <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>
+          {!p.profession && <div className="nf-choice-shortcuts" role="group" aria-label="خيارات سريعة للعمل">
+            {professionShortcuts.map(profession => <button key={profession.value} type="button" onClick={()=>answer({profession:profession.value})}>{profession.label}</button>)}
+          </div>}
+        </div>}
+        {(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <div className="wd-career-field">
+          <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>
+          {!p.education && <div className="nf-choice-shortcuts" role="group" aria-label="خيارات سريعة للدراسة">
+            {educationShortcuts.map(education => <button key={education.value} type="button" onClick={()=>answer({education:education.value})}>{education.label}</button>)}
+          </div>}
+        </div>}
       </div>}
       {chapter==='story'&&visibleIndex===1&&<>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields remainingOnly={required && !reviewing} answers={p} update={answer} required={required}/>}

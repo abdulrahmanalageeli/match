@@ -137,3 +137,10 @@
 }
 html[data-nf-motion="reduced"] .phone-app .cm-shell :is(.cm-request,.cm-inbox-search,.cm-composer-surface,.cm-media-send,.cm-audio-play) { transition: none; }
 html[data-nf-motion="reduced"] .phone-app .cm-shell .cm-media-preview { animation: none; }
+
+/* Compact member lists while retaining comfortable touch targets. */
+.phone-app .cm-shell .cm-view .cm-title { margin-block: 16px 12px; }
+.phone-app .cm-shell .cm-view .cm-segments { margin-bottom: 14px; }
+.phone-app .cm-shell .cm-view .cm-request { padding-block: 14px; gap: 12px; }
+.phone-app .cm-shell .cm-view .cm-inbox-search { min-height: 46px; border-radius: 12px; }
+.phone-app .cm-shell .cm-view .cm-request-copy { gap: 4px; min-width: 0; }

@@ -489,3 +489,25 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   html:not([data-nf-motion="reduced"]) .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble[data-composed] { animation: cm-send-arrive 160ms ease-out; }
 }
 @keyframes cm-send-arrive { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+/* Keep the conversation background inside the mobile viewport. */
+.phone-app .cm-shell .cm-view:not(.df-discovery) .df-arrival-paths { inset-inline: 0; }
+
+/* Member overview surfaces */
+.phone-app .cm-shell .df-discovery .df-card-portrait { aspect-ratio: 1.45 / 1; }
+.phone-app .cm-shell .df-discovery .df-card-copy { padding: 14px 16px 0; }
+.phone-app .cm-shell .df-discovery .df-card-copy .cm-person-bio { font-size: 15px; line-height: 1.7; margin-bottom: 10px; }
+.phone-app .cm-shell .mo-current-card { grid-template-columns: 52px minmax(0, 1fr) minmax(105px, 115px); gap: 9px; padding: 12px; border-radius: 16px; }
+.phone-app .cm-shell .mo-portrait-link { width: 52px; height: 52px; }
+.phone-app .cm-shell .mo-current-actions { width: 100%; min-width: 0; }
+.phone-app .cm-shell .mo-compatibility-copy { white-space: normal; }
+.phone-app .cm-shell .mo-empty-slot { min-height: 68px; grid-template-columns: 44px minmax(0, 1fr); background: #f9f6f7; border-style: solid; }
+.phone-app .cm-shell .mo-slot-symbol { height: 44px; }
+.phone-app .cm-shell .mo-requests { margin-top: 22px; }
+.phone-app .cm-shell .cm-notification-row { margin-bottom: 0; padding: 12px 8px; border-radius: 0; background: transparent; }
+.phone-app .cm-shell .cm-notification-row[data-unread] { background: #f8f3f5; border-radius: 10px; margin-bottom: 4px; }
+.phone-app .cm-shell .cm-view .cm-list > .cm-request { padding: 14px 8px; border-radius: 0; background: transparent; border-bottom: 1px solid var(--line); box-shadow: none; }
+.phone-app .cm-shell .cm-view .cm-inbox-search { height: 46px; border-radius: 12px; background: #f1eff0; }
+.phone-app .cm-shell .mo-current-actions .mo-logo-progress,
+.phone-app .cm-shell .mo-current-actions .mo-logo-progress img { width: 24px; height: 24px; }
+.phone-app .cm-shell .mo-current-actions .nf-score-tile { font-size: 10px; gap: 2px; }

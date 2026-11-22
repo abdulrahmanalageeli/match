@@ -349,7 +349,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
-  const savedPreference = (field: "preferredMinAge" | "preferredMaxAge" | "familyPreference") => !editing && !draft.returnToReview && Boolean(p[field]) && confirmedProfileProposals.current.some(proposal => proposal.fieldId === field && proposal.values[0] === p[field]);
   const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
   const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
@@ -795,16 +794,28 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div>}
               </>}
               {chapter.key === "preferences" && <>
-                <fieldset><legend>العمر المناسب للطرف الآخر</legend>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' && <small>النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.</small>}<div className="field-pair">
-                  {(['preferredMinAge','preferredMaxAge'] as const).map(key => {
-                    const minimum = key === 'preferredMinAge';
-                    const label = minimum ? 'من عمر' : 'إلى عمر';
-                    const options = ageOptions.filter(option => minimum ? !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge) : !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge));
-                    return <SavedPreference key={key} saved={savedPreference(key)} summary={label + ' ' + arabicNumber(Number(p[key]))}>
-                      <ChoiceSelect {...field(key)} label={label} value={p[key]} onChange={value=>update({[key]:value})} options={options} required/>
-                    </SavedPreference>;
-                  })}
-                </div></fieldset>
+                <details className="nf-age-range">
+                  <summary className="nf-sheet-choice-row">
+                    <span className="nf-sheet-choice-label">العمر المناسب للشريك</span>
+                    <span className="nf-sheet-choice-value">{p.preferredMinAge === '18' && p.preferredMaxAge === '110'
+                      ? 'أي عمر' : `${arabicNumber(Number(p.preferredMinAge))} إلى ${arabicNumber(Number(p.preferredMaxAge))} عامًا`}</span>
+                    <ChevronLeft size={17} aria-hidden="true"/>
+                  </summary>
+                  <div className="nf-age-range-options">
+                    <div className="field-pair">
+                      {(['preferredMinAge','preferredMaxAge'] as const).map(key => {
+                        const minimum = key === 'preferredMinAge';
+                        const options = ageOptions.filter(option => minimum
+                          ? !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge)
+                          : !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge));
+                        return <ChoiceSelect key={key} {...field(key)} label={minimum ? 'من عمر' : 'إلى عمر'}
+                          value={p[key]} onChange={value=>update({[key]:value})} options={options} required/>;
+                      })}
+                    </div>
+                    {(p.preferredMinAge !== '18' || p.preferredMaxAge !== '110') && <button type="button" className="f-link"
+                      onClick={() => update({preferredMinAge:'18',preferredMaxAge:'110'})}>أي عمر</button>}
+                  </div>
+                </details>
                 {p.gender === 'woman' && (
                   <SavedPreference saved={!editing && !draft.returnToReview && Boolean(p.marriageBasics?.mahrRange)}
                     summary={`نطاق المهر · ${p.marriageBasics?.mahrRange ? mahrRanges[p.marriageBasics.mahrRange] : ''}`}>

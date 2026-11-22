@@ -52,6 +52,13 @@ export const nationalityChoices: readonly ProfileOption[] = [
 const nationalityByKey = new Map(nationalityChoices.map(option => [normalizeNationality(option.value), option.value]));
 export const canonicalNationality = (value: string): string => nationalityByKey.get(normalizeNationality(value)) ?? value.trim();
 
+export const educationShortcuts = options(['الثانوية', 'دبلوم', 'بكالوريوس']);
+export const professionShortcuts: readonly ProfileOption[] = [
+  {value:'التقنية والبرمجة',label:'التقنية'},
+  {value:'التعليم والتدريب',label:'التعليم'},
+  {value:'الإدارة والموارد البشرية',label:'الإدارة'},
+];
+
 export const educationOptions = options(['دون الثانوية','الثانوية','دبلوم','بكالوريوس','دبلوم عالٍ','ماجستير','دكتوراه']);
 export const professionOptions: readonly ProfileOption[] = [
   ...options(['الطب والرعاية الصحية','الهندسة والعمارة','التقنية والبرمجة','التعليم والتدريب','البحث والعمل الأكاديمي','الإدارة والموارد البشرية','المال والمحاسبة','القانون والاستشارات','التجارة والمبيعات','التسويق والإعلام','التصميم والفنون','الترجمة واللغات','القطاع العسكري والأمني','الخدمات الحكومية','النقل والخدمات اللوجستية','السياحة والضيافة','الصناعة والحرف','الزراعة والبيئة','العمل الاجتماعي وغير الربحي','مجال مهني آخر'], 'مجال العمل'),

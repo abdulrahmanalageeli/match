@@ -200,3 +200,18 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .phone-app .st-fold > .st-group { border:0; border-top:1px solid var(--line); border-radius:0 0 15px 15px; }
 .st-lock-preview { margin:6px 14px 14px; padding:12px 14px; background:var(--blush); color:var(--ink); border-radius:12px; line-height:1.5; }
 .st-lock-preview small { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+
+/* A quieter, denser account overview. */
+.phone-app .st-section { margin-top: 22px; }
+.phone-app .st-section h2 { margin-bottom: 8px; font-size: 1rem; }
+.phone-app .st-row { min-height: 60px; padding-block: 12px; }
+.phone-app .st-row-copy { gap: 3px; min-width: 0; }
+.phone-app .st-row-copy small { line-height: 1.55; }
+
+.phone-app .st-member-identity { background: #5a2339; padding: 15px 16px; }
+.phone-app .st-member-identity::before { content: none; }
+.phone-app .st-member-avatar { width: 52px; height: 60px; }
+.phone-app .st-member-card .st-member-identity h2 { font-size: 1.2rem; }
+.phone-app .st-member-actions { padding: 12px 14px 0; gap: 8px; }
+.phone-app .st-member-actions button { min-height: 44px; }
+.phone-app .st-member-photos { min-height: 60px; padding: 12px 16px; }

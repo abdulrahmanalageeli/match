@@ -1,59 +1,124 @@
-.wi-personal-sheet {
-  margin-block: 1rem;
-  padding: clamp(.75rem, 3.5vw, 1.15rem);
-  border: 1px solid #e7d8d7;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #fcf8f1, #fffafb 75%);
-  color: #452f39;
-}
-.wi-dialog .wi-personal-sheet h2,
-.wi-portrait-title > strong {
+/* Luna uses one answer list while filling the draft, reviewing and reading the saved summary. */
+.wi-summary-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; margin-block-end: 4px; }
+.wi-summary-heading .wi-link { min-height: 44px; padding-inline: 2px; font-size: .8125rem; }
+.wi-dialog .wi-summary-title {
   display: flex;
   align-items: center;
-  gap: .45rem;
-}
-.wi-dialog .wi-personal-sheet h2 {
+  gap: 7px;
   margin: 0;
-  color: #62243f;
-  font-size: 1.15rem;
+  color: var(--journey-berry, #63233d);
+  font-size: .9375rem;
+  font-weight: 600;
   line-height: 1.55;
 }
-.wi-dialog .wi-personal-sheet > p {
-  margin: .2rem 0 .45rem;
-  color: #66525b;
-  font-size: .9rem;
-  line-height: 1.65;
+.wi-summary-topics {
+  padding-inline: 14px;
+  border: 1px solid var(--journey-rule, #e6dce1);
+  border-radius: 14px;
+  background: #fff;
+  text-align: start;
 }
-.wi-personal-line {
-  position: relative;
+.wi-summary-topic + .wi-summary-topic,
+.wi-summary-fields,
+.wi-summary-answer + .wi-summary-answer {
+  border-block-start: 1px solid var(--journey-rule, #e6dce1);
+}
+.wi-summary-topic > summary, .wi-summary-answer {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: .75rem;
-  min-block-size: 44px;
-  padding-block: .5rem;
-  color: #4e3240;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 46px;
+  padding-block: 9px;
+  list-style: none;
+  color: var(--hybrid-ink, #432f3a);
 }
-.wi-personal-line + .wi-personal-line { border-block-start: 1px solid #e9dedd; }
-.wi-personal-line > span { display: grid; min-inline-size: 0; gap: .12rem; }
-.wi-personal-line > svg { flex: none; color: #793951; }
-.wi-dialog .wi-personal-line small { color: #68535c; font-size: .85rem; line-height: 1.55; }
-.wi-dialog .wi-personal-line strong { font-size: 1.05rem; line-height: 1.65; font-weight: 600; overflow-wrap: anywhere; }
-.wi-personal-line > select {
+.wi-summary-topic > summary { cursor: pointer; }
+.wi-proposal-topics > .wi-review-group { margin: 0; }
+.wi-proposal-topics > .wi-review-group > summary,
+.wi-proposal-topics > .wi-review-group > .wi-review-rows {
+  padding-inline: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.wi-dialog .wi-review[data-saved-details]::before { content: none; }
+.wi-review[data-saved-details] > .wi-button { margin-block-start: 16px; }
+.wi-summary-topic > summary::-webkit-details-marker { display: none; }
+.wi-summary-topic > summary > span, .wi-summary-answer > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.wi-summary-topic .wi-summary-caption, .wi-dialog .wi-summary-answer small, .wi-dialog .wi-summary-status {
+  color: #705b65;
+  font-size: .8125rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+.wi-summary-topic > summary strong, .wi-summary-answer strong {
+  color: var(--hybrid-ink, #432f3a);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.wi-summary-topic > summary svg, .wi-summary-answer > svg { flex: none; color: var(--journey-berry, #63233d); }
+.wi-summary-topic[open] > summary > svg { transform: rotate(180deg); }
+.wi-summary-fields { padding-inline-start: 10px; }
+.wi-summary-notes:not(:empty) {
+  margin-block-start: 12px;
+  border-block: 1px solid var(--journey-rule, #e6dce1);
+}
+.wi-summary-notes > :is(details, .wi-sharing) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.wi-summary-notes > :is(details, .wi-sharing) + * { border-block-start: 1px solid var(--journey-rule, #e6dce1); }
+.wi-summary-notes > details > summary, .wi-summary-notes > .wi-sharing {
+  min-height: 44px;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.wi-summary-notes > details > summary::-webkit-details-marker { display: none; }
+.wi-summary-status { margin-inline-start: auto; }
+.wi-summary-answer { position: relative; }
+.wi-summary-answer select {
   position: absolute;
   inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  margin: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  font-size: 1rem;
   cursor: pointer;
+  font-size: 1rem;
 }
-.wi-personal-line:focus-within { outline: 2px solid #7b3d58; outline-offset: 2px; border-radius: 5px; }
-.wi-personal-line:has(select:active) { background: #f3e7eb; }
-.wi-living-portrait .wi-portrait-title > strong { font-size: .96rem; }
-.wi-living-portrait .wi-portrait-body > .wi-personal-lines { padding-inline: 4px; }
-.wi-confirmed-answers > h3 { margin-block: .75rem .4rem; font-size: .98rem; color: #4e3240; }
+.wi-summary-answer:focus-within, .wi-summary-topic > summary:focus-visible {
+  outline: 2px solid var(--journey-berry, #63233d);
+  outline-offset: 1px;
+  border-radius: 5px;
+}
+.wi-summary-answer:has(select:active), .wi-summary-topic > summary:active { background: #f7f2f4; }
+.wi-dialog .wi-complete { text-align: start; }
+.wi-dialog .wi-complete > h1 {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 0 6px;
+}
+.wi-complete > h1 svg { flex: none; color: var(--journey-berry, #63233d); }
+.wi-dialog .wi-complete > .wi-lead { margin: 0 0 16px; }
+.wi-dialog .wi-complete > .wi-luna-steps { margin: 0 0 18px; }
+.wi-confirmed-answers { margin: 0 0 12px; }
+.wi-dialog .wi-complete > .wi-button { margin-top: 0; }
+.wi-dialog .wi-complete:has(.wi-summary-heading) > .wi-lead { margin-bottom: 4px; }
+.wi-complete > .wi-link { min-height: 44px; }
+.wi-living-portrait .wi-portrait-title > strong { display: flex; align-items: center; gap: .45rem; font-size: .96rem; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .wi-summary-topic > summary svg { transition: transform 160ms ease-out; }
+}
 .wi-receipt-revision {
   display: flex;
   align-items: center;
@@ -68,10 +133,3 @@
   line-height: 1.65;
 }
 .wi-receipt-revision > button { min-block-size: 44px; }
-@media (prefers-reduced-motion: no-preference) {
-  .wi-personal-line strong { animation: wi-portrait-ink .24s ease-out both; }
-  @keyframes wi-portrait-ink {
-    from { opacity: .4; transform: translateY(2px); }
-    to { opacity: 1; transform: none; }
-  }
-}

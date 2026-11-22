@@ -23,8 +23,8 @@ import './personal-portrait.css';
 type Choices = Record<string, string[]>;
 const sessionSteps = ['قصتك', 'اختياراتك', 'المراجعة'] as const;
 
-export function LunaSessionSteps({ current }: { current: typeof sessionSteps[number] }) {
-  const active = sessionSteps.indexOf(current);
+export function LunaSessionSteps({ current }: { current: typeof sessionSteps[number] | 'complete' }) {
+  const active = current === 'complete' ? sessionSteps.length : sessionSteps.indexOf(current);
   return <ol className="wi-luna-steps" aria-label="مراحل جلسة التوافق">
     {sessionSteps.map((step, index) => <li key={step} aria-current={step === current ? 'step' : undefined} data-done={index < active || undefined}>
       <span className="wi-step-dot" aria-hidden="true">{index < active && <Check size={10}/>}</span>{step}
@@ -141,53 +141,71 @@ function perspective(field: Field) {
   return field.id.startsWith('personality:') ? 'عن شخصيتي' : 'عنّي';
 }
 
-function PersonalLines({ lines, onChoose, disabled = false }: {
+function SummaryTopics({ groups, choices, lines, mode, inferred, hiddenPartnerIds, completionChoices = choices, sourceOf, onChoose, onDetails, disabled = false }: {
+  groups: ReturnType<typeof makeThemeCards>;
+  choices: Choices;
   lines: ReturnType<typeof portraitLines<Field>>;
+  mode: 'draft' | 'review' | 'saved';
+  inferred: ReadonlySet<string>;
+  hiddenPartnerIds?: ReadonlySet<string>;
+  completionChoices?: Choices;
+  sourceOf?: (field: Field) => string | undefined;
   onChoose?: (id: string, code: string) => void;
+  onDetails?: () => void;
   disabled?: boolean;
 }) {
-  return <div className="wi-personal-lines">{lines.map(({ field, option, context, phrase }) => {
-    const content = <><span><small>{context}</small><strong key={option.code}>{phrase}</strong></span>{onChoose && <Pencil size={15} aria-hidden="true"/>}</>;
-    return onChoose ? <label className="wi-personal-line" key={field.id} data-portrait-field={field.id}>
-      {content}
-      <select aria-label={`تعديل ملامحي، ${field.label}، ${perspective(field)}`} value={option.code} disabled={disabled} onChange={event => onChoose(field.id, event.target.value)}>
-        {field.options.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
-      </select>
-    </label> : <div className="wi-personal-line" key={field.id} data-portrait-field={field.id}>{content}</div>;
-  })}</div>;
+  return <>
+    {mode !== 'draft' && <div className="wi-summary-heading">
+      <h2 className="wi-summary-title"><LockKeyhole size={15} aria-hidden="true"/>ملامحي</h2>
+      {onDetails && <button type="button" className="wi-link" onClick={onDetails}>تفاصيل المراجعة</button>}
+    </div>}
+    <div className="wi-summary-topics">{groups.map(group => {
+      const allFields = group.cards.flatMap(assessmentFields);
+      const fields = allFields.filter(field => !hiddenPartnerIds?.has(field.id) && (mode === 'review' || selected(field, choices)));
+      if (!fields.length) return null;
+      const highlight = lines.find(line => fields.some(field => field.id === line.field.id));
+      return <details key={group.label} className="wi-summary-topic">
+        <summary><span><span className="wi-summary-caption">{group.label}</span>
+          <strong>{highlight?.preview ?? 'مراجعة الإجابات'}</strong>
+        </span>{mode === 'draft' && <small className="wi-summary-status">{group.cards.every(card => !needsCard(card, completionChoices)) ? 'اكتملت الإجابات' : 'قيد الإكمال'}</small>}
+          <ChevronDown size={17} aria-hidden="true"/></summary>
+        <div className="wi-summary-fields">
+          {fields.map(field => {
+            const answer = selected(field, choices);
+            const side = perspective(field);
+            const source = [inferred.has(field.id) && 'اقتراح من إجابتك', sourceOf?.(field)].filter(Boolean).join(' · ');
+            const content = <><span><small>{field.label} · {side}{source && ' · ' + source}</small>
+              <strong>{answer?.label ?? 'اختر إجابتك'}</strong>
+              {field.id === 'preference:marriage_timeline:self' && answer?.code === 'D' && <small>يمكنك ترك الموعد مفتوحًا إلى أن تتضح خطتك.</small>}
+            </span>{onChoose && <Pencil size={15} aria-hidden="true"/>}</>;
+            return onChoose ? <label key={field.id} className="wi-summary-answer" data-field-id={field.id}>
+              {content}
+              <select aria-label={`${field.label}، ${side}`} value={answer?.code ?? ''} disabled={disabled} onChange={event => onChoose(field.id, event.target.value)}>
+                {!answer && <option value="" disabled>اختر إجابتك</option>}
+                {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
+              </select>
+            </label> : <div key={field.id} className="wi-summary-answer" data-field-id={field.id}>{content}</div>;
+          })}
+        </div>
+      </details>;
+    })}</div>
+  </>;
 }
 
-export function ConfirmedAnswers({ confirmed, gender, inferredPartnerIds, onEdit }: {
+export function ConfirmedAnswers({ confirmed, gender, inferredPartnerIds, onEdit, onDetails }: {
   confirmed: readonly InterviewSelection[]; gender?: Gender; inferredPartnerIds?: readonly string[];
   onEdit?: (id: string, code: string) => void;
+  onDetails?: () => void;
 }) {
   const historical = confirmed.some(item=>legacyTraits.some(trait=>item.id==='personality:'+trait.id+':self'));
   const groups = makeThemeCards(gender,historical);
-  const cards = groups.flatMap(theme=>theme.cards);
-  const timing = cards.find(card => card.self.id === 'preference:marriage_timeline:self');
-  if (!timing) return null;
+  const byTopic = groups.map(group => group.cards.flatMap(assessmentFields));
   const choices = Object.fromEntries(confirmed.map(item => [item.id, item.values]));
-  const reviewFields = cards.flatMap(assessmentFields);
-  const rows = [timing.self, timing.partner].filter(field => selected(field, choices));
-  if (!rows.length) return null;
-  const omitted = new Set(inferredPartnerIds ?? reviewFields.filter(field => field.id.endsWith(':partner')).map(field => field.id));
-  const lines = portraitLines(groups.map(group => group.cards.flatMap(assessmentFields)), choices, omitted);
+  const inferred = new Set(inferredPartnerIds);
+  const omitFromHighlights = inferredPartnerIds ? inferred : new Set(byTopic.flat().filter(field => field.id.endsWith(':partner')).map(field => field.id));
   return <section className="wi-confirmed-answers" aria-label="ملامحي">
-    <div className="wi-personal-sheet">
-      <h2>ملامحي <LockKeyhole size={15} aria-hidden="true"/></h2>
-      <p>{onEdit ? 'من إجاباتك المعتمدة. المس العبارة لتعديلها، ثم اعتمد التغيير.' : 'من إجاباتك المعتمدة في جلستك الخاصة.'}</p>
-      <PersonalLines lines={lines} onChoose={onEdit}/>
-    </div>
-    <h3>{timing.self.label}</h3>
-    <dl>{rows.map(field => <div key={field.id}><dt>{perspective(field)}{inferredPartnerIds?.includes(field.id) && ' · اقتراح من إجابتك'}</dt><dd>{selected(field, choices)?.label}</dd></div>)}</dl>
-    <details><summary>جميع إجابات التوافق ({number.format(reviewFields.filter(field => selected(field, choices)).length)})</summary>
-      <ul>{reviewFields.filter(field => selected(field, choices)).map(field =>
-        <li key={field.id}>{onEdit ? <PortraitChoice field={field} side={`${field.label} · ${perspective(field)}`}
-          source={inferredPartnerIds?.includes(field.id) ? 'اقتراح من إجابتك' : undefined}
-          answer={selected(field, choices)} disabled={false} onChoose={code => onEdit(field.id, code)}/>
-          : <>{field.label} · {perspective(field)}: {selected(field, choices)?.label}
-          {inferredPartnerIds?.includes(field.id) && ' · اقتراح من إجابتك'}</>}</li>)}</ul>
-    </details>
+    <SummaryTopics groups={groups} choices={choices} lines={portraitLines(byTopic, choices, omitFromHighlights)}
+      mode="saved" inferred={inferred} onChoose={onEdit} onDetails={onDetails}/>
   </section>;
 }
 
@@ -329,27 +347,6 @@ function ReviewChoice({ field, value, suggested, source, side, disabled, onChoos
     </span>
     <select aria-label={`${field.label}، ${side}`} value={value ?? ''} disabled={disabled} onChange={event => onChoose(event.target.value)}>
       <option value="" disabled>{suggested ? 'اختيار إجابة' : 'اختر إجابتك'}</option>
-      {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
-    </select>
-  </label>;
-}
-
-function PortraitChoice({ field, answer, side, source, disabled, onChoose }: {
-  field: Field;
-  answer?: Field['options'][number];
-  side: string;
-  source?: string;
-  disabled: boolean;
-  onChoose: (value: string) => void;
-}) {
-  return <label className="wi-portrait-choice">
-    <span aria-hidden="true">
-      <small>{side}{source && ` · ${source}`}</small>
-      <strong>{answer?.label ?? 'لم تحدد بعد'}</strong>
-    </span>
-    <Pencil size={13} aria-hidden="true"/>
-    <select aria-label={`${field.label}، ${side}`} value={answer?.code ?? ''} disabled={disabled} onChange={event => onChoose(event.target.value)}>
-      <option value="" disabled>لم تحدد بعد</option>
       {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
     </select>
   </label>;
@@ -597,11 +594,7 @@ export function HybridAssessment({
     return <PartnerRow key={item.partner.id} item={item} choices={choices} inferred={inferred.has(item.partner.id)}
       disabled={disabled} onChoose={code => choose(item.partner.id, code)}/>;
   }
-  const provenance = (id: string, side: string) => implicitPartner.has(id) ? side + ' · اقتراح من إجابتك' : side;
   const canAdvance = card && (editField ? activeField && selected(activeField, choices) : !needsCard(card, choices));
-  const timing = cards.find(item => item.self.id === 'preference:marriage_timeline:self')!;
-  const formalStep = selected(timing.self, choices);
-  const partnerStep = selected(timing.partner, choices);
   const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => commitField(field, code)} disabled={disabled}/>;
   const highlights = openingHighlights(openingText, openingTurnId, aiProposals, progress.extracted);
   const openingIds = new Set(highlights.flatMap(part => part.sources.map(source => source.id)));
@@ -680,42 +673,15 @@ export function HybridAssessment({
           onChoose={code => commitField(activeField, code)} disabled={disabled}
           compact={card.personality.includes(activeField)} help={helpFor(activeField)}/>}
       </div> : <>
-        <p className="wi-lead">افتح أي موضوع وعدّل ما ترغب فيه، ثم اعتمد إجاباتك.</p>
-        {portrait.length > 0 && <section className="wi-personal-sheet wi-review-portrait" aria-label="ملامحي">
-          <h2>ملامحي <LockKeyhole size={15} aria-hidden="true"/></h2>
-          <p>من اختياراتك. يمكنك لمس أي عبارة لتعديلها قبل الاعتماد.</p>
-          <PersonalLines lines={portrait} onChoose={choose} disabled={disabled}/>
-        </section>}
-        {suggestionsReview}
+        <p className="wi-lead">هذه ملامحك من اختياراتك. افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
         <div className="wi-hybrid-review">
-          {themeCards.map(theme => {
-            const sample = theme.cards[0]?.self;
-            const answer = sample && selected(sample, choices);
-            return <details key={theme.label}>
-            <summary><span className="wi-review-topic">{theme.label}{answer && <small>{sample.label} · {answer.label}</small>}</span><ChevronDown size={17} aria-hidden="true"/></summary>
-            <div className="wi-hybrid-review-fields">
-              {theme.cards.flatMap(item => assessmentFields(item).map(field => <ReviewChoice
-                key={field.id}
-                field={field}
-                value={selected(field, choices)?.code}
-
-                source={sourceOf(field)}
-                side={provenance(field.id, field.id === item.self.id ? 'عنّي' : field.id === item.partner.id ? 'تفضيلي في الشريك' : 'عن شخصيتي')}
-                onChoose={code => choose(field.id, code)}
-                disabled={disabled}
-              />))}
-            </div>
-          </details>;
-          })}
+          <SummaryTopics groups={themeCards} choices={choices} lines={portrait} mode="review" inferred={implicitPartner}
+            sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
         </div>
-        <details className="wi-portrait-theme wi-reflection">
-          <summary>جاهزيتك للخطوة الرسمية</summary>
-          <p>راجع توقيتك وتوقّعاتك من الشريك قبل اعتماد الملف.</p>
-          <ReviewChoice field={timing.self} value={formalStep?.code} side="التوقيت اللي يناسبني" disabled={disabled} onChoose={code => choose(timing.self.id, code)}/>
-          <ReviewChoice field={timing.partner} value={partnerStep?.code} side={provenance(timing.partner.id, 'التوقيت اللي يناسبني عند الشريك')} disabled={disabled} onChoose={code => choose(timing.partner.id, code)}/>
-          {formalStep?.code === 'D' && <p>موعدك غير محدد. تقدر تتركه مفتوحًا إلى أن تتضح خطتك.</p>}
-        </details>
-        {reviewExtras}
+        <div className="wi-summary-notes">
+          {suggestionsReview}
+          {reviewExtras}
+        </div>
       </>}
     </div>
     {previous && (!card || previous.themeIndex === card.themeIndex) && !previous.selfOnly && inferred.has(previous.partner.id) && suggestionRow(previous)}
@@ -744,37 +710,9 @@ export function HybridAssessment({
         <ChevronDown size={17} aria-hidden="true"/>
       </summary>
       {portraitOpen && <div className="wi-portrait-body">
-        <p><LockKeyhole size={13} aria-hidden="true"/>{portrait.length ? 'من اختياراتك المحفوظة. المس أي عبارة لتعديلها.' : 'تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.'}</p>
-        <PersonalLines lines={portrait} onChoose={choose} disabled={disabled}/>
-        {themeCards.map(theme => {
-          const items = theme.cards.filter(item => assessmentFields(item).some(field => selected(field, savedChoices) && !omittedPortraitIds.has(field.id)));
-          if (!items.length) return null;
-          return <details key={theme.label} className="wi-portrait-theme">
-            <summary>
-              <span>{theme.label}</span>
-              <small>{theme.cards.every(item => !needsCard(item, choices)) ? 'اكتملت الإجابات' : 'قيد الإكمال'}</small>
-              <ChevronDown size={14} aria-hidden="true"/>
-            </summary>
-            <div>
-              {items.map(item => <div key={item.self.id} className="wi-portrait-mirror-row">
-                <strong>{item.self.label}</strong>
-                {assessmentFields(item).map(field => {
-                  const answer = selected(field, savedChoices);
-                  if (!answer || omittedPortraitIds.has(field.id)) return null;
-                  return <PortraitChoice
-                    key={field.id}
-                    field={field}
-                    answer={answer}
-                    side={provenance(field.id, field === item.self ? 'في حياتي' : field === item.partner ? 'ما أتمناه من شريكي' : 'عن شخصيتي')}
-                    source={sourceOf(field)}
-                    disabled={disabled}
-                    onChoose={code => choose(field.id, code)}
-                  />;
-                })}
-              </div>)}
-            </div>
-          </details>;
-        })}
+        {portrait.length ? <SummaryTopics groups={themeCards} choices={savedChoices} lines={portrait} mode="draft"
+          inferred={implicitPartner} hiddenPartnerIds={omittedPortraitIds} completionChoices={choices} sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
+          : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
       </div>}
     </details>}
   </section>;

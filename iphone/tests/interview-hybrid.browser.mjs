@@ -208,9 +208,16 @@ try {
   assert.equal(await page.locator('.wi-opening-notice').count(),0,'the question starts without a suggestion banner');
   assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'answers from the introduction remain available below the question');
   const self = card.locator('fieldset').first();
-  const portrait = page.locator('.wi-living-portrait');
-  const fill = portrait.locator('.wi-portrait-mark i > span').first();
-  const emptyFill = await fill.getAttribute('style');
+  const topicToggle = page.locator('.wi-topic-route > summary');
+  const draftReview = page.locator('.wi-topic-route .wi-draft-review');
+  const draftToggle = draftReview.locator(':scope > summary');
+  assert.equal(await page.locator('.wi-living-portrait').count(), 0);
+  assert.equal(await draftToggle.isVisible(), false);
+  await topicToggle.click();
+  await draftToggle.click();
+  await draftReview.getByText('تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.').waitFor();
+  await draftToggle.click();
+  await topicToggle.click();
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
   await card.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
   const help = self.getByRole('button',{name:'مو عارف وش أختار؟'});
@@ -232,7 +239,6 @@ try {
   assert.equal(draft[firstId], undefined, 'A proposed option never writes to the draft');
   await accept.click();
   assert.deepEqual(draft[firstId], ['C']);
-  assert.notEqual(await fill.getAttribute('style'), emptyFill);
   assert.equal(await card.locator('fieldset').getAttribute('data-side'), 'partner');
   assert.equal(draft[firstPartnerId], undefined);
   await page.getByRole('button',{name:'السابق',exact:true}).click();
@@ -241,13 +247,16 @@ try {
   await page.getByRole('button',{name:'متابعة',exact:true}).click();
   assert.equal(await card.locator('fieldset').getAttribute('data-side'),'partner');
   assert.equal(draft[firstPartnerId], undefined, 'Returning to the partner question must not fill it');
-  await portrait.locator(':scope > summary').click();
-  await portrait.locator('.wi-summary-topic > summary').first().click();
-  assert.equal(await portrait.locator('.wi-summary-status').first().innerText(),'قيد الإكمال');
-  const mirror = portrait.getByRole('combobox', { name:'الأطفال، عنّي' });
+  await topicToggle.click();
+  await draftToggle.click();
+  await draftReview.locator('.wi-summary-topic > summary').first().click();
+  assert.equal(await draftReview.locator('.wi-summary-status').first().innerText(),'قيد الإكمال');
+  const mirror = draftReview.getByRole('combobox', { name:'الأطفال، عنّي' });
   assert.equal(await mirror.inputValue(), 'C');
   await mirror.selectOption('B');
-  await portrait.locator(':scope > summary').click();
+  await page.screenshot({path:resolve(output,'draft-review-390.png'),animations:'disabled'});
+  await draftToggle.click();
+  await topicToggle.click();
   assert.equal(await page.locator('.wi-partner-default').count(), 0);
   assert.equal(draft[firstPartnerId], undefined);
   await card.locator('fieldset[data-side="partner"] .wi-hybrid-option').first().click();
@@ -288,9 +297,11 @@ try {
   let sawCompletedGroup = false;
   for (let index = 0; index < expectedIds.length && await card.count(); index++) {
     if (!sawCompletedGroup && index > 0 && index % 5 === 0) {
-      await portrait.locator(':scope > summary').click();
-      sawCompletedGroup = await portrait.getByText('اكتملت الإجابات',{exact:true}).count() > 0;
-      await portrait.locator(':scope > summary').click();
+      await topicToggle.click();
+      await draftToggle.click();
+      sawCompletedGroup = await draftReview.getByText('اكتملت الإجابات',{exact:true}).count() > 0;
+      await draftToggle.click();
+      await topicToggle.click();
     }
     const group = card.locator('fieldset').first();
     const position = await group.locator('legend').first().evaluate(node => {

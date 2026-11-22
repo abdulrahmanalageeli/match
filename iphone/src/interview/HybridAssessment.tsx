@@ -8,7 +8,7 @@ import { nextTopicCard, readTopic, rememberTopic, topicResumeKey, topicRoutes } 
 import memberAr from '../member-copy.ts';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil } from '../BrandIcons';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, LockKeyhole, Pencil } from '../BrandIcons';
 import legacyCatalog from '../compatibility/catalog-v3.json';
 import legacyTraits from '../compatibility/personality-catalog-v1.json';
 import { parentingApplicable } from '../compatibility/parenting.mjs';
@@ -157,7 +157,7 @@ function SummaryTopics({ groups, choices, lines, mode, inferred, hiddenPartnerId
 }) {
   return <>
     {mode !== 'draft' && <div className="wi-summary-heading">
-      <h2 className="wi-summary-title"><LockKeyhole size={15} aria-hidden="true"/>ملامحي</h2>
+      <h2 className="wi-summary-title"><LockKeyhole size={15} aria-hidden="true"/>إجاباتي</h2>
       {onDetails && <button type="button" className="wi-link" onClick={onDetails}>تفاصيل المراجعة</button>}
     </div>}
     <div className="wi-summary-topics">{groups.map(group => {
@@ -206,7 +206,7 @@ export function ConfirmedAnswers({ confirmed, gender, inferredPartnerIds, onEdit
   const choices = Object.fromEntries(confirmed.map(item => [item.id, item.values]));
   const inferred = new Set(inferredPartnerIds);
   const omitFromHighlights = inferredPartnerIds ? inferred : new Set(byTopic.flat().filter(field => field.id.endsWith(':partner')).map(field => field.id));
-  return <section className="wi-confirmed-answers" aria-label="ملامحي">
+  return <section className="wi-confirmed-answers" aria-label="إجاباتي المحفوظة">
     <SummaryTopics groups={groups} choices={choices} lines={portraitLines(byTopic, choices, omitFromHighlights)}
       mode="saved" inferred={inferred} onChoose={onEdit} onDetails={onDetails}/>
   </section>;
@@ -469,7 +469,7 @@ export function HybridAssessment({
   const movingFrom = useRef(false);
   const backwards = useRef(false);
   const previousTap = useRef<{x:number; y:number; at:number} | null>(null);
-  const [portraitOpen, setPortraitOpen] = useState(false);
+  const [draftReviewOpen, setDraftReviewOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const focusQuestion = useRef(false);
   const headingId = useId();
@@ -667,8 +667,16 @@ export function HybridAssessment({
         <span className="wi-topic-current" key={card.themeIndex}><strong>{!direct && 'اختياراتك · '}{routes[card.themeIndex].label}</strong>
           <small>{routes[card.themeIndex].remaining ? <>المتبقي في هذا الموضوع · {number.format(routes[card.themeIndex].remaining)}</> : 'جاهز للمراجعة'}</small>
         </span>
-        <span className="wi-topic-trigger">وين نكمّل؟ <ChevronDown size={15} aria-hidden="true"/></span>
+        <span className="wi-topic-trigger">المواضيع <ChevronDown size={15} aria-hidden="true"/></span>
       </summary>
+      <details className="wi-draft-review" onToggle={event => setDraftReviewOpen(event.currentTarget.open)}>
+        <summary><LockKeyhole size={14} aria-hidden="true"/>إجاباتي حتى الآن<ChevronDown size={15} aria-hidden="true"/></summary>
+        {draftReviewOpen && <div className="wi-draft-review-body">
+          {portrait.length ? <SummaryTopics groups={themeCards} choices={savedChoices} lines={portrait} mode="draft"
+            inferred={implicitPartner} hiddenPartnerIds={omittedPortraitIds} completionChoices={choices} sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
+            : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
+        </div>}
+      </details>
       <ol aria-label="مواضيع أسئلة التوافق">{routes.map((route, i) => <li key={route.label}>
         <button type="button" disabled={disabled || route.nextIndex < 0} aria-current={i === card.themeIndex ? 'step' : undefined}
           data-topic-index={i} data-complete={route.nextIndex < 0 || undefined} onClick={() => pickTopic(i)}>
@@ -715,7 +723,7 @@ export function HybridAssessment({
           compact={card.personality.includes(activeField)} help={helpFor(activeField)}/>}
         {jointPrompt && <button type="button" className="wi-link" onClick={()=>setSeparateFor(card.self.id)}>أختار لنفسي ولشريكي بشكل مختلف</button>}
       </div> : <>
-        <p className="wi-lead">هذه ملامحك من اختياراتك. افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
+        <p className="wi-lead">افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
         {reviewOptions}
         <div className="wi-hybrid-review">
           <SummaryTopics groups={themeCards} choices={choices} lines={portrait} mode="review" inferred={implicitPartner}
@@ -739,25 +747,6 @@ export function HybridAssessment({
         <button type="button" className="wi-link" onClick={onClarify} disabled={disabled}>أبي أوضّح إجابتي</button>
       </div>}
     </div>
-    {card && <details className="wi-living-portrait" onToggle={event => setPortraitOpen(event.currentTarget.open)}>
-      <summary>
-        <span className="wi-portrait-mark" aria-hidden="true">
-          {themeCards.map(theme => {
-            const items = theme.cards.flatMap(assessmentFields);
-            const filled = items.filter(field => selected(field, savedChoices)).length;
-            return <i key={theme.label}><span style={{ transform: `scaleX(${filled / items.length})` }}/></i>;
-          })}
-          <HeartHandshake size={17}/>
-        </span>
-        <span className="wi-portrait-title"><strong>ملامحي <LockKeyhole size={12} aria-hidden="true"/></strong></span>
-        <ChevronDown size={17} aria-hidden="true"/>
-      </summary>
-      {portraitOpen && <div className="wi-portrait-body">
-        {portrait.length ? <SummaryTopics groups={themeCards} choices={savedChoices} lines={portrait} mode="draft"
-          inferred={implicitPartner} hiddenPartnerIds={omittedPortraitIds} completionChoices={choices} sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
-          : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
-      </div>}
-    </details>}
     {card && suggestionsReview}
   </section>;
 }

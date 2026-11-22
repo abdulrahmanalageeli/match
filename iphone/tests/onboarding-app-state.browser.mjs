@@ -1,7 +1,7 @@
 // Actual App, discovery, billing and cloud adapters with local Supabase and StoreKit fixtures.
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer,transformWithEsbuild} from 'vite';
@@ -11,6 +11,9 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE||'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
 const output=resolve(root,'.tmp/onboarding-app-state');
 await mkdir(output,{recursive:true});
+const mainEntry=await readFile(resolve(root,'src/main.tsx'),'utf8');
+const appStyles=Array.from(mainEntry.matchAll(/^import\s+['"]\.\/([^'"]+\.css)['"]/gm),
+ match=>"import '/src/"+match[1]+"';").join('\n');
 
 const app=`
 import React from 'react';
@@ -21,7 +24,9 @@ import {initialDraft} from '/src/onboarding/draft';
 import {intakeVault} from '/src/onboarding/persistence';
 import {dimensionsForVersion,practicalAnswerKeys} from '/src/compatibility/model';
 import {personalityQuestionsFor} from '/src/compatibility/personality';
-import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';import '/src/typography.css';
+import {initializeDevicePreferences} from '/src/settings/preferences';
+${appStyles}
+initializeDevicePreferences();
 const gender=new URLSearchParams(location.search).get('gender')==='woman'?'woman':'man';
 const journey=new URLSearchParams(location.search).get('journey')||'pending';
 const id=gender==='man'?'11111111-1111-4111-8111-111111111111':'22222222-2222-4222-8222-222222222222';
@@ -36,7 +41,7 @@ window.__state=JSON.parse(sessionStorage.getItem(id)||'null')??{
 window.__holdFinalization=journey==='verified';
 window.__failFinalization=journey==='recovery'&&!sessionStorage.getItem('photo-retry');
 window.__calls=[];window.__issued=null;window.__purchaseMode='cancel';
-window.__peer={id:gender==='man'?'fixture-woman':'fixture-man',alias:gender==='man'?'سارة':'سعود',gender:gender==='man'?'woman':'man',age:29,city:'الرياض',occupation:'مهندس',bio:'أقدّر الحوار الهادئ.',interests:[],reasons:[],marriageBasics:{},eligible:true,online:true};
+window.__peer={id:gender==='man'?'fixture-woman':'fixture-man',alias:gender==='man'?'سارة':'سعود',gender:gender==='man'?'woman':'man',age:29,city:'الرياض',occupation:gender==='man'?'مهندسة':'مهندس',bio:'أقدّر الحوار الهادئ.',interests:[],reasons:[],marriageBasics:{},eligible:true,online:true};
 async function start(){
  if(window.__state.user.applicationStatus==='draft'){
   const draft=initialDraft(id,null);
@@ -204,6 +209,38 @@ async function localPage(page) {
  });
  return {errors,external};
 }
+async function captureDiscovery(page,filename){
+ await page.evaluate(async()=>{
+  // Returning from checkout can restore the previous feed scroll position.
+  window.scrollTo({top:0,behavior:'instant'});
+  await document.fonts.ready;
+  const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+  await frame();
+  const animations=document.getAnimations().filter(animation=>animation.playState==='running'&&
+   Number.isFinite(animation.effect?.getComputedTiming().endTime));
+  await Promise.allSettled(animations.map(animation=>animation.finished));
+  await frame();
+ });
+ await page.locator('.df-recommendation .df-profile-hitbox').first().waitFor({state:'attached'});
+ const layout=await page.evaluate(()=>{
+  for(let el=document.querySelector('.df-header');el;el=el.parentElement){
+   if(el.scrollTop)el.scrollTo({top:0,behavior:'instant'});
+  }
+  const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+  const toolbar=document.querySelector('.dr-tools'),hitbox=document.querySelector('.df-profile-hitbox');
+  const search=rect('.dr-search-toggle'),filter=rect('.dr-filter-shortcut'),card=rect('.df-recommendation'),hit=hitbox.getBoundingClientRect();
+  const header=rect('.df-header'),tabs=rect('.df-feed-tabs'),identity=rect('.df-portrait-identity');
+  const noticeBottom=document.querySelector('.wd-tier-change')?.getBoundingClientRect().bottom??0;
+  return {atTop:document.scrollingElement.scrollTop===0&&header.top>=noticeBottom-1&&tabs.top>=header.bottom-1,
+   identityVisible:identity.top>tabs.bottom&&identity.bottom<=innerHeight,
+   opacity:getComputedStyle(toolbar).opacity,aligned:Math.abs(search.y-filter.y)<1,
+   controlsUsable:[search,filter].every(box=>box.width>=44&&box.height>=44),
+   hitboxPosition:getComputedStyle(hitbox).position,hitboxBorder:getComputedStyle(hitbox).borderTopStyle,
+   coversCard:Math.abs(hit.width-card.width)<=2&&Math.abs(hit.height-card.height)<=2};
+ });
+ assert.deepEqual(layout,{atTop:true,identityVisible:true,opacity:'1',aligned:true,controlsUsable:true,hitboxPosition:'absolute',hitboxBorder:'none',coversCard:true});
+ await page.screenshot({path:resolve(output,filename)});
+}
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});
  for(const [gender,plan,productId,expectedPrice,peer] of [
@@ -225,6 +262,8 @@ try{
    const directory=page.locator('.df-discovery');
    await directory.locator('.wd-membership-entry[data-tier=free]').waitFor();
    await directory.getByRole('button',{name:'عرض ملف '+peer,exact:true}).waitFor();
+   assert.equal(await page.locator('.wd-tier-change').count(),0);
+   await captureDiscovery(page,gender+'-app-entry.png');
    assert.deepEqual(await page.evaluate(()=>window.__calls.filter(c=>c.action==='apply'||c.action==='finalize').map(c=>c.action)),gender==='man'?['apply','finalize']:['apply']);
    if(gender==='woman')assert(await page.evaluate(()=>window.__calls.find(c=>c.action==='apply').avatar));
    if(plan==='premium')await directory.getByRole('button',{name:'عرض العضوية لفتح نسبة التوافق'}).tap();
@@ -245,7 +284,7 @@ try{
    await directory.locator('.wd-membership-entry[data-tier='+plan+']').waitFor();
    await page.locator('.wd-tier-change[data-tier='+plan+'] [role=status]').waitFor();
    const fit=directory.getByRole('button',{name:new RegExp('توافق التفضيلات مع '+peer)});
-   await fit.waitFor();await page.screenshot({path:resolve(output,gender+'-app-entry.png')});
+   await fit.waitFor();await captureDiscovery(page,gender+'-after-upgrade.png');
    assert.equal(await page.locator('.wd-paywall').count(),0);
    const calls=await page.evaluate(()=>window.__calls);
    assert.deepEqual(calls.filter(c=>c.action==='purchase').map(c=>[c.productId,c.mode]),[[productId,'cancel'],[productId,'ok']]);

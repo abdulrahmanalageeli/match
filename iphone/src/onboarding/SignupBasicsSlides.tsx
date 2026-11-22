@@ -10,7 +10,7 @@ import { ProfilePromptFields } from './ProfilePromptFields';
 import { MarriageBasicsFields } from './MarriageFields';
 import { ConsentChoice, ConsentGate } from '../legal/ConsentChoices';
 import type { SignupConsents } from '../legal/consent';
-import { arabicNumber, unresolvedDetailSlides, type Answers, type Chapter } from './draft';
+import { arabicNumber, remainingDetailFields, type Answers, type Chapter } from './draft';
 import { generatedBio } from './profileDraftFallback';
 import './signup-slides.css';
 
@@ -68,16 +68,23 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
 type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
 export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
   const total=signupSlideCount(chapter);
-  const [knownIdentity] = useState(() => chapter === 'identity' && !reviewing
-    ? [0,1,2,3].filter(i => !signupSlideError('identity',i,p,required,consents.sensitiveProfile,consents.sensitivePublication))
-    : []);
-  const [detailSlides,setDetailSlides]=useState(()=>[0,...unresolvedDetailSlides(p,consents.sensitiveProfile)]);
-  const slides=chapter==='details'?detailSlides:Array.from({length:total},(_,i)=>i);
+  // Keep the questions shown on entering a section stable while the member answers.
+  const [entryAnswers, setEntryAnswers] = useState(p);
+  const [allDetails, setAllDetails] = useState(reviewing || !required);
+  const remaining = chapter === 'details' && !allDetails ? remainingDetailFields(entryAnswers, consents.sensitiveProfile) : undefined;
+  const allSlides = Array.from({length:total}, (_,i) => i);
+  const knownSlide = (slide:number) => !reviewing && (chapter === 'identity' || chapter === 'story' && required) &&
+    !signupSlideError(chapter,slide,entryAnswers,required,consents.sensitiveProfile,consents.sensitivePublication);
+  const remainingStory = chapter === 'story' && required && !reviewing ? allSlides.filter(i => !knownSlide(i)) : [];
+  let slides = remainingStory.length ? remainingStory : allSlides;
+  if (chapter === 'details') {
+    slides = remaining ? [0,...new Set(remaining.map(item => item.slide))] : allSlides.filter(i => i !== 7 || consents.sensitiveProfile);
+  }
   const [index,setIndex]=useState(()=>{
     // Saved answers reopen at the first unfinished slide, without losing anything.
-    if(chapter==='details')return 0;
-    const first=Array.from({length:total},(_,i)=>i).find(i=>signupSlideError(chapter,i,p,required,consents.sensitiveProfile,consents.sensitivePublication));
-    return first===undefined?0:first;
+    if(chapter==='details'||reviewing)return 0;
+    const first=slides.findIndex(i=>signupSlideError(chapter,i,p,required,consents.sensitiveProfile,consents.sensitivePublication));
+    return Math.max(0,first);
   });
   const [error,setError]=useState<string|null>(null);
   const [direction,setDirection]=useState<'next'|'back'>('next');
@@ -91,8 +98,14 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;
-      const next = slides.findIndex((slide, at) => at > index && (!knownIdentity.includes(slide) || signupSlideError(chapter,slide,p,required,consents.sensitiveProfile,consents.sensitivePublication)));
+    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}
+      if(chapter==='details' && visibleIndex===0 && !allDetails) {
+        setEntryAnswers(p);
+        if(!remainingDetailFields(p,consents.sensitiveProfile).length)return false;
+        move(1);return true;
+      }
+      if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;
+      const next = slides.findIndex((slide, at) => at > index && (!knownSlide(slide) || signupSlideError(chapter,slide,p,required,consents.sensitiveProfile,consents.sensitivePublication)));
       if(next < 0)return false;
       move(next);return true;},
     back(){if(index===0)return false;move(index-1);return true;},
@@ -146,15 +159,19 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
         <SheetChoiceSelect label="ما جنسيتك؟" value={basics.nationality ?? ''} options={nationalityChoices} onChange={nationality=>answer({marriageBasics:{...basics,nationality}})} placeholder="اختر الجنسية" required/>
       </>}
       {chapter==='identity'&&visibleIndex===3&&<><p className="wd-slide-description">نبدأ بالحالة الاجتماعية للتأكد من الأهلية. يمكنك تحديد تفضيلاتك للزواج لاحقًا في تفاصيل ملفك.</p><MarriageBasicsFields eligibilityOnly activeSection="الزواج والتعدد" required value={basics} gender={p.gender} sensitiveAllowed={false} onChange={marriageBasics=>answer({marriageBasics})}/></>}
-      {chapter==='story'&&visibleIndex===0&&<><SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/><SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/></>}
+      {chapter==='story'&&visibleIndex===0&&<>{(reviewing || !entryAnswers.profession.trim() || knownSlide(0)) && <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={p.profession} options={professionOptions} onChange={profession=>answer({profession})} required/>}{(reviewing || !entryAnswers.education?.trim() || knownSlide(0)) && <SheetChoiceSelect label="المؤهل الدراسي" value={p.education??''} options={educationOptions} onChange={education=>answer({education})} required={required}/>}</>}
       {chapter==='story'&&visibleIndex===1&&<><p className="wd-slide-description">{draftReady?'هذه صياغة أولية خاصة بك؛ خلك على النص أو عدّله بطريقتك.':'وش تحب في يومك؟ لمحة بسيطة، بأسلوبك أنت.'}</p>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Sparkles size={14} aria-hidden="true"/>إعادة الصياغة</button>}<small>تظهر النبذة للأعضاء المؤهلين. اكتب فقط ما ترغب في مشاركته معهم.</small><label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div><div className="wd-slide-ai-note"><Sparkles size={17} aria-hidden="true"/><div><strong>{draftReady?'أنت صاحب القرار في كل ما يظهر.':'تُراجع كل صياغة قبل أن تظهر.'}</strong><span>{draftReady?'هذه المسودة مبنية على إجاباتك، ولن ننشرها قبل إرسال الملف للمراجعة.':'جلسة التوافق تساعدنا على فهم تفضيلاتك وشخصيتك، وأنت تؤكد الملخص بنفسك.'}</span></div></div></>}
       {consentSlide && <>
-        <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setDetailSlides([0,...unresolvedDetailSlides(p,v)]);}} compact/>
+        <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>
+        {required && !reviewing && <details className="nf-intake-draft-help"><summary>تعديل التفاصيل المحفوظة وإضافة الاختياري</summary>
+          <p>يمكنك تعديل إجاباتك أو إضافة تفاصيل مثل مدينة الأصل وخطط السكن هنا أو في المراجعة الأخيرة.</p>
+          <button type="button" className="nf-intake-policy" aria-pressed={allDetails} onClick={()=>setAllDetails(!allDetails)}>{allDetails?'عرض الأسئلة المتبقية فقط':'عرض كل تفاصيل الملف'}</button>
+        </details>}
         {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
       </>}
-      {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
+      {chapter==='details'&&visibleIndex>0&&<MarriageBasicsFields fields={remaining?.filter(item=>item.slide===visibleIndex).map(item=>item.field)} activeSection={details[visibleIndex-1]} required={required} skinRequired={consents.sensitiveProfile} value={basics} gender={p.gender} sensitiveAllowed={consents.sensitiveProfile} onChange={marriageBasics=>answer({marriageBasics})}/>}
       </div>
     </MotionReveal>
     {error&&<p id="wd-slide-error" className="wd-slide-error" role="alert">{error}</p>}

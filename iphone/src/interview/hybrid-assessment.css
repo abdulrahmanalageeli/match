@@ -400,3 +400,13 @@
 .wi-partner-default > summary span { grid-column: 1 / -1; font-size: .875rem; }
 .wi-partner-default > summary strong { font-size: .875rem; font-weight: 550; }
 .wi-partner-default > summary small { padding-inline-start: 10px; text-decoration: underline; }
+
+.wi-opening-result { display:grid; gap:2px; min-width:0; text-align:start; color:var(--ink,#432f3a); }
+.wi-opening-result strong { font-size:.9375rem; }
+.wi-opening-result span, .wi-opening-result small { font-size:.875rem; font-weight:400; line-height:1.55; }
+.wi-opening-result bdi { color:var(--hybrid-accent,#68213c); font-weight:700; font-variant-numeric:tabular-nums; }
+.wi-opening-empty { padding:10px 14px; border-inline-start:2px solid var(--hybrid-line,#e9dfe4); }
+.wi-hybrid-captured-review:has(.wi-opening-result) { margin:0; }
+.wi-hybrid-captured-review > summary > .wi-opening-result { display:grid; gap:2px; }
+.wi-receipt-link { display:inline-flex; gap:.3em; align-items:center; color:var(--hybrid-accent); white-space:nowrap; }
+.wi-opening-insights > summary > .wi-opening-result small { font-size:.875rem; }

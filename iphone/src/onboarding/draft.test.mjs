@@ -2,11 +2,11 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 
-let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, unresolvedDetailSlides, withFamilyDefaults;
+let loader, initialDraft, validateStep, toProfile, profileBaseline, personalityQuestions, personalityVersion, dimensions, remainingDetailFields, withFamilyDefaults;
 before(async () => {
   loader = await createServer({ configFile: false, appType: "custom", logLevel: "error",
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
-  ({ initialDraft, validateStep, toProfile, profileBaseline, unresolvedDetailSlides, withFamilyDefaults } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
+  ({ initialDraft, validateStep, toProfile, profileBaseline, remainingDetailFields, withFamilyDefaults } = await loader.ssrLoadModule("/src/onboarding/draft.ts"));
   ({ dimensions } = await loader.ssrLoadModule("/src/compatibility/model.ts"));
   ({ personalityQuestions, personalityVersion } = await loader.ssrLoadModule("/src/compatibility/personality.ts"));
 });
@@ -178,14 +178,25 @@ test('new applicants clear marriage eligibility before the Luna step', () => {
  assert.equal(validateStep('identity',{...base,marriageBasics:{}},true,true,false),null);
 });
 
-test('details slideshow contains only unresolved applicable groups', () => {
- const p={...answers(),marriageBasics:{maritalStatus:'never_married',polygynyPreference:'not_open'}};
- assert.deepEqual(unresolvedDetailSlides(p,false),[1,2,3,4,6,8]);
- p.marriageBasics={...p.marriageBasics,originCity:'الطائف',weddingStyle:'simple',childrenTiming:'discuss',housingPlan:'independent',expenseSharing:'equal',heightCm:165,weightKg:60,dressStyle:'hijab',dressFlexibility:'keep',spokenLanguages:['العربية'],preferredLanguage:'العربية',languageOpenness:'flexible',nationality:'سعودي',marriageTimeline:'when_ready',meetingPreference:'discuss_together',childrenCount:0,smoking:'never'};
- assert.deepEqual(unresolvedDetailSlides(p,false),[]);
- assert.deepEqual(unresolvedDetailSlides(p,true),[1,3,7]);
- p.marriageBasics={...p.marriageBasics,skinTone:'tone_4',tribalBackground:'prefer_not_to_say',religiousAffiliation:'prefer_not_to_say',prayerPractice:'prefer_not_to_say'};
- assert.deepEqual(unresolvedDetailSlides(p,true),[]);
+test('guided details ask only missing required fields and keep sensitive choices explicit', () => {
+ const p={...answers(), marriageBasics:{nationality:'سعودي',maritalStatus:'never_married',
+   marriageTimeline:'when_ready',heightCm:165,spokenLanguages:['العربية']}};
+ const pending=sensitive=>remainingDetailFields(p,sensitive).map(item=>item.field);
+ assert.deepEqual(pending(false),['weightKg','preferredLanguage','languageOpenness','meetingPreference','polygynyPreference','childrenCount','smoking']);
+ assert.deepEqual(pending(true),['weightKg','skinTone','preferredLanguage','languageOpenness','meetingPreference','polygynyPreference','childrenCount','smoking']);
+ Object.assign(p.marriageBasics,{weightKg:60,skinTone:'tone_4',preferredLanguage:'العربية',languageOpenness:'flexible',
+   meetingPreference:'discuss_together',polygynyPreference:'not_open',smoking:'never'});
+ assert.deepEqual(pending(true),['childrenCount'],'a suggested zero remains editable');
+ p.marriageBasics.childrenCount=0;
+ assert.deepEqual(pending(true),[],'an explicitly saved zero carries forward');
+ // Formal-step timing in the private questionnaire cannot fill public wedding timing.
+ delete p.marriageBasics.marriageTimeline;
+ p.surveyAnswers={marriage_timeline:'A'};
+ assert.deepEqual(pending(true),['marriageTimeline']);
+ p.gender='man';
+ delete p.marriageBasics.childrenCount;
+ p.marriageBasics.maritalStatus='married';
+ assert.deepEqual(pending(true),['marriageTimeline','currentWives','childrenCount']);
 });
 test('contact accepts email and formatted phone numbers but rejects arbitrary text', () => {
  for(const contact of ['name@example.com','+966 50 123 4567','٠٥٠١٢٣٤٥٦٧']) assert.equal(validateStep('preferences',{...answers(),contact},true),null);
@@ -239,7 +250,7 @@ test('new smoking types survive profile validation and out-of-range measurements
     assert.equal(validateStep('details',p,true),null,smoking);
     assert.equal(toProfile(p).marriageBasics.smoking,smoking);
   }
-  assert.ok(unresolvedDetailSlides({...answers(),marriageBasics:{heightCm:0,weightKg:500}},false).includes(1));
+  assert.ok(remainingDetailFields({...answers(),marriageBasics:{heightCm:0,weightKg:500}},false).some(item=>item.slide===1));
 });
 
 test('family dependencies survive resume, edit and final review without becoming interview facts', async () => {

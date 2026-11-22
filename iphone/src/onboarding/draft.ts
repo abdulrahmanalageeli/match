@@ -2,7 +2,7 @@ import { applicableFamilyAnswers, familyContext } from './familyContext';
 import { ageFromBirthday } from "../profile/birthday";
 import type { Profile } from "../types";
 import { assessmentVersion, dimensionsForVersion, practicalAnswerKeys, hasPartnerQuestion, applicableDimensions } from "../compatibility/model";
-import { validMarriageBasics, validPartnerCriteria } from "../compatibility/marriage";
+import { validMarriageBasics, validPartnerCriteria, type MarriageBasics } from "../compatibility/marriage";
 import { personalityVersion, personalityQuestionsFor } from "../compatibility/personality";
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
@@ -101,21 +101,29 @@ function validAge(value: string) {
 }
 export type Issue = { field: keyof Answers | "consent"; text: string };
 
-/** Detail groups Luna did not already resolve; numeric ids match the signup slideshow. */
-export function unresolvedDetailSlides(p: Answers, sensitive: boolean): number[] {
-  const b=p.marriageBasics??{};
-  const complete: Record<number,boolean> = {
-    1: Number.isInteger(b.heightCm)&&b.heightCm!>=120&&b.heightCm!<=230&&Number.isInteger(b.weightKg)&&b.weightKg!>=35&&b.weightKg!<=250&&(!sensitive||Boolean(b.skinTone))&&
-      (p.gender!=='woman'||Boolean(b.dressStyle&&b.dressFlexibility)),
-    2: Boolean(b.spokenLanguages?.length&&b.preferredLanguage&&b.languageOpenness),
-    3: Boolean(b.nationality&&b.originCity)&&(!sensitive||Boolean(b.tribalBackground)),
-    4: Boolean(b.marriageTimeline&&b.meetingPreference),
-    5: Boolean(b.maritalStatus&&b.polygynyPreference&&(!familyContext(p.gender,b).askWifeCount||b.currentWives)),
-    6: familyContext(p.gender,b).childrenCount!==undefined&&Boolean(b.smoking),
-    7: !sensitive||Boolean(b.religiousAffiliation&&b.prayerPractice),
-    8: Boolean(b.weddingStyle&&b.housingPlan&&b.expenseSharing&&(b.childrenTiming||p.surveyAnswers?.children_plan==='B')),
-  };
-  return [1,2,3,4,5,6,7,8].filter(slide=>!complete[slide]&&(slide!==7||sensitive));
+/** Only unresolved requirements belong on the forward signup path. */
+export function remainingDetailFields(p: Answers, sensitive: boolean) {
+  const basics = p.marriageBasics ?? {};
+  const family = familyContext(p.gender, basics);
+  const validRange = (value: number | undefined, min: number, max: number) =>
+    value !== undefined && Number.isInteger(value) && value >= min && value <= max;
+  const fields: [slide: number, field: keyof MarriageBasics, answered: boolean][] = [
+    [1, 'heightCm', validRange(basics.heightCm,120,230)],
+    [1, 'weightKg', validRange(basics.weightKg,35,250)],
+    [1, 'skinTone', !sensitive || Boolean(basics.skinTone)],
+    [2, 'spokenLanguages', Boolean(basics.spokenLanguages?.length)],
+    [2, 'preferredLanguage', Boolean(basics.preferredLanguage)],
+    [2, 'languageOpenness', Boolean(basics.languageOpenness)],
+    [3, 'nationality', Boolean(basics.nationality)],
+    [4, 'marriageTimeline', Boolean(basics.marriageTimeline)],
+    [4, 'meetingPreference', Boolean(basics.meetingPreference)],
+    [5, 'maritalStatus', Boolean(basics.maritalStatus) && !(p.gender !== 'man' && basics.maritalStatus === 'married')],
+    [5, 'currentWives', !family.askWifeCount || validRange(basics.currentWives,1,3)],
+    [5, 'polygynyPreference', Boolean(basics.polygynyPreference)],
+    [6, 'childrenCount', validRange(basics.childrenCount,0,20)],
+    [6, 'smoking', Boolean(basics.smoking)],
+  ];
+  return fields.filter(([, , answered]) => !answered).map(([slide, field]) => ({slide, field}));
 }
 
 export function validateStep(step: Chapter, p: Answers, consent: boolean, requireBirthday = false, requireAssessment = false, requireSkinTone = false): Issue | null {

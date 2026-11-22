@@ -96,6 +96,11 @@ function withDefaultContact(draft: ApplicationDraft, value?: string): Applicatio
   return { ...draft, answers: { ...draft.answers, contact } };
 }
 
+function SavedPreference({saved, summary, children}: {saved:boolean; summary:string; children:ReactNode}) {
+  if (!saved) return <>{children}</>;
+  return <details className="nf-intake-review-group"><summary><span>{summary}</span><span>تعديل<ChevronLeft size={14} aria-hidden="true"/></span></summary>{children}</details>;
+}
+
 function ReviewGroup({ title, edit, children, visible=true, expanded=false }: { title: string; edit: () => void; children: ReactNode; visible?:boolean; expanded?:boolean }) {
   if(!visible)return null;
   return (
@@ -336,6 +341,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
   const p = draft.answers;
+  const savedPreference = (field: "preferredMinAge" | "preferredMaxAge" | "familyPreference") => !editing && !draft.returnToReview && Boolean(p[field]) && confirmedProfileProposals.current.some(proposal => proposal.fieldId === field && proposal.values[0] === p[field]);
   const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
   const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
@@ -663,7 +669,9 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     } else if (editing && !draft.returnToReview) {
       setEditorHome(true); window.scrollTo(0, 0);
     } else {
-      move(draft.returnToReview ? "review" : steps[idx + 1].key);
+      const next = steps[idx + 1].key;
+      const storyComplete = !editing && includeCompatibility && next === 'story' && !validateStep('story',p,agreed,true,true);
+      move(draft.returnToReview ? "review" : storyComplete ? 'avatar' : next);
     }
   }
   function field(key: keyof Answers | "consent") {
@@ -758,7 +766,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. راجع الملف قبل حفظه.</p>}
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
-                  {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا تفضيلاتك وملامح شخصيتك. نكمل الآن بقية الملف.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
+                  {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا إجابات التوافق. نكمل ما ينقص ملفك، مثل معايير البحث والنبذة والصورة، ثم تراجع طلبك قبل إرساله.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
@@ -770,11 +778,15 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </div>}
               </>}
               {chapter.key === "preferences" && <>
+                <SavedPreference saved={savedPreference('preferredMinAge') && savedPreference('preferredMaxAge')} summary={`عمر الشريك المفضّل: ${arabicNumber(Number(p.preferredMinAge))}–${arabicNumber(Number(p.preferredMaxAge))}`}>
                 <fieldset><legend>العمر المناسب للطرف الآخر</legend><small>{p.preferredMinAge === '18' && p.preferredMaxAge === '110' ? 'النطاق مفتوح لكل الأعمار المتاحة. يمكنك تخصيصه.' : 'هذا نطاق العمر المفضّل في ملفك. يمكنك تعديله.'}</small><div className="field-pair">
                   <ChoiceSelect {...field('preferredMinAge')} label="من عمر" value={p.preferredMinAge} onChange={preferredMinAge => update({ preferredMinAge })} options={ageOptions.filter(option => !p.preferredMaxAge || Number(option.value) <= Number(p.preferredMaxAge))} required />
                   <ChoiceSelect {...field('preferredMaxAge')} label="إلى عمر" value={p.preferredMaxAge} onChange={preferredMaxAge => update({ preferredMaxAge })} options={ageOptions.filter(option => !p.preferredMinAge || Number(option.value) >= Number(p.preferredMinAge))} required />
                 </div></fieldset>
+                </SavedPreference>
+                <SavedPreference saved={savedPreference('familyPreference')} summary={`وقت إشراك الأهل: ${p.familyPreference}`}>
                 <fieldset className="nf-family-choice" data-field="familyPreference" tabIndex={-1}><legend>متى تفضّل إشراك الأهل؟</legend><div>{['من البداية','بعد التعارف الأول','نتفق على ذلك لاحقًا'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.familyPreference===value} onClick={()=>update({familyPreference:value})}><span>{value}</span>{p.familyPreference===value&&<Check size={15} aria-hidden="true"/>}</MotionPressButton>)}</div><small>يظهر اختيارك في ملفك للأعضاء المؤهلين.</small></fieldset>
+                </SavedPreference>
                 <div className="nf-intake-private"><label>وسيلة التواصل الخاصة<input {...field("contact")} dir="auto" autoComplete="off" type="text" value={p.contact} onChange={e => update({ contact: e.target.value })} maxLength={180} required placeholder="name@example.com أو +9665…" /></label>
                   <small><LockKeyhole size={14} aria-hidden="true" />تظهر في الترشيح الخاص بعد موافقتكما معًا فقط.</small></div>
               </>}

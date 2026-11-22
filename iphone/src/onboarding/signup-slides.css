@@ -54,6 +54,8 @@
 .wd-slide-content .nf-marriage-fields .nf-detail-intro{display:none}
 .wd-slide-content .nf-marriage-fields .nf-marriage-content{background:#fff;border:1px solid #ebe3e6;border-radius:18px;padding:16px}
 .wd-slide-content .nf-marriage-fields .nf-marriage-content .field-pair{gap:10px}
+.wd-slide-content .nf-marriage-content .field-pair:empty{display:none}
+.wd-slide-content .nf-marriage-content .field-pair>:only-child{grid-column:1/-1}
 .wd-slide-content .nf-marriage-fields .nf-detail-choices{gap:9px}
 .wd-slide-content .nf-marriage-fields .nf-detail-choices legend{font-size:13px}
 .wd-slide-content .nf-consent-gate{margin:0;border-radius:18px;background:linear-gradient(145deg,#fffaf3,#f8eef0);border-color:#e1cdd3}

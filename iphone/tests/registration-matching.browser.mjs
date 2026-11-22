@@ -6,7 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
-import { initialInterviewDocument } from '../api/_lib/interview.mjs';
+import { confirmProfileChoices, initialInterviewDocument } from '../api/_lib/interview.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
@@ -59,6 +59,12 @@ const server = await createServer({ root, configFile: resolve(root,'vite.config.
   } }]
 });
 
+const opening = 'أعمل في التقنية والبرمجة. يناسبني الزواج خلال ثلاثة إلى ستة أشهر. أبحث عن حياة مستقرة وأفضّل إشراك الأهل من البداية.';
+const profileFacts = [
+  { fieldId: 'profession', value: 'التقنية والبرمجة', quote: 'أعمل في التقنية والبرمجة' },
+  { fieldId: 'familyPreference', value: 'من البداية', quote: 'أفضّل إشراك الأهل من البداية' },
+  { fieldId: 'marriageBasics.marriageTimeline', value: 'three_to_six_months', quote: 'يناسبني الزواج خلال ثلاثة إلى ستة أشهر' },
+];
 function interviewTransport() {
   let snapshot = {document:null,revision:0};
   return async route => {
@@ -67,14 +73,20 @@ function interviewTransport() {
     else if (p.action === 'draft') snapshot.document.draftAnswer = p.answer;
     else if (p.action === 'answer') {
       const doc = snapshot.document;
+      assert.equal(p.answer, opening);
+      const profileProposals = profileFacts.map(({fieldId,value,quote}) => ({
+        id:'profile:'+fieldId,fieldId,values:[value],mode:null,exclude:false,
+        evidence:[{turnId:'opening',quote}],summary:quote,needsClarification:false,
+      }));
       snapshot = {revision:snapshot.revision+1,carryForwardIds:[],coverage:{answered:0,required:47},
-        document:{...doc,status:'review',currentQuestion:null,lastMode:'luna',pendingAnalysis:false,draftAnswer:'',turns:[{id:'opening',topic:'intent',question:doc.currentQuestion.text,answer:p.answer,skipped:false}]}};
+        document:{...doc,profileProposals,status:'review',currentQuestion:null,lastMode:'luna',pendingAnalysis:false,draftAnswer:'',turns:[{id:'opening',topic:'intent',question:doc.currentQuestion.text,answer:p.answer,skipped:false}]}};
     } else if (p.action === 'structuredConfirm') {
       const confirmed = p.choices.map(choice => {
         const [kind,fieldId,side] = choice.id.split(':');
         return {...choice,kind,fieldId,side,summary:'',evidence:[],needsClarification:false};
       });
-      snapshot = {revision:snapshot.revision+1,structuredConfirmation:true,coverage:{answered:confirmed.length,required:confirmed.length},document:{...snapshot.document,status:'confirmed',confirmed}};
+      const doc = p.profileChoices?.length ? confirmProfileChoices(snapshot.document,p.profileChoices) : snapshot.document;
+      snapshot = {revision:snapshot.revision+1,structuredConfirmation:true,coverage:{answered:confirmed.length,required:confirmed.length},document:{...doc,status:'confirmed',confirmed}};
     } else if (p.action !== 'load') throw Error('Unexpected interview action '+p.action);
     return route.fulfill({json:snapshot});
   };
@@ -97,7 +109,7 @@ async function register(browser, gender) {
   const select = async (label,value) => {await button(label).click();await page.getByRole('option',{name:value,exact:true}).click()};
   const person = gender==='man'?'خالد':'سارة';
   try {
-    await page.goto(server.resolvedUrls.local[0]+'__registration');
+    await page.goto(server.resolvedUrls.local[0]+'__registration',{waitUntil:'domcontentloaded',timeout:60000});
     await page.locator('input[name=email]').fill(gender+'@example.test');
     await page.locator('input[name=password]').fill('synthetic-password-only');
     await button('متابعة').click();
@@ -112,7 +124,7 @@ async function register(browser, gender) {
     await chapter('compatibility');
     await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
     await button('ابدأ الحوار مع لونا').click();
-    await page.locator('#wi-answer').fill('أبحث عن حياة مستقرة وأحب الحوار الواضح. أرغب بالتعارف الجاد ثم إشراك الأهل.');
+    await page.locator('#wi-answer').fill(opening);
     await button('إرسال الرسالة').click();
     const card = page.locator('.wi-hybrid-card');
     await card.waitFor();
@@ -120,6 +132,11 @@ async function register(browser, gender) {
       assert(i<65,'assessment must advance');
       await card.locator('fieldset .wi-hybrid-option').first().press('Space');
     }
+    const carryProfile = page.locator('.wi-profile-carry-choice input');
+    assert(await carryProfile.isVisible(),'the profile opt-in must be visible without opening a disclosure');
+    assert.equal(await carryProfile.isChecked(),false);
+    const carry = gender==='woman';
+    if(carry) await carryProfile.check();
     await button('اعتماد إجاباتي').click();
     await button('متابعة إعداد الملف').click(); await next();
     await chapter('details');
@@ -146,7 +163,10 @@ async function register(browser, gender) {
         await page.getByRole('checkbox',{name:'العربية',exact:true}).check();
         await select(/^ما اللغة التي تفضّل/,'العربية'); await button('أفضّل أن نتحدث لغة مشتركة').click();
       } else if(step===4) {
-        await button('خلال ٣–٦ أشهر').click();await button('أفضل لقاءً بحضور الأهل قبل الخطوة الرسمية').click();
+        const timing = button('خلال ٣–٦ أشهر');
+        if(carry) assert.equal(await timing.count(),0,'accepted marriage timing must not be asked again');
+        else await timing.click();
+        await button('أفضل لقاءً بحضور الأهل قبل الخطوة الرسمية').click();
       } else if(step===5) {
         await button(/لا (أرغب|أقبل|أفضل|أفكر).*التعدد/).click();
       } else if(step===6) {
@@ -158,9 +178,18 @@ async function register(browser, gender) {
     await chapter('criteria');
     await button(/لا تفضيل لديّ في المعايير المتبقية/).click(); await next();
     await chapter('preferences');
-    await button('من البداية').click(); await next();
+    if(carry) {
+      const savedFamily = page.locator('details').filter({has:page.locator('summary',{hasText:'وقت إشراك الأهل: من البداية'})});
+      assert.equal(await savedFamily.evaluate(node=>node.open),false);
+      await savedFamily.locator('summary').click();
+      assert.equal(await button('من البداية').getAttribute('aria-pressed'),'true');
+      await savedFamily.locator('summary').click();
+    } else await button('من البداية').click();
+    await next();
     await chapter('story');
-    await select(/^مجال العمل أو الوضع المهني/,'التقنية والبرمجة'); await select(/^المؤهل الدراسي/,'بكالوريوس'); await next();
+    if(carry) assert.equal(await button(/^مجال العمل أو الوضع المهني/).count(),0,'accepted profession must not be asked alongside missing education');
+    else await select(/^مجال العمل أو الوضع المهني/,'التقنية والبرمجة');
+    await select(/^المؤهل الدراسي/,'بكالوريوس'); await next();
     assert(await page.locator('[data-field=bio]').inputValue()); await next();
     for(const choice of await page.locator('.nf-prompt-choices button').all()) {
       await choice.click(); await page.locator('.nf-prompt-editor textarea').fill('التفاهم والاحترام مهمان في حياتي.');
@@ -180,9 +209,24 @@ async function register(browser, gender) {
     await next(); await chapter('readiness');
     await button('أرتاح لإشراك الأهل من البداية').click();await button('أقدر أبدأ خطوة رسمية قريب').click();
     await page.getByRole('checkbox',{name:'أوافق على اتفاق العضوية'}).check(); await next();
-    await chapter('review'); await next(); await page.getByRole('heading',{name:'تم إرسال الملف'}).waitFor();
+    await chapter('review');
+    if(carry) {
+      const personal = page.locator('.nf-intake-review-group').filter({has:page.locator('summary',{hasText:'تفاصيلك الشخصية'})});
+      if(!await personal.evaluate(node => node.open)) await personal.locator('summary').click();
+      await personal.getByRole('button',{name:'تعديل تفاصيلك الشخصية'}).click();
+      await chapter('details');
+      for (let i=0;i<8;i++) {
+        assert.equal(Number(await slides.getAttribute('data-slide-index')),i);
+        await next();
+      }
+      await page.getByRole('heading',{name:'خطط الحياة الزوجية',exact:true}).waitFor();
+      await next(); await chapter('review');
+    }
+    await next(); await page.getByRole('heading',{name:'تم إرسال الملف'}).waitFor();
     const {account,profile,photo,photoStatus}=await page.evaluate(()=>window.__submitted);
     assert.equal(profile.displayName,person);assert.equal(profile.gender,gender);
+    assert.equal(profile.profession,'التقنية والبرمجة');
+    assert.equal(profile.marriageBasics.marriageTimeline,'three_to_six_months');
     assert.equal(photoStatus,gender==='man'?'verified':'ready');
     assert.equal(Object.keys(profile.personalityAnswers).length,15);
     assert(profile.signupConsents.assessment && profile.signupConsents.sensitivePublication);

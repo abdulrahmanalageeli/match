@@ -62,7 +62,7 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
     onChange({ ...value, [topic]: choice, clarifications });
   }
   return <section className="nf-readiness-intake" aria-label="مواقف الجاهزية واتفاق العضوية">
-    <p className="nf-readiness-intro">نتفق من البداية على مقصد الزواج، وحدود التواصل، وخطوة الأهل.</p>
+    <p className="nf-readiness-intro">حفظنا تفضيلاتك. بقي موقفان عن الخطوة التي تقدر عليها عند التعارف، ثم تراجع اتفاق العضوية.</p>
     <dl className="nf-readiness-declarations">
       <div><dt>توقيت أول خطوة رسمية</dt><dd>{formalLabel ?? 'لم يُحدّد'}</dd></div>
       <div><dt>توقيت إتمام الزواج</dt><dd>{wedding ? marriageTimelineLabels[wedding] : 'لم يُحدّد'}</dd></div>

@@ -344,6 +344,9 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await suggestions.locator(':scope > summary').click();
   assert.equal(await extracted.inputValue(), 'C');
+  const settled = page.locator('.wi-opening-result');
+  assert.equal(Number(await settled.getAttribute('data-pending')),0,'a corrected suggestion cannot remain pending after reload');
+  assert.equal(Number(await settled.getAttribute('data-matched')),0,'a corrected manual answer must not be credited to Luna');
   // An explicit batch save includes only still-pending extractions.
   snapshot.document.proposals.push(proposal, { ...proposal, fieldId:'marriage_timeline', id:'preference:marriage_timeline:self', needsClarification:true });
   snapshot.carryForwardIds.push(firstId);
@@ -356,6 +359,8 @@ try {
   await suggestions.getByRole('button',{name:'اعتماد المقترحات في مسودتي'}).click();
   await page.waitForFunction(() => !document.querySelector('.wi-hybrid-captured-review')?.open);
   assert.deepEqual(draft,{ 'personality:explore_views:self':['C'], [firstId]:['A'] });
+  assert.equal(Number(await settled.getAttribute('data-pending')),0);
+  assert.equal(Number(await settled.getAttribute('data-matched')),1,'only the one matching saved answer receives credit');
   assert.equal(calls.length,beforeBatch);
   assert.equal(await card.locator('fieldset').first().getByRole('button',{pressed:true}).count(),0);
   snapshot = {document:initialInterviewDocument(true),revision:1,coverage:{answered:0,required:expectedIds.length}};
@@ -404,6 +409,16 @@ try {
       await page.getByRole('button', {name:'إرسال الرسالة',exact:true}).click(); actions++;
     }
     await card.waitFor();
+    if (!directTrial) {
+      const receipt = page.locator('.wi-opening-result:visible');
+      assert.equal(await receipt.count(),1);
+      assert.equal(Number(await receipt.getAttribute('data-pending')),suggestionCount);
+      assert.equal(Number(await receipt.getAttribute('data-matched')),0);
+      assert.ok((await receipt.innerText()).trim());
+      if (suggestionCount === 0 || suggestionCount === 3) {
+        await page.screenshot({path:resolve(output,'opening-result-'+suggestionCount+'.png'),animations:'disabled'});
+      }
+    }
     while (await card.count()) {
       assert.ok(actions < 60, 'Every activation must make progress');
       const group = card.locator('fieldset').first();
@@ -563,6 +578,8 @@ try {
   assert.equal(await page.locator('#wi-answer').inputValue(),'');
   assert.equal(await page.locator('.wi-chat-suggestions').count(),0);
   await page.screenshot({path:resolve(output,'opening-next-step.png'), animations:'disabled'});
+  const openingReceipt = page.locator('.wi-opening-result:visible');
+  assert.equal(Number(await openingReceipt.getAttribute('data-pending')),suggestionCount);
   const insight = page.locator('.wi-opening-insights');
   await insight.locator('summary').click();
   assert.deepEqual(await insight.locator('q').allTextContents(),supported.slice(0,suggestionCount).map(p=>p.evidence[0].quote));

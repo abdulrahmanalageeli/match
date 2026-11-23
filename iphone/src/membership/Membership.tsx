@@ -3,6 +3,7 @@ import { launchEvent } from '../launchEvents';
 import {getMembershipOffer,type MembershipOffer,type MembershipPromotion} from '../billing';
 import {membershipPriceLabel,seriousnessPriceLabel,type MembershipPlan} from '../membershipPricing';
 import {Check} from '../BrandIcons';
+import {Gift} from 'lucide-react';
 import {Frame} from '../Screens';
 import {TestingTrial} from '../TestingTrial';
 import './membership.css';
@@ -30,9 +31,9 @@ const benefitExplanations:Record<string,string>={
  'ميثاق التعارف':'اتفاق بينكما على أسلوب التواصل والحدود قبل بدء الحديث. قبول طلب التعارف وحده لا يفعّل المحادثة.',
 };
 export function Membership({back,measurementOwner,initialPlan,active,demo,price,canStart,canBuy,busy,buy,restore,manage,refresh,expiry,onPolicy,priceFailed,sandboxCheckout,offerRevision,
- period,introduction,promotion,giftUntil,status,pilotEligible,startPilot,gender,trialEligible=false,currency,currentTier,loadOffer=getMembershipOffer}: {
+ period,introduction,promotion,giftUntil,memberGiftUntil,openGifts,giftAttention=0,status,pilotEligible,startPilot,gender,trialEligible=false,currency,currentTier,loadOffer=getMembershipOffer}: {
  back:Click;measurementOwner?:string;initialPlan?:MembershipPlan;active:boolean;demo:boolean;price:string|null;canStart:boolean;canBuy:boolean;busy:boolean;
- priceFailed?:boolean;sandboxCheckout?:boolean;offerRevision?:number;
+ priceFailed?:boolean;sandboxCheckout?:boolean;offerRevision?:number;memberGiftUntil?:string|null;openGifts?:Click;giftAttention?:number;
  buy:(plan?:MembershipPlan,offer?:MembershipOffer)=>void;restore:Click;manage:Click;refresh:Click;expiry:string|null;onPolicy:Click;
  period?:string;introduction?:string;promotion?:MembershipPromotion;giftUntil?:string|null;status?:'free'|'expired'|'paid'|'granted'|'trial';pilotEligible?:boolean;startPilot?:Click;
  gender?:'man'|'woman';trialEligible?:boolean;currency?:string;currentTier?:'free'|'premium'|'seriousness';loadOffer?:typeof getMembershipOffer;
@@ -51,15 +52,16 @@ export function Membership({back,measurementOwner,initialPlan,active,demo,price,
  const selectedPeriod=seriousness?seriousOffer?.period:period;
  const selectedPromo=seriousness?seriousOffer?.promotion:promotion;
  const trial=!selectedPromo&&!seriousness&&!active&&!demo&&Boolean(price)&&trialEligible;
- const gift=Boolean(giftUntil)||status==='granted';
- const end=giftUntil??expiry;
+ const gift=Boolean(giftUntil||memberGiftUntil)||status==='granted';
+ const coveredDates=[giftUntil,memberGiftUntil,expiry].filter((date):date is string=>Boolean(date));
+ const end=coveredDates.sort((a,b)=>Date.parse(b)-Date.parse(a))[0];
  const until=end?new Date(end):null;
  const offerKind=trial?'trial':'standard';
  const canMeasure=!demo&&!sandboxCheckout&&!active&&(!canBuy||Boolean(selectedPrice&&selectedPeriod));
  useEffect(()=>{if(canMeasure) launchEvent('offer_seen',offerKind,measurementOwner);},[canMeasure,offerKind,measurementOwner]);
  const leave=(choice:'left_offer'|'chose_free')=>{if(canMeasure || (choice==='chose_free' && !demo && !sandboxCheckout && !active))launchEvent(choice,offerKind,measurementOwner);back();};
  return <Frame title="عضوية وُدَين" back={()=>leave('left_offer')} className={`wd-paywall wd-paywall-${plan}`} headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
-  <p className="wd-current-membership">عضويتك الحالية <strong>{currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</strong></p>
+  <div className="wd-membership-topline"><p className="wd-current-membership">عضويتك الحالية <strong>{currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</strong></p>{openGifts&&<button type="button" className="wd-paywall-gift" onClick={openGifts}><Gift size={15}/>إهداء عضوية{giftAttention>0&&<b>{giftAttention.toLocaleString('ar-SA')}</b>}</button>}</div>
   {status==='expired'&&<p className="wd-billing-note">انتهت صلاحية عضويتك.</p>}
   {status==='trial'&&<p className="wd-billing-note">تجربتك المجانية مفعّلة.</p>}
   {pilotEligible && startPilot && <TestingTrial busy={busy} accept={startPilot}/>}
@@ -77,7 +79,7 @@ export function Membership({back,measurementOwner,initialPlan,active,demo,price,
    <div className="wd-price-row"><strong>{managing?'عضوية فعّالة':selectedPromo?'ثم '+displayPrice:displayPrice}</strong>{!managing&&<small>{selectedPeriod?' / '+selectedPeriod:' / شهريًا'}</small>}
    </div>
    {!managing&&!selectedPrice&&<p className="wd-price-context">سعر الباقة في السعودية. يظهر سعر متجرك عند الشراء.</p>}
-   {active&&<p className="wd-price-context">{gift?(status==='paid'?'منحتك من وُدَين دون رسوم. يبقى اشتراكك في Apple منفصلًا عنها.':'منحة من وُدَين دون رسوم أو تجديد تلقائي للمنحة.'):'راجع سعر التجديد وموعده في اشتراكات Apple.'}</p>}
+   {active&&<p className="wd-price-context">{memberGiftUntil?(status==='paid'?'لديك هدية عضوية. يمكنك إدارة اشتراكك القائم من Apple.':'عضويتك هدية مدفوعة، دون تجديد تلقائي للهدية.'):gift?(status==='paid'?'منحتك من وُدَين دون رسوم. يبقى اشتراكك في Apple منفصلًا عنها.':'منحة من وُدَين دون رسوم أو تجديد تلقائي للمنحة.'):'راجع سعر التجديد وموعده في اشتراكات Apple.'}</p>}
   </section>
   {active&&until&&!isNaN(until.getTime())&&<p className="wd-billing-note">عضويتك سارية حتى {until.toLocaleDateString('ar-SA',{calendar:'gregory',dateStyle:'long'})}.</p>}
   {!managing&&<p className="wd-billing-note">{selectedPromo?`بعد العرض، يتجدد الاشتراك بسعر ${selectedPrice} لكل ${selectedPeriod} عبر Apple حتى الإلغاء.`:trial?`٧ أيام مجانًا، ثم ${price} لكل ${selectedPeriod} بتجديد تلقائي عبر Apple. ألغِ قبل نهاية التجربة بـ٢٤ ساعة لتجنب الخصم.`:`${selectedPrice&&selectedPeriod?selectedPrice+' لكل '+selectedPeriod+'. ':''}تجديد تلقائي عبر Apple حتى الإلغاء.`}</p>}

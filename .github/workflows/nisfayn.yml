@@ -57,3 +57,4 @@ jobs:
           node tests/launch-console.browser.mjs
           node --experimental-strip-types tests/conduct-admin-member.browser.mjs
           node tests/release-gate.browser.mjs
+          node tests/membership-gifts.browser.mjs

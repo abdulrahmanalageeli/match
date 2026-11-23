@@ -42,7 +42,8 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void; onBlock?:()=>void;
   interestAction?: { toggle:()=>void; busy:boolean; notice:string; error:string };
 }) {
-  const {premium,upgrade}=useMembershipAccess();
+  const {premium,upgrade,gift}=useMembershipAccess();
+  const canGift=Boolean(gift&&!preview&&!person.isDemo);
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
   const [failed,setFailed]=useState(false);
   const [passportOpen,setPassportOpen]=useState(false);
@@ -109,11 +110,15 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     <header className="mp-navigation">
       <button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button>
       <span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>
-      {(interestAction||onReport)&&<div className="mp-navigation-actions">
+      {(interestAction||onReport||canGift)&&<div className="mp-navigation-actions">
         {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>
           <Heart size={17} fill={person.interested?'currentColor':'none'} aria-hidden="true"/>اهتمام
         </button>}
-        {onReport&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><div className="mp-menu-items">{onBlock && <button type="button" onClick={onBlock}>حظر العضو</button>}<button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ والحظر</button></div></details>}
+        {(onReport||canGift)&&<details className="mp-profile-menu"><summary aria-label="خيارات الملف"><MoreHorizontal size={20}/></summary><div className="mp-menu-items">
+          {canGift&&<button type="button" onClick={()=>gift?.({id:person.id,name:person.alias})}>إهداء عضوية</button>}
+          {onBlock&&<button type="button" onClick={onBlock}>حظر العضو</button>}
+          {onReport&&<button type="button" onClick={onReport}><Flag size={15}/>الإبلاغ والحظر</button>}
+        </div></details>}
       </div>}
     </header>
     {interestAction?.error?<p className="mp-interest-feedback" role="alert">{interestAction.error}</p>:interestAction?.notice?<p className="mp-interest-feedback" role="status">{interestAction.notice}</p>:null}

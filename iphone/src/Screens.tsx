@@ -117,7 +117,7 @@ export function Auth({
     const email = credentials.email.trim(), password = credentials.password;
     if (login) { submit(email, password); return; }
     if (!accepted) {
-      setAgreementError("أكّد العمر، واقبل الشروط، واطّلع على إشعار الخصوصية قبل إنشاء الحساب.");
+      setAgreementError("راجع شروط العضوية وموافقات التوافق قبل إنشاء الحساب.");
       return;
     }
     setPhonePending(true);

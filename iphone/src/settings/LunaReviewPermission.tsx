@@ -10,7 +10,7 @@ export function LunaReviewPermission({owner}:{owner:string}) {
     let live=true;
     void callRpc<SignupAgreements|null>('wudayn_registration_agreements',{command:'read'},owner).then(receipt=>{
       if(live && receipt)setSafety(receipt.safetyTextReview===true);
-      if(live && currentRegistrationReceipt(receipt))setState('ready');
+      if(live && currentRegistrationReceipt(receipt) && receipt?.transcript && !receipt.withdrawnAt)setState('ready');
     }).catch(()=>{ if(live){setState('ready');setError('تعذّر التحقق من الإذن. يمكنك طلب إيقاف الاطلاع أدناه.');} });
     return()=>{live=false;};
   },[owner]);

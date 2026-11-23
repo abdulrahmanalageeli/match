@@ -6,6 +6,8 @@ import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
 import {membershipPriceLabel,type MembershipPlan} from './membershipPricing';
 import {MembershipChangeNotice} from './membership/MembershipEntry';
+import type {GiftRecipient} from './membership/GiftMembership';
+const GiftMembership = lazy(()=>import('./membership/GiftMembership').then(m=>({default:m.GiftMembership})));
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
@@ -73,6 +75,8 @@ import {
   isIOSBilling,
   manageMembership,
   onMembershipUpdate,
+  onGiftUpdate,
+  unfinishedGifts,
   purchaseMembership,
   restoreMembership,
 } from "./billing";
@@ -112,6 +116,7 @@ type View =
   | "settings"
   | "proposal"
   | "membership"
+  | "gifting"
   | "application"
   | "discover"
   | "inbox"
@@ -267,6 +272,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
   const [requestedPlan,setRequestedPlan]=useState<MembershipPlan>();
+  const [giftRoute,setGiftRoute]=useState<{from:View;target?:GiftRecipient}>({from:'membership'});
   const active = tier !== 'free';
   const waitingForLaunch = !demo && live?.prelaunch?.locked === true;
   const memberAccess = demo || Boolean(!waitingForLaunch && live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
@@ -311,6 +317,21 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const accepted = live?.user.applicationStatus === "approved";
   const canSyncBilling = accepted || Boolean(live?.user.profileReviewPending);
   const ios = isIOSBilling();
+  const giftingAvailable=Boolean(!demo && cloudSelected && accepted && !live?.user.profileReviewPending && !paused && !waitingForLaunch);
+  const giftAttention=(live?.giftInvitations??0)+(live?.giftsReady??0);
+  function openGifts(target?:GiftRecipient) {
+    if(!giftingAvailable)return;
+    setGiftRoute({from:view,target});
+    go('gifting');
+  }
+  async function settleGift(jws:string) {
+    const owner=tokenRef.current;
+    if(!owner || owner!==token)throw Error('سجّل الدخول بالحساب الذي اشترى الهدية.');
+    const state=await request<AccountState>('/membership','POST',owner,{signedTransaction:jws});
+    if(tokenRef.current!==owner)throw Error('تغيّر الحساب.');
+    await completeMembership(jws);
+    if(tokenRef.current===owner){version.current++;setLive(state);window.dispatchEvent(new Event('wudayn:gift-settled'));}
+  }
 
   function remember(t: string | null, draftCleared = false) {
     if (tokenRef.current !== t) {
@@ -545,10 +566,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (!ios || !token || !canSyncBilling || demo) return;
     let disposed = false;
     const processing = new Set<string>();
-    const pending = new Set<string>();
-    const sync = async (jws: string) => {
+    const pending = new Map<string,boolean>();
+    const sync = async (jws: string, gift=false) => {
       if (disposed || tokenRef.current !== token || processing.has(jws)) return;
-      pending.add(jws);
+      pending.set(jws,gift);
       processing.add(jws);
       try {
         const s = await request<AccountState>("/membership", "POST", token, {
@@ -559,6 +580,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           setLive(s);
           await completeMembership(jws);
           pending.delete(jws);
+          if(gift)window.dispatchEvent(new Event('wudayn:gift-settled'));
         }
       } catch {
         /* Keep StoreKit transaction unfinished until the server can verify it. */
@@ -571,13 +593,15 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         void sync(jws);
       }),
     );
+    const giftListener = onGiftUpdate(jws=>{void sync(jws,true);}).catch(()=>null);
     const retryPending = () => {
       if (disposed || document.hidden || tokenRef.current !== token) return;
-      for (const jws of pending) void sync(jws);
+      for (const [jws,gift] of pending) void sync(jws,gift);
     };
     const resume = () => {
       if (disposed || document.hidden || tokenRef.current !== token) return;
       retryPending();
+      void unfinishedGifts().then(rows=>{for(const jws of rows)void sync(jws,true);}).catch(()=>{});
       void currentMembership().then(jws => { if (jws) void sync(jws); }).catch(() => {});
     };
     resume();
@@ -593,6 +617,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       window.removeEventListener('focus', resume);
       document.removeEventListener('visibilitychange', resume);
       void cleanup.then((handle) => handle.remove()).catch(() => {});
+      void giftListener.then(handle=>handle?.remove()).catch(()=>{});
     };
   }, [token, canSyncBilling, demo, ios]);
   useEffect(() => {
@@ -921,6 +946,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const membership = (back: () => void) => (
     <Membership
       measurementOwner={token ?? undefined}
+      openGifts={giftingAvailable?()=>openGifts():undefined}
+      giftAttention={giftAttention}
       back={back}
       active={active}
       currentTier={tier}
@@ -938,6 +965,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       })}
       period={price?.gender===live?.profile?.gender?price?.period:undefined} introduction={price?.gender===live?.profile?.gender?price?.introduction:undefined} status={live?.membership.status}
       giftUntil={live?.currentGiftUntil}
+      memberGiftUntil={live?.currentMemberGiftUntil}
       promotion={price?.gender===live?.profile?.gender?price?.promotion:undefined}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
@@ -1066,6 +1094,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   else if (waitingForLaunch && live && token && view !== "application" && live.user.applicationStatus !== "draft") {
     publicationScreen = 'prelaunch';
     screen = <RegistrationWait key={token} owner={token} subscribed={live.prelaunch?.subscribed === true} onSettings={openAccount} onRefresh={() => refresh(token,true)}/>;
+  }
+  else if(view==='gifting' && giftingAvailable && token){
+    publicationScreen='membership';
+    screen=<GiftMembership key={token} owner={token} target={giftRoute.target} attention={giftAttention}
+      back={()=>go(giftRoute.from)} settle={settleGift} refreshAccount={()=>refresh(token,true)}/>;
   }
   else if (view === "membership" && !waitingForLaunch && (active || accepted || live?.user.profileReviewPending))
     screen = membership(() => go(returnFromMembership));
@@ -1198,7 +1231,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     );
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
-    <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership}}>
+    <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership,gift:giftingAvailable?openGifts:undefined,giftAttention}}>
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource} onReview={live?.user.id && !demo ? (chapter,field)=>{setSupportField({owner:live.user.id,chapter,field});setApplicationChapter(chapter);go("application");} : undefined}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>

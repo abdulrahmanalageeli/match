@@ -8,12 +8,16 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "AppleMembership"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "offer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "giftOffer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "purchaseGift", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pendingGifts", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "current", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manage", returnType: CAPPluginReturnPromise)
     ]
+    private let giftIDs: Set<String> = ["com.blindmatch.marriage.gift.premium.30d", "com.blindmatch.marriage.gift.seriousness.30d"]
     private let prices: [String: Decimal] = [
         "com.blindmatch.marriage.monthly.seriousness.women": Decimal(string: "199.99")!,
         "com.blindmatch.marriage.monthly.seriousness": Decimal(string: "299.99")!,
@@ -30,7 +34,9 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         updates = Task { @MainActor [weak self] in
             for await result in Transaction.updates {
                 guard let self else { break }
-                if let receipt = self.receipt(result) {
+                if let gift = self.giftReceipt(result) {
+                    self.notifyListeners("giftTransaction", data: ["jws": gift], retainUntilConsumed: true)
+                } else if let receipt = self.receipt(result) {
                     self.notifyListeners("transaction", data: ["jws": receipt], retainUntilConsumed: true)
                 }
             }
@@ -199,6 +205,97 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    @MainActor private func giftReceipt(_ result: VerificationResult<Transaction>, order: UUID? = nil) -> String? {
+        guard case .verified(let transaction) = result, giftIDs.contains(transaction.productID),
+              transaction.productType == .consumable, let token = transaction.appAccountToken,
+              order == nil || token == order else { return nil }
+        UserDefaults.standard.removeObject(forKey: "giftPending." + token.uuidString)
+        let jws = result.jwsRepresentation
+        pendingDelivery[jws] = transaction
+        return jws
+    }
+
+    @MainActor private func giftProduct(_ call: CAPPluginCall) async throws -> Product {
+        guard let id = call.getString("productId"), giftIDs.contains(id),
+              let product = try await Product.products(for: [id]).first, product.type == .consumable else {
+            throw NSError(domain: "WudaynMembership", code: 5)
+        }
+        return product
+    }
+
+    @objc func giftOffer(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            do {
+                let product = try await giftProduct(call)
+                call.resolve(["productId": product.id, "price": product.displayPrice, "currency": product.priceFormatStyle.currencyCode])
+            } catch { call.reject("تعذّر تحميل سعر الهدية من App Store.", "STORE_ERROR", error) }
+        }
+    }
+
+    @objc func pendingGifts(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            var receipts: [String] = []
+            for await result in Transaction.unfinished {
+                if let jws = giftReceipt(result) { receipts.append(jws) }
+            }
+            call.resolve(["transactions": receipts])
+        }
+    }
+
+    @objc func purchaseGift(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            guard let token = call.getString("orderToken").flatMap(UUID.init(uuidString:)) else {
+                call.reject("تعذّر فتح طلب الهدية.", "ACCOUNT_REQUIRED")
+                return
+            }
+            guard !purchaseInProgress else {
+                call.reject("يجري تنفيذ عملية شراء أخرى.", "IN_PROGRESS")
+                return
+            }
+            purchaseInProgress = true
+            defer { purchaseInProgress = false }
+            do {
+                for await result in Transaction.unfinished {
+                    if let jws = giftReceipt(result, order: token) {
+                        call.resolve(["jws": jws])
+                        return
+                    }
+                }
+                if UserDefaults.standard.bool(forKey: "giftDelivered." + token.uuidString) {
+                    call.reject("تم تسجيل هذه الهدية بالفعل.", "ALREADY_DELIVERED")
+                    return
+                }
+                let pendingKey = "giftPending." + token.uuidString
+                if let pending = UserDefaults.standard.object(forKey: pendingKey) as? Date,
+                   Date().timeIntervalSince(pending) < 86400 {
+                    call.reject("بانتظار موافقة App Store على الهدية.", "PENDING")
+                    return
+                }
+                let product = try await giftProduct(call)
+                guard call.getString("price") == product.displayPrice,
+                      call.getString("currency") == product.priceFormatStyle.currencyCode else {
+                    call.reject("تغيّر سعر الهدية. راجع السعر قبل الشراء.", "OFFER_CHANGED")
+                    return
+                }
+                switch try await product.purchase(options: [.appAccountToken(token)]) {
+                case .success(let result):
+                    guard let jws = giftReceipt(result, order: token) else {
+                        call.reject("تعذّر التحقق من عملية الشراء.", "UNVERIFIED")
+                        return
+                    }
+                    call.resolve(["jws": jws])
+                case .pending:
+                    UserDefaults.standard.set(Date(), forKey: pendingKey)
+                    call.reject("بانتظار موافقة App Store على الهدية.", "PENDING")
+                case .userCancelled:
+                    call.reject("ألغيت عملية الشراء.", "CANCELLED")
+                @unknown default:
+                    call.reject("تعذّر إكمال عملية الشراء.", "STORE_ERROR")
+                }
+            } catch { call.reject("تعذّر إتمام شراء الهدية من App Store.", "STORE_ERROR", error) }
+        }
+    }
+
     @objc func current(_ call: CAPPluginCall) {
         Task { @MainActor in
             if let jws = await activeReceipt() {
@@ -233,6 +330,9 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             // The web client calls this only after server verification and delivery.
             // StoreKit replays unfinished transactions if the network or app exits first.
             if let transaction = pendingDelivery.removeValue(forKey: jws) {
+                if giftIDs.contains(transaction.productID), let token = transaction.appAccountToken {
+                    UserDefaults.standard.set(true, forKey: "giftDelivered." + token.uuidString)
+                }
                 await transaction.finish()
             }
             call.resolve()

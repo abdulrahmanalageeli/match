@@ -62,7 +62,7 @@ export type Proposal = {
 };
 
 export type MembershipReceiptData = {
-  id:string; source:'staff'|'scheduled'|'manual'|'apple'; tier:'premium'|'seriousness';
+  id:string; source:'staff'|'scheduled'|'manual'|'apple'|'member'; tier:'premium'|'seriousness';
   kind:'grant'|'extend'|'end'|'apple'; promotion?:boolean; appleTrial?:boolean; startsAt:string; endsAt:string;
 };
 
@@ -83,6 +83,9 @@ export type AccountState = {
   };
   profile: Profile | null;
   currentGiftUntil?:string|null;
+  currentMemberGiftUntil?:string|null;
+  giftInvitations?:number;
+  giftsReady?:number;
   membershipNotice?:MembershipReceiptData|null;
   membershipTesting?: {selected:'actual'|'free'|'premium'|'seriousness'};
   membership: { tier?:"free"|"premium"|"seriousness"; connectionLimit?:number; status?:'free'|'expired'|'trial'|'paid'|'granted'; active: boolean; expiresAt: string | null; canStart: boolean };

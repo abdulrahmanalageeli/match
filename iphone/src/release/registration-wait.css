@@ -1,0 +1,75 @@
+.wd-wait {
+  --wait-paper: #faf7f2;
+  --wait-ink: #37252a;
+  --wait-wine: var(--accent-fill, #54152a);
+  color: var(--wait-ink);
+  background: var(--wait-paper);
+  font-family: var(--font-ui);
+  min-block-size: 100vh;
+  min-block-size: 100svh;
+  padding: calc(17px + var(--nf-safe-top, 0px)) max(22px, env(safe-area-inset-right))
+    calc(24px + var(--nf-safe-bottom, 0px)) max(22px, env(safe-area-inset-left));
+}
+.wd-wait-inner { max-inline-size: 28rem; margin-inline: auto; }
+.wd-wait-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block-end: 15px; border-block-end: 1px solid #e3d9d4; }
+.wd-wait-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--wait-wine); }
+.wd-wait-brand img { object-fit: contain; }
+.wd-wait-brand .wudayn-wordmark-ar { font-size: 25px; line-height: 1.26; }
+.wd-wait-brand .wudayn-wordmark-en { font-size: 7px; }
+.wd-wait button { font-family: inherit; cursor: pointer; }
+.wd-wait-settings { border: 0; padding: 0; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; color: #5c4b4f; background: transparent; font-size: .84rem; }
+.wd-wait-intro { padding-block: clamp(24px, 4svh, 44px) 23px; }
+.wd-wait-receipt { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: #4b6854; font-size: .85rem; font-weight: 700; }
+.wd-wait-intro h1 { margin: 0; color: var(--wait-ink); font-family: "IBM Plex Sans Arabic", var(--font-ui); font-size: clamp(2rem, 9.1vw, 2.9rem); font-weight: 600; line-height: 1.35; letter-spacing: normal; }
+.wd-wait-intro h1 span { color: #916278; }
+.wd-wait-description { max-inline-size: 26em; margin: 8px 0 0; color: #68585c; font-size: 1rem; line-height: 1.65; }
+.wd-wait-gallery { min-inline-size: 0; }
+.wd-wait-exhibit {
+  margin: 0;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff8ef;
+  border-radius: 20px;
+  background: linear-gradient(124deg, #381321 0%, #5d243a 61%, #804755 100%);
+}
+.wd-wait-exhibit figcaption { padding: 19px 21px 0; }
+.wd-wait-folio { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: #ffe6d9; font-size: .78rem; font-weight: 700; }
+.wd-wait-folio-note { color: #ead5d5; font-weight: 400; font-size: .73rem; }
+.wd-wait-exhibit h2 { margin: 7px 0 0; color: #fff8ef; font-family: "IBM Plex Sans Arabic", var(--font-ui); font-size: clamp(1.45rem, 6vw, 1.85rem); line-height: 1.45; font-weight: 500; }
+.wd-wait-window { height: clamp(170px, 61svh - 235px, 290px); position: relative; margin-block-start: 9px; overflow: hidden; }
+.wd-wait-print {
+  position: absolute; inset-inline: 0; inset-block-start: 14px; width: 85%; margin-inline: auto;
+  border: 1px solid rgb(255 247 236 / .8); border-radius: 16px 16px 0 0; padding: 4px 4px 0;
+  overflow: hidden; background: #e5d3ca; box-shadow: -4px 16px 27px rgb(30 6 19 / .38);
+  transform: rotate(-3.5deg); transform-origin: 50% 12%;
+}
+.wd-wait-print img { display: block; inline-size: 100%; block-size: auto; border-radius: 12px 12px 0 0; }
+.wd-wait-window[data-preview="compatibility"] .wd-wait-print img { margin-block-start: -38%; }
+.wd-wait-window[data-preview="journey"] .wd-wait-print img { margin-block-start: -42%; }
+.wd-wait-switcher { display: grid; grid-template-columns: repeat(3, 1fr); border-block-end: 1px solid #ded4cf; }
+.wd-wait-switcher button { position: relative; min-height: 47px; padding: 8px 4px 6px; border: 0; border-radius: 0; background: transparent; color: #76676a; font-size: .92rem; }
+.wd-wait-switcher button[aria-pressed="true"] { color: var(--wait-wine); font-weight: 700; }
+.wd-wait-switcher button[aria-pressed="true"]::after { content: ""; position: absolute; bottom: -1px; inset-inline: 21%; block-size: 2px; background: currentColor; }
+.wd-wait-actions { display: grid; justify-items: stretch; margin-block-start: clamp(22px, 4svh, 35px); }
+.wd-wait-cta, .wd-wait-success { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; border: none; border-radius: 13px; font-weight: 700; font-size: 1rem; }
+.wd-wait-cta { background: var(--wait-wine); color: white; }
+.wd-wait-cta svg { stroke-width: 1.6; }
+.wd-wait-alert-note { justify-self: center; margin-block-start: 7px; font-size: .78rem; color: #75646a; }
+.wd-wait-success { margin: 0; color: #354f40; background: #e5ece2; }
+.wd-wait-cancel { justify-self: center; padding-inline: 12px; min-height: 44px; border: 0; background: transparent; color: #68585c; font-size: .85rem; }
+.wd-wait-error { margin: 8px 0 0; color: var(--wait-wine); line-height: 1.6; font-size: .87rem; }
+.wd-wait button:focus-visible { outline: 2px solid var(--wait-wine); outline-offset: 2px; }
+.wd-wait button:disabled { opacity: .65; cursor: wait; }
+@media (min-width: 800px) {
+  .phone-app:has(.wd-wait) { max-width: none; box-shadow: none; }
+  .wd-wait { padding-inline: 32px; }
+  .wd-wait-inner { max-inline-size: 51rem; display: grid; grid-template-columns: minmax(0, .94fr) minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: 0 clamp(32px, 5vw, 65px); }
+  .wd-wait-mast { grid-column: 1/-1; margin-block-end: clamp(30px, 8vh, 85px); }
+  .wd-wait-intro { align-self: end; padding-block: 22px 0; }
+  .wd-wait-gallery { grid-column: 2; grid-row: 2 / 4; align-self: center; }
+  .wd-wait-actions { grid-row: 3; align-self: start; padding-block-end: 20px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .wd-wait-print { animation: wd-wait-turn .24s ease-out; }
+}
+@keyframes wd-wait-turn { from { opacity: .72; translate: 0 7px; } }

@@ -1,0 +1,62 @@
+.flow-frame.wd-gift-page { background:#f7f4ef; color:#352732; min-height:100dvh }
+.wd-gift-page .flow-header { background:#f7f4ef; border-color:#e5dcd6; color:#492c3b }
+.wd-gift-page .flow-body { width:min(100%, 38rem); box-sizing:border-box; margin-inline:auto; padding:18px clamp(16px,5vw,28px) max(30px,env(safe-area-inset-bottom)) }
+.wd-gift-nav { display:flex; align-items:center; gap:22px; border-bottom:1px solid #dfd6d0; margin-bottom:20px }
+.wd-gift-nav button { display:flex; align-items:center; gap:6px; min-height:40px; font:inherit; font-size:.86rem; font-weight:600; color:#77656a; background:none; border:0; border-bottom:2px solid transparent; padding:0 1px }
+.wd-gift-nav button[aria-pressed=true] { color:#5b1733; border-color:currentColor }
+.wd-gift-nav b { border-radius:1em; background:#ede1de; padding:1px 6px; font-size:.7rem }
+.wd-gift-paper { --paper:#662840; --shade:#361324; position:relative; isolation:isolate; padding:20px 24px 26px; overflow:hidden; background:linear-gradient(120deg,var(--shade),var(--paper)); color:#fff3e4; border-radius:14px 14px 23px 14px; box-shadow:0 8px 17px -11px #32152287; margin-bottom:22px }
+.wd-gift-paper[data-tier=seriousness] { --paper:#2e5554; --shade:#122f31 }
+.wd-gift-paper::before { content:''; position:absolute; z-index:-1; width:60%; height:230%; inset:auto auto -130% -13%; transform:rotate(37deg); background:linear-gradient(93deg,#ffffff0d,transparent 65%); border-inline-end:1px solid #ffe9cb44; box-shadow:4px -2px 8px #18081535 }
+.wd-gift-paper::after { content:''; position:absolute; z-index:-1; width:43%; height:185%; inset:auto auto -100% -22%; transform:rotate(-44deg); background:linear-gradient(100deg,#ffffff0e,#ffffff03); border-block-start:1px solid #ffe9cb38; box-shadow:1px -3px 8px #160d191c }
+.wd-gift-stationery { display:flex; align-items:center; justify-content:space-between; color:#f2dfcb }
+.wd-gift-stationery .wudayn-wordmark { color:inherit; font-size:1rem }
+.wd-gift-stationery .wudayn-wordmark-ar { font-size:1.35rem }
+.wd-gift-stationery .wudayn-wordmark-en { font-size:.42rem; color:inherit }
+.wd-gift-stationery>span:last-child { font-size:.73rem }
+.wd-gift-inscription { padding-inline-end:62px; margin-top:26px }
+.wd-gift-inscription h1 { font-size:clamp(1.55rem,6.4vw,2.1rem); line-height:1.4; margin:0; color:#fff3e4; font-weight:650 }
+.wd-gift-inscription p { color:#efdad0; margin:4px 0 0; font-size:.85rem }
+.wd-gift-seal { position:absolute; left:20px; bottom:13px; width:clamp(49px,15vw,70px); height:auto; filter:drop-shadow(0 5px 4px #180b184d) }
+.wd-gift-form fieldset { margin:0 0 15px; padding:0 0 14px; min-width:0; border:0; border-bottom:1px solid #e1d8d1 }
+.wd-gift-form legend,.wd-gift-history h2 { margin:0 0 9px; padding:0; color:#3a2932; font-size:1rem; font-weight:700 }
+.wd-gift-plans { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px }
+.wd-gift-plans button { display:flex; align-items:center; gap:7px; padding:10px; min-height:49px; text-align:start; color:#5d4952; border-radius:10px; background:#fffcf8; border:1px solid #e9e0da; font:inherit; font-size:.85rem }
+.wd-gift-plans button[aria-pressed=true] { border-color:#a8848f; background:#f3e8e8; color:#5a1d34 }
+.wd-gift-plans button:last-child[aria-pressed=true] { border-color:#839e97; background:#e8efea; color:#244946 }
+.wd-gift-plans button>svg { margin-inline-start:auto; flex:none }
+.wd-gift-plans img { width:28px; height:31px; object-fit:contain }
+.wd-gift-plans small { display:block; font-size:.72rem }
+.wd-gift-page .wd-gift-benefit,.wd-gift-page .wd-gift-detail { font-size:.8rem; line-height:1.7; color:#6b5961; margin:7px 0 0 }
+.wd-gift-method { display:flex; gap:5px; align-items:center; margin-bottom:8px }
+.wd-gift-method button { font:inherit; font-size:.8rem; padding:6px 12px; min-height:35px; color:#705d64; border:0; border-radius:7px; background:transparent }
+.wd-gift-method button[aria-pressed=true] { background:#eae1db; color:#492336 }
+.wd-gift-form input { box-sizing:border-box; width:100%; padding:12px 13px; border:1px solid #d6c8c1; border-radius:9px; background:#fffdfa; color:#39252f; font:inherit; font-size:1rem; text-align:start }
+.wd-gift-form input::placeholder { color:#86797a; font-size:.87rem }
+.wd-gift-target { display:flex; align-items:center; gap:9px; padding:11px 14px; background:#fffaf4; border-radius:10px; margin:0 }
+.wd-gift-page button { cursor:pointer }.wd-gift-page button:disabled { opacity:.59; cursor:default }
+.wd-gift-page :is(button,input):focus-visible { outline:2px solid #96536b; outline-offset:2px }
+.wd-gift-page .wd-gift-cta { display:flex; justify-content:center; gap:10px; align-items:center; margin-top:12px; width:100%; min-height:48px; border:0; border-radius:12px; background:#552036; color:#fff7ef; font:inherit; font-weight:600 }
+.wd-gift-history-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:19px }
+.wd-gift-history-heading h1 { font-size:1.55rem; margin:0 }
+.wd-gift-history-heading button,.wd-gift-empty>svg { background:#ece4dd; color:#674355; border:0; padding:8px; box-sizing:content-box; border-radius:50% }
+.wd-gift-history h2 { margin:18px 0 6px }
+.wd-gift-empty { text-align:center; padding:24px 0 }
+.wd-gift-record { display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid #e1d8d1 }
+.wd-gift-record>img { width:34px; height:38px; object-fit:contain }
+.wd-gift-record[data-state=ready] { display:grid; grid-template-columns:48px minmax(0,1fr); gap:15px; margin:10px 0; padding:20px; background:#472032; border:0; border-radius:14px; color:#fff2e9 }
+.wd-gift-record[data-state=ready][data-tier=seriousness] { background:#1f4242 }
+.wd-gift-record[data-state=ready] img { width:47px; height:52px; filter:drop-shadow(0 2px 2px #16091e4d) }
+.wd-gift-record[data-state=ready] :is(h3,p,small) { color:inherit }
+.wd-gift-record[data-state=ready] .wd-gift-payment { display:block; width:100%; margin-top:13px; background:#faf1e7; color:#412638; font-weight:600 }
+.wd-gift-record[data-state=ready] .wd-gift-text { color:#f2dfca }
+.wd-gift-record h3,.wd-gift-record p,.wd-gift-empty p { margin:0 0 5px; line-height:1.65 }
+.wd-gift-record h3 { font-size:1rem }.wd-gift-record p,.wd-gift-empty p,.wd-gift-history>p { color:#6c5863; font-size:.86rem }
+.wd-gift-record small { display:block; color:#6c5863; font-size:.8rem }
+.wd-gift-row-actions { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 0 }
+.wd-gift-row-actions button,.wd-gift-payment { border:0; border-radius:7px; background:#542036; color:#fff4eb; font:inherit; font-size:.82rem; padding:8px 16px; min-height:38px }
+.wd-gift-row-actions button+button { color:#604450; background:#eae0db }
+.wd-gift-page .wd-gift-text { border:0; border-radius:3px; padding:4px 0; background:none; color:#661f3b; font:inherit; text-decoration:underline; text-underline-offset:3px }
+.wd-gift-feedback,.wd-gift-error { line-height:1.75; margin:14px 0; padding:10px 12px; border-radius:8px; color:#245346; background:#e5eee6; font-size:.83rem }
+.wd-gift-feedback { display:flex; align-items:center; gap:7px }.wd-gift-feedback>svg { flex:none }
+.wd-gift-error { color:#782640; background:#f4e3e6 }

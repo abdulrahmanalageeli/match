@@ -118,8 +118,12 @@ async function register(browser, gender) {
     await page.goto(server.resolvedUrls.local[0]+'__registration',{waitUntil:'domcontentloaded',timeout:60000});
     await page.locator('input[name=email]').fill(gender+'@example.test');
     await page.locator('input[name=password]').fill('synthetic-password-only');
+    await page.locator('.wd-entry-optional > summary').click();
     for (const consent of await page.getByRole('checkbox').all()) await consent.check();
-    if(gender==='woman')await page.getByRole('checkbox',{name:/أختار إظهار تفاصيل ملفي الحساسة/}).uncheck();
+    if(gender==='woman') {
+      await page.getByRole('checkbox',{name:/إظهار تفاصيلي الحساسة/}).uncheck();
+      await page.getByRole('checkbox',{name:/مراجعة حواري مع لونا/}).uncheck();
+    }
     await button('تأكيد الجوال وإنشاء الحساب').click();
     await chapter('identity');
     await page.getByLabel('الاسم الأول',{exact:true}).fill(person);

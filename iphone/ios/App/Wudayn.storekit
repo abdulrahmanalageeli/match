@@ -3,7 +3,48 @@
     "major": 3,
     "minor": 0
   },
-  "products": [],
+  "products": [
+    {
+      "displayPrice": "99.99",
+      "familyShareable": false,
+      "internalID": "7d865ed6-8d92-4166-8b23-a9696c8a3608",
+      "localizations": [
+        {
+          "description": "إهداء عضوية لمدة ٣٠ يومًا",
+          "displayName": "هدية العضوية المميزة",
+          "locale": "ar_SA"
+        },
+        {
+          "description": "A one-time 30-day membership gift",
+          "displayName": "Premium gift",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.blindmatch.marriage.gift.premium.30d",
+      "referenceName": "هدية العضوية المميزة",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "199.99",
+      "familyShareable": false,
+      "internalID": "89736da6-2212-4fe4-953d-6d9037a38e4e",
+      "localizations": [
+        {
+          "description": "إهداء عضوية لمدة ٣٠ يومًا",
+          "displayName": "هدية وسام الجدية",
+          "locale": "ar_SA"
+        },
+        {
+          "description": "A one-time 30-day membership gift",
+          "displayName": "Seriousness gift",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.blindmatch.marriage.gift.seriousness.30d",
+      "referenceName": "هدية وسام الجدية",
+      "type": "Consumable"
+    }
+  ],
   "settings": {
     "_locale": "ar_SA",
     "_storefront": "SAU",

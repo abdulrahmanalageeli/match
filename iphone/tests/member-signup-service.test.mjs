@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memberSignupOrigin, memberSignupKind, memberSignupUnavailable, parseMemberSignup, performMemberSignup } from '../supabase/functions/_shared/member-signup.ts';
 
-const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', registrationVersion:'wudayn-entry-2026-11-23', adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true } };
+const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', registrationVersion:'wudayn-entry-2026-11-23-v2', adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true } };
 function fixture(options = {}) {
   const calls = [];
   return { calls, service: {
@@ -13,7 +13,12 @@ function fixture(options = {}) {
 
 test('member creation requires explicit current legal choices and bounded credentials; ignores forged privilege fields', () => {
   const valid = parseMemberSignup({ ...input, app_metadata: { role: 'owner', emailOwnershipVerified: true }, email_confirm: true });
-  for (const field of ['assessment','transcript','sensitiveProfile','registrationVersion']) assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,[field]:false}}));
+  for (const field of ['assessment','sensitiveProfile','registrationVersion']) assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,[field]:false}}));
+  assert.equal(parseMemberSignup({...input,consent:{...input.consent,transcript:false}}).consent.transcript,false);
+  const previous={...input.consent,registrationVersion:'wudayn-entry-2026-11-23'};
+  assert.equal(parseMemberSignup({...input,consent:previous}).consent.registrationVersion,previous.registrationVersion);
+  assert.throws(()=>parseMemberSignup({...input,consent:{...previous,transcript:false}}));
+  assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,transcript:'false'}}));
   assert.equal(valid.consent.sensitivePublication,false);
   assert.equal(valid.consent.photo,false);
   assert.equal(valid.email, 'member@example.com');

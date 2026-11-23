@@ -5,6 +5,7 @@ import { timingSafeEqual, createHash } from 'node:crypto'
 
 const bundle = 'com.blindmatch.marriage'
 const products = new Set(['com.blindmatch.marriage.monthly.seriousness.women','com.blindmatch.marriage.monthly.seriousness','com.blindmatch.marriage.monthly','com.blindmatch.marriage.monthly.men','com.blindmatch.marriage.monthly.women'])
+const giftProducts = new Set(['com.blindmatch.marriage.gift.premium.30d', 'com.blindmatch.marriage.gift.seriousness.30d'])
 let verifier: SignedDataVerifier | undefined
 
 export class HttpError extends Error {
@@ -90,11 +91,25 @@ export async function verifyAppPurchase(value:unknown){
   return {id:receipt.appTransactionId,sandbox:receipt.receiptType===Environment.SANDBOX}
 }
 
-type SubscriptionSnapshot = { signedRenewalInfo?: string; status?: number; observedAt: number; original?: string }
+type SubscriptionSnapshot = { signedRenewalInfo?: string; status?: number; observedAt: number; original?: string; notificationType?: string }
 
 export async function ingest(jws: unknown, actor: string|null, notification: boolean, snapshot?: SubscriptionSnapshot) {
   const signed=validateJws(jws)
   const receipt=await verify(()=>apple().verifyAndDecodeTransaction(signed))
+  if (receipt.productId && giftProducts.has(receipt.productId)) {
+    if (receipt.bundleId !== bundle || receipt.environment !== storeEnvironment() || receipt.type !== 'Consumable' ||
+        receipt.quantity !== 1 || !receipt.transactionId || (!notification && (!actor || !receipt.appAccountToken))) {
+      throw new HttpError(403, 'تعذّر مطابقة إيصال الهدية.')
+    }
+    const eventType = snapshot?.notificationType ?? 'TRANSACTION'
+    if (notification && !['ONE_TIME_CHARGE','REFUND','REFUND_REVERSED'].includes(eventType)) return null
+    const eventAt = notification ? snapshot?.observedAt : receipt.revocationDate ?? receipt.signedDate
+    const {data,error} = await admin().rpc('wudayn_record_gift_receipt', {
+      actor, receipt, event_type: eventType, event_at: eventAt
+    })
+    if (error) throw new HttpError(error.code === '42501' ? 403 : error.code === '22023' ? 400 : 503, 'تعذّر تسجيل شراء الهدية.')
+    return data
+  }
   const supported = typeof receipt.productId === 'string' && products.has(receipt.productId)
   if(notification && !supported)return null
   if(receipt.bundleId!==bundle || receipt.environment!==storeEnvironment() || !supported || (!notification && !receipt.appAccountToken))
@@ -123,7 +138,7 @@ export async function notification(req: Request) {
   const signed=validateJws(body.signedPayload)
   const message=await verify(()=>apple().verifyAndDecodeNotification(signed))
   if(message.data?.signedTransactionInfo) await ingest(message.data.signedTransactionInfo,null,true,{
-    signedRenewalInfo: message.data.signedRenewalInfo, status: message.data.status, observedAt: message.signedDate ?? NaN
+    notificationType: message.notificationType, signedRenewalInfo: message.data.signedRenewalInfo, status: message.data.status, observedAt: message.signedDate ?? NaN
   })
   return {ok:true}
 }

@@ -1,3 +1,8 @@
+.wd-membership-topline{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wd-paywall-gift,.wd-directory-gift{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:99px;font:inherit;cursor:pointer}
+.wd-paywall-gift{min-height:36px;padding:5px 12px;border:1px solid #dbb7c24a;color:#fff6ed;background:#ffffff0a;font-size:.82rem}
+.wd-paywall-gift b{font-size:.73rem}.phone-app .wd-directory-gift{position:relative;width:34px;height:34px;background:#f5eeeb;color:#60263d;border:1px solid #d9c6ca}
+.wd-directory-gift i{position:absolute;top:0;inset-inline-end:0;width:7px;height:7px;background:#851f4a;border:1px solid white;border-radius:50%}
 @font-face{font-family:'Lateef';src:url('/fonts/Lateef-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 .wd-member-badge{display:inline-flex;vertical-align:-.18em;align-items:center;justify-content:center;flex:0 0 19px;width:19px;height:19px;margin-inline:5px 1px;line-height:1;isolation:isolate}
 .phone-app .st-member-avatar,.phone-app .nf-person-avatar{position:relative;overflow:visible!important}

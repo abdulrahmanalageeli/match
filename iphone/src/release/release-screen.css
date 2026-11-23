@@ -72,8 +72,6 @@
 }
 .wd-release-retry { justify-self: center; padding-inline: 15px; font-size: .92rem; }
 .wd-release-error { flex-basis: 100%; margin: 0 0 7px; color: var(--accent); font-size: .88rem; }
-.wd-launch-subscribed { display:flex; gap:8px; justify-content:center; align-items:center; margin:0 0 6px; color:var(--accent); font-weight:700; }
-.wd-launch-cancel { justify-self:center; min-height:44px; padding:0 12px; background:transparent; border:0; color:var(--muted); font:inherit; font-size:.85rem; cursor:pointer; }
 .wd-release-check { text-align: center; }
 .wd-release-check p { margin: 8px 0 0; color: var(--muted); font-size: .88rem; }
 .wd-release-banner {

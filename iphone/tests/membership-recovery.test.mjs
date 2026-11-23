@@ -24,23 +24,34 @@ test('subscription changes preserve the call provider; account/access changes re
  assert.notEqual(key({}),key({token:'other'}));
  assert.notEqual(key({}),key({memberAccess:false}));
 });
-function mount(){
+function mount(initialGifts=[]){
  const events=new Map(),timers=new Set(),calls=[],finished=[],delivered=[];
- let receive,fail=true,removed=false,current='receipt',resolveRequest;
+ let receive,receiveGift,fail=true,removed=false,current='receipt',resolveRequest;
+ const signals=[];
  const tokenRef={current:'owner'};
  const document={hidden:false,addEventListener:(n,f)=>events.set(n,f),removeEventListener:n=>events.delete(n)};
- const window={...document,setInterval:f=>{timers.add(f);return f;},clearInterval:f=>timers.delete(f)};
+ const window={...document,setInterval:f=>{timers.add(f);return f;},clearInterval:f=>timers.delete(f),dispatchEvent:event=>signals.push(event.type)};
  const cleanup=vm.runInNewContext(code,{
   ios:true,token:'owner',canSyncBilling:true,accepted:true,demo:false,tokenRef,version:{current:0},document,window,
   request:async(...args)=>{calls.push(args);if(resolveRequest)return await new Promise(resolve=>{resolveRequest=resolve;});if(fail)throw Error('network');return {membership:{active:true}};},
   setLive:s=>delivered.push(s),completeMembership:async jws=>finished.push(jws),
-  currentMembership:async()=>current,
+  currentMembership:async()=>current,Event,
+  unfinishedGifts:async()=>initialGifts,
+  onGiftUpdate:async fn=>{receiveGift=fn;return {remove:async()=>{}};},
   onMembershipUpdate:async fn=>{receive=fn;return {remove:async()=>{removed=true;}};},
  });
- return {calls,finished,delivered,tokenRef,document,cleanup,events,timers,
+ return {calls,finished,delivered,tokenRef,document,cleanup,events,timers,signals,emitGift:jws=>receiveGift(jws),
   emit:jws=>receive(jws),online:()=>events.get('online')?.(),tick:()=>{for(const f of timers)f();},
   succeed:()=>{fail=false;},noCurrent:()=>{current=null;},hold:()=>{resolveRequest=true;},release:()=>resolveRequest({membership:{active:true}}),removed:()=>removed};
 }
+
+test('unfinished gifts retry on the payer account and notify the gift screen only after verified delivery',async()=>{
+ const m=mount(['gift-receipt']);await settle();assert.deepEqual(m.finished,[]);assert.deepEqual(m.signals,[]);
+ m.succeed();m.tick();await settle();assert(m.finished.includes('gift-receipt'));assert.deepEqual(m.signals,['wudayn:gift-settled']);
+ m.emitGift('gift-update');await settle();assert(m.finished.includes('gift-update'));assert.equal(m.signals.length,2);
+ m.tokenRef.current='another-member';m.emitGift('wrong-user');await settle();assert(!m.finished.includes('wrong-user'));
+ m.cleanup();
+});
 
 test('failed delivery retries on connectivity and only finishes after server delivery',async()=>{
  const m=mount();await settle();assert.equal(m.calls.length,1);assert.equal(m.finished.length,0);

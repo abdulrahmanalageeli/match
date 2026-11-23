@@ -7,11 +7,14 @@ type SignedTransaction = { jws: string };
 interface AppleMembershipPlugin {
   offer(options: { productId: string }): Promise<{ price: string; productId: string; currency:string; period:string; introduction?:string; appleEligible:boolean; signedAppTransaction:string; promotions?:MembershipPromotion[] }>;
   purchase(options: { accountToken: string; productId: string; eligibilityJws:string; price:string; currency:string; period:string; introduction?:string; promotionId?:string; promotionJws?:string; promotionTerms?:string }): Promise<SignedTransaction>;
+  giftOffer(options: {productId:string}): Promise<GiftPrice>;
+  purchaseGift(options: GiftPrice & {orderToken:string}): Promise<SignedTransaction>;
+  pendingGifts(): Promise<{transactions:string[]}>;
   restore(): Promise<SignedTransaction>;
   current(): Promise<{ jws: string | null }>;
   complete(options: SignedTransaction): Promise<void>;
   manage(): Promise<void>;
-  addListener(name: 'transaction', listener: (event: SignedTransaction) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'transaction' | 'giftTransaction', listener: (event: SignedTransaction) => void): Promise<PluginListenerHandle>;
 }
 
 const membership = registerPlugin<AppleMembershipPlugin>('AppleMembership');
@@ -59,6 +62,26 @@ export async function purchaseMembership(accountToken: string, gender?: 'man' | 
     throw error;
   }
 }
+
+export type GiftPrice = {productId:string;price:string;currency:string};
+export const giftProductId = (tier:MembershipPlan) => 'com.blindmatch.marriage.gift.' + tier + '.30d';
+
+export async function giftPrice(tier:MembershipPlan):Promise<GiftPrice> {
+  requireIOS();
+  const productId = giftProductId(tier);
+  const item = await membership.giftOffer({productId});
+  if (item.productId !== productId || !item.price || !item.currency) throw Error('تعذّر تحميل سعر الهدية.');
+  return item;
+}
+
+export async function buyGift(offer:GiftPrice, orderToken:string) {
+  requireIOS();
+  return (await membership.purchaseGift({...offer, orderToken})).jws;
+}
+
+export const unfinishedGifts = async () => (await membership.pendingGifts()).transactions;
+export const onGiftUpdate = (listener:(jws:string)=>void) =>
+  membership.addListener('giftTransaction', ({jws}) => listener(jws));
 
 export async function restoreMembership(): Promise<string> {
   requireIOS();

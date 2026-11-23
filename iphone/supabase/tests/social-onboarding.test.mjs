@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
-const consent = {version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sms:true,registrationVersion:'wudayn-entry-2026-11-23',sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true};
+const consent = {version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sms:true,registrationVersion:'wudayn-entry-2026-11-23-v2',sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:false};
 
 test('social registration requires verified phone and consent without changing existing member access', async () => {
  const db = await createDatabase();
@@ -46,7 +46,7 @@ test('social registration requires verified phone and consent without changing e
   const valid=await proof(google.email);
   await assert.rejects(rpc(apple,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent]),/تأكيد رقم الجوال/);
   await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,hash('wrong-device'),consent]),/تأكيد رقم الجوال/);
-  for(const flag of ['adult','terms','privacy','sms','transcript','assessment','sensitiveProfile']) {
+  for(const flag of ['adult','terms','privacy','sms','assessment','sensitiveProfile']) {
    await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,{...consent,[flag]:false}]),/الموافقات/);
   }
   assert.equal((await rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent])).required,false);
@@ -55,7 +55,7 @@ test('social registration requires verified phone and consent without changing e
   assert.equal((await rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent])).required,false);
   assert.equal((await db.query('select status from marriage.signup_sms_challenges where proof_hash=$1',[valid.proofHash])).rows[0].status,'used');
   const metadata=(await db.query('select raw_app_meta_data from auth.users where id=$1',[google.id])).rows[0].raw_app_meta_data;
-  assert.equal(metadata.provider,'google');assert.equal(metadata.phoneOwnershipVerified,true);assert.equal(metadata.signupConsent.privacy,true);
+  assert.equal(metadata.provider,'google');assert.equal(metadata.phoneOwnershipVerified,true);assert.equal(metadata.signupConsent.privacy,true);assert.equal(metadata.signupConsent.transcript,false);
   assert.equal((await db.query('select phone from marriage.signup_phone_verifications where user_id=$1',[google.id])).rows[0].phone,valid.phone);
   assert.equal((await db.query('select device_hash from marriage.registration_devices where user_id=$1',[google.id])).rows[0].device_hash,valid.deviceHash);
   await assert.rejects(rpc(apple,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent]),/تأكيد رقم الجوال/);

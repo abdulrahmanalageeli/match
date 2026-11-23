@@ -46,13 +46,18 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
    console.log(name, size);
    if(!await page.locator('.wd-entry-agreements').count()) assert.ok(size.page<=size.viewport+1 && size.requiredHeight<=size.viewport-15,name+' must fit above the safe area at 375×667');
    else {
-     const action=page.locator(submitSelector).first();await action.scrollIntoViewIfNeeded();
-     assert.ok(await action.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'registration action remains reachable');
+     const action=page.locator(submitSelector).first();
+     await action.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+     const position=await action.evaluate(el=>({top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom,viewport:innerHeight}));
+     assert.ok(position.top>=0&&position.bottom<=position.viewport, name+' registration action remains reachable '+JSON.stringify(position));
      await page.evaluate(()=>{window.scrollTo(0,0);document.querySelector('[data-nf-keyboard-form]')?.scrollTo(0,0);});
    }
    await page.screenshot({path:resolve(output,name+'-375.png'),animations:'disabled'});
    await page.setViewportSize({width:390,height:844});
  }
+ await page.setViewportSize({width:402,height:874});
+ await page.evaluate(()=>document.fonts.ready);
+ await page.screenshot({path:resolve(output,'registration-402.png'),animations:'disabled'});
  await measureEntry('credentials');
  await page.screenshot({path:resolve(output,'credentials-390.png'),fullPage:true});
  const create=page.getByRole('button',{name:'تأكيد الجوال وإنشاء الحساب',exact:true});
@@ -62,11 +67,12 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  assert.deepEqual(await page.evaluate(()=>window.__sms),[]);
  await page.getByRole('button',{name:'شروط الاستخدام وإشعار الخصوصية',exact:true}).click();assert.equal(await page.evaluate(()=>window.__privacy),1);
  const choices=page.getByRole('checkbox');
- for(let i=0;i<4;i++) {assert.equal(await create.isDisabled(),true);await choices.nth(i).check();}
+ assert.equal(await choices.count(),3);
+ for(let i=0;i<3;i++) {assert.equal(await create.isDisabled(),true);await choices.nth(i).check();}
  assert.equal(await create.isDisabled(),false);
  await page.screenshot({path:resolve(output,'consent-390.png'),fullPage:true});
  await create.click();await page.waitForFunction(()=>window.__submitted.length===1);
- const submitted=await page.evaluate(()=>window.__submitted[0]);assert.equal(submitted[0],'qa@example.com');assert.equal(submitted[2].adult,true);assert.equal(submitted[2].terms,true);assert.equal(submitted[2].privacy,true);assert.equal(submitted[2].transcript,true);assert.equal(submitted[2].sensitivePublication,false);assert.equal(submitted[2].photo,false);assert.ok(submitted[2].registrationVersion);assert.equal(submitted[3].phoneProof,'local-test-proof');
+ const submitted=await page.evaluate(()=>window.__submitted[0]);assert.equal(submitted[0],'qa@example.com');assert.equal(submitted[2].adult,true);assert.equal(submitted[2].terms,true);assert.equal(submitted[2].privacy,true);assert.equal(submitted[2].transcript,false);assert.equal(submitted[2].sensitivePublication,false);assert.equal(submitted[2].photo,false);assert.ok(submitted[2].registrationVersion);assert.equal(submitted[3].phoneProof,'local-test-proof');
  await page.getByRole('button',{name:'لدي حساب بالفعل',exact:true}).click();await measureEntry('login');await page.getByRole('button',{name:'تسجيل الدخول',exact:true}).click();await page.waitForFunction(()=>window.__submitted.length===2);assert.equal(await page.evaluate(()=>window.__sms.length),1,'login does not use signup phone confirmation');
  const base='http://127.0.0.1:5292/__auth-app-entry';
  await page.goto(base+'?native&login&phone');
@@ -80,7 +86,7 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  assert.equal(await apple.count(),0);await page.locator('input[type=tel]').waitFor();await measureEntry('phone');
  await page.getByRole('button',{name:'استخدام البريد الإلكتروني'}).click();await page.locator('input[name=email]').waitFor();
  assert.equal(await page.locator('h1').evaluate(el=>el===document.activeElement),true);
- await page.goto(base+'?native');await apple.waitFor();await measureEntry('native-signup','.nf-social-login button');assert.equal(await apple.isDisabled(),true);for(let i=0;i<4;i++)await page.getByRole('checkbox').nth(i).check();await apple.click();assert.deepEqual(await page.evaluate(()=>window.__social),['apple']);
+ await page.goto(base+'?native');await apple.waitFor();await measureEntry('native-signup','.nf-social-login button');assert.equal(await apple.isDisabled(),true);for(let i=0;i<3;i++)await page.getByRole('checkbox').nth(i).check();await apple.click();assert.deepEqual(await page.evaluate(()=>window.__social),['apple']);
  const brief=page.locator('.nf-auth-brief');await brief.locator('summary').click();await brief.getByText(/إذا اكتمل التحقق/).waitFor();await brief.locator('summary').click();
  await page.getByRole('button',{name:'المتابعة بالبريد الإلكتروني'}).click();
  await page.setViewportSize({width:320,height:568});
@@ -91,7 +97,11 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  await page.locator('input[name=password]').fill('local-password-12');
  await page.locator('.wd-entry-agreements').waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- await page.locator('input[type=checkbox]').last().check();
+ await page.locator('.wd-entry-optional summary').click();
+ assert.equal(await page.getByRole('checkbox').count(),7);
+ await page.getByRole('checkbox',{name:/مراجعة حواري مع لونا/}).check();
+ await page.locator('.wd-entry-optional summary').click();
+ assert.equal(await page.getByRole('checkbox').count(),3);
  await create.scrollIntoViewIfNeeded();
  assert.ok(await create.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'large-type consent remains reachable');
  const pendingSizes=[];

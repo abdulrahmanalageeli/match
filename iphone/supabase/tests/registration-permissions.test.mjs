@@ -19,7 +19,7 @@ test('registration permissions cover private matching, case access, withdrawal a
     try{return (await db.query('select '+sql+' as result',args)).rows[0].result;}
     finally{await db.exec('reset role');}
   }
-  const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23',adult:true,terms:true,privacy:true,
+  const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v2',adult:true,terms:true,privacy:true,
     sensitiveProfile:true,sensitivePublication:false,assessment:true,transcript:true,photo:false};
   const accept=(r=receipt)=>run(member,'public.wudayn_registration_agreements($1,$2)',['accept',r]);
   const read=(actor=reviewer,purpose='مراجعة توضيح طلب العضوية',aal='aal2')=>run(actor,'public.wudayn_review_interview_transcript($1,$2)',[member.id,purpose],aal);
@@ -27,7 +27,12 @@ test('registration permissions cover private matching, case access, withdrawal a
   const start=()=>db.query("insert into marriage.interview_sessions(owner_key,member_id,document,consent_version) values($1,$2,$3,'wudayn-interview-v1')",['member:'+member.id,member.id,doc]);
   const erase=()=>db.query('delete from marriage.interview_sessions where member_id=$1',[member.id]);
   await start();
-  await assert.rejects(accept({...receipt,transcript:false}));
+  const privateReceipt = await accept({...receipt,transcript:false});
+  assert.equal(privateReceipt.transcript,false);
+  await erase();await start();
+  assert.equal(await read(),null,'private sessions cannot be opened by a reviewer');
+  assert.equal(await run(member,'marriage.luna_help_session()'),null);
+  assert.equal((await db.query('select review_entry_version from marriage.interview_sessions where member_id=$1',[member.id])).rows[0].review_entry_version,null);
   assert.equal((await accept()).sensitivePublication,false);
   assert.equal(await read(),null,'old sessions stay private after a new receipt');
   await erase();await start();
@@ -50,6 +55,8 @@ test('registration permissions cover private matching, case access, withdrawal a
   assert(!JSON.stringify(audits.rows).includes(doc.turns[0].answer));
   await run(member,'public.wudayn_registration_agreements($1)',['withdraw']);
   assert.equal(await read(),null);
+  const stillRegistered = (await db.query("select marriage.current_entry_receipt(raw_app_meta_data->'signupConsent') as accepted from auth.users where id=$1",[member.id])).rows[0];
+  assert.equal(stillRegistered.accepted,true,'withdrawal revokes transcript access without invalidating registration');
   await accept();assert.equal(await read(),null,'explicit new consent does not re-expose withdrawn conversations');
   await erase();await start();
   await db.query("update marriage.interview_sessions set expires_at=now()-interval '1 second' where member_id=$1",[member.id]);

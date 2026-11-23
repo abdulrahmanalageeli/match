@@ -1,6 +1,6 @@
 import {createContext,useContext} from 'react';
 import type {MembershipPlan} from '../membershipPricing';
-export const MembershipAccess = createContext<{premium:boolean;demo?:boolean;tier?:'free'|'premium'|'seriousness';connectionLimit?:number;upgrade:(plan?:MembershipPlan)=>void}>({premium:false,upgrade:()=>{}});
+export const MembershipAccess = createContext<{premium:boolean;demo?:boolean;tier?:'free'|'premium'|'seriousness';connectionLimit?:number;upgrade:(plan?:MembershipPlan)=>void;gift?:(target?:{id:string;name:string})=>void;giftAttention?:number}>({premium:false,upgrade:()=>{}});
 export const useMembershipAccess=()=>useContext(MembershipAccess);
 
 export function MembershipPrompt({detail='بادر بطلب تعارف، واكتشف تفاصيل التوافق مع العضوية المميزة.'}:{detail?:string}) {

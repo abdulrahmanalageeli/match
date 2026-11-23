@@ -5,18 +5,19 @@ import {useMembershipAccess} from './access';
 import {MembershipReceipt} from './MembershipReceipt';
 import type {MembershipReceiptData} from '../types';
 import {MembershipMark} from './MemberBadge';
+import {Gift} from 'lucide-react';
 
 /** One route to the existing subscription screen, driven by current entitlements. */
 export function MembershipEntry(){
- const {tier,premium,upgrade}=useMembershipAccess();
+ const {tier,premium,upgrade,gift,giftAttention=0}=useMembershipAccess();
  const current=tier??(premium?'premium':'free');
  const serious=current==='seriousness';
- return <button type="button" className="wd-membership-entry" data-tier={current} onClick={()=>upgrade(current==='premium'?'seriousness':undefined)}
+ return <><button type="button" className="wd-membership-entry" data-tier={current} onClick={()=>upgrade(current==='premium'?'seriousness':undefined)}
   aria-label={`${serious?'وسام الجدية':current==='premium'?'عضويتك المميزة':'عضويتك المجانية'} · ${serious?'إدارة العضوية':'اكتشاف الاشتراكات وترقية العضوية'}`}>
    {current!=='free'&&<span className="wd-entry-insignia"><MembershipMark serious={serious}/></span>}
   <span className="wd-entry-copy"><strong>{serious?'وسام الجدية':current==='premium'?'العضوية المميزة':'المجانية · ترقية'}</strong></span>
   <ChevronLeft size={13}/>
- </button>;
+ </button>{gift&&<button type="button" className="wd-directory-gift" aria-label={giftAttention?`هدايا العضوية · ${giftAttention} بانتظارك`:"إهداء عضوية"} onClick={()=>gift()}><Gift size={16}/>{giftAttention>0&&<i aria-hidden="true"/>}</button>}</>;
 }
 
 type Tier = 'free' | MembershipPlan;

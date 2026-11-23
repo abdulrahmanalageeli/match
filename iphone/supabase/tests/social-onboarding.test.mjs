@@ -52,7 +52,11 @@ test('social registration requires verified phone and consent without changing e
   for (const flag of ['transcript','photo','sensitivePublication','safetyTextReview']) {
     await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,{...consent,[flag]:true}]),/الموافقات/);
   }
-  await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,{...consent,registrationVersion:'wudayn-entry-2026-11-23-v2'}]),/الموافقات/);
+  const originalForm={version:consent.version,adult:true,terms:true,privacy:true,sms:true};
+  for(const olderForm of [originalForm,...['wudayn-entry-2026-11-23','wudayn-entry-2026-11-23-v2'].map(registrationVersion=>({...consent,registrationVersion}))]) {
+    await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,olderForm]),{code:'42501',message:/إصدار أحدث/});
+  }
+  assert.equal((await db.query('select status from marriage.signup_sms_challenges where proof_hash=$1',[valid.proofHash])).rows[0].status,'verified');
   const forged={...consent,membershipTermsVersion:'unknown',recordedAt:'1900-01-01',transcriptRecordedAt:'1900-01-01'};
   assert.equal((await rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,forged])).required,false);
   assert.equal((await rpc(google,'marriage_social_onboarding_status')).required,false);

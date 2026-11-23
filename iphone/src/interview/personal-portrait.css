@@ -1,29 +1,12 @@
-/* Luna uses one answer list while filling the draft, reviewing and reading the saved summary. */
-.wi-summary-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; margin-block-end: 4px; }
-.wi-summary-heading .wi-link { min-height: 44px; padding-inline: 2px; font-size: .8125rem; }
-.wi-dialog .wi-summary-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--journey-berry, #63233d);
-  font-size: .9375rem;
-  font-weight: 600;
-  line-height: 1.55;
-}
-.wi-summary-topics {
+/* The questionnaire and its receipt share a single expandable, editable list. */
+.wi-all-answers, .wi-summary-topics {
   padding-inline: 14px;
   border: 1px solid var(--journey-rule, #e6dce1);
   border-radius: 14px;
   background: #fff;
   text-align: start;
 }
-.wi-summary-topic + .wi-summary-topic,
-.wi-summary-fields,
-.wi-summary-answer + .wi-summary-answer {
-  border-block-start: 1px solid var(--journey-rule, #e6dce1);
-}
-.wi-summary-topic > summary, .wi-summary-answer {
+.wi-all-answers > summary, .wi-summary-answer {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -33,7 +16,11 @@
   list-style: none;
   color: var(--hybrid-ink, #432f3a);
 }
-.wi-summary-topic > summary { cursor: pointer; }
+.wi-all-answers > summary { cursor: pointer; }
+.wi-all-answers > summary strong { display: inline-flex; align-items: center; gap: 7px; }
+.wi-all-answers > summary small { color: #705b65; font-size: .8125rem; line-height: 1.55; }
+.wi-review-details { min-height: 44px; }
+.wi-summary-fields, .wi-summary-answer + .wi-summary-answer { border-block-start: 1px solid var(--journey-rule, #e6dce1); }
 .wi-proposal-topics > .wi-review-group { margin: 0; }
 .wi-proposal-topics > .wi-review-group > summary,
 .wi-proposal-topics > .wi-review-group > .wi-review-rows {
@@ -44,27 +31,27 @@
 }
 .wi-dialog .wi-review[data-saved-details]::before { content: none; }
 .wi-review[data-saved-details] > .wi-button { margin-block-start: 16px; }
-.wi-summary-topic > summary::-webkit-details-marker { display: none; }
-.wi-summary-topic > summary > span, .wi-summary-answer > span {
+.wi-all-answers > summary::-webkit-details-marker { display: none; }
+.wi-all-answers > summary > span, .wi-summary-answer > span {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
-.wi-summary-topic .wi-summary-caption, .wi-dialog .wi-summary-answer small, .wi-dialog .wi-summary-status {
+.wi-dialog .wi-summary-answer small {
   color: #705b65;
   font-size: .8125rem;
   font-weight: 500;
   line-height: 1.55;
 }
-.wi-summary-topic > summary strong, .wi-summary-answer strong {
+.wi-all-answers > summary strong, .wi-summary-answer strong {
   color: var(--hybrid-ink, #432f3a);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.wi-summary-topic > summary svg, .wi-summary-answer > svg { flex: none; color: var(--journey-berry, #63233d); }
-.wi-summary-topic[open] > summary > svg { transform: rotate(180deg); }
+.wi-all-answers > summary svg, .wi-summary-answer > svg { flex: none; color: var(--journey-berry, #63233d); }
+.wi-all-answers[open] > summary > svg { transform: rotate(180deg); }
 .wi-summary-fields { padding-inline-start: 10px; }
 .wi-summary-notes:not(:empty) {
   margin-block-start: 12px;
@@ -86,7 +73,6 @@
   background: transparent;
 }
 .wi-summary-notes > details > summary::-webkit-details-marker { display: none; }
-.wi-summary-status { margin-inline-start: auto; }
 .wi-summary-answer { position: relative; }
 .wi-summary-answer select {
   position: absolute;
@@ -97,12 +83,12 @@
   cursor: pointer;
   font-size: 1rem;
 }
-.wi-summary-answer:focus-within, .wi-summary-topic > summary:focus-visible {
+.wi-summary-answer:focus-within, .wi-all-answers > summary:focus-visible {
   outline: 2px solid var(--journey-berry, #63233d);
   outline-offset: 1px;
   border-radius: 5px;
 }
-.wi-summary-answer:has(select:active), .wi-summary-topic > summary:active { background: #f7f2f4; }
+.wi-summary-answer:has(select:active), .wi-all-answers > summary:active { background: #f7f2f4; }
 .wi-dialog .wi-complete { text-align: start; }
 .wi-dialog .wi-complete > h1 {
   display: flex; align-items: center; gap: 9px;
@@ -113,10 +99,10 @@
 .wi-dialog .wi-complete > .wi-luna-steps { margin: 0 0 18px; }
 .wi-confirmed-answers { margin: 0 0 12px; }
 .wi-dialog .wi-complete > .wi-button { margin-top: 0; }
-.wi-dialog .wi-complete:has(.wi-summary-heading) > .wi-lead { margin-bottom: 4px; }
+.wi-dialog .wi-complete:has(.wi-all-answers) > .wi-lead { margin-bottom: 4px; }
 .wi-complete > .wi-link { min-height: 44px; }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion=reduced]) .wi-summary-topic > summary svg { transition: transform 160ms ease-out; }
+  html:not([data-nf-motion=reduced]) .wi-all-answers > summary svg { transition: transform 160ms ease-out; }
 }
 .wi-receipt-revision {
   display: flex;

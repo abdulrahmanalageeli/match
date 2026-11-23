@@ -7,12 +7,16 @@ import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
 import * as parenting from '../src/compatibility/parenting.mjs';
+import * as nextStepHelpers from '../src/interview/privateNextStep.ts';
+import * as refinements from '../src/interview/nextRefinement.mjs';
+import refinementPrompts from '../src/interview/refinement-prompts.json' with { type: 'json' };
 import * as openingEvidence from '../src/interview/openingEvidence.ts';
 import openingScenarios from '../src/interview/opening-scenarios.json' with { type: 'json' };
 import openingPrompts from '../src/interview/opening-prompts.json' with { type: 'json' };
 
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const code = compile(await readFile(new URL('../src/interview/InterviewPanel.tsx', import.meta.url), 'utf8'));
+const memoryCode = compile(await readFile(new URL('../src/interview/PrivateMemory.tsx', import.meta.url), 'utf8'));
 const profileHelpers = {};
 vm.runInNewContext(compile(await readFile(new URL('../src/interview/profileCapture.ts', import.meta.url), 'utf8')), {exports:profileHelpers,require:name=>name==='./profile-catalog.json'?{default:profileCatalog}: {validMarriageBasicsDraft:()=>true,validPartnerCriteriaDraft:()=>true}});
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -31,6 +35,7 @@ function mount(initial, intercept = () => null) {
   let props = { open: true, auth: { token: 'member-1' }, onApply: value => applied.push(clone(value)), onProfileApply:value=>profileApplied.push(clone(value)), onClose: () => { closed++; props = { ...props, open: false }; } };
   const memo = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value,i) => value !== old.deps[i])) hooks[at] = { value: fn(), deps }; return hooks[at].value; };
   const react = {
+    useId: () => `wi-test-${cursor++}`,
     useCallback: (fn,deps) => memo(() => fn,deps),
     useRef: value => { const at = cursor++; return hooks[at] ??= { current: value }; },
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
@@ -74,7 +79,15 @@ function mount(initial, intercept = () => null) {
     };
     if (name === './catalog.json') return { default: topics };
     if (name === './opening-scenarios.json') return { default: openingScenarios };
+    if (name === './privateNextStep') return nextStepHelpers;
     if (name === './opening-prompts.json') return { default: openingPrompts };
+    if (name === './PrivateMemory') {
+      const exports = {};
+      vm.runInNewContext(memoryCode,{exports,require});
+      return exports;
+    }
+    if (name === './refinement-prompts.json') return {default:refinementPrompts};
+    if (name === './nextRefinement.mjs') return refinements;
     if (name === './profileCapture') return profileHelpers;
     if (name === './openingEvidence') return openingEvidence;
     if (name === '../compatibility/parenting.mjs') return parenting;
@@ -457,4 +470,61 @@ test('unclear unrestricted criteria and sensitive disclosures are not silently a
  ]){
   const ui=mount({document:{...baseDocument(),profileProposals:[proposal]},revision:1});ui.render();await tick();let tree=ui.render();find(tree,'تفاصيل لملفك وتفضيلاتك').props.onClick();tree=ui.render();assert.equal(find(tree,'تفاصيل إلى مسودتي').props.disabled,true);assert.equal(ui.profileApplied.length,0);ui.unmount();
  }
+});
+
+
+test('the actual private recap and height editor accept a member range and recover the confirmed draft after a lost response', async () => {
+  const quote = 'أفضّل شريك طويل';
+  const document = {...baseDocument(), status:'review', promptVersion:'wudayn-interview-5', currentQuestion:null,
+    turns:[{id:'opening',question:openingPrompts.introduction,topic:'intent',answer:quote,skipped:false}],
+    statements:[{subject:'partner',topic:'height',quote,turnId:'opening'}]};
+  const ui = mount({document,revision:3}, (payload, snapshot) => {
+    if (payload.action !== 'clarify') return;
+    const turn = {id:'height',topic:'intent',question:refinementPrompts.height,answer:'أفضّل طول الشريك بحد أدنى ١٧٥ سم.',skipped:false};
+    const accepted = {id:'profile:partnerCriteria.height',fieldId:'partnerCriteria.height',values:['175',''],mode:'prefer',
+      exclude:false,summary:turn.answer,needsClarification:false,evidence:[{turnId:turn.id,quote:turn.answer}]};
+    snapshot.document = {...document,turns:[...document.turns,turn],lastRequestId:payload.requestId,profileConfirmed:[accepted]};
+    snapshot.revision++;
+    return Promise.reject(Error('response lost'));
+  });
+  ui.render({onboarding:true,onStructuredDraftChange:noop}); await tick();
+  const editor = () => {
+    const component = nodes(ui.render()).find(n => n.type?.name === 'PrivateMemory');
+    const recap = component.type(component.props);
+    assert.match(textOf(recap),/أفضّل شريك طويل/);
+    const field = nodes(recap).find(n => n.type?.name === 'RefinePreference');
+    return field.type(field.props);
+  };
+  find(editor(),'أحدد النطاق').props.onClick();
+  let form = editor();
+  nodes(form).find(n => n.props?.['aria-label'] === 'الحد الأدنى (سم)').props.onChange({target:{value:'١٧٥'}});
+  form = editor();
+  assert.equal(nodes(form).find(n => n.props?.type === 'submit').props.disabled,false);
+  nodes(form).find(n => n.type === 'form').props.onSubmit({preventDefault:noop});
+  await tick();
+  assert.deepEqual(ui.calls.find(p => p.action === 'clarify').refinement, {min:175});
+  assert.equal(ui.calls.filter(p => p.action === 'clarify').length, 1);
+  assert.deepEqual(ui.profileApplied[0][0].values,['175','']);
+  assert.match(textOf(ui.render()),/حُفظ التفضيل/);
+  ui.unmount();
+});
+
+test('the draft is notified once when a submitted correction retracts a previously confirmed field, including lost responses', async () => {
+  const old = {...capturedProfile, evidence:[{turnId:'a',quote:'أفضّل منقبة'}]};
+  for (const lost of [false,true]) {
+    const initial = {document:{...baseDocument(),profileConfirmed:[old],turns:[
+      {id:'a',topic:'intent',question:'وش تفضل؟',answer:'أفضّل منقبة',skipped:false}]},revision:3};
+    const retracted = [];
+    const ui = mount(initial,(payload,snapshot) => {
+      if (payload.action !== 'answer') return;
+      snapshot.document = {...snapshot.document,profileConfirmed:[],lastRequestId:payload.requestId};
+      snapshot.revision++;
+      return lost ? Promise.reject(Error('response lost')) : Promise.resolve(clone(snapshot));
+    });
+    ui.render({onProfileRetract:withdrawn=>retracted.push(clone(withdrawn))});await tick();
+    let tree = ui.render();assert.equal(retracted.length,0);
+    nodes(tree).find(n=>n.type==='textarea').props.onChange({target:{value:'ما عندي تفضيل'}});
+    sendAction(ui.render()).props.onClick();await tick();ui.render();
+    assert.deepEqual(retracted,[[old]]);ui.unmount();
+  }
 });

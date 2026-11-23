@@ -98,7 +98,6 @@
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion=reduced]) .wi-topic-current { animation: wi-chapter-enter 180ms ease-out; }
   html:not([data-nf-motion=reduced]) .wi-dialog[data-journey] .wi-hybrid-field {
     animation-duration: 190ms;
   }
@@ -111,10 +110,6 @@
   html:not([data-nf-motion=reduced]) .wi-dialog[data-journey] .wi-hybrid-option-mark {
     transition: transform 110ms ease-out, background-color 110ms ease-out;
   }
-}
-@keyframes wi-chapter-enter {
-  from { opacity: .6; transform: translateY(3px); }
-  to { opacity: 1; transform: none; }
 }
 @keyframes wi-milestone-in {
   from { transform: scale(.75); box-shadow: 0 0 0 3px #65213c1a; }

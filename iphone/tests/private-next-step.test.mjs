@@ -23,3 +23,18 @@ test('an introduction can supply a grounded plan without inferring timing from a
   assert.equal(declaredNextStep('خلال ستة أشهر'), undefined);
   assert.equal(declaredNextStep('ما أقدر أبدأ خطوة رسمية الحين.'), 'not_yet');
 });
+
+test('a grounded introduction plan reaches readiness without assigning a formal date', () => {
+  const quote = 'ودي أقابلها بحضور الأهل';
+  const turn = {id:'i', question:prompts.introduction, answer:'أحب المشي، '+quote, skipped:false};
+  const doc = {status:'confirmed',turns:[turn],readiness:[],statements:[{topic:'nextStep',subject:'intent',turnId:'i',quote}]};
+  assert.deepEqual(privateNextStep(doc),{text:quote,answer:turn.answer});
+  assert.equal(declaredNextStep(privateNextStep(doc).answer),undefined);
+  assert.equal(privateNextStep({...doc,statements:[{...doc.statements[0],subject:'partner'}]}),undefined);
+});
+test('a later correction takes precedence over the previous next-step prompt on review and resume', () => {
+  const old = {id:'a',question:prompts.nextStep,answer:'أقابلها في مكان عام',skipped:false};
+  const newer = {id:'b',question:'وش تحب توضّح؟',answer:'عدلت رأيي، أكلم أهلها أول',skipped:false};
+  const doc = {status:'confirmed',turns:[old,newer],readiness:[],statements:[{topic:'nextStep',subject:'intent',turnId:'b',quote:'أكلم أهلها أول'}]};
+  assert.equal(privateNextStep(doc).text,'أكلم أهلها أول');
+});

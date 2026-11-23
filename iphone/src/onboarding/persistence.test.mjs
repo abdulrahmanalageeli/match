@@ -250,3 +250,15 @@ test('unsent interview text resumes only for the same member, answer and revisio
   assert.equal(await drafts().restore(a, snapshot), null);
   assert.equal(await createWritingDrafts(() => null).save(a, snapshot, 'خاص'), null);
 });
+
+test('the device checkpoint restores refinement source markers only while assessment storage is enabled', async () => {
+  const f = fixture(), store = f.vault();
+  const markers = {preferredMinAge:'manual','partnerCriteria.height':a+'|prefer::159'};
+  f.draft.permissions = {version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false};
+  f.draft.lunaFields = markers;
+  await store.save(f.draft,store.revision(a));
+  assert.deepEqual((await f.vault().load(a,'new',0)).lunaFields, markers);
+  f.draft.permissions.assessment = false;
+  await store.save(f.draft,store.revision(a));
+  assert.equal((await f.vault().load(a,'new',0)).lunaFields,undefined);
+});

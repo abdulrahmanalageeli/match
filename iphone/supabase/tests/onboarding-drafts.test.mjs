@@ -115,3 +115,14 @@ test('personal-data export includes only the owners unexpired draft without its 
   assert.equal((await asMember(db, a.id, a.sessionId, () => rpc('public.marriage_personal_data()'))).onboardingDraft, null);
   for (const role of ['anon', 'authenticated', 'service_role']) assert.equal(await rpc("has_function_privilege($1,'marriage.personal_data_before_onboarding_drafts()','EXECUTE')", [role]), false);
 });
+
+test('private refinement ownership survives legacy writes and clears with assessment consent', async () => {
+  const u = await member(), markers = {preferredMaxAge:'manual','partnerCriteria.height':randomUUID()+'|prefer::167'};
+  await call(u,'save',document(u,{lunaFields:markers}));
+  assert.deepEqual((await call(u,'load')).lunaFields,markers);
+  await call(u,'save',document(u));
+  assert.deepEqual((await call(u,'load')).lunaFields,markers);
+  await assert.rejects(call(u,'save',document(u,{lunaFields:{'partnerCriteria.height':'arbitrary text'}})),/Invalid draft field/);
+  await call(u,'save',document(u,{permissions:{...permissions,assessment:false}}));
+  assert.equal((await call(u,'load')).lunaFields,undefined);
+});

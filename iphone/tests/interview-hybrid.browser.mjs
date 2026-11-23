@@ -209,16 +209,20 @@ try {
   assert.equal(await page.locator('.wi-opening-notice').count(),0,'the question starts without a suggestion banner');
   assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'answers from the introduction remain available below the question');
   const self = card.locator('fieldset').first();
-  const topicToggle = page.locator('.wi-topic-route > summary');
-  const draftReview = page.locator('.wi-topic-route .wi-draft-review');
-  const draftToggle = draftReview.locator(':scope > summary');
-  assert.equal(await page.locator('.wi-living-portrait').count(), 0);
-  assert.equal(await draftToggle.isVisible(), false);
-  await topicToggle.click();
-  await draftToggle.click();
-  await draftReview.getByText('تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.').waitFor();
-  await draftToggle.click();
-  await topicToggle.click();
+  const route = page.locator('.wi-question-route');
+  const routeToggle = route.locator(':scope > summary');
+  const routeFields = route.locator('button[data-question-id]');
+  const routeField = id => route.locator('[data-question-id="' + id + '"]');
+  const activeId = () => route.getAttribute('data-active-field');
+  assert.equal(await page.locator('.wi-living-portrait, .wi-draft-review').count(), 0);
+  assert.equal(await routeFields.first().isVisible(), false);
+  await routeToggle.click();
+  const routeOrder = await routeFields.evaluateAll(items => items.map(item => item.dataset.questionId));
+  assert.deepEqual([...routeOrder].sort(), expectedIds, 'the drawer provides a direct entry for each applicable question');
+  assert.equal(await activeId(), firstId);
+  assert.ok(await routeField(firstId).isVisible());
+  assert.ok(await routeField(firstPartnerId).isVisible());
+  await routeToggle.click();
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
   await card.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
   const help = self.getByRole('button',{name:'مساعدة لونا'});
@@ -248,20 +252,35 @@ try {
   await page.getByRole('button',{name:'متابعة',exact:true}).click();
   assert.equal(await card.locator('fieldset').getAttribute('data-side'),'partner');
   assert.equal(draft[firstPartnerId], undefined, 'Returning to the partner question must not fill it');
-  await topicToggle.click();
-  await draftToggle.click();
-  await draftReview.locator('.wi-summary-topic > summary').first().click();
-  assert.equal(await draftReview.locator('.wi-summary-status').first().innerText(),'قيد الإكمال');
-  const mirror = draftReview.getByRole('combobox', { name:'الأطفال، عنّي' });
-  assert.equal(await mirror.inputValue(), 'C');
-  await mirror.selectOption('B');
+  await routeToggle.click();
+  assert.equal(await activeId(), firstPartnerId);
+  const savedEntry = routeField(firstId);
+  const unansweredEntry = routeField(firstPartnerId);
+  assert.ok(await savedEntry.isEnabled() && await unansweredEntry.isEnabled());
+  assert.equal(await savedEntry.getAttribute('data-complete'), 'true');
+  assert.equal(await unansweredEntry.getAttribute('data-complete'), null);
+  const savedText = await savedEntry.innerText();
+  const unansweredText = await unansweredEntry.innerText();
   await page.screenshot({path:resolve(output,'draft-review-390.png'),animations:'disabled'});
-  await draftToggle.click();
-  await topicToggle.click();
+  await savedEntry.click();
+  assert.equal(await activeId(), firstId);
+  assert.equal(await route.evaluate(el => el.open), false);
+  const currentChoice = card.locator('.wi-hybrid-option[aria-pressed=true]');
+  assert.ok(savedText.includes((await currentChoice.innerText()).trim()), 'the drawer shows the saved option');
+  await card.locator('.wi-hybrid-option').nth(1).press('Enter');
+  assert.deepEqual(draft[firstId], ['B']);
+  await routeToggle.click();
+  assert.notEqual(await savedEntry.innerText(), savedText);
+  assert.equal(await unansweredEntry.innerText(), unansweredText);
+  await unansweredEntry.click();
+  assert.equal(await activeId(), firstPartnerId);
   assert.equal(await page.locator('.wi-partner-default').count(), 0);
   assert.equal(draft[firstPartnerId], undefined);
   await card.locator('fieldset[data-side="partner"] .wi-hybrid-option').first().click();
   assert.deepEqual(draft[firstPartnerId], ['A']);
+  // An explicit visit can hold the selected answer open for further edits.
+  if (await activeId() === firstPartnerId) await page.getByRole('button',{name:'متابعة',exact:true}).click();
+  await card.locator('[data-field-id="preference:marriage_timeline:self"]').waitFor();
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('.wi-hybrid').waitFor();
   assert.deepEqual(draft[firstId], ['B']);
@@ -295,15 +314,7 @@ try {
   await forward.click();
   assert.equal(await title.innerText(),followingTitle);
   let testedKeyboardChoice = false;
-  let sawCompletedGroup = false;
   for (let index = 0; index < expectedIds.length && await card.count(); index++) {
-    if (!sawCompletedGroup && index > 0 && index % 5 === 0) {
-      await topicToggle.click();
-      await draftToggle.click();
-      sawCompletedGroup = await draftReview.getByText('اكتملت الإجابات',{exact:true}).count() > 0;
-      await draftToggle.click();
-      await topicToggle.click();
-    }
     const group = card.locator('fieldset').first();
     const position = await group.locator('legend').first().evaluate(node => {
       const scroller = node.closest('.wi-content');
@@ -330,17 +341,22 @@ try {
   }
   assert.equal(await card.count(), 0);
   assert.equal(testedKeyboardChoice, true);
-  assert.equal(sawCompletedGroup, true);
   assert.equal(calls.length, actionsBeforeCards, 'Structured taps do not call the interview API');
   assert.equal(await page.locator('.wi-hybrid-batch').count(), 0);
   await page.screenshot({ path: resolve(output, 'review-390.png') });
   const review = page.locator('.wi-hybrid-review');
   assert.equal(await page.locator('.wi-luna-steps [aria-current=step]').innerText(),'المراجعة');
-  const topicNames = await review.locator('.wi-summary-caption').allTextContents();
-  assert.equal(topicNames.length,4);
-  assert.match(await review.locator('summary').first().innerText(),/الزواج والسكن/);
+  const reviewFields = review.locator('.wi-summary-fields [data-field-id]');
+  assert.equal(await review.locator('.wi-summary-fields').count(), 1);
+  assert.deepEqual(await reviewFields.evaluateAll(items => items.map(item => item.dataset.fieldId)), routeOrder);
   assert.equal(await review.locator('select').count(),expectedIds.length);
-  await review.locator('summary').first().click();
+  const revealSummary = async container => {
+    const list = container.locator('.wi-summary-fields');
+    if (await list.isVisible()) return;
+    await container.locator('.wi-all-answers > summary').click();
+    await list.waitFor();
+  };
+  await revealSummary(review);
   const residenceSelf = review.getByRole('combobox',{name:'مدينة السكن، عنّي',exact:true});
   const residencePartner = review.getByRole('combobox',{name:/مدينة السكن، ما أتمناه من شريكي/});
   assert.equal(await residencePartner.count(),0);
@@ -356,7 +372,8 @@ try {
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({ action }) => action), ['structuredConfirm']);
   assert.equal(await page.evaluate(() => window.applied[0]?.length), expectedIds.length);
   const saved = page.locator('.wi-confirmed-answers');
-  assert.deepEqual(await saved.locator('.wi-summary-caption').allTextContents(),topicNames);
+  assert.equal(await saved.locator('.wi-summary-fields').count(), 1);
+  assert.deepEqual(await saved.locator('.wi-summary-fields [data-field-id]').evaluateAll(items => items.map(item => item.dataset.fieldId)), routeOrder);
   assert.deepEqual(await saved.locator('.wi-summary-answer').evaluateAll(rows=>rows.map(row=>row.dataset.fieldId).sort()),[...expectedIds].sort());
   await page.setViewportSize({width:375,height:667});
   await page.evaluate(()=>document.documentElement.style.setProperty('--nf-native-safe-top','20px'));
@@ -370,10 +387,9 @@ try {
   assert.equal(await page.getByRole('button',{name:'إكمال الحوار'}).count(),0);
   await page.getByRole('button',{name:'العودة إلى ملخصي',exact:true}).click();
   assert.deepEqual(calls.slice(actionsBeforeCards).map(({action})=>action),['structuredConfirm']);
-  const savedTopic = saved.locator('.wi-summary-topic').nth(1);
-  await savedTopic.locator('summary').press('Enter');
+  await revealSummary(saved);
   await page.screenshot({path:resolve(output,'summary-open-375.png'),animations:'disabled'});
-  const line = savedTopic.locator('.wi-summary-answer').first();
+  const line = saved.locator('[data-field-id="personality:group_energy:self"]');
   const revisedId = await line.getAttribute('data-field-id');
   const picker = line.getByRole('combobox');
   const original = await picker.inputValue();
@@ -392,8 +408,8 @@ try {
   assert.equal(await saved.locator('[data-field-id="'+revisedId+'"] select').inputValue(),replacement);
   await page.setViewportSize({width:320,height:568});
   await page.evaluate(()=>document.documentElement.dataset.nfText='large');
-  await saved.locator('summary').last().click();
-  const lastChoice = saved.locator('.wi-summary-topic').last().getByRole('combobox').last();
+  await revealSummary(saved);
+  const lastChoice = saved.locator('.wi-summary-fields').getByRole('combobox').last();
   await lastChoice.focus();
   assert.equal(await lastChoice.evaluate(node=>node===document.activeElement),true);
   assert.ok(await saved.evaluate(node=>node.scrollWidth<=node.clientWidth+1),'large Arabic text stays within the summary');
@@ -402,7 +418,7 @@ try {
   await page.evaluate(()=>delete document.documentElement.dataset.nfText);
   await page.setViewportSize({width:402,height:874});
   await page.evaluate(()=>document.documentElement.style.removeProperty('--nf-native-safe-top'));
-  console.log('PASS: a private portrait phrase can be corrected and explicitly reconfirmed');
+  console.log('PASS: a saved answer in the flat review can be corrected and explicitly reconfirmed');
   draft = {};
   snapshot = { document: initialInterviewDocument(true), revision: 1, coverage: { answered: 0, required: expectedIds.length } };
   await page.reload({waitUntil:'domcontentloaded'});
@@ -510,17 +526,15 @@ try {
         await page.screenshot({path:resolve(output,'opening-result-'+suggestionCount+'.png'),animations:'disabled'});
       }
     }
-    let lastTopic = -1;
-    let reachedPersonality = false;
+    let previousPosition = -1;
     while (await card.count()) {
       assert.ok(actions < 60, 'Every activation must make progress');
       const group = card.locator('fieldset').first();
-      const topic = Number(await page.locator('.wi-topic-route').getAttribute('data-active-topic'));
-      assert.ok(topic >= lastTopic,'the default route must finish each chapter before advancing');
-      if (topic !== lastTopic) reachedPersonality = false;
-      if ((await group.getAttribute('data-field-id')).startsWith('personality:')) reachedPersonality = true;
-      else assert.equal(reachedPersonality,false,'each chapter finishes practical questions before its personality items');
-      lastTopic = topic;
+      const id = await group.getAttribute('data-field-id');
+      assert.equal(await activeId(), id);
+      const position = routeOrder.indexOf(id);
+      assert.ok(position > previousPosition, 'the default route advances in the order displayed in the question drawer');
+      previousPosition = position;
       const legend = await group.locator('legend').innerText();
       if (legend.includes('في حياتي') && (await page.locator('.wi-hybrid-stage h1').innerText()).includes('عمل')) {
         assert.match(legend, suggestionCount === 1 ? /عملك|ترغبين في العمل/ : /العمل|عمل|الزوجة/);
@@ -736,8 +750,7 @@ try {
   assert.ok(await dialog.evaluate(el=>el.scrollWidth <= el.clientWidth + 1));
   await page.getByRole('button',{name:'تخطّي السؤال'}).click();
   await card.waitFor();
-  assert.equal(await page.locator('.wi-topic-current strong').innerText(),'الزواج والسكن');
-  assert.match(await page.locator('.wi-topic-current small').innerText(),/^المتبقي /);
+  assert.equal(await activeId(),'preference:marriage_timeline:self');
   assert.ok(calls.at(-1).skip);
   const field = card.locator('fieldset').first();
   const entryMotion = async () => field.evaluate(el => {
@@ -766,40 +779,34 @@ try {
   assert.equal(await page.evaluate(()=>window.scrollY),pageScroll,'question navigation leaves the outer page scroll unchanged');
   await page.setViewportSize({width:390,height:844});
   await page.emulateMedia({reducedMotion:'reduce'});
-  const route = page.locator('.wi-topic-route');
-  const openRoute = () => route.locator(':scope > summary').click();
-  await openRoute();
-  await page.screenshot({path:resolve(output,'topic-map-390.png'),animations:'disabled'});
+  const beforeJump = await activeId();
+  await routeToggle.click();
+  await page.screenshot({path:resolve(output,'question-list-390.png'),animations:'disabled'});
   await page.setViewportSize({width:320,height:568});
   await page.evaluate(()=>{document.documentElement.dataset.nfText='large'});
-  assert.ok(await route.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'expanded topic map fits a compact screen at larger text');
-  assert.ok(await route.locator('[data-topic-index]').evaluateAll(buttons=>buttons.every(b=>b.getBoundingClientRect().height>=44)));
-  await page.screenshot({path:resolve(output,'topic-map-320-large.png'),animations:'disabled'});
+  assert.ok(await route.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'expanded questions fit a compact screen at larger text');
+  assert.ok(await routeFields.evaluateAll(buttons=>buttons.every(b=>b.getBoundingClientRect().height>=44)));
+  await page.screenshot({path:resolve(output,'question-list-320-large.png'),animations:'disabled'});
   await page.evaluate(()=>{delete document.documentElement.dataset.nfText});
   await page.setViewportSize({width:390,height:844});
-  await route.locator('[data-topic-index="3"]').click();
-  assert.equal(await route.getAttribute('data-active-topic'),'3');
-  const switchedTo = await title.innerText();
+  const chosenId = 'preference:social_rhythm:partner';
+  const expectField = async id => {
+    await card.locator('[data-field-id="' + id + '"]').waitFor();
+    assert.equal(await activeId(),id);
+  };
+  await routeField(chosenId).click();
+  await expectField(chosenId);
   await back.click();
-  assert.equal(await route.getAttribute('data-active-topic'),'0');
+  await expectField(beforeJump);
   await page.reload();
-  await route.waitFor();
-  assert.equal(await route.getAttribute('data-active-topic'),'0','Back updates the topic bookmark');
-  await openRoute();
-  await route.locator('[data-topic-index="3"]').click();
-  assert.equal(await title.innerText(),switchedTo);
+  await expectField(beforeJump);
+  await routeToggle.click();
+  await routeField(chosenId).click();
   await page.reload();
-  await route.waitFor();
-  assert.equal(await route.getAttribute('data-active-topic'),'3','reopening the session restores the unfinished chosen topic');
-  assert.equal(await title.innerText(),switchedTo);
-  for (let answers = 0; await route.getAttribute('data-active-topic') === '3'; answers++) {
-    assert.ok(answers < 12,'completing a chosen topic must reach the next unfinished topic');
-    await card.locator('.wi-hybrid-option').first().press('Enter');
-  }
-  assert.equal(await route.getAttribute('data-active-topic'),'0','completing the last topic wraps to the first unfinished one');
-  assert.deepEqual(draft[firstId],['B'],'topic navigation preserves the corrected introduction');
+  await expectField(chosenId);
+  assert.deepEqual(draft[firstId],['B'],'question navigation preserves the corrected introduction');
   assert.deepEqual(draft[firstPartnerId],['A']);
-  console.log('PASS: personal phrase correction, topic switch, Back, reload and hands-free return to remaining questions');
+  console.log('PASS: individual self and partner navigation, Back, exact-question resume and saved draft');
   console.log('PASS: timed example and optional free-text next step');
   assert.deepEqual(errors, []);
   console.log('PASS: iPhone 17 viewport, reviewed Luna response, saved draft, explicit partner choices, and one 46-field confirmation');

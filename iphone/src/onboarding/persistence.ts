@@ -1,4 +1,5 @@
 import { interviewWritingDrafts } from '../interview/writingDraft';
+import { readLunaFields } from './lunaDraftFields';
 import { privateDraftKeychain } from "../session";
 import { assessmentVersion, categories, dimensionsForVersion, interests, maxInterests, maxPriorities } from "../compatibility/model";
 import { chapters, type Answers, type ApplicationDraft } from "./draft";
@@ -82,7 +83,7 @@ export function decodeDraft(text: string, owner: string, baseline: string, now: 
     typeof data.permissions.sensitiveProfile === 'boolean' && typeof data.permissions.assessment === 'boolean'
     ? { version: data.permissions.version, sensitiveProfile: data.permissions.sensitiveProfile, ...(typeof data.permissions.sensitivePublication==='boolean'?{sensitivePublication:data.permissions.sensitivePublication&&data.permissions.sensitiveProfile}:{}), assessment: data.permissions.assessment, ...(data.permissions.interview === true ? { interview: true } : {}) } : undefined;
   return { owner, baseline, answers: data.answers, step: chapter.key, returnToReview: data.returnToReview, consent: false,
-    ...(permissions ? { permissions } : {}) };
+    ...(permissions ? { permissions } : {}), ...(permissions?.assessment && data.lunaFields ? {lunaFields:readLunaFields(data.lunaFields)} : {}) };
 }
 const accountStorage = createAccountDraftStorage(callRpc);
 export const accountDraftsAvailable = () => Boolean(cloud);

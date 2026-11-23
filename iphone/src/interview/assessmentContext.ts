@@ -1,40 +1,47 @@
-import archived from '../compatibility/catalog-v3.json';
-import oldTraits from '../compatibility/personality-catalog-v1.json';
-import { dimensions } from '../compatibility/model';
-import { personalityQuestions } from '../compatibility/personality';
+import { dimensionsForVersion, hasPartnerQuestion } from '../compatibility/practical-catalog.ts';
+import { personalityQuestionsFor } from '../compatibility/personality.ts';
 import type { InterviewAnswers } from './model';
 
+export type AssessmentSource = 'interview' | 'manual';
+type Versions = {assessmentVersion?: string; personalityVersion?: string};
+
+function practicalVersion(version: string | undefined, source: AssessmentSource) {
+  // The interview endpoint supports its current and v3 catalogs. Local drafts can use any registered catalog.
+  return source === 'interview' && version && version !== 'marriage-v4' ? 'marriage-v3' : version;
+}
+
 /** Only answers explicitly selected in the existing form become known context. */
-export function assessmentContextFromAnswers(answers: InterviewAnswers & {assessmentVersion?:string;personalityVersion?:string}): Array<{ id: string; values: string[] }> {
-  const context: Array<{ id: string; values: string[] }> = [];
-  for (const dimension of (answers.assessmentVersion && answers.assessmentVersion!=='marriage-v4'?archived.dimensions:dimensions)) for (const side of ['self', 'partner'] as const) {
-    if ((!answers.assessmentVersion || answers.assessmentVersion === 'marriage-v4') && dimension.id === 'residence_plan' && side === 'partner') continue;
+export function assessmentContextFromAnswers(answers: InterviewAnswers & Versions, source: AssessmentSource = 'interview') {
+  const context: Array<{id: string; values: string[]}> = [];
+  const version = practicalVersion(answers.assessmentVersion, source);
+  for (const dimension of dimensionsForVersion(version)) for (const side of ['self', 'partner'] as const) {
+    if (side === 'partner' && !hasPartnerQuestion(dimension.id, version)) continue;
     const value = answers.surveyAnswers?.[side === 'self' ? dimension.id : dimension.partnerId];
-    if (dimension.options.some(option => option.code === value)) context.push({ id: `preference:${dimension.id}:${side}`, values: [value!] });
+    if (value && dimension.options.some(option => option.code === value)) {
+      context.push({id: `preference:${dimension.id}:${side}`, values: [value]});
+    }
   }
-  for (const question of (answers.personalityVersion==='personality-v1'?oldTraits:personalityQuestions)) {
+  for (const question of personalityQuestionsFor(answers.personalityVersion)) {
     const value = answers.personalityAnswers?.[question.id];
-    if (value && /^[A-E]$/.test(value)) context.push({ id: `personality:${question.id}:self`, values: [value!] });
+    if (value && question.options.some(option => option.code === value)) context.push({id: `personality:${question.id}:self`, values: [value]});
   }
   return context;
 }
 
-export function answersFromAssessmentContext(choices: Record<string, string[]>): Pick<InterviewAnswers, 'surveyAnswers' | 'personalityAnswers'> {
+export function answersFromAssessmentContext(choices: Record<string, string[]>, versions: Versions, source: AssessmentSource) {
   const surveyAnswers: Record<string, string> = {};
   const personalityAnswers: Record<string, string> = {};
-  for (const dimension of [...dimensions,...archived.dimensions]) {
-    for (const side of ['self', 'partner'] as const) {
-      const values = choices[`preference:${dimension.id}:${side}`];
-      if (values?.length === 1 && dimension.options.some(option => option.code === values[0])) {
-        surveyAnswers[side === 'self' ? dimension.id : dimension.partnerId] = values[0];
-      }
+  const version = practicalVersion(versions.assessmentVersion, source);
+  for (const dimension of dimensionsForVersion(version)) for (const side of ['self', 'partner'] as const) {
+    if (side === 'partner' && !hasPartnerQuestion(dimension.id, version)) continue;
+    const values = choices[`preference:${dimension.id}:${side}`];
+    if (values?.length === 1 && dimension.options.some(option => option.code === values[0])) {
+      surveyAnswers[side === 'self' ? dimension.id : dimension.partnerId] = values[0];
     }
   }
-  for (const question of [...personalityQuestions,...oldTraits]) {
+  for (const question of personalityQuestionsFor(versions.personalityVersion)) {
     const values = choices[`personality:${question.id}:self`];
-    if (values?.length === 1 && /^[A-E]$/.test(values[0])) {
-      personalityAnswers[question.id] = values[0];
-    }
+    if (values?.length === 1 && question.options.some(option => option.code === values[0])) personalityAnswers[question.id] = values[0];
   }
-  return { surveyAnswers, personalityAnswers };
+  return {surveyAnswers, personalityAnswers};
 }

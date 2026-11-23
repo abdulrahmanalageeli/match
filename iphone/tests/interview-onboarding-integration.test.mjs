@@ -9,7 +9,7 @@ import personalityCatalog from '../src/compatibility/personality-catalog.json' w
 
 const owner = '11111111-1111-4111-8111-111111111111';
 const plain = value => JSON.parse(JSON.stringify(value));
-let loader, interview, draft, consent, compatibility, personalityModel, beena, decodeDraft, createDraftVault;
+let loader, interview, draft, applyAssessmentDraftChoices, consent, compatibility, personalityModel, beena, decodeDraft, createDraftVault;
 before(async () => {
   loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error',
     plugins: [{ name: 'interview-integration-no-live-services', enforce: 'pre', load(id) {
@@ -19,6 +19,7 @@ before(async () => {
     } }], optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
   interview = await loader.ssrLoadModule('/src/interview/model.ts');
   draft = await loader.ssrLoadModule('/src/onboarding/draft.ts');
+  ({ applyAssessmentDraftChoices } = await loader.ssrLoadModule('/src/onboarding/assessmentDraft.ts'));
   consent = await loader.ssrLoadModule('/src/legal/consent.ts');
   compatibility = await loader.ssrLoadModule('/src/compatibility/model.ts');
   personalityModel = await loader.ssrLoadModule('/src/compatibility/personality.ts');
@@ -27,6 +28,18 @@ before(async () => {
   ({ createDraftVault } = await loader.ssrLoadModule('/src/onboarding/vault.ts'));
 });
 after(() => loader?.close());
+
+test('registration card edits preserve optional partner traits while removing a cleared catalog answer', () => {
+  const saved = { ...newDraft().answers, surveyAnswers:{children_plan:'A',partner_children_plan:'A'},
+    personalityAnswers:{group_energy:'B',partner_openness:'E'} };
+  const next = applyAssessmentDraftChoices(saved, {
+    'preference:children_plan:self':['C'], 'personality:group_energy:self':['D'],
+  });
+  assert.deepEqual(plain(next), {
+    surveyAnswers:{children_plan:'C'}, personalityAnswers:{group_energy:'D',partner_openness:'E'},
+  });
+  assert.equal(saved.surveyAnswers.partner_children_plan,'A');
+});
 
 function preferences(code) {
   return compatibility.dimensions.flatMap(dimension => (compatibility.hasPartnerQuestion(dimension.id) ? ['self', 'partner'] : ['self']).map(side => ({

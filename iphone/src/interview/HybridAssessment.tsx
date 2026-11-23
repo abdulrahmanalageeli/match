@@ -1,24 +1,24 @@
 import { sharedDecisionLabel, sharedDecisionPrompt } from '../compatibility/sharedDecisions';
 import { assessmentProgress } from './openingResults';
 import { openingHighlights } from './openingEvidence';
+import { statementContext } from './statementContext';
 import { OpeningWords } from './OpeningWords';
 import { resolvePartnerDefaults } from './partnerDefaults';
 import { portraitLines } from './personalPortrait';
-import { nextTopicCard, readTopic, rememberTopic, topicResumeKey, topicRoutes } from './topicJourney';
+import { nextQuestion, questionResumeKey, readQuestion, rememberQuestion } from './questionJourney';
 import memberAr from '../member-copy.ts';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { launchEvent } from '../launchEvents';
 import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, LockKeyhole, Pencil } from '../BrandIcons';
-import legacyCatalog from '../compatibility/catalog-v3.json';
 import legacyTraits from '../compatibility/personality-catalog-v1.json';
 import { parentingApplicable } from '../compatibility/parenting.mjs';
 import type { PartnerCriteria } from '../compatibility/marriage';
-import { dimensions, hasPartnerQuestion } from '../compatibility/model';
-import { personalityQuestions } from '../compatibility/personality';
+import { dimensionsForVersion, hasPartnerQuestion } from '../compatibility/model';
+import { personalityQuestionsFor } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import type { InterviewSelection } from './model';
-import type { InterviewChoiceHelp, InterviewProposal } from './types';
+import type { InterviewChoiceHelp, InterviewProposal, InterviewStatement } from './types';
 import './hybrid-assessment.css';
 import './personal-portrait.css';
 
@@ -40,7 +40,7 @@ type Field = {
   prompt: string;
   options: { code: string; label: string }[];
 };
-type Visit = { index: number; fieldId?: string };
+type Visit = { fieldId?: string; editing?: boolean };
 
 type Card = {
   selfOnly: boolean;
@@ -50,10 +50,10 @@ type Card = {
 };
 
 const themes = [
-  { label: 'الزواج والسكن', dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
-  { label: 'البيت والأهل', dimensions: ['wife_work', 'financial_provision', 'money_management', 'domestic_labor', 'family_authority', 'parenting_approach'] },
-  { label: 'حياتكم اليومية', dimensions: ['faith_routine', 'social_boundaries', 'social_rhythm', 'closeness_pace'] },
-  { label: 'التواصل وقت الاختلاف', dimensions: ['conflict_response', 'repair_after_conflict'] },
+  { dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
+  { dimensions: ['wife_work', 'financial_provision', 'money_management', 'domestic_labor', 'family_authority', 'parenting_approach'] },
+  { dimensions: ['faith_routine', 'social_boundaries', 'social_rhythm', 'closeness_pace'] },
+  { dimensions: ['conflict_response', 'repair_after_conflict'] },
 ];
 
 const personalityByDimension: Record<string, string[]> = {
@@ -66,10 +66,10 @@ const personalityByDimension: Record<string, string[]> = {
 };
 
 const historicalThemes = [
-  { label: 'الزواج والسكن', dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
-  { label: 'البيت والأهل', dimensions: ['wife_work', 'financial_provision', 'domestic_labor', 'family_authority', 'parenting_approach'] },
-  { label: 'حياتكم اليومية', dimensions: ['faith_routine', 'mixed_gatherings', 'public_event_attendance', 'social_rhythm', 'closeness_pace'] },
-  { label: 'التواصل وقت الاختلاف', dimensions: ['match_disagreement_style', 'repair_after_conflict'] },
+  { dimensions: ['children_plan', 'marriage_timeline', 'residence_plan', 'housing_arrangement'] },
+  { dimensions: ['wife_work', 'financial_provision', 'domestic_labor', 'family_authority', 'parenting_approach'] },
+  { dimensions: ['faith_routine', 'mixed_gatherings', 'public_event_attendance', 'social_rhythm', 'closeness_pace'] },
+  { dimensions: ['match_disagreement_style', 'repair_after_conflict'] },
 ];
 
 const historicalTraitsByDimension: Record<string, string[]> = {
@@ -81,8 +81,6 @@ const historicalTraitsByDimension: Record<string, string[]> = {
   repair_after_conflict: ['support'],
 };
 
-const historicalOptions = ['لا يشبهني إطلاقًا','يشبهني قليلًا','يشبهني أحيانًا','يشبهني غالبًا','يشبهني كثيرًا'].map((label,i)=>({code:'ABCDE'[i],label}));
-const historicalQuestions = legacyTraits.map(trait=>({...trait,options:historicalOptions}));
 const workLabels: Record<string, string> = memberAr.womanWork;
 const helpScenarios: Record<string, string> = {
   'preference:shared_budget:self': 'لو زادت مصاريف البيت هذا الشهر، كيف تحبّ أن ترتّبا الميزانية؟',
@@ -91,17 +89,27 @@ const helpScenarios: Record<string, string> = {
 };
 const number = new Intl.NumberFormat('ar-SA');
 
-function makeThemeCards(gender?: Gender, historical=false) {
-  const topics = historical ? legacyCatalog.dimensions : dimensions;
-  const questions = historical ? historicalQuestions : personalityQuestions;
-  const layout = historical ? historicalTraitsByDimension : personalityByDimension;
-  return (historical ? historicalThemes : themes).map(theme => ({
-    label: theme.label,
-    cards: theme.dimensions.map(id => {
+type CatalogVersions = { practical?: string; personality?: string };
+
+function makeThemeCards(gender?: Gender, historical = false, manualCatalog?: CatalogVersions) {
+  const practicalVersion = manualCatalog?.practical ?? (historical ? 'marriage-v3' : 'marriage-v4');
+  const traitVersion = manualCatalog?.personality ?? (historical ? 'personality-v1' : 'personality-v2');
+  const topics = dimensionsForVersion(practicalVersion);
+  const questions = personalityQuestionsFor(traitVersion);
+  const layout = traitVersion === 'personality-v1' ? historicalTraitsByDimension : personalityByDimension;
+  // Older manuals keep their own catalog order. Every personality item stays reachable
+  // when the two catalog versions attach a trait to different practical questions.
+  const ordered = practicalVersion === 'marriage-v4' ? themes : practicalVersion === 'marriage-v3' ? historicalThemes
+    : [{dimensions: topics.map(topic => topic.id)}];
+  const assigned = new Set(topics.flatMap(topic => layout[topic.id] ?? []));
+  const remaining = questions.filter(question => !assigned.has(question.id)).map(question => question.id);
+  const lastId = ordered.at(-1)?.dimensions.at(-1);
+  return ordered.map(theme => ({
+    cards: theme.dimensions.map((id): Card => {
       const dimension = topics.find(item => item.id === id)!;
       const femaleWork = gender === 'woman' && id === 'wife_work';
-      const fields: Card = {
-        selfOnly: !hasPartnerQuestion(id, historical ? 'marriage-v3' : 'marriage-v4'),
+      return {
+        selfOnly: !hasPartnerQuestion(id, practicalVersion),
         self: {
           id: `preference:${id}:self`,
           label: dimension.title,
@@ -117,7 +125,7 @@ function makeThemeCards(gender?: Gender, historical=false) {
           prompt: dimension.partnerPrompt,
           options: dimension.options.map(option => ({ code: option.code, label: option.partner })),
         },
-        personality: (layout[id] ?? []).map(questionId => {
+        personality: [...(layout[id] ?? []), ...(id === lastId ? remaining : [])].map(questionId => {
           const question = questions.find(item => item.id === questionId)!;
           return {
             id: `personality:${questionId}:self`,
@@ -126,9 +134,7 @@ function makeThemeCards(gender?: Gender, historical=false) {
             options: question.options.map(option => ({ code: option.code, label: option.label })),
           };
         }),
-
       };
-      return fields;
     }),
   }));
 }
@@ -143,56 +149,44 @@ function perspective(field: Field) {
   return field.id.startsWith('personality:') ? 'عن شخصيتي' : 'عنّي';
 }
 
-function SummaryTopics({ groups, choices, lines, mode, inferred, hiddenPartnerIds, completionChoices = choices, sourceOf, onChoose, onDetails, disabled = false }: {
-  groups: ReturnType<typeof makeThemeCards>;
+function AnswerList({ fields, choices, preview, inferred, sourceOf, onChoose, onDetails, disabled = false }: {
+  fields: readonly Field[];
   choices: Choices;
-  lines: ReturnType<typeof portraitLines<Field>>;
-  mode: 'draft' | 'review' | 'saved';
+  preview?: string;
   inferred: ReadonlySet<string>;
-  hiddenPartnerIds?: ReadonlySet<string>;
-  completionChoices?: Choices;
   sourceOf?: (field: Field) => string | undefined;
   onChoose?: (id: string, code: string) => void;
   onDetails?: () => void;
   disabled?: boolean;
 }) {
   return <>
-    {mode !== 'draft' && <div className="wi-summary-heading">
-      <h2 className="wi-summary-title"><LockKeyhole size={15} aria-hidden="true"/>إجاباتي</h2>
-      {onDetails && <button type="button" className="wi-link" onClick={onDetails}>تفاصيل المراجعة</button>}
-    </div>}
-    <div className="wi-summary-topics">{groups.map(group => {
-      const allFields = group.cards.flatMap(assessmentFields);
-      const fields = allFields.filter(field => !hiddenPartnerIds?.has(field.id) && (mode === 'review' || selected(field, choices)));
-      if (!fields.length) return null;
-      const highlight = lines.find(line => fields.some(field => field.id === line.field.id));
-      return <details key={group.label} className="wi-summary-topic">
-        <summary><span><span className="wi-summary-caption">{group.label}</span>
-          <strong>{highlight?.preview ?? 'مراجعة الإجابات'}</strong>
-        </span>{mode === 'draft' && <small className="wi-summary-status">{group.cards.every(card => !needsCard(card, completionChoices)) ? 'اكتملت الإجابات' : 'قيد الإكمال'}</small>}
-          <ChevronDown size={17} aria-hidden="true"/></summary>
-        <div className="wi-summary-fields">
-          {fields.map(field => {
-            const answer = selected(field, choices);
-            const side = perspective(field);
-            const source = [inferred.has(field.id) && 'اقتراح من إجابتك', sourceOf?.(field)].filter(Boolean).join(' · ');
-            const content = <><span><small>{field.label}</small>
-              <span className="wi-summary-perspective" data-side={field.id.endsWith(':partner') ? 'partner' : 'self'}>{side}</span>
-              {source && <small className="wi-summary-source">{source}</small>}
-              <strong>{answer?.label ?? 'اختر إجابتك'}</strong>
-              {field.id === 'preference:marriage_timeline:self' && answer?.code === 'D' && <small>يمكنك ترك الموعد مفتوحًا إلى أن تتضح خطتك.</small>}
-            </span>{onChoose && <Pencil size={15} aria-hidden="true"/>}</>;
-            return onChoose ? <label key={field.id} className="wi-summary-answer" data-field-id={field.id}>
-              {content}
-              <select aria-label={`${field.label}، ${side}`} value={answer?.code ?? ''} disabled={disabled} onChange={event => onChoose(field.id, event.target.value)}>
-                {!answer && <option value="" disabled>اختر إجابتك</option>}
-                {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
-              </select>
-            </label> : <div key={field.id} className="wi-summary-answer" data-field-id={field.id}>{content}</div>;
-          })}
-        </div>
-      </details>;
-    })}</div>
+    <details className="wi-all-answers">
+      <summary>
+        <span><strong><LockKeyhole size={15} aria-hidden="true"/>إجاباتي ({number.format(fields.length)})</strong>
+          {preview && <small>{preview}</small>}</span><ChevronDown size={16} aria-hidden="true"/>
+      </summary>
+      <div className="wi-summary-fields">
+        {fields.map(field => {
+          const answer = selected(field, choices);
+          const side = perspective(field);
+          const source = [inferred.has(field.id) && 'اقتراح من إجابتك', sourceOf?.(field)].filter(Boolean).join(' · ');
+          const content = <><span><small>{field.label}</small>
+            <span className="wi-summary-perspective" data-side={field.id.endsWith(':partner') ? 'partner' : 'self'}>{side}</span>
+            {source && <small className="wi-summary-source">{source}</small>}
+            <strong>{answer?.label ?? 'اختر إجابتك'}</strong>
+            {field.id === 'preference:marriage_timeline:self' && answer?.code === 'D' && <small>يمكنك ترك الموعد مفتوحًا إلى أن تتضح خطتك.</small>}
+          </span>{onChoose && <Pencil size={15} aria-hidden="true"/>}</>;
+          return onChoose ? <label key={field.id} className="wi-summary-answer" data-field-id={field.id}>
+            {content}
+            <select aria-label={`${field.label}، ${side}`} value={answer?.code ?? ''} disabled={disabled} onChange={event => onChoose(field.id, event.target.value)}>
+              {!answer && <option value="" disabled>اختر إجابتك</option>}
+              {field.options.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
+            </select>
+          </label> : <div key={field.id} className="wi-summary-answer" data-field-id={field.id}>{content}</div>;
+        })}
+      </div>
+    </details>
+    {onDetails && <button type="button" className="wi-link wi-review-details" onClick={onDetails}>تفاصيل المراجعة</button>}
   </>;
 }
 
@@ -202,23 +196,18 @@ export function ConfirmedAnswers({ confirmed, gender, inferredPartnerIds, onEdit
   onDetails?: () => void;
 }) {
   const historical = confirmed.some(item=>legacyTraits.some(trait=>item.id==='personality:'+trait.id+':self'));
-  const groups = makeThemeCards(gender,historical);
-  const byTopic = groups.map(group => group.cards.flatMap(assessmentFields));
   const choices = Object.fromEntries(confirmed.map(item => [item.id, item.values]));
+  const fields = makeThemeCards(gender,historical).flatMap(group => group.cards.flatMap(assessmentFields)).filter(field => selected(field,choices));
   const inferred = new Set(inferredPartnerIds);
-  const omitFromHighlights = inferredPartnerIds ? inferred : new Set(byTopic.flat().filter(field => field.id.endsWith(':partner')).map(field => field.id));
+  const omitFromHighlights = inferredPartnerIds ? inferred : new Set(fields.filter(field => field.id.endsWith(':partner')).map(field => field.id));
   return <section className="wi-confirmed-answers" aria-label="إجاباتي المحفوظة">
-    <SummaryTopics groups={groups} choices={choices} lines={portraitLines(byTopic, choices, omitFromHighlights)}
-      mode="saved" inferred={inferred} onChoose={onEdit} onDetails={onDetails}/>
+    <AnswerList fields={fields} choices={choices} preview={portraitLines([fields], choices, omitFromHighlights)[0]?.preview}
+      inferred={inferred} onChoose={onEdit} onDetails={onDetails}/>
   </section>;
 }
 
 function assessmentFields(card: Card) {
   return card.selfOnly ? [card.self, ...card.personality] : [card.self, card.partner, ...card.personality];
-}
-
-function needsCard(card: Card, choices: Choices) {
-  return assessmentFields(card).some(field => !selected(field, choices));
 }
 
 function ChoiceCard({ field, value, onChoose, disabled, compact = false, shared = false, help }: {
@@ -374,22 +363,23 @@ function PartnerRow({item, choices, inferred, disabled, onChoose}: {
 }
 
 type LayoutContext = {
-  gender?: Gender; historical?: boolean; direct?: boolean; childrenCount?: number;
+  gender?: Gender; historical?: boolean; manualCatalog?: CatalogVersions; direct?: boolean; childrenCount?: number;
   partnerChildren?: PartnerCriteria['children']; unresolvedPartnerIds?: readonly string[];
 };
 
-function assessmentLayout(explicit: Choices, savedChoices: Choices, {gender, historical=false, direct=false, childrenCount, partnerChildren, unresolvedPartnerIds=[]}: LayoutContext) {
+function assessmentLayout(explicit: Choices, savedChoices: Choices, {gender, historical=false, manualCatalog, direct=false, childrenCount, partnerChildren, unresolvedPartnerIds=[]}: LayoutContext) {
   const blocked = new Set(unresolvedPartnerIds);
-  if (!historical) blocked.add('preference:residence_plan:partner');
-  if (direct && historical) for (const dimension of legacyCatalog.dimensions) blocked.add(`preference:${dimension.id}:partner`);
+  const practicalVersion = manualCatalog?.practical ?? (historical ? 'marriage-v3' : 'marriage-v4');
+  const currentPractical = practicalVersion === 'marriage-v4';
+  if (currentPractical) blocked.add('preference:residence_plan:partner');
+  if (direct && !currentPractical) for (const dimension of dimensionsForVersion(practicalVersion)) blocked.add(`preference:${dimension.id}:partner`);
   const {choices, inferred} = resolvePartnerDefaults(explicit, savedChoices, blocked);
-  const allThemes = makeThemeCards(gender,historical);
-  const relevant = (item: Card, values: Choices) => historical || item.self.id !== 'preference:parenting_approach:self' ||
+  const allThemes = makeThemeCards(gender,historical,manualCatalog);
+  const relevant = (item: Card, values: Choices) => !currentPractical || item.self.id !== 'preference:parenting_approach:self' ||
     parentingApplicable({children_plan:values['preference:children_plan:self']?.[0]},childrenCount,partnerChildren);
-  const themeCards = allThemes.map(theme=>({...theme,cards:theme.cards.filter(item=>relevant(item,choices))}));
   const cards = allThemes.flatMap((theme, themeIndex) => theme.cards.map(card => ({ ...card, themeIndex })));
-  const fields = themeCards.flatMap(theme=>theme.cards.flatMap(assessmentFields));
-  return { choices, inferred, themeCards, cards, fields, relevant, blocked };
+  const fields = cards.filter(item => relevant(item, choices)).flatMap(assessmentFields);
+  return { choices, inferred, cards, fields, relevant, blocked, currentPractical };
 }
 
 type Progress = ReturnType<typeof assessmentProgress>;
@@ -432,14 +422,15 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
 
 export function HybridAssessment({
   memberId, measurementOwner, initialField,
-  portraitPartnerSourceKnown = true,
-  choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
+  portraitPartnerSourceKnown = true, statements = [],
+  choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, manualCatalog, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
 }: {
   memberId?: string; measurementOwner?: string; initialField?:string;
   choices: Choices;
   childrenCount?: number;
   partnerChildren?: PartnerCriteria['children'];
   historical?: boolean;
+  manualCatalog?: CatalogVersions;
   onChange: (choices: Choices, changedIds?: readonly string[]) => void;
   direct?: boolean;
   unresolvedPartnerIds?: readonly string[];
@@ -452,44 +443,48 @@ export function HybridAssessment({
   savedChoices?: Choices;
   receiptInferredPartnerIds?: readonly string[];
   portraitPartnerSourceKnown?: boolean;
+  statements?: readonly InterviewStatement[];
   aiProposals?: readonly InterviewProposal[];
   onClarify?: () => void;
   onChoiceHelp?: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
   reviewOptions?: ReactNode;
   reviewExtras?: ReactNode;
 }) {
-  const { choices, inferred, themeCards, cards, fields, relevant, blocked } = assessmentLayout(explicit, savedChoices, { gender, historical, direct, childrenCount, partnerChildren, unresolvedPartnerIds });
-  const topicKey = topicResumeKey(memberId, historical);
-  const [startTopic] = useState(() => readTopic(topicKey, themeCards.length));
-  const routesFor = (values: Choices) => topicRoutes(themeCards.map(theme => theme.label), cards,
-    item => relevant(item, values), (field: Field) => !selected(field, values));
-  const routes = routesFor(choices);
-  const sectionPrefix=initialField==='قسم الشخصية كاملًا'?'personality:':initialField==='قسم التوافق كاملًا'?'preference:':undefined;
-  const sectionFields=sectionPrefix?cards.flatMap((card,index)=>relevant(card,choices)?assessmentFields(card).filter(f=>f.id.startsWith(sectionPrefix)).map(field=>({field,index})):[]):[];
-  const requested=sectionFields[0] ?? (initialField ? cards.map((card,index)=>({index,field:assessmentFields(card).find(f=>[f.id,f.label,f.prompt].includes(initialField))})).find(item=>item.field) : undefined);
-  const [index, setIndex] = useState(() => requested?.index ?? nextTopicCard(routes, startTopic));
-  const topicMenu = useRef<HTMLDetailsElement>(null);
-  const started = useRef(Boolean(requested));
+  const { choices, inferred, cards, fields, relevant, blocked, currentPractical } = assessmentLayout(explicit, savedChoices, { gender, historical, manualCatalog, direct, childrenCount, partnerChildren, unresolvedPartnerIds });
+  const applicableFields = (values: Choices) => cards.filter(item => relevant(item, values)).flatMap(assessmentFields);
+  const bookmark = questionResumeKey(memberId, historical, manualCatalog);
+  const sectionPrefix = initialField === 'قسم الشخصية كاملًا' ? 'personality:' : initialField === 'قسم التوافق كاملًا' ? 'preference:' : undefined;
+  const sectionFields = sectionPrefix ? fields.filter(field => field.id.startsWith(sectionPrefix)) : [];
+  const [visit, setVisit] = useState<Visit>(() => {
+    const requested = sectionFields[0] ?? fields.find(field => initialField && [field.id, field.label, field.prompt].includes(initialField));
+    if (requested) return {fieldId: requested.id, editing: true};
+    const savedId = readQuestion(bookmark, group => cards.filter(item => item.themeIndex === group && relevant(item, choices))
+      .flatMap(assessmentFields).find(field => !selected(field, choices))?.id);
+    if (savedId?.startsWith('edit:')) return {fieldId: savedId.slice(5), editing: true};
+    return {fieldId: savedId};
+  });
+  const questionMenu = useRef<HTMLDetailsElement>(null);
   const [history, setHistory] = useState<Visit[]>([]);
   const [forward, setForward] = useState<Visit[]>([]);
-  const [editField, setEditField] = useState<string|undefined>(requested?.field?.id);
   const [recorded, setRecorded] = useState('');
   const movingFrom = useRef(false);
   const backwards = useRef(false);
   const previousTap = useRef<{x:number; y:number; at:number} | null>(null);
-  const [draftReviewOpen, setDraftReviewOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const focusQuestion = useRef(false);
   const headingId = useId();
 
-  const card = cards[index];
+  const requestedField = visit.editing ? fields.find(field => field.id === visit.fieldId) : undefined;
+  const activeField = requestedField ?? nextQuestion(fields, visit.fieldId, field => !selected(field, choices));
+  const editField = requestedField?.id;
+  const card = activeField ? cards.find(item => assessmentFields(item).includes(activeField)) : undefined;
   const allSelected = fields.flatMap(field => {
     const answer = selected(field, choices);
     return answer ? [{ id: field.id, values: [answer.code] }] : [];
   });
   const implicitPartner = new Set([...inferred, ...receiptInferredPartnerIds]);
   const omittedPortraitIds = portraitPartnerSourceKnown ? implicitPartner : new Set(fields.filter(field => field.id.endsWith(':partner')).map(field => field.id));
-  const portrait = portraitLines(themeCards.map(theme => theme.cards.flatMap(assessmentFields)), savedChoices, omittedPortraitIds);
+  const preview = portraitLines([fields], savedChoices, omittedPortraitIds)[0]?.preview;
   const progress = assessmentProgress(fields, choices, savedChoices, aiProposals, openingTurnId);
   const carried = progress.pending.size;
   const measured = useRef<string | undefined>(undefined);
@@ -509,56 +504,52 @@ export function HybridAssessment({
   const sourceOf = (field: Field) => pendingIds.has(field.id) ? 'مقترح من لونا' : wasCaptured(field) ? 'يطابق اقتراح لونا' : undefined;
   const [separateFor,setSeparateFor] = useState<string>();
   const selfAnswer = card && selected(card.self, choices);
-  const topicFields = card ? assessmentFields(card) : [];
-  const activeField = topicFields.find(field => field.id === editField) ?? topicFields.find(field => !selected(field, choices));
   const sharedTopic = card?.self.id.split(':')[1];
-  const jointPrompt = card && sharedTopic && !historical && !editField && separateFor !== card.self.id
+  const jointPrompt = card && sharedTopic && currentPractical && !editField && separateFor !== card.self.id
     && !card.selfOnly && !choices[card.partner.id]?.length && !blocked.has(card.partner.id)
     ? sharedDecisionPrompt(sharedTopic, gender) : undefined;
   const sharedPrompt = activeField === card?.self ? jointPrompt : undefined;
   const savedArrangement = jointPrompt && activeField === card?.partner && selfAnswer ? selfAnswer : undefined;
-  const capturedPartner = !historical && !editField && card && activeField === card.self && sharedTopic
+  const capturedPartner = currentPractical && !editField && card && activeField === card.self && sharedTopic
     && sharedDecisionPrompt(sharedTopic, gender)
     && aiProposals.some(proposal => proposal.id === card.partner.id && proposal.values[0] === choices[card.partner.id]?.[0])
     ? selected(card.partner, choices) : undefined;
   const confirmOwn = capturedPartner && card && separateFor !== card.self.id
     ? card.self.options.find(option => option.code === capturedPartner.code) : undefined;
+  const contextual = activeField && !direct && currentPractical && !selected(activeField, choices)
+    ? statementContext(activeField.id, statements, Boolean(sharedPrompt)) : undefined;
   const displayField = activeField && (sharedPrompt ? {
-    ...activeField, prompt: sharedPrompt, options: activeField.options.map(option => ({
+    ...activeField, prompt: contextual?.prompt ?? sharedPrompt, options: activeField.options.map(option => ({
       ...option, label: sharedDecisionLabel(sharedTopic!, option.code, option.label),
     })),
-  } : activeField);
+  } : contextual?.prompt ? { ...activeField, prompt: contextual.prompt } : activeField);
   const currentEvidence = activeField && progress.extracted.has(activeField.id)
     ? aiProposals.find(proposal => proposal.id === activeField.id)?.evidence.find(item => !item.turnId.startsWith('context:'))?.quote
     : undefined;
   const screen = activeField?.id ?? card?.self.id ?? 'review';
   const retainSelf = selfAnswer && activeField === card?.partner;
-  const firstNeeded = nextTopicCard(routes, card?.themeIndex ?? startTopic);
-
   useEffect(() => {
-    if ((!started.current && capturedCount > 0) || (index < 0 && firstNeeded >= 0) || (card && !relevant(card,choices))) setIndex(firstNeeded);
-  }, [capturedCount, firstNeeded, index]);
-
-  const activeTopic = firstNeeded < 0 ? null : card?.themeIndex;
-  useEffect(() => {
-    if (activeTopic !== undefined) rememberTopic(topicKey, activeTopic);
-  }, [topicKey, activeTopic]);
+    rememberQuestion(bookmark, editField ? 'edit:' + editField : activeField?.id);
+  }, [bookmark, activeField?.id, editField]);
 
   useLayoutEffect(() => {
     movingFrom.current = false;
     if (!focusQuestion.current) return;
     focusQuestion.current = false;
     const title = heading.current;
-    const scroller = title?.closest<HTMLElement>('.wi-content');
-    if (!title || !scroller) return;
+    if (!title) return;
     const prompt = title.parentElement?.querySelector<HTMLElement>('.wi-hybrid-field legend') ?? title;
     prompt.focus({preventScroll:true});
+    const scroller = title.closest<HTMLElement>('.wi-content');
+    if (!scroller) {
+      prompt.scrollIntoView({block:'nearest'});
+      return;
+    }
     const offset = (title.closest('.wi-hybrid-stage') ?? title).getBoundingClientRect().top - scroller.getBoundingClientRect().top;
     if (offset < 8 || offset > scroller.clientHeight / 2) scroller.scrollTop += offset - 16;
   }, [screen]);
 
   function choose(id: string, code: string) {
-    started.current = true;
     const field = fields.find(item => item.id === id);
     const option = field?.options.find(item => item.code === code);
     if (field && option) setRecorded(`سُجّل · ${field.label} · ${id.endsWith(':partner') ? 'تفضيلي في الشريك' : 'عنّي'} · ${option.label}`);
@@ -566,51 +557,45 @@ export function HybridAssessment({
   }
 
   function advance(nextChoices: Choices = choices) {
-    if (movingFrom.current || !card) return;
+    if (movingFrom.current || !activeField) return;
     focusQuestion.current = true;
     backwards.current = false;
     movingFrom.current = true;
-    started.current = true;
-    setHistory(trail => [...trail, {index, fieldId:activeField?.id}]);
-    if(sectionPrefix && editField){
-      const at=sectionFields.findIndex(item=>item.field.id===editField);
-      const next=sectionFields[at+1];
-      setForward([]);setEditField(next?.field.id);setIndex(next?.index??nextTopicCard(routesFor(nextChoices),card.themeIndex));return;
+    setHistory(trail => [...trail, {fieldId: activeField.id, editing: true}]);
+    const applicable = applicableFields(nextChoices);
+    if (sectionPrefix && editField) {
+      const section = applicable.filter(field => field.id.startsWith(sectionPrefix));
+      const next = section[section.findIndex(field => field.id === editField) + 1];
+      if (next) {
+        setForward([]);
+        setVisit({fieldId: next.id, editing: true});
+        return;
+      }
     }
-    const revisit = forward.findIndex(point => point.index >= 0 && relevant(cards[point.index], nextChoices)
-      && (point.fieldId || needsCard(cards[point.index], nextChoices)));
-    const missingPerspective = !selected(card.self, nextChoices) || (!card.selfOnly && !selected(card.partner, nextChoices));
-    if (editField && missingPerspective && forward[revisit]?.index !== index) {
-      setEditField(undefined);
-    } else if (revisit >= 0) {
-      const point = forward[revisit];
+    const revisit = forward.findIndex(point => !point.fieldId || applicable.some(field => field.id === point.fieldId));
+    if (revisit >= 0) {
+      setVisit(forward[revisit]);
       setForward(forward.slice(revisit + 1));
-      setEditField(point.fieldId);
-      setIndex(point.index);
     } else {
       setForward([]);
-      setEditField(undefined);
-      setIndex(nextTopicCard(routesFor(nextChoices), card.themeIndex));
+      setVisit({fieldId: nextQuestion(applicable, activeField.id, field => !selected(field, nextChoices))?.id});
     }
   }
 
-  function pickTopic(themeIndex: number) {
-    const next = routes[themeIndex].nextIndex;
-    if (disabled || next < 0) return;
-    if (topicMenu.current) topicMenu.current.open = false;
-    if (index === next && !editField) {
+  function pickQuestion(field: Field) {
+    if (disabled) return;
+    if (questionMenu.current) questionMenu.current.open = false;
+    if (field.id === activeField?.id) {
       heading.current?.focus();
       return;
     }
-    started.current = true;
     focusQuestion.current = true;
     previousTap.current = null;
     backwards.current = false;
-    setHistory(trail => [...trail, {index, fieldId: activeField?.id}]);
+    setHistory(trail => [...trail, {fieldId: activeField?.id, editing: Boolean(editField)}]);
     setForward([]);
-    setEditField(undefined);
     setRecorded('');
-    setIndex(next);
+    setVisit({fieldId: field.id, editing: Boolean(selected(field, choices))});
   }
 
   function commitField(field: Field, code: string, shared = false) {
@@ -618,7 +603,6 @@ export function HybridAssessment({
     const next = { [field.id]: [code] };
     if (shared && sharedPrompt && card && field === card.self) {
       next[card.partner.id] = [code];
-      started.current = true;
       setRecorded(`سُجّل تفضيلك للترتيب المشترك · ${field.label}`);
       onChange({...explicit,...next}, Object.keys(next));
     } else choose(field.id, code);
@@ -627,27 +611,26 @@ export function HybridAssessment({
     advance(resolved.choices);
   }
 
-  const previousVisit = history.filter(point => relevant(cards[point.index], choices)).at(-1);
+  const previousVisit = history.filter(point => fields.some(field => field.id === point.fieldId)).at(-1);
   function goBack() {
     if (!previousVisit) return;
     focusQuestion.current = true;
     previousTap.current = null;
     backwards.current = true;
-    setForward(trail => [{index, fieldId:editField}, ...trail]);
+    setForward(trail => [{fieldId: activeField?.id, editing: Boolean(editField)}, ...trail]);
     setRecorded('');
-    setEditField(previousVisit.fieldId);
-    setIndex(previousVisit.index);
+    setVisit(previousVisit);
     setHistory(history.slice(0, history.lastIndexOf(previousVisit)));
   }
 
-  const previous = previousVisit && cards[previousVisit.index];
+  const previous = previousVisit && cards.find(item => assessmentFields(item).some(field => field.id === previousVisit.fieldId));
   function suggestionRow(item: Card) {
     const answer = selected(item.partner, choices);
     if (!answer || !selected(item.self, choices)) return null;
     return <PartnerRow key={item.partner.id} item={item} choices={choices} inferred={inferred.has(item.partner.id)}
       disabled={disabled} onChoose={code => choose(item.partner.id, code)}/>;
   }
-  const canAdvance = card && (editField ? activeField && selected(activeField, choices) : !needsCard(card, choices));
+  const canAdvance = editField && activeField && selected(activeField, choices);
   const splitChoice = jointPrompt && card && <button type="button" className="wi-link" disabled={disabled}
     onClick={() => setSeparateFor(card.self.id)}>أختار لنفسي ولشريكي بشكل مختلف</button>;
   const helpFor = (field: Field) => onChoiceHelp
@@ -679,31 +662,25 @@ export function HybridAssessment({
     </details> : null;
   return <section className="wi-hybrid" aria-labelledby={headingId}>
     {!direct && !card && <LunaSessionSteps current="المراجعة"/>}
-    {card && <details ref={topicMenu} className="wi-topic-route" data-active-topic={card.themeIndex}>
+    {activeField && <details ref={questionMenu} className="wi-question-route" data-active-field={activeField.id}>
       <summary>
-        <span className="wi-topic-current" key={card.themeIndex}><strong>{routes[card.themeIndex].label}</strong>
-          <small>{routes[card.themeIndex].remaining ? <>المتبقي {number.format(routes[card.themeIndex].remaining)}</> : 'جاهز للمراجعة'}</small>
-        </span>
-        <span className="wi-topic-trigger">المواضيع <ChevronDown size={15} aria-hidden="true"/></span>
+        <strong>كل الأسئلة</strong>
+        <span className="wi-question-count">المتبقي {number.format(available)} من {number.format(fields.length)}<ChevronDown size={15} aria-hidden="true"/></span>
       </summary>
-      <details className="wi-draft-review" onToggle={event => setDraftReviewOpen(event.currentTarget.open)}>
-        <summary><LockKeyhole size={14} aria-hidden="true"/>إجاباتي حتى الآن<ChevronDown size={15} aria-hidden="true"/></summary>
-        {draftReviewOpen && <div className="wi-draft-review-body">
-          {portrait.length ? <SummaryTopics groups={themeCards} choices={savedChoices} lines={portrait} mode="draft"
-            inferred={implicitPartner} hiddenPartnerIds={omittedPortraitIds} completionChoices={choices} sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
-            : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
-        </div>}
-      </details>
       {onClarify && <button type="button" className="wi-link wi-correct-introduction" disabled={disabled}
-        onClick={() => { if (topicMenu.current) topicMenu.current.open = false; onClarify(); }}>توضيح كلامي مع لونا</button>}
-      <ol aria-label="مواضيع أسئلة التوافق">{routes.map((route, i) => <li key={route.label}>
-        <button type="button" disabled={disabled || route.nextIndex < 0} aria-current={i === card.themeIndex ? 'step' : undefined}
-          data-topic-index={i} data-complete={route.nextIndex < 0 || undefined} onClick={() => pickTopic(i)}>
-          <span className="wi-topic-marker" aria-hidden="true">{route.nextIndex < 0 ? <Check size={13}/> : number.format(i + 1)}</span>
-          <span className="wi-topic-name"><strong>{route.label}</strong><small>{route.nextIndex >= 0 ? `السؤال التالي · ${route.nextLabel}` : 'جاهز للمراجعة'}</small></span>
-          {i === card.themeIndex && route.nextIndex >= 0 ? <span className="wi-topic-here">نكمل هنا</span> : route.nextIndex >= 0 && <ArrowLeft size={15} aria-hidden="true"/>}
-        </button>
-      </li>)}</ol>
+        onClick={() => { if (questionMenu.current) questionMenu.current.open = false; onClarify(); }}>توضيح كلامي مع لونا</button>}
+      <ol aria-label="كل أسئلة التوافق والشخصية">{fields.map((field, index) => {
+        const answer = selected(field, choices);
+        const source = sourceOf(field) ?? (implicitPartner.has(field.id) ? 'اقتراح من إجابتك' : undefined);
+        return <li key={field.id}><button type="button" disabled={disabled} data-question-id={field.id}
+          aria-current={activeField.id === field.id ? 'step' : undefined} data-complete={Boolean(answer) || undefined} onClick={() => pickQuestion(field)}>
+          <span className="wi-question-marker" aria-hidden="true">{number.format(index + 1)}</span>
+          <span className="wi-question-name"><strong>{field.label} · {perspective(field)}</strong>
+            {answer ? <small>{source ? source + ' · ' : ''}{answer.label}</small> : <span className="mi-sr-only">لم تُجب بعد</span>}
+          </span>
+          {answer ? <Check size={15} aria-hidden="true"/> : <ArrowLeft size={15} aria-hidden="true"/>}
+        </button></li>;
+      })}</ol>
     </details>}
     <div className="wi-hybrid-stage" data-back={backwards.current || undefined}>
       {previousVisit && <div className="wi-step-nav">
@@ -718,6 +695,7 @@ export function HybridAssessment({
       </p>}
       {capturedPartner && <p className="wi-self-echo" data-suggested><span>تفضيلك في الشريك من كلامك</span><strong>{capturedPartner.label}</strong></p>}
       {currentEvidence && <p className="wi-question-evidence"><span>من كلامك</span><q>{currentEvidence}</q></p>}
+      {!currentEvidence && contextual && !savedArrangement && !confirmOwn && <p className="wi-question-evidence"><span>{contextual.caption}</span><q dir="auto">{contextual.quote}</q></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
         const previous = previousTap.current;
@@ -742,10 +720,10 @@ export function HybridAssessment({
           compact={card.personality.includes(activeField)} help={helpFor(activeField)}/>}
         {savedArrangement && splitChoice && <div className="wi-question-tools">{splitChoice}</div>}
       </div> : <>
-        <p className="wi-lead">افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
+        <p className="wi-lead">تقدر تراجع أي إجابة وتعدّلها قبل الاعتماد.</p>
         {reviewOptions}
         <div className="wi-hybrid-review">
-          <SummaryTopics groups={themeCards} choices={choices} lines={portrait} mode="review" inferred={implicitPartner}
+          <AnswerList fields={fields} choices={choices} preview={preview} inferred={implicitPartner}
             sourceOf={sourceOf} onChoose={choose} disabled={disabled}/>
         </div>
         <div className="wi-summary-notes">

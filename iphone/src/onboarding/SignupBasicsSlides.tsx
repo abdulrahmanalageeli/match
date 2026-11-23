@@ -1,3 +1,4 @@
+import { PrivateWritingNotes, type WritingNotes } from './PrivateWritingNotes';
 import { MemberNameFields } from './MemberNameFields';
 import { dimensionsForVersion } from '../compatibility/practical-catalog';
 import { familyContext } from './familyContext';
@@ -71,8 +72,8 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   return null;
 }
 
-type Props={ optionalPublication?:boolean; trackingOwner?:string; chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
-export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({optionalPublication=false,trackingOwner,chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
+type Props={ privateNotes?: WritingNotes; optionalPublication?:boolean; trackingOwner?:string; chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
+export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({privateNotes,optionalPublication=false,trackingOwner,chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
   const total=signupSlideCount(chapter);
   // Keep the questions shown on entering a section stable while the member answers.
   const [entryAnswers, setEntryAnswers] = useState(p);
@@ -184,8 +185,8 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
           </div>}
         </div>}
       </div>}
-      {chapter==='story'&&visibleIndex===1&&<>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
-      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields remainingOnly={required && !reviewing} answers={p} update={answer} required={required}/>}
+      {chapter==='story'&&visibleIndex===1&&<>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label><PrivateWritingNotes quotes={privateNotes?.bio} value={p.bio} limit={1200} onAdd={bio => answer({bio})}/></>}
+      {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields privateQuotes={privateNotes?.lookingFor} remainingOnly={required && !reviewing} answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div></>}
       {chapter === 'details' && index === 0 && <>
         {(consentMissing || !required) && <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>}

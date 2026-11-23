@@ -22,3 +22,14 @@ test('public bio uses only public facts and invents no values or relationship pl
     assert.doesNotMatch(text, /زوج|أفضّل|الاحترام|الصراحة/);
   }
 });
+
+test('the writing editor offers only grounded phrases from the confirmed interview, without changing the bio', async () => {
+  const { writingNotes } = await loader.ssrLoadModule('/src/onboarding/PrivateWritingNotes.tsx');
+  const doc = {status:'confirmed', turns:[{id:'1',answer:'أهوى الرسم. أفضّل شخصًا صبورًا.'}],
+    statements:[{topic:'interest',subject:'self',turnId:'1',quote:'أهوى الرسم'},
+      {topic:'description',subject:'partner',turnId:'1',quote:'صبورًا'},
+      {topic:'description',subject:'self',turnId:'missing',quote:'كريم'}]};
+  assert.deepEqual(writingNotes(doc),{bio:['أهوى الرسم'],lookingFor:['صبورًا']});
+  assert.deepEqual(writingNotes({...doc,status:'review'}),{bio:[],lookingFor:[]});
+  assert.doesNotMatch(generatedBio(answers),/الرسم/);
+});

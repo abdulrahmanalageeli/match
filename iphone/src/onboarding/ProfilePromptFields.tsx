@@ -1,11 +1,12 @@
+import { PrivateWritingNotes } from './PrivateWritingNotes';
 import { useEffect, useId, useState } from 'react';
 import { Check, Feather, Pencil } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { profilePrompts, answeredProfilePrompts, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';
 
-export function ProfilePromptFields({ answers, update, invalidField, required = false, remainingOnly = false, rephrase }: {
-  answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; remainingOnly?:boolean; rephrase?: (key:ProfilePromptKey)=>void;
+export function ProfilePromptFields({ privateQuotes, answers, update, invalidField, required = false, remainingOnly = false, rephrase }: {
+  privateQuotes?: readonly string[]; answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; remainingOnly?:boolean; rephrase?: (key:ProfilePromptKey)=>void;
 }) {
   const [selected, setSelected] = useState<ProfilePromptKey>(() => profilePrompts.find(prompt => !answers[prompt.key]?.trim())?.key ?? 'lookingFor');
   const [initialMissing] = useState(()=>profilePrompts.filter(item=>!answers[item.key]?.trim()));
@@ -27,6 +28,7 @@ export function ProfilePromptFields({ answers, update, invalidField, required = 
       <textarea id={`${id}-${selected}`} data-field={selected} value={value} onChange={event => update({ [selected]: event.target.value })} maxLength={600} rows={3} placeholder={prompt.placeholder} aria-invalid={invalidField === selected || undefined} aria-describedby={`${id}-hint${invalidField === selected ? ' nf-intake-error' : ''}`} dir="auto"/>
       <small className="nf-prompt-counter">{new Intl.NumberFormat('ar-SA').format(value.length)} / ٦٠٠</small>
     </MotionReveal>
+    {selected === 'lookingFor' && <PrivateWritingNotes quotes={privateQuotes} value={value} limit={600} onAdd={lookingFor => update({lookingFor})}/>}
     <small className="nf-prompt-privacy">خلّ بيانات التواصل خارج إجاباتك.</small>
   </section>;
 }

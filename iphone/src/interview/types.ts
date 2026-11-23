@@ -12,6 +12,12 @@ export type InterviewProposal = {
   needsClarification: boolean;
   source?: 'self_default';
 };
+export type InterviewStatement = {
+  topic: 'social' | 'description' | 'interest' | 'seriousness' | 'age' | 'height' | 'appearance' | 'skinTone' | 'timeline' | 'nextStep' | 'other';
+  subject: 'self' | 'partner' | 'intent';
+  quote: string;
+  turnId: string;
+};
 export type InterviewNote = { id: string; text: string; evidence: InterviewEvidence[] };
 export type InterviewQuestion = { topic: string; text: string; suggestions: string[] };
 export type InterviewTurn = { id: string; topic: string; question: string; answer: string; skipped: boolean };
@@ -36,6 +42,7 @@ export type InterviewDocument = {
   draftAnswer: string;
   reviewSharing: boolean;
   confirmedAt: string | null;
+  statements?: InterviewStatement[];
   profileContext?: ProfileContext;
   profileProposals?: ProfileProposal[];
   profileConfirmed?: ProfileProposal[];

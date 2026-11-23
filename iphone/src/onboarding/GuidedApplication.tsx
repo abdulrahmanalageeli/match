@@ -1,4 +1,5 @@
 import { MemberNameFields } from './MemberNameFields';
+import { writingNotes, type WritingNotes } from './PrivateWritingNotes';
 import { privateNextStep } from '../interview/privateNextStep';
 import { interviewWritingDrafts } from '../interview/writingDraft';
 import {marriagePlanKeys,marriagePlanQuestions,marriagePlanLabel} from '../compatibility/marriagePlans';
@@ -261,6 +262,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
   const [interviewOpen, setInterviewOpen] = useState(Boolean(supportField && (startAt==='compatibility'||startAt==='personality') && (!initial||supportField==='قسم التوافق كاملًا'||supportField==='قسم الشخصية كاملًا')));
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
+  const [privateWriting, setPrivateWriting] = useState<{ owner: string; notes: WritingNotes }>();
   const [lunaStep, setLunaStep] = useState<ReturnType<typeof privateNextStep>>();
   const [aiComplete, setAiComplete] = useState(false);
   const [interviewApplied, setInterviewApplied] = useState(false);
@@ -389,7 +391,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,sensitivePublication:next.sensitivePublication,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
+    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);setPrivateWriting(undefined);update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
     return true;
   }
@@ -406,6 +408,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (!active) return;
       setFallbackAvailable(snapshot.fallbackAvailable === true);
       setLunaStep(privateNextStep(snapshot.document));
+      if (draftOwner && consentRef.current.assessment) setPrivateWriting({ owner: draftOwner, notes: writingNotes(snapshot.document) });
       confirmedProfileProposals.current = snapshot.document?.profileConfirmed ?? [];
       interviewVersion.current = snapshot.document ? { model:snapshot.document.model, promptVersion:snapshot.document.promptVersion, confirmedAt:snapshot.document.confirmedAt } : {};
       if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
@@ -426,7 +429,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       }
     }).catch(() => { /* The session itself offers a retry; a network error is not a bypass. */ });
     return () => { active = false; };
-  }, [checkingDevice, chooseRecovery, consents.assessment, editing, interviewAuth?.token, interviewAuth?.testSession]);
+  }, [checkingDevice, chooseRecovery, consents.assessment, draftOwner, editing, interviewAuth?.token, interviewAuth?.testSession]);
   useEffect(() => {
     if (current.current.baseline !== baseline || current.current.owner !== draftOwner) {
       const fresh = withDefaultContact(initialDraft(draftOwner, latestInitial.current), defaultContact);
@@ -435,7 +438,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       if (draftRef) draftRef.current = null;
       setStorageState(null);
       setDraft(fresh);
-      confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);
+      confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);setPrivateWriting(undefined);
       setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
     }
     if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
@@ -759,7 +762,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} optionalPublication={entryAuthorized} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {usesBasicSlides && <SignupBasicsSlides privateNotes={consents.assessment && draftOwner && privateWriting?.owner === draftOwner ? privateWriting.notes : undefined} trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} optionalPublication={entryAuthorized} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <MemberNameFields answers={p} update={update} required={!editing || !!initial?.firstName}/>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -936,6 +939,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         }}
         onApply={(confirmed, document) => {
           setLunaStep(privateNextStep(document));
+          if (draftOwner && consentRef.current.assessment) setPrivateWriting({ owner: draftOwner, notes: writingNotes(document) });
           setAiComplete(true);
           update(applyInterviewAnswers(current.current.answers, !editing ? confirmed.filter(item => item.kind !== 'beena') : confirmed));
           setInterviewApplied(true);

@@ -327,3 +327,47 @@ test('v5 shortened receipts and applications require all three child-free facts'
  p.marriageBasics.childrenCount=1;
  assert.equal(await q('marriage.required_onboarding_answers($1)',[p]),false);
 });
+
+test('private statements require verbatim evidence in the same transcript and a preceding quote for corrections',async()=>{
+ const base=review();
+ const first={...turn,id:'a',answer:'أحب التصوير'};
+ const second={...turn,id:'b',answer:'هوايتي الآن الرسم'};
+ const doc={...base,proposals:[],turns:[first,second]};
+ const note={subject:'self',topic:'interest',turnId:'b',quote:'الرسم',replacesQuote:'التصوير'};
+ const valid=(notes,overrides={})=>q('marriage.interview_document_valid($1)',[{...doc,statements:notes,...overrides}]);
+ assert.equal(await valid([note]),true);
+ for(const invalid of [{...note,quote:'السباحة'},{...note,turnId:'elsewhere'},{...note,replacesQuote:'الآن'},
+   {...note,subject:'staff'},{...note,score:4},{...note,topic:'score'},{...note,quote:null}]) assert.equal(await valid([invalid]),false);
+ assert.equal(await valid([note],{turns:[{...first,skipped:true,answer:''},second]}),false);
+ assert.equal(await valid([note],{turns:[first,{...second,skipped:true,answer:''}]}),false);
+ assert.equal(await valid(Array(41).fill(note)),false);
+ assert.equal(await q('marriage.interview_document_valid($1)',[doc]),true);
+});
+
+test('a reviewed range extends only a previously attested analysis, retries once and confers no completion',async()=>{
+ const prompts=(await import('../../src/interview/refinement-prompts.json',{with:{type:'json'}})).default;
+ const u=await user();
+ let s=await start(u);
+ const base={...review(),proposals:[],turns:[{...turn,answer:'أفضل زوجة قصيرة'}]};
+ const refined={...turn,id:randomUUID(),topic:'intent',question:prompts.height,answer:'أفضّل طول الشريك بحد أقصى ١٦٥ سم.'};
+ s=await save(u,s,base);
+ s=await save(u,s,{...base,turns:[...base.turns,refined]});
+ await assert.rejects(attest(u,s,'refined'),/Unverified refinement base/);
+ s=await save(u,s,base);
+ await attest(u,s,'analyzed');
+ s=await save(u,s,{...base,turns:[{...base.turns[0],answer:'محتوى آخر'},refined]});
+ await assert.rejects(attest(u,s,'refined'),/Unverified refinement base/);
+ s=await save(u,s,{...base,turns:[...base.turns,{...refined,question:'نص مختلف'}]});
+ await assert.rejects(attest(u,s,'refined'),/Invalid interview refinement/);
+ s=await save(u,s,{...base,turns:[...base.turns,refined]});
+ await assert.rejects(asMember(db,u.id,u.sessionId,()=>q("public.marriage_interview_attest($1,null,$2,'refined','')",[u.id,s.revision])),/permission denied/);
+ await assert.rejects(attest(u,{...s,revision:s.revision-1},'refined'),/Changed assessment/);
+ assert.deepEqual(await attest(u,s,'refined'),{ok:true});
+ assert.deepEqual(await attest(u,s,'refined'),{ok:true});
+ await assert.rejects(attest(u,s,'complete'),/Unverified assessment/);
+ assert.equal(await q('(select completed_at is null from marriage.interview_receipts where owner_key=$1)',['member:'+u.id]),true);
+ for(const topic of ['age','timeline']) {
+   s=await save(u,s,{...s.document,turns:[...s.document.turns,{...refined,id:randomUUID(),question:prompts[topic],answer:'يكفيني الوصف اللي ذكرته بدون تحديد أدق.'}]});
+   assert.deepEqual(await attest(u,s,'refined'),{ok:true});
+ }
+});

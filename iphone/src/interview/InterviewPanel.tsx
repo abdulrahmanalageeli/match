@@ -1,5 +1,7 @@
 import { interviewWritingDrafts } from './writingDraft';
 import { groundedSuggestions } from './openingEvidence';
+import { PrivateMemory, type Refinement, type RefinementTopic } from './PrivateMemory';
+import { nextRefinement } from './nextRefinement.mjs';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pencil, RotateCcw, Trash2, X } from '../BrandIcons';
@@ -144,6 +146,9 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const [coverageGain, setCoverageGain] = useState(0);
   const [captures, setCaptures] = useState<Record<string, MessageChange[]>>({});
   const [profileReview, setProfileReview] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refinementNotice, setRefinementNotice] = useState('');
+  const refinementRequest = useRef<{ key: string; id: string } | null>(null);
   const [clarifying, setClarifying] = useState<false | 'followUp' | 'correction' | 'nextStep'>(false);
   const [includeProfile,setIncludeProfile] = useState(false);
   const [profileEdits, setProfileEdits] = useState<Record<string, ProfileChoice>>({});
@@ -182,7 +187,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const nextStepTurn = hybridEnabled && doc?.currentQuestion?.text.split('\u2029').at(-1) === openingPrompts.nextStep;
   const latestStep = doc?.turns.filter(turn => turn.question === openingPrompts.nextStep && !turn.skipped).at(-1);
   const nextStepNote = doc?.readiness.find(note => note.id === 'nextStep' && (!latestStep || note.evidence.some(evidence => evidence.turnId === latestStep.id)));
-  const nextStepText = nextStepNote?.text ?? latestStep?.answer;
+  const nextStepText = nextStepNote?.text ?? latestStep?.answer ?? doc?.statements?.filter(s => s.topic === 'nextStep' && s.subject === 'intent').at(-1)?.quote;
   const owner = auth.testSession ?? auth.token ?? '';
   const reviewVersion = doc ? JSON.stringify([doc.status, doc.proposals, doc.confirmed]) : '';
   const profileVersion = JSON.stringify(doc?.profileProposals ?? []);
@@ -210,6 +215,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
     activeRequest.current = { action, settled };
     const before = current.current;
     if (action === 'draft') draftInFlight.current = payload.answer as string;
+    const canOfferRefinements = hybridEnabled && (action === 'retry' || (action === 'answer' && payload.openingFlow === true));
     try {
       const usesContext = ['start', 'answer', 'clarify', 'retry', 'review','structuredConfirm','directConfirm'].includes(action);
       const next = await requestInterview(auth, {
@@ -221,6 +227,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
           ...(!['structuredConfirm','directConfirm'].includes(action) && !hybridEnabled && assessmentContextRef.current ? { assessmentContext: assessmentContextRef.current } : {}),
         } : {}),
         ...(action === 'retry' && hybridEnabled ? { openingFlow: true } : {}),
+        ...(canOfferRefinements ? { refinementsAvailable: true } : {}),
         ...payload,
       });
       if (!mounted.current) return null;
@@ -472,6 +479,38 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
     }
   }
 
+  async function saveRefinement(topic: RefinementTopic, refinement: Refinement) {
+    if (refining || answerRef.current.trim() || !await afterDraft('clarify') || busyRef.current) return;
+    const key = JSON.stringify([topic, refinement, current.current.revision]);
+    if (refinementRequest.current?.key !== key) refinementRequest.current = { key, id: crypto.randomUUID() };
+    const id = refinementRequest.current.id;
+    setRefining(true);
+    setRefinementNotice('');
+    try {
+      const result = await call('clarify', { refineTopic: topic, refinement, requestId: id });
+      if (!mounted.current) return;
+      const updated = result?.document ?? (current.current.document?.lastRequestId === id ? current.current.document : null);
+      if (!updated || updated.lastRequestId !== id || updated.pendingAnalysis || updated.lastMode !== 'luna') return;
+      refinementRequest.current = null;
+      setError(''); setErrorCode('');
+      if ('approximate' in refinement) {
+        setRefinementNotice('بقي تفضيلك بوصفك.');
+      } else {
+        const turn = updated.turns.at(-1);
+        const fields = topic === 'age' ? ['preferredMinAge','preferredMaxAge']
+          : [topic === 'height' ? 'partnerCriteria.height' : 'marriageBasics.marriageTimeline'];
+        const confirmed = updated.profileConfirmed?.filter(p => fields.includes(p.fieldId) && p.evidence.some(e => e.turnId === turn?.id)) ?? [];
+        if (confirmed.length) {
+          profileApplyRef.current?.(confirmed, updated);
+          setRefinementNotice('حُفظ التفضيل في مسودة ملفك.');
+        }
+      }
+      feedback('selection');
+    } finally {
+      if (mounted.current) setRefining(false);
+    }
+  }
+
   async function saveSharing() {
     const choices = (current.current.document?.confirmed ?? []).map(({ id, values }) => ({ id, values }));
     const result = await call('confirm', { choices, shareReview });
@@ -540,7 +579,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
     .map(topic => interviewChapters.findIndex(chapter => chapter.topics.some(chapterTopic => chapterTopic === topic)))
     .filter(index => index >= 0));
   const activeChapter = interviewChapters[chapterIndex] ?? interviewChapters[0];
-  const responding = ['answer', 'retry', 'clarify'].includes(busy) || queuedIntent === 'answer';
+  const responding = (!refining && ['answer', 'retry', 'clarify'].includes(busy)) || queuedIntent === 'answer';
   const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
   const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : answer.trim() ? 'كتابتك محفوظة' : '';
@@ -561,7 +600,11 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const savedDetails = structuredReceipt && showReceiptSummary;
   const hybrid = Boolean(hybridEnabled && doc && ['wudayn-interview-4','wudayn-interview-5'].includes(doc.promptVersion) && (needsParenting || (structuredReceipt && receiptDraft) ||
     doc.status !== 'confirmed' && !fallbackReview && (direct || (hasOpening && doc.status === 'review'))));
-  const hasFollowUp = doc?.status === 'review' && questionParts.length === 2 && scenarioIndex >= 0;
+  const hasFollowUp = doc?.status === 'review' && questionParts.length === 2 && /[؟?]$/u.test(questionParts[1]);
+  const statements = doc?.statements ?? [];
+  const suggestedRefinement = doc && !hasFollowUp && !Object.keys(savedStructuredChoices).length
+    ? nextRefinement(doc, profileContext, structuredChoices) : undefined;
+  const manualRefinement = doc ? nextRefinement(doc, profileContext, structuredChoices, true) : undefined;
   const hybridReady = Boolean(direct || (structuredReceipt && !doc.pendingAnalysis) || (hasOpening && doc?.lastMode === 'luna' && !doc.pendingAnalysis));
   const isChat = Boolean(loaded && doc && !applied && !profileReview && !hybrid && !reviewMode);
   useEffect(() => {
@@ -639,8 +682,13 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             </div>}
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
           {!direct && profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>
-            <span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل مقترحة لملفك</span><span>مراجعة <ArrowLeft size={13}/></span>
+            <span><Pencil size={13}/>تفاصيل مقترحة لملفك ({number(profileProposals.length)})</span><span>مراجعة <ArrowLeft size={13}/></span>
           </button>}
+          {!direct && !responding && !clarifying && hybridReady && <PrivateMemory statements={statements}
+            suggestion={structuredReceipt ? undefined : suggestedRefinement} manualSuggestion={structuredReceipt ? undefined : manualRefinement}
+            save={structuredReceipt ? undefined : saveRefinement} correct={structuredReceipt ? undefined : () => setClarifying('correction')}
+            disabled={actionBlocked || Boolean(answer.trim())}/>}
+          {refinementNotice && <p className="wi-coverage-note" role="status">{refinementNotice}</p>}
           {nextStepText && !clarifying && <details className="wi-private-notes wi-next-step-review">
             <summary>خطوتك الجاية من كلامك <ChevronDown size={14}/></summary>
             <p dir="auto">{nextStepText}</p>
@@ -657,7 +705,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
-          <HybridAssessment initialField={initialField} measurementOwner={measurementOwner} memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
+          <HybridAssessment statements={direct ? undefined : statements} initialField={initialField} measurementOwner={measurementOwner} memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
             onChoiceHelp={hybridReady && !structuredReceipt ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,
@@ -708,6 +756,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         </section>
         : reviewMode ? <section className="wi-review" data-saved-details={savedDetails || undefined}>
           {savedDetails && !direct && <LunaSessionSteps current="complete"/>}
+          {savedDetails && !direct && <PrivateMemory statements={statements}/>}
           <h1 id="wi-title" ref={heading} tabIndex={-1}>{savedDetails ? 'تفاصيل المراجعة' : fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{savedDetails ? 'هنا ملاحظات الحوار وخيار مشاركة الملخص مع فريق العضوية.' : fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'هذه إجاباتك كما فهمناها من الحوار. افتح أي قسم للتفاصيل أو التعديل، ثم اعتمد الملخص كاملًا بخطوة واحدة.'}</p>
           {!savedDetails && doc.pendingAnalysis && !fallbackReview && <div className="wi-notice"><p>إجاباتك محفوظة، لكن تحليلها لم يكتمل.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة المحاولة</button></div>}
           {!savedDetails && unresolved > 0 && <p className="wi-review-attention" role="status">{fallbackReview ? 'النقاط التي لم تتضح بعد ستبقى لك لتجيب عنها مباشرة.' : <>نحتاج توضيح {number(unresolved)} {unresolved === 1 ? 'إجابة' : 'إجابات'} قبل اعتماد الملخص.</>}</p>}
@@ -749,6 +798,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
               {(index===0 || doc.turns[index-1].topic!==turn.topic) && <div className="wi-topic-divider"><span>{topics.find(topic=>topic.id===turn.topic)?.title ?? 'نتعرّف إليك'}</span></div>}
               <div className="wi-bubble wi-bubble-guide wi-bubble-history">{renderLunaMessage(turn.question)}</div>
               <div className="wi-bubble wi-bubble-member"><p dir="auto">{turn.skipped ? 'لم تُجب عن هذا السؤال بعد' : turn.answer}</p></div>
+              {index === 0 && nextStepTurn && <PrivateMemory statements={statements}/>}
               {index === 0 && nextStepTurn && openingTurnId && <OpeningInsights {...family} gender={gender} historical={doc.promptVersion === 'wudayn-interview-4'}
                 openingTurnId={openingTurnId} openingText={turn.answer} choices={structuredChoices} savedChoices={savedStructuredChoices} proposals={aiProposals}
                 onChoose={(id, code) => changeStructuredChoices({ ...structuredChoices, [id]: [code] }, [id])} disabled={actionBlocked}

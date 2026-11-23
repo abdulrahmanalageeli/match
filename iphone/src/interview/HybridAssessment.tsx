@@ -1,6 +1,7 @@
 import { sharedDecisionLabel, sharedDecisionPrompt } from '../compatibility/sharedDecisions';
 import { assessmentProgress } from './openingResults';
 import { openingHighlights } from './openingEvidence';
+import { statementContext } from './statementContext';
 import { OpeningWords } from './OpeningWords';
 import { resolvePartnerDefaults } from './partnerDefaults';
 import { portraitLines } from './personalPortrait';
@@ -18,7 +19,7 @@ import { dimensions, hasPartnerQuestion } from '../compatibility/model';
 import { personalityQuestions } from '../compatibility/personality';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import type { InterviewSelection } from './model';
-import type { InterviewChoiceHelp, InterviewProposal } from './types';
+import type { InterviewChoiceHelp, InterviewProposal, InterviewStatement } from './types';
 import './hybrid-assessment.css';
 import './personal-portrait.css';
 
@@ -432,7 +433,7 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
 
 export function HybridAssessment({
   memberId, measurementOwner, initialField,
-  portraitPartnerSourceKnown = true,
+  portraitPartnerSourceKnown = true, statements = [],
   choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
 }: {
   memberId?: string; measurementOwner?: string; initialField?:string;
@@ -452,6 +453,7 @@ export function HybridAssessment({
   savedChoices?: Choices;
   receiptInferredPartnerIds?: readonly string[];
   portraitPartnerSourceKnown?: boolean;
+  statements?: readonly InterviewStatement[];
   aiProposals?: readonly InterviewProposal[];
   onClarify?: () => void;
   onChoiceHelp?: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
@@ -523,11 +525,13 @@ export function HybridAssessment({
     ? selected(card.partner, choices) : undefined;
   const confirmOwn = capturedPartner && card && separateFor !== card.self.id
     ? card.self.options.find(option => option.code === capturedPartner.code) : undefined;
+  const contextual = activeField && !direct && !historical && !selected(activeField, choices)
+    ? statementContext(activeField.id, statements, Boolean(sharedPrompt)) : undefined;
   const displayField = activeField && (sharedPrompt ? {
-    ...activeField, prompt: sharedPrompt, options: activeField.options.map(option => ({
+    ...activeField, prompt: contextual?.prompt ?? sharedPrompt, options: activeField.options.map(option => ({
       ...option, label: sharedDecisionLabel(sharedTopic!, option.code, option.label),
     })),
-  } : activeField);
+  } : contextual?.prompt ? { ...activeField, prompt: contextual.prompt } : activeField);
   const currentEvidence = activeField && progress.extracted.has(activeField.id)
     ? aiProposals.find(proposal => proposal.id === activeField.id)?.evidence.find(item => !item.turnId.startsWith('context:'))?.quote
     : undefined;
@@ -718,6 +722,7 @@ export function HybridAssessment({
       </p>}
       {capturedPartner && <p className="wi-self-echo" data-suggested><span>تفضيلك في الشريك من كلامك</span><strong>{capturedPartner.label}</strong></p>}
       {currentEvidence && <p className="wi-question-evidence"><span>من كلامك</span><q>{currentEvidence}</q></p>}
+      {!currentEvidence && contextual && !savedArrangement && !confirmOwn && <p className="wi-question-evidence"><span>{contextual.caption}</span><q dir="auto">{contextual.quote}</q></p>}
       {card ? <div className="wi-hybrid-card" onClickCapture={event => {
         if (!event.detail || !(event.target as Element).closest('.wi-hybrid-option')) return;
         const previous = previousTap.current;

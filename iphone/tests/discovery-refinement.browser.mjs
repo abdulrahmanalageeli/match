@@ -5,7 +5,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createServer, transformWithEsbuild } from 'vite';
 const require=createRequire(import.meta.url);
-const {chromium}=require('C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
+const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE || 'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
 const root=process.cwd(), output=resolve(root,'.tmp/discovery-refinement');
 await mkdir(output,{recursive:true});
 const fixture=`
@@ -99,6 +99,13 @@ try{
    await page.setViewportSize({width,height:844});await page.screenshot({path:resolve(output,'rows-'+width+'.png'),fullPage:true});
    assert(await page.evaluate(width=>document.documentElement.scrollWidth<=width+1,width),'rows should not overflow at '+width);
    assert(await first.locator('.dr-row-name strong').evaluate(n=>n.clientWidth>0&&n.clientWidth>=n.scrollWidth),'member name should fit alongside the percentage at '+width);
+   if (width >= 375) {
+     const copy = await first.locator('.dr-bio-peek').boundingBox();
+     const actions = await first.locator('.dr-row-actions').boundingBox();
+     assert.ok(copy && actions && actions.x + actions.width <= copy.x + 1 &&
+       actions.y < copy.y + copy.height && copy.y < actions.y + actions.height,
+       'profile text and actions share one line in the RTL directory footer');
+   }
    assert.equal(await scoreText(first),percent(72));
    assert(await first.locator('.dr-fit-visual').evaluate(n=>n.getBoundingClientRect().height>=44),'percentage opens an accessible target at '+width);
  }

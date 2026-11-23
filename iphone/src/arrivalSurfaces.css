@@ -302,9 +302,29 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   background: linear-gradient(145deg, #fbf5f7, #e9dce3);
 }
 .phone-app .cm-shell .df-discovery .dr-avatar-online::after { inset-inline-end: 0; bottom: 0; }
-.phone-app .cm-shell .df-discovery .dr-row-detail { display:grid; grid-template-columns:minmax(0,1fr); gap:0; }
-.phone-app .cm-shell .df-discovery .dr-row-detail > .dr-decision-copy:empty { display:none; }
-.phone-app .cm-shell .df-discovery .dr-row-actions { justify-content:space-between; flex-wrap:wrap; gap:4px 12px; }
+.phone-app .cm-shell .df-discovery .dr-row-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+}
+.phone-app .cm-shell .df-discovery .dr-decision-copy { display: contents; }
+.phone-app .cm-shell .df-discovery .dr-decision-copy .dr-bio-peek { flex: 1 1 5.5rem; }
+.phone-app .cm-shell .df-discovery .dr-decision-copy .df-card-reason {
+  flex: 1 0 100%;
+  order: -1;
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.phone-app .cm-shell .df-discovery .dr-decision-copy .df-card-reason:only-child { flex: 1 1 8rem; }
+.phone-app .cm-shell .df-discovery .dr-row-actions {
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 0 4px;
+}
+.phone-app .cm-shell .df-discovery .dr-row-detail > :is(.dr-row-actions, .dr-sample-preview) { margin-inline-start: auto; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-actions button, .dr-sample-preview) {
   height: 24px;
   min-height: 24px;

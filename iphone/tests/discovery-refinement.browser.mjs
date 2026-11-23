@@ -5,7 +5,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createServer, transformWithEsbuild } from 'vite';
 const require=createRequire(import.meta.url);
-const {chromium}=require('C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
+const {chromium}=require(process.env.NISFAYN_PLAYWRIGHT_MODULE || 'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
 const root=process.cwd(), output=resolve(root,'.tmp/discovery-refinement');
 await mkdir(output,{recursive:true});
 const fixture=`
@@ -69,6 +69,12 @@ try{
  await page.locator('.dr-person-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const first=page.getByRole('article',{name:'ملف سارة',exact:true});
  const ineligible=page.getByRole('article',{name:'ملف نورة',exact:true});
+ const concern = 'تختلف رغبتكما في الإنجاب.';
+ assert.equal(await first.getByText(concern,{exact:true}).count(),0,'decision explanations stay out of the compact directory');
+ await first.locator('.dr-bio-peek').click();
+ await profile.getByText(concern,{exact:true}).waitFor();
+ await page.locator('.mp-back').click();
+ assert.equal(await ineligible.locator('.dr-row-interest').count(),0);
 
  await ineligible.getByRole('button',{name:'غير مؤهل للتعارف'}).click();
  await page.getByText('هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.').waitFor();
@@ -94,11 +100,52 @@ try{
  await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة',pressed:false}).waitFor();
  await page.evaluate(()=>window.__failInterest=true);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await page.getByRole('alert').waitFor();
  assert.equal(await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).getAttribute('aria-pressed'),'false');
- await page.evaluate(()=>window.__failInterest=false);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();assert.equal((await first.locator('.dr-row-interest').innerText()).trim(),'إلغاء الاهتمام');
- for(const width of [393,320,768]){
+ await page.evaluate(()=>window.__failInterest=false);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();assert.equal((await first.locator('.dr-row-interest').innerText()).trim(),'مهتم');
+ for(const width of [320,375,393,430,768]){
    await page.setViewportSize({width,height:844});await page.screenshot({path:resolve(output,'rows-'+width+'.png'),fullPage:true});
    assert(await page.evaluate(width=>document.documentElement.scrollWidth<=width+1,width),'rows should not overflow at '+width);
    assert(await first.locator('.dr-row-name strong').evaluate(n=>n.clientWidth>0&&n.clientWidth>=n.scrollWidth),'member name should fit alongside the percentage at '+width);
+   if (width >= 375 && width <= 430) {
+     assert.ok((await first.boundingBox()).height <= 90, 'standard profile retains the compact directory height at '+width);
+   }
+   const overlapsVertically = (a,b) => a.y < b.y + b.height && b.y < a.y + a.height;
+   const [name, age, interest, score, bio, request] = await Promise.all([
+     first.locator('.dr-row-name strong'), first.locator('.dr-row-name').getByText(/^(?:٢٨|28)$/),
+     first.locator('.dr-row-interest'), first.locator('.dr-fit-visual'), first.locator('.dr-bio-peek'),
+     first.locator('.dr-row-request'),
+   ].map(locator => locator.boundingBox()));
+   assert.ok(name && age && interest && score && bio && request,'all row elements visible at '+width);
+   assert.ok(overlapsVertically(name,age) && overlapsVertically(name,interest) && overlapsVertically(name,score)
+     && age.x+age.width <= name.x+1 && interest.x+interest.width <= age.x+1 && score.x+score.width <= interest.x+1,
+     'RTL title geometry at '+width+': '+JSON.stringify({name,age,interest,score}));
+   assert.ok(overlapsVertically(bio,request) && request.x+request.width <= bio.x+1 && request.y >= name.y+name.height-1,
+     'bio and request share the RTL footer at '+width);
+   assert.ok(await first.locator('.dr-bio-peek').evaluate(button => {
+     const text = document.createRange();
+     text.selectNodeContents(button);
+     const lines = Array.from(text.getClientRects(), rect => rect.y);
+     return lines.length>0 && Math.max(...lines)-Math.min(...lines)<1 && button.clientWidth>0;
+   }), 'bio preview occupies exactly one line at '+width);
+   await first.scrollIntoViewIfNeeded();
+   const hitTargets = await first.evaluate(row => {
+     const targetAt = (element, horizontal = .5, vertical = .5) => {
+       const {x,y,width,height} = element.getBoundingClientRect();
+       return document.elementFromPoint(x+width*horizontal,y+height*vertical)?.closest('button');
+     };
+     const heart = row.querySelector('.dr-row-interest');
+     const profileButton = row.querySelector('.dr-row-profile');
+     const profileLabels = [...row.querySelectorAll('.dr-row-name strong,.dr-row-name > span,.dr-row-context > span')];
+     return {
+       interest: [.08,.5,.92].every(vertical => targetAt(heart,.5,vertical) === heart),
+       profile: profileLabels.filter(label => label.textContent?.trim()).every(label =>
+         [.1,.5,.9].every(vertical => targetAt(label,.5,vertical) === profileButton)),
+       controls: ['.dr-fit-visual','.dr-bio-peek','.dr-row-request'].every(selector => {
+         const button = row.querySelector(selector);
+         return [1 / button.offsetHeight, .5, 1 - 1 / button.offsetHeight].every(vertical => targetAt(button,.5,vertical) === button);
+       }),
+     };
+   });
+   assert.deepEqual(hitTargets,{interest:true,profile:true,controls:true},'visible labels and controls resolve to their intended tap targets at '+width);
    assert.equal(await scoreText(first),percent(72));
    assert(await first.locator('.dr-fit-visual').evaluate(n=>n.getBoundingClientRect().height>=44),'percentage opens an accessible target at '+width);
  }
@@ -142,6 +189,12 @@ try{
  const directoryLock=first.getByRole('button',{name:'اشترك لعرض نسبة التوافق'});
  await directoryLock.waitFor();assert.equal(await first.locator('.nf-score-tile').count(),0);
  assert.doesNotMatch(await first.ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);
+ const upgradeRequest=first.locator('.dr-row-request');
+ await upgradeRequest.scrollIntoViewIfNeeded();
+ assert.ok(await upgradeRequest.evaluate(button => {
+   const rect=button.getBoundingClientRect();
+   return document.elementFromPoint(rect.right-5,rect.top+2)?.closest('button')===button;
+ }), 'the top edge of the free upgrade action opens membership');
  await directoryLock.tap();await selected(/المميزة/).waitFor();await back.click();
  await first.getByRole('button',{name:/عرض ملف سارة/}).click();
  assert.doesNotMatch(await page.locator('.mp-profile').ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);

@@ -26,7 +26,8 @@
 .wd-gift-plans button:last-child[aria-pressed=true] { border-color:#839e97; background:#e8efea; color:#244946 }
 .wd-gift-plans button>svg { margin-inline-start:auto; flex:none }
 .wd-gift-plans img { width:28px; height:31px; object-fit:contain }
-.wd-gift-plans small { display:block; font-size:.72rem }
+.wd-gift-prices { display:flex; flex-wrap:wrap; gap:5px 18px; margin-top:9px; font-size:.8rem; color:#655159 }
+.wd-gift-prices bdi { color:#452c36; font-weight:600 }
 .wd-gift-page .wd-gift-benefit,.wd-gift-page .wd-gift-detail { font-size:.8rem; line-height:1.7; color:#6b5961; margin:7px 0 0 }
 .wd-gift-method { display:flex; gap:5px; align-items:center; margin-bottom:8px }
 .wd-gift-method button { font:inherit; font-size:.8rem; padding:6px 12px; min-height:35px; color:#705d64; border:0; border-radius:7px; background:transparent }

@@ -5,7 +5,12 @@ import { timingSafeEqual, createHash } from 'node:crypto'
 
 const bundle = 'com.blindmatch.marriage'
 const products = new Set(['com.blindmatch.marriage.monthly.seriousness.women','com.blindmatch.marriage.monthly.seriousness','com.blindmatch.marriage.monthly','com.blindmatch.marriage.monthly.men','com.blindmatch.marriage.monthly.women'])
-const giftProducts = new Set(['com.blindmatch.marriage.gift.premium.30d', 'com.blindmatch.marriage.gift.seriousness.30d'])
+const giftProducts = new Set([
+  'com.blindmatch.marriage.gift.premium.30d',
+  'com.blindmatch.marriage.gift.premium.30d.women',
+  'com.blindmatch.marriage.gift.seriousness.30d',
+  'com.blindmatch.marriage.gift.seriousness.30d.women',
+])
 let verifier: SignedDataVerifier | undefined
 
 export class HttpError extends Error {

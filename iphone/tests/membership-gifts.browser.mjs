@@ -27,8 +27,16 @@ const bundle=await build({absWorkingDir:root,stdin:{loader:'tsx',resolveDir:root
  if(a.importer.endsWith('GiftMembership.tsx'))return{path:a.path,namespace:'gift-services'};
  });
  b.onLoad({filter:/.*/,namespace:'gift-services'},a=>({contents:a.path==='../cloud'?'export const callRpc=(name,body)=>window.giftRpc(name,body);':
- `export const isIOSBilling=()=>true,giftProductId=p=>'com.blindmatch.marriage.gift.'+p+'.30d',
- giftPrice=async p=>({productId:giftProductId(p),price:p==='premium'?'٩٩٫٩٩ ر.س':'١٩٩٫٩٩ ر.س',currency:'SAR'}),
+ `const localized={
+   'com.blindmatch.marriage.gift.premium.30d':'١٤٩٫٩٩ ر.س',
+   'com.blindmatch.marriage.gift.premium.30d.women':'٩٩٫٩٩ ر.س',
+   'com.blindmatch.marriage.gift.seriousness.30d':'٢٩٩٫٩٩ ر.س',
+   'com.blindmatch.marriage.gift.seriousness.30d.women':'١٩٩٫٩٩ ر.س'
+ };
+ export const isIOSBilling=()=>true,giftPrice=async productId=>{
+   if(!localized[productId]) throw Error('unexpected gift product');
+   return {productId,price:localized[productId],currency:'SAR'};
+ },
 
  buyGift=async(quote,token)=>{
    const reply=await window.giftRpc('apple',{quote,token});
@@ -46,7 +54,7 @@ try{
    calls.push({name,body});
    if(name==='wudayn_received_gifts')return incoming?[{id:'in',tier:'premium',senderName:'عبدالله',days:30}]:[];
    if(name==='wudayn_sent_gifts')return sent?[sent]:[];
-   if(name==='wudayn_prepare_gift'){sent={id:'out',tier:body.selected_tier,status:'waiting',productId:'com.blindmatch.marriage.gift.'+body.selected_tier+'.30d',recipientName:null};return{orderToken:'out',productId:sent.productId};}
+   if(name==='wudayn_prepare_gift'){sent={id:'out',tier:body.selected_tier,status:'waiting',productId:null,recipientName:null};return{orderToken:'out',productId:sent.productId};}
    if(name==='wudayn_gift_checkout')return{orderToken:'signed-order',productId:sent.productId};
    if(name==='apple')return purchase==='ok'?{jws:'verified-fixture'}:{code:purchase};
    if(name==='wudayn_release_gift_checkout'){assert.equal(body.order_token,'signed-order');return;}
@@ -61,7 +69,8 @@ try{
    await r.fulfill({contentType:'text/html',body:'<!DOCTYPE html><html dir="rtl" lang="ar"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"><div id="root"></div><script src="/app.js"></script></html>'});
  });
  const btn=name=>page.getByRole('button',{name,exact:true});
- await page.goto('https://gift.test/');await page.locator('.wd-gift-plans small').first().waitFor();
+ await page.goto('https://gift.test/');await page.locator('.wd-gift-prices').getByText('١٤٩٫٩٩ ر.س',{exact:true}).waitFor();
+ await page.locator('.wd-gift-prices').getByText('٩٩٫٩٩ ر.س',{exact:true}).waitFor();
  await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:resolve(output,'gift-402.png')});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
@@ -71,22 +80,30 @@ try{
  const invitation=calls.find(c=>c.name==='wudayn_prepare_gift').body;
  assert.equal(invitation.recipient_phone,'+966551234567');assert.equal(invitation.selected_tier,'seriousness');
  assert(!calls.some(c=>c.name==='apple'));
- Object.assign(sent,{status:'ready',recipientName:'سارة'});await btn('تحديث الهدايا').click();
+ const womenSeriousness='com.blindmatch.marriage.gift.seriousness.30d.women';
+ Object.assign(sent,{status:'ready',recipientName:'سارة',productId:womenSeriousness});await btn('تحديث الهدايا').click();
  const buy=page.getByRole('button',{name:/إهداء ٣٠ يومًا/});await buy.waitFor();
+ assert.match(await buy.innerText(),/١٩٩٫٩٩/);
  await page.screenshot({path:resolve(output,'gift-checkout-402.png')});
  purchase='CANCELLED';await buy.click();await page.getByText(/أُغلق الدفع/).waitFor();
  purchase='OFFER_CHANGED';await buy.click();await page.getByRole('alert').filter({hasText:'تغيّر السعر'}).waitFor();
- assert.equal(calls.filter(c=>c.name==='wudayn_release_gift_checkout').length,2);
+ purchase='OFFER_UNAVAILABLE';await buy.click();await page.getByRole('alert').filter({hasText:'تعذّر تأكيد سعر الهدية'}).waitFor();
+ assert.equal(calls.filter(c=>c.name==='wudayn_release_gift_checkout').length,3);
  assert(!calls.some(c=>c.name==='verify'));
  purchase='ok';await buy.click();
  await page.getByText('وصلت الهدية',{exact:true}).waitFor();
  assert.equal(calls.filter(c=>c.name==='verify').length,1);
  assert.equal(calls.find(c=>c.name==='apple').body.token,'signed-order');
+ assert(calls.filter(c=>c.name==='apple').every(c=>c.body.quote.productId===womenSeriousness&&c.body.quote.price==='١٩٩٫٩٩ ر.س'));
  incoming=true;await btn('تحديث الهدايا').click();await btn('قبول الدعوة').click();await btn('قبول الدعوة').waitFor({state:'hidden'});
  incoming=true;await btn('تحديث الهدايا').click();await btn('اعتذار').click();await btn('اعتذار').waitFor({state:'hidden'});
  await page.goto('https://gift.test/?from=profile#profile');await page.getByText('سارة',{exact:true}).waitFor();
  await btn('إرسال دعوة الإهداء').click();await page.getByText('بانتظار قبول الدعوة',{exact:true}).waitFor();
  assert.equal(calls.filter(c=>c.name==='wudayn_prepare_gift').at(-1).body.recipient_member,'c7002dc3-4506-4720-b1da-c7835ef82bb5');
+ Object.assign(sent,{status:'ready',recipientName:'عبدالله',productId:'com.blindmatch.marriage.gift.premium.30d'});
+ await btn('تحديث الهدايا').click();await buy.waitFor();assert.match(await buy.innerText(),/١٤٩٫٩٩/);await buy.click();
+ await page.getByText('وصلت الهدية',{exact:true}).waitFor();
+ assert.equal(calls.filter(c=>c.name==='apple').at(-1).body.quote.productId,'com.blindmatch.marriage.gift.premium.30d');
  assert.deepEqual(errors,[]);
  console.log('PASS 402px RTL gift creation by Saudi phone and profile, recipient consent/decline, displayed Apple quote, verification and delivered state.');
 }finally{await browser.close();}

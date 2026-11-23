@@ -5,6 +5,10 @@ export const SERIOUSNESS_PRODUCT='com.blindmatch.marriage.monthly.seriousness';
 export const SERIOUSNESS_WOMEN_PRODUCT='com.blindmatch.marriage.monthly.seriousness.women';
 export const SERIOUSNESS_MEMBERSHIP_SAR={man:299.99,woman:199.99} as const;
 export type MembershipPlan='premium'|'seriousness';
+export function giftProductId(tier:MembershipPlan, recipient:'man'|'woman'):string {
+  const base = 'com.blindmatch.marriage.gift.' + tier + '.30d';
+  return recipient === 'woman' ? base + '.women' : base;
+}
 export function membershipProductId(gender?: 'man' | 'woman',plan:MembershipPlan='premium'): string {
   if (gender !== 'man' && gender !== 'woman') throw Error('أكمل بيانات ملفك قبل شراء العضوية.');
   if(plan==='seriousness')return gender==='woman'?SERIOUSNESS_WOMEN_PRODUCT:SERIOUSNESS_PRODUCT;

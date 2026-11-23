@@ -17,7 +17,12 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manage", returnType: CAPPluginReturnPromise)
     ]
-    private let giftIDs: Set<String> = ["com.blindmatch.marriage.gift.premium.30d", "com.blindmatch.marriage.gift.seriousness.30d"]
+    private let monthlyProductForGift = [
+        "com.blindmatch.marriage.gift.premium.30d": "com.blindmatch.marriage.monthly.men",
+        "com.blindmatch.marriage.gift.premium.30d.women": "com.blindmatch.marriage.monthly.women",
+        "com.blindmatch.marriage.gift.seriousness.30d": "com.blindmatch.marriage.monthly.seriousness",
+        "com.blindmatch.marriage.gift.seriousness.30d.women": "com.blindmatch.marriage.monthly.seriousness.women"
+    ]
     private let prices: [String: Decimal] = [
         "com.blindmatch.marriage.monthly.seriousness.women": Decimal(string: "199.99")!,
         "com.blindmatch.marriage.monthly.seriousness": Decimal(string: "299.99")!,
@@ -206,7 +211,7 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @MainActor private func giftReceipt(_ result: VerificationResult<Transaction>, order: UUID? = nil) -> String? {
-        guard case .verified(let transaction) = result, giftIDs.contains(transaction.productID),
+        guard case .verified(let transaction) = result, monthlyProductForGift[transaction.productID] != nil,
               transaction.productType == .consumable, let token = transaction.appAccountToken,
               order == nil || token == order else { return nil }
         UserDefaults.standard.removeObject(forKey: "giftPending." + token.uuidString)
@@ -215,20 +220,36 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
         return jws
     }
 
-    @MainActor private func giftProduct(_ call: CAPPluginCall) async throws -> Product {
-        guard let id = call.getString("productId"), giftIDs.contains(id),
-              let product = try await Product.products(for: [id]).first, product.type == .consumable else {
-            throw NSError(domain: "WudaynMembership", code: 5)
+    @MainActor private func giftProduct(_ call: CAPPluginCall) async -> Product? {
+        guard let id = call.getString("productId"), let monthlyID = monthlyProductForGift[id] else {
+            call.reject("خيار الهدية غير متاح.", "OFFER_UNAVAILABLE")
+            return nil
         }
-        return product
+        let products: [Product]
+        do {
+            products = try await Product.products(for: [id, monthlyID])
+        } catch {
+            call.reject("تعذّر تحميل أسعار App Store. حاول مجددًا.", "OFFER_UNAVAILABLE", error)
+            return nil
+        }
+        guard let gift = products.first(where: { $0.id == id && $0.type == .consumable }),
+              let monthly = products.first(where: { $0.id == monthlyID && $0.type == .autoRenewable }),
+              let period = monthly.subscription?.subscriptionPeriod, period.unit == .month, period.value == 1 else {
+            call.reject("تعذّر تحميل سعر الهدية والعضوية المقابلة من App Store. حدّث الأسعار وحاول مجددًا.", "OFFER_UNAVAILABLE")
+            return nil
+        }
+        // Compare regular prices in this storefront, before introductory or promotional offers.
+        guard gift.price == monthly.price, gift.priceFormatStyle.currencyCode == monthly.priceFormatStyle.currencyCode else {
+            call.reject("سعر الهدية في المتجر لا يطابق سعر العضوية الشهرية. حدّث الأسعار وحاول مجددًا.", "OFFER_CHANGED")
+            return nil
+        }
+        return gift
     }
 
     @objc func giftOffer(_ call: CAPPluginCall) {
         Task { @MainActor in
-            do {
-                let product = try await giftProduct(call)
-                call.resolve(["productId": product.id, "price": product.displayPrice, "currency": product.priceFormatStyle.currencyCode])
-            } catch { call.reject("تعذّر تحميل سعر الهدية من App Store.", "STORE_ERROR", error) }
+            guard let product = await giftProduct(call) else { return }
+            call.resolve(["productId": product.id, "price": product.displayPrice, "currency": product.priceFormatStyle.currencyCode])
         }
     }
 
@@ -271,7 +292,7 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("بانتظار موافقة App Store على الهدية.", "PENDING")
                     return
                 }
-                let product = try await giftProduct(call)
+                guard let product = await giftProduct(call) else { return }
                 guard call.getString("price") == product.displayPrice,
                       call.getString("currency") == product.priceFormatStyle.currencyCode else {
                     call.reject("تغيّر سعر الهدية. راجع السعر قبل الشراء.", "OFFER_CHANGED")
@@ -330,7 +351,7 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
             // The web client calls this only after server verification and delivery.
             // StoreKit replays unfinished transactions if the network or app exits first.
             if let transaction = pendingDelivery.removeValue(forKey: jws) {
-                if giftIDs.contains(transaction.productID), let token = transaction.appAccountToken {
+                if monthlyProductForGift[transaction.productID] != nil, let token = transaction.appAccountToken {
                     UserDefaults.standard.set(true, forKey: "giftDelivered." + token.uuidString)
                 }
                 await transaction.finish()

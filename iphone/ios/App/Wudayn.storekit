@@ -5,43 +5,83 @@
   },
   "products": [
     {
-      "displayPrice": "99.99",
+      "displayPrice": "149.99",
       "familyShareable": false,
       "internalID": "7d865ed6-8d92-4166-8b23-a9696c8a3608",
       "localizations": [
         {
           "description": "إهداء عضوية لمدة ٣٠ يومًا",
-          "displayName": "هدية العضوية المميزة",
+          "displayName": "هدية العضوية المميزة للرجال",
           "locale": "ar_SA"
         },
         {
           "description": "A one-time 30-day membership gift",
-          "displayName": "Premium gift",
+          "displayName": "Premium gift for men",
           "locale": "en_US"
         }
       ],
       "productID": "com.blindmatch.marriage.gift.premium.30d",
-      "referenceName": "هدية العضوية المميزة",
+      "referenceName": "هدية العضوية المميزة للرجال",
       "type": "Consumable"
     },
     {
-      "displayPrice": "199.99",
+      "displayPrice": "99.99",
+      "familyShareable": false,
+      "internalID": "ec637790-360f-42c8-a414-5b3301ce242f",
+      "localizations": [
+        {
+          "description": "إهداء عضوية لمدة ٣٠ يومًا",
+          "displayName": "هدية العضوية المميزة للنساء",
+          "locale": "ar_SA"
+        },
+        {
+          "description": "A one-time 30-day membership gift",
+          "displayName": "Premium gift for women",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.blindmatch.marriage.gift.premium.30d.women",
+      "referenceName": "هدية العضوية المميزة للنساء",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "299.99",
       "familyShareable": false,
       "internalID": "89736da6-2212-4fe4-953d-6d9037a38e4e",
       "localizations": [
         {
           "description": "إهداء عضوية لمدة ٣٠ يومًا",
-          "displayName": "هدية وسام الجدية",
+          "displayName": "هدية وسام الجدية للرجال",
           "locale": "ar_SA"
         },
         {
           "description": "A one-time 30-day membership gift",
-          "displayName": "Seriousness gift",
+          "displayName": "Seriousness gift for men",
           "locale": "en_US"
         }
       ],
       "productID": "com.blindmatch.marriage.gift.seriousness.30d",
-      "referenceName": "هدية وسام الجدية",
+      "referenceName": "هدية وسام الجدية للرجال",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "199.99",
+      "familyShareable": false,
+      "internalID": "d14bab5f-8808-4d44-a439-cc623bd96d2f",
+      "localizations": [
+        {
+          "description": "إهداء عضوية لمدة ٣٠ يومًا",
+          "displayName": "هدية وسام الجدية للنساء",
+          "locale": "ar_SA"
+        },
+        {
+          "description": "A one-time 30-day membership gift",
+          "displayName": "Seriousness gift for women",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.blindmatch.marriage.gift.seriousness.30d.women",
+      "referenceName": "هدية وسام الجدية للنساء",
       "type": "Consumable"
     }
   ],

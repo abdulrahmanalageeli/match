@@ -64,11 +64,9 @@ export async function purchaseMembership(accountToken: string, gender?: 'man' | 
 }
 
 export type GiftPrice = {productId:string;price:string;currency:string};
-export const giftProductId = (tier:MembershipPlan) => 'com.blindmatch.marriage.gift.' + tier + '.30d';
 
-export async function giftPrice(tier:MembershipPlan):Promise<GiftPrice> {
+export async function giftPrice(productId:string):Promise<GiftPrice> {
   requireIOS();
-  const productId = giftProductId(tier);
   const item = await membership.giftOffer({productId});
   if (item.productId !== productId || !item.price || !item.currency) throw Error('تعذّر تحميل سعر الهدية.');
   return item;

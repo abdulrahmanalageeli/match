@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memberSignupOrigin, memberSignupKind, memberSignupUnavailable, parseMemberSignup, performMemberSignup } from '../supabase/functions/_shared/member-signup.ts';
 
-const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', registrationVersion:'wudayn-entry-2026-11-23-v2', adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true } };
+const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', registrationVersion:'wudayn-entry-2026-11-23-v3', adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:false,safetyTextReview:false } };
 function fixture(options = {}) {
   const calls = [];
   return { calls, service: {
@@ -16,7 +16,8 @@ test('member creation requires explicit current legal choices and bounded creden
   for (const field of ['assessment','sensitiveProfile','registrationVersion']) assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,[field]:false}}));
   assert.equal(parseMemberSignup({...input,consent:{...input.consent,transcript:false}}).consent.transcript,false);
   const previous={...input.consent,registrationVersion:'wudayn-entry-2026-11-23'};
-  assert.equal(parseMemberSignup({...input,consent:previous}).consent.registrationVersion,previous.registrationVersion);
+  assert.throws(()=>parseMemberSignup({...input,consent:previous}));
+  for(const flag of ['transcript','safetyTextReview','sensitivePublication','photo']) assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,[flag]:true}}));
   assert.throws(()=>parseMemberSignup({...input,consent:{...previous,transcript:false}}));
   assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,transcript:'false'}}));
   assert.equal(valid.consent.sensitivePublication,false);
@@ -51,6 +52,9 @@ test('creation follows the committed limiter decision, uses server metadata, and
   assert.equal(created.app_metadata.role, undefined);
   assert.equal(created.user_metadata, undefined);
   assert.equal(created.app_metadata.signupConsent.adult, true);
+  assert.equal(created.app_metadata.signupConsent.membershipTermsVersion,'wudayn-membership-safety-v1');
+  assert.equal(created.app_metadata.signupConsent.safetyTextReview,false);
+  assert.ok(Number.isFinite(Date.parse(created.app_metadata.signupConsent.recordedAt)));
 });
 
 test('rate failures and reserved addresses fail closed; existing users are never updated or auto-confirmed', async () => {

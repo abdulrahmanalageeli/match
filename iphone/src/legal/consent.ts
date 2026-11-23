@@ -9,6 +9,17 @@ export function recordedAccountAgreements(receipt: unknown): Pick<SignupConsents
     ? { adult: value.adult === true, terms: value.terms === true, privacy: value.privacy === true }
     : { adult: false, terms: false, privacy: false };
 }
+type PublicationPermission = { version: string; sensitiveProfile?: boolean; sensitivePublication?: boolean };
+
+/** A saved feature-level choice supersedes the starting receipt in either direction. */
+export function restorePublicationConsent(draft: PublicationPermission | undefined, receipt: PublicationPermission | null | undefined): boolean {
+  if (draft) {
+    if (draft.version !== LEGAL_NOTICE_VERSION || draft.sensitiveProfile !== true) return false;
+    if (typeof draft.sensitivePublication === 'boolean') return draft.sensitivePublication;
+  }
+  return receipt?.version === LEGAL_NOTICE_VERSION && receipt.sensitiveProfile === true && receipt.sensitivePublication === true;
+}
+
 export function withoutSensitive<T extends Pick<Partial<Profile>,'marriageBasics'|'partnerCriteria'|'publicAvatar'>>(profile:T):T {
   const basics={...profile.marriageBasics},criteria={...profile.partnerCriteria};
   for(const field of ['skinTone','tribalBackground','tribeName','religiousAffiliation','prayerPractice'] as const)delete basics[field];

@@ -12,14 +12,14 @@ const { chromium } = require(process.env.NISFAYN_PLAYWRIGHT_MODULE || 'C:/Users/
 const output = resolve(root, '.tmp/auth-app-entry');
 await mkdir(output, { recursive: true });
 const fixture = `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {Capacitor} from '@capacitor/core';
-import {Auth,Pending} from '/src/Screens.tsx';import {SupportProvider} from '/src/help/SupportContact.tsx';import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';import '/src/onboarding/arrivalJourney.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';import '/src/accessibility.css';
+import {Auth,Pending,Policy} from '/src/Screens.tsx';import {SupportProvider} from '/src/help/SupportContact.tsx';import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';import '/src/onboarding/arrivalJourney.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';import '/src/accessibility.css';
 const params=new URLSearchParams(location.search);
 if(params.has('native')){Capacitor.isNativePlatform=()=>true;Capacitor.getPlatform=()=>'ios'}
 window.__submitted=[];window.__sms=[];window.__privacy=0;window.__back=0;window.__social=[];
 const localSupport={list:async()=>({items:[],nextCursor:null}),create:async()=>{throw new Error('Unexpected support ticket creation')}};
 function Submitted(){const[busy,setBusy]=useState(false);return <SupportProvider source={localSupport}><Pending busy={busy} back={()=>window.__back++} refresh={()=>{window.__refreshes++;setBusy(true);window.__finishRefresh=()=>setBusy(false)}}/></SupportProvider>}
 window.__refreshes=0;
-function Fixture(){const[login,setLogin]=useState(params.has('login'));return <div className="phone-app">{params.has('pending')?<Submitted/>:<Auth login={login} ready busy={false} back={()=>window.__back++} switchMode={()=>setLogin(v=>!v)} submit={(...args)=>window.__submitted.push(args)} onSocial={provider=>window.__social.push(provider)} onPrivacy={()=>window.__privacy++} onDemo={()=>{}} onPhoneVerified={()=>{}}/>}</div>};createRoot(document.getElementById('root')).render(<Fixture/>);`;
+function Fixture(){const[login,setLogin]=useState(params.has('login'));const[policy,setPolicy]=useState(false);return <div className="phone-app">{params.has('pending')?<Submitted/>:<Auth login={login} ready busy={false} back={()=>window.__back++} switchMode={()=>setLogin(v=>!v)} submit={(...args)=>window.__submitted.push(args)} onSocial={provider=>window.__social.push(provider)} onPrivacy={()=>{window.__privacy++;setPolicy(true);}} onDemo={()=>{}} onPhoneVerified={()=>{}}/>}{policy&&<aside aria-label="الشروط"><Policy/><button onClick={()=>setPolicy(false)}>إغلاق الشروط</button></aside>}</div>};createRoot(document.getElementById('root')).render(<Fixture/>);`;
 const server = await createServer({root,mode:'demo',configFile:resolve(root,'vite.config.ts'),cacheDir:resolve(root,'node_modules/.vite-auth-app-entry'),server:{host:'127.0.0.1',port:5292,strictPort:true},
   optimizeDeps:{entries:[],include:['react','react-dom/client','react/jsx-runtime','lucide-react','@capacitor/core','react-native-reanimated','react-native-worklets','@supabase/supabase-js']},
   plugins:[{name:'local-auth-entry',enforce:'pre',resolveId(id,importer){if(id==='virtual:auth-app-entry')return '\0auth-app-entry';if(id.endsWith('/auth/SignupSms'))return '\0signup-confirm-stub';if(id==='./cloud'&&importer?.endsWith('/src/Screens.tsx'))return '\0auth-options-stub';},
@@ -37,6 +37,10 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
      document.documentElement.style.setProperty('--nf-native-safe-bottom','16px');
      window.scrollTo(0,0);
    });
+   // Mobile Chrome can update the small viewport units a frame after innerHeight.
+   if (!await page.locator('.wd-entry-agreements').count()) {
+     await page.waitForFunction(()=>document.documentElement.scrollHeight<=innerHeight+1,null,{timeout:4000});
+   }
    const size = await page.evaluate(selector => ({
      page: document.documentElement.scrollHeight,
      action: Math.ceil(document.querySelector(selector).getBoundingClientRect().bottom),
@@ -66,13 +70,18 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  await page.locator('input[name=email]').fill('qa@example.com');await page.locator('input[name=password]').fill('local-password-12');
  assert.deepEqual(await page.evaluate(()=>window.__sms),[]);
  await page.getByRole('button',{name:'شروط الاستخدام وإشعار الخصوصية',exact:true}).click();assert.equal(await page.evaluate(()=>window.__privacy),1);
+ const terms=page.getByRole('complementary',{name:'الشروط'});
+ await terms.getByText(/عند الحاجة لحماية الأعضاء أو التحقق من صحة بلاغ/).waitFor();
+ await terms.getByRole('button',{name:'إغلاق الشروط'}).click();
  const choices=page.getByRole('checkbox');
  assert.equal(await choices.count(),3);
+ assert.equal(await page.locator('.wd-entry-agreements input[type=checkbox]:not([required])').count(),0);
+ assert.equal(await page.locator('.wd-entry-agreements details').count(),0);
  for(let i=0;i<3;i++) {assert.equal(await create.isDisabled(),true);await choices.nth(i).check();}
  assert.equal(await create.isDisabled(),false);
  await page.screenshot({path:resolve(output,'consent-390.png'),fullPage:true});
  await create.click();await page.waitForFunction(()=>window.__submitted.length===1);
- const submitted=await page.evaluate(()=>window.__submitted[0]);assert.equal(submitted[0],'qa@example.com');assert.equal(submitted[2].adult,true);assert.equal(submitted[2].terms,true);assert.equal(submitted[2].privacy,true);assert.equal(submitted[2].transcript,false);assert.equal(submitted[2].sensitivePublication,false);assert.equal(submitted[2].photo,false);assert.ok(submitted[2].registrationVersion);assert.equal(submitted[3].phoneProof,'local-test-proof');
+ const submitted=await page.evaluate(()=>window.__submitted[0]);assert.equal(submitted[0],'qa@example.com');assert.equal(submitted[2].adult,true);assert.equal(submitted[2].terms,true);assert.equal(submitted[2].privacy,true);assert.equal(submitted[2].transcript,false);assert.equal(submitted[2].sensitivePublication,false);assert.equal(submitted[2].photo,false);assert.equal(submitted[2].safetyTextReview,false);assert.ok(submitted[2].registrationVersion);assert.equal(submitted[3].phoneProof,'local-test-proof');
  await page.getByRole('button',{name:'لدي حساب بالفعل',exact:true}).click();await measureEntry('login');await page.getByRole('button',{name:'تسجيل الدخول',exact:true}).click();await page.waitForFunction(()=>window.__submitted.length===2);assert.equal(await page.evaluate(()=>window.__sms.length),1,'login does not use signup phone confirmation');
  const base='http://127.0.0.1:5292/__auth-app-entry';
  await page.goto(base+'?native&login&phone');
@@ -97,10 +106,6 @@ try{browser=await chromium.launch({channel:'chrome',headless:true});const page=a
  await page.locator('input[name=password]').fill('local-password-12');
  await page.locator('.wd-entry-agreements').waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- await page.locator('.wd-entry-optional summary').click();
- assert.equal(await page.getByRole('checkbox').count(),7);
- await page.getByRole('checkbox',{name:/مراجعة حواري مع لونا/}).check();
- await page.locator('.wd-entry-optional summary').click();
  assert.equal(await page.getByRole('checkbox').count(),3);
  await create.scrollIntoViewIfNeeded();
  assert.ok(await create.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'large-type consent remains reachable');

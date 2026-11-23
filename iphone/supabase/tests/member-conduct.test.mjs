@@ -60,8 +60,9 @@ test('conduct permissions, deliberate pledge, timed expiry, automated holds, and
     const request=await call(member,'public.marriage_request($1)',[peer.id]);
     await call(peer,"public.marriage_act($1,'accept')",[request]); await signCommunicationAgreement(call,member,peer,request);
     const message=await call(member,'public.marriage_message($1,$2,$3)',[request,'راح أنشر صورك',randomUUID()]);
-    const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v2',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:false,photo:false,transcript:true,safetyTextReview:true};
+    const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v3',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:false,photo:false,transcript:false,safetyTextReview:false};
     await call(member,'public.wudayn_registration_agreements($1,$2)',['accept',receipt]);
+    await call(member,'public.wudayn_registration_agreements($1)',['allowSafety']);
     const text='أرسل المبلغ حتى نكمل التعارف';
     const withPermission=await call(member,'public.marriage_message($1,$2,$3)',[request,text,randomUUID()]);
     const nextText=await call(member,'public.marriage_message($1,$2,$3)',[request,'رسالة أخرى منفصلة',randomUUID()]);

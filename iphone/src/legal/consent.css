@@ -3,12 +3,6 @@
 
 .wd-entry-agreements { margin-block: 12px; min-width: 0; }
 .wd-entry-required { clear: both; }
-.wd-entry-agreements details.wd-entry-optional { margin: 4px 0 0; padding: 0; border: 0; }
-.wd-entry-optional > summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none; padding: 0 10px; }
-.wd-entry-optional > summary::-webkit-details-marker { display: none; }
-.wd-entry-optional > summary svg { flex: none; }
-.wd-entry-optional[open] > summary svg { transform: rotate(180deg); }
-.wd-entry-optional > summary:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
 .wd-entry-agreements .wd-entry-legal { display: block; margin-inline: auto; }
 .wd-entry-agreements legend { padding: 0; color: var(--ink); font-weight: 700; }
 .wd-entry-agreements .nf-consent-choice { padding-block: 8px; }

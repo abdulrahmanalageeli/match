@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { demoCommunity, demoProfile } from '../src/community/data';
 import { Auth } from '../src/Screens';
+import {membershipTermsVersion} from '../src/auth/signupReturn';
 import { GuidedApplication } from '../src/onboarding/GuidedApplication';
 import '../src/design.css';
 import '../src/flows.css';
@@ -18,7 +19,7 @@ function Registration() {
   if (!account) return <Auth ready login={false} busy={false} back={() => {}} switchMode={() => {}} onSocial={() => {}} onDemo={() => {}} onPrivacy={() => {}} onPhoneVerified={() => {}}
     submit={(email, _password, agreements, proof) => {
       if (!proof?.phoneProof) throw Error('Missing test SMS confirmation');
-      const account = { email, agreements, id: crypto.randomUUID() };
+      const account = { email, agreements: {...agreements, membershipTermsVersion, recordedAt:new Date().toISOString()}, id: crypto.randomUUID() };
       sessionStorage.setItem('qa-account', JSON.stringify(account));
       setAccount(account);
     }}/>;

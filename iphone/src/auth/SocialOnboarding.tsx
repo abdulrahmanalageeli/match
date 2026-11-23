@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Frame } from '../Screens';
 import { RegistrationAgreements } from '../legal/RegistrationAgreements';
-import { currentRegistrationReceipt, emptyRegistrationChoices, registrationComplete, registrationVersion, type SignupAgreements } from './signupReturn';
+import { emptyRegistrationChoices, registrationComplete, registrationVersion, type SignupAgreements } from './signupReturn';
 import { LEGAL_NOTICE_VERSION } from '../legal/LegalNotice';
 import { callRpc } from '../cloud';
 import { confirmSignupSms } from './SignupSms';
@@ -15,7 +15,7 @@ export function SocialOnboarding({ email, userId, initialReceipt, busy, onComple
   email: string; userId: string; initialReceipt?: SignupAgreements; busy: boolean; onComplete: (userId: string) => void;
   onLogout: () => void; onPrivacy: () => void;
 }) {
-  const previouslyAgreed = currentRegistrationReceipt(initialReceipt);
+  const previouslyAgreed = initialReceipt?.registrationVersion === registrationVersion && registrationComplete(initialReceipt);
   const [agreed, setAgreed] = useState(emptyRegistrationChoices);
   const ready = previouslyAgreed || registrationComplete(agreed);
   const [pending, setPending] = useState(false);

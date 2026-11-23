@@ -19,21 +19,36 @@ test('registration permissions cover private matching, case access, withdrawal a
     try{return (await db.query('select '+sql+' as result',args)).rows[0].result;}
     finally{await db.exec('reset role');}
   }
-  const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v2',adult:true,terms:true,privacy:true,
-    sensitiveProfile:true,sensitivePublication:false,assessment:true,transcript:true,photo:false};
+  const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v3',adult:true,terms:true,privacy:true,
+    sensitiveProfile:true,sensitivePublication:false,assessment:true,transcript:false,photo:false,safetyTextReview:false};
   const accept=(r=receipt)=>run(member,'public.wudayn_registration_agreements($1,$2)',['accept',r]);
   const read=(actor=reviewer,purpose='مراجعة توضيح طلب العضوية',aal='aal2')=>run(actor,'public.wudayn_review_interview_transcript($1,$2)',[member.id,purpose],aal);
   const doc={turns:[{question:'كيف تتخيل الخطوة القادمة؟',answer:'أتواصل مع الأهل.',skipped:false}],currentQuestion:{text:'وكيف ترتّب الموعد؟'},draftAnswer:'unsent'};
   const start=()=>db.query("insert into marriage.interview_sessions(owner_key,member_id,document,consent_version) values($1,$2,$3,'wudayn-interview-v1')",['member:'+member.id,member.id,doc]);
   const erase=()=>db.query('delete from marriage.interview_sessions where member_id=$1',[member.id]);
   await start();
-  const privateReceipt = await accept({...receipt,transcript:false});
+  for(const key of ['transcript','safetyTextReview','sensitivePublication','photo'])await assert.rejects(accept({...receipt,[key]:true}));
+  await assert.rejects(accept({...receipt,registrationVersion:'wudayn-entry-2026-11-23-v2',transcript:true}));
+  for(const version of ['wudayn-entry-2026-11-23','wudayn-entry-2026-11-23-v2']){
+    const legacy=await person();
+    const old={...receipt,registrationVersion:version,transcript:true,sensitivePublication:true,recordedAt:'2026-05-01T11:11:00Z'};
+    await db.query("update auth.users set raw_app_meta_data=jsonb_build_object('signupConsent',$2::jsonb) where id=$1",[legacy.id,old]);
+    const saved=await run(legacy,'public.wudayn_registration_agreements($1,$2)',['accept',receipt]);
+    assert.deepEqual(saved,old,'a retry cannot overwrite prior grants or dates');
+  }
+  const privateReceipt=await accept({...receipt,recordedAt:'1900-01-01',membershipTermsVersion:'injected'});
+  assert.equal(privateReceipt.membershipTermsVersion,'wudayn-membership-safety-v1');
+  assert.ok(Date.parse(privateReceipt.recordedAt)>Date.UTC(2020,0));
   assert.equal(privateReceipt.transcript,false);
   await erase();await start();
   assert.equal(await read(),null,'private sessions cannot be opened by a reviewer');
   assert.equal(await run(member,'marriage.luna_help_session()'),null);
   assert.equal((await db.query('select review_entry_version from marriage.interview_sessions where member_id=$1',[member.id])).rows[0].review_entry_version,null);
-  assert.equal((await accept()).sensitivePublication,false);
+  const grant=await run(member,'public.wudayn_registration_agreements($1)',['allowTranscript']);
+  assert.equal(grant.transcriptVersion,'wudayn-luna-review-v1');
+  assert.equal(grant.recordedAt,privateReceipt.recordedAt);
+  assert.ok(Date.parse(grant.transcriptRecordedAt)>=Date.parse(privateReceipt.recordedAt));
+  assert.deepEqual(await accept(),grant,'retry preserves the feature-level opt-in');
   assert.equal(await read(),null,'old sessions stay private after a new receipt');
   await erase();await start();
   await assert.rejects(read(mod),{code:'42501'});
@@ -57,7 +72,8 @@ test('registration permissions cover private matching, case access, withdrawal a
   assert.equal(await read(),null);
   const stillRegistered = (await db.query("select marriage.current_entry_receipt(raw_app_meta_data->'signupConsent') as accepted from auth.users where id=$1",[member.id])).rows[0];
   assert.equal(stillRegistered.accepted,true,'withdrawal revokes transcript access without invalidating registration');
-  await accept();assert.equal(await read(),null,'explicit new consent does not re-expose withdrawn conversations');
+  await run(member,'public.wudayn_registration_agreements($1)',['allowTranscript']);
+  assert.equal(await read(),null,'explicit new consent does not re-expose withdrawn conversations');
   await erase();await start();
   await db.query("update marriage.interview_sessions set expires_at=now()-interval '1 second' where member_id=$1",[member.id]);
   assert.equal(await read(),null);

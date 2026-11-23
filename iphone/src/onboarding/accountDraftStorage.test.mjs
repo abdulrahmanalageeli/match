@@ -5,13 +5,14 @@ import { createServer } from 'vite';
 import { createAccountDraftStorage } from './accountDraftStorage.ts';
 import { createDraftVault } from './vault.ts';
 
-let loader, decodeDraft, initialDraft;
+let loader, decodeDraft, initialDraft, restorePublicationConsent;
 before(async () => {
   loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error',
     plugins: [{ name: 'isolate-account-cloud', enforce: 'pre', load(id) { if (id.replaceAll('\\', '/').endsWith('/src/cloud.ts')) return 'export const cloud=null; export async function callRpc(){throw Error("Unexpected live RPC in draft test")}'; } }],
     optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false, ws: false } });
   ({ decodeDraft } = await loader.ssrLoadModule('/src/onboarding/persistence.ts'));
   ({ initialDraft } = await loader.ssrLoadModule('/src/onboarding/draft.ts'));
+  ({ restorePublicationConsent } = await loader.ssrLoadModule('/src/legal/consent.ts'));
 });
 after(() => loader?.close());
 const a = '11111111-1111-4111-8111-111111111111', b = '22222222-2222-4222-8222-222222222222';
@@ -62,6 +63,23 @@ test('new account-session vault restores answers but never final consent or serv
   assert.equal(restored.answers.displayName, 'نور'); assert.equal(restored.consent, false);
   assert.deepEqual(restored.permissions, f.draft.permissions);
   assert.equal(await fresh.load(b, 'new', fresh.revision(b)), null);
+});
+
+test('a later publication choice survives a fresh session independently of the starting receipt', async () => {
+  const f = fixture();
+  for (const selected of [true, false]) {
+    const receipt = { version: '2026-11-07-privacy', sensitiveProfile: true, sensitivePublication: !selected };
+    f.draft.permissions.sensitivePublication = selected;
+    const writer = f.vault();
+    await writer.save(f.draft, writer.revision(a));
+    const reader = f.vault(), restored = await reader.load(a, 'new', reader.revision(a));
+    assert.equal(restorePublicationConsent(restored.permissions, receipt), selected);
+  }
+  const granted = {version:'2026-11-07-privacy',sensitiveProfile:true,sensitivePublication:true};
+  assert.equal(restorePublicationConsent({...granted,sensitiveProfile:false}, granted), false);
+  assert.equal(restorePublicationConsent(undefined, {...granted,version:'2026-11-06-onboarding'}), false);
+  assert.equal(restorePublicationConsent(undefined, {...granted,sensitivePublication:undefined}), false);
+  assert.equal(restorePublicationConsent(undefined, granted), true);
 });
 
 test('logout release invalidates queued writes while retaining the account draft for a new login', async () => {

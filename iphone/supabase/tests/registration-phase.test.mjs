@@ -26,8 +26,8 @@ test('registration-only phase, early access and single-purpose launch delivery',
  assert.equal((await publicNotice()).screen,'welcome');
  const self='public.marriage_state()';
  assert.equal((await member(draft,self)).user.applicationStatus,'draft');
- const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:false,photo:false,transcript:true};
- assert.equal((await member(draft,'public.wudayn_registration_agreements($1,$2)',['accept',receipt])).transcript,true);
+ const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23-v3',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:false,photo:false,transcript:false,safetyTextReview:false};
+ assert.equal((await member(draft,'public.wudayn_registration_agreements($1,$2)',['accept',receipt])).transcript,false);
  assert.ok(await member(draft,'public.marriage_catalog()'));
  assert.equal((await member(waiting,self)).prelaunch.locked,true);
  const community='public.marriage_inbox()';

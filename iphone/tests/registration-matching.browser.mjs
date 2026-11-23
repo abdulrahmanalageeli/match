@@ -118,11 +118,11 @@ async function register(browser, gender) {
     await page.goto(server.resolvedUrls.local[0]+'__registration',{waitUntil:'domcontentloaded',timeout:60000});
     await page.locator('input[name=email]').fill(gender+'@example.test');
     await page.locator('input[name=password]').fill('synthetic-password-only');
-    await page.locator('.wd-entry-optional > summary').click();
-    for (const consent of await page.getByRole('checkbox').all()) await consent.check();
-    if(gender==='woman') {
-      await page.getByRole('checkbox',{name:/إظهار تفاصيلي الحساسة/}).uncheck();
-      await page.getByRole('checkbox',{name:/مراجعة حواري مع لونا/}).uncheck();
+    const agreements = page.locator('.wd-entry-agreements input[type=checkbox]');
+    assert.equal(await agreements.count(),3);
+    for (const agreement of await agreements.all()) {
+      assert(await agreement.evaluate(input=>input.required));
+      await agreement.check();
     }
     await button('تأكيد الجوال وإنشاء الحساب').click();
     await chapter('identity');
@@ -210,7 +210,10 @@ async function register(browser, gender) {
       await page.locator('#portrait-blur:enabled').press('End');
       await page.locator('.nf-photo-reveal select').selectOption('family');
     }
-    if(await page.locator('.nf-photo-consent input').count())await page.locator('.nf-photo-consent input').check();
+    const photoPermission=page.locator('.nf-photo-consent input');
+    await photoPermission.waitFor();
+    assert.equal(await photoPermission.isChecked(),false);
+    await photoPermission.check();
     await page.getByText(gender==='man'?'صورتك جاهزة، اكتملت مطابقة الصورة.':'صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.',{exact:true}).waitFor();
     await next(); await chapter('readiness');
     await page.getByText('أرتاح لإشراك الأهل من البداية',{exact:true}).waitFor();
@@ -246,7 +249,7 @@ async function register(browser, gender) {
     assert.equal(profile.marriageBasics.marriageTimeline,'three_to_six_months');
     assert.equal(photoStatus,gender==='man'?'verified':'ready');
     assert.equal(Object.keys(profile.personalityAnswers).length,15);
-    assert(profile.signupConsents.assessment);assert.equal(profile.signupConsents.sensitivePublication,gender==='man');
+    assert(profile.signupConsents.assessment);assert.equal(profile.signupConsents.sensitivePublication,false);
     assert.equal(profile._applicationIntegrity,'wudayn-application-integrity-v1');
     assert.equal(profile._membershipReadiness.family,'early');
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);

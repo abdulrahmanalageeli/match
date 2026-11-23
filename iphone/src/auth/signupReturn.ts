@@ -1,7 +1,8 @@
 export type SignupReturn = 'returned' | 'invalid';
 export type SignupAgreements = { adult: boolean; terms: boolean; privacy: boolean; version: string;
-  registrationVersion?: string; withdrawnAt?: string; photo?: boolean; safetyTextReview?: boolean; safetyRecordedAt?: string; sensitiveProfile?: boolean; sensitivePublication?: boolean; assessment?: boolean; transcript?: boolean };
-export const registrationVersion = 'wudayn-entry-2026-11-23-v2';
+  registrationVersion?: string; membershipTermsVersion?: string; recordedAt?: string; withdrawnAt?: string; photo?: boolean; safetyTextReview?: boolean; safetyRecordedAt?: string; sensitiveProfile?: boolean; sensitivePublication?: boolean; assessment?: boolean; transcript?: boolean };
+export const registrationVersion = 'wudayn-entry-2026-11-23-v3';
+export const membershipTermsVersion = 'wudayn-membership-safety-v1';
 const previousEntryVersion = 'wudayn-entry-2026-11-23';
 export const registrationPurposes = ['adult','terms','privacy','sensitiveProfile','assessment'] as const;
 export type RegistrationChoices = Record<(typeof registrationPurposes)[number] | 'sensitivePublication' | 'photo' | 'safetyTextReview' | 'transcript', boolean>;
@@ -11,7 +12,8 @@ export const emptyRegistrationChoices = (): RegistrationChoices => ({
 export const registrationComplete = (value: Partial<RegistrationChoices>) => registrationPurposes.every(key => value[key] === true);
 export function currentRegistrationReceipt(value: SignupAgreements | null | undefined) {
   if (value?.version !== '2026-11-07-privacy' || !registrationComplete(value)) return false;
-  const entryVersionApplies = value.registrationVersion === registrationVersion || (value.registrationVersion === previousEntryVersion && value.transcript === true);
+  const acceptedCurrentTerms = value.registrationVersion === registrationVersion && value.membershipTermsVersion === membershipTermsVersion && typeof value.recordedAt === 'string';
+  const entryVersionApplies = acceptedCurrentTerms || value.registrationVersion === 'wudayn-entry-2026-11-23-v2' || (value.registrationVersion === previousEntryVersion && value.transcript === true);
   return entryVersionApplies && typeof value.transcript === 'boolean' && typeof value.sensitivePublication === 'boolean' && typeof value.photo === 'boolean';
 }
 

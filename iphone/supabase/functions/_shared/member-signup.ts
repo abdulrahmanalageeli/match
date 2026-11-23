@@ -2,8 +2,9 @@ import { accessError, hashGuardianValue } from './guardian-access.ts';
 
 export const memberSignupKind = 'member_self_claimed_email';
 export const memberSignupUnavailable = 'تعذّر إنشاء الحساب بهذه البيانات. جرّب تسجيل الدخول إلى حسابك أو تواصل مع الدعم.';
-const registrationVersion = 'wudayn-entry-2026-11-23-v2';
-const previousEntryVersion = 'wudayn-entry-2026-11-23';
+const registrationVersion = 'wudayn-entry-2026-11-23-v3';
+const membershipTermsVersion = 'wudayn-membership-safety-v1';
+const deferredPurposes = ['sensitivePublication', 'photo', 'transcript', 'safetyTextReview'] as const;
 const purposes = ['adult','terms','privacy','sensitiveProfile','assessment'] as const;
 const consentVersion = '2026-11-07-privacy';
 export type MemberSignupInput = { email: string; password: string; phoneProof: string; deviceId: string; consent: { version: string; registrationVersion: string; sensitivePublication:boolean; photo:boolean; transcript:boolean; safetyTextReview:boolean } & Record<typeof purposes[number],true> };
@@ -29,11 +30,11 @@ export function parseMemberSignup(value: unknown): MemberSignupInput {
   if (typeof input.password !== 'string' || input.password.length < 10 || !input.password.trim() || new TextEncoder().encode(input.password).length > 72)
     throw accessError('استخدم كلمة مرور من ١٠ أحرف على الأقل، وبحد أقصى ٧٢ بايت.');
   const consent = input.consent as Record<string, unknown> | undefined;
-  if (!consent || consent.version !== consentVersion || (consent.registrationVersion !== registrationVersion && !(consent.registrationVersion === previousEntryVersion && consent.transcript === true)) || typeof consent.transcript !== 'boolean' || typeof consent.sensitivePublication !== 'boolean' || typeof consent.photo !== 'boolean' || purposes.some(key => consent[key] !== true))
+  if (!consent || consent.version !== consentVersion || consent.registrationVersion !== registrationVersion || deferredPurposes.some(key => consent[key] !== false) || purposes.some(key => consent[key] !== true))
     throw accessError('راجع الموافقات المطلوبة قبل إنشاء الحساب.');
   if(typeof input.phoneProof!=='string'||!/^[a-f0-9]{64}$/.test(input.phoneProof)||typeof input.deviceId!=='string'||!/^(web|ios):[a-f0-9-]{36}$/i.test(input.deviceId))
     throw accessError('أكمل تأكيد رقم الجوال قبل إنشاء الحساب.');
-  return { email, password: input.password, phoneProof:input.phoneProof,deviceId:input.deviceId, consent: { version: consentVersion, registrationVersion: consent.registrationVersion, adult: true, terms: true, privacy: true, sensitiveProfile: true, sensitivePublication: consent.sensitivePublication, photo: consent.photo, safetyTextReview: consent.safetyTextReview===true, assessment: true, transcript: consent.transcript } };
+  return { email, password: input.password, phoneProof:input.phoneProof,deviceId:input.deviceId, consent: { version: consentVersion, registrationVersion: consent.registrationVersion, adult: true, terms: true, privacy: true, sensitiveProfile: true, sensitivePublication: false, photo: false, safetyTextReview: false, assessment: true, transcript: false } };
 }
 
 export async function performMemberSignup(input: MemberSignupInput, networkHash: string, secret: string, service: MemberSignupServices): Promise<{ ok: true }> {
@@ -49,7 +50,7 @@ export async function performMemberSignup(input: MemberSignupInput, networkHash:
     // service-owned metadata determines this state; client metadata is ignored.
     app_metadata: { signupKind: memberSignupKind, emailOwnershipVerified: false,
       signupPhoneProof:await hashGuardianValue(input.phoneProof),signupDeviceHash:await hashGuardianValue('wudayn-device-v1:'+input.deviceId),
-      signupConsent: { ...input.consent, recordedAt: new Date().toISOString() } },
+      signupConsent: { ...input.consent, membershipTermsVersion, recordedAt: new Date().toISOString() } },
   });
   // Never overwrite an existing user, confirm an existing address, or return its ID.
   if (created.error || !created.data.user) throw accessError(memberSignupUnavailable, created.error?.status === 429 ? 429 : 409);

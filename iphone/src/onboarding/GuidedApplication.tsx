@@ -27,7 +27,7 @@ import { ProfilePhotoChoice } from "./ProfilePhotoChoice";
 import type { PortraitDraft } from '../photos/portraitPreparation';
 import { discardStagedPortrait, resumeStagedPortrait } from '../photos/stagedPortrait';
 import type { CommunitySource } from '../community/data';
-import { emptyConsents, recordedAccountAgreements, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
+import { emptyConsents, recordedAccountAgreements, restorePublicationConsent, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
 import { APPLICATION_INTEGRITY_VERSION, applicationIntegrityRule } from '../legal/LegalNotice';
 import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
 import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
@@ -286,7 +286,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [personalityDirect, setPersonalityDirect] = useState(false);
   const current = useRef(draft);
   const entryAuthorized = !initial && currentRegistrationReceipt(accountAgreements);
-  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:entryAuthorized || (draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true),sensitivePublication:entryAuthorized ? accountAgreements?.sensitivePublication === true && draft.permissions?.sensitivePublication !== false : (draft.permissions?.sensitivePublication ?? (initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true)),assessment:entryAuthorized || (draft.permissions?.assessment??initial?.signupConsents?.assessment===true),photo:(entryAuthorized && accountAgreements?.photo === true) || initial?.signupConsents?.photo===true}));
+  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:entryAuthorized || (draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true),sensitivePublication:restorePublicationConsent(draft.permissions, entryAuthorized ? accountAgreements : initial?.signupConsents),assessment:entryAuthorized || (draft.permissions?.assessment??initial?.signupConsents?.assessment===true),photo:(entryAuthorized && accountAgreements?.photo === true) || initial?.signupConsents?.photo===true}));
   const consentRef = useRef(consents);
   consentRef.current = consents;
   const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'local'|'error'>('idle');
@@ -482,8 +482,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       const choices = {
         ...consentRef.current,
         sensitiveProfile: entryAuthorized || (permissions?.sensitiveProfile ?? (recorded?.sensitiveProfile === true)),
-        sensitivePublication: entryAuthorized ? accountAgreements?.sensitivePublication === true && permissions?.sensitivePublication !== false : permissions ? permissions.sensitivePublication === true :
-          recorded?.version === '2026-11-07-privacy' && recorded.sensitiveProfile === true && recorded.sensitivePublication === true,
+        sensitivePublication: restorePublicationConsent(permissions, entryAuthorized ? accountAgreements : recorded),
         assessment: entryAuthorized || (permissions?.assessment ?? (recorded?.assessment === true)),
       };
       consentRef.current = choices;

@@ -1,1 +1,161 @@
-.la-page{display:grid;gap:1rem;min-width:0}.la-controls{display:flex;align-items:end;flex-wrap:wrap;gap:.65rem;margin-block:.65rem}.la-controls label{display:grid;gap:.3rem;font-size:.85rem}.la-controls input,.la-controls select{max-width:100%;min-height:2.5rem;padding:.4rem .65rem;border:1px solid var(--line,#ded6da);border-radius:.6rem;background:white;color:inherit;font:inherit}.la-scroll{overflow:auto}.la-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.la-table :is(td,th){padding:.64rem .45rem;border-bottom:1px solid var(--line,#e7e0e3);text-align:start}.la-table td small,.la-person small{display:block;color:var(--muted,#70666a);font-size:.78rem}.la-person{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;border-bottom:1px solid var(--line,#e7e0e3);padding-block:.65rem}.la-person>div{flex:1;min-width:10rem}.la-person small[dir=ltr]{text-align:start;overflow-wrap:anywhere}.la-page .filters{flex-wrap:wrap}.la-table th:first-child{width:44%}
+.la-page {
+  display: grid;
+  min-width: 0;
+  gap: 1.1rem;
+}
+.la-navigation {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  border-block-end: 1px solid var(--border);
+  gap: .15rem 1.1rem;
+}
+.la-navigation button {
+  position: relative;
+  padding: .6rem .1rem .65rem;
+  border: 0;
+  color: #74636a;
+  background: transparent;
+  font: inherit;
+  font-size: .9rem;
+}
+.la-navigation button[aria-pressed=true] { color: var(--burgundy); font-weight: 700; }
+.la-navigation button[aria-pressed=true]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+}
+.la-period, .la-presets, .la-calendar summary, .la-controls {
+  display: flex;
+  align-items: center;
+}
+.la-period { justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; }
+.la-presets {
+  padding: 3px;
+  border-radius: 10px;
+  background: #eee7e1;
+}
+.la-presets button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #776369;
+  padding: .3rem .85rem;
+  min-height: 36px;
+  font: inherit;
+  font-size: .84rem;
+}
+.la-presets button[aria-pressed=true] {
+  background: #fffcf8;
+  color: var(--burgundy);
+  box-shadow: 0 1px 4px #44202b18;
+  font-weight: 700;
+}
+.la-calendar { position: relative; max-width: 100%; }
+.la-calendar summary {
+  gap: .5rem;
+  min-height: 42px;
+  color: #67565d;
+  cursor: pointer;
+  font-size: .83rem;
+  list-style: none;
+}
+.la-calendar summary::-webkit-details-marker { display: none; }
+.la-calendar[open] summary svg:last-child { transform: rotate(180deg); }
+.la-controls {
+  align-items: end;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-block: .65rem;
+}
+.la-controls label { display: grid; min-width: 0; gap: .3rem; font-size: .83rem; }
+.la-controls input, .la-controls select {
+  max-width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: .45rem .7rem;
+  border: 1px solid #e1d6d2;
+  border-radius: .65rem;
+  background: #fffdfa;
+  color: inherit;
+  font: inherit;
+}
+.la-calendar .la-controls {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 100%;
+  z-index: 2;
+  width: min(24rem, calc(100vw - 3rem));
+  margin: .2rem 0 0;
+  padding: .8rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffcf9;
+  box-shadow: var(--shadow);
+}
+.la-calendar .la-controls label { flex: 1 1 7rem; }
+.la-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: clamp(1rem, 2.1vw, 1.6rem) .25rem;
+  background: #551b32;
+  color: #fff7ef;
+  border-radius: 18px;
+}
+.la-totals > div { display: grid; align-content: start; padding-inline: clamp(.65rem, 2.4vw, 2rem); }
+.la-totals > div + div { border-inline-start: 1px solid #f9dce02e; }
+.la-totals dt { font-size: clamp(.75rem, 1vw, .92rem); color: #f0dbe0; }
+.la-totals dd {
+  margin: .45rem 0 0;
+  line-height: 1;
+  font-size: clamp(1.9rem, 3.4vw, 3.35rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.la-scroll { overflow-x: auto; max-width: 100%; overscroll-behavior-inline: contain; }
+.la-table { min-width: 25rem; width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.la-table :is(td, th) { padding: .74rem .65rem; text-align: start; }
+.la-table thead { background: #f5efea; color: #70565f; font-size: .8rem; }
+.la-table thead th:first-child { border-start-start-radius: 8px; }
+.la-table thead th:last-child { border-start-end-radius: 8px; }
+.la-table th:first-child { width: 42%; }
+.la-table tbody tr + tr { border-block-start: 1px solid #ede4df; }
+.la-table tbody th { font-weight: 400; font-size: .91rem; }
+.la-table tbody td:nth-child(2) { color: var(--burgundy); font-weight: 700; }
+.la-table tbody tr:hover { background: #faf5f0; }
+.la-table td small, .la-person small { display: block; color: #77656c; font-size: .76rem; }
+.la-page .la-table-heading { margin: 0 0 1rem; }
+.la-footnote { margin: 0; color: #75636a; font-size: .78rem; }
+.la-person { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; border-bottom: 1px solid var(--border); padding-block: .85rem; }
+.la-person > div { flex: 1; min-width: 10rem; }
+.la-person small[dir=ltr] { text-align: start; overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+  .la-page { gap: .8rem; }
+  .la-navigation {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    border: 0;
+    padding: 3px;
+    border-radius: 12px;
+    background: #f0e9e3;
+  }
+  .la-navigation button { min-height: 40px; font-size: .79rem; padding: .4rem .15rem; border-radius: 9px; }
+  .la-navigation button[aria-pressed=true] { background: #fffcf8; box-shadow: 0 1px 4px #44202b18; }
+  .la-navigation button[aria-pressed=true]::after { display: none; }
+  .la-calendar .la-controls { position: static; width: 100%; box-shadow: none; }
+  .la-period:has(.la-calendar[open]) .la-calendar { width: 100%; }
+  .la-table { min-width: 100%; }
+  .la-table th:first-child { width: 37%; }
+  .la-table :is(td, th) { padding: .55rem .22rem; }
+  .la-table tbody th { font-size: .79rem; }
+  .la-table td small { font-size: .68rem; }
+  .la-totals { border-radius: 14px; }
+  .la-totals dt { min-height: 2.9em; line-height: 1.45; }
+  .la-person > div { min-width: min(100%, 9rem); }
+}

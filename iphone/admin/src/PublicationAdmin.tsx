@@ -14,6 +14,12 @@ type Preview={reachable:number;devices:number};
 function options(values:Record<string,string>){return Object.entries(values).map(([id,name])=><option key={id} value={id}>{name}</option>);}
 function localTime(value:number){return new Date(value+3*3600000).toISOString().slice(0,16);}
 const displayTime=(date:string)=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Riyadh'}).format(new Date(date));
+const count=new Intl.NumberFormat('ar-SA');
+function publicationStatus(row:Item){
+ if(row.withdrawn_at)return 'مسحوب';
+ if(Date.parse(row.ends_at)<=Date.now())return 'منتهي';
+ return Date.parse(row.starts_at)>Date.now()?'مجدول':'منشور';
+}
 const publish=(action:string,payload:object={})=>call('wudayn_publish',{action,payload});
 
 export function PublicationAdmin({staffId}:{staffId:string}){
@@ -43,14 +49,15 @@ export function PublicationAdmin({staffId}:{staffId:string}){
  });}
  function correct(row:Item){setEditId(row.id);setPlacement(row.placement);setTitle(row.title);setBody(row.body);setSetting(row.setting_key??'help.intro');setScreen(row.screen);setDest(row.destination??'');setAudience(row.audience);
   setStart(localTime(Date.parse(row.starts_at)));setEnd(localTime(Date.parse(row.ends_at)));setPush(row.send_push);form.current?.scrollIntoView({block:'start'});}
- return <div className="wd-admin-sections"><form className="panel wd-admin-form" ref={form} onSubmit={submit}><h2>{editId?'تصحيح المنشور':'إنشاء منشور'}</h2>
+ return <div className="wd-admin-sections wd-publishing" dir="rtl"><form className="panel wd-admin-form wd-compose" ref={form} onSubmit={submit}>
+ <section className="wd-compose-main"><h2>{editId?'تصحيح المنشور':'إنشاء منشور'}</h2>
  <div className="wd-admin-grid"><label>موضع النشر<select value={placement} disabled={!!editId} onChange={e=>{setPlacement(e.target.value as keyof typeof placements);setBody('');}}>{options(placements)}</select></label>
  {config?<label>المحتوى أو الميزة<select disabled={!!editId} value={setting} onChange={e=>{setSetting(e.target.value);setBody(e.target.value.startsWith('pause.')?'on':'');}}>{options(settings)}</select></label>:placement==='banner'?<label>الشاشة<select disabled={!!editId} value={screen} onChange={e=>setScreen(e.target.value)}>{options(screens)}</select></label>:null}</div>
- <label>العنوان<input required maxLength={90} value={title} onChange={e=>setTitle(e.target.value)}/></label>
- {pause?<label>حالة الميزة<select value={body} onChange={e=>setBody(e.target.value)}><option value="on">إيقاف مؤقت</option><option value="off">استئناف الخدمة</option></select></label>:<label>النص<textarea rows={3} required maxLength={700} value={body} onChange={e=>setBody(e.target.value)}/></label>}
+ <div className="wd-compose-writing"><label>العنوان<input required dir="auto" maxLength={90} value={title} onChange={e=>setTitle(e.target.value)}/></label>
+ {pause?<label>حالة الميزة<select value={body} onChange={e=>setBody(e.target.value)}><option value="on">إيقاف مؤقت</option><option value="off">استئناف الخدمة</option></select></label>:<label>النص<textarea rows={3} dir="auto" required maxLength={700} value={body} onChange={e=>setBody(e.target.value)}/></label>}</div>
  {!config&&<label>الانتقال عند الضغط<select value={dest} onChange={e=>setDest(e.target.value)}><option value="">قراءة الإعلان</option>{options(destinations)}</select></label>}
- {!editId&&<><div className="wd-admin-grid"><label>يبدأ بتوقيت الرياض<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/><small>اتركه فارغًا للنشر الآن.</small></label>
- <label>ينتهي بتوقيت الرياض<input required type="datetime-local" value={end} onChange={e=>setEnd(e.target.value)}/></label></div>
+ {!editId&&<><fieldset className="wd-schedule"><legend>موعد النشر <span>بتوقيت الرياض</span></legend><div className="wd-admin-grid"><label>البداية<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/><small>اتركه فارغًا للنشر الآن.</small></label>
+ <label>النهاية<input required type="datetime-local" value={end} onChange={e=>setEnd(e.target.value)}/></label></div></fieldset>
  {!pause&&<details><summary>تحديد الجمهور</summary><div className="wd-admin-grid">
  {([['gender','الجنس',genders],['stage','مرحلة التسجيل',stages],['tier','العضوية',tiers],['platform','المنصة',{ios:'iPhone',web:'الويب'}]] as const).map(([k,label,values])=><label key={k}>{label}<select value={audience[k]??''} onChange={e=>filter(k,e.target.value)}><option value="">الكل</option>{options(values)}</select></label>)}
  <label>عضو محدد<input dir="ltr" placeholder="معرّف العضو" value={audience.member??''} onChange={e=>filter('member',e.target.value.trim())}/></label>
@@ -62,10 +69,16 @@ export function PublicationAdmin({staffId}:{staffId:string}){
  {push&&!config&&!editId&&<details><summary>إرسال تجريبي لجهازي</summary><p>شاشة القفل تعرض «لديك تحديث جديد.» ويظهر النص داخل وُدَين.</p><label>معرّف حساب الاختبار<input dir="ltr" value={testId} onChange={e=>{setTestId(e.target.value);setDevices(null);setTestDevice('');}}/></label>
  <button type="button" className="secondary" disabled={busy} onClick={()=>void run(async()=>{const rows=await call<NonNullable<typeof devices>>('wudayn_publish',{action:'test_devices',payload:{...args,testMember:testId}});setDevices(rows);setTestDevice(rows[0]?.id??'');})}>عرض أجهزة الاختبار</button>{devices&&<label>جهاز الاختبار<select value={testDevice} onChange={e=>setTestDevice(e.target.value)}>{!devices.length&&<option value="">لا يوجد جهاز مشترك</option>}{devices.map(d=><option key={d.id} value={d.id}>{d.platform==='web'?'ويب':'iPhone'} · {displayTime(d.last)} · {d.id.slice(-4)}</option>)}</select></label>}
  <button className="secondary" type="button" disabled={busy||!testDevice} onClick={()=>{if(form.current?.reportValidity())void run(async()=>{const result=await call<{devices:number}>('wudayn_publish',{action:'test',payload:{...args,id:crypto.randomUUID(),testMember:testId,testInstallation:testDevice}});setNotice('أجهزة الاختبار في طابور الإرسال: '+result.devices);await refresh();});}}>إرسال اختبار</button></details>}
- {preview&&<section className="wd-admin-preview" aria-live="polite"><strong>{title}</strong><p>{body}</p>{push&&!config&&<small>يمكن الوصول الآن إلى {preview.reachable} عضو عبر {preview.devices} أجهزة. يتحدّث الجمهور عند الإرسال.</small>}</section>}
- <div className="wd-admin-actions"><button className="primary" disabled={busy}>{busy?'جارٍ التنفيذ…':preview?(editId?'تأكيد التصحيح':'تأكيد النشر'):'معاينة قبل النشر'}</button>{editId&&<button className="secondary" type="button" onClick={()=>{setEditId(null);setTitle('');setBody('');}}>إلغاء التصحيح</button>}</div></form>
+ </section><aside className="wd-compose-side" aria-label="معاينة المنشور">
+ <section className="wd-proof" data-empty={!title&&!body||undefined}>
+ <header><span>{config?'معاينة التحديث':'معاينة العضو'}</span><span>{config?'إعدادات التطبيق':placements[placement]}</span></header>
+ {title||body?<>{title&&<h3 dir="auto">{title}</h3>}{body&&<p dir="auto">{pause?(body==='on'?'إيقاف مؤقت':'استئناف الخدمة'):body}</p>}
+ {dest&&!config&&<span className="wd-proof-link">فتح {destinations[dest as keyof typeof destinations]} <span aria-hidden="true">←</span></span>}</>:<p className="wd-proof-empty">ستظهر المعاينة هنا عند كتابة المنشور.</p>}
+ </section>
+ {preview&&push&&!config&&<p className="wd-reach" role="status">الجمهور المتاح الآن: {count.format(preview.reachable)} عضو · {count.format(preview.devices)} جهاز</p>}
+ <div className="wd-admin-actions"><button className="primary" disabled={busy}>{busy?'جارٍ التنفيذ…':preview?(editId?'تأكيد التصحيح':'تأكيد النشر'):'معاينة قبل النشر'}</button>{editId&&<button className="secondary" type="button" onClick={()=>{setEditId(null);setTitle('');setBody('');}}>إلغاء التصحيح</button>}</div></aside></form>
  {error&&<p role="alert" className="notice error">{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}
- <section className="panel"><h2>سجل النشر</h2>{!rows.length&&<p>لا توجد منشورات بعد.</p>}{rows.map(row=><article className="wd-admin-record" key={row.id}><div><strong>{row.title}</strong><p>{placements[row.placement]} · {displayTime(row.starts_at)} · {row.withdrawn_at?'مسحوب':Date.parse(row.ends_at)<=Date.now()?'منتهي':Date.parse(row.starts_at)>Date.now()?'مجدول':'منشور'}</p>
+ <section className="panel wd-publishing-log"><h2>سجل النشر</h2>{!rows.length&&<p className="wd-quiet">لا توجد منشورات بعد.</p>}{rows.map(row=><article className="wd-admin-record" key={row.id}><div><div className="wd-record-title"><strong dir="auto">{row.title}</strong><span className="wd-record-state" data-live={publicationStatus(row)==='منشور'||undefined}>{publicationStatus(row)}</span></div><p>{placements[row.placement]} · <time dateTime={row.starts_at}>{displayTime(row.starts_at)}</time></p>
  {row.send_push&&<small>في الطابور {row.queued} · قبلته خدمة الإرسال {row.accepted} · تعذّر {row.failed} · فتح المنشور {row.opened}</small>}</div>
  {!row.withdrawn_at&&<div className="wd-admin-actions"><button className="secondary" onClick={()=>correct(row)}>تصحيح</button><button className="text-button" disabled={busy} onClick={()=>void run(async()=>{setVersions({id:row.id,items:await call('wudayn_publish',{action:'history',payload:{id:row.id}})});})}>النسخ السابقة</button><button className="text-button" disabled={busy} onClick={()=>void run(async()=>{await publish('withdraw',{id:row.id});setNotice('سُحب المنشور داخل التطبيق.');await refresh();})}>سحب</button></div>}{versions?.id===row.id&&<div className="wd-admin-versions">{versions.items.length===0?<small>لا توجد تعديلات سابقة.</small>:versions.items.map(v=><div key={v.id}><strong>{v.title}</strong><p>{v.body}</p><small>{displayTime(v.saved_at)}</small> <button className="secondary" disabled={busy} onClick={()=>void run(async()=>{await publish('rollback',{id:row.id,version:v.id});setVersions(null);await refresh();setNotice('استُعيدت النسخة المحددة.');})}>استعادة النسخة</button></div>)}</div>}</article>)}</section></div>;
 }

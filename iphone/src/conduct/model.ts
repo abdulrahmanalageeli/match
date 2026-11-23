@@ -30,14 +30,19 @@ export type ConductNotice = {
   unread: boolean;
   revision: number;
 };
-export function noticeStatus(item: ConductNotice) {
+export function noticeStatus(item: ConductNotice, audience: 'member' | 'staff' = 'member') {
   if (item.decision === 'lifted') return 'رُفع الإجراء';
-  if (item.appealedAt && item.needsReview) return 'طلبك قيد المراجعة';
+  if (item.appealedAt && item.needsReview) return audience === 'staff' ? 'بانتظار المراجعة' : 'طلبك قيد المراجعة';
   if (item.expired || (item.endsAt && Date.parse(item.endsAt) <= Date.now())) return 'انتهت مدة التقييد';
   if (item.decision === 'upheld') return 'أُيّد الإجراء بعد المراجعة';
   if (item.acknowledgedAt) return item.kind === 'pledge' ? 'تم تأكيد التعهّد' : 'تم الاطلاع';
   if (item.origin === 'automated') return 'بانتظار مراجعة الفريق';
-  return conductKinds[item.kind];
+  switch (item.kind) {
+    case 'warning': return audience === 'staff' ? 'بانتظار اطّلاع العضو' : 'بانتظار اطّلاعك';
+    case 'pledge': return audience === 'staff' ? 'بانتظار تأكيد العضو' : 'بانتظار تأكيدك';
+    case 'restriction': return 'التقييد سارٍ';
+    case 'suspension': return 'الحساب موقوف';
+  }
 }
 const formatter = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
   timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year:'numeric', hour: 'numeric', minute: '2-digit',

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { ChevronLeft, X } from '../BrandIcons';
+import { ArrowLeft, Bell, ChevronDown, ChevronLeft, X } from '../BrandIcons';
+import { NoticeHeader } from '../ui/NoticeHeader';
 import { cloud, cloudSessionId } from '../cloud';
 import './publications.css';
 
@@ -60,7 +61,10 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
   },[owner,enabled,openedId,build]);
   useEffect(()=>{
     if(!selected || !dialog.current) return;
-    const el=dialog.current;el.showModal();return ()=>el.close();
+    const el=dialog.current;
+    el.showModal();
+    el.querySelector<HTMLElement>('#wd-publication-title')?.focus({preventScroll:true});
+    return ()=>el.close();
   },[selected?.id]);
   function read(row:Publication){
     setSelected(row);
@@ -71,15 +75,34 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
   const activeItems=enabled?items.filter(row=>Date.parse(row.expires)>Date.now()):[];
   const banner=activeItems.find(item=>item.placement==='banner' && [screen,'all'].includes(item.screen) && !dismissed.includes(item.id));
   const feed=activeItems.filter(item=>screen==='inbox'?['news','inbox'].includes(item.placement):screen==='settings'&&item.placement==='news');
+  const unread = feed.filter(row => !row.opened).length;
   return <PublicationContext.Provider value={activeItems}>
-    {banner && <aside className="wd-pub-banner" aria-label="تنويه من وُدَين"><button onClick={()=>read(banner)}><strong>{banner.title}</strong><span>{banner.body}</span></button><button className="wd-pub-dismiss" onClick={()=>setDismissed(old=>[...old,banner.id])} aria-label="إخفاء التنويه"><X size={15}/></button></aside>}
-    {feed.length>0 && <section className="wd-pub-feed" aria-label="جديد وُدَين"><details><summary>جديد وُدَين <small>{new Intl.NumberFormat('ar-SA').format(feed.filter(r=>!r.opened).length)} غير مقروء</small></summary>{feed.map(row=><button key={row.id} onClick={()=>read(row)}><span>{row.title}</span><ChevronLeft size={16}/></button>)}</details></section>}
-    {unavailable && <div className="wd-pub-banner" role="status">تعذّر عرض هذا التحديث الآن.<button onClick={()=>{setUnavailable(false);callback.current();}} aria-label="إغلاق"><X size={15}/></button></div>}
+    {banner && <aside className="wd-pub-banner" aria-label="تنويه من وُدَين">
+      <button className="wd-pub-banner-copy" onClick={()=>read(banner)}><strong>{banner.title}</strong><span>{banner.body}</span></button>
+      <button className="wd-pub-dismiss" onClick={()=>setDismissed(old=>[...old,banner.id])} aria-label="إخفاء التنويه"><X size={16}/></button>
+    </aside>}
+    {feed.length>0 && <section className="wd-pub-feed" aria-label="جديد وُدَين">
+      <details>
+        <summary><Bell size={19}/><strong>جديد وُدَين</strong>
+          {unread > 0 && <small>{new Intl.NumberFormat('ar-SA').format(unread)} غير مقروء</small>}
+          <ChevronDown className="wd-pub-disclosure" size={16}/>
+        </summary>
+        {feed.map(row=><button className="wd-pub-row" key={row.id} onClick={()=>read(row)} data-unread={!row.opened || undefined}>
+          <span>{row.title}</span><ChevronLeft size={16}/>
+        </button>)}
+      </details>
+    </section>}
+    {unavailable && <div className="wd-pub-banner" role="status">تعذّر عرض هذا التحديث الآن.<button className="wd-pub-dismiss" onClick={()=>{setUnavailable(false);callback.current();}} aria-label="إغلاق"><X size={15}/></button></div>}
     {children}
-    {selected && <dialog ref={dialog} className="wd-pub-detail" aria-labelledby="wd-publication-title" onCancel={()=>setSelected(null)}>
-      <header><span>من فريق وُدَين</span><button onClick={()=>setSelected(null)} aria-label="إغلاق"><X size={19}/></button></header>
-      <h2 id="wd-publication-title">{selected.title}</h2><p>{selected.body}</p>
-      {selected.destination && owner && <button className="f-primary" onClick={()=>{if(selected.destination)navigate(selected.destination);setSelected(null);}}>فتح {({discover:'الاستكشاف',settings:'الإعدادات',membership:'العضوية',inbox:'الإشعارات',application:'التسجيل'})[selected.destination]}<ChevronLeft size={16}/></button>}
+    {selected && <dialog ref={dialog} className="wd-notice-sheet wd-pub-detail" aria-labelledby="wd-publication-title" onCancel={()=>setSelected(null)}>
+      <NoticeHeader sender="من فريق وُدَين" issuedAt={selected.stamp} onClose={()=>setSelected(null)}/>
+      <article className="wd-pub-story">
+        <h2 id="wd-publication-title" tabIndex={-1}>{selected.title}</h2>
+        <p className="wd-notice-copy" dir="auto">{selected.body}</p>
+      </article>
+      {selected.destination && owner && <button className="f-primary wd-pub-action" onClick={()=>{if(selected.destination)navigate(selected.destination);setSelected(null);}}>
+        فتح {({discover:'الاستكشاف',settings:'الإعدادات',membership:'العضوية',inbox:'الإشعارات',application:'التسجيل'})[selected.destination]}<ArrowLeft size={18}/>
+      </button>}
     </dialog>}
   </PublicationContext.Provider>;
 }

@@ -14,3 +14,82 @@
 .mo-note p {flex-basis:100%;white-space:pre-wrap;overflow-wrap:anywhere}
 .mo-stack form>.primary {justify-self:start}
 .mo-results small {display:block;overflow-wrap:anywhere}
+
+.mo-workspace { gap: 1rem; min-width: 0; }
+.mo-workspace > *, .mo-workspace form { min-width: 0; }
+.mo-workspace > .review-section {
+  margin: 0;
+  padding: .55rem clamp(1.2rem, 2.5vw, 1.75rem);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fffcf9;
+}
+.mo-workspace > .review-section > summary { min-height: 44px; line-height: 1.8; font-size: .94rem; color: var(--ink); }
+.mo-search .mo-inline { margin: 0; align-items: end; gap: .65rem; }
+.mo-search .mo-inline label { gap: .65rem; color: var(--ink); font-size: 1.05rem; }
+.mo-query {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .65rem;
+  padding-inline: .8rem;
+  border-radius: 11px;
+  background: #f4eee9;
+  color: #846e77;
+}
+.mo-query svg { flex-shrink: 0; }
+.mo-query input:not([type=checkbox]) {
+  flex: 1; border: 0; background: none; padding: .65rem 0;
+  min-width: 0; min-height: 44px; font-size: .91rem; font-weight: 400;
+}
+.mo-query input::placeholder { color: #806e75; }
+.mo-query:focus-within { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+.mo-query input:focus { outline: none; box-shadow: none; }
+.mo-search form .primary { width: auto; min-width: 5rem; min-height: 44px; margin: 0; padding-block: .45rem; }
+.mo-heading > div { min-width: 0; }
+.mo-heading small { font-size: .75rem; display: block; overflow-wrap: anywhere; }
+.mo-account .mo-heading h2 { font-size: clamp(1.25rem,2vw,1.7rem); }
+.mo-overview { background: #f4ebe7; border-radius: 12px; margin-block: 1rem .65rem; }
+.mo-overview .mo-facts { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 0; padding-block: .85rem; margin: 0; }
+.mo-overview .mo-facts > div { padding-inline: .85rem; }
+.mo-overview .mo-facts > div + div { border-inline-start: 1px solid #dccaC7; }
+.mo-overview .mo-facts dd { color: var(--burgundy); line-height: 1.45; }
+.mo-facts { font-variant-numeric: tabular-nums; }
+.mo-account > details + details { border-block-start: 1px solid var(--border); }
+.mo-account > details > summary, .mo-access > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: .65rem;
+  min-height: 44px; padding-block: .45rem; font-size: .91rem; font-weight: 700; list-style: none;
+}
+.mo-account > details > summary::-webkit-details-marker, .mo-access > summary::-webkit-details-marker { display: none; }
+.mo-account > details > summary::after, .mo-access > summary::after {
+  content: ""; width: .4rem; height: .4rem; flex-shrink: 0;
+  margin-inline-end: .25rem; border: solid #896c79; border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.mo-account > details[open] > summary::after, .mo-access[open] > summary::after { transform: rotate(225deg); }
+.mo-fact-group .mo-facts { margin-block: .3rem .9rem; padding-inline: .2rem; }
+.mo-results { display: grid; gap: 0; margin-top: 1rem; }
+.mo-results .secondary {
+  display: flex; justify-content: space-between; text-align: start; gap: .5rem;
+  border: 0; border-radius: 0; border-block-start: 1px solid var(--border);
+  background: transparent; font-size: .9rem;
+}
+.mo-results small { color: var(--muted); font-weight: 400; }
+.mo-actions > form > label select, .mo-workspace .mo-stack textarea {
+  font: inherit; border-radius: 10px; border: 1px solid #e5d9d4;
+  background: #fbf7f3; color: var(--ink); min-height: 44px; padding: .57rem .7rem;
+}
+.mo-actions > form > .primary { width: auto; min-width: 8rem; }
+@media(min-width: 800px) {
+  .mo-actions > form { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .mo-actions > form > * { grid-column: 1/-1; }
+  .mo-actions > form > label:nth-child(-n+2) { grid-column: auto; }
+}
+@media(max-width: 560px) {
+  .mo-search .mo-inline { flex-wrap: nowrap; }
+  .mo-search form .primary { min-width: auto; }
+  .mo-overview .mo-facts { grid-template-columns: repeat(2, minmax(0,1fr)); padding: .3rem .75rem; }
+  .mo-overview .mo-facts > div { padding: .5rem .15rem; }
+  .mo-overview .mo-facts > div + div { border-inline: 0; }
+  .mo-overview .mo-facts > div:nth-child(n+3) { border-block-start: 1px solid #dccac7; }
+}

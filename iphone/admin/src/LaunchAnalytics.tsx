@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CalendarDays, ChevronDown } from 'lucide-react';
 import { call, friendly } from './client';
 import './LaunchAnalytics.css';
 
@@ -20,6 +21,15 @@ const groups:Record<string,Row[]> = {
  activity:[['dau','نشطون في آخر يوم'],['wau','نشطون في آخر ٧ أيام'],['mau','نشطون في آخر ٣٠ يومًا'],['activity','نشطون في الفترة المختارة'],['onboarding_active','نشطون أثناء التسجيل'],['retention_return_1','عادوا بعد يوم من الاعتماد','retention_due_1'],['retention_return_7','عادوا بعد أسبوع من الاعتماد','retention_due_7'],['discoverable','ظاهرة ملفاتهم حاليًا'],['zero_eligible','بلا أي ملف مؤهل حاليًا','discoverable'],['requests','طلبات التعارف المرسلة'],['accepted_cohort','قُبلت من الطلبات المرسلة','requests'],['communication','اتفاقات التواصل المتبادلة']],
  billing:[['eligible_trial','أهلية مؤكدة من المتجر'],['offer_seen_trial','ظهر لهم عرض تجربة مؤهل'],['chose_free_trial','اختاروا المجانية عند عرض التجربة','offer_seen_trial'],['left_offer_trial','غادروا عرض التجربة بزر الرجوع','offer_seen_trial'],['checkout_trial','بدأوا شراء التجربة','offer_seen_trial'],['no_choice_trial','شاهدوا التجربة بلا قرار مسجّل','offer_seen_trial'],['verified_trial','تجارب أكدها المتجر'],['trial_converted','انتقلوا من التجربة إلى الدفع'],['trial_expired','انتهت تجربتهم دون شراء'],['offer_seen_standard','شاهدوا صفحة الأسعار العادية'],['chose_free_standard','اختاروا المجانية عند عرض الأسعار'],['active_trial','تجربة متجر سارية الآن'],['paid_subscriber','عضوية متجر مدفوعة سارية الآن'],['tier_free','المجانية حاليًا'],['tier_premium','المميزة حاليًا'],['tier_seriousness','وسام الجدية حاليًا'],['grant','وصول ممنوح حاليًا'],['pilot_trial','تجارب تشغيلية سارية'],['renewal_off','أوقفوا التجديد والوصول ساري'],['billing_retry','تعذّر تحصيل التجديد'],['revoked','مشتريات سُحبت صلاحيتها'],['slots','مقاعد عرض الإطلاق المتبقية']],
 };
+const overviewTotals: Row[] = [
+ ['joined','حسابات جديدة خلال الفترة'],
+ ['stage_pending','بانتظار المراجعة الآن'],
+ ['wau','نشطون آخر ٧ أيام'],
+];
+const rangeDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day:'numeric', month:'short', year:'numeric', timeZone:'Asia/Riyadh' });
+function rangeLabel(from:string,to:string) {
+ return rangeDate.formatRange(new Date(from),new Date(to));
+}
 const panes:Record<string,string>={overview:'الملخص',funnel:'مراحل التسجيل',activity:'الاستخدام والتعارف',billing:'العضويات',directory:'دليل التسجيل',issues:'يحتاج متابعة'};
 function day(offset=0){return new Date(Date.now()+3*3600000+offset*86400000).toISOString().slice(0,10);}
 function Calibration({policy,refresh}:{policy:Summary['calibration'];refresh:()=>void}) {
@@ -65,19 +75,32 @@ export function LaunchAnalytics({onMember,onQueue,demo=false}:Props){
  return()=>{valid=false;};},[range,demo]);
  const selectDays=(n:number)=>{const a=day(1-n),b=day();setFrom(a);setTo(b);setRange([a,b]);};
  return <div className="la-page">{demo?<section className="panel"><h2>مؤشرات الإطلاق</h2><p>تتوفر إحصاءات الأعضاء في بيئة الحسابات الحقيقية.</p></section>:<>
- <nav className="filters" aria-label="تقارير الإطلاق">{Object.entries(panes).map(([k,v])=><button type="button" aria-pressed={pane===k} onClick={()=>{setDirectoryFilter('all');setPane(k);}} key={k}>{v}</button>)}</nav>
- {pane==='directory'?<Directory onMember={onMember} initialStage={directoryFilter}/>:<><section className="panel"><h2>{panes[pane]}</h2><form className="la-controls" onSubmit={e=>{e.preventDefault();setRange([from,to]);}}>
- <label>من<input required type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></label><label>إلى<input required type="date" min={from} max={day()} value={to} onChange={e=>setTo(e.target.value)}/></label><button className="secondary">تطبيق</button>{[1,7,30].map(n=><button className="text-button" type="button" key={n} onClick={()=>selectDays(n)}>{n===1?'اليوم':nf.format(n)+' أيام'}</button>)}</form>
- {data&&<small className="muted">العضويات والظهور وحالة المراجعة تُقرأ الآن. الفترات بتوقيت الرياض · بدأ رصد أحداث التطبيق في {time(data.started)}</small>}</section>
+ <nav className="la-navigation" aria-label="تقارير الإطلاق">{Object.entries(panes).map(([k,v])=><button type="button" aria-pressed={pane===k} onClick={()=>{setDirectoryFilter('all');setPane(k);}} key={k}>{v}</button>)}</nav>
+ {pane==='directory'?<Directory onMember={onMember} initialStage={directoryFilter}/>:<>
+ <div className="la-period">
+  <div className="la-presets" role="group" aria-label="فترة التقرير">
+   {[1,7,30].map(n=><button type="button" key={n} aria-pressed={range[0]===day(1-n)&&range[1]===day()} onClick={()=>selectDays(n)}>{n===1?'اليوم':n===7?'٧ أيام':'٣٠ يومًا'}</button>)}
+  </div>
+  <details className="la-calendar">
+   <summary><CalendarDays size={16}/><span>{rangeLabel(range[0],range[1])}</span><ChevronDown size={14}/></summary>
+   <form className="la-controls" onSubmit={e=>{e.preventDefault();setRange([from,to]);const details=e.currentTarget.closest('details');if(details){details.open=false;details.querySelector('summary')?.focus();}}}>
+    <label>من<input required type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></label>
+    <label>إلى<input required type="date" min={from} max={day()} value={to} onChange={e=>setTo(e.target.value)}/></label><button className="secondary">تطبيق</button>
+   </form>
+  </details>
+ </div>
+ {data&&pane==='overview'&&<dl className="la-totals">{overviewTotals.map(([key,label])=><div key={key}><dt>{label}</dt><dd>{nf.format(data.metrics[key]?.total??0)}</dd></div>)}</dl>}
  {error?<p className="notice error" role="alert">{error}</p>:!data?<p role="status">جارٍ قراءة المؤشرات…</p>:pane==='issues'?<section className="panel">{data.issues.map(i=><div className="la-person" key={i.key}><div><strong>{labels[i.key]}</strong><small>{i.oldest?'الأقدم '+time(i.oldest):'لا توجد حالات مسجلة'}</small></div><span>{nf.format(i.n)}</span><button className="secondary" onClick={()=>i.dest==='applications'?openAffected('issue_'+i.key):onQueue(i.dest)}>فتح المتابعة</button></div>)}<h3>أعطال آخر ٧ أيام</h3>{!data.incidents.length&&<p className="muted">لا توجد أعطال مرصودة.</p>}{data.incidents.map(i=><article className="la-person" key={[i.step,i.platform,i.build].join(':')}><div><strong>{labels[i.step]??i.step} · {nf.format(i.affected)} أعضاء</strong><small><bdi>{i.platform} · {i.build}</bdi></small><small>من {time(i.first_at)} إلى {time(i.last_at)}</small><small>آخر نجاح مرصود {i.last_success?elapsed(i.last_success)+' · '+time(i.last_success):'غير متاح'}</small></div><button className="secondary" onClick={()=>openAffected(['incident',i.step,i.platform,i.build].join(':'))}>الحسابات المتأثرة</button></article>)}</section>:pane==='funnel'?<>
  <section className="panel"><h3>تحقق الجوال قبل الحساب</h3><p className="muted">محاولات مجمّعة. قد يحاول الشخص أكثر من مرة.</p><Grid rows={([['sms_signup_start','فتحوا التسجيل (جلسات)'],['sms_provider_error','إخفاقات المزوّد'],['sms_sending','بدأ التحقق'],['sms_sent','أُرسل الرمز'],['sms_verified','تم التحقق'],['sms_revoked','أُلغيت المحاولة']])} metrics={data.metrics}/></section>
  {steps.filter(k=>k!=='beena'||data.metrics['applicable_'+k]).map(k=><section className="panel" key={k}><h3>{labels[k]}</h3><Grid metrics={data.metrics} rows={[[`reached_${k}`,'وصلوا إلى الخطوة'],[`completed_${k}`,'أكملوها',`applicable_${k}`],[`resumed_${k}`,'استأنفوها'],[`error_${k}`,'ظهر لهم خطأ']]}/></section>)}</>:<section className="panel">
  {pane==='activity'&&<p className="muted">النشاط تصفّح أو بحث أو تواصل. تُحسب طلبات الأزواج مرة واحدة بحسب جنس المرسِل. نسب العودة للأفواج التي اكتملت فترة ملاحظتها.</p>}
  {pane==='billing'&&<p className="muted">حالة عرض الإطلاق · رجال {data.campaign.man?'مفعّل':'متوقف'} · نساء {data.campaign.woman?'مفعّل':'متوقف'}</p>}
+ <h2 className="la-table-heading">{pane==='overview'?'التسجيل حسب الجنس':panes[pane]}</h2>
  <Grid metrics={data.metrics} rows={groups[pane]??[]}/>
  {pane==='overview'&&<p className="muted">حسابات الأهل حاليًا · {nf.format(data.family)}</p>}
  {pane==='activity'&&<><Calibration policy={data.calibration} refresh={()=>setRange([...range])}/><h3>الوقت إلى أول طلب</h3><p className="muted">الوسيط بالساعات من الاعتماد حتى أول طلب خلال الفترة، لمن وصلهم طلب أو أرسلوه.</p><div className="la-scroll"><table className="la-table"><thead><tr><th>أول طلب</th>{genders.map(g=><th key={g}>{labels[g]}</th>)}</tr></thead><tbody>{['sent','received'].map(k=><tr key={k}><th>{k==='sent'?'أُرسل':'استُقبل'}</th>{genders.map(g=><td key={g}>{data.waits[k]?.[g]==null?'—':nf.format(data.waits[k][g]!)}</td>)}</tr>)}</tbody></table></div></>}
- </section>}</>}</>}</div>;
+ </section>}
+ {data&&<p className="la-footnote">بتوقيت الرياض · بدأ رصد أحداث التطبيق في {time(data.started)}. العضويات والظهور وحالة المراجعة تُقرأ الآن.</p>}</>}</>}</div>;
 }
 const signalRows:Row[]=[['sent','أشخاص أرسل لهم طلبًا'],['received','أشخاص وصل منهم طلب'],['acceptedSent','قُبل طلبه'],['acceptedReceived','قبِل طلبهم'],['messaged','أشخاص راسلهم'],['newThreads','محادثات جديدة'],['twoWay','محادثات شارك فيها الطرفان'],['sentMessages','رسائل أرسلها'],['perThread','متوسط الرسائل لكل محادثة راسل فيها'],['steps','خطوات اتفق عليها الطرفان'],['family','مقدمات عائلية أكدها الطرفان'],['closed','محادثات أنهاها العضو صراحة']];
 export function MemberSignals({memberId,demo=false}:{memberId:string;demo?:boolean}){

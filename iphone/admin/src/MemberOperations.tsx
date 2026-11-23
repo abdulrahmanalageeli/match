@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Search } from 'lucide-react';
 import { call, client, friendly } from './client';
 import {MemberSignals} from './LaunchAnalytics';
 import {personalityQuestionsFor} from '../../src/compatibility/personality';
@@ -34,18 +35,19 @@ const date=(s:string|null|undefined)=>s?new Date(s).toLocaleString('ar-SA-u-ca-g
 function inspect<T>(command:string,input:Record<string,unknown>){return call<T>('marriage_ops_inspect',{command,input});}
 const steps=['identity','story','details','avatar','criteria','compatibility','personality','preferences','readiness','review'];
 const idPattern='[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}';
-function Facts({items}:{items:[string,string|number][]}){return <dl className="mo-facts">{items.map(([key,value])=><div key={key}><dt>{key}</dt><dd dir="auto">{value}</dd></div>)}</dl>}
+const numberFormat = new Intl.NumberFormat('ar-SA');
+function Facts({items}:{items:[string,string|number][]}){return <dl className="mo-facts">{items.map(([key,value])=><div key={key}><dt>{key}</dt><dd><bdi>{typeof value==='number'?numberFormat.format(value):value}</bdi></dd></div>)}</dl>}
 
 export function MemberOperations({initialMemberId,demo=false}:{initialMemberId?:string|null;demo?:boolean}){
   const [query,setQuery]=useState(''),[selected,select]=useState(initialMemberId??''),[hits,setHits]=useState<{id:string;label:string;status:string}[]|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{select(initialMemberId??'');},[initialMemberId]);
   if(demo)return <section className="panel"><h2>متابعة الحسابات</h2><p className="muted">تتطلب إجراءات المتابعة اتصالًا ببيئة الأعضاء.</p></section>;
-  return <div className="mo-stack"><section className="panel"><h2>البحث عن حساب</h2><form className="mo-inline" onSubmit={async e=>{
+  return <div className="mo-stack mo-workspace"><section className="panel mo-search"><form className="mo-inline" onSubmit={async e=>{
     e.preventDefault();if(busy)return;setBusy(true);setError('');setHits(null);select('');
     try{const rows=await inspect<NonNullable<typeof hits>>('lookup',{query:query.trim()});setHits(rows);if(rows.length===1)select(rows[0].id);}
     catch(problem){setError(friendly(problem));}finally{setBusy(false);}
-  }}><label>المعرّف، الاسم الظاهر، البريد أو رقم الجوال<input required minLength={2} maxLength={254} dir="auto" value={query} onChange={e=>setQuery(e.target.value)}/></label><button className="primary" disabled={busy}>بحث</button></form>
+  }}><label>البحث عن حساب<span className="mo-query"><Search size={18} aria-hidden="true"/><input required minLength={2} maxLength={254} dir="auto" placeholder="الاسم أو المعرّف أو البريد أو الجوال" value={query} onChange={e=>setQuery(e.target.value)}/></span></label><button className="primary" disabled={busy}>بحث</button></form>
   {error&&<p className="notice error" role="alert">{error}</p>}{hits?.length===0&&<p role="status">لم يظهر حساب بهذه البيانات.</p>}
   {hits&&hits.length>1&&<div className="mo-results">{hits.map(hit=><button className="secondary" key={hit.id} onClick={()=>select(hit.id)}>{hit.label} · {label(hit.status)}<small dir="ltr">{hit.id}</small></button>)}</div>}</section>
   {selected&&<MemberWorkspace key={selected} id={selected} onDeleted={()=>{select('');setHits(null);setQuery('');}}/>}
@@ -104,13 +106,28 @@ function MemberWorkspace({id,onDeleted}:{id:string;onDeleted:()=>void}){
  const available=['open_case','assign','note','reply','contact',...(a.providers?.includes('email')&&a.emailVerified?['recovery']:[]),
   ...(a.stage?['offer_export','request_edit','restart_luna','verify_identity','verify_phone','grant',...(a.grant||a.scheduled?['revoke_grant']:[]),'apple_check']:[]),...(a.hasProfile?['city','refresh','pair_refresh','request_filters']:[]),
   ...(a.draft?['resume']:[]),'revoke_sessions',...(a.portrait?['hide_photo']:[]),...(a.privatePhotos.some(p=>p.grants>0)?['private_withdraw']:[]),'retry_push','request_deletion',...(selectedTicket?.approved?['delete']:[])];
- return <><section className="panel"><header className="mo-heading"><div><h2>{a.name||'تسجيل غير مكتمل'}</h2><small dir="ltr">{id}</small></div><button className="secondary" disabled={busy} onClick={()=>refresh(n=>n+1)}>تحديث الحالة</button></header>
- <Facts items={[['حالة الحساب',a.suspended?'معلّق':label(a.stage)],['الظهور',a.hasProfile&&a.stage==='approved'&&!a.paused&&!a.suspended?'متاح بحسب الأهلية':'غير متاح'],['العضوية',label(a.tier)],['الدخول',(a.providers??[]).join(' · ')||'—'],['تأكيد الجوال',a.phoneVerified?'مؤكد':'غير مكتمل'],['إنشاء الحساب',date(a.signup)],['آخر دخول',date(a.lastSignIn)],['مسودة التسجيل',label(a.draft?.step)],['أحدث تأكيد إجابة',date(a.lastConfirmation)],['الوصول من Apple حتى',date(a.appleEnd)],['المنحة الحالية حتى',date(a.grant?.end)],['المنحة المجدولة حتى',date(a.scheduled?.end)],['الارتباطات المستخدمة',a.connections+' / '+a.slotLimit],['طلبات صادرة معلّقة',a.pending],['الصادرة المعلّقة والمقبولة',a.outgoing],['آخر فحص Apple',date(a.lastAppleCheck)],['الجلسات المفتوحة',a.sessions],['البلاغات المفتوحة',a.reports],['مراجعة تكرار التسجيل',a.repeatReview?'تحتاج مراجعة':'لا يوجد مؤشر'] ]}/>
+ return <><section className="panel mo-account"><header className="mo-heading"><div><h2>{a.name||'تسجيل غير مكتمل'}</h2><small dir="ltr">{id}</small></div><button className="secondary" disabled={busy} onClick={()=>refresh(n=>n+1)}>تحديث الحالة</button></header>
+ <div className="mo-overview"><Facts items={[
+  ['حالة الحساب',a.suspended?'معلّق':label(a.stage)],
+  ['العضوية',label(a.tier)],
+  ['الظهور',a.hasProfile&&a.stage==='approved'&&!a.paused&&!a.suspended?'متاح بحسب الأهلية':'غير متاح'],
+  ['البلاغات المفتوحة',a.reports],
+ ]}/></div>
+ <details className="mo-fact-group"><summary>الحساب والتسجيل</summary><Facts items={[
+  ['الدخول',(a.providers??[]).join(' · ')||'—'],['تأكيد الجوال',a.phoneVerified?'مؤكد':'غير مكتمل'],
+  ['إنشاء الحساب',date(a.signup)],['آخر دخول',date(a.lastSignIn)],['مسودة التسجيل',label(a.draft?.step)],
+  ['أحدث تأكيد إجابة',date(a.lastConfirmation)],['الجلسات المفتوحة',a.sessions],['مراجعة تكرار التسجيل',a.repeatReview?'تحتاج مراجعة':'لا يوجد مؤشر'],
+ ]}/></details>
+ <details className="mo-fact-group"><summary>العضوية والارتباطات</summary><Facts items={[
+  ['الوصول من Apple حتى',date(a.appleEnd)],['آخر فحص Apple',date(a.lastAppleCheck)],
+  ['المنحة الحالية حتى',date(a.grant?.end)],['المنحة المجدولة حتى',date(a.scheduled?.end)],
+  ['الارتباطات المستخدمة',a.connections+' / '+a.slotLimit],['طلبات صادرة معلّقة',a.pending],['الصادرة المعلّقة والمقبولة',a.outgoing],
+ ]}/></details>
  <details><summary>تشخيص الظهور والتواصل والإشعارات</summary><div className="mo-stack"><div className="mo-inline"><button className="secondary" disabled={diagBusy} onClick={()=>void diagnose('visibility')}>فحص الملفات المتاحة</button></div>
  <form className="mo-inline" onSubmit={e=>{e.preventDefault();void diagnose('pair');}}><label>معرّف الطرف الآخر<input dir="ltr" required pattern={idPattern} value={peer} onChange={e=>setPeer(e.target.value)}/></label><button className="secondary" disabled={diagBusy}>فحص الارتباط</button></form>{diagnostic&&<p role="status">{diagnostic}</p>}
  {a.filterResult&&<p>آخر فحص شاركه العضو · {date(a.filterResult.at)} · {a.filterResult.mode==='all'?'الدليل':'الترشيحات'} · قبل تطبيق خيارات البحث {a.filterResult.before} · بعدها {a.filterResult.after}</p>}
  {a.fieldDates.length>0&&<details><summary>آخر تأكيد لكل حقل</summary>{a.fieldDates.map(f=><p key={f.field}><bdi>{f.field}</bdi> · {f.source==='manual'?'إدخال يدوي':'اقتراح لونا أكّده العضو'} · {date(f.at)}</p>)}</details>}<small>إشعارات الحساب {a.pushEnabled?'مفعّلة':'متوقفة'}</small>{a.push.map((p,i)=><div key={i}>{label(p.kind)} · {p.outcome==='accepted'?'قبله مزوّد الإرسال':label(p.outcome)} · {date(p.at)}</div>)}{a.photoHistory.map((h,i)=><small key={i}>{label(h.kind)} · {date(h.at)} · حتى {date(h.until)}</small>)}{a.safetyHistory.length>0&&<details><summary>بلاغات الحساب ومؤشرات التسجيل المرتبطة</summary>{a.safetyHistory.map(h=><p key={h.id}>{h.member===id?'الحساب الحالي':'حساب موقوف يرتبط بمؤشّر سابق'} · {h.closed?'مغلق':'مفتوح'} · {date(h.at)} <bdi>{h.id}</bdi></p>)}</details>}<small>إظهار الصورة الواضحة · {label(a.portrait?.policy)}</small></div></details></section>
- <MemberSignals memberId={id}/><section className="panel"><h2>إجراءات المتابعة</h2><form className="mo-stack" onSubmit={e=>{e.preventDefault();void run();}}>
+ <MemberSignals memberId={id}/><section className="panel mo-actions"><h2>إجراءات المتابعة</h2><form className="mo-stack" onSubmit={e=>{e.preventDefault();void run();}}>
  <label>طلب العضو<select value={ticket} disabled={busy} onChange={e=>{setTicket(e.target.value);action('note');}}><option value="">فتح طلب جديد</option>{a.tickets.filter(t=>t.status!=='resolved').map(t=><option key={t.id} value={t.id}>{t.subject}{t.assignee?' · '+t.assignee:''}</option>)}</select></label>
  <label>الإجراء<select value={command} disabled={busy} onChange={e=>action(e.target.value)}>{available.map(v=><option key={v} value={v}>{label(v)}</option>)}</select></label>
  {command==='open_case'&&<><label>عنوان يراه العضو<input required minLength={3} maxLength={140} value={subject} onChange={e=>setSubject(e.target.value)}/></label><label>نوع الطلب<select value={category} onChange={e=>setCategory(e.target.value)}><option value="help">مساعدة أو خصوصية</option><option value="access">دخول</option><option value="billing">عضوية وفواتير</option><option value="safety">سلامة</option></select></label></>}
@@ -135,6 +152,6 @@ function MemberWorkspace({id,onDeleted}:{id:string;onDeleted:()=>void}){
 function StaffAccess(){
  const [rows,setRows]=useState<{id:string;name:string;role:string;active:boolean}[]>([]),[reason,setReason]=useState(''),[busy,setBusy]=useState(false),[msg,setMsg]=useState('');
  async function load(){setRows(await inspect<typeof rows>('staff',{}));}
- return <details className="panel"><summary>صلاحيات فريق الإدارة</summary><button className="secondary" disabled={busy} onClick={()=>void load().catch(e=>setMsg(friendly(e)))}>عرض الفريق</button>{rows.length>0&&<label>سبب سحب الصلاحية<input value={reason} maxLength={500} onChange={e=>setReason(e.target.value)}/></label>}
+ return <details className="panel mo-access"><summary>صلاحيات فريق الإدارة</summary><button className="secondary" disabled={busy} onClick={()=>void load().catch(e=>setMsg(friendly(e)))}>عرض الفريق</button>{rows.length>0&&<label>سبب سحب الصلاحية<input value={reason} maxLength={500} onChange={e=>setReason(e.target.value)}/></label>}
  {rows.map(r=><div className="mo-note" key={r.id}><b>{r.name}</b><span>{r.active?'مفعّل':'متوقف'}</span>{r.active&&r.role!=='owner'&&<button className="secondary" disabled={busy||reason.trim().length<3} onClick={async()=>{setBusy(true);try{await call('marriage_ops_action',{command:'revoke_staff',input:{member:r.id,reason:reason.trim(),id:crypto.randomUUID()}});await load();setReason('');}catch(e){setMsg(friendly(e));}finally{setBusy(false);}}}>سحب صلاحية {r.name}</button>}</div>)}{msg&&<p role="status">{msg}</p>}</details>;
 }

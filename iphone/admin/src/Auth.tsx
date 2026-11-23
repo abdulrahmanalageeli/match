@@ -2,8 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, CheckCircle2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { client, configurationError, friendly } from './client';
 
+import heartLogo from '../../public/brand/wudayn-heart.png?url';
+import wordmark from '../../public/brand/wudayn-wordmark.png?url';
+
 export function Brand({ large = false }: { large?: boolean }) {
-  return <div className={large ? 'brand large' : 'brand'}><img src="/brand/wudayn-heart.png" alt="" /><img src="/brand/wudayn-wordmark.png" alt="وُدَين" /><span>مساحة الإدارة</span></div>;
+  return <div className={large ? 'brand large' : 'brand'}><img src={heartLogo} alt="" /><img src={wordmark} alt="وُدَين" /><span>مساحة الإدارة</span></div>;
 }
 
 export function Login({ onDemo }: { onDemo: () => void }) {

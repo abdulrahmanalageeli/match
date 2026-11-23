@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ShieldCheck, X } from 'lucide-react';
+import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { NoticeHeader } from '../ui/NoticeHeader';
 import { callRpc } from '../cloud';
 import { conductDate, conductKinds, noticeStatus, policyNames, type ConductNotice } from './model';
 import './conduct.css';
@@ -72,25 +73,25 @@ export function ConductCenter({ owner }: { owner: string }) {
     {items.length > 0 && <button className="wd-conduct-entry" onClick={() => setSelected(items[0].id)}>
       <ShieldCheck size={16} aria-hidden="true" /><span>إشعارات حسابك</span><ChevronLeft size={15} aria-hidden="true" />
     </button>}
-    {current && <dialog dir="rtl" className="wd-conduct-sheet" ref={dialog} aria-labelledby="conduct-title"
+    {current && <dialog dir="rtl" className="wd-notice-sheet wd-conduct-sheet" ref={dialog} aria-labelledby="conduct-title"
       onCancel={event => { event.preventDefault(); close(); }}>
-      <div className="wd-conduct-header"><span>وُدَين · {current.origin==='automated'?'رصد آلي':'العناية بالأعضاء'}</span><button type="button" disabled={busy} aria-label="إغلاق" onClick={close}><X size={19} /></button></div>
-      <h2 id="conduct-title" tabIndex={-1}>{conductKinds[current.kind]}</h2>
+      <NoticeHeader sender={current.origin==='automated'?'رصد وُدَين الآلي':'فريق العناية بالأعضاء'} issuedAt={current.issuedAt} onClose={close} busy={busy}/>
       <p className="wd-conduct-topic">{policyNames[current.policy]}</p>
-      <p className="wd-conduct-message" dir="auto">{current.explanation}</p>
+      <h2 id="conduct-title" tabIndex={-1}>{conductKinds[current.kind]}</h2>
+      <p className="wd-notice-copy" dir="auto">{current.explanation}</p>
       {current.pledge && <blockquote>{current.pledge}</blockquote>}
-      <dl><div><dt>الحالة</dt><dd role="status">{noticeStatus(current)}</dd></div>
+      <dl className="wd-conduct-facts"><div><dt>الحالة</dt><dd role="status">{noticeStatus(current)}</dd></div>
         {current.kind === 'restriction' && <><div><dt>يشمل التقييد</dt><dd>إرسال طلبات تعارف جديدة</dd></div>
           {current.endsAt && <div><dt>ينتهي بتوقيت الرياض</dt><dd>{conductDate(current.endsAt)}</dd></div>}</>}
       </dl>
       {current.kind === 'pledge' && !current.acknowledgedAt && current.decision !== 'lifted' && <p>يمكنك استئناف إرسال طلبات التعارف بعد تأكيد التعهّد.</p>}
       {current.outcome && <section className="wd-conduct-outcome"><strong>ردّ الفريق</strong><p dir="auto">{current.outcome}</p></section>}
       {error && <p className="form-error" role="alert">{error}</p>}
-      {appealing ? <form onSubmit={event => { event.preventDefault(); void respond('appeal'); }}>
-        <label htmlFor="conduct-note">ما الذي تود توضيحه للفريق؟ <small>(اختياري)</small></label>
+      {appealing ? <form className="wd-conduct-response" onSubmit={event => { event.preventDefault(); void respond('appeal'); }}>
+        <label htmlFor="conduct-note">ما الذي تود توضيحه للفريق؟ <small>اختياري</small></label>
         <textarea id="conduct-note" rows={3} maxLength={800} value={note} onChange={event => setNote(event.target.value)} />
         <button type="submit" className="f-primary" disabled={busy}>إرسال طلب المراجعة</button>
-        <button type="button" className="f-link centered" disabled={busy} onClick={() => setAppealing(false)}>رجوع</button>
+        <button type="button" className="wd-conduct-appeal" disabled={busy} onClick={() => setAppealing(false)}>رجوع</button>
       </form> : <>
         {(current.kind === 'warning' || current.kind === 'pledge') && !current.acknowledgedAt && current.decision !== 'lifted' &&
           <button type="button" className="f-primary" disabled={busy} onClick={() => void respond('ack')}>{current.kind === 'pledge' ? 'أوافق على هذا التعهّد' : 'اطّلعت على التنبيه'}</button>}

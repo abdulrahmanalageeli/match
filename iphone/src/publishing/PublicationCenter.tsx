@@ -25,6 +25,8 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
   const [dismissed,setDismissed]=useState<string[]>([]);
   const [unavailable,setUnavailable]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null);
+  const selectedId=useRef<string|null>(null);
+  selectedId.current=selected?.id??null;
   const callback=useRef(onConsumed);callback.current=onConsumed;
   const route=useRef(navigate);route.current=navigate;
   useEffect(()=>{
@@ -35,7 +37,8 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
       reading=true;
       try {
         if((await cloudSessionId())!==owner) return;
-        const {data,error}=await cloud.rpc('wudayn_publications',{platform,build,opened:openedId});
+        const requestedId=openedId??selectedId.current;
+        const {data,error}=await cloud.rpc('wudayn_publications',{platform,build,opened:requestedId});
         if(!active) return;
         if(error || !Array.isArray(data)){setUnavailable(!!openedId);return;}
         const rows=data as Publication[];
@@ -46,7 +49,7 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
           else if(entry) setSelected(entry);
           else setUnavailable(true);
           callback.current();
-        }else setSelected(last=>last?rows.find(r=>r.id===last.id)??null:null);
+        }else setSelected(last=>last && last.id===requestedId ? rows.find(r=>r.id===last.id)??null : last);
       }catch{if(active && openedId)setUnavailable(true);}
       finally{reading=false;}
     }

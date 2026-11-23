@@ -17,7 +17,7 @@ function browser({ permission = 'default', account = 'member-a', previousOwner, 
   localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) },
   sessionStorage: { getItem: key => pending.get(key) ?? null, setItem: (key, value) => pending.set(key, value), removeItem: key => pending.delete(key) },
   location: { href: 'https://example.test/' }, history: { state: null, replaceState() {} },
-  require: name => { if(name==='./scope')return {notificationScope:async owner=>owner+'-scope'};assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
+  require: name => { if(name==='../publishing/appBuild')return {publicationBuild:()=>26};if(name==='./scope')return {notificationScope:async owner=>owner+'-scope'};assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
  };
  const source = readFileSync(new URL('../src/notifications/webPush.ts', import.meta.url), 'utf8')
   .replace('import.meta.env.VITE_MARRIAGE_WEB_PUSH_PUBLIC_KEY', JSON.stringify('B'.repeat(87)))
@@ -32,7 +32,9 @@ test('browser push asks permission from the click before awaits, binds session, 
  assert.equal(calls[0], 'permission');
  await pending;
  const rpc = calls.filter(Array.isArray).map(call => call[0]);
- assert.deepEqual(rpc, ['subscribe', 'marriage_web_push_register', 'marriage_push_enable']);
+ assert.deepEqual(rpc, ['subscribe', 'marriage_web_push_register', 'wudayn_news_preference', 'marriage_push_enable']);
+ const news = calls.find(call=>Array.isArray(call) && call[0]==='wudayn_news_preference');
+ assert.equal(news[1].build,26); assert.equal(news[2],'member-a'); assert.equal(news[1].choice,undefined);
  const request = calls.find(call => Array.isArray(call) && call[0] === 'subscribe')[1];
  assert.equal(request.userVisibleOnly, true); assert.equal(request.applicationServerKey.length, 65);
  const denied = browser({ account: 'other' });
@@ -52,7 +54,7 @@ test('iPhone Safari explains home-screen requirement and disable revokes server 
 
 test('notification tap survives session restoration and is consumed only for the signed-in account', async () => {
  const { api, listeners, pending } = browser();
- const event = { scope:'member-a-scope',requestId: '11111111-1111-1111-1111-111111111111', kind: 'message' };
+ const event = { scope:'member-a-scope',requestId: '11111111-1111-1111-1111-111111111111', kind: 'publication' };
  listeners.get('message')({ data: { type: 'nisfayn-push-open', notification: event } });
  assert.equal(pending.size, 1);
  const opened = [];

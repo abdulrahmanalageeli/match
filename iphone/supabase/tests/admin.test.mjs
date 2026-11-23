@@ -12,8 +12,7 @@ async function asStaff(db,u,fn,{aal='aal2',extra={}}={}){
   try{return await fn();}finally{await db.exec('reset role');await db.query("select set_config('request.jwt.claims','',false)");}
 }
 async function rpc(db,sql,args=[]){return (await db.query('select '+sql+' as result',args)).rows[0].result;}
-const profile=(name='عضو')=>({displayName:name,age:29,gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف للمراجعة',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-05'});
-async function apply(db,u,value=profile()){return asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[value]));}
+
 
 test('support staff claim trusted invitations and can reply only to permitted support tickets',async()=>{
  const db=await createDatabase();
@@ -48,7 +47,7 @@ test('staff authority requires a live confirmed session, private role and MFA fo
  const db=await createDatabase();
  try{
   const owner=await staff(db,'owner','owner'),ordinary=await user(db,'ordinary'),candidate=await user(db,'candidate');
-  await apply(db,candidate);
+  await seedCommunicationMember(db,candidate,'woman','pending');
   await db.exec('set role anon');await assert.rejects(rpc(db,'public.marriage_admin_access()'),/permission/i);await db.exec('reset role');
   const outside=await asStaff(db,ordinary,()=>rpc(db,'public.marriage_admin_access()'),{extra:{user_metadata:{role:'owner'}}});
   assert.equal(outside.authorized,false);assert.equal(outside.role,null);

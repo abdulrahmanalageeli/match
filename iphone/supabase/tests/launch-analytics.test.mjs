@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember} from './harness.mjs';
 
 test('private launch aggregates include profile-less accounts, deduplicate observations and enforce staff scope',async()=>{
- const db=await createDatabase({throughMigration:'20261123120000_launch_analytics.sql'});
+ const db=await createDatabase();
  try {
   const make=async()=>{const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.invalid'};await addUser(db,u);return u;};
   const owner=await make(), member=await make(), dummy=await make();

@@ -7,6 +7,7 @@ import { portraitLines } from './personalPortrait';
 import { nextTopicCard, readTopic, rememberTopic, topicResumeKey, topicRoutes } from './topicJourney';
 import memberAr from '../member-copy.ts';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { launchEvent } from '../launchEvents';
 import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, LockKeyhole, Pencil } from '../BrandIcons';
 import legacyCatalog from '../compatibility/catalog-v3.json';
@@ -430,11 +431,11 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
 }
 
 export function HybridAssessment({
-  memberId, initialField,
+  memberId, measurementOwner, initialField,
   portraitPartnerSourceKnown = true,
   choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
 }: {
-  memberId?: string; initialField?:string;
+  memberId?: string; measurementOwner?: string; initialField?:string;
   choices: Choices;
   childrenCount?: number;
   partnerChildren?: PartnerCriteria['children'];
@@ -490,6 +491,13 @@ export function HybridAssessment({
   const omittedPortraitIds = portraitPartnerSourceKnown ? implicitPartner : new Set(fields.filter(field => field.id.endsWith(':partner')).map(field => field.id));
   const portrait = portraitLines(themeCards.map(theme => theme.cards.flatMap(assessmentFields)), savedChoices, omittedPortraitIds);
   const progress = assessmentProgress(fields, choices, savedChoices, aiProposals, openingTurnId);
+  const carried = progress.pending.size;
+  const measured = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!measurementOwner || !openingTurnId || measured.current === measurementOwner) return;
+    measured.current = measurementOwner;
+    launchEvent('luna_carried', String(carried), measurementOwner);
+  }, [measurementOwner, openingTurnId, carried]);
   const available = progress.remaining;
   const wasCaptured = (field: Field) => progress.retained.has(field.id);
   const extracted = fields.filter(field => progress.extracted.has(field.id));

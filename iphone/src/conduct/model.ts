@@ -34,8 +34,9 @@ export function noticeStatus(item: ConductNotice, audience: 'member' | 'staff' =
   if (item.decision === 'lifted') return 'رُفع الإجراء';
   if (item.appealedAt && item.needsReview) return audience === 'staff' ? 'بانتظار المراجعة' : 'طلبك قيد المراجعة';
   if (item.expired || (item.endsAt && Date.parse(item.endsAt) <= Date.now())) return 'انتهت مدة التقييد';
+  if (item.kind === 'pledge' && item.acknowledgedAt) return 'تم تأكيد التعهّد';
   if (item.decision === 'upheld') return 'أُيّد الإجراء بعد المراجعة';
-  if (item.acknowledgedAt) return item.kind === 'pledge' ? 'تم تأكيد التعهّد' : 'تم الاطلاع';
+  if (item.acknowledgedAt) return 'تم الاطلاع';
   if (item.origin === 'automated') return 'بانتظار مراجعة الفريق';
   switch (item.kind) {
     case 'warning': return audience === 'staff' ? 'بانتظار اطّلاع العضو' : 'بانتظار اطّلاعك';

@@ -13,7 +13,7 @@ type Account = {
   emailVerified: boolean; phoneVerified: boolean; stage: string | null; paused: boolean|null; suspended: boolean|null;
   hasProfile: boolean; city: string|null; draft: { step: string; updated: string } | null; tier: string|null;
   grant: Grant|null; scheduled: Grant|null; expectedEnd: string|null; appleEnd: string|null; lastAppleCheck: string|null;
-  connections: number;slotLimit:number;outgoing:number;pending:number; repeatReview: boolean; reports: number; sessions: number; lastConfirmation: string|null;
+  connections: number;slotLimit:number;outgoing:number;pending:number; repeatReview: boolean; reports: number; sessions: number; lastProfileEdit:string|null; lastConfirmation: string|null;
   portrait: {id:string;policy:string}|null; pushEnabled:boolean; push:{kind:string;at:string;outcome:string;attempts:number}[];
   audit:{action:string;actor:string;at:string}[];checks:{ticket:string;kind:string;ok:boolean}[];safetyHistory:{id:string;member:string;at:string;closed:boolean}[];privatePhotos:{id:string;grants:number}[];photoHistory:{kind:string;at:string;until:string}[];
   tickets: Ticket[]; history:{ticket:string;kind:string;note:string;at:string;actor:string}[];
@@ -67,8 +67,8 @@ function MemberWorkspace({id,onDeleted}:{id:string;onDeleted:()=>void}){
   if(diagBusy)return;setDiagBusy(true);setDiagnostic('');
   try{
    if(kind==='visibility'){const r=await inspect<{available:number;eligible:number}>(kind,{member:id});setDiagnostic('الملفات المتاحة بحسب حدود الظهور: '+r.available+' · المؤهلة بحسب شروط الطرفين: '+r.eligible);}
-   else {const r=await inspect<{status:string;agreement:string;firstSigned:string|null;secondSigned:string|null;canChat:boolean;occupiesSlot:boolean}|null>(kind,{member:id,peer});
-    setDiagnostic(r?'الطلب: '+label(r.status)+' · اتفاق التواصل: '+label(r.agreement)+' · توقيع الطرف الأول: '+date(r.firstSigned)+' · الطرف الثاني: '+date(r.secondSigned)+' · التواصل: '+(r.canChat?'متاح':'غير متاح')+' · موضع ارتباط: '+(r.occupiesSlot?'مشغول':'حر'):'لا يوجد طلب تعارف بين هذين الحسابين.');}
+   else {const r=await inspect<{status:string;agreement:string;firstSigned:string|null;secondSigned:string|null;canChat:boolean;occupiesSlot:boolean;fitCheck:{at:string;provisional:boolean;covered:number}|null}|null>(kind,{member:id,peer});
+    setDiagnostic(r?'الطلب: '+label(r.status)+' · اتفاق التواصل: '+label(r.agreement)+' · توقيع الطرف الأول: '+date(r.firstSigned)+' · الطرف الثاني: '+date(r.secondSigned)+' · التواصل: '+(r.canChat?'متاح':'غير متاح')+' · موضع ارتباط: '+(r.occupiesSlot?'مشغول':'حر')+(r.fitCheck?' · فُحص التوافق الآن: '+date(r.fitCheck.at)+' · '+(r.fitCheck.provisional?'مبدئي':'مكتمل')+' · عناصر محسوبة: '+r.fitCheck.covered:''):'لا يوجد طلب تعارف بين هذين الحسابين.');}
   }catch(e){setDiagnostic(friendly(e));}finally{setDiagBusy(false);}
  }
  if(!account)return <section className="panel" role="status">{error||'جارٍ فتح الحساب…'} {error&&<button className="secondary" onClick={()=>refresh(n=>n+1)}>تحديث</button>}</section>;
@@ -116,7 +116,7 @@ function MemberWorkspace({id,onDeleted}:{id:string;onDeleted:()=>void}){
  <details className="mo-fact-group"><summary>الحساب والتسجيل</summary><Facts items={[
   ['الدخول',(a.providers??[]).join(' · ')||'—'],['تأكيد الجوال',a.phoneVerified?'مؤكد':'غير مكتمل'],
   ['إنشاء الحساب',date(a.signup)],['آخر دخول',date(a.lastSignIn)],['مسودة التسجيل',label(a.draft?.step)],
-  ['أحدث تأكيد إجابة',date(a.lastConfirmation)],['الجلسات المفتوحة',a.sessions],['مراجعة تكرار التسجيل',a.repeatReview?'تحتاج مراجعة':'لا يوجد مؤشر'],
+  ['أحدث تعديل للملف العام',date(a.lastProfileEdit)],['أحدث تأكيد إجابة',date(a.lastConfirmation)],['الجلسات المفتوحة',a.sessions],['مراجعة تكرار التسجيل',a.repeatReview?'تحتاج مراجعة':'لا يوجد مؤشر'],
  ]}/></details>
  <details className="mo-fact-group"><summary>العضوية والارتباطات</summary><Facts items={[
   ['الوصول من Apple حتى',date(a.appleEnd)],['آخر فحص Apple',date(a.lastAppleCheck)],

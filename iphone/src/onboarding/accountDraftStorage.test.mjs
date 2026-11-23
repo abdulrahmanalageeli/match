@@ -108,3 +108,20 @@ test('server clock ahead of the phone does not erase a valid draft or extend its
   assert.equal(f.calls.filter(c => c.params.command === 'save').length, 1);
   assert.equal(f.calls.filter(c => c.params.command === 'delete').length, 0);
 });
+
+test('a repaired draft revision travels only with the device and account that loaded it',async()=>{
+  const operations=[];
+  const rpc=async(name,params,user)=>{
+    operations.push({user,...params});
+    if(params.command==='load')return {_supportRevision:'repair-v2',baseline:hash('new')};
+    return {saved:true};
+  };
+  const updated=createAccountDraftStorage(rpc),older=createAccountDraftStorage(rpc);
+  await updated.read(key(a),'new');
+  const doc=JSON.stringify({baseline:'new'});
+  await updated.write(key(a),doc);await older.write(key(a),doc);await updated.write(key(b),doc);await updated.remove(key(a));
+  assert.equal(operations[1].payload._supportRevision,'repair-v2');
+  assert.ok(!('_supportRevision' in operations[2].payload));
+  assert.ok(!('_supportRevision' in operations[3].payload));
+  assert.deepEqual(operations[4].payload,{_supportRevision:'repair-v2'});
+});

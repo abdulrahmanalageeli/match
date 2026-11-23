@@ -107,6 +107,7 @@ type Props = {
   onClose: () => void;
   onDirectQuestions?: () => void;
   onboarding?: boolean;
+  measurementOwner?: string;
   consentGranted?: boolean;
   direct?: boolean;
   onUnavailable?: () => void;
@@ -122,7 +123,7 @@ type Props = {
   onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
-export function InterviewPanel({ open, auth, initialField, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
+export function InterviewPanel({ open, auth, measurementOwner, initialField, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -655,7 +656,7 @@ export function InterviewPanel({ open, auth, initialField, onClose, onDirectQues
             <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
-          <HybridAssessment initialField={initialField} memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
+          <HybridAssessment initialField={initialField} measurementOwner={measurementOwner} memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
             onChoiceHelp={hybridReady && !structuredReceipt ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,

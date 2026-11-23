@@ -908,6 +908,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         onAssessmentVersion={legacy => { const saved=current.current.answers; const next=interviewDraftVersion(saved,legacy); if (!editing && next!==saved) update(next); }}
         key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
         initialField={supportField} open={interviewOpen} auth={interviewAuth} onboarding={!editing}
+        measurementOwner={trackRegistration ? draftOwner : undefined}
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}

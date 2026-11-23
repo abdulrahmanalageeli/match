@@ -8,7 +8,8 @@ export async function createDatabase({coreOnly=false, throughMigration}={}) {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth;
-    create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,phone text,phone_confirmed_at timestamptz,raw_app_meta_data jsonb not null default '{}');
+    create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,phone text,phone_confirmed_at timestamptz,raw_app_meta_data jsonb not null default '{}',created_at timestamptz default now(),last_sign_in_at timestamptz,phone_change text);
+    create table auth.identities(user_id uuid references auth.users on delete cascade,provider text);
     create table auth.sessions(id uuid primary key,user_id uuid references auth.users on delete cascade,not_after timestamptz);
     create function auth.jwt() returns jsonb language sql stable as $$ select nullif(current_setting('request.jwt.claims',true),'')::jsonb $$;
     create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;

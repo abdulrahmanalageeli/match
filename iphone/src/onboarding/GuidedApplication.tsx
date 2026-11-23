@@ -42,7 +42,9 @@ import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
 import { markLunaFields, manualLunaFields, restoreLunaFields, retractLunaFields, type LunaDraftFields } from './lunaDraftFields';
 import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
-import { answersFromAssessmentContext, assessmentContextFromAnswers } from '../interview/assessmentContext';
+import { assessmentContextFromAnswers } from '../interview/assessmentContext';
+import { applyAssessmentDraftChoices } from './assessmentDraft';
+import { HybridAssessment } from '../interview/HybridAssessment';
 import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
 import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
@@ -283,7 +285,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   });
   const [assessmentPath, setAssessmentPath] = useState<'choice'|'questions'>(() =>
     dimensionsForVersion(draft.answers.assessmentVersion).some(d => d.options.some(o => o.code === draft.answers.surveyAnswers?.[d.id] || o.code === draft.answers.surveyAnswers?.[d.partnerId])) ? 'questions' : 'choice');
-  const [reviewAllCompatibility, setReviewAllCompatibility] = useState(false);
   const [reviewAllBeena, setReviewAllBeena] = useState(false);
   const [reviewAllPersonality, setReviewAllPersonality] = useState(false);
   const [personalityDirect, setPersonalityDirect] = useState(false);
@@ -392,7 +393,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     setConsents(next);
     commit({permissions:{...current.current.permissions,version:next.version,sensitiveProfile:next.sensitiveProfile,sensitivePublication:next.sensitivePublication,assessment:next.assessment,...(kind==='assessment'?{interview:value}: {})}});
     if(kind==='sensitiveProfile'&&!value)update(withoutSensitive(current.current.answers));
-    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);setPrivateWriting(undefined);update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
+    if(kind==='assessment'&&!value){if(interviewAuth?.token)void interviewWritingDrafts.clear(interviewAuth.token).catch(()=>{});confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);setPrivateWriting(undefined);update(withoutAssessment(current.current.answers));setInterviewOpen(false);setInterviewApplied(false);setAssessmentPath('choice');setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);}
     if(kind==='photo'&&!value){setPortraitChange(null);setPortraitPolicy('never');}
     return true;
   }
@@ -445,7 +446,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       setStorageState(null);
       setDraft(fresh);
       confirmedProfileProposals.current=[];interviewVersion.current={};setLunaStep(undefined);setPrivateWriting(undefined);
-      setAssessmentPath('choice');setReviewAllCompatibility(false);setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
+      setAssessmentPath('choice');setReviewAllBeena(false);setReviewAllPersonality(false);setPersonalityDirect(false);setInterviewApplied(false);setInterviewOpen(false);setInterviewRevision(value=>value+1);
     }
     if (!deviceDraft || touched.current || (draftRef?.current?.owner === draftOwner && draftRef.current.baseline === baseline)) {
       setCheckingDevice(false);
@@ -609,6 +610,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       ? confirmedFields ?? manualLunaFields(previous,next,current.current.lunaFields) : undefined;
     commit({ answers: next, consent: false, lunaFields });
   }
+  function saveAssessmentChoices(choices: Record<string, string[]>, source: 'interview' | 'manual' = 'interview') {
+    update(applyAssessmentDraftChoices(current.current.answers, choices, source));
+  }
+
   function applyCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
     confirmedProfileProposals.current=document.profileConfirmed ?? proposals;
     interviewVersion.current={model:document.model,promptVersion:document.promptVersion,confirmedAt:document.confirmedAt};
@@ -749,6 +754,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (savedPersonalityCount>0 || (assessmentPath==='questions'&&compatibilityComplete)) launchEvent('reached','personality',draftOwner);
     if (personalityQuestions.length && savedPersonalityCount===personalityQuestions.length) launchEvent('completed','personality',draftOwner);
   },[trackRegistration,checkingDevice,chapter.key,assessmentPath,compatibilityComplete,savedPersonalityCount,personalityQuestions.length,draftOwner]);
+  const assessmentApproved = aiComplete && compatibilityComplete && savedPersonalityCount === personalityQuestions.length;
+  const showManualAssessment = !editing && chapter.key === 'compatibility' && consents.assessment && !assessmentApproved &&
+    (demo || preview || (fallbackAvailable && assessmentPath === 'questions'));
+  const formBlocked = busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState === 'loadError';
+  const manualChoices = showManualAssessment ? Object.fromEntries(assessmentContextFromAnswers(p,'manual').map(({id, values}) => [id, values])) : {};
   const choosingAssessment = !editing && chapter.key==='compatibility' && !aiComplete && !(fallbackAvailable && assessmentPath==='questions') && !demo && !preview;
   const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
@@ -834,14 +844,22 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. راجع الملف قبل حفظه.</p>}
                   {interviewAuth ? <details className="wi-manual" open={interviewApplied || Boolean(supportField) || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
-                  {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا إجابات التوافق. نكمل ما ينقص ملفك، مثل معايير البحث والنبذة والصورة، ثم تراجع طلبك قبل إرساله.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
+                  {assessmentApproved ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا إجابات التوافق. نكمل ما ينقص ملفك، مثل معايير البحث والنبذة والصورة، ثم تراجع طلبك قبل إرساله.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry registration available open={()=>setInterviewOpen(true)}/>}
                     {!(demo||preview)&&!interviewAuth&&<p role="alert" className="nf-intake-error">تعذّر فتح الجلسة. سجّل الدخول مجددًا للمتابعة.</p>}
                   </>}
-                  {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
+                  {showManualAssessment && <div className="nf-session-fallback">
                     <p className="nf-intake-note">{demo||preview?'هذه معاينة للأسئلة. عند التسجيل تبدأ جلسة التوافق مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
-                    <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
-                    {compatibilityComplete && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields initialField={supportField} version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
+                    <HybridAssessment key={interviewRevision} direct manualCatalog={{practical:p.assessmentVersion, personality:p.personalityVersion}} initialField={supportField}
+                      memberId={demo || preview ? undefined : draftOwner} choices={manualChoices} savedChoices={manualChoices}
+                      childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined}
+                      unresolvedPartnerIds={p.hardRequirements?.map(id => `preference:${id}:partner`)} disabled={formBlocked}
+                      onChange={choices => saveAssessmentChoices(choices,'manual')}
+                      onComplete={() => form.current?.requestSubmit()}/>
+                    <CompatibilityFields extrasOnly registration required remainingOnly version={p.assessmentVersion}
+                      childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children}
+                      interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []}
+                      priorityCategories={p.priorityCategories ?? []} onChange={update}/>
                   </div>}
                 </div>}
               </>}
@@ -914,8 +932,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           </MotionReveal>
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && !(chapter.key === "criteria" && error.criterion) && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
-            {!(choosingAssessment && consents.assessment && interviewAuth) &&
-              <MotionPressButton type="submit" className='f-primary' disabled={busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState==='loadError'}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
+            {!showManualAssessment && !(choosingAssessment && consents.assessment && interviewAuth) &&
+              <MotionPressButton type="submit" className='f-primary' disabled={formBlocked}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
             <KeyboardDismiss/>
             <div className="nf-intake-action-meta">
               {deviceDraft&&<p className="nf-intake-save-status" role="status" data-state={saveProgress}>{checkingDevice?'جارٍ استعادة مسودتك…':saveProgress==='local'?<>حُفظت تعديلاتك على هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={reconnect}>مزامنة مع الحساب</button></>:saveProgress==='error'?<>تعذّر الحفظ التلقائي. <button type="button" className="nf-intake-policy" onClick={()=>void saveProgressNow()}>إعادة المحاولة</button></>:saveProgress==='saved'?<><Check size={13} aria-hidden="true"/> {accountDraft?'حُفظت إجاباتك في حسابك بخصوصية':'حُفظت إجاباتك على جهازك'}</>:saveProgress==='pending'||saveProgress==='saving'?'جارٍ حفظ إجاباتك…':accountDraft?'تُحفظ إجاباتك تلقائيًا وبخصوصية':'تُحفظ إجاباتك تلقائيًا على جهازك'}</p>}
@@ -935,7 +953,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}
-        onStructuredDraftChange={choices => update(answersFromAssessmentContext(choices))}
+        onStructuredDraftChange={saveAssessmentChoices}
         onProfileApply={applyCapturedProfile} onProfileRetract={retractCapturedProfile}
         sensitiveProfileAllowed={consents.sensitiveProfile}
         consentGranted={consents.assessment && (entryAuthorized || draft.permissions?.interview === true)}
@@ -965,7 +983,6 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           setInterviewApplied(true);
           setInterviewRevision(value => value + 1);
           setAssessmentPath('questions');
-          setReviewAllCompatibility(false);
           setReviewAllBeena(false);
           setReviewAllPersonality(false);
           setPersonalityDirect(false);

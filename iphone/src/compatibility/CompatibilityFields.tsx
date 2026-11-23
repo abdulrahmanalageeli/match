@@ -9,13 +9,13 @@ import "./question-experience.css";
 
 import type { PartnerCriteria } from './marriage';
 
-type Props = CompatibilitySelection & { initialField?: string; version?: string; childrenCount?: number; partnerChildren?: PartnerCriteria['children']; gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
+type Props = CompatibilitySelection & { initialField?: string; version?: string; childrenCount?: number; partnerChildren?: PartnerCriteria['children']; gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; extrasOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
 const interestIcons = { reading: BookOpen, cooking: CookingPot, walking: Footprints, travel: Plane,
   photography: Camera, board_games: Dice5, museums: Landmark, creative_writing: PenLine };
 const number = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
 const sectionOrder = ["plans", "timing", "values", "lifestyle", "communication", "personality"];
 const sections = sectionOrder.map(id => categories.find(category => category.id === id)!);
-export function CompatibilityFields({ initialField, version, childrenCount, partnerChildren, interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
+export function CompatibilityFields({ initialField, version, childrenCount, partnerChildren, interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, extrasOnly = false, required = false }: Props) {
   const dimensions = applicableDimensions(version,surveyAnswers,childrenCount,partnerChildren);
   const topics = sections.flatMap(section => dimensions.filter(dim => dim.category === section.id));
   const questions = topics.flatMap((topic, index) => practicalAnswerKeys(topic, version).map((key, side) => ({
@@ -109,7 +109,7 @@ export function CompatibilityFields({ initialField, version, childrenCount, part
 
   return <div className="compat-fields" dir="rtl">
     {!registration && interestPicker}
-    <section ref={card} className="compat-assessment" aria-labelledby={remainingDone ? undefined : prefix + "-heading"} aria-label={remainingDone ? 'ملخص إجابات التوافق' : undefined}>
+    {!extrasOnly && <section ref={card} className="compat-assessment" aria-labelledby={remainingDone ? undefined : prefix + "-heading"} aria-label={remainingDone ? 'ملخص إجابات التوافق' : undefined}>
       <header className="compat-section-head"><span><Sparkles size={16} aria-hidden="true"/> صورتك عن الحياة</span><span className="compat-counter" aria-live="polite">{number.format(filled)} من {number.format(total)} إجابة</span></header>
       {!registration && assessmentNote}
       <div className="compat-answer-meter" role="progressbar" aria-label="إجابات التوافق" aria-valuemin={0} aria-valuemax={total} aria-valuenow={filled}><span style={{ transform: `scaleX(${filled / total})` }}/></div>
@@ -153,7 +153,7 @@ export function CompatibilityFields({ initialField, version, childrenCount, part
       </footer>
       </div>}
       {!remainingOnly && questionIndex === positions.length-1 && <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'اكتملت صورتك عن الحياة' : 'وصلت إلى آخر فكرة'}</strong><small>{filled === total ? 'يمكنك مراجعة إجاباتك من المواضيع، ثم متابعة التسجيل.' : `بقيت ${number.format(total-filled)} إجابات${required ? " لنكمل صورتك عن الحياة." : " اختيارية. يمكنك إكمالها أو متابعة التسجيل الآن."}`}</small></p>{firstMissing >= 0 && firstMissing !== position && <button type="button" onClick={()=>move(firstMissing)}>إكمال المتبقي<ChevronLeft size={15} aria-hidden="true"/></button>}</div>}
-    </section>
+    </section>}
     {remainingOnly && <details className="compat-refine"><summary><SlidersHorizontal size={14}/>{required ? "ما الأهم لك؟" : "أولوياتك وشروطك الاختيارية"}<ChevronDown size={13}/></summary><p className="compat-assessment-note">لا نختار الأولويات أو الشروط الأساسية بدلًا عنك.</p>{sections.map(section => <label className="compat-priority" key={section.id}><input type="checkbox" checked={priorityCategories.includes(section.id)} disabled={!priorityCategories.includes(section.id) && priorityCategories.length >= maxPriorities} onChange={event => change({priorityCategories:event.target.checked?[...priorityCategories,section.id]:priorityCategories.filter(id=>id!==section.id)})}/><span><strong>{section.label}</strong></span></label>)}{topics.filter(topic=>hasPartnerQuestion(topic.id, version)&&topic.hardAllowed&&hasPreferenceAnswer(topic.options,surveyAnswers[topic.partnerId])).map(topic=><label className="compat-hard" key={topic.id}><input type="checkbox" checked={hardRequirements.includes(topic.id)} onChange={event=>change({hardRequirements:event.target.checked?[...hardRequirements,topic.id]:hardRequirements.filter(id=>id!==topic.id)})}/><span><strong>{topic.title} · شرط أساسي</strong><small>{version && version !== 'marriage-v4' ? "يُشترط أن تلائم إجابة الطرف الآخر تفضيلك." : "أشترط في الشريك: " + topic.options.find(o=>o.code===surveyAnswers[topic.partnerId])?.partner}</small></span></label>)}</details>}
     {registration && interestPicker}
   </div>;

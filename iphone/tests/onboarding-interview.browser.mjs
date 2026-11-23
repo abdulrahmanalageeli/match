@@ -45,7 +45,7 @@ export const cloud={},cloudSelected=true,cloudConnection={url:'http://127.0.0.1'
 export class CloudError extends Error{}
 export async function cloudSessionId(){return '${owner}'}
 export async function cloudLogout(){}
-export async function callRpc(name,params,expectedUser){const response=await fetch('/__interview-draft-rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,params,expectedUser})});if(!response.ok)throw Error('Mock draft failure');return response.json()}
+export async function callRpc(name,params,expectedUser){if(name==='marriage_launch_note')return true;const response=await fetch('/__interview-draft-rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,params,expectedUser})});if(!response.ok)throw Error('Mock draft failure');return response.json()}
 export function createRecoveryClient(){return cloud}
 export async function cloudRequest(){throw Error('Submitting a real application is forbidden')}
 export async function resendSignupConfirmation(){throw Error('No email in this check')}
@@ -56,8 +56,28 @@ const fixture=`
 import React,{useRef,useState}from'react';import{createRoot}from'react-dom/client';
 import'/src/ambient.css';import'/src/home.css';import'/src/design.css';import'/src/flows.css';import'/src/screens.css';import'/src/motion.css';import'/src/onboarding/arrivalJourney.css';import'/src/onboarding/arrivalAssessments.css';import'/src/arrivalSurfaces.css';import'/src/typography.css';
 import{GuidedApplication}from'/src/onboarding/GuidedApplication';import{initialDraft}from'/src/onboarding/draft';import{initializeDevicePreferences}from'/src/settings/preferences';
+import { dimensionsForVersion, practicalAnswerKeys } from '/src/compatibility/practical-catalog';
+import { personalityQuestionsFor } from '/src/compatibility/personality';
 initializeDevicePreferences();
-function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current && !sessionStorage.getItem('restore-private-draft')){ref.current=initialDraft('${owner}',null);Object.assign(ref.current.answers,{displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',profession:'مهندسة',bio:'أحب الهدوء والقراءة والوقت مع العائلة.',contact:'qa@example.invalid',marriageBasics:{nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open'}});ref.current.step=chapter;if(['criteria','review'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
+function seededAssessment(query) {
+  const pair = query.get('catalog');
+  if (!pair) return {};
+  const [assessmentVersion,personalityVersion] = pair.split(',');
+  const topics = dimensionsForVersion(assessmentVersion), traits = personalityQuestionsFor(personalityVersion);
+  window.__expectedQuestions = [
+    ...topics.flatMap(topic => practicalAnswerKeys(topic,assessmentVersion).map((_,side) => 'preference:'+topic.id+':'+(side?'partner':'self'))),
+    ...traits.map(q => 'personality:'+q.id+':self'),
+  ];
+  const surveyAnswers = Object.fromEntries(topics.flatMap(topic =>
+    practicalAnswerKeys(topic,assessmentVersion).map(key => [key,topic.options[0].code])));
+  const personalityAnswers = Object.fromEntries(traits.map(q => [q.id,'C']));
+  delete surveyAnswers.marriage_timeline;
+  if (['marriage-v1','marriage-v2','legacy-v0'].includes(assessmentVersion)) delete surveyAnswers.shared_budget;
+  delete personalityAnswers[personalityVersion === 'personality-v1' ? 'social_energy' : 'group_energy'];
+  return {assessmentVersion,personalityVersion,surveyAnswers,personalityAnswers:{...personalityAnswers,partner_openness:'E'},
+    interestIds:['reading'],priorityCategories:['plans'],hardRequirements:['children_plan']};
+}
+function Fixture(){const query=new URLSearchParams(location.search),chapter=query.get('chapter')??'compatibility',live=query.has('interview');const ref=useRef(null);if(!ref.current && !sessionStorage.getItem('restore-private-draft')){ref.current=initialDraft('${owner}',null);Object.assign(ref.current.answers,{firstName:'نورة',lastName:'العلي',displayName:'نورة',gender:'woman',birthDate:'1998-05-12',age:'28',city:'الرياض',profession:'مهندسة',bio:'أحب الهدوء والقراءة والوقت مع العائلة.',contact:'qa@example.invalid',marriageBasics:{nationality:'سعودي',maritalStatus:'never_married',polygynyPreference:'not_open'},...seededAssessment(query)});ref.current.step=chapter;if(['criteria','review'].includes(chapter))ref.current.permissions={version:'2026-11-07-privacy',assessment:true,sensitiveProfile:false,interview:true};}window.__onboardingDraft=ref;return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={()=>{}} onPrivacy={()=>{}} save={()=>{throw Error('Do not submit')}} demo={!live} preview={!live} startAt={chapter} draftRef={ref} draftOwner='${owner}' accountAgreements={{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true}} interviewAuth={live?{token:'${owner}'}:null}/>}
 createRoot(document.getElementById('root')).render(<div className='phone-app' dir='rtl' lang='ar'><Fixture/></div>);
 `;
 const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),cacheDir:resolve(root,'node_modules/.vite-onboarding-interview'),server:{host:'127.0.0.1',port:5279,strictPort:true},optimizeDeps:{entries:[],include:['react','react-dom/client','react/jsx-runtime','lucide-react','@capacitor/core','react-native-reanimated','react-native-worklets'],esbuildOptions:{resolveExtensions:['.web.tsx','.web.ts','.web.jsx','.web.js','.tsx','.ts','.jsx','.js','.mjs','.json']}},plugins:[{name:'isolated-onboarding-interview',enforce:'pre',resolveId(id){if(id==='virtual:onboarding-interview')return '\0onboarding-interview'},async load(id){const path=id.replaceAll('\\','/');if(path.endsWith('/src/cloud.ts'))return cloudMock;if(path.endsWith('/src/interview/api.ts'))return apiMock;if(path.endsWith('/src/motion/SkiaSurface.tsx'))return `import{createElement}from'react';export function SkiaSurface({className,fallback}){return createElement('div',{className,'aria-hidden':true},fallback)}`;if(id==='\0onboarding-interview')return(await transformWithEsbuild(fixture,'fixture.tsx',{loader:'tsx',jsx:'automatic'})).code},configureServer(dev){dev.middlewares.use(async(req,res,next)=>{
@@ -71,6 +91,54 @@ try{
 
  async function open(query){await page.goto('http://127.0.0.1:5279/__onboarding-interview?'+query,{waitUntil:'networkidle',timeout:60000});await page.locator('.nf-intake').waitFor();}
  async function capture(name){await page.evaluate(async()=>{await document.fonts.ready;document.activeElement?.blur();scrollTo(0,0)});await page.waitForTimeout(200);await page.screenshot({path:resolve(artifacts,name+'.png'),fullPage:true})}
+ for (const version of ['marriage-v4','marriage-v3','marriage-v2','marriage-v1','legacy-v0']) for (const traitVersion of ['personality-v2','personality-v1']) {
+   const trait = traitVersion === 'personality-v2' ? 'group_energy' : 'social_energy';
+   const earlyCatalog = ['marriage-v1','marriage-v2','legacy-v0'].includes(version);
+   await open('catalog='+version+','+traitVersion);
+   assert.equal(await page.locator('.wi-question-route').count(),0);
+   await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
+   const menu=page.locator('.nf-session-fallback .wi-question-route');
+   await menu.locator('summary').click();
+   assert.equal(await menu.locator('[data-question-id="preference:residence_plan:partner"]').count(),version==='marriage-v4'?0:1);
+   assert.deepEqual(await menu.locator('[data-question-id]').evaluateAll(nodes=>nodes.map(el=>el.dataset.questionId).sort()),
+     await page.evaluate(()=>[...window.__expectedQuestions].sort()));
+   assert.equal(await menu.locator('[data-question-id="preference:wife_work:self"]').count(),['legacy-v0','marriage-v1'].includes(version)?0:1);
+   await menu.locator('[data-question-id="personality:'+trait+':self"]').click();
+   assert.equal(await page.evaluate(()=>document.activeElement?.matches('.wi-hybrid-card legend')),true);
+   await page.locator('.wi-hybrid-card .wi-hybrid-option').first().press('Space');
+   if (await page.locator('.wi-hybrid-actions button').count()) await page.locator('.wi-hybrid-actions button').first().click();
+   const state=await page.evaluate(()=>window.__onboardingDraft.current.answers);
+   assert.equal(state.personalityAnswers[trait],'A'); assert.equal(state.personalityAnswers.partner_openness,'E');
+   assert.deepEqual(state.interestIds,['reading']); assert.deepEqual(state.priorityCategories,['plans']);
+   assert.deepEqual(state.hardRequirements,['children_plan']); assert.equal(state.surveyAnswers.marriage_timeline,undefined);
+   const card=page.locator('.wi-hybrid-card');
+   async function openQuestion(id) {
+     if (await menu.getAttribute('data-active-field') === id) return;
+     await menu.locator('summary').click();
+     await menu.locator('[data-question-id="'+id+'"]').click();
+   }
+   if (earlyCatalog) {
+     await openQuestion('preference:shared_budget:self');
+     await card.locator('.wi-hybrid-option').nth(1).press('Space');
+     assert.equal(await page.evaluate(()=>window.__onboardingDraft.current.answers.surveyAnswers.shared_budget),'B');
+     assert.equal(await page.evaluate(()=>window.__onboardingDraft.current.answers.surveyAnswers.partner_shared_budget),'A');
+   }
+   await openQuestion('preference:marriage_timeline:self');
+   const confirm=card.locator('.wi-button-primary');
+   if (await confirm.count()) await confirm.click();
+   else {
+     const options = card.locator('.wi-hybrid-option');
+     if (earlyCatalog) {
+       assert.equal(await options.count(),version==='marriage-v2'?6:4);
+       assert.match(await options.nth(3).innerText(),/لم أحدد وقتًا بعد/);
+     }
+     await options.first().press('Space');
+   }
+   await page.getByRole('button',{name:'اعتماد إجاباتي',exact:true}).click();
+   await page.locator('main[data-chapter="details"]').waitFor();
+   assert.equal(await page.evaluate(()=>window.__interviewCalls?.length??0),0);
+   checks.push(version+'/'+traitVersion+' uses the saved catalogs and completes without an interview receipt');
+ }
  await open('interview');
  await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
  await page.getByRole('button',{name:'ابدأ الحوار مع لونا',exact:true}).click();
@@ -78,16 +146,18 @@ try{
  await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();
  await page.getByRole('button',{name:'إكمال الأسئلة مباشرة',exact:true}).click();
  await page.getByRole('heading',{name:'نكمل من حيث وصلنا',exact:true}).waitFor();
- const selfGroup=page.locator('.wi-review-group').filter({has:page.getByText('عن حياتك',{exact:true})});
- const first=selfGroup.locator('.wi-proposal').first();
+ const proposals=page.locator('.wi-proposal-topics > .wi-review-group');
+ assert.equal(await proposals.count(),1);
+ const first=proposals.locator('.wi-proposal').first();
  await first.locator(':scope > summary').click();
  await first.locator('select').selectOption('C');
  await capture('01-corrected-partial-review');
  await page.getByRole('button',{name:'اعتماد ما راجعته وإكمال المتبقي',exact:true}).click();
- await page.locator('.compat-panel').waitFor();
+ await page.locator('.nf-session-fallback .wi-question-route').waitFor();
  const expected={children_plan:'C',partner_children_plan:'A'};
  assert.deepEqual(await page.evaluate(()=>window.__onboardingDraft.current.answers.surveyAnswers),expected);
- assert.equal(await page.locator('.compat-next').isDisabled(),true);
+ assert.notEqual(await page.locator('.nf-session-fallback .wi-question-route').getAttribute('data-active-field'), 'preference:children_plan:self');
+ assert.equal(await page.getByRole('button',{name:'اعتماد إجاباتي',exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__interviewCalls.some(call=>['confirm','structuredConfirm','directConfirm'].includes(call.action))),false);
  await new Promise((resolve,reject)=>{
    const until=Date.now()+10000;

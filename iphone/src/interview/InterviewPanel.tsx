@@ -685,7 +685,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         : (applied || (structuredReceipt && !receiptDraft && !showReceiptSummary)) && !needsParenting ? <section className="wi-complete">
           {structuredReceipt && !direct && <LunaSessionSteps current="complete"/>}
           <h1 id="wi-title" ref={heading} tabIndex={-1}><Check size={21} aria-hidden="true"/>تمّ حفظ ملخصك</h1>
-          <p className="wi-lead">{snapshot.structuredConfirmation ? `حفظنا ${number(doc.confirmed.length)} إجابة في مسودة ملفك.` : 'حفظنا إجاباتك في مسودة ملفك.'} {structuredReceipt ? 'افتح أي موضوع لمراجعة اختياراتك وتعديلها.' : 'يمكنك مراجعتها قبل إرسال الملف.'}</p>
+          <p className="wi-lead">{snapshot.structuredConfirmation ? `حفظنا ${number(doc.confirmed.length)} إجابة في مسودة ملفك.` : 'حفظنا إجاباتك في مسودة ملفك.'} {structuredReceipt ? 'تقدر تراجع إجاباتك وتعدّلها.' : 'يمكنك مراجعتها قبل إرسال الملف.'}</p>
           {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender} onEdit={structuredReceipt ? reviseReceipt : undefined}
             onDetails={structuredReceipt ? () => { setShowReceiptSummary(true); setApplied(false); } : undefined}/>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton>
@@ -780,16 +780,17 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         : reviewMode ? <section className="wi-review" data-saved-details={savedDetails || undefined}>
           {savedDetails && !direct && <LunaSessionSteps current="complete"/>}
           {savedDetails && !direct && <PrivateMemory statements={statements}/>}
-          <h1 id="wi-title" ref={heading} tabIndex={-1}>{savedDetails ? 'تفاصيل المراجعة' : fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{savedDetails ? 'هنا ملاحظات الحوار وخيار مشاركة الملخص مع فريق العضوية.' : fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'هذه إجاباتك كما فهمناها من الحوار. افتح أي قسم للتفاصيل أو التعديل، ثم اعتمد الملخص كاملًا بخطوة واحدة.'}</p>
+          <h1 id="wi-title" ref={heading} tabIndex={-1}>{savedDetails ? 'تفاصيل المراجعة' : fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{savedDetails ? 'هنا ملاحظات الحوار وخيار مشاركة الملخص مع فريق العضوية.' : fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'راجع الإجابات اللي فهمناها من كلامك، وعدّل أي إجابة قبل اعتمادها.'}</p>
           {!savedDetails && doc.pendingAnalysis && !fallbackReview && <div className="wi-notice"><p>إجاباتك محفوظة، لكن تحليلها لم يكتمل.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة المحاولة</button></div>}
           {!savedDetails && unresolved > 0 && <p className="wi-review-attention" role="status">{fallbackReview ? 'النقاط التي لم تتضح بعد ستبقى لك لتجيب عنها مباشرة.' : <>نحتاج توضيح {number(unresolved)} {unresolved === 1 ? 'إجابة' : 'إجابات'} قبل اعتماد الملخص.</>}</p>}
-          {!savedDetails && (validProposals.length ? <div className="wi-summary-topics wi-proposal-topics">{(['self','partner','personality','importance'] as const).map(side => {
-            const group = validProposals.filter(proposal => side === 'personality' ? proposal.kind === 'personality' : proposal.kind !== 'personality' && proposal.side === side);
-            if (!group.length) return null;
-            const needsCorrection = group.some(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length);
-            return <details className="wi-review-group wi-summary-topic" key={side} open={needsCorrection || undefined} data-attention={needsCorrection || undefined}><summary><span><strong>{side === 'personality' ? 'طريقتك في الحياة والتواصل' : side === 'self' ? 'عن حياتك' : side === 'partner' ? 'ما تريده في شريكك' : 'أولوياتك'}</strong><small>{needsCorrection ? 'تحتاج نقطة إلى توضيحك' : 'جاهز للمراجعة والتعديل'}</small></span><ChevronDown size={17}/></summary><div className="wi-review-rows">{group.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)} onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div></details>;
-
-          })}</div> : <div className="wi-notice"><p>لم يتكوّن ملخص واضح بعد. نحتاج أن نكمل الحوار دون تخمين إجاباتك.</p></div>)}
+          {!savedDetails && (validProposals.length ? <div className="wi-summary-topics wi-proposal-topics">
+            <details className="wi-review-group" open={unresolved > 0 || undefined} data-attention={unresolved > 0 || undefined}>
+              <summary><span><strong>إجاباتي من الحوار ({number(validProposals.length)})</strong></span><ChevronDown size={17}/></summary>
+              <div className="wi-review-rows">{validProposals.map(proposal =>
+                <ProposalReview key={proposal.id} proposal={proposal} values={selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)}
+                  onValues={values => { setSelections(previous => ({ ...previous, [proposal.id]: values })); setApplied(false); }}/>)}</div>
+            </details>
+          </div> : <div className="wi-notice"><p>لم يتكوّن ملخص واضح بعد. نحتاج أن نكمل الحوار دون تخمين إجاباتك.</p></div>)}
           <div className="wi-summary-notes">
           {savedDetails && profileProposals.length > 0 && <button className="wi-link" type="button" onClick={() => {
               setShowReceiptSummary(false);
@@ -894,7 +895,7 @@ function ProposalReview({ proposal, values, onValues }: { proposal: InterviewPro
   const multiple = proposal.kind === 'beena' && proposal.side === 'partner';
   const label = options.filter(option => values.includes(option.value)).map(option => option.label).join('، ');
   return <details className="wi-proposal" open={!values.length || undefined} data-defaulted={proposal.source === 'self_default' || undefined}>
-    <summary className="wi-proposal-summary"><span><small>{proposalTitle(proposal)}</small>{proposal.source === 'self_default' && <span className="wi-default-note">مقترح من إجابتك · قابل للتعديل</span>}{proposalStatement(proposal) && <span className="wi-personality-statement">{proposalStatement(proposal)}</span>}<strong>{label || 'نحتاج توضيحك لهذه النقطة'}</strong></span><Pencil size={16} aria-label="تعديل الإجابة"/></summary>
+    <summary className="wi-proposal-summary"><span><small>{proposalTitle(proposal)} · {proposalSide(proposal)}</small>{proposal.source === 'self_default' && <span className="wi-default-note">مقترح من إجابتك · قابل للتعديل</span>}{proposalStatement(proposal) && <span className="wi-personality-statement">{proposalStatement(proposal)}</span>}<strong>{label || 'نحتاج توضيحك لهذه النقطة'}</strong></span><Pencil size={16} aria-label="تعديل الإجابة"/></summary>
     <div className="wi-proposal-editor"><fieldset><legend>{proposalSide(proposal)}</legend>{multiple ? <div className="wi-multiple">{options.map(option => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={event => onValues(event.target.checked ? [...values, option.value] : values.filter(value => value !== option.value))}/><span>{option.label}</span></label>)}</div> : <select value={values[0] ?? ''} onChange={event => onValues([event.target.value])} aria-label={`تعديل ${proposalTitle(proposal)}: ${proposalSide(proposal)}`}><option value="" disabled>اختر ما يمثّلك</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}</fieldset><details className="wi-evidence"><summary>من كلامك <ChevronDown size={13}/></summary><p>{proposal.summary}</p>{proposal.evidence.map((evidence, index) => <blockquote key={`${evidence.turnId}-${index}`}>{evidence.quote}</blockquote>)}</details></div>
   </details>;
 }

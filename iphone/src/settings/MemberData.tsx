@@ -6,7 +6,7 @@ import type { Profile } from "../types";
 
 type Props = {
   mode: "export" | "visibility";
-  owner: string;
+  owner: string; caseTicket?: string;
   demo: boolean;
   profile?: Profile | null;
   close: () => void;
@@ -28,7 +28,7 @@ function CandidatePreview({ profile }: { profile: Profile }) {
   </div>;
 }
 
-export function MemberData({ mode, owner, demo, profile, close }: Props) {
+export function MemberData({ mode, owner, demo, profile, close, caseTicket }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const contents = useRef<HTMLTextAreaElement>(null);
   const [attempt, retry] = useState(0);
@@ -52,7 +52,8 @@ export function MemberData({ mode, owner, demo, profile, close }: Props) {
     setStatus("");
     async function load() {
       try {
-        const data = demo ? sampleCopy(profile) :
+        const data = demo ? sampleCopy(profile) : caseTicket ?
+          await callRpc<{exportVersion:number}>('marriage_support',{action:'case_export',payload:{id:caseTicket}},owner,controller.signal) :
           await callRpc<{ exportVersion: number }>("marriage_personal_data", {}, owner, controller.signal);
         if (controller.signal.aborted) return;
         if (!data || ![1, 2].includes(data.exportVersion)) throw new Error("تعذّر فتح نسخة بياناتك.");
@@ -70,7 +71,7 @@ export function MemberData({ mode, owner, demo, profile, close }: Props) {
     }
     void load();
     return () => controller.abort();
-  }, [isExport, owner, demo, demo ? profile : null, attempt]);
+  }, [isExport, owner, demo, demo ? profile : null, attempt, caseTicket]);
 
   async function saveFile() {
     if (shareMode !== "download") {

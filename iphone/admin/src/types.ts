@@ -1,4 +1,4 @@
-export type StaffRole = 'owner' | 'reviewer' | 'moderator';
+export type StaffRole = 'owner' | 'reviewer' | 'moderator' | 'support';
 export type Access = { authorized: boolean; userId: string; role: StaffRole | null; displayName: string | null; mfaRequired: boolean };
 export type ApplicationDecision = 'automatic' | 'manual_review' | 'awaiting_photo';
 export type MemberRow = { applicationDecision?: ApplicationDecision | null; applicationReviewReasons?: string[]; applicationReviewResolvedAt?: string | null; memberId: string; displayName: string; age: number; gender: 'woman' | 'man'; city: string; profession: string; status: 'draft' | 'pending' | 'approved'; suspended: boolean; submittedAt: string | null; revision: string; isDummy?: boolean; paused?: boolean; accessUntil?: string | null; manualAccessUntil?: string | null; accessActive?: boolean; accountSource?: 'member' | 'pair_test' };

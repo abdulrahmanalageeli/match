@@ -49,6 +49,8 @@ import { useUnreadCount } from "./community/useUnreadCount";
 import { useMutualMatches } from "./community/useMutualMatches";
 import { MatchCelebration } from "./community/MatchCelebration";
 import { initializeMatchSound } from "./community/matchSound";
+import { PublicationCenter } from './publishing/PublicationCenter';
+import { ConductCenter } from './conduct/ConductCenter';
 import { usePushNotifications, setPushBadge, detachNotifications, syncNativePushOwner } from "./notifications/push";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
@@ -168,6 +170,7 @@ export default function App({ recoveryLink, signupReturn, openLogin, ...props }:
 function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signupReturn}:{tester?:TestSession;onTesterExit?:()=>void;startAtLogin?:boolean;openLogin?:boolean;signupReturn?:SignupReturn|null}={}) {
   useEffect(initializeMatchSound, []);
   const [view, setView] = useState<View>(startAtLogin || openLogin ? 'login' : 'main');
+  const [publicationOpen,setPublicationOpen]=useState<{id:string;owner:string|null}|null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
   const mounted = useRef(false);
@@ -222,6 +225,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [newDemoIntake, setNewDemoIntake] = useState(false);
   const [onboardingPreview,setOnboardingPreview]=useState(false);
   const [applicationChapter,setApplicationChapter]=useState<Chapter>();
+  const [supportField,setSupportField]=useState<{owner:string;chapter:Chapter;field:string}>();
   const intakeDraft = useRef<ApplicationDraft | null>(null);
   const welcomeIntent = useRef(0);
   const welcomeFocus = useRef(".nf-join");
@@ -271,7 +275,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count,tester ? 'tester:'+tester.session : token).catch(()=>{});}).catch(()=>{});},400);};
     refresh();const stop=source.watch(refresh);return()=>{alive=false;clearTimeout(timeout);stop();};
   },[source,memberAccess,demo,tester?.session,token]);
-  usePushNotifications(tester ? `tester:${tester.session}` : !demo && memberAccess ? token : null, async (id, kind,event) => {
+  usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null, async (id, kind,event) => {
+    if(kind==='publication'){setPublicationOpen({id,owner:token});return;}
+    if(!memberAccess)return;
     if (!source || (demo && !tester)) return;
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
@@ -349,7 +355,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (atWelcome && !warmIntake) void loadIntake().catch(() => {});
     if (atWelcome && !warmCommunity) void loadCommunity().catch(() => {});
   }, [atWelcome]);
+  useEffect(()=>{
+    if (view==='register' && !demo) void import('./launchEvents').then(({noteSignupStart})=>noteSignupStart());
+  },[view,demo]);
   function leaveWelcome(target: "register" | "login" | "demo" | "intake") {
+
     const intent = ++welcomeIntent.current;
     const welcome = document.querySelector(".nf-welcome");
     const move = () => {
@@ -697,7 +707,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           ...(readiness ? { _membershipReadiness: readiness } : {}),
           ...(integrity ? { _applicationIntegrity: integrity } : {}),
           consentVersion: p.signupConsents ? LEGAL_NOTICE_VERSION : cloud && ["marriage-v1", "marriage-v2", "marriage-v3", "marriage-v4"].includes(p.assessmentVersion ?? "") ? "2026-11-06-assessment" : "2026-11-05",
+        }).catch(problem => {
+          if (!editingExisting && owner) void import('./launchEvents').then(({launchEvent})=>launchEvent('fault','review',owner));
+          throw problem;
         });
+        if (!editingExisting && owner) void import('./launchEvents').then(({launchEvent})=>launchEvent('success','review',owner));
         if (tokenRef.current !== member || version.current !== submissionVersion) return;
       }
       if(portraitChange!==undefined||(portraitPolicy!==undefined&&p.portrait&&portraitPolicy!==(p.portrait.revealPolicy??'never'))){
@@ -1038,7 +1052,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     screen = (
       <Application
         key={demo ? 'demo-'+sampleSession : live?.user.id}
-        startAt={demo ? newDemoIntake ? undefined : applicationChapter : live?.profile ? applicationChapter : undefined}
+        startAt={demo ? newDemoIntake ? undefined : applicationChapter : live?.profile || supportField?.owner===live?.user.id ? applicationChapter : undefined}
+        supportField={supportField && !demo && supportField.owner===live?.user.id && applicationChapter===supportField.chapter ? supportField.field : undefined}
         initial={demo ? (newDemoIntake ? null : sampleProfile) : live?.profile ?? null}
         preview={demo && newDemoIntake}
         exitPreview={demo && newDemoIntake ? exitDemo : undefined}
@@ -1152,7 +1167,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
     <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership}}>
-    <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource}>
+    <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource} onReview={live?.user.id && !demo ? (chapter,field)=>{setSupportField({owner:live.user.id,chapter,field});setApplicationChapter(chapter);go("application");} : undefined}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
@@ -1186,7 +1201,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           </button>
         </div>
       )}
-      <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
+      {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token}/>}
+      <PublicationCenter key={demo?'demo':token??'public'} enabled={!demo && !tester && !loading && cloudSelected} owner={token} screen={socialPending?'register':!live&&view==='main'?'welcome':live?.user.applicationStatus==='draft'?'application':view}
+        openedId={publicationOpen?.owner===token?publicationOpen.id:null} onConsumed={()=>setPublicationOpen(null)} navigate={go}>
+        <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
+      </PublicationCenter>
+
       {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}

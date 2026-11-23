@@ -1093,22 +1093,24 @@ function Discovery({
 }
 
 function SafetySheet({
-  evidence = false,
+  evidence = false, contextRows = [],
   action,
   apply,
   close,
   busy,
   error,
 }: {
-  evidence?: boolean;
+  evidence?: boolean; contextRows?:Message[];
   action: SafetyAction;
-  apply: (reason: string) => void;
+  apply: (reason: string, allowSafetyScreen?: boolean, contextIds?:string[]) => void;
   close: () => void;
   busy: boolean;
   error: string;
 }) {
   const [reason, setReason] = useState("");
   const [category, setCategory] = useState("");
+  const [allowSafetyScreen, setAllowSafetyScreen] = useState(false);
+  const [contextIds,setContextIds]=useState<string[]>([]);
   const reportReason = [category, reason.trim()].filter(Boolean).join('\n');
   return (
     <Sheet
@@ -1120,6 +1122,8 @@ function SafetySheet({
       ) : (
         <div className="cm-report-form">
         {evidence && <p>يُحفظ نص الرسالة المحددة أو نوع المرفق لمدة ٣٠ يومًا. يمكن لمالك المنصة أو المشرف المكلّف بالبلاغ مراجعته.</p>}
+        {evidence && <label><input type="checkbox" checked={allowSafetyScreen} disabled={busy} onChange={e=>setAllowSafetyScreen(e.target.checked)}/> أسمح بفحص الرسالة المحددة آليًا لتحديد أولوية البلاغ. يبقى نصها داخل وُدَين، وقد تُقيّد طلبات التعارف مؤقتًا لحين المراجعة.</label>}
+        {!!contextRows.length && <details><summary>إرفاق سياق الرسالة</summary>{contextRows.map(m=><label key={m.id} className="cm-report-context"><input type="checkbox" checked={contextIds.includes(m.id)} onChange={e=>setContextIds(v=>e.target.checked?[...v,m.id]:v.filter(id=>id!==m.id))} disabled={busy}/><span><strong>{m.senderIsMe?'رسالتك':'الطرف الآخر'}</strong><br/>{m.body}</span></label>)}</details>}
         <p>اختر ما يصف المشكلة. يكفي اختيار السبب لإرسال البلاغ، ويمكنك إضافة تفاصيل تساعد على فهمه.</p>
         <label className="cm-report-label">سبب البلاغ
           <select value={category} onChange={event=>setCategory(event.target.value)} disabled={busy}>
@@ -1145,7 +1149,7 @@ function SafetySheet({
       <button
         className="btn-primary"
         disabled={busy || (action === "report" && !category)}
-        onClick={() => apply(action === 'report' ? reportReason : '')}
+        onClick={() => apply(action === 'report' ? reportReason : '', evidence && allowSafetyScreen,contextIds)}
       >
         {action === "report" ? memberAr.sendReportBlock : memberAr.block}
       </button>
@@ -1375,6 +1379,8 @@ export function Chat({
       canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
     };
   }
+  const evidenceRow = evidence ? thread.rows.findIndex(m => m.id===evidence.id) : -1;
+  const evidenceContext = evidenceRow<0 ? [] : [thread.rows[evidenceRow-1],thread.rows[evidenceRow+1]].filter((m):m is Message => !!m && !m.attachment && !m.deletedAt && !deletedIds.has(m.id) && (!('status' in m) || m.status==='saved'));
   const actionMessage = thread.rows.find(msg => msg.id === messageActionId);
   const actionPermissions = actionMessage ? messagePermissions(actionMessage) : null;
   const hasMessageActions = Boolean(actionPermissions?.canReport || actionPermissions?.canReply || actionPermissions?.canDelete || actionPermissions?.canReact);
@@ -1502,12 +1508,12 @@ export function Chat({
     if (first?.dataset.rowId) anchor.current = { id: first.dataset.rowId, offset: first.getBoundingClientRect().top };
     void thread.older();
   }
-  async function moderate(reason: string) {
+  async function moderate(reason: string, allowSafetyScreen=false,contextIds?:string[]) {
     if (!safety || safetyBusy) return;
     setSafetyBusy(true);
     setSafetyError("");
     try {
-      if (safety === 'report' && evidence && source.reportIncident) await source.reportIncident(connection.id,evidence.id,reason,evidence.submission);
+      if (safety === 'report' && evidence && source.reportIncident) await source.reportIncident(connection.id,evidence.id,reason,evidence.submission,allowSafetyScreen,contextIds);
       else await source.act(connection.id, safety, reason || undefined);
       feedback('success');
       thread.outbox.clear();
@@ -1700,7 +1706,7 @@ export function Chat({
       </Sheet>}
       {photos && <PhotoSharing requestId={connection.id} name={connection.person.alias} demo={Boolean(source.demoAcceptOutgoing)} watch={source.watch} close={() => setPhotos(false)} />}
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
-      {safety && <SafetySheet evidence={!!evidence} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
+      {safety && <SafetySheet evidence={!!evidence} contextRows={evidenceContext} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}
       {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}

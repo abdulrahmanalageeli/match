@@ -1,3 +1,4 @@
+import { usePublishedCopy } from '../publishing/PublicationCenter';
 import { useEffect, useId, useRef, useState } from 'react';
 import { BookOpen, CircleHelp, Search, X } from "../BrandIcons";
 import { helpTopics, searchGuide, type HelpTopic } from './guide';
@@ -12,10 +13,11 @@ export function HelpCenter({initialTopic='all',close}:{initialTopic?:HelpTopic;c
  const [topic,setTopic]=useState<HelpTopic>(initialTopic),[query,setQuery]=useState('');
  const dialog=useRef<HTMLDialogElement>(null),heading=useRef<HTMLHeadingElement>(null);const titleId=useId();
  useEffect(()=>{const el=dialog.current;el?.showModal();heading.current?.focus({preventScroll:true});return()=>el?.close();},[]);
+ const intro=usePublishedCopy('help.intro','إجابات قريبة، وقت ما تحتاجها.');
  const results=searchGuide(topic,query);
  return <dialog ref={dialog} className="nf-help" dir="rtl" aria-labelledby={titleId} onCancel={e=>{e.preventDefault();close();}}>
   <header><span className="nf-help-mark"><BookOpen size={24}/></span><button className="icon-btn" onClick={close} aria-label="إغلاق الدليل"><X size={20}/></button></header>
-  <p className="nf-help-eyebrow">خطوة واضحة، وقرار مطمئن</p><h2 ref={heading} tabIndex={-1} id={titleId}>دليلك في وُدَين</h2><p className="nf-help-intro">إجابات قريبة، وقت ما تحتاجها.</p>
+  <p className="nf-help-eyebrow">خطوة واضحة، وقرار مطمئن</p><h2 ref={heading} tabIndex={-1} id={titleId}>دليلك في وُدَين</h2><p className="nf-help-intro">{intro}</p>
   <label className="nf-help-search"><Search size={17}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="مثل: الحصرية، الصور، المكالمات…" aria-label="ابحث في دليل وُدَين" maxLength={100}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح بحث الدليل"><X size={15}/></button>}</label>
   <div className="nf-help-topics" role="group" aria-label="مواضيع الدليل">{helpTopics.map(t=><button key={t.id} aria-pressed={topic===t.id} onClick={()=>setTopic(t.id)}>{t.label}</button>)}</div>
   <p className="nf-help-count" role="status">{new Intl.NumberFormat('ar').format(results.length)} إجابة{topic!=='all'&&query?' في هذا القسم':''}</p>

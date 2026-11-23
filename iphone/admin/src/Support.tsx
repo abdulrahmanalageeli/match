@@ -3,7 +3,7 @@ import type { AdminApi, SupportRow } from './types';
 
 const statuses = { open: 'جديدة', in_review: 'قيد المتابعة', resolved: 'تم الرد والإغلاق' };
 const categories: Record<string, string> = { help: 'استخدام التطبيق', access: 'الحساب وربط الأهل', billing: 'العضوية والدفع', safety: 'الخصوصية والسلامة' };
-export function SupportAdmin({ api, refresh, onError }: { api: AdminApi; refresh: number; onError: (error: unknown) => void }) {
+export function SupportAdmin({ api, refresh, onError, limited=false }: { limited?:boolean; api: AdminApi; refresh: number; onError: (error: unknown) => void }) {
   const [filter, setFilter] = useState('open'), [rows, setRows] = useState<SupportRow[]>([]), [cursor, setCursor] = useState<string | null>(null);
   const [selected, setSelected] = useState<SupportRow | null>(null), [response, setResponse] = useState(''), [status, setStatus] = useState<'in_review' | 'resolved'>('in_review');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [revision, setRevision] = useState(0);
@@ -29,7 +29,7 @@ export function SupportAdmin({ api, refresh, onError }: { api: AdminApi; refresh
     } catch (problem) { if (ticket === generation.current) { setError(problem instanceof Error ? problem.message : 'تعذّر حفظ الرد.'); onError(problem); } }
     finally { if (ticket === generation.current) setBusy(false); }
   }
-  return <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>مساعدة الأعضاء والأهل</h2><p>الرد ظاهر لصاحب الطلب. لا تطلب كلمة مرور أو رمز دخول أو مستند هوية هنا.</p></div><div className="filters" role="group" aria-label="حالة طلبات المساعدة">{Object.entries(statuses).map(([value, label]) => <button key={value} disabled={busy} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
+  return <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>{limited?'طلبات الدعم المتاحة لك':'مساعدة الأعضاء والأهل'}</h2><p>{limited?'يُسند إليك الطلب عند أول رد. ':''}الرد ظاهر لصاحب الطلب. لا تطلب كلمة مرور أو رمز دخول أو مستند هوية هنا.</p></div><div className="filters" role="group" aria-label="حالة طلبات المساعدة">{Object.entries(statuses).map(([value, label]) => <button key={value} disabled={busy} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
     {error && <p className="notice error" role="alert">{error} <button onClick={() => setRevision(value => value + 1)}>تحديث الطلبات</button></p>}{notice && <p className="notice" role="status">{notice}</p>}
     {busy && <p role="status">جارٍ الحفظ أو التحميل…</p>}{!busy && !rows.length && !error && <p className="empty">لا توجد طلبات بهذه الحالة.</p>}
     {rows.map(row => <article className="support-admin-ticket" key={row.id}><h3>{row.subject}</h3><p>{categories[row.category]} · {statuses[row.status]} · {new Date(row.createdAt).toLocaleString('ar-SA')}</p><small>الطلب <bdi>{row.id}</bdi> · الحساب <bdi>{row.ownerId}</bdi></small><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.body}</p>{row.response && <p style={{ whiteSpace: 'pre-wrap' }}>آخر رد: {row.response}</p>}<button className="secondary" disabled={busy} onClick={() => { setSelected(row); setResponse(row.response || ''); setStatus('in_review'); setError(''); }}>متابعة هذا الطلب</button>

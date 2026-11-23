@@ -430,11 +430,11 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
 }
 
 export function HybridAssessment({
-  memberId,
+  memberId, initialField,
   portraitPartnerSourceKnown = true,
   choices: explicit, childrenCount, partnerChildren, direct=false, historical=false, onChange, onComplete, disabled = false, completingUnavailable = false, gender, aiProposals = [], savedChoices = {}, openingTurnId, openingText = '', onClarify, onChoiceHelp, reviewOptions, reviewExtras, unresolvedPartnerIds = [], receiptInferredPartnerIds = [],
 }: {
-  memberId?: string;
+  memberId?: string; initialField?:string;
   choices: Choices;
   childrenCount?: number;
   partnerChildren?: PartnerCriteria['children'];
@@ -463,12 +463,15 @@ export function HybridAssessment({
   const routesFor = (values: Choices) => topicRoutes(themeCards.map(theme => theme.label), cards,
     item => relevant(item, values), (field: Field) => !selected(field, values));
   const routes = routesFor(choices);
-  const [index, setIndex] = useState(() => nextTopicCard(routes, startTopic));
+  const sectionPrefix=initialField==='قسم الشخصية كاملًا'?'personality:':initialField==='قسم التوافق كاملًا'?'preference:':undefined;
+  const sectionFields=sectionPrefix?cards.flatMap((card,index)=>relevant(card,choices)?assessmentFields(card).filter(f=>f.id.startsWith(sectionPrefix)).map(field=>({field,index})):[]):[];
+  const requested=sectionFields[0] ?? (initialField ? cards.map((card,index)=>({index,field:assessmentFields(card).find(f=>[f.id,f.label,f.prompt].includes(initialField))})).find(item=>item.field) : undefined);
+  const [index, setIndex] = useState(() => requested?.index ?? nextTopicCard(routes, startTopic));
   const topicMenu = useRef<HTMLDetailsElement>(null);
-  const started = useRef(false);
+  const started = useRef(Boolean(requested));
   const [history, setHistory] = useState<Visit[]>([]);
   const [forward, setForward] = useState<Visit[]>([]);
-  const [editField, setEditField] = useState<string>();
+  const [editField, setEditField] = useState<string|undefined>(requested?.field?.id);
   const [recorded, setRecorded] = useState('');
   const movingFrom = useRef(false);
   const backwards = useRef(false);
@@ -561,6 +564,11 @@ export function HybridAssessment({
     movingFrom.current = true;
     started.current = true;
     setHistory(trail => [...trail, {index, fieldId:activeField?.id}]);
+    if(sectionPrefix && editField){
+      const at=sectionFields.findIndex(item=>item.field.id===editField);
+      const next=sectionFields[at+1];
+      setForward([]);setEditField(next?.field.id);setIndex(next?.index??nextTopicCard(routesFor(nextChoices),card.themeIndex));return;
+    }
     const revisit = forward.findIndex(point => point.index >= 0 && relevant(cards[point.index], nextChoices)
       && (point.fieldId || needsCard(cards[point.index], nextChoices)));
     const missingPerspective = !selected(card.self, nextChoices) || (!card.selfOnly && !selected(card.partner, nextChoices));

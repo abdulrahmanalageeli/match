@@ -49,7 +49,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family", "analysis"].contains(kind) {
+           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family", "analysis", "publication"].contains(kind) {
             DispatchQueue.main.async {
                 guard let scope = info["scope"] as? String, scope == self.scope else { completionHandler(); return }
                 var payload = ["scope":scope,"requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
@@ -155,7 +155,8 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
             call.resolve(["permission": allowed ? "granted" : settings.authorizationStatus == .notDetermined ? "prompt" : "denied",
-                          "installationId": NisfaynPushCenter.shared.installation])
+                          "installationId": NisfaynPushCenter.shared.installation,
+                          "buildNumber": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"])
         }
     }
     @objc func register(_ call: CAPPluginCall) {

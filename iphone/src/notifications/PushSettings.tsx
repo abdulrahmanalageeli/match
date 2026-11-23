@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NewsPreference } from '../publishing/NewsPreference';
 import { Bell, Settings2 } from "../BrandIcons";
 import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported, pushPrivacy, type PushPreview, pushControls, defaultPushControls, type PushControls } from './push';
 import { needsHomeScreen } from './webPush';
@@ -64,6 +65,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'يسري هذا الاختيار على أجهزتك. ويمكنك تخصيص ما يظهر على شاشة القفل.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
+      {owner && !demo && <NewsPreference key={owner} owner={owner}/>}
       {available && enabled && permission==='prompt' && <button type="button" className="st-row" disabled={busy} onClick={async()=>{
         if(!owner)return;
         setBusy(true);setError('');

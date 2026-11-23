@@ -1,0 +1,85 @@
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { ChevronLeft, X } from '../BrandIcons';
+import { cloud, cloudSessionId } from '../cloud';
+import './publications.css';
+
+import { publicationBuild } from './appBuild';
+export type PublicationDestination = 'discover' | 'membership' | 'settings' | 'inbox' | 'application';
+type Publication = { id:string; placement:'news'|'inbox'|'banner'|'setting'; screen:string; title:string; body:string; destination:PublicationDestination|null; key:string|null; stamp:string; expires:string; opened:boolean };
+const PublicationContext = createContext<Publication[]>([]);
+export function usePublishedItems(){return useContext(PublicationContext);}
+export function usePublishedCopy(key:string, fallback:string) {
+  return useContext(PublicationContext).find(item=>item.placement==='setting' && item.key===key)?.body ?? fallback;
+}
+const platform = Capacitor.getPlatform()==='ios'?'ios':'web';
+
+export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navigate,children}:{
+  owner:string|null;screen:string;enabled:boolean;openedId:string|null;onConsumed:()=>void;navigate:(view:PublicationDestination)=>void;children:ReactNode
+}) {
+  const [build,setBuild]=useState<number|null>(platform==='ios'?null:publicationBuild());
+  useEffect(()=>{if(platform==='ios')void import('../notifications/push').then(m=>m.readNativeBuild()).then(setBuild).catch(()=>setBuild(1));},[]);
+  const [items,setItems]=useState<Publication[]>([]);
+  const [selected,setSelected]=useState<Publication|null>(null);
+  const [dismissed,setDismissed]=useState<string[]>([]);
+  const [unavailable,setUnavailable]=useState(false);
+  const dialog=useRef<HTMLDialogElement>(null);
+  const callback=useRef(onConsumed);callback.current=onConsumed;
+  const route=useRef(navigate);route.current=navigate;
+  useEffect(()=>{
+    let active=true,reading=false;
+    if(!enabled || !cloud || build===null) return;
+    async function sync(){
+      if(!cloud || !active || reading || document.hidden) return;
+      reading=true;
+      try {
+        if((await cloudSessionId())!==owner) return;
+        const {data,error}=await cloud.rpc('wudayn_publications',{platform,build,opened:openedId});
+        if(!active) return;
+        if(error || !Array.isArray(data)){setUnavailable(!!openedId);return;}
+        const rows=data as Publication[];
+        setItems(rows);setUnavailable(false);
+        if(openedId){
+          const entry=rows.find(row=>row.id===openedId);
+          if(entry?.destination && owner) route.current(entry.destination);
+          else if(entry) setSelected(entry);
+          else setUnavailable(true);
+          callback.current();
+        }else setSelected(last=>last?rows.find(r=>r.id===last.id)??null:null);
+      }catch{if(active && openedId)setUnavailable(true);}
+      finally{reading=false;}
+    }
+    void sync();
+    let timerRefresh:number|undefined;
+    const channel=cloud.channel('wudayn:publications').on('broadcast',{event:'refresh'},()=>{
+      clearTimeout(timerRefresh);timerRefresh=window.setTimeout(()=>void sync(),350);
+    }).subscribe();
+    const timer=window.setInterval(()=>{setSelected(row=>row&&Date.parse(row.expires)<=Date.now()?null:row);setItems(rows=>rows.filter(r=>Date.parse(r.expires)>Date.now()));void sync();},30000);
+    document.addEventListener('visibilitychange',sync);
+    return ()=>{active=false;clearInterval(timer);clearTimeout(timerRefresh);void cloud?.removeChannel(channel);document.removeEventListener('visibilitychange',sync);};
+  },[owner,enabled,openedId,build]);
+  useEffect(()=>{
+    if(!selected || !dialog.current) return;
+    const el=dialog.current;el.showModal();return ()=>el.close();
+  },[selected?.id]);
+  function read(row:Publication){
+    setSelected(row);
+    if(owner) void cloud?.rpc('wudayn_publications',{platform,build,opened:row.id}).then(({error})=>{
+      if(!error)setItems(old=>old.map(item=>item.id===row.id?{...item,opened:true}:item));
+    });
+  }
+  const activeItems=enabled?items.filter(row=>Date.parse(row.expires)>Date.now()):[];
+  const banner=activeItems.find(item=>item.placement==='banner' && [screen,'all'].includes(item.screen) && !dismissed.includes(item.id));
+  const feed=activeItems.filter(item=>screen==='inbox'?['news','inbox'].includes(item.placement):screen==='settings'&&item.placement==='news');
+  return <PublicationContext.Provider value={activeItems}>
+    {banner && <aside className="wd-pub-banner" aria-label="تنويه من وُدَين"><button onClick={()=>read(banner)}><strong>{banner.title}</strong><span>{banner.body}</span></button><button className="wd-pub-dismiss" onClick={()=>setDismissed(old=>[...old,banner.id])} aria-label="إخفاء التنويه"><X size={15}/></button></aside>}
+    {feed.length>0 && <section className="wd-pub-feed" aria-label="جديد وُدَين"><details><summary>جديد وُدَين <small>{new Intl.NumberFormat('ar-SA').format(feed.filter(r=>!r.opened).length)} غير مقروء</small></summary>{feed.map(row=><button key={row.id} onClick={()=>read(row)}><span>{row.title}</span><ChevronLeft size={16}/></button>)}</details></section>}
+    {unavailable && <div className="wd-pub-banner" role="status">تعذّر عرض هذا التحديث الآن.<button onClick={()=>{setUnavailable(false);callback.current();}} aria-label="إغلاق"><X size={15}/></button></div>}
+    {children}
+    {selected && <dialog ref={dialog} className="wd-pub-detail" aria-labelledby="wd-publication-title" onCancel={()=>setSelected(null)}>
+      <header><span>من فريق وُدَين</span><button onClick={()=>setSelected(null)} aria-label="إغلاق"><X size={19}/></button></header>
+      <h2 id="wd-publication-title">{selected.title}</h2><p>{selected.body}</p>
+      {selected.destination && owner && <button className="f-primary" onClick={()=>{if(selected.destination)navigate(selected.destination);setSelected(null);}}>فتح {({discover:'الاستكشاف',settings:'الإعدادات',membership:'العضوية',inbox:'الإشعارات',application:'التسجيل'})[selected.destination]}<ChevronLeft size={16}/></button>}
+    </dialog>}
+  </PublicationContext.Provider>;
+}

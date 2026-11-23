@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import { launchEvent } from '../launchEvents';
 import {getMembershipOffer,type MembershipOffer} from '../billing';
 import {membershipPriceLabel,seriousnessPriceLabel,type MembershipPlan} from '../membershipPricing';
 import {Check} from '../BrandIcons';
@@ -49,7 +50,11 @@ export function Membership({back,initialPlan,active,demo,price,canStart,canBuy,b
  const selectedPeriod=seriousness?seriousOffer?.period:period;
  const trial=!seriousness&&!active&&!demo&&Boolean(price)&&trialEligible;
  const until=expiry?new Date(expiry):null;
- return <Frame title="عضوية وُدَين" back={back} className={`wd-paywall wd-paywall-${plan}`} headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
+ const offerKind=trial?'trial':'standard';
+ const canMeasure=!demo&&!sandboxCheckout&&!active&&canBuy&&Boolean(selectedPrice&&selectedPeriod);
+ useEffect(()=>{if(canMeasure) launchEvent('offer_seen',offerKind);},[canMeasure,offerKind]);
+ const leave=(choice:'left_offer'|'chose_free')=>{if(canMeasure)launchEvent(choice,offerKind);back();};
+ return <Frame title="عضوية وُدَين" back={()=>leave('left_offer')} className={`wd-paywall wd-paywall-${plan}`} headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
   <p className="wd-current-membership">عضويتك الحالية <strong>{currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</strong></p>
   {status==='expired'&&<p className="wd-billing-note">انتهت صلاحية عضويتك.</p>}
   {status==='trial'&&<p className="wd-billing-note">تجربتك المجانية مفعّلة.</p>}
@@ -74,8 +79,8 @@ export function Membership({back,initialPlan,active,demo,price,canStart,canBuy,b
   {!demo && !managing && canBuy && !selectedPrice && <p className="wd-billing-note" role="status">{(seriousness?offerError:priceFailed)
     ? (seriousness?'تعذّر تحميل وسام الجدية. حدّث عرض العضوية للمحاولة مجددًا.':'تعذّر تحميل سعر المميزة. حدّث عرض العضوية للمحاولة مجددًا.')
     : 'جارٍ تحميل سعر العضوية من المتجر…'}</p>}
-  {demo?<button className="f-primary wd-purchase" onClick={back}>العودة للتجربة</button>:managing?<button className="f-primary wd-purchase" disabled={!canBuy||busy} onClick={manage}>إدارة الاشتراك في Apple</button>:<button className="f-primary wd-purchase" disabled={(!checkoutAvailable&&!upgrading)||!canBuy||!selectedPrice||!selectedPeriod||busy} onClick={()=>buy(plan,seriousness?seriousOffer??undefined:undefined)}>{busy?'جارٍ المتابعة…':trial?'ابدأ أسبوعك المجاني':seriousness?'اشترك في وسام الجدية':'انضم إلى وُدَين المميزة'}</button>}
-  {!active&&!demo&&<button className="f-link wd-continue" onClick={back}>المتابعة مجانًا</button>}
+  {demo?<button className="f-primary wd-purchase" onClick={back}>العودة للتجربة</button>:managing?<button className="f-primary wd-purchase" disabled={!canBuy||busy} onClick={manage}>إدارة الاشتراك في Apple</button>:<button className="f-primary wd-purchase" disabled={(!checkoutAvailable&&!upgrading)||!canBuy||!selectedPrice||!selectedPeriod||busy} onClick={()=>{if(canMeasure)launchEvent('checkout',offerKind);buy(plan,seriousness?seriousOffer??undefined:undefined);}}>{busy?'جارٍ المتابعة…':trial?'ابدأ أسبوعك المجاني':seriousness?'اشترك في وسام الجدية':'انضم إلى وُدَين المميزة'}</button>}
+  {!active&&!demo&&<button className="f-link wd-continue" onClick={()=>leave('chose_free')}>المتابعة مجانًا</button>}
   {!canBuy&&!demo&&<p className="wd-billing-note">الاشتراك متاح من تطبيق وُدَين على iPhone.</p>}
   {!demo&&canBuy&&!managing&&(!checkoutAvailable||!selectedPrice)&&<button className="f-link centered" disabled={busy} onClick={refresh}>تحديث عرض العضوية</button>}
   {!active&&!checkoutAvailable&&selectedPrice&&<p className="flow-note">الاشتراك متاح بعد اعتماد ملفك وتوفر ترشيحات مناسبة. يمكنك متابعة حسابك مجانًا.</p>}

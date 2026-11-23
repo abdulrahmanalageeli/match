@@ -3,7 +3,7 @@ self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
 function validEvent(value) {
-  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis'].includes(value.kind);
+  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication'].includes(value.kind);
 }
 
 function routeIds(value) {

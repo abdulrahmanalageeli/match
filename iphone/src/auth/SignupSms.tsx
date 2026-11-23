@@ -17,7 +17,7 @@ async function api(body:Record<string,unknown>){
  if(!response.ok)throw Error(value.error==='wrong_code'?'الرمز غير صحيح. تحقق من الرسالة وأعد المحاولة.':value.error==='rate_limited'?'طلبات كثيرة. انتظر قبل طلب رمز جديد.':value.error==='expired'?'انتهت صلاحية المحاولة أو تجاوزت عدد المحاولات. اطلب رمزًا جديدًا.':'تعذّر إرسال أو تأكيد الرمز حاليًا. حاول لاحقًا.');
  return value;
 }
-function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(result:SignupVerification|null)=>void}){
+function SmsDialog({email,deviceId,done,correction=false}:{email:string;deviceId:string;correction?:boolean;done:(result:SignupVerification|null)=>void}){
  const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true),phoneInput=useRef<HTMLInputElement>(null),codeInput=useRef<HTMLInputElement>(null);
  const [phone,setPhone]=useState(''),[code,setCode]=useState(''),[proof,setProof]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[duplicate,setDuplicate]=useState(false),[cooldown,setCooldown]=useState(0);
  useEffect(()=>{dialog.current?.showModal();return()=>{alive.current=false;};},[]);
@@ -45,14 +45,14 @@ function SmsDialog({email,deviceId,done}:{email:string;deviceId:string;done:(res
    {!proof && <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>}
    {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setCode(e.target.value.replace(/[^0-9٠-٩]/g,''));setError('');}}/></label>}
    {error&&<p id="signup-sms-error" role="alert" className="form-error">{error}</p>}
-   <button className="f-primary" disabled={busy||(!proof&&cooldown>0)}>{busy?'لحظات…':!proof&&cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:proof?'تأكيد وإنشاء حسابي':'إرسال رمز التحقق'}</button>
+   <button className="f-primary" disabled={busy||(!proof&&cooldown>0)}>{busy?'لحظات…':!proof&&cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:proof?(correction?'تأكيد الرقم الجديد':'تأكيد وإنشاء حسابي'):'إرسال رمز التحقق'}</button>
   </form>
   {proof&&<div className="nf-sms-links"><button type="button" aria-live="polite" disabled={busy||cooldown>0} onClick={()=>void send()}>{cooldown>0?`إعادة الإرسال بعد ${cooldown} ث`:'إرسال رمز جديد'}</button><button type="button" disabled={busy} onClick={()=>{setProof('');setCode('');setError('');}}>تعديل الرقم</button></div>}
  </dialog>;
 }
-export async function confirmSignupSms(email:string):Promise<SignupVerification|null>{
+export async function confirmSignupSms(email:string,correction=false):Promise<SignupVerification|null>{
  const deviceId=await registrationDeviceId();
  return new Promise(resolve=>{const host=document.createElement('div');document.body.appendChild(host);const root=createRoot(host),previous=document.activeElement as HTMLElement|null;
-  root.render(<SmsDialog email={email} deviceId={deviceId} done={result=>{root.unmount();host.remove();previous?.focus();resolve(result);}}/>);
+  root.render(<SmsDialog correction={correction} email={email} deviceId={deviceId} done={result=>{root.unmount();host.remove();previous?.focus();resolve(result);}}/>);
  });
 }

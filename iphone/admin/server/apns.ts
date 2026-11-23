@@ -1,7 +1,7 @@
 import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } from 'node:http2';
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
-export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis';
+export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';
 export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;passive?:boolean;sound?:boolean};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
@@ -10,6 +10,7 @@ export type CallPushJob = {callId:string;installation:string;token:string;enviro
 
 export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
+    publication: 'لديك تحديث جديد من وُدَين.',
     analysis: 'لديك تحديث في تحليل التوافق.',
     family: 'لديك رسالة جديدة في جسر الأهل.',
     reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',

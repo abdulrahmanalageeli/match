@@ -1,3 +1,4 @@
+import {rememberSupportDirectory} from '../help/support';
 import type { LunaResults } from './lunaSearchClient';
 import { captureForPhoto, verifyUploadedPhoto } from '../photos/verifyPhoto';
 import type { PendingChatSends } from './pendingChatSends';
@@ -9,6 +10,7 @@ import type { DeepAnalysisSource } from './deepCompatibilityModel';
 import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim, ManualVerificationSource } from '../verification/model';
 import { callRpc, CloudError } from "../cloud";
+import { launchEvent } from '../launchEvents';
 import { privateUpdates, type WatchUpdates } from "./updates";
 import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
 import type { MarriageBasics } from "../compatibility/marriage";
@@ -181,7 +183,7 @@ export interface CommunitySource extends ManualVerificationSource {
   dismissPerson?(memberId: string): Promise<void>;
   profileVisible?(memberId: string): Promise<boolean>;
   blockPerson?(memberId: string): Promise<void>;
-  reportIncident?(requestId: string, messageId: string | null, reason: string, submissionId: string): Promise<string>;
+  reportIncident?(requestId: string, messageId: string | null, reason: string, submissionId: string, allowSafetyScreen?: boolean, contextIds?:string[]): Promise<string>;
   directoryWork?(choice?: string | null): Promise<string | null>;
   reportPerson?(memberId: string, reason: string): Promise<void>;
   gallery?(subject?: string): Promise<GalleryPhoto[]>;
@@ -273,7 +275,9 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     relocationCities:destinations=>timedRpc('marriage_relocation_cities',{destinations:destinations??null}),
     async lunaSearch(query,filters) {
       const { searchWithLuna } = await import('./lunaSearchClient');
-      return searchWithLuna(userId, query, filters);
+      const result = await searchWithLuna(userId, query, filters);
+      launchEvent('activity', 'luna', userId);
+      return result;
     },
     deepAnalysis: deepCompatibilitySource(userId),
     sendMedia: async (...args) => (await media()).sendMedia!(...args),
@@ -335,7 +339,11 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     dismissPerson: memberId => timedRpc("marriage_discovery_action", {member_id:memberId,action:'dismiss'}),
     profileVisible: subject => timedRpc("marriage_profile_visible", {subject}),
     blockPerson: memberId => timedRpc("marriage_discovery_action", {member_id:memberId,action:'block'}),
-    reportIncident: (requestId,messageId,reason,submissionId) => timedRpc("marriage_report_incident", {request_id:requestId,message_id:messageId,reason,submission_id:submissionId}),
+    reportIncident: (requestId,messageId,reason,submissionId,allowSafetyScreen=false,contextIds=[]) => {
+      const input={request_id:requestId,message_id:messageId,reason,submission_id:submissionId};
+      return contextIds.length ? timedRpc('marriage_report_incident_context',{...input,context_ids:contextIds,allow_screen:allowSafetyScreen}) :
+        timedRpc(allowSafetyScreen && messageId ? 'marriage_report_incident_with_screen' : 'marriage_report_incident', input);
+    },
     directoryWork: choice => timedRpc("marriage_directory_work", {choice:choice ?? null,writing:choice !== undefined}),
     reportPerson: (memberId, reason) => timedRpc("marriage_discovery_action", {member_id:memberId,action:'report',reason}),
     gallery: subject => timedRpc("marriage_gallery", { action: "list", subject: subject ?? null }),
@@ -365,8 +373,15 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     rewindStep: (id, stage, agree) => timedRpc("marriage_rewind_step", { request_id: id, expected_stage: stage, agree }),
     async noteProfileOpen(candidateId) {
       await timedRpc("marriage_note_profile_open", { candidate_id: candidateId });
+      launchEvent('activity', 'profile', userId);
     },
-    discover: (f) => timedRpc("marriage_browse", { options: { ...f, mode: f.mode ?? "recommended", includeIneligible: f.mode === "all" && !f.eligibleOnly } }),
+    async discover(f) {
+      const options={ ...f, mode: f.mode ?? 'recommended', includeIneligible: f.mode === 'all' && !f.eligibleOnly };
+      const cards = await timedRpc<PublicPerson[]>('marriage_browse', { options });
+      rememberSupportDirectory(userId,options);
+      launchEvent('activity', 'discovery', userId);
+      return cards;
+    },
     inbox: () => timedRpc("marriage_inbox", {}),
     requestHistory: beforeId => beforeId ? timedRpc("marriage_request_history_page", {before_id:beforeId}) : timedRpc("marriage_request_history", {}),
     matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),

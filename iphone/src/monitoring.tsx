@@ -1,3 +1,4 @@
+import { launchEvent } from './launchEvents';
 import { BrandWordmark } from './Brand';
 import { Component, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
@@ -12,6 +13,7 @@ export async function reportClientFault(event: Fault) {
   try {
     const { data }=await cloud.auth.getSession();
     if (!data.session) return;
+    launchEvent('fault',event,data.session.user.id);
     const timeout=new AbortController();
     const timer=window.setTimeout(()=>timeout.abort(),3000);
     try {

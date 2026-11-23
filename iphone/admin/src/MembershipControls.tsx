@@ -1,9 +1,9 @@
 import {useRef,useState} from 'react';
 import type {AdminApi,MemberDetail} from './types';
-import {friendly} from './client';
+import {call,friendly} from './client';
 
 const names:Record<string,string>={free:'مجانية',premium:'المميزة',seriousness:'وسام الجدية',actual:'العضوية الفعلية'};
-export function MembershipControls({member,api,completed}:{member:MemberDetail;api:AdminApi;completed:()=>void}) {
+export function MembershipControls({member,api,completed,live=false}:{live?:boolean;member:MemberDetail;api:AdminApi;completed:()=>void}) {
   const [tier,setTier]=useState(member.membershipGrant?.tier??'actual');
   const [days,setDays]=useState(30),[blocked,setBlocked]=useState(member.lunaSearch?.blocked??false);
   const [reason,setReason]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -15,7 +15,9 @@ export function MembershipControls({member,api,completed}:{member:MemberDetail;a
     {member.membershipTesting&&<p>اختبار المالك مفعّل · {names[member.membershipTesting]}</p>}
     <p>عمليات بحث لونا اليوم · {member.lunaSearch?.requestsToday??0} / 30</p>
     {member.lunaSearch?.lastUsedAt&&<p>آخر بحث · {new Date(member.lunaSearch.lastUsedAt).toLocaleString('ar-SA')}</p>}
-    {api.membership?<form onSubmit={async event=>{
+    {live?<form onSubmit={async event=>{event.preventDefault();if(busy)return;setBusy(true);setError('');try{await call('wudayn_admin_luna_block',{target:member.memberId,blocked,reason:reason.trim()});completed();}catch(e){setError(friendly(e));}finally{setBusy(false);}}}>
+      <label><input type="checkbox" checked={blocked} onChange={e=>setBlocked(e.target.checked)}/> إيقاف بحث لونا لهذا العضو</label><label>سبب التغيير<input required minLength={3} maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+      {error&&<p className="notice error" role="alert">{error}</p>}<button className="secondary" disabled={busy||blocked===(member.lunaSearch?.blocked??false)||reason.trim().length<3}>حفظ إعداد البحث</button></form>:api.membership?<form onSubmit={async event=>{
       event.preventDefault();if(busy||!api.membership)return;
       const key=JSON.stringify([member.memberId,tier,days,blocked,member.revision,reason]);
       if(intent.current?.key!==key)intent.current={key,id:crypto.randomUUID()};

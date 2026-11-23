@@ -9,17 +9,17 @@ import "./question-experience.css";
 
 import type { PartnerCriteria } from './marriage';
 
-type Props = CompatibilitySelection & { version?: string; childrenCount?: number; partnerChildren?: PartnerCriteria['children']; gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
+type Props = CompatibilitySelection & { initialField?: string; version?: string; childrenCount?: number; partnerChildren?: PartnerCriteria['children']; gender?: "woman" | "man"; registration?: boolean; remainingOnly?: boolean; required?: boolean; onChange: (next: CompatibilitySelection) => void };
 const interestIcons = { reading: BookOpen, cooking: CookingPot, walking: Footprints, travel: Plane,
   photography: Camera, board_games: Dice5, museums: Landmark, creative_writing: PenLine };
 const number = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
 const sectionOrder = ["plans", "timing", "values", "lifestyle", "communication", "personality"];
 const sections = sectionOrder.map(id => categories.find(category => category.id === id)!);
-export function CompatibilityFields({ version, childrenCount, partnerChildren, interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
+export function CompatibilityFields({ initialField, version, childrenCount, partnerChildren, interestIds, surveyAnswers, hardRequirements, priorityCategories, onChange, gender, registration = false, remainingOnly = false, required = false }: Props) {
   const dimensions = applicableDimensions(version,surveyAnswers,childrenCount,partnerChildren);
   const topics = sections.flatMap(section => dimensions.filter(dim => dim.category === section.id));
   const questions = topics.flatMap((topic, index) => practicalAnswerKeys(topic, version).map((key, side) => ({
-    position: index * 2 + side, category: topic.category, answered: hasPreferenceAnswer(topic.options, surveyAnswers[key]),
+    position: index * 2 + side, key, prompt:side ? topic.partnerPrompt : topic.selfPrompt, category: topic.category, answered: hasPreferenceAnswer(topic.options, surveyAnswers[key]),
   })));
   const total = questions.length;
   const filled = questions.filter(question => question.answered).length;
@@ -30,7 +30,7 @@ export function CompatibilityFields({ version, childrenCount, partnerChildren, i
   const [remainingFinished, setRemainingFinished] = useState(false);
   const card = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), outline = useRef<HTMLDetailsElement>(null);
   const shouldFocus = useRef(false);
-  const [position, setPosition] = useState(() => Math.max(0, firstMissing));
+  const [position, setPosition] = useState(() => Math.max(0, questions.find(q=>initialField && (q.key===initialField || q.prompt===initialField))?.position ?? firstMissing));
   const [interestsOpen, setInterestsOpen] = useState(!registration && interestIds.length === 0);
   useLayoutEffect(() => { setRemainingFinished(false); }, [remainingOnly]);
   const [direction, setDirection] = useState<"next" | "back">("next");

@@ -270,9 +270,12 @@ export function PartnerCriteriaFields({ confirmedKeys = [], reviewing = false, f
   </div></CriteriaFeedback.Provider>;
 }
 
-export function PersonalityFields({ version = personalityVersion, answers, onChange, registration = false, remainingOnly = false, required = false }: { version?: "personality-v1" | "personality-v2"; answers: Record<string, string>; onChange: (value: { personalityAnswers: Record<string, string>; personalityVersion: "personality-v1" | "personality-v2" }) => void; registration?: boolean; remainingOnly?: boolean; required?: boolean }) {
+export function PersonalityFields({ initialField, version = personalityVersion, answers, onChange, registration = false, remainingOnly = false, required = false }: { initialField?:string; version?: "personality-v1" | "personality-v2"; answers: Record<string, string>; onChange: (value: { personalityAnswers: Record<string, string>; personalityVersion: "personality-v1" | "personality-v2" }) => void; registration?: boolean; remainingOnly?: boolean; required?: boolean }) {
   const personalityQuestions = personalityQuestionsFor(version);
-  const [requestedIndex, setIndex] = useState(() => Math.max(0, personalityQuestions.findIndex(q => !q.options.some(o=>o.code===answers[q.id]))));
+  const [requestedIndex, setIndex] = useState(() => {
+    const requested=personalityQuestions.findIndex(q=>initialField && [q.id,q.title,q.prompt].includes(initialField));
+    return requested>=0 ? requested : Math.max(0,personalityQuestions.findIndex(q=>!q.options.some(o=>o.code===answers[q.id])));
+  });
   const completedHere = useRef(new Set<string>());
   const positions = personalityQuestions.flatMap((q,i) => !remainingOnly || completedHere.current.has(q.id) || !q.options.some(o=>o.code===answers[q.id]) ? [i] : []);
   const index = positions.includes(requestedIndex) ? requestedIndex : positions[0] ?? 0;

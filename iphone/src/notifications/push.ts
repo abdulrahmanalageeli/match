@@ -1,3 +1,4 @@
+import { publicationBuild } from '../publishing/appBuild';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { useEffect, useRef } from 'react';
 import { callRpc, cloudSessionId } from '../cloud';
@@ -11,9 +12,9 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
-type Permission = { permission: 'granted' | 'prompt' | 'denied'; installationId: string };
+type Permission = { buildNumber?:string; permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
   status(): Promise<Permission>;
   clearDelivered(): Promise<void>;
@@ -31,6 +32,7 @@ const native = registerPlugin<NativePush>('NisfaynPush');
 export const nativePush = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 export const pushConfigured = nativePush ? import.meta.env.VITE_MARRIAGE_PUSH_ENABLED === 'true' : webPushConfigured;
 export const pushSupported = () => nativePush || webPushSupported();
+export const readNativeBuild=async()=>publicationBuild((await native.status()).buildNumber);
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');
@@ -87,6 +89,7 @@ export async function detachNotifications(owner?: string | null) {
 async function bind(owner: string, device: Device) {
   if (!await currentOwner(owner) || bindingOwner!==owner) return;
   await pushRpc(owner, 'register', { device_token: device.token, device_environment: device.environment, installation: device.installationId });
+  if(!isTester(owner)) await callRpc('wudayn_news_preference',{installation:device.installationId,build:publicationBuild((await native.status()).buildNumber)},owner).catch(()=>{});
 }
 export async function enablePush(owner: string) {
   if (!nativePush) return enableWebPush(owner);
@@ -130,7 +133,7 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if (!active || !scope) return;
       const { notification } = await native.consumeOpen();
       if (!notification || !await currentOwner(owner) || !active || callback.current.owner !== owner) return;
-      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis'].includes(notification.kind)) {
+      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication'].includes(notification.kind)) {
         if (scope !== notification.scope || isTester(owner) !== (notification.requestId === testerRequestId)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }

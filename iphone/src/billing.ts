@@ -35,6 +35,7 @@ async function verifiedOffer(gender: 'man'|'woman'|undefined, claim:boolean, pla
 
 export async function getMembershipOffer(gender?: 'man' | 'woman',plan:MembershipPlan='premium'): Promise<MembershipOffer> {
   const {offer,authorization}=await verifiedOffer(gender,false,plan);
+  if (authorization.eligible && !authorization.sandboxCheckout) void import('./launchEvents').then(({launchEvent})=>launchEvent('eligible','trial'));
   return {price:offer.price,currency:offer.currency,period:offer.period,introduction:authorization.eligible?offer.introduction:undefined,trialEligible:authorization.eligible===true,sandboxCheckout:authorization.sandboxCheckout===true};
 }
 

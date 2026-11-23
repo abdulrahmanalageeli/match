@@ -64,7 +64,7 @@ type Props = {
   portraitSource?:CommunitySource|null;
   preview?:boolean;
   exitPreview?: () => void;
-  startAt?:Chapter;
+  startAt?:Chapter; supportField?:string;
   includeCompatibility?: boolean;
   draftRef?: RefObject<ApplicationDraft | null>;
   draftOwner?: string;
@@ -92,6 +92,8 @@ const registrationMilestones = [
   { key: 'profile', label: 'ملفك وصورتك', chapters: ['story', 'avatar'] },
   { key: 'review', label: 'المراجعة', chapters: ['readiness','review'] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; chapters: readonly Chapter[] }>;
+
+import { launchEvent } from '../launchEvents';
 
 function withDefaultContact(draft: ApplicationDraft, value?: string): ApplicationDraft {
   draft = { ...draft, answers: applicableFamilyAnswers(draft.answers) };
@@ -255,9 +257,9 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
   );
 }
 
-export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt,
+export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt, supportField,
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
-  const [interviewOpen, setInterviewOpen] = useState(false);
+  const [interviewOpen, setInterviewOpen] = useState(Boolean(supportField && (startAt==='compatibility'||startAt==='personality') && (!initial||supportField==='قسم التوافق كاملًا'||supportField==='قسم الشخصية كاملًا')));
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
   const [lunaStep, setLunaStep] = useState<ReturnType<typeof privateNextStep>>();
   const [aiComplete, setAiComplete] = useState(false);
@@ -344,6 +346,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     .filter(entry => includeCompatibility || !['compatibility','criteria','personality','beena','readiness'].includes(entry.key));
   const idx = Math.max(0, steps.findIndex(entry => entry.key === draft.step));
   const chapter = steps[idx];
+  const trackRegistration = !demo && !preview && !editing && Boolean(draftOwner);
+  useEffect(() => {
+    if (trackRegistration && !checkingDevice) launchEvent('reached', chapter.key, draftOwner);
+  }, [trackRegistration, checkingDevice, chapter.key, draftOwner]);
+  useEffect(() => {
+    if (trackRegistration && error) launchEvent('error', chapter.key, draftOwner);
+  }, [trackRegistration, error, chapter.key, draftOwner]);
   const milestones = registrationMilestones.filter(milestone => milestone.chapters.some(key => steps.some(step => step.key === key)));
   const milestoneIdx = Math.max(0, milestones.findIndex(milestone => (milestone.chapters as readonly Chapter[]).includes(chapter.key)));
   const Icon = chapterIcons[chapter.key];
@@ -482,6 +491,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       setDraft(restored);
       if(dimensionsForVersion(restored.answers.assessmentVersion).some(d => d.options.some(o => o.code === restored.answers.surveyAnswers?.[d.id] || o.code === restored.answers.surveyAnswers?.[d.partnerId])))setAssessmentPath('questions');
       setEditorHome(false);
+      if (!demo && !preview && !latestInitial.current) launchEvent('resumed', restored.step, draftOwner);
       setStorageState("restored");
     }).catch(() => { if (active && !touched.current) { loadFailed.current = true; setStorageState("loadError"); } })
       .finally(() => { if (active) setCheckingDevice(false); });
@@ -561,6 +571,15 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     }
     target?.focus();
   }, [error, chapter.key]);
+  useLayoutEffect(()=>{
+    if(!supportField || chapter.key!==startAt || checkingDevice || editorHome)return;
+    const norm=(value:string)=>value.trim().replace(/\s+/g,' ');
+    const fields=Array.from(form.current?.querySelectorAll<HTMLElement>('[data-field],label,legend')??[]);
+    const match=fields.find(el=>el.dataset.field===supportField || norm(el.textContent??'')===norm(supportField));
+    if(!match)return;
+    for(let parent=match.parentElement;parent;parent=parent.parentElement)if(parent instanceof HTMLDetailsElement)parent.open=true;
+    match.scrollIntoView({block:'center',behavior:'instant'});
+  },[supportField,startAt,chapter.key,checkingDevice,editorHome]);
   function commit(update: Partial<ApplicationDraft>) {
     touched.current = true;
     setStorageState(null);
@@ -688,6 +707,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     } else {
       const next = steps[idx + 1].key;
       const storyComplete = !editing && includeCompatibility && next === 'story' && !validateStep('story',p,agreed,true,true);
+      if (trackRegistration) {
+        launchEvent('completed', chapter.key, draftOwner);
+        if (storyComplete) launchEvent('completed', 'story', draftOwner);
+      }
       move(draft.returnToReview ? "review" : storyComplete ? 'avatar' : next);
     }
   }
@@ -698,6 +721,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const compatibilityComplete = dimensions.every(topic => practicalAnswerKeys(topic, p.assessmentVersion)
     .every(key => topic.options.some(option => option.code === p.surveyAnswers?.[key])));
   const savedPersonalityCount = personalityQuestions.filter(q=>q.options.some(o=>o.code===p.personalityAnswers?.[q.id])).length;
+  useEffect(()=>{
+    if (!trackRegistration || checkingDevice || chapter.key!=='compatibility') return;
+    if (savedPersonalityCount>0 || (assessmentPath==='questions'&&compatibilityComplete)) launchEvent('reached','personality',draftOwner);
+    if (personalityQuestions.length && savedPersonalityCount===personalityQuestions.length) launchEvent('completed','personality',draftOwner);
+  },[trackRegistration,checkingDevice,chapter.key,assessmentPath,compatibilityComplete,savedPersonalityCount,personalityQuestions.length,draftOwner]);
   const choosingAssessment = !editing && chapter.key==='compatibility' && !aiComplete && !(fallbackAvailable && assessmentPath==='questions') && !demo && !preview;
   const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
     draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
@@ -719,6 +747,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
           <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={editing ? 240 : 175} fromOpacity={editing ? 0 : .9} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
             <div className="nf-intake-title">
+              {supportField && chapter.key===startAt && <p className="wi-applied-note" role="status">طلب فريق وُدَين مراجعة: {supportField}</p>}
               <svg className="nf-intake-ridge" viewBox="0 0 160 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                 <path d="M-10 23 Q20 9 53 24 T115 27 Q137 16 165 19" />
                 <path d="M-10 30 Q21 18 53 31 T116 33 Q142 23 165 26" />
@@ -730,7 +759,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {usesBasicSlides && <SignupBasicsSlides trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <MemberNameFields answers={p} update={update} required={!editing || !!initial?.firstName}/>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -770,17 +799,17 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 chapter.key === (editing ? 'personality' : 'criteria') && <PartnerTraitFields p={p} update={update}/>}
               {chapter.key === "personality" && consents.assessment && <>
                 <TraitProfile answers={p}/>
-                {editing || !interviewAuth ? <PersonalityFields version={p.personalityVersion} answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
+                {editing || !interviewAuth ? <PersonalityFields initialField={supportField} version={p.personalityVersion} answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
                   {savedPersonalityCount>0 ? <div className="wi-onboarding-summary"><div><CheckCheck size={18} aria-hidden="true"/><p><strong>{savedPersonalityCount===personalityQuestions.length ? 'ملامحك مؤكدة. لا تحتاج لإعادتها.' : 'نبني على ما أكّدته'}<small>{arabicNumber(savedPersonalityCount)} من {arabicNumber(personalityQuestions.length)} ملمحًا</small></strong><span>{savedPersonalityCount===personalityQuestions.length ? 'يمكنك مراجعة ملامحك وتعديل إجاباتك متى شئت.' : 'المؤكد محفوظ، وما لم يتضح يبقى مفتوحًا. أكمل الحوار، أو أجب مباشرة عن المتبقي.'}</span></p></div><button type="button" onClick={()=>{setReviewAllPersonality(value=>!value);setPersonalityDirect(true);}}>{reviewAllPersonality ? 'إظهار المتبقي فقط' : 'مراجعة ملامح شخصيتي'}<ChevronLeft size={14}/></button></div> : <InterviewEntry available open={()=>setInterviewOpen(true)}/>}
                   {savedPersonalityCount>0&&savedPersonalityCount<personalityQuestions.length&&<div className="wi-personality-actions"><MotionPressButton className="wi-button wi-button-primary" onClick={()=>setInterviewOpen(true)}>أكمل ملامحي عبر الحوار<ArrowLeft size={17}/></MotionPressButton></div>}
-                  {(savedPersonalityCount<personalityQuestions.length||reviewAllPersonality)&&<details className="wi-manual wi-personality-manual" open={personalityDirect||reviewAllPersonality||undefined}><summary><span>{savedPersonalityCount===personalityQuestions.length ? 'مراجعة الإجابات وتعديلها' : 'أفضّل إكمال المتبقي مباشرة'}</span><ChevronLeft size={16}/></summary><PersonalityFields version={p.personalityVersion} key={`${interviewRevision}:${reviewAllPersonality}`} answers={p.personalityAnswers ?? {}} onChange={update} registration remainingOnly={!reviewAllPersonality}/></details>}
+                  {(savedPersonalityCount<personalityQuestions.length||reviewAllPersonality)&&<details className="wi-manual wi-personality-manual" open={personalityDirect||reviewAllPersonality||undefined}><summary><span>{savedPersonalityCount===personalityQuestions.length ? 'مراجعة الإجابات وتعديلها' : 'أفضّل إكمال المتبقي مباشرة'}</span><ChevronLeft size={16}/></summary><PersonalityFields initialField={supportField} version={p.personalityVersion} key={`${interviewRevision}:${reviewAllPersonality}`} answers={p.personalityAnswers ?? {}} onChange={update} registration remainingOnly={!reviewAllPersonality}/></details>}
                 </>}
               </>}
               {chapter.key === "compatibility" && consents.assessment && <>
                 {editing ? <>
                   {p.assessmentVersion === 'marriage-v4' && <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>}
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك المؤكدة إلى المسودة. راجع الملف قبل حفظه.</p>}
-                  {interviewAuth ? <details className="wi-manual" open={interviewApplied || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
+                  {interviewAuth ? <details className="wi-manual" open={interviewApplied || Boolean(supportField) || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {aiComplete && compatibilityComplete && savedPersonalityCount===personalityQuestions.length ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong><span>حفظنا إجابات التوافق. نكمل ما ينقص ملفك، مثل معايير البحث والنبذة والصورة، ثم تراجع طلبك قبل إرساله.</span></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry registration available open={()=>setInterviewOpen(true)}/>}
@@ -788,8 +817,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   </>}
                   {(demo||preview||(fallbackAvailable&&assessmentPath==='questions'))&&<div className="nf-session-fallback">
                     <p className="nf-intake-note">{demo||preview?'هذه معاينة للأسئلة. عند التسجيل تبدأ جلسة التوافق مع لونا.':'تعذّر إكمال الحوار. نكمل النقاط المتبقية هنا، وإجاباتك السابقة محفوظة.'}</p>
-                    <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
-                    {compatibilityComplete && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
+                    <section aria-label="تفضيلات التوافق"><h2>عن حياتك وشريكك</h2><CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} key={interviewRevision} registration required remainingOnly={!reviewAllCompatibility} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></section>
+                    {compatibilityComplete && <section data-field="personalityAnswers" tabIndex={-1} aria-label="ملامح الشخصية"><h2>طريقتك في الحياة</h2><PersonalityFields initialField={supportField} version={p.personalityVersion} key={interviewRevision} answers={p.personalityAnswers ?? {}} onChange={update} registration required remainingOnly/></section>}
                   </div>}
                 </div>}
               </>}
@@ -878,7 +907,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       {interviewAuth && consents.assessment && <InterviewPanel
         onAssessmentVersion={legacy => { const saved=current.current.answers; const next=interviewDraftVersion(saved,legacy); if (!editing && next!==saved) update(next); }}
         key={draftOwner + ':' + (interviewAuth.testSession ?? interviewAuth.token ?? '')}
-        open={interviewOpen} auth={interviewAuth} onboarding={!editing}
+        initialField={supportField} open={interviewOpen} auth={interviewAuth} onboarding={!editing}
         gender={p.gender || undefined}
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}
@@ -886,7 +915,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         onProfileApply={applyCapturedProfile}
         sensitiveProfileAllowed={consents.sensitiveProfile}
         consentGranted={consents.assessment && draft.permissions?.interview === true}
-        onUnavailable={() => setFallbackAvailable(true)}
+        onUnavailable={() => { if (trackRegistration) launchEvent('error', 'compatibility', draftOwner); setFallbackAvailable(true); }}
         onClose={() => { setInterviewOpen(false); void saveProgressNow(); }}
         onDirectQuestions={() => {
           setInterviewOpen(false);

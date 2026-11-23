@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { usePublishedItems } from './publishing/PublicationCenter';
 import { LogoCompatibilityMark } from './compatibility/LogoCompatibilityMark';
 import { welcomePairs } from './welcomePairStories';
 import './welcomePairPreview.css';
@@ -15,6 +16,7 @@ export function WelcomePairPreview({ visible, reduced }: { visible: boolean; red
   const [paused, setPaused] = useState(false);
   const [ending, setEnding] = useState(false);
   const card = useRef<HTMLElement>(null);
+  const published=usePublishedItems();
   const [onScreen, setOnScreen] = useState(false);
   const rotating = visible && onScreen && !reduced && !paused && selection.speaker === null;
 
@@ -65,7 +67,8 @@ export function WelcomePairPreview({ visible, reduced }: { visible: boolean; red
   function row({ index, alternate, speaker, fromScore }: Selection, outgoing: boolean) {
     const pair = welcomePairs[index];
     const showRings = outgoing ? previous?.finished : !reduced && ending && alternate && speaker === null;
-    const [topic, reading] = alternate ? pair.alternate : [pair.topic, pair.reading];
+    const [topic, original] = alternate ? pair.alternate : [pair.topic, pair.reading];
+    const reading=published.find(item=>item.key===`welcome.${index}.${alternate?1:0}`)?.body??original;
     return <div key={index} className="wd-pair-row" data-outgoing={outgoing || undefined}
       inert={outgoing || undefined} aria-hidden={outgoing || undefined}>
       <div className="wd-pair-top">

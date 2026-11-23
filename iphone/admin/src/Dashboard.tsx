@@ -1,3 +1,7 @@
+import { PublicationAdmin } from './PublicationAdmin';
+import { LaunchAnalytics, MemberSignals } from './LaunchAnalytics';
+import { MemberOperations } from './MemberOperations';
+import { ConductAdmin } from './ConductAdmin';
 import {MembershipControls,MemberLookup} from './MembershipControls';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Activity, ArrowDownLeft, ArrowLeft, ArrowUpRight, Bell, Check, CheckCircle2, ChevronLeft, ClipboardCheck, FileClock, Flag, HeartHandshake, LayoutDashboard, LogOut, RefreshCw, SearchCheck, ShieldCheck, Users, X } from 'lucide-react';
@@ -9,14 +13,15 @@ import { SupportAdmin } from './Support';
 import { InterviewReview } from './InterviewReview';
 import { PortraitReview } from './PortraitReview';
 import { DeletedPhoneBlock } from './DeletedPhoneBlock';
-import { AdminError, friendly, mode } from './client';
+import { call, AdminError, friendly, mode } from './client';
 import type { Access, AdminApi, AuditRow, MemberDetail, MemberRow, Operations, Overview, ReportAction, ReportRow, ReviewAction, StaffRole } from './types';
 
-type Page = 'overview' | 'applications' | 'reports' | 'audit' | 'operations' | 'family' | 'verification' | 'support';
-const titles: Record<Page, string> = { overview: 'نظرة عامة', applications: 'الحسابات والعضوية', reports: 'البلاغات', audit: 'سجل الإجراءات', operations: 'التشغيل والمتابعة', family: 'جسر الأهل', verification: 'التحقق والشارات', support: 'طلبات المساعدة' };
-const roleNames: Record<string, string> = { owner: 'مالك مساحة الإدارة', reviewer: 'مراجع العضوية', moderator: 'مشرف السلامة', database: 'إدارة قاعدة البيانات', invitation: 'تفعيل حساب الفريق' };
+type Page = 'analytics' | 'memberOps' | 'publishing' | 'conduct' | 'overview' | 'applications' | 'reports' | 'audit' | 'operations' | 'family' | 'verification' | 'support';
+const titles: Record<Page, string> = { analytics:'مؤشرات الإطلاق', memberOps:'خدمة الأعضاء', publishing:'النشر والتحديثات', conduct:'التنبيهات والمراجعة', overview: 'نظرة عامة', applications: 'الحسابات والعضوية', reports: 'البلاغات', audit: 'سجل الإجراءات', operations: 'التشغيل والمتابعة', family: 'جسر الأهل', verification: 'التحقق والشارات', support: 'طلبات المساعدة' };
+const roleNames: Record<string, string> = { support:'أخصائي دعم الأعضاء', owner: 'مالك مساحة الإدارة', reviewer: 'مراجع العضوية', moderator: 'مشرف السلامة', database: 'إدارة قاعدة البيانات', invitation: 'تفعيل حساب الفريق' };
 const actionNames: Record<string, string> = { membership_managed:"إدارة العضوية ولونا", approve: 'اعتماد العضوية', suspend: 'تعليق الحساب', restore: 'رفع التعليق', return_pending: 'إعادة للمراجعة', pause: 'إيقاف الظهور', resume: 'استئناف الظهور', edit_profile: 'تعديل الملف', grant_access: 'منح وصول مجاني', revoke_access: 'إلغاء الوصول المجاني', set_dummy: 'تغيير تصنيف الحساب', assign_self: 'استلام البلاغ', resolve: 'إغلاق البلاغ', reopen: 'إعادة فتح البلاغ', member_viewed: 'مراجعة الملف', staff_granted: 'تفعيل صلاحية', staff_changed: 'تعديل صلاحية', staff_removed: 'إزالة صلاحية', staff_invited: 'حجز صلاحية', staff_invitation_claimed: 'تفعيل الحجز', staff_invitation_changed: 'تحديث حجز الصلاحية', staff_invitation_removed: 'إزالة حجز الصلاحية' };
 Object.assign(actionNames, { family_link_approved: 'اعتماد ربط الأهل', family_link_rejected: 'رفض طلب ربط الأهل', family_link_revoked: 'سحب اعتماد ربط الأهل' });
+Object.assign(actionNames,{publication_created:'نشر تحديث',publication_corrected:'تصحيح منشور',publication_withdrawn:'سحب منشور',luna_search_paused:'إيقاف بحث لونا',luna_search_resumed:'استعادة بحث لونا'});
 actionNames.release_phone_block = 'رفع حظر رقم حساب محذوف';
 actionNames.registration_review_cleared = 'إغلاق متابعة التسجيل';
 Object.assign(actionNames, { view_evidence: 'فتح رسالة مرفقة ببلاغ', verification_approve: 'اعتماد تحقق يدوي', verification_reject: 'رفض طلب التحقق', verification_request_changes: 'طلب استكمال التحقق', verification_revoke: 'سحب شارة التحقق', verification_evidence_viewed: 'فتح مستند تحقق خاص', verification_evidence_access: 'فتح مستند تحقق خاص' });
@@ -57,7 +62,7 @@ function Modal({ title, close, busy, children }: { title: string; close: () => v
   </dialog>;
 }
 
-function MemberSheet({ id, api, role, close, completed, onError }: { id: string; api: AdminApi; role: StaffRole; close: () => void; completed: () => void; onError: (e: unknown) => void }) {
+function MemberSheet({ id, api, role, close, completed, onError, openOps, live }: { live:boolean;openOps:()=>void; id: string; api: AdminApi; role: StaffRole; close: () => void; completed: () => void; onError: (e: unknown) => void }) {
   const [detail, setDetail] = useState<MemberDetail | null>(null), [error, setError] = useState(''), [attempt, setAttempt] = useState(0), [busy, setBusy] = useState(false);
   const [action, setAction] = useState<ReviewAction | 'registration_review_cleared'>('approve'), [reason, setReason] = useState(''), [verified, setVerified] = useState(false);
   const intent = useRef<{ fingerprint: string; id: string } | null>(null);
@@ -74,6 +79,7 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
     ...(role === 'owner' ? [detail.paused ? 'resume' as const : 'pause' as const] : []),
   ] : [];
   const basics = detail?.marriageBasics;
+  const conductSuspension = Boolean(live && detail && !detail.isDummy && detail.accountSource !== 'pair_test' && role !== 'reviewer' && action === 'suspend');
   const publicFacts = basics ? [
     ['الطول', basics.heightCm == null ? undefined : `${number.format(basics.heightCm)} سم`],
     ['الوزن', basics.weightKg == null ? undefined : `${number.format(basics.weightKg)} كجم`],
@@ -88,7 +94,7 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
     ['الموقف من تغيير اللباس', basics.dressFlexibility && { keep: 'أرغب في الاستمرار باختياري الحالي', open_to_discussion: 'منفتحة على النقاش دون التزام بالتغيير', open_to_change: 'منفتحة على التغيير إذا اقتنعت به', prefer_not_to_say: 'أفضل عدم الإفصاح' }[basics.dressFlexibility]],
   ].filter(([, value]) => value != null && value !== '') : [];
   async function submit() {
-    if (!detail || busy || reason.trim().length < 3 || (action === 'approve' && !verified)) return;
+    if (!detail || conductSuspension || busy || reason.trim().length < 3 || (action === 'approve' && !verified)) return;
     const fingerprint = JSON.stringify([id, action, detail.revision, reason.trim()]);
     if (intent.current?.fingerprint !== fingerprint) intent.current = { fingerprint, id: crypto.randomUUID() };
     setBusy(true); setError('');
@@ -141,11 +147,14 @@ function MemberSheet({ id, api, role, close, completed, onError }: { id: string;
       {!!actions.length && <section className="review-section"><h3>قرار المراجعة</h3><div className="choice-row">{actions.map(choice => <button key={choice} className={action === choice ? 'choice selected' : 'choice'} onClick={() => setAction(choice)} disabled={busy}>{actionNames[choice]}</button>)}</div>
         {action === 'restore' && <p className="muted">يعود الملف للمراجعة. المحادثات السابقة تبقى مغلقة.</p>}{action === 'return_pending' && <p className="muted">يحتاج الحساب اعتمادًا جديدًا قبل العودة للتعارف.</p>}{action === 'pause' && <p className="muted">يتوقف ظهور الحساب في الاكتشاف.</p>}
         {action === 'approve' && <label className="check-label"><input type="checkbox" checked={verified} onChange={e => setVerified(e.target.checked)} disabled={busy} />تحققت من أهلية العضو والعمر وفق إجراء الفريق.</label>}
+        {conductSuspension ? <ConductAdmin key={id} memberId={id} initialKind="suspension" onIssued={completed}/> : <>
         <label>سبب القرار<textarea rows={3} value={reason} maxLength={500} onChange={e => setReason(e.target.value)} placeholder="اذكر سببًا واضحًا للمراجعة…" disabled={busy} /></label><small className="muted">يسجَّل اسمك والسبب مع القرار.</small>
         <button className={action === 'suspend' ? 'primary danger' : 'primary'} disabled={busy || reason.trim().length < 3 || (action === 'approve' && !verified)} onClick={() => void submit()}>{busy ? 'جارٍ حفظ القرار…' : 'تأكيد ' + actionNames[action]}<Check size={17} /></button>
+        </>}
       </section>}
-      {role === 'owner' && <MembershipControls member={detail} api={api} completed={completed}/>}
-      {role === 'owner' && <AccountControls key={detail.revision} member={detail} api={api} busy={busy} setBusy={setBusy} completed={completed} onError={onError}/>}
+      {live && role==='owner' && <><button className="secondary" onClick={openOps}>فتح سجل العضو وخيارات الإصلاح</button><MemberSignals memberId={id}/></>}
+      {role === 'owner' && <MembershipControls live={live} member={detail} api={api} completed={completed}/>}
+      {role === 'owner' && <AccountControls operationalGrants={live&&detail.accountSource!=='pair_test'} key={detail.revision} member={detail} api={api} busy={busy} setBusy={setBusy} completed={completed} onError={onError}/>}
       {error && <button className="text-button" disabled={busy} onClick={() => setAttempt(v => v + 1)}>تحديث الملف ومراجعته مجددًا</button>}
     </>}
   </Modal>;
@@ -210,18 +219,20 @@ function OperationsPanel({ api, role, demo, onError }: { api: AdminApi; role: St
 }
 
 export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: AdminApi; staff: Access; demo: boolean; onExit: () => void; onAccessChanged: () => void }) {
-  const role = staff.role!, [page, setPage] = useState<Page>('overview'), [filter, setFilter] = useState(role === 'moderator' ? 'suspended' : 'all'), [reportFilter, setReportFilter] = useState('open');
+  const role = staff.role!, [page, setPage] = useState<Page>(role==='support'?'support':!demo&&role==='owner'?'analytics':'overview'), [filter, setFilter] = useState(role === 'moderator' ? 'suspended' : 'all'), [reportFilter, setReportFilter] = useState('open');
   const [overview, setOverview] = useState<Overview | null>(null), [members, setMembers] = useState<MemberRow[]>([]), [reports, setReports] = useState<ReportRow[]>([]), [audit, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false), [error, setError] = useState(''), [revision, setRevision] = useState(0), [more, setMore] = useState(false), [toast, setToast] = useState('');
   const [memberId, setMemberId] = useState<string | null>(null), [report, setReport] = useState<ReportRow | null>(null);
+  const [auditInput,setAuditInput]=useState(''),[auditQuery,setAuditQuery]=useState('');
+  const [opsId,setOpsId]=useState<string>();
   const generation = useRef(0), mainHeading = useRef<HTMLHeadingElement>(null);
   const onError = useCallback((problem: unknown) => { if (problem instanceof AdminError && (problem.code === '42501' || problem.code === 'PGRST301')) onAccessChanged(); }, [onAccessChanged]);
-  const navigate = (next: Page) => { if ((next === 'reports' || next === 'support') && role === 'reviewer' || (next === 'family' || next === 'verification') && role === 'moderator') return; setPage(next); setError(''); setToast(''); setMemberId(null); setReport(null); window.scrollTo(0, 0); };
+  const navigate = (next: Page) => { if (role==='support' && next!=='support') return; if ((next === 'reports' || next === 'support') && role === 'reviewer' || (next === 'family' || next === 'verification') && role === 'moderator') return; setPage(next); setError(''); setToast(''); setMemberId(null); setReport(null); window.scrollTo(0, 0); };
   useEffect(() => { mainHeading.current?.focus({ preventScroll: true }); }, [page]);
   useEffect(() => {
-    if (page === 'operations' || page === 'family' || page === 'verification' || page === 'support') { setMore(false); setLoading(false); return; }
+    if (['publishing','conduct','memberOps','analytics'].includes(page) || page === 'operations' || page === 'family' || page === 'verification' || page === 'support') { setMore(false); setLoading(false); return; }
     const ticket = ++generation.current; setLoading(true); setError(''); setMore(false); setMembers([]); setReports([]); setAudit([]);
-    const work = page === 'overview' ? api.overview() : page === 'applications' ? api.applications(filter) : page === 'reports' ? api.reports(reportFilter) : api.audit();
+    const work = page === 'overview' ? api.overview() : page === 'applications' ? api.applications(filter) : page === 'reports' ? api.reports(reportFilter) : auditQuery&&!demo ? call<AuditRow[]>('wudayn_staff_search',{query:auditQuery}):api.audit();
     void work.then(result => {
       if (generation.current !== ticket) return;
       if (page === 'overview') setOverview(result as Overview);
@@ -231,11 +242,11 @@ export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: 
       if (Array.isArray(result)) setMore(result.length === (page === 'audit' ? 100 : 50));
     }, problem => { if (generation.current === ticket) { setError(friendly(problem)); onError(problem); } }).finally(() => { if (generation.current === ticket) setLoading(false); });
     return () => { generation.current++; };
-  }, [page, filter, reportFilter, revision, api, onError]);
+  }, [page, filter, reportFilter, revision, api, onError,auditQuery,demo]);
   async function loadMore() {
     if (loading || !more) return; const ticket = generation.current; setLoading(true); setError('');
     try {
-      const rows = page === 'applications' ? await api.applications(filter, members.at(-1)?.memberId) : page === 'reports' ? await api.reports(reportFilter, reports.at(-1)?.reportId) : await api.audit(audit.at(-1)?.id);
+      const rows = page === 'applications' ? await api.applications(filter, members.at(-1)?.memberId) : page === 'reports' ? await api.reports(reportFilter, reports.at(-1)?.reportId) : auditQuery&&!demo?await call<AuditRow[]>('wudayn_staff_search',{query:auditQuery,before_id:audit.at(-1)?.id}):await api.audit(audit.at(-1)?.id);
       if (generation.current !== ticket) return;
       if (page === 'applications') setMembers(old => [...old, ...(rows as MemberRow[])]);
       else if (page === 'reports') setReports(old => [...old, ...(rows as ReportRow[])]);
@@ -245,31 +256,38 @@ export function Dashboard({ api, staff, demo, onExit, onAccessChanged }: { api: 
     finally { if (generation.current === ticket) setLoading(false); }
   }
   const completed = () => { setMemberId(null); setReport(null); setToast('حُفظ القرار وسُجّل في سجل الإجراءات.'); setRevision(v => v + 1); };
-  const nav: { page: Page; icon: ReactNode }[] = [{ page: 'overview', icon: <LayoutDashboard /> }, { page: 'applications', icon: <Users /> }, ...(role !== 'moderator' ? [{ page: 'verification' as const, icon: <ShieldCheck /> }, { page: 'family' as const, icon: <HeartHandshake /> }] : []), ...(role !== 'reviewer' ? [{ page: 'reports' as const, icon: <Flag /> }, { page: 'support' as const, icon: <Bell /> }] : []), ...(role === 'owner' ? [{ page: 'audit' as const, icon: <FileClock /> }] : []), { page: 'operations', icon: <Activity /> }];
+  const nav: { page: Page; icon: ReactNode }[] = role==='support'?[{page:'support',icon:<Bell/>}]:[...(!demo&&role==='owner'?[{page:'analytics' as const,icon:<Activity/>}]:[]),{ page: 'overview', icon: <LayoutDashboard /> }, { page: 'applications', icon: <Users /> }, ...(role !== 'moderator' ? [{ page: 'verification' as const, icon: <ShieldCheck /> }, { page: 'family' as const, icon: <HeartHandshake /> }] : []), ...(role !== 'reviewer' ? [{ page: 'reports' as const, icon: <Flag /> }, { page: 'support' as const, icon: <Bell /> }] : []), ...(role === 'owner' ? [{ page: 'audit' as const, icon: <FileClock /> }] : []), { page: 'operations', icon: <Activity /> },
+    ...(!demo&&role==='owner'?[{page:'memberOps' as const,icon:<Users/>},{page:'publishing' as const,icon:<Bell/>}]:[]),
+    ...(!demo&&role!=='reviewer'?[{page:'conduct' as const,icon:<ShieldCheck/>}]:[])];
   return <div className="admin-layout">
     <aside className="sidebar"><Brand /><span className="sidebar-caption">العناية بكل بداية</span><nav aria-label="التنقل الرئيسي">{nav.map(item => <button key={item.page} className={page === item.page ? 'nav-item active' : 'nav-item'} aria-current={page === item.page ? 'page' : undefined} onClick={() => navigate(item.page)}>{item.icon}<span>{titles[item.page]}</span>{page === item.page && <i />}</button>)}</nav><div className="sidebar-bottom"><span className="staff-avatar">{initials(staff.displayName)}</span><div><strong>{staff.displayName}</strong><small>{roleNames[role]}</small></div><button className="icon-button" aria-label={demo ? 'إنهاء التجربة' : 'تسجيل الخروج'} onClick={onExit}><LogOut size={17} /></button></div></aside>
     <main className="dashboard-main"><header className="workspace-top"><span><ShieldCheck size={15} /> مساحة الفريق</span><span className={demo ? 'environment demo' : 'environment'}>{demo ? 'بيانات تجريبية' : mode === 'staging' ? 'بيئة الاختبار' : 'بيئة الإنتاج'}</span></header>
       {demo && <div className="demo-banner"><span><SparkleMark /> تجربة مستقلة · حسابات وهمية، وتُحفظ قراراتها على هذا المتصفح عند توفر التخزين.</span><button onClick={onExit}>إنهاء التجربة<ArrowLeft size={14} /></button></div>}
-      <section className="page-title"><div><p className="eyebrow">وُدَين / مساحة الإدارة</p><h1 ref={mainHeading} tabIndex={-1}>{titles[page]}</h1><p>{page === 'overview' ? 'ما يحتاج عنايتك اليوم، في مكان واحد.' : page === 'applications' ? 'تُعتمد الطلبات المستوفية تلقائيًا، ويمكنك مراجعة الطلبات المُحالة للفريق هنا.' : page === 'family' ? 'روابط عائلية بموافقة العضو ومراجعة الفريق.' : page === 'verification' ? 'مراجعة خاصة، وشارة تصف بالضبط ما تم التحقق منه.' : page === 'reports' ? 'متابعة واضحة تحفظ خصوصية الأطراف وسلامتهم.' : page === 'audit' ? 'سجل موثّق للاطلاع والقرارات، متاح لمالك المساحة.' : 'مؤشرات محددة تساعدك على متابعة جاهزية الخدمة.'}</p></div>{page !== 'operations' && <button className="secondary refresh-button" onClick={() => setRevision(v => v + 1)} disabled={loading}><RefreshCw size={16} />تحديث</button>}</section>
+      <section className="page-title"><div><p className="eyebrow">وُدَين / مساحة الإدارة</p><h1 ref={mainHeading} tabIndex={-1}>{titles[page]}</h1><p>{page==='support'?'استلم طلب العضو وتابع الرد معه من هنا.':page==='analytics'?'التسجيل، حضور الأعضاء، ونتائج العضوية.':page==='memberOps'?'ابحث عن الحساب وتابع المشكلة حتى تتأكد من حلها.':page==='publishing'?'جهّز المحتوى وحدّد لمن ومتى يظهر.':page==='conduct'?'تنبيهات الحسابات والتعهّدات وطلبات المراجعة.':page === 'overview' ? 'ما يحتاج عنايتك اليوم، في مكان واحد.' : page === 'applications' ? 'تُعتمد الطلبات المستوفية تلقائيًا، ويمكنك مراجعة الطلبات المُحالة للفريق هنا.' : page === 'family' ? 'روابط عائلية بموافقة العضو ومراجعة الفريق.' : page === 'verification' ? 'مراجعة خاصة، وشارة تصف بالضبط ما تم التحقق منه.' : page === 'reports' ? 'متابعة واضحة تحفظ خصوصية الأطراف وسلامتهم.' : page === 'audit' ? 'سجل موثّق للاطلاع والقرارات، متاح لمالك المساحة.' : 'مؤشرات محددة تساعدك على متابعة جاهزية الخدمة.'}</p></div>{!['operations','analytics','memberOps','publishing','conduct'].includes(page) && <button className="secondary refresh-button" onClick={() => setRevision(v => v + 1)} disabled={loading}><RefreshCw size={16} />تحديث</button>}</section>
       {toast && <Notice>{toast}</Notice>}{error && <Notice error>{error} <button className="inline-button" onClick={() => setRevision(v => v + 1)}>إعادة المحاولة</button></Notice>}
       {page === 'overview' && (loading ? <Loading /> : overview && <OverviewPanel data={overview} navigate={navigate} />)}
+      {!demo&&page==='analytics'&&role==='owner'&&<LaunchAnalytics onMember={id=>{setOpsId(id);navigate('memberOps');}} onQueue={next=>navigate(next)}/>}
+      {!demo&&page==='memberOps'&&role==='owner'&&<MemberOperations key={opsId??'lookup'} initialMemberId={opsId} demo={demo}/>}
+      {!demo&&page==='publishing'&&role==='owner'&&<PublicationAdmin staffId={staff.userId}/>}
+      {!demo&&page==='conduct'&&(role==='owner'||role==='moderator')&&<ConductAdmin/>}
       {page === 'applications' && <MemberLookup open={setMemberId}/>}
       {page === 'applications' && <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>دليل الحسابات</h2><p>الحسابات الحقيقية والوهمية، مع حالة العضوية والوصول.</p></div><div className="filters" role="group" aria-label="حالة العضوية">{(role === 'moderator' ? ['suspended'] : ['all', 'pending', 'approved', 'suspended', 'draft', 'dummy', 'registration_review', ...(demo ? [] : ['repeat_review'])]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{{ all: 'الكل', pending: 'طلبات معلّقة', approved: 'معتمدة', suspended: 'معلّقة', draft: 'مسودات', dummy: 'وهمية', registration_review: 'متابعة التسجيل', repeat_review: 'مؤشرات تسجيل متكرر' }[value]}</button>)}</div></div>
         {!members.length ? loading ? <Loading /> : !error && <Empty title="لا توجد ملفات في هذه القائمة">ستظهر هنا الملفات المطابقة لحالة المراجعة.</Empty> : <div className="member-list">{members.map(member => <button className="member-row" key={member.memberId} onClick={() => setMemberId(member.memberId)} aria-label={'مراجعة ملف ' + member.displayName}><span className="avatar">{initials(member.displayName)}</span><span className="row-person"><strong>{member.displayName}</strong><small>{number.format(member.age)} عامًا · {member.city}</small></span><span className="row-job">{member.profession}<small>{date(member.submittedAt)}</small></span><AccountTags member={member} /><ChevronLeft size={17} /></button>)}</div>}
       </section>}
       {page === 'reports' && <section className="panel queue-panel"><div className="panel-heading queue-heading"><div><h2>متابعة البلاغات</h2><p>إسناد واضح وسبب موثق لكل إجراء.</p></div><div className="filters" role="group" aria-label="حالة البلاغ">{['open', 'resolved'].map(value => <button key={value} aria-pressed={reportFilter === value} onClick={() => setReportFilter(value)}>{value === 'open' ? 'مفتوحة' : 'مغلقة'}</button>)}</div></div>
-        {!reports.length ? loading ? <Loading /> : !error && <Empty title="لا توجد بلاغات في هذه القائمة">تُحدَّث القائمة عند تسجيل بلاغ أو تغيير حالته.</Empty> : <div className="reports-list">{reports.map(row => <button className="report-row" key={row.reportId} onClick={() => setReport(row)}><span className="report-mark"><Flag size={20} /></span><span><strong>{row.reportedName || 'عضو'}</strong>{row.isDummy && <span className="badge dummy report-dummy">وهمي · Dummy</span>}{row.urgent && <span className="badge rose">تهديد فوري</span>}<p>{row.reason}</p><small>{date(row.createdAt)} · {row.assignedName ? 'لدى ' + row.assignedName : 'غير مسند'}</small></span><ChevronLeft size={18} /></button>)}</div>}
+        {!reports.length ? loading ? <Loading /> : !error && <Empty title="لا توجد بلاغات في هذه القائمة">تُحدَّث القائمة عند تسجيل بلاغ أو تغيير حالته.</Empty> : <div className="reports-list">{reports.map(row => <button className="report-row" key={row.reportId} onClick={() => setReport(row)}><span className="report-mark"><Flag size={20} /></span><span><strong>{row.reportedName || 'عضو'}</strong>{row.isDummy && <span className="badge dummy report-dummy">وهمي · Dummy</span>}{row.urgent && <span className="badge rose">أولوية سلامة</span>}<p>{row.reason}</p><small>{date(row.createdAt)} · {row.assignedName ? 'لدى ' + row.assignedName : 'غير مسند'}</small></span><ChevronLeft size={18} /></button>)}</div>}
       </section>}
+      {page==='audit'&&!demo&&<form className="panel wd-admin-form" onSubmit={e=>{e.preventDefault();setAuditQuery(auditInput.trim());}}><label>بحث في سجل الفريق<input type="search" dir="auto" value={auditInput} minLength={2} maxLength={150} placeholder="اسم الموظف، معرّف الحساب، الإجراء أو السبب" onChange={e=>setAuditInput(e.target.value)}/></label><div className="wd-admin-actions"><button className="secondary">بحث</button>{auditQuery&&<button type="button" className="text-button" onClick={()=>{setAuditInput('');setAuditQuery('');}}>مسح البحث</button>}</div></form>}
       {page === 'audit' && <section className="panel queue-panel"><div className="panel-heading"><span className="panel-icon"><FileClock size={21} /></span><div><h2>أثر كل قرار</h2><p>الفاعل والسبب والتوقيت، دون نسخ المحادثات أو الإجابات الخاصة.</p></div></div>{!audit.length ? loading ? <Loading /> : !error && <Empty title="لا توجد إجراءات لعرضها">تظهر هنا المراجعات والقرارات بعد تسجيلها.</Empty> : <ol className="audit-list">{audit.map(row => <li key={row.id}><span className="audit-dot"><Check size={12} /></span><div><strong>{actionNames[row.action] || 'إجراء إداري'}</strong><p>{row.reason}</p><small>{row.actorName} · {roleNames[row.actorRole] || row.actorRole} · <bdi>{row.targetId}</bdi></small></div><time>{date(row.createdAt)}</time></li>)}</ol>}</section>}
       {page === 'operations' && <OperationsPanel api={api} role={role} demo={demo} onError={onError} />}
       {page === 'applications' && filter === 'suspended' && role !== 'reviewer' && !demo && <DeletedPhoneBlock />}
       {page === 'family' && <FamilyBridgeAdmin api={api} role={role} refresh={revision} onError={onError}/>}
       {page === 'verification' && <><PortraitReview refresh={revision} onError={onError}/><VerificationAdmin api={api} role={role} refresh={revision} onError={onError}/></>}
-      {page === 'support' && role !== 'reviewer' && <SupportAdmin api={api} refresh={revision} onError={onError}/>}
+      {page === 'support' && role !== 'reviewer' && <SupportAdmin limited={role==='support'} api={api} refresh={revision} onError={onError}/>}
       {more && <button className="secondary more-button" disabled={loading} onClick={() => void loadMore()}>{loading ? 'جارٍ التحميل…' : 'تحميل المزيد'}<ArrowDownLeft size={16} /></button>}
       <footer className="workspace-footer"><span>وُدَين · توافق ذكي للزواج</span><span><LockMark /> الوصول بحسب الدور، والقرار باسم صاحبه.</span></footer>
     </main>
-    {memberId && <MemberSheet key={memberId} id={memberId} api={api} role={role} close={() => setMemberId(null)} completed={completed} onError={onError} />}
+    {memberId && <MemberSheet live={!demo} openOps={()=>{setOpsId(memberId);navigate('memberOps');}} key={memberId} id={memberId} api={api} role={role} close={() => setMemberId(null)} completed={completed} onError={onError} />}
     {report && <ReportSheet key={report.reportId} report={report} canViewEvidence={role === 'owner' || report.assignedTo === staff.userId} api={api} close={() => setReport(null)} completed={completed} onError={onError} canAct={role === 'owner' || !report.assignedTo || report.assignedTo === staff.userId} reload={() => { setReport(null); setRevision(v => v + 1); }} onMember={() => { setMemberId(report.reportedId); setReport(null); }} />}
   </div>;
 }

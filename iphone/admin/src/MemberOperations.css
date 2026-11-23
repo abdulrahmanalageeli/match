@@ -1,0 +1,16 @@
+.mo-stack {display:grid;gap:1rem}
+.mo-heading,.mo-inline,.mo-results,.mo-note {display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.mo-heading {justify-content:space-between}
+.mo-heading h2,.mo-note p {margin:0}
+.mo-inline {align-items:end}
+.mo-inline label,.mo-stack label {display:grid;gap:.35rem;min-width:0}
+.mo-inline label {flex:1 1 12rem}
+.mo-stack input,.mo-stack select,.mo-stack textarea,.mo-inline input {max-width:100%;min-width:0;box-sizing:border-box}
+.mo-facts {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:.75rem 1rem;margin:1rem 0}
+.mo-facts dt,.mo-note span,.mo-heading small {font-size:.8rem;color:var(--muted,#725e67)}
+.mo-facts dd {margin:.2rem 0;font-weight:650;overflow-wrap:anywhere}
+.mo-stack summary {cursor:pointer;padding:.5rem 0}
+.mo-note {padding:.7rem 0;border-block-end:1px solid var(--line,#e9e2e4)}
+.mo-note p {flex-basis:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.mo-stack form>.primary {justify-self:start}
+.mo-results small {display:block;overflow-wrap:anywhere}

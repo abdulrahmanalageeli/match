@@ -3,6 +3,8 @@ import { Mail, MessageCircle, X } from "../BrandIcons";
 import type { SupportCategory, SupportInput, SupportSource, SupportTicket } from './support';
 import { feedback } from '../feedback/haptics';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
+import { MemberData } from '../settings/MemberData';
+import {chapters,type Chapter} from '../onboarding/draft';
 import './support.css';
 
 const contact = 'privacy@blindmatch.app';
@@ -10,8 +12,9 @@ const Context = createContext<SupportSource | null>(null);
 const statuses = { open: 'تم الاستلام', in_review: 'قيد المتابعة', resolved: 'تم الرد والإغلاق' };
 // Session-memory only; each authenticated source owns its drafts and retry IDs.
 const drafts = new WeakMap<SupportSource, Map<string, SupportInput>>();
-export function SupportProvider({ source, children }: { source: SupportSource | null; children: ReactNode }) {
-  return <Context.Provider value={source}>{children}</Context.Provider>;
+const ReviewSection=createContext<((chapter:Chapter,field:string)=>void)|undefined>(undefined);
+export function SupportProvider({ source, children,onReview }: { source: SupportSource | null; children: ReactNode; onReview?:(chapter:Chapter,field:string)=>void }) {
+  return <Context.Provider value={source}><ReviewSection.Provider value={onReview}>{children}</ReviewSection.Provider></Context.Provider>;
 }
 
 function SupportTicketsLoading() {
@@ -19,6 +22,18 @@ function SupportTicketsLoading() {
 }
 
 function SupportDialog({ source, subject: initialSubject, context, close }: { source: SupportSource; subject: string; context?: string; close: () => void }) {
+  const reviewSection=useContext(ReviewSection);
+  const [exportTicket,setExportTicket]=useState(''),[phoneTicket,setPhoneTicket]=useState(''),[phone,setPhone]=useState(''),[otp,setOtp]=useState(''),[smsSent,setSmsSent]=useState(false);
+  async function verifyCase(id:string) {
+    if(sending||!source.verifyCase)return;setSending(true);setError('');
+    try{
+      if(phoneTicket===id && source.sendAuthPhone && source.confirmAuthPhone){
+        if(!smsSent){await source.sendAuthPhone(phone);setSmsSent(true);return;}
+        await source.confirmAuthPhone(id,phone,otp);
+      }else{const state=await source.verifyCase(id);if(state==='authPhone'){setPhoneTicket(id);setSmsSent(false);return;}if(state==='cancelled')return;}
+      setPhoneTicket('');setPhone('');setOtp('');setReceipt('اكتمل التحقق من حسابك.');await load();
+    }catch(e){setError(e instanceof Error?e.message:'تعذّر التحقق.');}finally{setSending(false);}
+  }
   const draftKey = initialSubject + '\n' + (context || ''), saved = drafts.get(source)?.get(draftKey);
   const dialog = useRef<HTMLDialogElement>(null), heading = useId(), generation = useRef(0);
   const [category, setCategory] = useState<SupportCategory>(saved?.category || 'help'), [subject, setSubject] = useState(saved?.subject ?? initialSubject), [body, setBody] = useState(saved?.body ?? (context ? context + '\n\n' : ''));
@@ -38,6 +53,26 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
     finally { if (ticket === generation.current) setLoading(false); }
   }
   useEffect(() => { generation.current++; const el = dialog.current; el?.showModal(); void load(); return () => { generation.current++; el?.close(); }; }, [source]);
+  async function shareDirectory(ticket:string) {
+    if(!source.shareDirectory||sending)return;
+    setSending(true);setError('');
+    try{await source.shareDirectory(ticket);await load();setReceipt('وصل عدد النتائج قبل التصفية وبعدها إلى فريق المتابعة.');}
+    catch(e){setError(e instanceof Error?e.message:'تعذّرت مشاركة عدد النتائج.');}finally{setSending(false);}
+  }
+  async function confirmRepair(ticket:string) {
+    if(!source.confirmRepair || sending)return;
+    setSending(true);setError('');
+    try{await source.confirmRepair(ticket);await load();setReceipt('شكرًا، وصل تأكيدك لفريق وُدَين.');}
+    catch(e){setError(e instanceof Error?e.message:'تعذّر إرسال تأكيدك.');}
+    finally{setSending(false);}
+  }
+  async function deletionDecision(ticket: SupportTicket, approve: boolean) {
+    if (!source.confirmDeletion || sending) return;
+    setSending(true); setError('');
+    try { await source.confirmDeletion(ticket.id, approve); await load(); setReceipt(approve ? 'سُجل تأكيدك لطلب الحذف.' : 'سُحب تأكيد الحذف.'); }
+    catch (problem) { setError(problem instanceof Error ? problem.message : 'تعذّر حفظ قرارك.'); }
+    finally { setSending(false); }
+  }
   async function send() {
     if (sending || loading) return;
     const ticketGeneration = generation.current;
@@ -69,9 +104,15 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
     {error && <p className="nf-support-feedback nf-support-error" role="alert">{error}</p>}{receipt && <p className="nf-support-feedback nf-support-receipt" role="status">{receipt}</p>}
     <section className="nf-support-requests" aria-label="طلبات المساعدة"><header><h3>طلباتي</h3><button type="button" disabled={loading || sending} onClick={() => void load()}>تحديث</button></header>
       {loading && (items.length ? <p className="nf-support-refresh" role="status">جارٍ تحديث طلباتك…</p> : <SupportTicketsLoading/>)}{!loading && !items.length && !error && <div className="nf-support-empty"><h4>طلباتك في مكان واحد</h4><p>اكتب ما تحتاج إليه في النموذج أعلاه. بعد الإرسال، يظهر هنا رقم طلبك وحالته ورد الفريق.</p></div>}
-      {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}</article>)}
+      {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}{item.status!=='resolved'&&item.needsVerification&&source.verifyCase&&<div className="nf-support-response">{phoneTicket===item.id&&<label>{smsSent?'رمز تأكيد الرقم الجديد':'رقم الجوال الجديد'}<input dir="ltr" inputMode={smsSent?'numeric':'tel'} value={smsSent?otp:phone} onChange={e=>smsSent?setOtp(e.target.value):setPhone(e.target.value)}/></label>}<button type="button" disabled={sending} onClick={()=>void verifyCase(item.id)}>{phoneTicket===item.id?(smsSent?'تأكيد الرقم':'إرسال رمز التحقق'):'التحقق من ملكية الحساب'}</button></div>}
+      {item.status!=='resolved'&&item.editStep&&reviewSection&&<button type="button" onClick={()=>{const chapter=chapters.find(c=>c.key===item.editStep)?.key;if(chapter){close();reviewSection(chapter,item.editField??'');}}}>مراجعة {item.editField}</button>}
+      {item.status!=='resolved'&&item.exportOffered&&source.ownerId&&<button type="button" onClick={()=>setExportTicket(item.id)}>فتح نسخة بياناتي الخاصة</button>}
+      {item.status!=='resolved'&&item.requestFilters&&source.shareDirectory&&<button disabled={sending} type="button" onClick={()=>void shareDirectory(item.id)}>مشاركة عدد نتائج اكتشافي فقط</button>}
+      {item.status!=='resolved'&&item.confirmRepair&&<button disabled={sending} type="button" onClick={()=>void confirmRepair(item.id)}>تأكدت من حل المشكلة</button>}
+      {item.deletionRequested && source.confirmDeletion && <details className="nf-support-response"><summary>طلب حذف حسابي</summary><p>عند تنفيذ الحذف تُزال بيانات حسابك وتنتهي علاقات التعارف. إذا كان عندك اشتراك في Apple، راجع التجديد في حساب المتجر.</p>{item.deletionApproved && <p>طلبك مؤكّد وبانتظار التنفيذ.</p>}<button type="button" disabled={sending} onClick={() => void deletionDecision(item, !item.deletionApproved)}>{item.deletionApproved ? 'سحب موافقتي على الحذف' : 'أؤكد طلبي بحذف حسابي نهائيًا'}</button></details>}</article>)}
       {cursor && <button type="button" disabled={loading || sending} onClick={() => void load(cursor)}>طلبات أقدم</button>}
     </section>
+    {exportTicket&&source.ownerId&&<MemberData mode="export" caseTicket={exportTicket} owner={source.ownerId} demo={false} close={()=>setExportTicket('')}/>}
   </dialog>;
 }
 

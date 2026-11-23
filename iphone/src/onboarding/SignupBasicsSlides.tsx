@@ -1,6 +1,7 @@
 import { MemberNameFields } from './MemberNameFields';
 import { dimensionsForVersion } from '../compatibility/practical-catalog';
 import { familyContext } from './familyContext';
+import { launchEvent } from '../launchEvents';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Check, Eye, MapPin, Pencil } from '../BrandIcons';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -70,8 +71,8 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   return null;
 }
 
-type Props={ chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
-export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
+type Props={ trackingOwner?:string; chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
+export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({trackingOwner,chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
   const total=signupSlideCount(chapter);
   // Keep the questions shown on entering a section stable while the member answers.
   const [entryAnswers, setEntryAnswers] = useState(p);
@@ -100,10 +101,12 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const container=useRef<HTMLDivElement>(null);
   const previous=useRef(index);
   const visibleIndex=slides[index]??slides.at(-1)??0;
+  useEffect(()=>{if(trackingOwner&&chapter==='identity'&&visibleIndex===3) launchEvent('reached','eligibility',trackingOwner);},[trackingOwner,chapter,visibleIndex]);
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){setError(issue);return true;}
+    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){if(trackingOwner)launchEvent('error', chapter==='identity'&&visibleIndex===3?'eligibility':chapter,trackingOwner);setError(issue);return true;}
+      if(trackingOwner&&chapter==='identity'&&visibleIndex===3)launchEvent('completed','eligibility',trackingOwner);
       if(chapter==='details' && visibleIndex===0 && !allDetails) {
         setEntryAnswers(p);
         if(!remainingDetailFields(p,consents.sensitiveProfile).length)return false;

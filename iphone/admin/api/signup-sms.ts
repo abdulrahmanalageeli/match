@@ -23,7 +23,12 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    if(typeof network!=='string'||!network)return res.status(503).json({error:'unavailable'});
    const proof=randomBytes(32).toString('hex'),proofHash=hash(proof);
    const state=await rpc('start',{proofHash,deviceHash,consentVersion:p.consentVersion,email:p.email.trim().toLowerCase(),phone:p.phone,networkHash:hash(key+':sms-network:'+network.split(',')[0].trim())});
-   await authenticaOtp('send',p.phone);await rpc('sent',{proofHash});
+   try {await authenticaOtp('send',p.phone);}
+   catch(error) {
+    await client.rpc('marriage_launch_counter',{kind_value:'provider_error',bucket:hash(key+':sms-error:'+new Date().toISOString().slice(0,13)+':'+network.split(',')[0].trim())}).then(()=>{},()=>{});
+    throw error;
+   }
+   await rpc('sent',{proofHash});
    return res.status(200).json({proof,duplicateDevice:state.duplicateDevice===true,retryAfter:60});
   }
   if(typeof p.proof!=='string'||!/^[a-f0-9]{64}$/.test(p.proof)||typeof p.otp!=='string'||!/^\d{4,8}$/.test(p.otp))return res.status(400).json({error:'invalid'});

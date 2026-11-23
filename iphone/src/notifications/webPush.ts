@@ -1,3 +1,4 @@
+import { publicationBuild } from '../publishing/appBuild';
 import { callRpc, cloudSessionId } from '../cloud';
 import { notificationScope } from './scope';
 import type { PushOpen } from './push';
@@ -49,6 +50,7 @@ async function subscribe(owner: string) {
   if ((await cloudSessionId()) !== owner) { await subscription.unsubscribe(); throw new Error('سجّل الدخول مجددًا لتفعيل الإشعارات.'); }
   try {
     await callRpc('marriage_web_push_register', { subscription: subscription.toJSON(), installation: installationId() }, owner);
+    await callRpc('wudayn_news_preference',{installation:installationId(),build:publicationBuild()},owner).catch(()=>{});
     localStorage.setItem(ownerKey, owner);
   } catch (error) { await subscription.unsubscribe().catch(() => false); throw error; }
 }
@@ -93,7 +95,7 @@ function routeIds(value: {messageId?:unknown;roomId?:unknown}) {
 
 function validOpen(value: unknown): value is PushOpen {
   const event = value as PushOpen | undefined;
-  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis'].includes(event.kind));
+  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication'].includes(event.kind));
 }
 
 // A click can arrive while Auth is restoring the session or at the sign-in

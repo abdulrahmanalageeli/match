@@ -5,7 +5,8 @@ import type { AdminApi, ManageAction, MemberDetail } from './types';
 
 const actionLabels: Record<ManageAction, string> = { edit_profile: 'تعديل الملف', grant_access: 'منح وصول مجاني', revoke_access: 'إلغاء الوصول المجاني', set_dummy: 'تغيير تصنيف الحساب' };
 
-export function AccountControls({ member, api, busy, setBusy, completed, onError }: {
+export function AccountControls({ member, api, busy, setBusy, completed, onError, operationalGrants=false }: {
+  operationalGrants?:boolean;
   member: MemberDetail; api: AdminApi; busy: boolean; setBusy: (value: boolean) => void; completed: () => void; onError: (error: unknown) => void;
 }) {
   const [action, setAction] = useState<ManageAction>('edit_profile');
@@ -26,7 +27,7 @@ export function AccountControls({ member, api, busy, setBusy, completed, onError
     <p className="muted">تُحفظ التغييرات باسمك مع سبب الإجراء.</p>
     <form onSubmit={event => void submit(event)}>
       <label>الإجراء<select value={action} disabled={busy} onChange={event => { setAction(event.target.value as ManageAction); setError(''); }}>
-        {(Object.keys(actionLabels) as ManageAction[]).filter(value => (value !== 'set_dummy' || member.accountSource !== 'pair_test') && (value !== 'revoke_access' || Boolean(member.manualAccessUntil))).map(value => <option key={value} value={value}>{actionLabels[value]}</option>)}
+        {(Object.keys(actionLabels) as ManageAction[]).filter(value => (!operationalGrants || !['grant_access','revoke_access'].includes(value)) && (value !== 'set_dummy' || member.accountSource !== 'pair_test') && (value !== 'revoke_access' || Boolean(member.manualAccessUntil))).map(value => <option key={value} value={value}>{actionLabels[value]}</option>)}
       </select></label>
       {action === 'edit_profile' && <>
         <label>الاسم الظاهر<input required minLength={1} maxLength={60} value={displayName} disabled={busy} onChange={event => setDisplayName(event.target.value)} /></label>
@@ -36,6 +37,7 @@ export function AccountControls({ member, api, busy, setBusy, completed, onError
       {action === 'grant_access' && <><label>مدة الوصول بالأيام<input type="number" min={1} max={365} step={1} required value={days} disabled={busy} onChange={event => setDays(event.target.value)} /></label><p className="muted">تبدأ المدة من اليوم وتستبدل مدة أي منحة سابقة. لا يُسجّل هذا الإجراء دفعة مالية.</p></>}
       {action === 'revoke_access' && <p className="notice">تُلغى منحة الوصول المجاني فقط. يظل الاشتراك المدفوع عبر المتجر ساريًا إن وُجد؛ هذا الإجراء لا يلغي اشتراك المتجر ولا ينفّذ استردادًا ماليًا.</p>}
       {action === 'set_dummy' && <p className="notice">سيصبح تصنيف هذا الحساب: <strong>{member.isDummy ? 'حساب حقيقي' : 'حساب وهمي (Dummy)'}</strong>. غيّر التصنيف فقط إذا كان يطابق طبيعة الحساب.</p>}
+      {action==='edit_profile' && <dl className="member-facts">{[['الاسم الظاهر',member.displayName,displayName],['المهنة',member.profession,profession],['النبذة',member.bio,bio]].filter(([,before,after])=>before!==after).map(([label,before,after])=><div key={label}><dt>{label}</dt><dd><del>{before}</del> ← <ins>{after}</ins></dd></div>)}</dl>}
       <label>سبب الإجراء<textarea required minLength={3} maxLength={500} rows={2} value={reason} disabled={busy} onChange={event => setReason(event.target.value)} /></label>
       {error && <p className="notice error" role="alert">{error}</p>}
       <button className={'primary' + (action === 'revoke_access' ? ' danger' : '')} disabled={busy || reason.trim().length < 3}>{busy ? 'جارٍ الحفظ…' : 'تأكيد ' + actionLabels[action]}<Check size={17}/></button>

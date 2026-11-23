@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
+import {seedCommunicationMember} from './communication-fixture.mjs';
 
 async function user(db,label){const value={id:randomUUID(),sessionId:randomUUID(),email:label+'@example.invalid'};await addUser(db,value);return value;}
 async function staff(db,label,role){const value=await user(db,label);await db.query('insert into marriage.staff_accounts(user_id,role,display_name) values($1,$2,$3)',[value.id,role,label]);return value;}
@@ -13,6 +14,35 @@ async function asStaff(db,u,fn,{aal='aal2',extra={}}={}){
 async function rpc(db,sql,args=[]){return (await db.query('select '+sql+' as result',args)).rows[0].result;}
 const profile=(name='عضو')=>({displayName:name,age:29,gender:'woman',city:'الرياض',profession:'باحثة',bio:'ملف للمراجعة',contact:'PRIVATE-CONTACT',preferredMinAge:25,preferredMaxAge:40,familyPreference:'بعد التعارف',interestIds:['reading'],surveyAnswers:{conversation_initiative_preference:'A'},consentVersion:'2026-11-05'});
 async function apply(db,u,value=profile()){return asMember(db,u.id,u.sessionId,()=>rpc(db,'public.marriage_apply($1)',[value]));}
+
+test('support staff claim trusted invitations and can reply only to permitted support tickets',async()=>{
+ const db=await createDatabase();
+ try {
+  const agent=await user(db,'support-agent'),member=await user(db,'support-member'),agent2=await staff(db,'second-support','support');
+  await db.query("insert into marriage.staff_invitations(email,display_name,role,expires_at) values($1,'Support','support',now()+interval '1 day')",[agent.email]);
+  const as=(who,fn)=>asStaff(db,who,fn);
+  const call=(action,payload={})=>rpc(db,'public.marriage_support($1,$2)',[action,payload]);
+  const ticket=async(category)=>asMember(db,member.id,member.sessionId,()=>call('create',{clientId:randomUUID(),subject:'طلب المساعدة',body:'أحتاج متابعة هذا الطلب.',category}));
+  const general=await ticket('help'),safety=await ticket('safety');
+  const access=await asStaff(db,agent,()=>rpc(db,'public.marriage_admin_access()'),{aal:'aal1'});
+  assert.equal(access.role,'support');assert.equal(access.mfaRequired,true);
+  await assert.rejects(asStaff(db,agent,()=>call('admin_list'),{aal:'aal1'}),/بخطوتين/);
+  const reply=(t,status='in_review')=>({id:t.id,requestId:randomUUID(),revision:t.revision,status,response:'أتابع طلبك الآن.'});
+  await as(agent,async()=>{
+   assert.deepEqual((await call('admin_list')).items.map(t=>t.id),[general.id]);
+   await assert.rejects(call('admin_reply',reply(safety,'resolved')),/غير متاح/);
+   for(const sql of ['public.marriage_admin_reports()','public.marriage_admin_member($1)','public.marriage_report_excerpt($1)','public.marriage_admin_launch_analytics(current_date,current_date)']){
+    await assert.rejects(rpc(db,sql,sql.includes('$1')?[member.id]:[]),/صلاحية/);
+   }
+   const action=reply(general);
+   assert.equal((await call('admin_reply',action)).status,'in_review');
+   assert.equal((await call('admin_reply',action)).revision,general.revision+1);
+  });
+  await as(agent2,async()=>{assert.equal((await call('admin_list',{status:'all'})).items.length,0);await assert.rejects(call('admin_reply',reply(general)),/غير متاح/);});
+  await as(agent,async()=>{const current=(await call('admin_list',{status:'in_review'})).items[0];assert.equal((await call('admin_reply',reply(current,'resolved'))).status,'resolved');});
+  assert.equal((await db.query('select assigned_staff from marriage.support_requests where id=$1',[general.id])).rows[0].assigned_staff,agent.id);
+ }finally{await db.close();}
+});
 
 test('staff authority requires a live confirmed session, private role and MFA for every privileged RPC',async()=>{
  const db=await createDatabase();
@@ -55,7 +85,13 @@ test('reviews and investigations enforce scoped roles, stale revisions, attribut
  try{
   const owner=await staff(db,'owner','owner'),reviewer=await staff(db,'reviewer','reviewer'),moderator=await staff(db,'moderator','moderator'),other=await staff(db,'othermoderator','moderator');
   const member=await user(db,'member'),peer=await user(db,'peer');
-  const memberState=await apply(db,member),peerState=await apply(db,peer,{...profile('طرف آخر'),gender:'man'});
+  // This test reviews existing applications. Seed the historical saved profile rather
+  // than submitting a retired one-question questionnaire through current onboarding.
+  await seedCommunicationMember(db,member,'woman','pending');await seedCommunicationMember(db,peer,'man','pending');
+  await db.query("update marriage.profiles set bio='ملف للمراجعة' where member_id=$1",[member.id]);
+  await db.query("insert into marriage.contacts(member_id,contact_value) values($1,'PRIVATE-CONTACT')",[member.id]);
+  await db.query("insert into marriage.member_answers(member_id,question_code,option_code) values($1,'conversation_initiative_preference','A')",[member.id]);
+  await db.query("insert into marriage.consents(member_id,version) values($1,'2026-11-05'),($2,'2026-11-05')",[member.id,peer.id]);
   const as=(u,sql,args=[])=>asStaff(db,u,()=>rpc(db,sql,args));
   const detail=await as(reviewer,'public.marriage_admin_member($1)',[member.id]);
   assert.equal(detail.bio,'ملف للمراجعة');assert.equal(detail.answeredTopics,1);
@@ -65,7 +101,7 @@ test('reviews and investigations enforce scoped roles, stale revisions, attribut
   await assert.rejects(as(moderator,'public.marriage_admin_applications()'),/لمراجعي/);
   await assert.rejects(as(reviewer,'public.marriage_admin_reports()'),/صلاحية/);
   await assert.rejects(as(reviewer,'public.marriage_admin_audit()'),/صلاحية/);
-  await apply(db,member,profile('اسم معدّل'));
+  await db.query("update marriage.profiles set display_name='اسم معدّل' where member_id=$1",[member.id]);
   await assert.rejects(as(reviewer,'public.marriage_admin_review($1,$2,$3,$4,$5)',[member.id,'approve',detail.revision,'تم التحقق من الطلب',randomUUID()]),/تغيّر الملف/);
   const next=await as(reviewer,'public.marriage_admin_member($1)',[member.id]);
   const operation=randomUUID(),args=[member.id,'approve',next.revision,'تم التحقق من الطلب',operation];
@@ -77,10 +113,7 @@ test('reviews and investigations enforce scoped roles, stale revisions, attribut
   await assert.rejects(as(reviewer,'public.marriage_admin_review($1,$2,$3,$4,$5)',[member.id,'suspend',approved.revision,'بلاغ قيد التحقق',randomUUID()]),/صلاحية/);
   // The current relationship guard requires both participants to be approved and paid.
   await asService(db,()=>rpc(db,"public.marriage_review($1,'approve')",[peer.id]));
-  for(const [account,state] of [[member,memberState],[peer,peerState]]) await asService(db,()=>rpc(db,'public.marriage_record_receipt($1,$2,false)',[account.id,{
-    bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,
-    originalTransactionId:account.id,transactionId:account.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox',
-  }]));
+  await db.query("update marriage.members set manual_access_until=now()+interval '1 day' where id in ($1,$2)",[member.id,peer.id]);
   await db.query('insert into marriage.weekly_batches values($1,marriage.current_week())',[member.id]);
   await db.query('insert into marriage.weekly_candidates values($1,marriage.current_week(),1,$2)',[member.id,peer.id]);
   const thread=randomUUID();await db.query("insert into marriage.member_requests(id,requester_id,recipient_id,status) values($1,$2,$3,'accepted')",[thread,member.id,peer.id]);
@@ -91,7 +124,9 @@ test('reviews and investigations enforce scoped roles, stale revisions, attribut
   await assert.rejects(as(owner,'public.marriage_admin_report_action($1,$2,$3,$4,$5)',[report,'resolve',row.revision,'إغلاق البلاغ بعد الفحص',randomUUID()]),/تغيّر البلاغ/);
   row=(await as(moderator,'public.marriage_admin_reports()'))[0];assert.equal(row.assignedTo,moderator.id);
   await assert.rejects(as(other,'public.marriage_admin_report_action($1,$2,$3,$4,$5)',[report,'assign_self',row.revision,'استلام البلاغ',randomUUID()]),/مراجع آخر/);
-  await as(moderator,'public.marriage_admin_review($1,$2,$3,$4,$5)',[member.id,'suspend',approved.revision,'تعليق للحماية أثناء التحقيق',randomUUID()]);
+  const latest=await as(moderator,'public.marriage_admin_member($1)',[member.id]);
+  await assert.rejects(as(moderator,'public.marriage_admin_review($1,$2,$3,$4,$5)',[member.id,'suspend',latest.revision,'تعليق للحماية أثناء التحقيق',randomUUID()]),/شاشة الإجراءات/);
+  await as(moderator,'public.marriage_staff_conduct($1,$2)',['issue',{memberId:member.id,kind:'suspension',policy:'safety',explanation:'إيقاف التعارف للحماية أثناء مراجعة البلاغ.',urgent:true,requestId:randomUUID()}]);
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[thread])).rows[0].status,'closed');
   let suspended=await as(owner,'public.marriage_admin_member($1)',[member.id]);assert.equal(suspended.suspended,true);
   await assert.rejects(as(owner,'public.marriage_admin_review($1,$2,$3,$4,$5)',[member.id,'approve',suspended.revision,'قبول مباشر غير مسموح',randomUUID()]),/رفع التعليق/);

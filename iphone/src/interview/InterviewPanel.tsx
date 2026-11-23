@@ -6,12 +6,14 @@ import { ArrowLeft, ArrowUp, Check, ChevronDown, HeartHandshake, LockKeyhole, Pe
 import { MotionPressButton } from '../motion/Reanimated';
 import { feedback } from '../feedback/haptics';
 import { InterviewError, requestInterview, type InterviewAuth } from './api';
+import { launchEvent } from '../launchEvents';
 import { ConfirmedAnswers, HybridAssessment, LunaSessionSteps, OpeningInsights } from './HybridAssessment';
 import { parentingApplicable, parentingContext } from '../compatibility/parenting.mjs';
 import { proposalOptions, proposalSide, proposalStatement, proposalTitle, type InterviewSelection } from './model';
 import { profileField, profileProposalLabel, profileProposalValue, profileProposalOptions, validProfileProposalValues, type ProfileContext, type ProfileProposal } from './profileCapture';
 import topics from './catalog.json';
 import openingScenarios from './opening-scenarios.json';
+import { usePublishedCopy } from '../publishing/PublicationCenter';
 import openingPrompts from './opening-prompts.json';
 import type { InterviewDocument, InterviewProposal, InterviewSnapshot } from './types';
 import './interview.css';
@@ -56,6 +58,7 @@ function renderLunaMessage(text: string, animate = false, singleClass?: string) 
 
 function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const example=usePublishedCopy('luna.example','إذا ارتحنا لبعض، ودي نتكلم أول عن السكن والعمل وكيف كل واحد يتصوّر الحياة بعد الزواج. وإذا تفاهمنا، نرتّب كيف يدخل الأهل.');
   const id = nextStep ? 'wi-next-step-example' : 'wi-opening-example';
   useEffect(() => {
     if (!expanded) return;
@@ -70,7 +73,7 @@ function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
       <div className="wi-example-clip">
         <div className="wi-example-content">
           {nextStep ? <ul>
-            <li>«إذا ارتحنا لبعض، ودي نتكلم أول عن السكن والعمل وكيف كل واحد يتصوّر الحياة بعد الزواج. وإذا تفاهمنا، نرتّب كيف يدخل الأهل.»</li>
+            <li>«{example}»</li>
             <li>«أرتاح إذا الأهل كانوا بالصورة من بدري، وإذا ناسب الطرف الثاني نتفق معهم على طريقة التعارف.»</li>
           </ul> : <>
             <p>«أبي أطفال، ويهمّني إن الطرف الثاني يبي أطفال بعد. أقدر أنتقل لمدينته، وإذا حصل توافق يناسبني نبدأ الخطوة الرسمية خلال ستة أشهر.»</p>
@@ -98,6 +101,7 @@ export function InterviewEntry({ available, open, registration = false }: { avai
 }
 
 type Props = {
+  initialField?:string;
   open: boolean;
   auth: InterviewAuth;
   onClose: () => void;
@@ -118,7 +122,7 @@ type Props = {
   onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
-export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
+export function InterviewPanel({ open, auth, initialField, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -218,6 +222,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
         ...payload,
       });
       if (!mounted.current) return null;
+      if(onboarding && auth.token && !auth.testSession && ['answer','clarify','retry','review','structuredConfirm'].includes(action)) launchEvent('success','compatibility',auth.token);
       if (['answer','clarify','retry','review'].includes(action) && next.document && !next.document.pendingAnalysis) {
         const changes = messageChanges(before, next, hybridEnabled), turnId = next.document.turns.at(-1)?.id;
         if (turnId && changes.length) setCaptures(previous => ({ ...previous, [turnId]: changes }));
@@ -237,6 +242,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       return next;
     } catch (cause) {
       if (mounted.current) {
+        if (onboarding && auth.token && !auth.testSession) launchEvent('fault','compatibility',auth.token);
         setError(cause instanceof Error ? cause.message : 'تعذّر إكمال الخطوة. حاول مجددًا.');
         setErrorCode(cause instanceof InterviewError ? cause.code : 'unavailable');
       }
@@ -267,7 +273,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
       if (mounted.current) setBusy('');
       release();
     }
-  }, [owner, assign, hybridEnabled]);
+  }, [owner, assign, hybridEnabled,onboarding,auth.token,auth.testSession]);
 
   useEffect(() => {
     if (open) {
@@ -592,7 +598,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             const result=await call('load', {}, true);
             if(result){setLoaded(true);if(!result.document)await call('start',{consentVersion:'wudayn-interview-v1',hybrid:true},true);}
           }}>إعادة الاتصال</button>
-          <HybridAssessment memberId={auth.token} direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
+          <HybridAssessment initialField={initialField} memberId={auth.token} direct {...family} unresolvedPartnerIds={hardRequirements.map(id => `preference:${id}:partner`)} choices={savedStructuredChoices} savedChoices={savedStructuredChoices} onChange={changeStructuredChoices} gender={gender}
             completingUnavailable onComplete={()=>{}}/>
         </section> : !loaded ? <div className="wi-loading" data-stopped={Boolean(error) || undefined} role="status"><span className="wi-loading-brand" aria-hidden="true"><img src="/brand/wudayn-heart-v2.png" alt=""/></span><p>{error ? 'تعذّر فتح جلستك' : 'نفتح جلستك…'}</p>{error ? <button type="button" className="wi-link" onClick={() => void call('load', {}, true).then(result => result && setLoaded(true))}>إعادة المحاولة</button> : <TypingDots/>}</div>
         : !doc ? <section className="wi-welcome">
@@ -649,7 +655,7 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             <small id="wi-clarification-count">{number(answer.length)} من {number(answerLimit)} حرف</small>
             <button className="wi-link" type="button" disabled={actionBlocked} onClick={() => { changeAnswer(''); setClarifying(false); }}>إلغاء التوضيح</button>
           </form>}
-          <HybridAssessment memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
+          <HybridAssessment initialField={initialField} memberId={auth.token} direct={direct} historical={doc.promptVersion==='wudayn-interview-4'} {...family} choices={structuredChoices} savedChoices={savedStructuredChoices} aiProposals={aiProposals} openingTurnId={openingTurnId} openingText={openingTurnId ? doc.turns[0].answer : undefined} onChange={changeStructuredChoices}
             onChoiceHelp={hybridReady && !structuredReceipt ? async (fieldId, description, priorAnswer) => {
               const result = await requestInterview(auth, {
                 action: 'choiceHelp', revision: current.current.revision, fieldId,

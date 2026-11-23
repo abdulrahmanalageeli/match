@@ -665,20 +665,22 @@ export function InterviewPanel({ open, auth, onClose, onDirectQuestions = onClos
             onComplete={(choices, inferredIds) => void confirm(choices, inferredIds)} gender={gender} disabled={busy === 'structuredConfirm' || busy === 'directConfirm'}
             completingUnavailable={!hybridReady || actionBlocked || (!direct && (Boolean(clarifying) || Boolean(answer.trim())))}
             onClarify={!direct && !structuredReceipt && hybridReady && !actionBlocked && !clarifying ? () => setClarifying('correction') : undefined}
-            reviewOptions={!direct && onboarding && profileChoices.length > 0 && <label className="wi-sharing wi-profile-carry-choice">
-              <input type="checkbox" checked={includeProfile} onChange={event=>setIncludeProfile(event.target.checked)}/>
-              <span>أضيف هذه التفاصيل إلى مسودة ملفي<small>{profileChoices.map(choice=>profileProposalLabel(choice)+' · '+profileProposalValue(choice)).join('، ')}</small></span>
-            </label>}
-            reviewExtras={<>
-              {!direct && profileProposals.length > 0 && <details className="wi-review-group wi-profile-group">
-                <summary><span><strong>تفاصيل لملفك وتفضيلاتك</strong><small>راجع ما فهمته لونا قبل إضافته إلى مسودتك</small></span><ChevronDown size={17}/></summary>
+            reviewOptions={!direct && profileProposals.length > 0 && <div className="wi-profile-review">
+              {onboarding && profileChoices.length > 0 && <label className="wi-sharing wi-profile-carry-choice">
+                <input type="checkbox" checked={includeProfile} onChange={event=>setIncludeProfile(event.target.checked)}/>
+                <span>أضيف هذه التفاصيل إلى مسودة ملفي<small>اختيارات جاهزة للإضافة: {number(profileChoices.length)}</small></span>
+              </label>}
+              <details className="wi-review-group wi-profile-group">
+                <summary><span><strong>عرض تفاصيل الملف</strong></span><ChevronDown size={17}/></summary>
                 <div className="wi-profile-capture-list">{profileProposals.map(proposal => <ProfileProposalReview
                   key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]}
                   restricted={Boolean(profileField(proposal.fieldId)?.sensitive && !sensitiveProfileAllowed)}
                   ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice}
                   onIgnore={() => setIgnoredProfile(previous => previous.includes(proposal.id) ? previous.filter(id => id !== proposal.id) : [...previous, proposal.id])}
                 />)}</div>
-              </details>}
+              </details>
+            </div>}
+            reviewExtras={<>
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
                 <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>

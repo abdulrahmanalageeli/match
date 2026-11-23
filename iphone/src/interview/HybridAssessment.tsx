@@ -233,14 +233,14 @@ function ChoiceCard({ field, value, onChoose, disabled, compact = false, shared 
   return <fieldset className="wi-hybrid-field" data-field-id={field.id} data-compact={compact || undefined} data-side={partner ? 'partner' : 'self'}>
     <legend tabIndex={-1}><span className="wi-field-side">{shared ? 'ترتيب أفضّله لنا' : compact ? 'عن شخصيتي' : partner ? 'في شريك حياتي' : 'في حياتي'}</span>{field.prompt}</legend>
     <div className="wi-hybrid-options">
-      {field.options.map((option, position) => <MotionPressButton
+      {field.options.map(option => <MotionPressButton
         key={option.code}
         className="wi-hybrid-option"
         aria-pressed={value === option.code}
         onClick={() => onChoose(option.code)}
         disabled={disabled}
       >
-        <span className="wi-hybrid-option-mark" aria-hidden="true">{value === option.code ? <Check size={13}/> : compact ? number.format(position + 1) : null}</span>
+        <span className="wi-hybrid-option-mark" aria-hidden="true">{value === option.code && <Check size={13}/>}</span>
         {option.label}
       </MotionPressButton>)}
     </div>
@@ -248,8 +248,9 @@ function ChoiceCard({ field, value, onChoose, disabled, compact = false, shared 
   </fieldset>;
 }
 
-function ChoiceHelp({ field, request, onChoose, disabled, shared = false }: {
+function ChoiceHelp({ field, request, onChoose, disabled, shared = false, secondary }: {
   shared?: boolean;
+  secondary?: ReactNode;
   field: Field;
   request: (fieldId: string, description?: string, priorAnswer?: string) => Promise<InterviewChoiceHelp>;
   onChoose: (value: string) => void;
@@ -290,9 +291,12 @@ function ChoiceHelp({ field, request, onChoose, disabled, shared = false }: {
   }
 
   return <div className="wi-card-help">
-    <button type="button" ref={trigger} className="wi-link" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
-      مو عارف وش أختار؟
-    </button>
+    <div className="wi-question-tools">
+      <button type="button" ref={trigger} className="wi-link" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
+        مساعدة لونا <ChevronDown size={14} aria-hidden="true"/>
+      </button>
+      {secondary}
+    </div>
     {open && <MotionReveal id={id} distance={5} duration={170} className="wi-choice-help" data-clarifying={needsClarification || undefined}>
       <div className="wi-choice-help-heading">
         <img src="/brand/wudayn-emblem-v2.png" width={20} height={22} alt=""/>
@@ -628,12 +632,17 @@ export function HybridAssessment({
       disabled={disabled} onChoose={code => choose(item.partner.id, code)}/>;
   }
   const canAdvance = card && (editField ? activeField && selected(activeField, choices) : !needsCard(card, choices));
-  const helpFor = (field: Field) => onChoiceHelp && <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => commitField(field, code, Boolean(sharedPrompt))} shared={Boolean(sharedPrompt)} disabled={disabled}/>;
+  const splitChoice = jointPrompt && card && <button type="button" className="wi-link" disabled={disabled}
+    onClick={() => setSeparateFor(card.self.id)}>أختار لنفسي ولشريكي بشكل مختلف</button>;
+  const helpFor = (field: Field) => onChoiceHelp
+    ? <ChoiceHelp request={onChoiceHelp} field={field} onChoose={code => commitField(field, code, Boolean(sharedPrompt))}
+        shared={Boolean(sharedPrompt)} disabled={disabled} secondary={splitChoice}/>
+    : splitChoice && <div className="wi-question-tools">{splitChoice}</div>;
   const otherExtracted = extracted.filter(field => !openingIds.has(field.id));
   const capturedChoice = (field: Field) => <ReviewChoice field={field} value={selected(field, choices)?.code}
     source={sourceOf(field)} side={openingSide(field)} onChoose={code => choose(field.id, code)} disabled={disabled}/>;
   const suggestionsReview = capturedCount > 0 ? <details key={card ? 'suggestions' : 'review-suggestions'} className="wi-hybrid-captured-review">
-      <summary><span>من كلامك · {number.format(capturedCount)} إجابات للمراجعة</span><ChevronDown size={17} aria-hidden="true"/></summary>
+      <summary><span>راجع الإجابات من كلامك ({number.format(capturedCount)})</span><ChevronDown size={17} aria-hidden="true"/></summary>
       {openingTurnId && openingIds.size > 0 && <OpeningCounts progress={progress} proposed={openingIds.size} total={fields.length}/>}
       <OpeningWords text={openingText} fields={fields} highlights={highlights} proposals={aiProposals} saved={savedChoices}
         disabled={disabled} onChoose={choose} renderChoice={id => capturedChoice(extracted.find(field => field.id === id)!)}/>
@@ -656,16 +665,8 @@ export function HybridAssessment({
     {!direct && !card && <LunaSessionSteps current="المراجعة"/>}
     {card && <details ref={topicMenu} className="wi-topic-route" data-active-topic={card.themeIndex}>
       <summary>
-        <span className="wi-chapter-position" aria-hidden="true">
-          <svg viewBox="0 0 36 36" focusable="false">
-            <circle cx="18" cy="18" r="15"/>
-            <circle cx="18" cy="18" r="15" pathLength="1" strokeDasharray="1"
-              strokeDashoffset={routes[card.themeIndex].remaining / themeCards[card.themeIndex].cards.flatMap(assessmentFields).length}/>
-          </svg>
-          <bdi>{number.format(card.themeIndex + 1)}</bdi>
-        </span>
-        <span className="wi-topic-current" key={card.themeIndex}><strong>{!direct && 'اختياراتك · '}{routes[card.themeIndex].label}</strong>
-          <small>{routes[card.themeIndex].remaining ? <>المتبقي في هذا الموضوع · {number.format(routes[card.themeIndex].remaining)}</> : 'جاهز للمراجعة'}</small>
+        <span className="wi-topic-current" key={card.themeIndex}><strong>{routes[card.themeIndex].label}</strong>
+          <small>{routes[card.themeIndex].remaining ? <>المتبقي {number.format(routes[card.themeIndex].remaining)}</> : 'جاهز للمراجعة'}</small>
         </span>
         <span className="wi-topic-trigger">المواضيع <ChevronDown size={15} aria-hidden="true"/></span>
       </summary>
@@ -677,6 +678,8 @@ export function HybridAssessment({
             : <p>تظهر هنا إجاباتك بعد حفظها في مسودتك الخاصة.</p>}
         </div>}
       </details>
+      {onClarify && <button type="button" className="wi-link wi-correct-introduction" disabled={disabled}
+        onClick={() => { if (topicMenu.current) topicMenu.current.open = false; onClarify(); }}>توضيح كلامي مع لونا</button>}
       <ol aria-label="مواضيع أسئلة التوافق">{routes.map((route, i) => <li key={route.label}>
         <button type="button" disabled={disabled || route.nextIndex < 0} aria-current={i === card.themeIndex ? 'step' : undefined}
           data-topic-index={i} data-complete={route.nextIndex < 0 || undefined} onClick={() => pickTopic(i)}>
@@ -721,7 +724,7 @@ export function HybridAssessment({
         {activeField && displayField && !savedArrangement && !confirmOwn && <ChoiceCard key={activeField.id} shared={Boolean(sharedPrompt)} field={displayField} value={selected(activeField, choices)?.code}
           onChoose={code => commitField(activeField, code, Boolean(sharedPrompt))} disabled={disabled}
           compact={card.personality.includes(activeField)} help={helpFor(activeField)}/>}
-        {jointPrompt && <button type="button" className="wi-link" onClick={()=>setSeparateFor(card.self.id)}>أختار لنفسي ولشريكي بشكل مختلف</button>}
+        {savedArrangement && splitChoice && <div className="wi-question-tools">{splitChoice}</div>}
       </div> : <>
         <p className="wi-lead">افتح أي موضوع لتراجع إجاباتك وتعدّلها قبل الاعتماد.</p>
         {reviewOptions}
@@ -736,17 +739,17 @@ export function HybridAssessment({
       </>}
     </div>
     {previous && (!card || previous.themeIndex === card.themeIndex) && !previous.selfOnly && inferred.has(previous.partner.id) && suggestionRow(previous)}
-    <div className="wi-hybrid-actions">
+    {(!card || canAdvance) && <div className="wi-hybrid-actions">
       {(!card || canAdvance) && <MotionPressButton
         className="wi-button wi-button-primary wi-wide"
         disabled={disabled || (card ? !canAdvance : available > 0 || completingUnavailable)}
         onClick={card ? () => advance() : () => onComplete(allSelected, [...inferred])}
       >{card ? 'متابعة' : 'اعتماد إجاباتي'}{card ? <ArrowLeft size={17} aria-hidden="true"/> : <Check size={17} aria-hidden="true"/>}</MotionPressButton>}
       {completingUnavailable && !card && <p className="wi-small" role="status">يمكنك مراجعة الإجابات ريثما يكتمل تحليل كلامك.</p>}
-      {onClarify && <div className="wi-hybrid-secondary">
+      {onClarify && !card && <div className="wi-hybrid-secondary">
         <button type="button" className="wi-link" onClick={onClarify} disabled={disabled}>أبي أوضّح إجابتي</button>
       </div>}
-    </div>
+    </div>}
     {card && suggestionsReview}
   </section>;
 }

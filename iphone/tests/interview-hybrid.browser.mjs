@@ -205,6 +205,7 @@ try {
   assert.equal(calls.some(call => call.action === 'structuredConfirm'), false);
   releaseOpening();
   await page.locator('.wi-hybrid-captured-review').waitFor();
+  await page.screenshot({path:resolve(output,'luna-question-compact.png'),animations:'disabled'});
   assert.equal(await page.locator('.wi-opening-notice').count(),0,'the question starts without a suggestion banner');
   assert.equal(await page.locator('.wi-hybrid-captured-review').count(),1,'answers from the introduction remain available below the question');
   const self = card.locator('fieldset').first();
@@ -220,7 +221,7 @@ try {
   await topicToggle.click();
   assert.deepEqual(calls.filter(({ action }) => action === 'answer').map(({ answer }) => answer), [opening]);
   await card.getByRole('button',{name:'أختار لنفسي ولشريكي بشكل مختلف'}).click();
-  const help = self.getByRole('button',{name:'مو عارف وش أختار؟'});
+  const help = self.getByRole('button',{name:'مساعدة لونا'});
   await help.click();
   assert.equal(calls.filter(call => call.action === 'choiceHelp').length, 0);
   await self.getByRole('button', { name: 'اشرحي الخيارات' }).click();
@@ -603,6 +604,7 @@ try {
   };
   await page.goto(url);
   await page.getByText('تفضيلك في الشريك من كلامك', {exact:true}).waitFor();
+  await page.screenshot({path:resolve(output,'luna-carry-forward-compact.png'),animations:'disabled'});
   await card.getByRole('button', {name:'الإنجاب ضمن خطتي أيضًا',exact:true}).click();
   await card.locator('[data-field-id="preference:marriage_timeline:self"]').waitFor();
   assert.equal(await card.locator('[data-field-id="' + firstPartnerId + '"]').count(), 0);
@@ -734,7 +736,8 @@ try {
   assert.ok(await dialog.evaluate(el=>el.scrollWidth <= el.clientWidth + 1));
   await page.getByRole('button',{name:'تخطّي السؤال'}).click();
   await card.waitFor();
-  assert.match(await page.locator('.wi-topic-current strong').innerText(),/^اختياراتك · /);
+  assert.equal(await page.locator('.wi-topic-current strong').innerText(),'الزواج والسكن');
+  assert.match(await page.locator('.wi-topic-current small').innerText(),/^المتبقي /);
   assert.ok(calls.at(-1).skip);
   const field = card.locator('fieldset').first();
   const entryMotion = async () => field.evaluate(el => {

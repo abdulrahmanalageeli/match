@@ -189,6 +189,12 @@ try{
  const directoryLock=first.getByRole('button',{name:'اشترك لعرض نسبة التوافق'});
  await directoryLock.waitFor();assert.equal(await first.locator('.nf-score-tile').count(),0);
  assert.doesNotMatch(await first.ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);
+ const upgradeRequest=first.locator('.dr-row-request');
+ await upgradeRequest.scrollIntoViewIfNeeded();
+ assert.ok(await upgradeRequest.evaluate(button => {
+   const rect=button.getBoundingClientRect();
+   return document.elementFromPoint(rect.right-5,rect.top+2)?.closest('button')===button;
+ }), 'the top edge of the free upgrade action opens membership');
  await directoryLock.tap();await selected(/المميزة/).waitFor();await back.click();
  await first.getByRole('button',{name:/عرض ملف سارة/}).click();
  assert.doesNotMatch(await page.locator('.mp-profile').ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);

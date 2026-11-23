@@ -346,6 +346,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-interest[aria-pressed='true'] { background: transparent !important; }
 .phone-app .cm-shell .df-discovery .dr-row-actions .dr-row-request {
+  position: relative;
+  z-index: 2;
   width: 44px;
   min-width: 44px;
   height: 44px;

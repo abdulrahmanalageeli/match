@@ -20,6 +20,7 @@ async function entry(href, mode = 'production') {
     'react-dom/client': { createRoot: () => ({ render(value) { events.push(['render']); rendered = value; } }) },
     react: { lazy: () => 'GuardianPortal', Suspense: 'Suspense' },
     './App': { default: 'App' },
+    './release/ReleaseGate': { ReleaseGate: 'ReleaseGate' },
     './auth/passwordRecovery': { readRecoveryLink, cleanRecoveryUrl },
     './auth/signupReturn': { readSignupReturn },
     './community/ConnectionNotice': { ConnectionNotice: 'ConnectionNotice' },
@@ -38,13 +39,16 @@ async function entry(href, mode = 'production') {
     return dependency;
   };
   vm.runInContext(compiled, context);
-  return { screen: rendered.props.children[0], events, href: location.href };
+  const gate = rendered.props.children;
+  assert.equal(gate.type, 'ReleaseGate');
+  return { screen: gate.props.children[0], hint: gate.props.resumeHint, events, href: location.href };
 }
 
 test('recovery takes precedence over family and demo routes and is scrubbed before initialization/render', async () => {
   for (const mode of ['production', 'demo']) {
     const result = await entry('https://app.example/?family=1&auth=recovery#type=recovery&access_token=a&refresh_token=b&invite=private', mode);
     assert.equal(result.screen.type, 'App');
+    assert.match(result.hint, /رابط استعادة الحساب/);
     assert.deepEqual(result.screen.props.recoveryLink, { kind: 'tokens', accessToken: 'a', refreshToken: 'b' });
     assert.deepEqual(result.events[0], ['scrub', '/']);
     assert(result.events.findIndex(([event]) => event === 'keyboard') > 0);
@@ -92,6 +96,7 @@ test('legacy host links cannot select an account without member authentication',
 test('family invites retain their route and take precedence over a test marker', async () => {
   const family = await entry('https://app.example/?family=1#invite=family-only', 'demo');
   assert.equal(family.screen.type, 'Suspense');
+  assert.match(family.hint, /رابط دعوة الأهل/);
   assert.equal(family.screen.props.children.type, 'GuardianPortal');
   assert.equal(family.screen.props.children.props.inviteToken, 'family-only');
   assert.equal(family.href, 'https://app.example/?family=1');

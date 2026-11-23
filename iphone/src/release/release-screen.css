@@ -1,0 +1,105 @@
+.wd-release-screen {
+  box-sizing: border-box;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: calc(28px + var(--nf-safe-top, 0px)) max(24px, env(safe-area-inset-right))
+    calc(28px + var(--nf-safe-bottom, 0px)) max(24px, env(safe-area-inset-left));
+  background: var(--page-background);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+.wd-release-layout { width: min(100%, 23.25rem); }
+.wd-release-content { padding-block: 0 25px; }
+.wd-release-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block-end: clamp(25px, 5vh, 42px);
+}
+.wd-release-brand img {
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 23%;
+  box-shadow: 0 1px 2px rgb(62 27 41 / .15), 0 6px 20px rgb(62 27 41 / .08);
+}
+.wd-release-screen h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.65rem, 6.8vw, 2.1rem);
+  font-weight: var(--font-weight-heading);
+  line-height: 1.45;
+  text-wrap: balance;
+}
+.wd-release-screen h1:focus { outline: none; }
+.wd-release-description, .wd-release-hint {
+  margin: .45rem 0 0;
+  color: var(--muted);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.wd-release-description { font-size: 1.03rem; }
+.wd-release-hint { margin-block-start: .8rem; font-size: .87rem; }
+.wd-release-time {
+  display: grid;
+  gap: 3px;
+  margin-block-start: 17px;
+  padding-inline-start: 13px;
+  border-inline-start: 2px solid var(--rose);
+  line-height: 1.6;
+}
+.wd-release-time span { color: var(--muted); font-size: .81rem; }
+.wd-release-time time { color: var(--ink); font-size: .99rem; font-weight: 700; }
+.wd-release-actions { display: grid; gap: 2px; }
+.wd-release-actions .wd-release-primary {
+  width: 100%;
+  min-height: 50px;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 13px;
+}
+.wd-release-actions .wd-release-primary:has(svg) { justify-content: space-between; padding-inline: 18px; }
+.wd-release-retry, .wd-release-later, .wd-release-banner-update {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.wd-release-retry { justify-self: center; padding-inline: 15px; font-size: .92rem; }
+.wd-release-error { flex-basis: 100%; margin: 0 0 7px; color: var(--accent); font-size: .88rem; }
+.wd-release-check { text-align: center; }
+.wd-release-check p { margin: 8px 0 0; color: var(--muted); font-size: .88rem; }
+.wd-release-banner {
+  padding-block-start: var(--nf-safe-top, 0px);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  background: var(--surface);
+  border-block-end: 1px solid var(--nf-row-divider);
+}
+.wd-release-banner-inner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  width: min(100%, var(--app-width));
+  margin-inline: auto;
+  padding: 4px max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+}
+.wd-release-banner-copy { flex: 1 1 9rem; min-width: 0; }
+.wd-release-banner-copy strong { font-size: .92rem; }
+.wd-release-banner-copy small { display: block; color: var(--muted); font-size: .8rem; line-height: 1.55; }
+.wd-release-banner-update { padding: 0 4px; color: var(--accent); font-size: .9rem; font-weight: 700; }
+.wd-release-later { padding: 0 5px; color: var(--muted); font-size: .85rem; }
+.wd-release-screen button:focus-visible, .wd-release-banner button:focus-visible { outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .wd-release-layout { animation: wd-release-enter 170ms ease-out; }
+}
+@keyframes wd-release-enter {
+  from { opacity: .65; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

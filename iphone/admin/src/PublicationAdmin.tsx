@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { call, friendly } from './client';
+import { ReleasePolicyAdmin } from './ReleasePolicyAdmin';
 import './launch-admin.css';
 
 const placements={news:'جديد وُدَين',inbox:'صندوق الإشعارات',banner:'تنويه داخل الشاشة',setting:'تحديث محتوى أو ميزة'};
@@ -49,7 +50,7 @@ export function PublicationAdmin({staffId}:{staffId:string}){
  });}
  function correct(row:Item){setEditId(row.id);setPlacement(row.placement);setTitle(row.title);setBody(row.body);setSetting(row.setting_key??'help.intro');setScreen(row.screen);setDest(row.destination??'');setAudience(row.audience);
   setStart(localTime(Date.parse(row.starts_at)));setEnd(localTime(Date.parse(row.ends_at)));setPush(row.send_push);form.current?.scrollIntoView({block:'start'});}
- return <div className="wd-admin-sections wd-publishing" dir="rtl"><form className="panel wd-admin-form wd-compose" ref={form} onSubmit={submit}>
+ return <div className="wd-admin-sections wd-publishing" dir="rtl"><ReleasePolicyAdmin/><form className="panel wd-admin-form wd-compose" ref={form} onSubmit={submit}>
  <section className="wd-compose-main"><h2>{editId?'تصحيح المنشور':'إنشاء منشور'}</h2>
  <div className="wd-admin-grid"><label>موضع النشر<select value={placement} disabled={!!editId} onChange={e=>{setPlacement(e.target.value as keyof typeof placements);setBody('');}}>{options(placements)}</select></label>
  {config?<label>المحتوى أو الميزة<select disabled={!!editId} value={setting} onChange={e=>{setSetting(e.target.value);setBody(e.target.value.startsWith('pause.')?'on':'');}}>{options(settings)}</select></label>:placement==='banner'?<label>الشاشة<select disabled={!!editId} value={screen} onChange={e=>setScreen(e.target.value)}>{options(screens)}</select></label>:null}</div>

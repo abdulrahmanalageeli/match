@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { lazy, Suspense } from 'react'
 import App from './App'
+import { ReleaseGate } from './release/ReleaseGate'
 import { readRecoveryLink, cleanRecoveryUrl } from './auth/passwordRecovery'
 import { readSignupReturn } from './auth/signupReturn'
 import { ConnectionNotice } from './community/ConnectionNotice'
@@ -48,6 +49,8 @@ const familyInvite = familyEntry ? new URLSearchParams(entryUrl.hash.slice(1)).g
 // Invitation capabilities stay out of server logs and leave the address bar after capture.
 // Preserve Supabase auth callback fragments for the guardian client to consume.
 if (familyInvite) { entryUrl.hash = ''; window.history.replaceState(null, '', entryUrl.pathname + entryUrl.search) }
-createRoot(document.getElementById('root')!).render(<AppBoundary>{recoveryLink ? <App recoveryLink={recoveryLink}/> : signupReturn ? <App signupReturn={signupReturn}/> : familyEntry
+const releaseResumeHint = recoveryLink ? 'بعد التحديث، افتح رابط استعادة الحساب مرة أخرى.'
+  : familyInvite ? 'بعد التحديث، افتح رابط دعوة الأهل مرة أخرى.' : undefined
+createRoot(document.getElementById('root')!).render(<AppBoundary><ReleaseGate resumeHint={releaseResumeHint}>{recoveryLink ? <App recoveryLink={recoveryLink}/> : signupReturn ? <App signupReturn={signupReturn}/> : familyEntry
   ? <Suspense fallback={<main className="flow-frame" dir="rtl"><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
-  : <App openLogin={testerEntry}/>}<ConnectionNotice/></AppBoundary>)
+  : <App openLogin={testerEntry}/>}<ConnectionNotice/></ReleaseGate></AppBoundary>)

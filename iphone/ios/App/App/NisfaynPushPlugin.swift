@@ -83,6 +83,7 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "consumeOpen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeOpen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "badge", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openStoreListing", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
     private var registration: CAPPluginCall?
@@ -156,7 +157,7 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
             let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
             call.resolve(["permission": allowed ? "granted" : settings.authorizationStatus == .notDetermined ? "prompt" : "denied",
                           "installationId": NisfaynPushCenter.shared.installation,
-                          "buildNumber": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"])
+                          "buildNumber": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""])
         }
     }
     @objc func register(_ call: CAPPluginCall) {
@@ -181,6 +182,20 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
             NisfaynPushCenter.shared.switchOwner(to: nil);call.resolve()
         }
     }
+    @objc func openStoreListing(_ call: CAPPluginCall) {
+        guard let value = call.getString("url"),
+              value.range(of: #"^https://apps\.apple\.com/app/id[1-9][0-9]{0,18}\z"#, options: .regularExpression) != nil,
+              let url = URL(string: value) else {
+            call.reject("رابط المتجر غير صالح.")
+            return
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened { call.resolve() } else { call.reject("تعذّر فتح App Store.") }
+            }
+        }
+    }
+
     @objc func openSettings(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             guard let url = URL(string: UIApplication.openSettingsURLString) else { call.reject("تعذّر فتح الإعدادات."); return }

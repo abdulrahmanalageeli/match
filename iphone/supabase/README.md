@@ -73,4 +73,11 @@ The publishing page previews the audience, schedules content in Riyadh time, and
 
 Native publication targeting reads CFBundleVersion. Set VITE_WUDAYN_WEB_BUILD to the positive numeric release number for a separately versioned web bundle. Unsupported settings fall back to bundled copy. The two pause controls affect new Luna searches and new launch offer reservations. Removing a setting restores the previous active setting or the shipped default.
 
+### Member updates and maintenance
+
+1. Apply the member release policy migration before deploying the clients. Both platforms start with minimum and recommended builds of zero and maintenance off. A fresh launch needs a successful policy check before entering the member app.
+2. Ship the first gate-enabled iPhone and web builds with those defaults. Use a new integer `CFBundleVersion` or `VITE_WUDAYN_WEB_BUILD` for each release (1–999999). Previously distributed binaries and already-open web bundles that predate the gate cannot display it.
+3. Once the replacement build is available to members, open **النشر والتحديثات → إصدارات التطبيق والصيانة** as an MFA-verified owner. Select iPhone or web. For iPhone, check the listing opens Wudayn in the intended storefront. Preview the recommended or required threshold, then confirm. The minimum is inclusive.
+4. For an outage, select a maintenance duration of up to 24 hours. The screen shows the expected return in Riyadh time. The admin site stays accessible. To reopen early or undo a mistaken version requirement, preview and confirm the rollback in the same panel. Open member sessions recheck on foreground, reconnect, and every minute while visible.
+
 Deploy the admin recovery endpoint with WUDAYN_MEMBER_RECOVERY_URL pointing to the member recovery route registered with Supabase Auth. The staff console sends recovery mail through the verified account channel. Case deletion requires member confirmation and a fresh staff MFA challenge. Member corrections and private exports open inside the member's authenticated session.

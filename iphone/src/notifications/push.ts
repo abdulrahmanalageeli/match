@@ -22,6 +22,7 @@ interface NativePush {
   register(): Promise<Device>;
   unregister(): Promise<void>;
   openSettings(): Promise<void>;
+  openStoreListing(options: { url: string }): Promise<void>;
   consumeOpen(): Promise<{ notification: PushOpen | null }>;
   acknowledgeOpen(options:{actionId:string}):Promise<void>;
   badge(options:{count:number;scope:string}):Promise<void>;
@@ -32,7 +33,12 @@ const native = registerPlugin<NativePush>('NisfaynPush');
 export const nativePush = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 export const pushConfigured = nativePush ? import.meta.env.VITE_MARRIAGE_PUSH_ENABLED === 'true' : webPushConfigured;
 export const pushSupported = () => nativePush || webPushSupported();
-export const readNativeBuild=async()=>publicationBuild((await native.status()).buildNumber);
+export async function readNativeBuild() {
+  const value = Number((await native.status()).buildNumber);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 999999) throw new Error('تعذّر قراءة إصدار التطبيق.');
+  return value;
+}
+export const openStoreListing = (url: string) => native.openStoreListing({ url });
 export const pushStatus = () => nativePush ? native.status() : webPushStatus();
 export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');

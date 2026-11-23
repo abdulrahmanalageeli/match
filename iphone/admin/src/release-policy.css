@@ -1,0 +1,14 @@
+.wd-release > summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+.wd-release[open] > summary { margin-block-end: 1rem; }
+.wd-release > .wd-conduct-nav { width: fit-content; margin-block-end: 1.15rem; }
+.wd-release-editor { display: grid; gap: .8rem; max-width: 51rem; }
+.wd-release-editor h3, .wd-release-editor p, .wd-release-review ul { margin: 0; }
+.wd-release-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); margin: 0; gap: .6rem 1.25rem; padding-block-end: .85rem; border-block-end: 1px solid var(--border); }
+.wd-release-summary dt { font-size: .78rem; color: var(--muted); }
+.wd-release-summary dd { margin: .2rem 0 0; font-weight: 600; }
+.wd-release-editor fieldset { display: grid; gap: .7rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.wd-release-editor legend { padding: 0; font-weight: 650; }
+.wd-release-review { display: grid; gap: .8rem; padding-inline-start: 1rem; border-inline-start: 3px solid var(--burgundy); }
+.wd-release-review ul { padding-inline-start: 1.2rem; }
+.wd-release-review a { justify-self: start; color: var(--burgundy); }
+.wd-release-editor input[dir=ltr] { text-align: start; }

@@ -3,13 +3,12 @@ import { callRpc } from '../cloud';
 import type { CommunitySource, PublicPerson } from '../community/data';
 import type { AccountState } from '../types';
 
-export type PhotoGrant = { requestId: string; name: string; expiresAt: string };
 export type ApplePeriod = {
   freeTrial: boolean | null; endsAt: string; autoRenew: boolean | null; billingRetry: boolean | null;
   renewalDate: string | null; milliunits: number | null; currency: string | null;
 };
 export type SettingsSummary = {
-  approvedPreview: PublicPerson | null; shares: PhotoGrant[]; subscriptions: ApplePeriod[];
+  approvedPreview: PublicPerson | null; subscriptions: ApplePeriod[];
   visibility: 'eligible' | 'paused' | 'draft' | 'review' | 'exclusive' | 'membership' | 'unavailable';
 };
 
@@ -35,7 +34,7 @@ export function useSettingsSummary(state: AccountState | null, paused: boolean, 
       void callRpc<SettingsSummary>('marriage_my_settings',{},account,controller.signal).then(data=>{
         if (controller.signal.aborted) return;
         setResult({owner:account,data,error:false});
-        const deadlines = [...data.shares.map(s=>s.expiresAt),...data.subscriptions.map(s=>s.endsAt)].map(Date.parse).filter(t=>t>Date.now());
+        const deadlines = data.subscriptions.map(s=>s.endsAt).map(Date.parse).filter(t=>t>Date.now());
         timer=setTimeout(read,Math.min(60000, ...deadlines.map(t=>t-Date.now()+100)));
       },()=>{ if (!controller.signal.aborted) setResult({owner:account,data:null,error:true}); });
     }

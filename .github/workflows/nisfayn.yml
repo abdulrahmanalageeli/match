@@ -13,7 +13,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,3 +42,18 @@ jobs:
         working-directory: iphone/supabase/tests
       - run: npm test
         working-directory: iphone/supabase/tests
+
+      - name: Install pinned browser runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/wudayn-browser" --ignore-scripts --no-audit --no-fund --no-package-lock playwright-core@1.56.1
+          "$RUNNER_TEMP/wudayn-browser/node_modules/.bin/playwright-core" install --with-deps chromium
+      - name: Verify the owner and member workflows
+        working-directory: iphone
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/wudayn-browser/node_modules/playwright-core
+          WUDAYN_BROWSER_CHANNEL: chromium
+          PLAYWRIGHT_CHANNEL: chromium
+        run: |
+          node tests/launch-console.browser.mjs
+          node --experimental-strip-types tests/conduct-admin-member.browser.mjs
+          node tests/release-gate.browser.mjs

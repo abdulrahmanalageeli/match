@@ -162,17 +162,28 @@ test('member chat cleanup validates exact paths and acknowledges only successful
 });
 
 test('push validates each lease immediately before delivery and persists invalid/retry outcomes with claimed token',async()=>{
- const jobs=[job(),job(),job()],sent=[],finished=[];let closed=false;
+ const jobs=[job(),job(),job()],sent=[],finished=[],validated=[];let closed=false,claimed=false;
  globalThis.__nisfaynTestApns=config=>{assert.equal(config.environment,'sandbox');return{send:async j=>{sent.push(j.id);return j.id===jobs[1].id?'invalid':'retry';},close:()=>{closed=true;}};};
  globalThis.fetch=async(input,options)=>{
   const url=String(input);assert(url.startsWith(origin+'/rest/v1/rpc/'));const body=JSON.parse(options.body);
-  if(url.endsWith('marriage_push_claim')){assert.deepEqual(body,{delivery_environment:'sandbox',batch_size:20});return reply(jobs);}
-  if(url.endsWith('marriage_push_validate'))return reply(body.job_id!==jobs[0].id);
+  if(url.endsWith('nisfayn_enqueue_deadline_reminders'))return reply(0);
+  if(url.endsWith('nisfayn_test_push_claim'))return reply([]);
+  if(url.endsWith('marriage_push_claim')){
+   assert.deepEqual(body,{delivery_environment:'sandbox',batch_size:20});
+   if(claimed)return reply([]);
+   claimed=true;return reply(jobs);
+  }
+  if(url.endsWith('nisfayn_push_delivery')){
+   const target=jobs.find(j=>j.id===body.job_id);
+   assert.deepEqual(body,{job_id:target.id,lease:target.leaseId,tester:false,claimed_token:target.token});
+   validated.push(target.id);return reply(target===jobs[0]?null:{kind:'message'});
+  }
   if(url.endsWith('marriage_push_finish')){finished.push(body);return reply(true);}
   throw new Error('Unexpected HTTP');
  };
  const response=await invoke(push);assert.equal(response.code,200);assert(closed);
  assert.deepEqual(response.body,{claimed:3,sent:0,retry:1,invalid:1,failed:0,revoked:1});
+ assert.deepEqual(validated.sort(),jobs.map(j=>j.id).sort());
  assert.deepEqual(sent.sort(),jobs.slice(1).map(j=>j.id).sort());
  assert.equal(finished.length,3);assert(finished.every(result=>result.device_token==='a'.repeat(64)&&jobs.some(j=>j.id===result.job_id&&j.leaseId===result.lease)));
  for(const j of jobs)assert(!logs.join().includes(j.requestId));assert(!logs.join().includes('a'.repeat(64)));
@@ -183,8 +194,11 @@ test('push waits for all started deliveries before closing transport when one co
  globalThis.__nisfaynTestApns=()=>({send:async()=> 'sent',close:()=>{assert(completed);closed=true;}});
  globalThis.fetch=async(input,options)=>{
   const url=String(input),body=JSON.parse(options.body);
+  if(url.endsWith('nisfayn_enqueue_deadline_reminders'))return reply(0);
+  if(url.endsWith('nisfayn_test_push_claim'))return reply([]);
   if(url.endsWith('marriage_push_claim'))return reply(jobs);
-  if(url.endsWith('marriage_push_validate'))return reply(true);
+  if(url.endsWith('nisfayn_push_delivery'))return reply({kind:'message'});
+  assert(url.endsWith('marriage_push_finish'));
   if(body.job_id===jobs[0].id)return new Response(null,{status:503});
   await new Promise(resolve=>setTimeout(resolve,10));completed=true;return reply(true);
  };

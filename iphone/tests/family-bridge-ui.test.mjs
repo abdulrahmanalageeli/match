@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 let loader, FamilyRoomSummary, FamilyConnectionCode, FamilyLinkRequestForm, FamilyLinkSummary, FamilyNextAction;
 before(async () => {
-  loader = await createServer({ configFile: false, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
+  loader = await createServer({ configFile: false, define:{'import.meta.env.VITE_MARRIAGE_ENV':JSON.stringify('demo')}, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true }, server: { middlewareMode: true, hmr: false } });
   ({ FamilyRoomSummary, FamilyConnectionCode, FamilyLinkRequestForm, FamilyLinkSummary, FamilyNextAction } = await loader.ssrLoadModule('/src/family/FamilyBridge.tsx'));
 });
 after(() => loader?.close());

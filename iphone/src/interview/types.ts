@@ -41,6 +41,7 @@ export type InterviewDocument = {
   profileConfirmed?: ProfileProposal[];
 };
 export type InterviewSnapshot = {
+  transcriptReviewAuthorized?: boolean;
   carryForwardIds?: string[];
   document: InterviewDocument | null;
   revision: number;

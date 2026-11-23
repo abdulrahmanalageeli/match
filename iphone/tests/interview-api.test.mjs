@@ -28,6 +28,7 @@ function harness(options = {}) {
   const service = createInterviewService({ env: { SUPABASE_SERVICE_ROLE_KEY: 'service-secret', ...(options.noKey ? {} : { OPENAI_API_KEY: 'server-secret', NISFAYN_AI_MODEL: 'do-not-use' }) },
     fetcher: async (url, init) => {
       const input = JSON.parse(init.body); calls.push({ url, init, ...input });
+      if(url.endsWith('wudayn_record_luna_help'))return new Response(null,{status:204});
       if (revoked) return Response.json({ code: '42501' }, { status: 403 });
       if (url.endsWith('marriage_interview_attest')) {
         if (options.attestationFailure || (input.event === 'complete' && options.completionAttestationFailure)) return Response.json({code:'unavailable'},{status:503});
@@ -42,7 +43,7 @@ function harness(options = {}) {
       if (command === 'start' && !state.document) state = { ...state, document: structuredClone(payload.document), revision: ++counter };
       if (command === 'save') state = { ...state, document: structuredClone(payload.document), revision: ++counter };
       if (command === 'delete') state = { document: null, revision: 0 };
-      if (command === 'reserve') return Response.json({ status: options.limited ? 'limited' : 'allowed', revision: state.revision });
+      if (command === 'reserve') return Response.json({ status: options.limited ? 'limited' : 'allowed', revision: state.revision, reviewSession:options.reviewSession });
       return Response.json({ ...state, ...(options.memberGender ? { memberGender: options.memberGender } : {}) });
     },
     clientFactory: config => {
@@ -143,8 +144,15 @@ test('Luna choice help is authorized, question-scoped, and never changes the int
   const request = payload => h.service({ action: 'choiceHelp', revision: analyzed.revision, fieldId, ...payload }, headers);
   options.choiceResult = { message: 'تختلف بحسب خطتك بعد الزواج.', explanations: { A: 'خطة واضحة لمواصلة العمل.', B: 'تفضلين التفرغ.', C: 'تتركين القرار للظروف والاتفاق.' } };
   assert.deepEqual((await request({})).choiceHelp, options.choiceResult);
+  assert.equal(h.calls.filter(c=>c.url.endsWith('wudayn_record_luna_help')).length,0);
+  options.reviewSession='2026-11-23T00:00:00Z';
   options.choiceResult = { message: 'تبين تكملين عملك بعد الزواج.', code: 'A' };
   assert.deepEqual((await request({ answer: 'أبي أستمر بشغلي. رقمي ٠٥٥١٢٣٤٥٦٧', gender: 'man' })).choiceHelp, options.choiceResult);
+  const record=h.calls.find(c=>c.url.endsWith('wudayn_record_luna_help'));
+  assert.equal(record.session_started,options.reviewSession);
+  assert.equal(record.question,'هل ترغبين في العمل بعد الزواج؟');
+  assert.equal(record.member_message,'أبي أستمر بشغلي. رقمي ٠٥٥١٢٣٤٥٦٧');
+  assert.match(record.reply,/تبين تكملين/);
   const { request: sent } = h.modelCalls.at(-1);
   const data = JSON.parse(sent.messages[1].content);
   assert.deepEqual(Object.keys(data), ['question', 'options', 'answer']);

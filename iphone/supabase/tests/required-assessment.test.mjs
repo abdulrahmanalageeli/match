@@ -145,7 +145,9 @@ for (const staffAction of [null,'return_pending','suspend']) test('approved firs
   await db.query("insert into marriage.staff_accounts(user_id,role,display_name) values($1,'owner','فريق الصور')",[staff.id]);
   await asMember(db,staff.id,staff.sessionId,async()=>{
     await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:staff.id,session_id:staff.sessionId,role:'authenticated',aal:'aal2'})]);
-    if (staffAction) {
+    if (staffAction === 'suspend') {
+      await q("public.marriage_staff_conduct('issue',$1)",[{memberId:u.id,requestId:randomUUID(),kind:'suspension',policy:'identity',explanation:'حماية عاجلة أثناء التحقق',urgent:true}]);
+    } else if (staffAction) {
       const detail=await q('public.marriage_admin_member($1)',[u.id]);
       await q('public.marriage_admin_review($1,$2,$3,$4,$5)',[u.id,staffAction,detail.revision,'قرار مراجعة منفصل',randomUUID()]);
     }

@@ -45,24 +45,28 @@ test('discovery pause preserves accepted chat, replies, receipts, progress and v
   await call(a,'public.marriage_progress($1)',[id]);
   await decideJourney(call,a,id,'step','propose',1);
   await decideJourney(call,b,id,'step','accept',1);
-  await call(a,'public.marriage_photo_state($1)',[id]);
+  await assert.rejects(call(a,'public.marriage_photo_state($1)',[id]),/permission denied/);
   const voice=await call(a,'public.marriage_call_start($1,$2)',[id,randomUUID()]);assert.equal(voice.status,'ringing');
  } finally {await db.close();}
 });
 
-test('continued conversations retain payment, block, suspension and session boundaries',async()=>{
+test('continued conversations survive grant expiry and enforce participant, block, suspension and session boundaries',async()=>{
  const db=await createDatabase();try {
   const {call,member,connect,send}=fixture(db),a=await member(),b=await member('man'),outsider=await member('man');const id=await connect(a,b);
   await call(a,'public.marriage_pause(true)');
   await assert.rejects(send(outsider,id));
   await db.query('update marriage.members set manual_access_until=null where id=$1',[b.id]);
-  await assert.rejects(send(a,id));assert.equal((await call(a,'public.marriage_inbox()')).length,0);
+  await send(a,id);assert.equal((await call(a,'public.marriage_inbox()'))[0].id,id);
   await db.query("update marriage.members set manual_access_until=now()+interval '1 day' where id=$1",[b.id]);
   await send(a,id);
   await db.query('delete from auth.sessions where id=$1',[a.sessionId]);await assert.rejects(send(a,id));
   await db.query('insert into auth.sessions values($1,$2,null)',[a.sessionId,a.id]);
   await call(a,"public.marriage_act($1,'block')",[id]);await assert.rejects(send(b,id));
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[id])).rows[0].status,'closed');
+  await call(a,'public.marriage_pause(false)');
+  const second=await connect(a,outsider);
+  await db.query('update marriage.members set suspended=true where id=$1',[outsider.id]);
+  await assert.rejects(send(a,second));
  } finally {await db.close();}
 });
 

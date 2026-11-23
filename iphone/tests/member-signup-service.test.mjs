@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memberSignupOrigin, memberSignupKind, memberSignupUnavailable, parseMemberSignup, performMemberSignup } from '../supabase/functions/_shared/member-signup.ts';
 
-const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', adult: true, terms: true, privacy: true } };
+const input = { phoneProof:'a'.repeat(64), deviceId:'web:11111111-1111-4111-8111-111111111111', email: ' Member@Example.com ', password: 'a-real-passphrase', consent: { version: '2026-11-07-privacy', registrationVersion:'wudayn-entry-2026-11-23', adult:true,terms:true,privacy:true,sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true } };
 function fixture(options = {}) {
   const calls = [];
   return { calls, service: {
@@ -13,6 +13,9 @@ function fixture(options = {}) {
 
 test('member creation requires explicit current legal choices and bounded credentials; ignores forged privilege fields', () => {
   const valid = parseMemberSignup({ ...input, app_metadata: { role: 'owner', emailOwnershipVerified: true }, email_confirm: true });
+  for (const field of ['assessment','transcript','sensitiveProfile','registrationVersion']) assert.throws(()=>parseMemberSignup({...input,consent:{...input.consent,[field]:false}}));
+  assert.equal(valid.consent.sensitivePublication,false);
+  assert.equal(valid.consent.photo,false);
   assert.equal(valid.email, 'member@example.com');
   assert.equal('app_metadata' in valid, false);
   for (const override of [{phoneProof:undefined},{deviceId:undefined},{phoneProof:"forged"},{ email: 'bad address@example.com' }, { email: 'a'.repeat(65) + '@example.com' }, { password: 'short' }, { password: 'ع'.repeat(37) }, { consent: { ...input.consent, adult: false } }, { consent: { ...input.consent, terms: false } }, { consent: { ...input.consent, privacy: false } }, { consent: { ...input.consent, version: 'old' } }]) assert.throws(() => parseMemberSignup({ ...input, ...override }));

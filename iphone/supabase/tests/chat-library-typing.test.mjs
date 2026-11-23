@@ -17,7 +17,10 @@ test('member search/read anchors and private typing respect connection gates, pa
   const request=await call(a,'public.marriage_request($1)',[b.id]);await call(b,"public.marriage_act($1,'accept')",[request]);
   await signCommunicationAgreement(call,a,b,request);
   const ids=[];
-  for(let i=0;i<56;i++){const id=randomUUID();ids.push(id);await db.query('insert into marriage.thread_messages(id,request_id,sender_id,body,created_at,client_id) values($1,$2,$3,$4,$5,$6)',[id,request,b.id,i===55?'literal 100%':'family '+i,new Date(Date.now()-60000+i*100).toISOString(),randomUUID()]);}
+  for(let i=0;i<56;i++){
+    // Seed several minutes of message history while keeping live send limits active.
+    if(i>0 && i%10===0) await db.query("update marriage.safety_usage set window_start=window_start-make_interval(mins=>$2) where member_id=$1 and purpose in('send',$3) and window_start=date_trunc('minute',now())",[b.id,i/10,'chat:'+request]);
+    const id=randomUUID();ids.push(id);await db.query('insert into marriage.thread_messages(id,request_id,sender_id,body,created_at,client_id) values($1,$2,$3,$4,$5,$6)',[id,request,b.id,i===55?'literal 100%':'family '+i,new Date(Date.now()-(56-i)*6500).toISOString(),randomUUID()]);}
   const search=(u,q='',before=null,kind=null)=>call(u,'public.marriage_search_messages($1,$2,$3,$4)',[request,q,before,kind]);
   const page=await search(a,'family');assert.equal(page.length,50);assert.equal(page[0].id,ids[5]);
   assert.equal((await search(a,'family',page[0].id)).length,5);

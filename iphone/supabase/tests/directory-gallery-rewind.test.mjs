@@ -1,4 +1,4 @@
-import {decideJourney} from './communication-fixture.mjs';
+import {decideJourney,seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -10,6 +10,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>db.query('select '+sql+' value',args).then(r=>r.rows[0].value));
  async function add(gender,work='A',hard=false){
   const u={id:randomUUID(),email:randomUUID()+'@example.test',sessionId:randomUUID()};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender,'draft');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));answers.wife_work=work;
   const payload={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندس',bio:'وصف للاختبار',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-06-assessment',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:false},assessmentVersion:'marriage-v3',surveyAnswers:answers,hardRequirements:hard?['wife_work']:[],marriageBasics:{smoking:'never',maritalStatus:'never_married'}};
   const state=await call(u,'public.marriage_apply($1)',[payload]);
@@ -19,7 +20,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
  async function storage(u,op,sql,args){await db.query("select set_config('storage.operation',$1,false)",[op]);return asMember(db,u.id,u.sessionId,()=>db.query(sql,args));}
  try{
   const man=await add('man'),women=[];for(let i=0;i<7;i++)women.push(await add('woman'));
-  const strict=await add('woman','A',true),opposed=await add('man','B');
+  const strict=await add('woman','A'),opposed=await add('man','B');
   assert((await call(strict,'public.marriage_browse()')).some(p=>p.id===opposed.id),'a private work answer does not exclude a directory candidate');
   assert(!(await call(strict,'public.marriage_browse($1)',[{work:'B'}])).some(p=>p.id===opposed.id));
   await call(opposed,'public.marriage_directory_work($1,true)',['B']);
@@ -33,7 +34,7 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   const ab=await call(man,'public.marriage_request($1)',[outsider.id]);await call(outsider,"public.marriage_act($1,'accept')",[ab]);
   const second=women.find(w=>w.id!==outsider.id),third=women.find(w=>![outsider.id,second.id].includes(w.id));
   const ac=await call(man,'public.marriage_request($1)',[second.id]);const ad=await call(man,'public.marriage_request($1)',[third.id]);
-  await call(second,"public.marriage_act($1,'accept')",[ac]);await assert.rejects(call(third,"public.marriage_act($1,'accept')",[ad]),/تعارفان/);
+  await call(second,"public.marriage_act($1,'accept')",[ac]);await assert.rejects(call(third,"public.marriage_act($1,'accept')",[ad]),/اكتمل عدد الارتباطات/);
   assert((await call(third,'public.marriage_browse()')).find(p=>p.id===man.id).atCapacity);
   assert(!(await call(third,'public.marriage_browse($1)',[{availableOnly:true}])).some(p=>p.id===man.id));
   await call(third,'public.marriage_note_profile_open($1)',[man.id]);assert((await call(man,'public.marriage_notifications()')).some(n=>n.person.id===third.id));
@@ -41,6 +42,10 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   const photos=[];for(let i=0;i<3;i++){
    const p=await call(man,"public.marriage_gallery('prepare')");photos.push(p);
    await storage(man,'object.upload','insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['nisfayn-profile-gallery',p.path,{mimetype:'image/jpeg',size:200}]);
+   await asService(db,async()=>{
+    const check=(await db.query("select public.marriage_photo_face_begin($1,$2,'gallery','face-photo-v1') as proof",[man.id,p.id])).rows[0].proof;
+    await db.query('select public.marriage_photo_face_finish($1,$2,$3)',[check.attempt,man.id,'d'.repeat(64)]);
+   });
    await call(man,"public.marriage_gallery('commit',$1)",[p.id]);
   }
   await assert.rejects(call(man,"public.marriage_gallery('prepare')"),/ثلاث/);
@@ -65,6 +70,8 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   await decideJourney(call,man,ab,'step','propose',1);await decideJourney(call,outsider,ab,'step','accept',1);
   await decideJourney(call,man,ab,'step','propose',2);await decideJourney(call,outsider,ab,'step','accept',2);
   await call(man,'public.marriage_rewind_step($1,2,true)',[ab]);p=await call(outsider,'public.marriage_rewind_step($1,2,true)',[ab]);assert.equal(p.stage,1);assert(p.exclusive);
+  const requiresAlignment=await add('woman','A',true);
+  assert(!(await call(requiresAlignment,'public.marriage_browse()')).some(member=>member.id===opposed.id),'an explicit work dealbreaker excludes an incompatible candidate');
  }finally{await db.close();}
 });
 test('private pair rewind and gallery remain reciprocal and isolated',async()=>{

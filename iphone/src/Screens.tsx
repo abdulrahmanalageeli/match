@@ -2,7 +2,7 @@ import { confirmSignupSms } from './auth/SignupSms';
 import type { SignupVerification } from './auth/registrationDevice';
 import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
-import type { SignupAgreements } from './auth/signupReturn';
+import { emptyRegistrationChoices, registrationComplete, registrationVersion, type SignupAgreements } from './auth/signupReturn';
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,7 +17,7 @@ import { Brand } from "./Brand";
 import { phoneOtpEnabled } from "./cloud";
 import { PhoneAuth } from "./PhoneAuth";
 import { LegalNotice, LEGAL_NOTICE_VERSION } from "./legal/LegalNotice";
-import { ConsentChoice } from "./legal/ConsentChoices";
+import { RegistrationAgreements } from './legal/RegistrationAgreements';
 import { SupportContact } from "./help/SupportContact";
 import './auth/entry.css';
 import { KeyboardDismiss } from './mobile/KeyboardDismiss';
@@ -80,7 +80,7 @@ export function Auth({
   back: Click;
   switchMode: Click;
   submit: (email: string, password: string, consent?: SignupAgreements, verification?: SignupVerification) => void;
-  onSocial: (provider: 'apple' | 'google') => void;
+  onSocial: (provider: 'apple' | 'google', receipt?: SignupAgreements) => void;
   busy: boolean;
   ready: boolean;
   onDemo: Click;
@@ -92,26 +92,23 @@ export function Auth({
   const [phoneMode, setPhoneMode] = useState(false);
   const [emailMode, setEmailMode] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
-  const [agreements, setAgreements] = useState({ adult: false, terms: false, privacy: false });
+  const [agreements, setAgreements] = useState(emptyRegistrationChoices);
   const [agreementError, setAgreementError] = useState("");
-  const [entryStep, setEntryStep] = useState<'credentials' | 'consent'>('credentials');
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const heading = useRef<HTMLHeadingElement>(null);
-  const reviewing = !login && entryStep === 'consent';
   const locked = busy || phonePending;
-  const accepted = login || (agreements.adult && agreements.terms && agreements.privacy);
+  const accepted = login || registrationComplete(agreements);
   const nativeSocial = ready && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   useLayoutEffect(() => {
-    setAgreements({ adult: false, terms: false, privacy: false });
+    setAgreements(emptyRegistrationChoices());
     setAgreementError("");
-    setEntryStep('credentials');
     setPhoneMode(false);
   }, [login]);
   useLayoutEffect(() => {
     heading.current?.focus({ preventScroll: true });
     heading.current?.closest<HTMLElement>('[data-nf-keyboard-form]')?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [entryStep, login, emailMode, phoneMode]);
+  }, [login, emailMode, phoneMode]);
   async function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!ready || locked) return;
@@ -119,7 +116,6 @@ export function Auth({
     setAgreementError("");
     const email = credentials.email.trim(), password = credentials.password;
     if (login) { submit(email, password); return; }
-    if (!reviewing) { setEntryStep('consent'); return; }
     if (!accepted) {
       setAgreementError("أكّد العمر، واقبل الشروط، واطّلع على إشعار الخصوصية قبل إنشاء الحساب.");
       return;
@@ -127,7 +123,7 @@ export function Auth({
     setPhonePending(true);
     try{
       const verification=await confirmSignupSms(email);
-      if(verification)submit(email,password,{...agreements,version:LEGAL_NOTICE_VERSION},verification);
+      if(verification)submit(email,password,{...agreements,version:LEGAL_NOTICE_VERSION,registrationVersion},verification);
     }catch(e){setAgreementError(e instanceof Error?e.message:'تعذّر بدء تأكيد الجوال.');}
     finally{setPhonePending(false);}
   }
@@ -135,35 +131,28 @@ export function Auth({
   const switchAccount = ready && <button type="button" className="f-link centered" onClick={switchMode} disabled={locked}>
     {login ? "إنشاء حساب جديد" : "لدي حساب بالفعل"}
   </button>;
-  const consentReview = ready && !login ? <fieldset className="nf-consent-review" disabled={locked} aria-describedby="auth-agreement-help">
-    <legend className="nf-auth-sr-only">الموافقات المطلوبة لإنشاء الحساب</legend>
-    <p id="auth-agreement-help">إعداد ملفك يتطلّب موافقتين منفصلتين لمعالجة التفاصيل الحساسة وعرضها للأعضاء المؤهلين، وأذونات للصورة والتقييم.</p>
-    {(["adult", "terms", "privacy"] as const).map(kind => <ConsentChoice key={kind} kind={kind} checked={agreements[kind]} change={value => {
-      setAgreements(current => ({ ...current, [kind]: value }));
-      setAgreementError("");
-    }} />)}
-    <button type="button" className="nf-privacy-link" onClick={onPrivacy}>قراءة شروط الاستخدام وإشعار الخصوصية</button>
-    {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
-  </fieldset> : null;
+  const receipt = login ? undefined : { ...agreements, version: LEGAL_NOTICE_VERSION, registrationVersion };
+  const consentReview = ready && !login && <RegistrationAgreements value={agreements} change={setAgreements} onPrivacy={onPrivacy} disabled={locked}/>;
   return (
-    <Frame back={reviewing ? () => setEntryStep('credentials') : back} backDisabled={locked} title={login ? "تسجيل الدخول" : reviewing ? "مراجعة الحساب" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
+    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section className="nf-auth-hero">
-        <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : reviewing ? "موافقات الحساب" : "حسابك في وُدَين"}</h1>
-        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : reviewing ? "بعد الموافقة، نؤكّد رقم جوالك السعودي." : "أكّد جوالك السعودي واحفظ تقدّمك في طلب العضوية."}</p>
-        {!login && !reviewing && <details className="nf-auth-brief">
+        <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : "حسابك في وُدَين"}</h1>
+        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : "أكّد جوالك السعودي واحفظ تقدّمك في طلب العضوية."}</p>
+        {!login && <details className="nf-auth-brief">
           <summary><ShieldCheck size={17} aria-hidden="true"/><span>طلب العضوية مجاني</span><ChevronDown size={15} aria-hidden="true"/></summary>
           <p>بعد جلسة التوافق، راجع إجاباتك وأرسل ملفك. إذا اكتمل التحقق، يفتح لك الاستكشاف المجاني مباشرة. إذا بقيت خطوة للاعتماد، تتابعها من حالة الطلب. تقدر تختار باقة مدفوعة لاحقًا.</p>
         </details>}
       </section>
       <section className="nf-auth-panel">
-      {nativeSocial && !emailMode && !reviewing && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
-        <button type="button" disabled={locked} onClick={() => onSocial('apple')}>المتابعة باستخدام Apple</button>
-        <button type="button" disabled={locked} onClick={() => onSocial('google')}>المتابعة باستخدام Google</button>
+      {nativeSocial && !emailMode && !phoneMode && consentReview}
+      {nativeSocial && !emailMode && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
+        <button type="button" disabled={locked || !accepted} onClick={() => onSocial('apple', receipt)}>المتابعة باستخدام Apple</button>
+        <button type="button" disabled={locked || !accepted} onClick={() => onSocial('google', receipt)}>المتابعة باستخدام Google</button>
       </div>}
       {phoneMode && consentReview}
-      {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready && (!nativeSocial || emailMode || reviewing) ? (
-        <form className="flow-form" onSubmit={send} aria-busy={locked} data-entry-step={reviewing ? 'consent' : 'credentials'}>
-          {!reviewing && <div className="nf-auth-input-group"><label>
+      {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready && (!nativeSocial || emailMode) ? (
+        <form className="flow-form" onSubmit={send} aria-busy={locked} data-entry-step="credentials">
+          {<div className="nf-auth-input-group"><label>
             البريد الإلكتروني
             <input
               dir="ltr"
@@ -208,14 +197,14 @@ export function Auth({
               </button>
             </span>
           </label></div>}
-          {!login && !reviewing && <p id="nf-password-help" className="nf-auth-field-help">اختر كلمة مرور من ١٠ أحرف على الأقل، خاصة بهذا الحساب.</p>}
-          {reviewing && <><div className="nf-auth-account-summary"><span>البريد الإلكتروني</span><bdi dir="ltr">{credentials.email.trim()}</bdi><button type="button" onClick={() => setEntryStep('credentials')} disabled={locked}>تعديل</button></div>{consentReview}</>}
-          <div className={reviewing ? 'nf-auth-review-actions' : 'nf-auth-submit'}>
-            <button className="f-primary" disabled={locked || (reviewing && !accepted)}>
-              {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : reviewing ? "إنشاء الحساب" : "متابعة"}
+          {!login && <p id="nf-password-help" className="nf-auth-field-help">اختر كلمة مرور من ١٠ أحرف على الأقل، خاصة بهذا الحساب.</p>}
+          {consentReview}
+          {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
+          <div className="nf-auth-submit">
+            <button className="f-primary" disabled={locked || !accepted}>
+              {locked ? phonePending ? "جارٍ تأكيد الجوال…" : "جارٍ المتابعة…" : login ? "تسجيل الدخول" : "تأكيد الجوال وإنشاء الحساب"}
               <ArrowLeft size={18} />
             </button>
-            {reviewing && switchAccount}
           </div>
         </form>
       ) : !ready ? (
@@ -227,7 +216,7 @@ export function Auth({
         </div>
       ) : null}
       <div className="nf-auth-alternatives">
-        {nativeSocial && !reviewing && !phoneMode && <button type="button" className="f-link" disabled={locked} onClick={() => setEmailMode(value => !value)}>
+        {nativeSocial && !phoneMode && <button type="button" className="f-link" disabled={locked} onClick={() => setEmailMode(value => !value)}>
           {emailMode ? 'خيارات الدخول الأخرى' : 'المتابعة بالبريد الإلكتروني'}
         </button>}
         {login && !phoneMode && <button type="button" className="f-link" disabled={locked} onClick={() => setRecovering(true)}>نسيت كلمة المرور؟</button>}
@@ -237,7 +226,7 @@ export function Auth({
         }}>
           {phoneMode ? "استخدام البريد الإلكتروني" : "استخدام رقم الجوال"}
         </button>}
-        {!reviewing && switchAccount}
+        {switchAccount}
       </div>
       </section>
     </Frame>

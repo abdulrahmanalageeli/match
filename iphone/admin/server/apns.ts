@@ -2,7 +2,7 @@ import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } f
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
 export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';
-export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;passive?:boolean;sound?:boolean};
+export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
@@ -25,7 +25,7 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   const title=named&&details.sender?clean(details.sender,50):'وُدَين';
   const discreet = !details || !['event','name','content'].includes(details.preview);
   const passive = job.kind === 'reminder' || details?.passive === true;
-  const body=discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
+  const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
   return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:'default'} : {}), 'thread-id':job.requestId,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
     ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: job.requestId, kind: job.kind,

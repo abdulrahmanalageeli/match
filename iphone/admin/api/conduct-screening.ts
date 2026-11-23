@@ -1,4 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { triageReportedMessages } from '../server/reported-text.ts';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 type Finding = {finding:'direct_disclosure_threat'|'direct_personal_threat';reportedCategoryAgrees:boolean};
@@ -59,6 +60,13 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   try {
     const url=new URL(endpoint);
     if(url.protocol!=='https:'||url.username||url.password||url.hash||url.search)return res.status(503).end();
-    return res.status(200).json(await screenBatch({endpoint,model,key,project,serviceKey}));
+    const counts=await screenBatch({endpoint,model,key,project,serviceKey});
+    if(env.WUDAYN_REPORTED_TEXT_ENABLED==='true'){
+      const textModel=env.WUDAYN_REPORTED_TEXT_MODEL, textKey=env.WUDAYN_REPORTED_TEXT_KEY;
+      if(!textKey||!textModel||!/^[A-Za-z0-9_.:-]{1,80}$/.test(textModel))return res.status(503).end();
+      const reportedMessages=await triageReportedMessages({project,serviceKey,model:textModel,key:textKey});
+      return res.status(200).json({...counts,reportedMessages});
+    }
+    return res.status(200).json(counts);
   } catch { return res.status(503).end(); }
 }

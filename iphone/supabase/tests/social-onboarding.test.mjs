@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
-const consent = {version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sms:true};
+const consent = {version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,sms:true,registrationVersion:'wudayn-entry-2026-11-23',sensitiveProfile:true,sensitivePublication:false,photo:false,assessment:true,transcript:true};
 
 test('social registration requires verified phone and consent without changing existing member access', async () => {
  const db = await createDatabase();
@@ -46,7 +46,7 @@ test('social registration requires verified phone and consent without changing e
   const valid=await proof(google.email);
   await assert.rejects(rpc(apple,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent]),/تأكيد رقم الجوال/);
   await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,hash('wrong-device'),consent]),/تأكيد رقم الجوال/);
-  for(const flag of ['adult','terms','privacy','sms']) {
+  for(const flag of ['adult','terms','privacy','sms','transcript','assessment','sensitiveProfile']) {
    await assert.rejects(rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,{...consent,[flag]:false}]),/الموافقات/);
   }
   assert.equal((await rpc(google,'marriage_complete_social_onboarding',[valid.proofHash,valid.deviceHash,consent])).required,false);

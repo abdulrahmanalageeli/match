@@ -1,0 +1,16 @@
+.wd-membership-receipt {
+ width:min(23rem,calc(100vw - 40px)); max-height:calc(100svh - 48px); overflow:auto; margin:auto;
+ padding:26px 23px 20px; border:0; border-radius:22px; background:var(--surface,#fff); color:var(--ink);
+ font-family:var(--font-ui); box-shadow:0 18px 64px #2420272e;
+}
+.wd-membership-receipt::backdrop {background:rgb(31 24 28 / .39)}
+.phone-app .wd-membership-receipt>.wd-membership-mark {width:50px;height:50px;margin-bottom:12px}
+.wd-membership-receipt h2 {margin:0 0 8px;font-size:1.55rem;line-height:1.4}
+.wd-membership-receipt p {margin:4px 0 0;line-height:1.7;color:var(--muted)}
+.wd-membership-receipt p:first-of-type {color:var(--accent);font-size:.83rem;font-weight:700}
+.wd-membership-receipt dl {margin:18px 0 0;padding:5px 0;border-block:1px solid var(--nf-row-divider);font-size:.92rem}
+.wd-membership-receipt dl div {display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;padding:5px 0}
+.wd-membership-receipt dd {margin:0;font-weight:700}
+.wd-membership-receipt button {width:100%;margin-top:19px}
+.wd-return-offer {display:grid;gap:2px;border-inline-start:2px solid #e9bba9;padding-inline-start:12px;margin-block:0 16px;color:#fff4e9}
+.wd-return-offer span {color:#f3d6e2;font-size:.94rem}

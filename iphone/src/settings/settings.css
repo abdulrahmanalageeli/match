@@ -183,15 +183,13 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .st-discovery-state [role=status]::before { content:''; flex:none; width:7px; height:7px; border-radius:50%; background:var(--muted); }
 .st-discovery-state[data-visibility=eligible] [role=status]::before { background:#448368; }
 .st-discovery-state .btn-text { font-size:inherit; padding-inline:4px; }
-.st-discovery-state button,.st-grants button,.st-billing :is(a,button) { min-height:44px; display:inline-flex; align-items:center; }
+.st-discovery-state button,.st-billing :is(a,button) { min-height:44px; display:inline-flex; align-items:center; }
 .st-note,.st-billing p { margin:4px 0 8px; line-height:1.65; }
 .st-member-card .st-note { padding:0 18px 12px; }
 .st-billing { padding:0 14px 8px; font-size:.875rem; }
 .st-billing a { color:var(--accent); }
-.st-grants { list-style:none; margin:0; padding:0; }
-.st-grants li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; border-bottom:1px solid var(--line); padding-block:8px; }
-.st-grants small,.st-lock-preview span { display:block; }
-.st-grants small,.st-lock-preview small { color:var(--muted); }
+.st-lock-preview span { display:block; }
+.st-lock-preview small { color:var(--muted); }
 .phone-app .st-fold { margin-top:16px; border:1px solid var(--line); border-radius:15px; background:var(--surface); }
 .st-fold > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:54px; padding:10px 16px; color:var(--ink); font-size:1rem; font-weight:600; cursor:pointer; list-style:none; }
 .st-fold > summary::-webkit-details-marker { display:none; }

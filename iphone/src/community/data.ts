@@ -172,6 +172,7 @@ export interface CommunitySource extends ManualVerificationSource {
   readiness?: ReadinessRequest;
   readinessTestMode?: boolean;
   readinessEligibleConnection?(connectionId: string): boolean;
+  noteDiscoveryBrowse?(): void;
   discover(filters: Filters): Promise<PublicPerson[]>;
   portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => void): Promise<string>;
   portraitState?(photo: ProfilePortrait): Promise<ProfilePortrait>;
@@ -341,8 +342,9 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     blockPerson: memberId => timedRpc("marriage_discovery_action", {member_id:memberId,action:'block'}),
     reportIncident: (requestId,messageId,reason,submissionId,allowSafetyScreen=false,contextIds=[]) => {
       const input={request_id:requestId,message_id:messageId,reason,submission_id:submissionId};
-      return contextIds.length ? timedRpc('marriage_report_incident_context',{...input,context_ids:contextIds,allow_screen:allowSafetyScreen}) :
-        timedRpc(allowSafetyScreen && messageId ? 'marriage_report_incident_with_screen' : 'marriage_report_incident', input);
+      if (allowSafetyScreen && messageId) return timedRpc('wudayn_report_review_message',{...input,context_ids:contextIds});
+      return contextIds.length ? timedRpc('marriage_report_incident_context',{...input,context_ids:contextIds,allow_screen:false}) :
+        timedRpc('marriage_report_incident', input);
     },
     directoryWork: choice => timedRpc("marriage_directory_work", {choice:choice ?? null,writing:choice !== undefined}),
     reportPerson: (memberId, reason) => timedRpc("marriage_discovery_action", {member_id:memberId,action:'report',reason}),
@@ -375,11 +377,11 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       await timedRpc("marriage_note_profile_open", { candidate_id: candidateId });
       launchEvent('activity', 'profile', userId);
     },
+    noteDiscoveryBrowse: () => launchEvent('activity', 'discovery', userId),
     async discover(f) {
       const options={ ...f, mode: f.mode ?? 'recommended', includeIneligible: f.mode === 'all' && !f.eligibleOnly };
       const cards = await timedRpc<PublicPerson[]>('marriage_browse', { options });
       rememberSupportDirectory(userId,options);
-      launchEvent('activity', 'discovery', userId);
       return cards;
     },
     inbox: () => timedRpc("marriage_inbox", {}),

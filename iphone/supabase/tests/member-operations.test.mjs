@@ -203,16 +203,10 @@ test('launch support operations through member and staff RPCs',async t=>{
       const {topics}=await query("select array_agg(distinct topic) topics from realtime.messages where event='changed' and topic=any($1)",[['marriage:member:'+a.id,'marriage:member:'+b.id]]);
       assert.equal(topics.length,2);assert.equal(await receipt(ticket,'member_confirm'),false);
     });
-    await t.test('23 • portrait removal and private photo grant history, immediate withdrawal and unrelated member isolation',async()=>{
-      const ticket=await ticketFor('safety'),asset=randomUUID(),portrait=randomUUID();
-      await db.query("insert into marriage.photo_assets(id,owner_id,object_path,state) values($1,$2,$3,'active')",[asset,a.id,a.id+'/'+asset+'.jpg']);
-      await db.query('insert into marriage.photo_grants(photo_id,request_id,recipient_id) values($1,$2,$3)',[asset,pair,b.id]);
-      await db.query("update marriage.photo_grants set expires_at=expires_at+interval '1 hour' where photo_id=$1",[asset]);
+    await t.test('23 • staff may hide a profile portrait; temporary photo grants are retired',async()=>{
+      const ticket=await ticketFor('safety'),portrait=randomUUID();
       await assert.rejects(op('private_withdraw',{ticket,photo:randomUUID()}));
-      assert.equal((await op('private_withdraw',{ticket,photo:asset})).withdrawn,1);
-      const state=await inspect(owner);assert.deepEqual(state.photoHistory.map(x=>x.kind).sort(),['extended','shared','withdrawn']);
-      assert.ok(state.privatePhotos.find(p=>p.id===asset&&p.grants===0));
-      assert.equal((await inspect(owner,b)).photoHistory.length,0);
+      const support=await inspect(owner);assert.deepEqual(support.privatePhotos,[]);assert.deepEqual(support.photoHistory,[]);
       await db.query('insert into marriage.member_portraits(id,member_id,path,blur,ready) values($1,$2,$3,50,true)',[portrait,a.id,a.id+'/'+portrait+'.jpg']);
       await op('hide_photo',{ticket,photo:portrait});
       assert.equal((await inspect(owner)).portrait,null);assert.equal(await receipt(ticket,'hide_photo'),true);

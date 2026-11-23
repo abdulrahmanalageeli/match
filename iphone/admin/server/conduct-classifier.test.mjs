@@ -1,3 +1,4 @@
+import {triageReportedMessages} from './reported-text.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
@@ -35,4 +36,20 @@ test('opt-in screening worker sends categorical indicators only and defaults to 
     });
     assert.deepEqual(result,{assessed:1});assert.equal(received,true);
   }
+});
+
+test('reported-text mode sends only one redacted excerpt and returns categorical counts',async()=>{
+  let finished=false,submitted;
+  const config={project:'https://db.example.invalid',serviceKey:'local-service',model:'approved-snapshot',key:'local-processor'};
+  const count=await triageReportedMessages(config,async(url,init)=>{
+    const input=JSON.parse(init.body);
+    if(url.includes('api.openai.com')){
+      assert.equal(input.store,false);
+      submitted=JSON.parse(input.messages[1].content);
+      return Response.json({model:config.model,choices:[{finish_reason:'stop',message:{content:'{"priority":"priority"}'}}]});
+    }
+    if(input.command==='claim')return Response.json(finished?null:{excerpt:'أرسل المال لرقم ٠٥٥١٢٣٤٥٦٧ على https://private.example/a أو person@example.com'});
+    assert.equal(input.decision,'priority');assert.deepEqual(Object.keys(input).sort(),['command','decision','ticket']);finished=true;return Response.json({recorded:true});
+  });
+  assert.equal(count,1);assert.deepEqual(Object.keys(submitted),['excerpt']);assert.match(submitted.excerpt,/أرسل المال/);assert(!/055|٠٥٥|private.example|person@example/.test(submitted.excerpt));
 });

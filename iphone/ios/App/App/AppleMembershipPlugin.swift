@@ -98,6 +98,11 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
                     "currency": product.priceFormatStyle.currencyCode,
                     "appleEligible": week && appleEligible,
                     "signedAppTransaction": appResult.jwsRepresentation]
+                let promotions: [[String: String]] = (product.subscription?.promotionalOffers ?? []).compactMap { offer in
+                    guard let id = offer.id, let summary = MembershipStoreOffer.summary(offer, for: product) else { return nil }
+                    return ["id": id, "terms": summary]
+                }
+                response["promotions"] = promotions
                 if let introduction = terms.introduction { response["introduction"] = introduction }
                 call.resolve(response)
             } catch {
@@ -161,7 +166,20 @@ final class AppleMembershipPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("أعد تحميل عرض العضوية قبل الشراء.", "OFFER_REQUIRED")
                     return
                 }
-                switch try await product.purchase(options: [.appAccountToken(token), .introductoryOfferEligibility(compactJWS: eligibility)]) {
+                var options: Set<Product.PurchaseOption> = [.appAccountToken(token)]
+                if let promo = call.getString("promotionId") {
+                    guard let signature = call.getString("promotionJws"), !signature.isEmpty,
+                          let offer = product.subscription?.promotionalOffers.first(where: { $0.id == promo }),
+                          let summary = MembershipStoreOffer.summary(offer, for: product),
+                          summary == call.getString("promotionTerms") else {
+                        call.reject("تغيّر عرض العودة. راجع السعر والمدة قبل الشراء.", "OFFER_CHANGED")
+                        return
+                    }
+                    options.formUnion(Product.PurchaseOption.promotionalOffer(promo, compactJWS: signature))
+                } else {
+                    options.insert(.introductoryOfferEligibility(compactJWS: eligibility))
+                }
+                switch try await product.purchase(options: options) {
                 case .success(let result):
                     guard let jws = receipt(result) else {
                         call.reject("تعذّر التحقق من عملية الشراء.", "UNVERIFIED")

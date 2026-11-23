@@ -499,7 +499,7 @@ function choiceHelpRequest(input, memberGender) {
     ? { message: { type: 'string' }, code: { type: ['string', 'null'], enum: [...codes, null] } }
     : { message: { type: 'string' }, explanations: { type: 'object', properties: Object.fromEntries(codes.map(code => [code, { type: 'string' }])), required: codes, additionalProperties: false } };
   return {
-    codes, answer,
+    codes, answer, question, options,
     request: {
       model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: 550,
       messages: [
@@ -1038,7 +1038,21 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
         const timeout = 6500;
         const client = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout });
         const completion = await client.chat.completions.create(help.request, { timeout, maxRetries: 0 });
-        return { document: null, revision: snapshot.revision, choiceHelp: parseChoiceHelp(completion, help) };
+        const choiceHelp = parseChoiceHelp(completion, help);
+        if (reserve.reviewSession && identity.token) {
+          if (!serviceKey) throw unavailable();
+          const member = JSON.parse(Buffer.from(identity.token.split('.')[1], 'base64url').toString()).sub;
+          if (!uuid.test(member ?? '')) throw unavailable();
+          const detail = help.options.filter(option => choiceHelp.explanations || option.code === choiceHelp.code)
+            .map(option => choiceHelp.explanations ? option.label + ' – ' + choiceHelp.explanations[option.code] : option.label);
+          const stored = await fetcher(PROJECT_URL + '/rest/v1/rpc/wudayn_record_luna_help', {
+            method:'POST',headers:{apikey:serviceKey,Authorization:'Bearer '+serviceKey,'Content-Type':'application/json'},
+            body:JSON.stringify({member,session_started:reserve.reviewSession,question:help.question,
+              member_message:input.answer || 'شرح الاختيارات',reply:[choiceHelp.message,...detail].join('\n')}),signal:AbortSignal.timeout(4500),
+          });
+          if (!stored.ok) throw unavailable();
+        }
+        return { document: null, revision: snapshot.revision, choiceHelp };
       } catch { throw unavailable(); }
     }
     const save = async next => {

@@ -25,7 +25,7 @@ function Registration() {
   return <GuidedApplication initial={null} previouslyApproved={false} busy={false} back={() => {}} onPrivacy={() => {}}
     portraitSource={portraitSource} defaultContact={account.email} accountAgreements={account.agreements} draftOwner={account.id} draftRef={draft}
     interviewAuth={{ token: account.id }} save={(profile, portrait, _policy, provenance, readiness, integrity) => {
-      Object.assign(window, {__submitted: {account: {id: account.id, email: account.email}, profile: {...profile, _answerProvenance:provenance, _membershipReadiness:readiness, _applicationIntegrity:integrity}, photo: portrait && {blur: portrait.blur, revealPolicy: portrait.revealPolicy}, photoStatus: portrait?.staged?.status}});
+      Object.assign(window, {__submitted: {account: {id: account.id, email: account.email, agreements: account.agreements}, profile: {...profile, _answerProvenance:provenance, _membershipReadiness:readiness, _applicationIntegrity:integrity}, photo: portrait && {blur: portrait.blur, revealPolicy: portrait.revealPolicy}, photoStatus: portrait?.staged?.status}});
       setSubmitted(true);
     }}/>;
 }

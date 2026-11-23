@@ -10,7 +10,7 @@ const currentOwner = async (owner: string) => isTester(owner) || (await cloudSes
 const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(owner)
   ? testRequest<T>('push_' + action, owner.slice(7), payload)
   : callRpc<T>('marriage_push_' + action, payload, owner);
-import { disableWebPush, enableWebPush, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
+import { disableWebPush, enableWebPush, registerWebPushDevice, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
 export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
@@ -97,14 +97,19 @@ async function bind(owner: string, device: Device) {
   await pushRpc(owner, 'register', { device_token: device.token, device_environment: device.environment, installation: device.installationId });
   if(!isTester(owner)) await callRpc('wudayn_news_preference',{installation:device.installationId,build:publicationBuild((await native.status()).buildNumber)},owner).catch(()=>{});
 }
-export async function enablePush(owner: string) {
-  if (!nativePush) return enableWebPush(owner);
+export async function registerPushDevice(owner: string) {
+  if (!nativePush) return registerWebPushDevice(owner);
   if (!nativePush || !pushConfigured) throw new Error('لم تُفعّل خدمة الإشعارات بعد.');
   const scope = await syncNativePushOwner(owner);
   if (!scope) throw new Error('سجّل الدخول مجددًا لتفعيل الإشعارات.');
   const device = await native.register();
   if (bindingOwner!==owner) throw new Error('تغيّر الحساب.');
   await bind(owner, device);
+  return device.installationId;
+}
+export async function enablePush(owner: string) {
+  if (!nativePush) return enableWebPush(owner);
+  await registerPushDevice(owner);
   return pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: true });
 }
 export async function disablePush(owner: string) {

@@ -24,6 +24,16 @@ const {Membership} = loadScreen('membership/Membership.tsx', {
   '../membershipPricing': {membershipPriceLabel:()=>'',seriousnessPriceLabel:()=>''}
 });
 
+test('grant copy separates complimentary access from Apple billing and offers disclose both phases',()=>{
+ const props={active:true,currentTier:'premium',status:'granted',price:'SAR 55',period:'شهر',expiry:'2030-01-01T00:00:00Z',canBuy:true,canStart:true};
+ const grant=renderToStaticMarkup(createElement(Membership,props));
+ assert.match(grant,/منحة من وُدَين دون رسوم/);assert.doesNotMatch(grant,/راجع سعر التجديد|إدارة الاشتراك في Apple/);
+ const overlapping=renderToStaticMarkup(createElement(Membership,{...props,status:'paid',currentTier:'seriousness',giftUntil:props.expiry}));
+ assert.match(overlapping,/يبقى اشتراكك في Apple منفصلًا عنها/);assert.match(overlapping,/إدارة الاشتراك في Apple/);
+ const promo=renderToStaticMarkup(createElement(Membership,{...props,active:false,status:'expired',promotion:{id:'return',terms:'٢٩ ر.س لمدة شهر'}}));
+ assert.match(promo,/٢٩ ر.س لمدة شهر/);assert.match(promo,/بعد العرض، يتجدد الاشتراك بسعر SAR 55/);assert.match(promo,/الاشتراك بعرض العودة/);
+});
+
 test('trial and expired members can restore or manage Apple and see the storefront period', () => {
   const render = props => renderToStaticMarkup(createElement(Membership, {
     canBuy:true,canStart:true,price:'SAR 55',period:'٣ أشهر',demo:false,...props

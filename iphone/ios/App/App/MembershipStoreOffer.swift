@@ -5,6 +5,17 @@ struct MembershipStoreOffer {
     let period: String
     let introduction: String?
 
+    static func summary(_ offer: Product.SubscriptionOffer, for product: Product) -> String? {
+        let interval = offer.period.formatted(product.subscriptionPeriodFormatStyle)
+        let duration = offer.periodCount == 1 ? interval : "\(offer.periodCount) فترات، مدة كل منها \(interval)"
+        switch offer.paymentMode {
+        case .freeTrial: return "مجانًا لمدة \(duration)"
+        case .payUpFront: return "\(offer.displayPrice) دفعة واحدة لمدة \(duration)"
+        case .payAsYouGo: return "\(offer.displayPrice) لكل \(interval) لمدة \(duration)"
+        default: return nil
+        }
+    }
+
     init?(_ product: Product) async {
         guard let subscription = product.subscription else { return nil }
         self.product = product
@@ -13,13 +24,6 @@ struct MembershipStoreOffer {
             introduction = nil
             return
         }
-        let interval = offer.period.formatted(product.subscriptionPeriodFormatStyle)
-        let duration = offer.periodCount == 1 ? interval : "\(offer.periodCount) فترات، مدة كل منها \(interval)"
-        switch offer.paymentMode {
-        case .freeTrial: introduction = "مجانًا لمدة \(duration)"
-        case .payUpFront: introduction = "\(offer.displayPrice) دفعة واحدة لمدة \(duration)"
-        case .payAsYouGo: introduction = "\(offer.displayPrice) لكل \(interval) خلال العرض الأولي لمدة \(duration)"
-        default: return nil
-        }
+        introduction = Self.summary(offer, for: product)
     }
 }

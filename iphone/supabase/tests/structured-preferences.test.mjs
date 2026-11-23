@@ -1,3 +1,4 @@
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -19,6 +20,7 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
  async function add(gender,patch={}){
   const user={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};
   await addUser(db,user);
+  await seedCommunicationMember(db,user,gender,'draft');
   const answers=Object.fromEntries(catalog.dimensions.flatMap(d=>[[d.id,'A'],[d.partnerId,'A']]));
   user.profile={displayName:'مثال',age:30,city:'الرياض',gender,profession:'مهندسة مدنية',education:'بكالوريوس هندسة',bio:'نبذة',contact:user.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:choices.version,signupConsents:choices,
@@ -85,7 +87,8 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
 
   await db.query("insert into marriage.cities(label) values('مدينة أخرى داخل السعودية') on conflict(label) do nothing");
   await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='مدينة أخرى داخل السعودية') where member_id=any($1)",[[man.id,woman.id]]);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'an unknown city keeps the pair eligible');
+  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false,'two unspecified cities do not establish a shared place to live');
+  await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='الرياض') where member_id=$1",[man.id]);
   await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='residence_plan'",[woman.id]);
   assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'explicit relocation choices may establish a shared future city');
 

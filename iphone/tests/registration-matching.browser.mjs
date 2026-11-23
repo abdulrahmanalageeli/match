@@ -15,7 +15,7 @@ const output = resolve(root, '.tmp/registration-matching');
 await mkdir(output, { recursive: true });
 const cloud = `
   const account = () => JSON.parse(sessionStorage.getItem('qa-account') || 'null');
-  export const cloudSelected = true, cloudConnection = null, phoneOtpEnabled = false;
+  export const cloudSelected = true, cloudConnection = {url:location.origin,key:'local-only'}, phoneOtpEnabled = false;
   export const cloud = {auth: {getSession: async () => ({data:{session:{user:{id:account()?.id},access_token:'synthetic'}}})}};
   export class CloudError extends Error {}
   export async function cloudSessionId() { return account()?.id; }
@@ -118,9 +118,9 @@ async function register(browser, gender) {
     await page.goto(server.resolvedUrls.local[0]+'__registration',{waitUntil:'domcontentloaded',timeout:60000});
     await page.locator('input[name=email]').fill(gender+'@example.test');
     await page.locator('input[name=password]').fill('synthetic-password-only');
-    await button('متابعة').click();
     for (const consent of await page.getByRole('checkbox').all()) await consent.check();
-    await button('إنشاء الحساب').click();
+    if(gender==='woman')await page.getByRole('checkbox',{name:/أختار إظهار تفاصيل ملفي الحساسة/}).uncheck();
+    await button('تأكيد الجوال وإنشاء الحساب').click();
     await chapter('identity');
     await page.getByLabel('الاسم الأول',{exact:true}).fill(person);
     await page.getByLabel('اسم العائلة',{exact:true}).fill('الناصر');
@@ -130,7 +130,7 @@ async function register(browser, gender) {
     await button('الرياض').click(); await select(/^ما جنسيتك/,'سعودي'); await next();
     await button(/^لم يسبق.*الزواج$/).click(); await next();
     await chapter('compatibility');
-    await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).click();
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على جلسة التوافق/}).count(),0);
     await button('ابدأ الحوار مع لونا').click();
     await page.locator('#wi-answer').fill(opening);
     await button('إرسال الرسالة').click();
@@ -148,23 +148,11 @@ async function register(browser, gender) {
     await button('اعتماد إجاباتي').click();
     await button('متابعة إعداد الملف').click(); await next();
     await chapter('details');
-    await next();
-    await page.getByRole('alert').filter({hasText:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها'}).waitFor();
-    assert.equal(await page.getByRole('checkbox',{name:/أوافق على معالجة/}).isChecked(),false);
-    await page.getByRole('checkbox',{name:/أوافق على معالجة/}).click();
-    await next();
-    await page.getByRole('alert').filter({hasText:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها'}).waitFor();
-    assert.equal(await page.getByRole('checkbox',{name:/أوافق على عرض/}).isChecked(),false);
-    await page.getByRole('checkbox',{name:/أوافق على عرض/}).check(); await next();
-    await page.waitForFunction(() => {
-      const d = JSON.parse(sessionStorage.getItem('qa-draft') || 'null');
-      return d?.permissions.sensitivePublication && d.step === 'details';
-    });
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على معالجة التفاصيل الحساسة/}).count(),0);
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على عرض التفاصيل الحساسة/}).count(),0);
     await page.reload();
     await chapter('details');
-    await page.getByRole('checkbox',{name:/أوافق على عرض/}).waitFor();
-    assert(await page.getByRole('checkbox',{name:/أوافق على عرض/}).isChecked());
-    await next();
+    assert.equal(await page.getByRole('checkbox',{name:/أوافق على معالجة التفاصيل الحساسة/}).count(),0);
     const slides = page.locator('.wd-signup-slides[data-chapter=details]');
     for(let i=0;await slides.count();i++) {
       assert(i<12,'details must advance');
@@ -218,7 +206,7 @@ async function register(browser, gender) {
       await page.locator('#portrait-blur:enabled').press('End');
       await page.locator('.nf-photo-reveal select').selectOption('family');
     }
-    await page.locator('.nf-photo-consent input').check();
+    if(await page.locator('.nf-photo-consent input').count())await page.locator('.nf-photo-consent input').check();
     await page.getByText(gender==='man'?'صورتك جاهزة، اكتملت مطابقة الصورة.':'صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.',{exact:true}).waitFor();
     await next(); await chapter('readiness');
     await page.getByText('أرتاح لإشراك الأهل من البداية',{exact:true}).waitFor();
@@ -238,7 +226,7 @@ async function register(browser, gender) {
       if(!await personal.evaluate(node => node.open)) await personal.locator('summary').click();
       await personal.getByRole('button',{name:'تعديل تفاصيلك الشخصية'}).click();
       await chapter('details');
-      for (let i=0;i<8;i++) {
+      for (let i=1;i<8;i++) {
         assert.equal(Number(await slides.getAttribute('data-slide-index')),i);
         await next();
       }
@@ -254,7 +242,7 @@ async function register(browser, gender) {
     assert.equal(profile.marriageBasics.marriageTimeline,'three_to_six_months');
     assert.equal(photoStatus,gender==='man'?'verified':'ready');
     assert.equal(Object.keys(profile.personalityAnswers).length,15);
-    assert(profile.signupConsents.assessment && profile.signupConsents.sensitivePublication);
+    assert(profile.signupConsents.assessment);assert.equal(profile.signupConsents.sensitivePublication,gender==='man');
     assert.equal(profile._applicationIntegrity,'wudayn-application-integrity-v1');
     assert.equal(profile._membershipReadiness.family,'early');
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);

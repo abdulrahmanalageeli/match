@@ -30,10 +30,11 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
   const callback=useRef(onConsumed);callback.current=onConsumed;
   const route=useRef(navigate);route.current=navigate;
   useEffect(()=>{
-    let active=true,reading=false;
+    let active=true,reading=false,dirty=false;
     if(!enabled || !cloud || build===null) return;
     async function sync(){
-      if(!cloud || !active || reading || document.hidden) return;
+      if(!cloud || !active || document.hidden) return;
+      if(reading){dirty=true;return;}
       reading=true;
       try {
         if((await cloudSessionId())!==owner) return;
@@ -51,13 +52,14 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
           callback.current();
         }else setSelected(last=>last && last.id===requestedId ? rows.find(r=>r.id===last.id)??null : last);
       }catch{if(active && openedId)setUnavailable(true);}
-      finally{reading=false;}
+      finally{reading=false;if(active && dirty){dirty=false;void sync();}}
     }
     void sync();
     let timerRefresh:number|undefined;
     const channel=cloud.channel('wudayn:publications').on('broadcast',{event:'refresh'},()=>{
-      clearTimeout(timerRefresh);timerRefresh=window.setTimeout(()=>void sync(),350);
-    }).subscribe();
+      if(timerRefresh!==undefined) return;
+      timerRefresh=window.setTimeout(()=>{timerRefresh=undefined;void sync();},80);
+    }).on('broadcast',{event:'registration-phase'},()=>{ if(active){ void sync(); if(owner) window.dispatchEvent(new Event('wudayn:registration-phase')); } }).subscribe();
     const timer=window.setInterval(()=>{setSelected(row=>row&&Date.parse(row.expires)<=Date.now()?null:row);setItems(rows=>rows.filter(r=>Date.parse(r.expires)>Date.now()));void sync();},30000);
     document.addEventListener('visibilitychange',sync);
     return ()=>{active=false;clearInterval(timer);clearTimeout(timerRefresh);void cloud?.removeChannel(channel);document.removeEventListener('visibilitychange',sync);};
@@ -76,10 +78,14 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
     });
   }
   const activeItems=enabled?items.filter(row=>Date.parse(row.expires)>Date.now()):[];
+  const registration = (screen === 'welcome' || screen === 'register') && activeItems.find(row=>row.placement==='setting' && row.key==='registration.phase');
   const banner=activeItems.find(item=>item.placement==='banner' && [screen,'all'].includes(item.screen) && !dismissed.includes(item.id));
   const feed=activeItems.filter(item=>screen==='inbox'?['news','inbox'].includes(item.placement):screen==='settings'&&item.placement==='news');
   const unread = feed.filter(row => !row.opened).length;
   return <PublicationContext.Provider value={activeItems}>
+    {registration && <aside className="wd-pub-banner" aria-label={registration.title}>
+      <div className="wd-pub-banner-copy wd-phase-copy"><strong>{registration.title}</strong><span>{registration.body}</span></div>
+    </aside>}
     {banner && <aside className="wd-pub-banner" aria-label="تنويه من وُدَين">
       <button className="wd-pub-banner-copy" onClick={()=>read(banner)}><strong>{banner.title}</strong><span>{banner.body}</span></button>
       <button className="wd-pub-dismiss" onClick={()=>setDismissed(old=>[...old,banner.id])} aria-label="إخفاء التنويه"><X size={16}/></button>

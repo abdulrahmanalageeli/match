@@ -55,13 +55,18 @@ async function subscribe(owner: string) {
   } catch (error) { await subscription.unsubscribe().catch(() => false); throw error; }
 }
 
-export async function enableWebPush(owner: string) {
+export async function registerWebPushDevice(owner: string) {
   if (!webPushConfigured || !webPushSupported()) throw new Error(needsHomeScreen() ? 'أضف وُدَين إلى الشاشة الرئيسية وافتحه منها، ثم فعّل الإشعارات.' : 'استخدم متصفحًا حديثًا يدعم الإشعارات.');
   // Request directly in the button handler, before any async work loses the
   // browser's user gesture (required by Safari/iOS).
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('لم يتم السماح بالإشعارات. يمكنك تغيير الإذن من إعدادات المتصفح.');
   await subscribe(owner);
+  return installationId();
+}
+
+export async function enableWebPush(owner: string) {
+  await registerWebPushDevice(owner);
   return callRpc<{ enabled: boolean }>('marriage_push_enable', { enabled: true }, owner);
 }
 

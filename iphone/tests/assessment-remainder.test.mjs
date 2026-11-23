@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
 import {applicableDimensions,hasPartnerQuestion,practicalAnswerKeys} from '../src/compatibility/practical-catalog.ts';
+import * as sharedDecisions from '../src/compatibility/sharedDecisions.ts';
 import catalog from '../src/compatibility/catalog.json' with { type: 'json' };
 import scenarios from '../src/beena/catalog.json' with { type: 'json' };
 import { hasPreferenceAnswer, hasScenarioAnswer } from '../src/onboarding/remainingAssessments.ts';
@@ -24,6 +25,7 @@ function mount(name, initial) {
   const require=name=>{
     if (name === '../member-copy.ts') return { default: memberAr };
     if(name==='react')return react;
+    if(name==='./sharedDecisions')return sharedDecisions;
     if(name==='react/jsx-runtime')return{jsx:(type,props,key)=>({type,props,key}),jsxs:(type,props,key)=>({type,props,key})};
     if(name==='../BrandIcons')return icons;
     if(name==='../onboarding/remainingAssessments')return{hasPreferenceAnswer,hasScenarioAnswer};
@@ -47,7 +49,7 @@ test('coverage requires valid choices and validates each scenario perspective in
 });
 
 test('remaining preferences ask only the missing side and do not drop selected answers before advancing',()=>{
-  const surveyAnswers=preferences(),dimension=catalog.dimensions[0];delete surveyAnswers[dimension.partnerId];
+  const surveyAnswers=preferences(),dimension=catalog.dimensions.find(item=>hasPartnerQuestion(item.id)&&!sharedDecisions.sharedDecisionPrompt(item.id));delete surveyAnswers[dimension.partnerId];
   const ui=mount('CompatibilityFields',{surveyAnswers,interestIds:[],hardRequirements:[],priorityCategories:[],registration:true,remainingOnly:true});let tree=ui.render();
   assert.equal(text(nodes(tree).find(node=>node.type==='h3')),dimension.partnerPrompt);
   assert.equal(nodes(byClass(tree,'compat-perspective')).filter(node=>node.type==='button').length,1);

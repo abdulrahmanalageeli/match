@@ -44,7 +44,7 @@ import { answersFromAssessmentContext, assessmentContextFromAnswers } from '../i
 import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
 import { requestInterview, type InterviewAuth } from '../interview/api';
 import type { InterviewDocument } from '../interview/types';
-import type { SignupAgreements } from '../auth/signupReturn';
+import { currentRegistrationReceipt, type SignupAgreements } from '../auth/signupReturn';
 import './journey.css';
 import './registration-fields.css';
 import { ReadinessStep, ReadinessResult } from './ReadinessStep';
@@ -285,7 +285,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const [reviewAllPersonality, setReviewAllPersonality] = useState(false);
   const [personalityDirect, setPersonalityDirect] = useState(false);
   const current = useRef(draft);
-  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true,sensitivePublication:draft.permissions?.sensitivePublication??(initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true),assessment:draft.permissions?.assessment??initial?.signupConsents?.assessment===true,photo:initial?.signupConsents?.photo===true}));
+  const entryAuthorized = !initial && currentRegistrationReceipt(accountAgreements);
+  const [consents,setConsents]=useState<SignupConsents>(()=>({...emptyConsents(),...recordedAccountAgreements(initial?.signupConsents ?? accountAgreements),sensitiveProfile:entryAuthorized || (draft.permissions?.sensitiveProfile??initial?.signupConsents?.sensitiveProfile===true),sensitivePublication:entryAuthorized ? accountAgreements?.sensitivePublication === true && draft.permissions?.sensitivePublication !== false : (draft.permissions?.sensitivePublication ?? (initial?.signupConsents?.version==='2026-11-07-privacy'&&initial.signupConsents.sensitiveProfile===true&&initial.signupConsents.sensitivePublication===true)),assessment:entryAuthorized || (draft.permissions?.assessment??initial?.signupConsents?.assessment===true),photo:(entryAuthorized && accountAgreements?.photo === true) || initial?.signupConsents?.photo===true}));
   const consentRef = useRef(consents);
   consentRef.current = consents;
   const [saveProgress, setSaveProgress] = useState<'idle'|'pending'|'saving'|'saved'|'local'|'error'>('idle');
@@ -480,10 +481,10 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       const recorded = latestInitial.current?.signupConsents;
       const choices = {
         ...consentRef.current,
-        sensitiveProfile: permissions?.sensitiveProfile ?? (recorded?.sensitiveProfile === true),
-        sensitivePublication: permissions ? permissions.sensitivePublication === true :
+        sensitiveProfile: entryAuthorized || (permissions?.sensitiveProfile ?? (recorded?.sensitiveProfile === true)),
+        sensitivePublication: entryAuthorized ? accountAgreements?.sensitivePublication === true && permissions?.sensitivePublication !== false : permissions ? permissions.sensitivePublication === true :
           recorded?.version === '2026-11-07-privacy' && recorded.sensitiveProfile === true && recorded.sensitivePublication === true,
-        assessment: permissions?.assessment ?? (recorded?.assessment === true),
+        assessment: entryAuthorized || (permissions?.assessment ?? (recorded?.assessment === true)),
       };
       consentRef.current = choices;
       setConsents(choices);
@@ -658,7 +659,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (busy||photoBusy) return;
     if (usesBasicSlides && basicSlides.current?.advance()) return;
     const agreed=consents.adult&&consents.terms&&consents.privacy;
-    if(!editing&&includeCompatibility&&['details','review'].includes(chapter.key)&&(!consents.sensitiveProfile||!consents.sensitivePublication)){
+    if(!editing&&includeCompatibility&&['details','review'].includes(chapter.key)&&(!consents.sensitiveProfile||(!entryAuthorized && !consents.sensitivePublication))){
       if(chapter.key!=='details')move('details',true);
       setError({field:'consent',text:'راجع ووافق على معالجة التفاصيل الحساسة وعرضها لإكمال التسجيل.'});return;
     }
@@ -759,7 +760,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </>}
             </div>
             <div className="flow-form nf-intake-fields">
-              {usesBasicSlides && <SignupBasicsSlides trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
+              {usesBasicSlides && <SignupBasicsSlides trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} optionalPublication={entryAuthorized} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
               {!usesBasicSlides && chapter.key === "identity" && <>
                 <MemberNameFields answers={p} update={update} required={!editing || !!initial?.firstName}/>
                 <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
@@ -878,7 +879,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 </details>}
                 {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. إجابات «بيننا» الخاصة لا تستهلك هذا التعديل، أما نشر قصة جديدة فيخضع له.</p>}
                 {profileReviewPending ? <p className="nf-intake-note">ملفك الآن قيد مراجعة التعديل. يمكنك إرسال التصحيحات اللازمة دون انتظار موعد التعديل التالي.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. يمكنك حفظ مسودتك لهذا الموعد، وتحديث إجاباتك الخاصة دون انتظار.</p>}
-                <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} requiredSensitive={!editing&&includeCompatibility} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
+                <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} requiredSensitive={!editing&&includeCompatibility} optionalPublication={entryAuthorized} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
                 {requiresIntegrity && <label className="nf-consent-choice">
                   <input {...field('applicationIntegrity')} type="checkbox" required checked={integrityAccepted} onChange={event => {
                     setIntegrityAccepted(event.target.checked);
@@ -915,7 +916,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         onStructuredDraftChange={choices => update(answersFromAssessmentContext(choices))}
         onProfileApply={applyCapturedProfile}
         sensitiveProfileAllowed={consents.sensitiveProfile}
-        consentGranted={consents.assessment && draft.permissions?.interview === true}
+        consentGranted={consents.assessment && (entryAuthorized || draft.permissions?.interview === true)}
         onUnavailable={() => { if (trackRegistration) launchEvent('error', 'compatibility', draftOwner); setFallbackAvailable(true); }}
         onClose={() => { setInterviewOpen(false); void saveProgressNow(); }}
         onDirectQuestions={() => {

@@ -24,6 +24,7 @@
 }
 .wd-pub-banner-copy { flex: 1; min-width: 0; padding: 6px 0; line-height: 1.5; }
 .wd-pub-banner-copy strong, .wd-pub-banner-copy span { display: block; }
+.wd-pub-banner .wd-phase-copy span { white-space: normal; overflow: visible; }
 .wd-pub-banner-copy strong { font-size: 14px; }
 .wd-pub-banner-copy span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wd-pub-dismiss { display: grid; place-items: center; margin-inline-start: auto; flex: none; width: 44px; height: 44px; }

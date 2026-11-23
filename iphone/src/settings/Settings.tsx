@@ -11,8 +11,8 @@ import { useDevicePreferences, useSystemReducedMotion } from "./preferences";
 import { RequestHistory } from '../community/RequestHistory';
 import { MatchingExclusions } from "./MatchingExclusions";
 import { MemberData } from "./MemberData";
-import { PhotoSettings } from "../photos/Photos";
 import { PushSettings } from "../notifications/PushSettings";
+import { LunaReviewPermission } from './LunaReviewPermission';
 import { NativePrivacy } from './NativePrivacy';
 import "./settings.css";
 import { ProfileGallery } from "../photos/ProfileGallery";
@@ -29,7 +29,6 @@ import type { ManualVerificationClaim } from '../verification/model';
 import { JourneyCompletion } from './JourneyCompletion';
 import { SupportContact } from '../help/SupportContact';
 import { feedback, hasHaptics } from '../feedback/haptics';
-import { callRpc } from '../cloud';
 import { isIOSBilling, manageMembership } from '../billing';
 import { applePeriodText, settingsDate, useSettingsSummary } from './settingsSummary';
 
@@ -136,9 +135,6 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const systemReduced = useSystemReducedMotion();
   const [confirm, setConfirm] = useState<"pause" | "exit" | null>(null);
   const [dataSheet, setDataSheet] = useState<{ mode: "export" | "visibility"; owner: string } | null>(null);
-  const [showPhotos, setShowPhotos] = useState(false);
-  const [revoking,setRevoking] = useState<string|null>(null);
-  const [photoMessage,setPhotoMessage] = useState('');
   const [appleError,setAppleError] = useState(false);
   const [showHelp,setShowHelp]=useState(false);
   const [showCompletion,setShowCompletion]=useState(false);
@@ -166,15 +162,6 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     draft:'أكمل ملفك وأرسله للمراجعة ليظهر في الترشيحات.',
     membership:'ظهورك يتطلب عضوية سارية',exclusive:'الترشيحات متوقفة أثناء التعارف الحصري',unavailable:'ملفك غير متاح للترشيحات',
   }[visibility] : null;
-  async function revokeShare(requestId:string) {
-    if (!owner || demo || revoking) return;
-    setRevoking(requestId);setPhotoMessage('');
-    try {
-      await callRpc('marriage_revoke_my_photo_share',{request_id:requestId},owner);
-      setPhotoMessage('أُوقفت مشاركة الصورة.');summary.refresh();
-    } catch {setPhotoMessage('تعذّر إيقاف المشاركة. حاول مجددًا.');}
-    finally {setRevoking(null);}
-  }
   if(showCompletion)return <JourneyCompletion paused={paused} busy={busy} demo={demo} canPause={canManageMatching}
     onBack={()=>{setShowCompletion(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.st-completion-entry button')?.focus());}}
     onPause={()=>{if(!paused&&!busy)onToggle();}} onMembership={canSeeMembership?onMembership:undefined}
@@ -195,18 +182,6 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     <header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
     <h1>صوري وخصوصيتها</h1>
     {source?.gallery && <section className="st-section"><h2>صور تظهر في ملفي</h2><ProfileGallery source={source} editable onChanged={onProfileChanged}/></section>}
-    {owner && <section className="st-section"><h2>صور أشاركها في المحادثات</h2>
-      <div className="st-group"><SettingRow icon={<Image/>} title="صورتي الخاصة" detail="إدارة الصورة التي تختار مشاركتها مؤقتًا" action={()=>setShowPhotos(true)}/></div>
-      {!demo && <><h3>أذونات المشاركة الحالية</h3>
-        {summary.error ? <p role="alert">تعذّر تحميل أذونات المشاركة. <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button></p>
-          : !summary.data ? <p role="status">جارٍ تحميل أذونات المشاركة…</p>
-          : summary.data.shares.length ? <ul className="st-grants">{summary.data.shares.map(grant=><li key={grant.requestId}>
-            <div><strong><bdi>{grant.name}</bdi></strong><small>ينتهي الإذن في <time dateTime={grant.expiresAt}>{new Date(grant.expiresAt).toLocaleString('ar-SA-u-ca-gregory',{day:'numeric',month:'long',hour:'numeric',minute:'2-digit'})}</time></small></div>
-            <button className="btn-text" disabled={!!revoking} onClick={()=>void revokeShare(grant.requestId)} aria-label={'إيقاف مشاركة الصورة مع '+grant.name}>إيقاف المشاركة</button></li>)}</ul>
-          : <p>لا توجد أذونات مشاركة سارية.</p>}
-        {photoMessage&&<p role="status">{photoMessage}</p>}</>}
-    </section>}
-    {showPhotos&&owner&&<PhotoSettings key={owner} owner={owner} demo={demo} close={()=>{setShowPhotos(false);summary.refresh();}}/>}
   </div></main>;
   return (
     <main className="app-screen st-screen" dir="rtl">
@@ -224,7 +199,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {summary.error && !visibilityText && <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button>}
             {canManageMatching && <button type="button" className="btn-text" disabled={busy} aria-label={paused?'استئناف الظهور':'إيقاف الترشيحات مؤقتًا'} onClick={()=>paused?onToggle():setConfirm('pause')}>{paused?'استئناف الظهور':'إيقاف مؤقت'}</button>}</div>
           {state?.user.profileReviewPending && <p className="st-note" role="status">تعديلاتك قيد المراجعة. تعرض المعاينة النسخة المعتمدة التي يراها من سبق لك التعارف معهم.</p>}
-          {(source||owner)&&<button className="st-member-photos" onClick={()=>{setPhotoMessage('');openPanel('photos');}}><Image size={17}/><span><strong>صوري وخصوصيتها</strong><small>صور الملف وأذونات المشاركة الخاصة</small></span><ChevronLeft size={16}/></button>}
+          {source?.gallery&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صوري وخصوصيتها</strong><small>إدارة الصور التي تظهر في ملفي</small></span><ChevronLeft size={16}/></button>}
         </section>
         {canSeeMembership && <section className="st-section" aria-labelledby="st-membership-title"><h2 id="st-membership-title">العضوية</h2><div className="st-group">
           <SettingRow icon={<CreditCard/>} title="عضويتي" detail={membershipDetail} action={onMembership} disabled={busy}/>
@@ -254,6 +229,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {source?.directoryWork && <DirectoryWork source={source}/>}
             {source?.matchingExclusions && <div className="st-exclusions-entry"><SettingRow icon={<ShieldCheck/>} title="الحظر وعدم إعادة الترشيح" detail="الأشخاص المحظورون والتعارفات المستبعدة" action={()=>openPanel('exclusions')} /></div>}
             <SettingRow icon={<ShieldCheck />} title="الخصوصية وشروط العضوية" action={onPrivacy} />
+            {!demo && owner && <LunaReviewPermission key={owner} owner={owner}/>}
             {owner && <SettingRow icon={<Eye />} title="خصوصية بيانات الملف" action={() => setDataSheet({ mode: "visibility", owner })} />}
             {owner && <SettingRow icon={<Download />} title="نسخة من بياناتي" action={() => setDataSheet({ mode: "export", owner })} />}
           </div>

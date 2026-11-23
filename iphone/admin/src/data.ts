@@ -3,6 +3,7 @@ import type { AdminApi, AuditRow, FamilyReviewRow, MemberDetail, ReportRow, Supp
 
 export const liveApi: AdminApi = {
   async membership(member_id,selected_tier,days,search_blocked,expected_revision,reason,request_id) { await call("marriage_admin_membership",{member_id,selected_tier,days,search_blocked,expected_revision,reason,request_id}); },
+  interviewTranscript: (id, purpose) => call('wudayn_review_interview_transcript', { member:id, purpose }),
   interviewSummary: id => call('marriage_interview_admin_summary', { member: id }),
   support: (status, before) => call('marriage_support', { action: 'admin_list', payload: { status, before } }),
   supportReply: (id, revision, status, response, requestId) => call('marriage_support', { action: 'admin_reply', payload: { id, revision, status, response, requestId } }),
@@ -92,6 +93,7 @@ export function createDemoApi(storage?: Pick<Storage, 'getItem' | 'setItem'>): A
       return structuredClone(rows.sort((a, b) => b.memberId.localeCompare(a.memberId)).slice(0, 50).map(currentMember));
     },
     async member(id) { const row = member(id); log('member_viewed', 'member', id, 'مراجعة ملف تجريبي'); return structuredClone(currentMember(row)); },
+    async interviewTranscript() { return null; },
     async interviewSummary() { return null; },
     async clearRegistrationReview(id, revision, reason) {
       const row = member(id);

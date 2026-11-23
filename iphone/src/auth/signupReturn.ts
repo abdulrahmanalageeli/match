@@ -1,5 +1,16 @@
 export type SignupReturn = 'returned' | 'invalid';
-export type SignupAgreements = { adult: boolean; terms: boolean; privacy: boolean; version: string };
+export type SignupAgreements = { adult: boolean; terms: boolean; privacy: boolean; version: string;
+  registrationVersion?: string; withdrawnAt?: string; photo?: boolean; safetyTextReview?: boolean; safetyRecordedAt?: string; sensitiveProfile?: boolean; sensitivePublication?: boolean; assessment?: boolean; transcript?: boolean };
+export const registrationVersion = 'wudayn-entry-2026-11-23';
+export const registrationPurposes = ['adult','terms','privacy','sensitiveProfile','assessment','transcript'] as const;
+export type RegistrationChoices = Record<(typeof registrationPurposes)[number] | 'sensitivePublication' | 'photo' | 'safetyTextReview', boolean>;
+export const emptyRegistrationChoices = (): RegistrationChoices => ({
+  adult: false, terms: false, privacy: false, sensitiveProfile: false, sensitivePublication: false, assessment: false, transcript: false, photo: false, safetyTextReview:false,
+});
+export const registrationComplete = (value: Partial<RegistrationChoices>) => registrationPurposes.every(key => value[key] === true);
+export function currentRegistrationReceipt(value: SignupAgreements | null | undefined) {
+  return value?.version === '2026-11-07-privacy' && value.registrationVersion === registrationVersion && !value.withdrawnAt && typeof value.sensitivePublication === 'boolean' && typeof value.photo === 'boolean' && registrationComplete(value);
+}
 
 // Email confirmation is completed by Supabase. Require the password again here;
 // a URL marker must never authenticate a member or grant access to their profile.

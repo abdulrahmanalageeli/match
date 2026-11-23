@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember} from './harness.mjs';
 import {validMarriageBasics} from '../../src/compatibility/marriage.ts';
 import {marriagePlanQuestions} from '../../src/compatibility/marriagePlans.ts';
-import catalog from '../../src/compatibility/catalog.json' with {type:'json'};
+import catalog from '../../src/compatibility/catalog-v3.json' with {type:'json'};
 
 test('public plans validate equally, survive save/export and clear without changing old assessment answers',async()=>{
  const db=await createDatabase();
@@ -42,12 +42,13 @@ test('public plans validate equally, survive save/export and clear without chang
   const evidence=async()=>(await db.query('select marriage.deep_evidence($1) as value',[user.id])).rows[0].value;
   const before=await evidence();
   const planEntries=before.entries.filter(e=>e.key.startsWith('profile:'));
-  assert.equal(planEntries.length,4);
-  for(const [key,q] of Object.entries(marriagePlanQuestions))assert.equal(planEntries.find(e=>e.key===`profile:${key}`).answer,q.options[plans[key]]);
+  // The questionnaire-only report keeps profile plans out of its model input.
+  assert.equal(planEntries.length,0);
+  assert.equal(before.entries.filter(e=>e.key.startsWith('answer:')).length,Object.keys(surveyAnswers).length);
   assert.equal(JSON.stringify(before).includes('الطائف'),false,'origin city must not enter AI evidence');
   assert.equal(before.entries.some(e=>e.key.includes('beena')),false);
   await call('public.marriage_apply($1)',[{...profile,marriageBasics:{...plans,expenseSharing:'proportional'}}]);
-  assert.notDeepEqual(await evidence(),before,'editing a plan invalidates the report fingerprint');
+  assert.deepEqual(await evidence(),before,'a public-plan edit keeps the private questionnaire evidence unchanged');
   await call('public.marriage_apply($1)',[profile]);
 
   assert.deepEqual((await call('public.marriage_personal_data()')).profile.marriageBasics,plans);

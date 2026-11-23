@@ -1,4 +1,4 @@
-import {decideJourney} from './communication-fixture.mjs';
+import {decideJourney,seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -11,6 +11,7 @@ function fixture(db){
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
  async function member(gender,approved=true){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender,'draft');
   u.profile={displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:consents};
   const state=await call(u,'public.marriage_apply($1)',[u.profile]);
   if(approved){

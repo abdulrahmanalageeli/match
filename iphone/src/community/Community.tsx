@@ -117,7 +117,6 @@ import { ConversationPilotFeedback } from "./ConversationPilotFeedback";
 import { useReadPosition } from "./useReadPosition";
 import { useVoiceCalls } from "../voice/VoiceCalls";
 import { chatHandoff } from "./chatMotion";
-import { PhotoSharing } from "../photos/Photos";
 import { useWeeklyCardTransition } from "./useWeeklyCardTransition";
 import "./community.css";
 import "./weeklyCards.css";
@@ -955,6 +954,9 @@ function Discovery({
     <section
       className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}
       ref={directorySurface}
+      onPointerDownCapture={source.noteDiscoveryBrowse}
+      onKeyDownCapture={source.noteDiscoveryBrowse}
+      onWheelCapture={source.noteDiscoveryBrowse}
       onTouchStart={startDirectoryPull}
       onTouchEnd={endDirectoryPull}
       onTouchCancel={() => { pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) setPullDistance(0); }}
@@ -1122,7 +1124,7 @@ function SafetySheet({
       ) : (
         <div className="cm-report-form">
         {evidence && <p>يُحفظ نص الرسالة المحددة أو نوع المرفق لمدة ٣٠ يومًا. يمكن لمالك المنصة أو المشرف المكلّف بالبلاغ مراجعته.</p>}
-        {evidence && <label><input type="checkbox" checked={allowSafetyScreen} disabled={busy} onChange={e=>setAllowSafetyScreen(e.target.checked)}/> أسمح بفحص الرسالة المحددة آليًا لتحديد أولوية البلاغ. يبقى نصها داخل وُدَين، وقد تُقيّد طلبات التعارف مؤقتًا لحين المراجعة.</label>}
+        {evidence && <label><input type="checkbox" checked={allowSafetyScreen} disabled={busy} onChange={e=>setAllowSafetyScreen(e.target.checked)}/> أطلب فرز هذه الرسالة آليًا. بإذن المرسل يمكن إرسال مقتطف منها إلى OpenAI لترتيب أولوية البلاغ بعد حجب وسائل التواصل. رسائل السياق للفريق فقط.</label>}
         {!!contextRows.length && <details><summary>إرفاق سياق الرسالة</summary>{contextRows.map(m=><label key={m.id} className="cm-report-context"><input type="checkbox" checked={contextIds.includes(m.id)} onChange={e=>setContextIds(v=>e.target.checked?[...v,m.id]:v.filter(id=>id!==m.id))} disabled={busy}/><span><strong>{m.senderIsMe?'رسالتك':'الطرف الآخر'}</strong><br/>{m.body}</span></label>)}</details>}
         <p>اختر ما يصف المشكلة. يكفي اختيار السبب لإرسال البلاغ، ويمكنك إضافة تفاصيل تساعد على فهمه.</p>
         <label className="cm-report-label">سبب البلاغ
@@ -1321,7 +1323,6 @@ export function Chat({
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [showLatest, setShowLatest] = useState(false);
   const [guide, setGuide] = useState(false);
-  const [photos, setPhotos] = useState(false);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -1367,7 +1368,7 @@ export function Chat({
   const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
   const profileIdentity = useRef<HTMLElement>(null);
   const profileFlight = useWeeklyCardTransition();
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !privateHidden && !safety && !guide && !photos && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !privateHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
@@ -1691,7 +1692,6 @@ export function Chat({
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>
           {source.family&&<button onClick={() => { setToolsOpen(false); openFamily(); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
-          <button onClick={() => { setToolsOpen(false); setPhotos(true); }}><LockKeyhole size={20}/><span><strong>الصور الخاصة</strong><small>إدارة الصور التي تختار مشاركتها</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>{memberAr.reportBlock}</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>{memberAr.block}</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
         </div>
@@ -1704,7 +1704,6 @@ export function Chat({
         <button className="btn-primary" disabled={ending} onClick={() => void finishMatch()}>{ending ? 'جارٍ إنهاء التعارف…' : 'تأكيد إنهاء التعارف'}</button>
         <button className="btn-text" disabled={ending} onClick={() => setEndMatch(false)}>الاستمرار في التعارف</button>
       </Sheet>}
-      {photos && <PhotoSharing requestId={connection.id} name={connection.person.alias} demo={Boolean(source.demoAcceptOutgoing)} watch={source.watch} close={() => setPhotos(false)} />}
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet evidence={!!evidence} contextRows={evidenceContext} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}

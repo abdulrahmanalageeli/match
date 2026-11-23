@@ -61,7 +61,13 @@ export type Proposal = {
   contact?: string;
 };
 
+export type MembershipReceiptData = {
+  id:string; source:'staff'|'scheduled'|'manual'|'apple'; tier:'premium'|'seriousness';
+  kind:'grant'|'extend'|'end'|'apple'; promotion?:boolean; appleTrial?:boolean; startsAt:string; endsAt:string;
+};
+
 export type AccountState = {
+  prelaunch?: { locked: boolean; subscribed: boolean };
   demoDiscoveryEnabled?: boolean;
   demoInteractionsEnabled?: boolean;
   testingTrial?: {enabled:boolean;eligible?:boolean;expiresAt:string|null};
@@ -76,6 +82,8 @@ export type AccountState = {
     nextPublicProfileEditAt?: string | null;
   };
   profile: Profile | null;
+  currentGiftUntil?:string|null;
+  membershipNotice?:MembershipReceiptData|null;
   membershipTesting?: {selected:'actual'|'free'|'premium'|'seriousness'};
   membership: { tier?:"free"|"premium"|"seriousness"; connectionLimit?:number; status?:'free'|'expired'|'trial'|'paid'|'granted'; active: boolean; expiresAt: string | null; canStart: boolean };
   introduction: {

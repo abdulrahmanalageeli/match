@@ -49,11 +49,13 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
           setSelectedId(id => retained.some(p => p.id === id) ? id : null);
         }
         // Only new or replaced photos require bytes. Recheck access even when the lightbox is open.
-        for (const photo of list) {
-          if (retained.some(p => p.id === photo.id)) continue;
-          fresh.push({...photo, url: await download(photo)});
-          if (!valid()) return;
+        const missing = list.filter(photo => !retained.some(item => item.id === photo.id));
+        const downloads = await Promise.allSettled(missing.map(async photo => ({...photo, url: await download(photo)})));
+        for (const result of downloads) {
+          if (result.status === 'fulfilled') fresh.push(result.value);
         }
+        if (!valid()) return;
+        if (downloads.some(result => result.status === 'rejected')) throw new Error('Gallery unavailable');
         const available = [...retained, ...fresh];
         const ordered = list.map(photo => available.find(p => p.id === photo.id)!);
         if (ordered.some((p,i) => p !== current[i])) {

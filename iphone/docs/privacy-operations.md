@@ -2,6 +2,12 @@
 
 Prepared 2026-11-07 for Nisfayn. This is an operational draft, not a completed DPIA, legal opinion, certification, executed processor agreement or government registration. Do not put real member requests, credentials, identity documents or incident evidence in this repository.
 
+## Registration and safety processing, 23 November 2026
+
+The registration receipt records the age/terms/privacy acknowledgment and each processing choice separately. Processing for compatibility and assigned membership review is explained before a new application. Public display of sensitive attributes, use of a profile photo and external text triage of reported messages are distinct choices. Profile-photo verification, purchases, marketing and OS push permission continue to use their own interaction and purpose. Preserve the actual version, date, renewal and withdrawal instead of assigning current permissions to earlier messages or Luna sessions.
+
+Before release, the controller should document why full transcript review is necessary for this service, who can review it and how access is audited. Confirm the controller identity/contact and rights-request procedure, complete the applicable impact and international-transfer assessments, and verify processor terms and actual retention. Obtain Saudi legal review of the published terms and the controller’s obligations for fraud reports. The member’s responsibility for decisions and off-platform activity preserves the member’s statutory rights. [Saudi PDPL, including Articles 7, 11 and 29](https://sdaia.gov.sa/en/SDAIA/about/Documents/Personal%20Data%20English%20V2-23April2023-%20Reviewed-.pdf) · [Implementing Regulations, including Articles 11–12](https://dgp.sdaia.gov.sa/wps/wcm/connect/2a9a4744-a2ae-444f-bad2-6dacde843637/The%2Bimpelementing%2Bregulation%2Bof%2Bthe%2Bpersonal%2Bdata%2Bprotection%2Blaw.pdf?MOD=AJPERES)
+
 ## Implemented restrictions
 
 - New verification evidence uploads/submissions are paused at the UI, Edge and database boundaries. Existing requests remain available for withdrawal and authorized review. Reopening requires a documented permitted verification method and Article 28 assessment; a user consent checkbox is not sufficient evidence of an exception.

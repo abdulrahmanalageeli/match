@@ -1,4 +1,4 @@
-import {decideJourney} from './communication-fixture.mjs';
+import {decideJourney,seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -11,6 +11,7 @@ function fixture(db){
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
  async function member(gender){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender,'draft');
   const state=await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:consents}]);
   await asService(db,()=>rpc("public.marriage_review($1,'approve')",[u.id]));
   await asService(db,()=>rpc('public.marriage_record_receipt($1,$2,false)',[u.id,{bundleId:'com.blindmatch.marriage',productId:'com.blindmatch.marriage.monthly',appAccountToken:state.user.appAccountToken,originalTransactionId:u.id,transactionId:u.id,signedDate:Date.now(),expiresDate:Date.now()+86400000,environment:'Sandbox'}]));
@@ -61,14 +62,15 @@ test('clear portrait is per-peer, mutual-stage gated and revoked by rewind, clos
   await call(owner,"public.marriage_portrait_policy($1,'matched')",[p.id]);
   await call(owner,"public.marriage_act($1,'cancel')",[request]);
   assert.equal(await read(peer,p.clearPath),0,'ending match revokes even when the path is known');
-  assert.equal((await view(peer,p)).revealed,false);
-  await db.query("update marriage.member_requests set status='accepted' where id=$1",[request]);
-  assert.equal(await read(peer,p.clearPath),1);
-  await db.query('insert into marriage.blocks values($1,$2,now())',[owner.id,peer.id]);
-  assert.equal(await read(peer,p.clearPath),0);await assert.rejects(view(peer,p),/غير متاحة/);
+  await assert.rejects(view(peer,p),{code:'42501'});
+  const fresh=await call(other,'public.marriage_request($1)',[owner.id]);
+  await call(owner,"public.marriage_act($1,'accept')",[fresh]);
+  assert.equal(await read(other,p.clearPath),1);
+  await db.query('insert into marriage.blocks values($1,$2,now())',[owner.id,other.id]);
+  assert.equal(await read(other,p.clearPath),0);await assert.rejects(view(other,p),/غير متاحة/);
   await db.query('delete from marriage.blocks where member_id=$1',[owner.id]);
-  assert.equal(await read(peer,p.clearPath),0,'unblocking does not resurrect the ended match');
-  assert.equal((await view(peer,p)).revealed,false);
+  assert.equal(await read(other,p.clearPath),0,'unblocking does not resurrect the ended match');
+  await assert.rejects(view(other,p),{code:'42501'});
   const off=await call(owner,"public.marriage_portrait_policy($1,'never')",[p.id]);
   assert.equal(off.hasClear,false);assert.equal(off.revealPolicy,'never');assert.equal(await read(owner,p.clearPath),0);
   assert((await db.query('select path from marriage.portrait_cleanup')).rows.some(r=>r.path===p.clearPath));

@@ -45,4 +45,6 @@ test('Family routing stays exact without disclosing preview content', () => {
   assert.equal(payload.roomId,roomId);assert.equal(payload.messageId,messageId);
   assert(!JSON.stringify(payload).includes('PRIVATE'));
   assert.equal(webPushPayload({...job,kind:'reminder'}).kind,'reminder');
+  const launch = webPushPayload({...job,kind:'publication',details:{preview:'private',launch:true,badge:0}});
+  assert.equal(launch.launch,true); assert.match(launch.body,/انطلق وُدَين/);
 });

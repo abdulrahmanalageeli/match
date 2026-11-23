@@ -23,6 +23,8 @@ test('APNs provider token is signed ES256 P1363 and payload contains only generi
    assert.deepEqual(alert.aps.alert,{title:'وُدَين',body:'لديك تحديث جديد.'});
    assert.equal(alert.aps.category,undefined);
  }
+ const launch=pushPayload({...job,kind:'publication',details:{preview:'private',launch:true,badge:0}});
+ assert.match(launch.aps.alert.body,/انطلق وُدَين/);
  const quiet=pushPayload({...job,details:{preview:'event',passive:true,badge:0}});
  assert.equal(quiet.aps.sound,undefined);assert.equal(quiet.aps['interruption-level'],'passive');
  assert.equal(classifyApns(410,'Unregistered'),'invalid');assert.equal(classifyApns(429),'retry');assert.equal(classifyApns(503),'retry');assert.equal(classifyApns(403),'failed');

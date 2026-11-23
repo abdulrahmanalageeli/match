@@ -1,3 +1,4 @@
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -10,6 +11,7 @@ function fixture(db){
  const passport=(u,action,payload={})=>call(u,'public.marriage_passport($1,$2)',[action,payload]);
  async function member(gender='man'){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender,'draft');
   await call(u,'public.marriage_apply($1)',[{displayName:'مثال',age:29,gender,city:'الرياض',profession:'مهندس',bio:'ملف تجريبي',contact:u.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',consentVersion:'2026-11-05',signupConsents:{version:'2026-11-06-onboarding',adult:true,terms:true,privacy:true,sensitiveProfile:true,assessment:true,photo:true}}]);
   await db.query("update marriage.members set review_status='approved',manual_access_until=now()+interval '1 day' where id=$1",[u.id]);return u;
  }
@@ -139,7 +141,7 @@ test('existing maintenance prunes readiness retention without altering its publi
   await db.query("update marriage.readiness_events set created_at=now()-interval '91 days' where owner_key=$1",[a.id]);
   await db.query("insert into marriage.client_fault_totals(day,event,platform,release,total) values((now() at time zone 'Asia/Riyadh')::date-30,'render_error','web','0.1.0',1)");
   await assert.rejects(rpc('public.marriage_operations_cleanup()'),/Trusted service/);
-  assert.deepEqual(await asService(db,()=>rpc('public.marriage_operations_cleanup()')),{faultGroups:1,notificationJobs:0});
+  assert.deepEqual(await asService(db,()=>rpc('public.marriage_operations_cleanup()')),{faultGroups:1,notificationJobs:0,expiredInterviews:0,birthdayAgesUpdated:0,expiredDeepAnalyses:0,expiredOnboardingDrafts:0});
   assert.equal((await db.query('select count(*)::int n from marriage.readiness_grants')).rows[0].n,0);
   assert.equal((await db.query('select count(*)::int n from marriage.readiness_events')).rows[0].n,0);
   assert.equal((await passport(a,'get')).timeline,answers.timeline,'maintenance preserves current private declarations');

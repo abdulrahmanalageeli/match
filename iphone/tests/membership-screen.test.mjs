@@ -8,11 +8,12 @@ const source=await readFile(new URL('../src/membership/Membership.tsx',import.me
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const exports={};
 let rendering;
+const measured=[];
 const hooks={
  useState(initial){const owner=rendering,index=owner.cursor++;if(!(index in owner.state))owner.state[index]=typeof initial==='function'?initial():initial;return [owner.state[index],value=>{const next=typeof value==='function'?value(owner.state[index]):value;if(!Object.is(next,owner.state[index])){owner.state[index]=next;owner.dirty=true}}]},
  useEffect(effect,deps){const owner=rendering,index=owner.cursor++,previous=owner.effects[index];if(!previous||deps.some((value,i)=>!Object.is(value,previous.deps[i]))){owner.effects[index]={deps,cleanup:previous?.cleanup};owner.pending.push(()=>{owner.effects[index].cleanup?.();owner.effects[index].cleanup=effect()})}},
 };
-vm.runInNewContext(code,{exports,require:name=>name==='react'?hooks:name==='react/jsx-runtime'?{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})}:name==='../membershipPricing'?pricing:name==='../billing'?{getMembershipOffer:()=>Promise.reject(Error('Offer unavailable'))}:name.endsWith('.css')?{}:new Proxy({},{get:(_,key)=>key})});
+vm.runInNewContext(code,{exports,require:name=>name==='react'?hooks:name==='react/jsx-runtime'?{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})}:name==='../membershipPricing'?pricing:name==='../launchEvents'?{launchEvent:(...args)=>measured.push(args)}:name==='../billing'?{getMembershipOffer:()=>Promise.reject(Error('Offer unavailable'))}:name.endsWith('.css')?{}:new Proxy({},{get:(_,key)=>key})});
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):String(n??'');
 const noop=()=>{};
@@ -80,4 +81,12 @@ test('existing Seriousness members manage their subscription instead of buying a
  assert.match(text(tree),/عضوية فعّالة/);assert.doesNotMatch(text(tree),/٧ أيام مجانًا|299.99|المتابعة مجانًا/);
  assert.equal(nodes(tree).some(n=>n.props?.className==='wd-plan-choice'),false);
  button(tree,'wd-purchase').props.onClick();assert.equal(managed,1);assert.equal(bought,0);view.unmount();
+});
+
+test('explicit web free choice counts for the signed-in member when StoreKit pricing is unavailable',()=>{
+ measured.length=0;
+ const tree=screen({canBuy:false,price:null,period:undefined,trialEligible:false,measurementOwner:'member'});
+ assert.deepEqual(measured,[['offer_seen','standard','member']]);
+ button(tree,'wd-continue').props.onClick();
+ assert.deepEqual(measured,[['offer_seen','standard','member'],['chose_free','standard','member']]);
 });

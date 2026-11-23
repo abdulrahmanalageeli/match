@@ -71,8 +71,8 @@ export function signupSlideError(chapter: Chapter, index: number, p: Answers, re
   return null;
 }
 
-type Props={ trackingOwner?:string; chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
-export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({trackingOwner,chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
+type Props={ optionalPublication?:boolean; trackingOwner?:string; chapter: Chapter; answers: Answers; update:(value:Partial<Answers>)=>void; gender:(value:'man'|'woman')=>void; consents:SignupConsents; consent:(kind:'sensitiveProfile'|'sensitivePublication',value:boolean)=>void; required:boolean; reviewing?:boolean };
+export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function SignupBasicsSlides({optionalPublication=false,trackingOwner,chapter,answers:p,update,gender,consents,consent,required,reviewing=false},ref){
   const total=signupSlideCount(chapter);
   // Keep the questions shown on entering a section stable while the member answers.
   const [entryAnswers, setEntryAnswers] = useState(p);
@@ -84,7 +84,8 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const remainingStory = chapter === 'story' && required && !reviewing ? allSlides.filter(i => !knownSlide(i)) : [];
   let slides = remainingStory.length ? remainingStory : allSlides;
   if (chapter === 'details') {
-    slides = remaining ? [0,...new Set(remaining.map(item => item.slide))] : allSlides.filter(i => i !== 7 || consents.sensitiveProfile);
+    const ids = remaining ? [...new Set(remaining.map(item => item.slide))] : allSlides.filter(i => i > 0 && (i !== 7 || consents.sensitiveProfile));
+    slides = ids.length ? ids : [1];
   }
   const [index,setIndex]=useState(()=>{
     // Saved answers reopen at the first unfinished slide, without losing anything.
@@ -105,13 +106,8 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const last=index===slides.length-1;
   function move(next:number){setDirection(next>index?'next':'back');setError(null);setInteracted(false);setIndex(next);}
   useImperativeHandle(ref,()=>({
-    advance(){const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){if(trackingOwner)launchEvent('error', chapter==='identity'&&visibleIndex===3?'eligibility':chapter,trackingOwner);setError(issue);return true;}
+    advance(){if(chapter==='details' && required && (!consents.sensitiveProfile || (!optionalPublication && !consents.sensitivePublication))){setError('راجع موافقتي معالجة تفاصيل ملفك وعرضها.');return true;}const issue=signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);if(issue){if(trackingOwner)launchEvent('error', chapter==='identity'&&visibleIndex===3?'eligibility':chapter,trackingOwner);setError(issue);return true;}
       if(trackingOwner&&chapter==='identity'&&visibleIndex===3)launchEvent('completed','eligibility',trackingOwner);
-      if(chapter==='details' && visibleIndex===0 && !allDetails) {
-        setEntryAnswers(p);
-        if(!remainingDetailFields(p,consents.sensitiveProfile).length)return false;
-        move(1);return true;
-      }
       if(chapter==='story'&&visibleIndex===0){const bio=generatedBio(p);if(!p.bio.trim() && bio){update({bio});setGeneratedDraft(true);}}if(last)return false;
       const next = slides.findIndex((slide, at) => at > index && (!knownSlide(slide) || signupSlideError(chapter,slide,p,required,consents.sensitiveProfile,consents.sensitivePublication)));
       if(next < 0)return false;
@@ -128,8 +124,8 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
     window.scrollTo({top:0,behavior:'instant'});
   },[index]);
   const draftReady=generatedDraft && visibleIndex === 1;
-  const consentSlide = chapter === 'details' && visibleIndex === 0;
-  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):consentSlide?'من يطّلع على تفاصيلك الحساسة؟':details[visibleIndex-1];
+  const consentMissing = required && (!consents.sensitiveProfile || (!optionalPublication && !consents.sensitivePublication));
+  const title=chapter==='identity'?identityTitles[visibleIndex]:chapter==='story'?(draftReady?'راجع نبذتك.':storyTitles[visibleIndex]):details[visibleIndex-1];
   const count=slides.length;
   const basics=p.marriageBasics??{};
   const answer=(value:Partial<Answers>)=>{setError(null);setInteracted(true);update(value);};
@@ -138,13 +134,7 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
   const formalTiming = chapter === 'details' && visibleIndex === 4 && remaining?.some(item => item.field === 'marriageTimeline')
     ? dimensionsForVersion(p.assessmentVersion).find(topic => topic.id === 'marriage_timeline')?.options.find(option => option.code === p.surveyAnswers?.marriage_timeline)?.self
     : undefined;
-  const subtitle = consentSlide
-    ? required
-      ? consents.sensitiveProfile && consents.sensitivePublication
-        ? 'بعد دخول التطبيق، يمكنك إيقاف العرض من «تعديل الملف» في الإعدادات.'
-        : 'يتطلّب التسجيل درجة البشرة وموافقتين للمعالجة والعرض. يمكنك إيقاف العرض لاحقًا من الإعدادات.'
-      : 'يمكنك الموافقة على استخدام التفاصيل في التوافق، ثم اختيار ما إذا كنت تسمح بعرضها للأعضاء المؤهلين.'
-    : formalTiming ? `أول خطوة رسمية: ${formalTiming}. بقي توقيت الزواج نفسه.` : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
+  const subtitle = formalTiming ? `أول خطوة رسمية: ${formalTiming}. بقي توقيت الزواج نفسه.` : slideSubtitles[slideChapter][slideChapter==='details' ? visibleIndex-1 : visibleIndex];
   const complete=interacted&&!signupSlideError(chapter,visibleIndex,p,required,consents.sensitiveProfile,consents.sensitivePublication);
   const birthdayAge = chapter === 'identity' && visibleIndex === 1 ? ageFromBirthday(p.birthDate ?? '') : null;
   const publicAge = birthdayAge !== null && birthdayAge >= 18 && birthdayAge <= 110 ? birthdayAge : null;
@@ -197,10 +187,10 @@ export const SignupBasicsSlides=forwardRef<SignupSlidesHandle,Props>(function Si
       {chapter==='story'&&visibleIndex===1&&<>{[generatedBio(p),generatedBio(p,1)].includes(p.bio) && <button type="button" className="wd-slide-rephrase" onClick={rephraseBio}><Pencil size={14} aria-hidden="true"/>إعادة الصياغة</button>}<label>نبذة عنك<textarea data-field="bio" value={p.bio} maxLength={1200} rows={3} required placeholder="بعيدًا عن العمل، أحب…" onChange={e=>answer({bio:e.target.value})}/></label></>}
       {chapter==='story'&&visibleIndex===2&&<ProfilePromptFields remainingOnly={required && !reviewing} answers={p} update={answer} required={required}/>}
       {chapter==='story'&&visibleIndex===3&&<><div className="wd-slide-options">{['مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد','تعارف جاد يهدف إلى الزواج'].map(value=><MotionPressButton type="button" key={value} aria-pressed={p.marriageIntent===value} onClick={()=>answer({marriageIntent:value})}><span>{value==='تعارف جاد يهدف إلى الزواج'?'أبحث عن زواج جاد':value}</span>{p.marriageIntent===value&&<Check size={17}/>}</MotionPressButton>)}</div></>}
-      {consentSlide && <>
-        <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>
-        {consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
-        {required && !reviewing && consents.sensitiveProfile && consents.sensitivePublication && <details className="nf-intake-draft-help"><summary>تعديل التفاصيل المحفوظة وإضافة الاختياري</summary>
+      {chapter === 'details' && index === 0 && <>
+        {(consentMissing || !required) && <ConsentGate kind="sensitiveProfile" required={required} checked={consents.sensitiveProfile} change={v=>{setInteracted(true);consent('sensitiveProfile',v);setEntryAnswers(p);}} compact/>}
+        {(consentMissing || !required) && consents.sensitiveProfile && <ConsentChoice kind="sensitivePublication" required={required} checked={consents.sensitivePublication} change={v=>{setInteracted(true);consent('sensitivePublication',v);}}/>}
+        {required && !reviewing && consents.sensitiveProfile && <details className="nf-intake-draft-help"><summary>تعديل التفاصيل المحفوظة وإضافة الاختياري</summary>
           <p>يمكنك تعديل إجاباتك أو إضافة تفاصيل مثل مدينة الأصل وخطط السكن هنا أو في المراجعة الأخيرة.</p>
           <button type="button" className="nf-intake-policy" aria-pressed={allDetails} onClick={()=>setAllDetails(!allDetails)}>{allDetails?'عرض الأسئلة المتبقية فقط':'عرض كل تفاصيل الملف'}</button>
         </details>}

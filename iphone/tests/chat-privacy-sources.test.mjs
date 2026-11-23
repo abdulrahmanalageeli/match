@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import {isolateCommunityServices} from './fixtures/isolated-community-services.mjs';
 import { mergeMessages } from '../src/community/timeline.ts';
 import { refreshHistoricalMessages } from '../src/community/messageRefresh.ts';
 
 const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
-const dataUrl=url((await compile('../src/community/data.ts'))
+const dataUrl=url(isolateCommunityServices(await compile('../src/community/data.ts'))
  .replace(/import .* from '\.\.\/photos\/verifyPhoto';/, '')
  .replace(/import .* from '\.\/deepCompatibilityClient';/, 'const deepCompatibilitySource=()=>undefined;')
  .replace(/import .* from "\.\.\/compatibility\/appearance";/, '')

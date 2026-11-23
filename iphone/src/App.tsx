@@ -12,7 +12,8 @@ import { ChevronDown, X } from "./BrandIcons";
 import { welcomeNavigation } from "./welcomeNavigation";
 import { MemberPasswordRecovery } from './auth/MemberPasswordRecovery';
 import { readRecoveryLink, type RecoveryLink } from './auth/passwordRecovery';
-import type { SignupReturn, SignupAgreements } from './auth/signupReturn';
+import { currentRegistrationReceipt, type SignupReturn, type SignupAgreements } from './auth/signupReturn';
+import { CompleteRegistrationAgreements } from './auth/CompleteRegistrationAgreements';
 import "./ambient.css";
 import type { PortraitDraft } from './photos/portraitPreparation';
 import { APPLICATION_INTEGRITY_VERSION, LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
@@ -52,6 +53,7 @@ import { initializeMatchSound } from "./community/matchSound";
 import { PublicationCenter } from './publishing/PublicationCenter';
 import { ConductCenter } from './conduct/ConductCenter';
 import { usePushNotifications, setPushBadge, detachNotifications, syncNativePushOwner } from "./notifications/push";
+import { RegistrationWait } from "./release/RegistrationWait";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
@@ -177,18 +179,22 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [accountAgreements, setAccountAgreements] = useState<SignupAgreements | null>(null);
+  const [entryReceipt, setEntryReceipt] = useState<{ owner: string; value: SignupAgreements | null } | null>(null);
+  const accountAgreements = entryReceipt?.owner === token ? entryReceipt?.value : undefined;
   useEffect(() => {
     let active = true;
-    setAccountAgreements(null);
-    if (token && cloud) void cloud.auth.getUser().then(({ data }) => {
-      if (active && data.user?.id === token) setAccountAgreements(data.user.app_metadata?.signupConsent ?? null);
-    }).catch(() => { /* The explicit agreement controls remain available if the receipt cannot be loaded. */ });
-    return () => { active = false; };
+    function load() {
+      if (token && cloud) void cloud.auth.getUser().then(({ data, error }) => {
+        if (active && (error || data.user?.id === token)) setEntryReceipt({ owner: token, value: data.user?.app_metadata?.signupConsent ?? null });
+      }).catch(() => { if (active) setEntryReceipt({ owner: token, value: null }); });
+    }
+    load();
+    window.addEventListener('wudayn:entry-agreements', load);
+    return () => { active = false; window.removeEventListener('wudayn:entry-agreements', load); };
   }, [token]);
   const tokenRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [socialPending, setSocialPending] = useState<{ userId: string; email: string } | null>(null);
+  const [socialPending, setSocialPending] = useState<{ userId: string; email: string; initialReceipt?: SignupAgreements } | null>(null);
   const [busy, setBusy] = useState(false);
   const inflight = useRef(false);
   const version = useRef(0);
@@ -262,7 +268,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     useState<View>("main");
   const [requestedPlan,setRequestedPlan]=useState<MembershipPlan>();
   const active = tier !== 'free';
-  const memberAccess = demo || Boolean(live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
+  const waitingForLaunch = !demo && live?.prelaunch?.locked === true;
+  const memberAccess = demo || Boolean(!waitingForLaunch && live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
   const chatUnread = useUnreadCount(memberAccess ? source : null);
   const mutual = useMutualMatches(memberAccess && !paused ? source : null);
@@ -523,6 +530,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     document.addEventListener("visibilitychange", tick);
     window.addEventListener("focus", tick);
     window.addEventListener("online", tick);
+    window.addEventListener("wudayn:registration-phase", tick);
     return () => {
       disposed = true;
       stop?.();
@@ -530,6 +538,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       document.removeEventListener("visibilitychange", tick);
       window.removeEventListener("focus", tick);
       window.removeEventListener("online", tick);
+      window.removeEventListener("wudayn:registration-phase", tick);
     };
   }, [token, demo, source]);
   useEffect(() => {
@@ -624,11 +633,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       go("main");
     });
   }
-  function signInSocial(provider: 'apple' | 'google') {
+  function signInSocial(provider: 'apple' | 'google', initialReceipt?: SignupAgreements) {
     void run(async () => {
       const userId = await socialSignIn(provider);
       const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, userId);
-      if (status.required) { setSocialPending({ userId, email: status.email }); return; }
+      if (status.required) { setSocialPending({ userId, email: status.email, initialReceipt }); return; }
       remember(userId);
       await refresh(userId);
       setDemo(false);
@@ -911,6 +920,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }
   const membership = (back: () => void) => (
     <Membership
+      measurementOwner={token ?? undefined}
       back={back}
       active={active}
       currentTier={tier}
@@ -927,6 +937,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         await refresh(owner);
       })}
       period={price?.gender===live?.profile?.gender?price?.period:undefined} introduction={price?.gender===live?.profile?.gender?price?.introduction:undefined} status={live?.membership.status}
+      giftUntil={live?.currentGiftUntil}
+      promotion={price?.gender===live?.profile?.gender?price?.promotion:undefined}
       expiry={live?.membership.expiresAt ?? null}
       canStart={Boolean(live?.membership.canStart)}
       sandboxCheckout={Boolean(price?.gender===live?.profile?.gender && price?.sandboxCheckout)}
@@ -953,6 +965,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const Application = demo && newDemoIntake && warmIntake ? warmIntake : LazyIntake;
   const Community = warmCommunity ?? LazyCommunity;
   let screen: ReactNode;
+  let publicationScreen: string = view;
   if (loading)
     screen = (
       <div className="loading-stage">
@@ -964,8 +977,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         <img className="nf-opening-horizon" src="/brand/nisfayn-horizon.svg" alt="" />
       </div>
     );
-  else if (socialPending)
-    screen = <SocialOnboarding email={socialPending.email} userId={socialPending.userId} busy={busy} onComplete={finishSocialOnboarding} onLogout={() => void run(async () => { await cloudLogout(); setSocialPending(null); go('login'); })} onPrivacy={() => setPolicy(true)} />;
+  else if (socialPending) {
+    publicationScreen = 'register';
+    screen = <SocialOnboarding initialReceipt={socialPending.initialReceipt} email={socialPending.email} userId={socialPending.userId} busy={busy} onComplete={finishSocialOnboarding} onLogout={() => void run(async () => { await cloudLogout(); setSocialPending(null); go('login'); })} onPrivacy={() => setPolicy(true)} />;
+  }
   else if (token && !live && !demo)
     screen = (
       <Frame title="حسابي" back={signOut}>
@@ -1003,7 +1018,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onPrivacy={() => setPolicy(true)}
       />
     );
-  else if (!demo && !live)
+  else if (!demo && !live) {
+    publicationScreen = 'welcome';
     screen = (
       <Welcome
         onRegister={() => leaveWelcome("register")}
@@ -1013,6 +1029,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onPrivacy={() => { welcomeIntent.current++; setNotice(""); setPolicy(true); }}
       />
     );
+  }
   else if (view === "settings")
     screen = (
       <Settings key={tester?.session ?? (demo?'demo':live?.user.id)} source={source} testerSession={tester?.session}
@@ -1046,9 +1063,20 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           chatUnread={chatUnread} onAccount={openAccount} />}
       </Settings>
     );
-  else if (view === "membership" && (active || accepted || live?.user.profileReviewPending))
+  else if (waitingForLaunch && live && token && view !== "application" && live.user.applicationStatus !== "draft") {
+    publicationScreen = 'prelaunch';
+    screen = <RegistrationWait key={token} owner={token} subscribed={live.prelaunch?.subscribed === true} onSettings={openAccount} onRefresh={() => refresh(token,true)}/>;
+  }
+  else if (view === "membership" && !waitingForLaunch && (active || accepted || live?.user.profileReviewPending))
     screen = membership(() => go(returnFromMembership));
-  else if (view === "application" || (!demo && live?.user.applicationStatus === "draft"))
+  else if (!demo && cloud && token && live?.user.applicationStatus === 'draft' && !currentRegistrationReceipt(accountAgreements)) {
+    publicationScreen = 'register';
+    screen = accountAgreements === undefined ? <p className="flow-note" role="status">جارٍ فتح طلب العضوية…</p> :
+      <CompleteRegistrationAgreements key={token} owner={token} onPrivacy={() => setPolicy(true)} onBack={openAccount}
+        onSaved={receipt => setEntryReceipt({ owner: token, value: receipt })}/>;
+  }
+  else if (view === "application" || (!demo && live?.user.applicationStatus === "draft")) {
+    publicationScreen = 'application';
     screen = (
       <Application
         key={demo ? 'demo-'+sampleSession : live?.user.id}
@@ -1073,7 +1101,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         includeCompatibility={demo || Boolean(cloud)}
       />
     );
-  else if (!demo && !accepted && !live?.user.profileReviewPending)
+  }
+  else if (!demo && !accepted && !live?.user.profileReviewPending) {
+    publicationScreen = 'pending';
     screen = (
       <Pending
         back={openAccount}
@@ -1086,11 +1116,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         busy={busy}
       />
     );
+  }
   else if (view === "membership")
     screen = membership(() =>
       view === "membership" ? go(returnFromMembership) : openAccount(),
     );
   else if ((view === "main" || view === "curated" || view === "discover" || view === "inbox" || view === "chats") && source) {
+    publicationScreen = view === 'main' ? 'discover' : view;
     screen = (
       <Community
         viewerGender={(demo ? sampleProfile : live?.profile)?.gender}
@@ -1180,7 +1212,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       </details>}
       {demo && !tester && !onboardingPreview && <DemoNotice onExit={exitDemo} gender={sampleProfile.gender}
         onGenderChange={view === "application" ? undefined : changeDemoPool} />}
-      {pendingPhoto && (memberAccess || view === 'settings') && <div className="feedback" role="status">
+      {pendingPhoto && (memberAccess || waitingForLaunch || view === 'settings') && <div className="feedback" role="status">
         <span>حُفظ ملفك. بقي إكمال خطوة الصورة.</span>
         <button type="button" onClick={retryPortrait} disabled={busy}>إعادة محاولة حفظ الصورة</button>
       </div>}
@@ -1192,7 +1224,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           </button>
         </div>
       )}
-      {!demo&&live&&<MembershipChangeNotice key={live.user.id} tier={tier}/>}
+      {!demo&&live&&<MembershipChangeNotice key={live.user.id} tier={tier} receipt={live.membershipNotice}
+        ack={id=>{const owner=live.user.id;void callRpc('wudayn_ack_membership_notice',{notice_id:id},owner).then(()=>refresh(owner,true)).catch(()=>{});}}/>}
       {notice && (
         <div className="feedback" role="status">
           {notice}
@@ -1202,7 +1235,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </div>
       )}
       {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token}/>}
-      <PublicationCenter key={demo?'demo':token??'public'} enabled={!demo && !tester && !loading && cloudSelected} owner={token} screen={socialPending?'register':!live&&view==='main'?'welcome':live?.user.applicationStatus==='draft'?'application':view}
+      <PublicationCenter key={demo?'demo':token??'public'} enabled={!demo && !tester && !loading && cloudSelected} owner={token} screen={publicationScreen}
         openedId={publicationOpen?.owner===token?publicationOpen.id:null} onConsumed={()=>setPublicationOpen(null)} navigate={go}>
         <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
       </PublicationCenter>
@@ -1210,7 +1243,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
-      {mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
+      {memberAccess && mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
         <MatchCelebration key={mutual.match.id} name={mutual.match.person.alias}
           onClose={() => mutual.dismiss(mutual.match!.id)}
           onContinue={() => {
@@ -1220,7 +1253,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
             go("chats");
           }} />
       )}
-      {!mutual.match && curatedMatch?.owner === curatedOwner && curatedMatch?.id === proposal?.id && curatedMatch && active && !paused &&
+      {memberAccess && !mutual.match && curatedMatch?.owner === curatedOwner && curatedMatch?.id === proposal?.id && curatedMatch && active && !paused &&
         !policy && !confirm && !onboardingPreview && view !== "application" && (
         <MatchCelebration key={curatedMatch.id} name={curatedMatch.name} continueLabel="عرض التعارف"
           onClose={() => setCuratedMatch(null)}

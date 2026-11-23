@@ -2,6 +2,8 @@ import {useEffect,useRef,useState} from 'react';
 import {Check,ChevronLeft,X} from '../BrandIcons';
 import type {MembershipPlan} from '../membershipPricing';
 import {useMembershipAccess} from './access';
+import {MembershipReceipt} from './MembershipReceipt';
+import type {MembershipReceiptData} from '../types';
 import {MembershipMark} from './MemberBadge';
 
 /** One route to the existing subscription screen, driven by current entitlements. */
@@ -24,15 +26,17 @@ const tierChanges:Record<Tier,[string,string]> = {
  seriousness:['تفعّل وسام الجدية','يمكنك الآن البحث مع لونا وطلب تحليل التوافق المعمّق.'],
 };
 
-export function MembershipChangeNotice({tier}:{tier:Tier}) {
+export function MembershipChangeNotice({tier,receipt,ack}:{tier:Tier;receipt?:MembershipReceiptData|null;ack?:(id:string)=>void}) {
+ const [dismissed,setDismissed]=useState<string|null>(null);
  const lastTier=useRef(tier);
  const [change,setChange]=useState<{from:Tier;to:Tier}|null>(null);
  useEffect(()=>{
    if(lastTier.current!==tier){
-     setChange({from:lastTier.current,to:tier});
+     setChange(receipt?null:{from:lastTier.current,to:tier});
      lastTier.current=tier;
    }
- },[tier]);
+ },[tier,receipt]);
+ if(receipt&&receipt.id!==dismissed)return <MembershipReceipt key={receipt.id} receipt={receipt} close={()=>{setDismissed(receipt.id);setChange(null);ack?.(receipt.id);}}/>;
  if(!change)return null;
  const {from,to}=change;
  const [title,detail]=from==='seriousness'&&to==='premium'

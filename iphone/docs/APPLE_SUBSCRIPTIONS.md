@@ -1,5 +1,13 @@
 # Wudayn monthly Apple subscriptions
 
+## Complimentary memberships and returning-subscriber offers
+
+An owner can grant or extend المميزة or وسام الجدية from member operations, either now or after an existing entitlement. The member sees the granted tier and Riyadh dates on their next account refresh, including when they were offline during the change. A gift has no charge or automatic renewal. A separate paid Apple subscription retains its own billing and management controls.
+
+For a returning-subscriber discount, configure a promotional offer in App Store Connect on the relevant monthly product. In the owner publishing panel, open **عروض العودة والخصومات**, choose the product, and enter the identical offer identifier and an expiry in Riyadh time. The app displays Apple's localized price and duration followed by the ordinary renewal price. An approved member with a previous verified subscription in the same environment can redeem each offer once per product after their access has expired, subject to the existing checkout rules. Withdrawing the campaign invalidates subsequent checkout quotes. New subscribers continue to use the existing launch trial.
+
+Deploy the membership receipts and promotions migration, the updated `membership-offer` Edge Function, and a new native build. The signer reuses the configured In-App Purchase key. Verify the displayed terms and actual discount in Apple sandbox using a returning-subscriber test account before enabling an offer in production. [Apple promotional-offer signature claims](https://developer.apple.com/documentation/storekit/generating-jws-to-sign-app-store-requests)
+
 ## Owner entitlement testing
 
 `20261118020000_owner_membership_testing.sql` adds a Settings selector only for the explicitly allowlisted, email-confirmed owner account. The authenticated RPC derives the member from the live session, requires approval and no suspension, and supports `actual`, `free`, `premium`, and `seriousness`. Overrides expire after 24 hours and apply to server entitlement checks, badges, and capacity. Selecting `actual` removes the override. Apple receipts, billing, cancellation, and launch-trial reservations are untouched. This tests feature access, not StoreKit purchases. The migration must be deployed before the selector is returned in account state. Test with `node --test owner-membership-testing.test.mjs` from `supabase/tests`.

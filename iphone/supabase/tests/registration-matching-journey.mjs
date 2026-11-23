@@ -80,6 +80,7 @@ export async function runRegistrationMatching(profiles, identities, portraits) {
   const account = async (label,identity) => {
     const user = {id:identity?.id ?? randomUUID(),sessionId:randomUUID(),email:identity?.email ?? label+'@example.invalid'};
     await addUser(db,user);
+    if(identity?.agreements)await member(user,'public.wudayn_registration_agreements($1,$2)',['accept',identity.agreements]);
     return user;
   };
   try {

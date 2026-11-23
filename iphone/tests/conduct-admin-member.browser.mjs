@@ -63,7 +63,7 @@ try {
   const assets=new Map(compiled.outputFiles.map(f=>['/'+f.path.split(/[\\/]/).pop(),f.contents]));
   assets.set('/member.css',(await Promise.all(['design','flows','screens'].map(name=>readFile(resolve(root,'src/'+name+'.css'),'utf8')))).join('\n'));
   assets.set('/staff.css',await readFile(resolve(root,'admin/src/style.css'),'utf8'));
-  browser=await playwright.chromium.launch({channel:'chrome',headless:true});
+  browser=await playwright.chromium.launch({channel:process.env.WUDAYN_BROWSER_CHANNEL||'chrome',headless:true});
   const page=await browser.newPage({viewport:{width:402,height:874},isMobile:true,hasTouch:true,locale:'ar-SA',reducedMotion:'reduce'});
   page.on('pageerror',error=>console.error('Browser error:',error.message));
   page.setDefaultTimeout(6000);

@@ -78,6 +78,8 @@ test('service worker shows only generic notifications and opens only same-origin
  let work;
  handlers.get('push')({ data: { json: () => item }, waitUntil: promise => { work = promise; } }); await work;
  assert.equal(shown.length, 1); assert(!JSON.stringify(shown).includes('PRIVATE')); assert(!JSON.stringify(shown).includes('evil'));
+ handlers.get('push')({data:{json:()=>({...item,kind:'publication',launch:true})},waitUntil:promise=>{work=promise;}}); await work;
+ assert.match(shown.at(-1)[1].body,/انطلق وُدَين/); assert(!shown.at(-1)[1].body.includes('PRIVATE'));
  const click = { notification: { data: item, close() {} }, waitUntil: promise => { work = promise; } };
  handlers.get('notificationclick')(click); await work;
  assert.equal(new URL(opened[0]).origin, self.location.origin); assert.equal(new URL(opened[0]).searchParams.get('pushRequest'), item.requestId);
@@ -90,5 +92,5 @@ test('service worker shows only generic notifications and opens only same-origin
  assert.equal(opened.length, 2); assert.equal(new URL(opened[1]).pathname, '/');
  assert.equal(new URL(opened[1]).searchParams.has('family'), false); assert.equal(new URL(opened[1]).searchParams.has('test'), false);
  handlers.get('push')({ data: { json: () => ({ requestId: 'bad', kind: 'message' }) }, waitUntil() { throw new Error('must not notify'); } });
- assert.equal(shown.length, 1);
+ assert.equal(shown.length, 2);
 });

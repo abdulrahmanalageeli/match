@@ -39,6 +39,7 @@ export type SupportRow = { id: string; ownerId: string; category: string; subjec
 export type SupportPage = { items: SupportRow[]; nextCursor: string | null };
 export interface AdminApi {
   membership?(id:string,tier:string,days:number,blocked:boolean,revision:string,reason:string,requestId:string):Promise<void>;
+  interviewTranscript(id: string, purpose: string): Promise<InterviewTranscript | null>;
   interviewSummary(id: string): Promise<InterviewReviewSummary | null>;
   support(status: string, before?: string): Promise<SupportPage>;
   supportReply(id: string, revision: number, status: 'in_review' | 'resolved', response: string, requestId: string): Promise<SupportRow>;
@@ -61,3 +62,5 @@ export interface AdminApi {
 }
 
 export type InterviewReviewSummary = { confirmedAt: string; updatedAt: string; selfReported: true; readiness: Array<{id:string;text:string}>; clarifications: Array<{id:string;text:string}> };
+
+export type InterviewTranscript = { help:Array<{question:string; member:string; reply:string}>; turns: Array<{question:string; answer:string; skipped:boolean}>; currentQuestion:string|null; updatedAt:string; expiresAt:string };

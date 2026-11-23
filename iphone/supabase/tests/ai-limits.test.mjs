@@ -43,7 +43,7 @@ test('AI quota derives identity, rejects revoked/suspended accounts and enforces
     const adminToken = 'e'.repeat(64);
     await db.query("insert into nisfayn_test.sessions values(sha256($1::text::bytea),'abdulrahman',now()+interval '1 hour')", [adminToken]);
     assert.equal((await call(adminToken, true)).status, 'limited', 'Global cap spans every owner');
-    const grants = (await db.query("select has_function_privilege('anon','public.nisfayn_ai_allow(text,text,boolean)','EXECUTE') allowed, has_schema_privilege('anon','marriage','USAGE') private_schema, has_table_privilege('authenticated','marriage.ai_usage','SELECT') table_read")).rows[0];
-    assert.deepEqual(grants, { allowed: true, private_schema: false, table_read: false });
+    const grants = (await db.query("select has_function_privilege('anon','public.nisfayn_ai_allow(text,text,boolean)','EXECUTE') allowed, has_table_privilege('anon','marriage.ai_usage','SELECT') anon_usage_read, has_table_privilege('authenticated','marriage.ai_usage','SELECT') table_read")).rows[0];
+    assert.deepEqual(grants, { allowed: true, anon_usage_read: false, table_read: false });
   } finally { await db.close(); }
 });

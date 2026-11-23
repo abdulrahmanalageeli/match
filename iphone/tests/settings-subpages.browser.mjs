@@ -22,7 +22,7 @@ try {
  await capture('settings');
  await page.getByRole('button',{name:/عضويتي/}).click();await capture('membership');await page.getByRole('button',{name:'العودة للتجربة',exact:true}).click();
  await page.getByRole('button',{name:/الخصوصية وشروط العضوية/}).click();await capture('policy');await page.locator('.flow-header .f-icon').click();
- await page.locator('.st-member-photos').click();await page.getByRole('button',{name:/صورتي الخاصة/}).click();await capture('private-photo');await page.getByRole('button',{name:'إغلاق الصور الخاصة',exact:true}).click();await page.locator('.mp-back').click();await page.getByRole('button',{name:/خصوصية بيانات الملف/}).click();await capture('data-privacy');await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:/خصوصية بيانات الملف/}).click();await capture('data-privacy');await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/إيقاف الترشيحات مؤقتًا/}).click();await capture('pause-confirm');await page.getByRole('button',{name:'تراجع',exact:true}).click();
  await page.getByRole('button',{name:'عرض ملفي كما يراه الآخرون',exact:true}).click();await page.locator('.mp-profile').waitFor();await capture('own-profile');await page.locator('.mp-back').click();
  await page.locator('.st-member-photos').click();await page.locator('.pg-open').waitFor();await capture('gallery');await page.locator('.pg-open').click();await page.locator('.pg-lightbox[open]').waitFor();await capture('lightbox');assert(await page.locator('.pg-close').evaluate(e=>e.getBoundingClientRect().height>=44));await page.keyboard.press('Escape');await page.locator('.pg-remove').click();await capture('photo-confirm');await page.getByRole('button',{name:'تراجع',exact:true}).click();await page.locator('.mp-back').click();
@@ -34,13 +34,11 @@ try {
    if(r.request().url().includes('qa-original'))return r.continue();
    return r.fulfill({contentType:'application/javascript',body:`
      export * from '/src/cloud.ts?qa-original';
-     let shares=[{requestId:'qa-request',name:'عضو تجريبي',expiresAt:'2099-01-09T12:00:00Z'}];
      export async function callRpc(name,payload,owner) {
        if(owner!=='qa-member')throw Error('Unexpected fixture owner');
-       if(name==='marriage_revoke_my_photo_share'&&payload.request_id==='qa-request'){shares=[];return;}
        if(name!=='marriage_my_settings')throw Error('Unexpected fixture RPC');
        return {visibility:'review',approvedPreview:{id:owner,alias:'الاسم المعتمد',age:28,city:'الرياض',bio:'نبذة معتمدة',occupation:'',interests:[],reasons:[]},
-         shares,subscriptions:[{freeTrial:true,endsAt:'2099-01-08T12:00:00Z',autoRenew:true,billingRetry:false,
+         subscriptions:[{freeTrial:true,endsAt:'2099-01-08T12:00:00Z',autoRenew:true,billingRetry:false,
            renewalDate:'2099-01-08T12:00:00Z',milliunits:99990,currency:'SAR'}]};
      }`});
  });
@@ -63,7 +61,7 @@ try {
  await page.getByRole('button',{name:'عرض ملفي كما يراه الآخرون'}).click();
  await page.getByRole('heading',{name:/الاسم المعتمد/}).waitFor();assert.equal(await page.getByText('مسودة للاختبار').count(),0);
  await page.locator('.mp-back').click();await page.locator('.st-member-photos').click();
- await page.getByRole('button',{name:'إيقاف مشاركة الصورة مع عضو تجريبي'}).click();await page.getByText('لا توجد أذونات مشاركة سارية.').waitFor();
+ assert.equal(await page.getByRole('button',{name:/إيقاف مشاركة الصورة/}).count(),0);
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
- console.log('PASS: Settings at 390px and 320px, Arabic large text, light appearance with system dark mode, focus restoration, notification previews, approved profile, trial pricing and photo revocation. Zero external requests.');
+ console.log('PASS: Settings at 390px and 320px, Arabic large text, light appearance with system dark mode, focus restoration, notification previews, approved profile, trial pricing and retired photo grant controls. Zero external requests.');
 }finally{await browser.close();await server.close();}

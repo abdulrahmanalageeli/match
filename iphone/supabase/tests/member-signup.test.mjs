@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 
 let db;
@@ -8,9 +8,16 @@ before(async () => { db = await createDatabase(); });
 after(async () => { await db?.close(); });
 const marker = { signupKind: 'member_self_claimed_email', emailOwnershipVerified: false };
 const rpc = async (sql, args=[]) => (await db.query('select '+sql+' value',args)).rows[0].value;
+let phoneSequence=0;
+async function verifiedMarker(email) {
+  const proof=randomBytes(32).toString('hex'),device=randomBytes(32).toString('hex');
+  const phone='+96650000'+String(++phoneSequence).padStart(4,'0');
+  await db.query("insert into marriage.signup_sms_challenges(proof_hash,email,phone,device_hash,status,verified_at) values($1,$2,$3,$4,'verified',now())",[proof,email,phone,device]);
+  return {...marker,signupPhoneProof:proof,signupDeviceHash:device};
+}
 async function member(label, metadata=marker) {
   const user = { id: randomUUID(), sessionId: randomUUID(), email: label+'@example.test' };
-  await db.query('insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)',[user.id,user.email,metadata]);
+  await db.query('insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)',[user.id,user.email,metadata===marker?await verifiedMarker(user.email):metadata]);
   await db.query('insert into auth.sessions values($1,$2,null)',[user.sessionId,user.id]);
   return user;
 }
@@ -38,7 +45,7 @@ test('reserved staff emails cannot be created or adopted by the no-confirmation 
   await db.query("insert into marriage.staff_invitations(email,role,display_name,expires_at) values($1,'owner','Owner',now()+interval '1 day')",[reserved]);
   const prepared=await asService(db,()=>rpc('public.marriage_member_signup_prepare($1,$2,$3)',[reserved,'c'.repeat(64),'d'.repeat(64)]));
   assert.equal(prepared.available,false);
-  await assert.rejects(db.query('insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)',[randomUUID(),reserved,marker]),/Account unavailable/);
+  await assert.rejects(db.query('insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)',[randomUUID(),reserved,await verifiedMarker(reserved)]),/Account unavailable/);
   const ordinary=await member('ordinary-new');
   await assert.rejects(db.query('update auth.users set email=$1 where id=$2',[reserved,ordinary.id]),/Account unavailable/);
   const staff=await member('existing-staff',{});

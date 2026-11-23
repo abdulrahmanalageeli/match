@@ -6,14 +6,26 @@ import ts from 'typescript';
 import * as pricing from '../src/membershipPricing.ts';
 
 const code=ts.transpileModule(await readFile(new URL('../src/billing.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-function bridge({native=true,wrongProduct=false,eligible=true,account='account-uuid',offerError=false,sandboxCheckout=false}={}) {
+function bridge({native=true,wrongProduct=false,eligible=true,account='account-uuid',offerError=false,sandboxCheckout=false,promotion}={}) {
   const calls=[],exports={};
   let productId;
-  const plugin={offer:async options=>{productId=options.productId;calls.push(['offer',options]);return {price:'localized Apple price',currency:'SAR',period:'شهر',introduction:'أسبوع مجاني',appleEligible:true,signedAppTransaction:'apple-app-jws',productId:wrongProduct?'legacy':options.productId};},purchase:async options=>{calls.push(['purchase',options]);return {jws:'signed'};}};
-  const cloud={functions:{invoke:async(name,{body})=>{calls.push(['authorize',body]);return {error:offerError,data:{productId,eligible,sandboxCheckout,accountToken:account,eligibilityJws:'server-jws'}};}}};
-  vm.runInNewContext(code,{exports,require:name=>name==='@capacitor/core'?{Capacitor:{isNativePlatform:()=>native,getPlatform:()=>native?'ios':'web'},registerPlugin:()=>plugin}:name==='./cloud'?{cloud}:pricing});
+  const plugin={offer:async options=>{productId=options.productId;calls.push(['offer',options]);return {price:'localized Apple price',currency:'SAR',period:'شهر',introduction:'أسبوع مجاني',appleEligible:true,promotions:promotion?[promotion]:[], signedAppTransaction:'apple-app-jws',productId:wrongProduct?'legacy':options.productId};},purchase:async options=>{calls.push(['purchase',options]);return {jws:'signed'};}};
+  const cloud={functions:{invoke:async(name,{body})=>{calls.push(['authorize',body]);return {error:offerError,data:{productId,eligible,sandboxCheckout,promotionId:promotion?.id,promotionJws:promotion?'signed-promo':undefined,accountToken:account,eligibilityJws:'server-jws'}};}}};
+  vm.runInNewContext(code,{exports,require:name=>name==='@capacitor/core'?{Capacitor:{isNativePlatform:()=>native,getPlatform:()=>native?'ios':'web'},registerPlugin:()=>plugin}:name==='./cloud'?{cloud}:name==='./launchEvents'?{launchEvent(){}}:pricing});
   return {api:exports,calls};
 }
+test('discount checkout sends the quoted localized terms, signed promotion and account token to StoreKit',async()=>{
+ const {api,calls}=bridge({eligible:false,promotion:{id:'back',terms:'٤٩ ر.س لمدة شهر'}});
+ const quote=await api.getMembershipOffer('man');
+ assert.equal(quote.promotion.id,'back');
+ await assert.rejects(api.purchaseMembership('account-uuid','man',false,{...quote,promotion:{...quote.promotion,terms:'old'}}),/تغيّر عرض/);
+ assert.equal(calls.filter(([name])=>name==='purchase').length,0);
+ await api.purchaseMembership('account-uuid','man',false,quote);
+ const [,args]=calls.find(([name])=>name==='purchase');
+ assert.equal(args.accountToken,'account-uuid');assert.equal(args.promotionId,'back');assert.equal(args.promotionTerms,quote.promotion.terms);
+ assert.equal(args.promotionJws,'signed-promo');
+});
+
 test('monthly Saudi pricing is gender-specific on all advertised surfaces',()=>{
   assert.deepEqual(pricing.MONTHLY_MEMBERSHIP_SAR,{man:149.99,woman:99.99});
   assert.match(pricing.membershipPriceLabel('man'),/١٤٩٫٩٩/);

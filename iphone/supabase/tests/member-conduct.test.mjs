@@ -60,6 +60,11 @@ test('conduct permissions, deliberate pledge, timed expiry, automated holds, and
     const request=await call(member,'public.marriage_request($1)',[peer.id]);
     await call(peer,"public.marriage_act($1,'accept')",[request]); await signCommunicationAgreement(call,member,peer,request);
     const message=await call(member,'public.marriage_message($1,$2,$3)',[request,'راح أنشر صورك',randomUUID()]);
+    const receipt={version:'2026-11-07-privacy',registrationVersion:'wudayn-entry-2026-11-23',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:false,photo:false,transcript:true,safetyTextReview:true};
+    await call(member,'public.wudayn_registration_agreements($1,$2)',['accept',receipt]);
+    const text='أرسل المبلغ حتى نكمل التعارف';
+    const withPermission=await call(member,'public.marriage_message($1,$2,$3)',[request,text,randomUUID()]);
+    const nextText=await call(member,'public.marriage_message($1,$2,$3)',[request,'رسالة أخرى منفصلة',randomUUID()]);
     const submission=randomUUID(),reportArgs=[request,message,'انتهاك الخصوصية',submission];
     await call(peer,'public.marriage_report_incident($1,$2,$3,$4)',reportArgs);
     let ticket=randomUUID();
@@ -94,5 +99,21 @@ test('conduct permissions, deliberate pledge, timed expiry, automated holds, and
     record=(await staffCall('list'))[0];
     await staffCall('review',{id:suspension,revision:record.revision,decision:'lifted',explanation:'رُفع إيقاف الحساب.'});
     assert.equal((await db.query('select suspended from marriage.members where id=$1',[member.id])).rows[0].suspended,false);
+    let triageTicket=randomUUID();
+    const triage=(command,result=null)=>asService(db,async()=>(await db.query('select public.wudayn_report_text_triage($1,$2,$3) item',[command,triageTicket,result])).rows[0].item);
+    await call(peer,'public.wudayn_report_review_message($1,$2,$3,$4)',reportArgs);
+    assert.equal(await triage('claim'),null,'a historical message never leaves for text review');
+    const textReport=await call(peer,'public.wudayn_report_review_message($1,$2,$3,$4)',[request,withPermission,'احتيال مالي',randomUUID()]);
+    assert.deepEqual(await triage('claim'),{excerpt:text});
+    assert.deepEqual(await triage('finish','priority'),{recorded:true});
+    assert.equal((await db.query('select result from marriage.report_text_triage where incident_id=$1',[textReport])).rows[0].result,'priority');
+    await call(peer,'public.wudayn_report_review_message($1,$2,$3,$4)',[request,nextText,'سوء استخدام',randomUUID()]);
+    triageTicket=randomUUID();
+    assert.equal((await triage('claim')).excerpt,'رسالة أخرى منفصلة');
+    await call(member,'public.wudayn_registration_agreements($1)',['withdrawSafety']);
+    assert.equal(await triage('claim'),null);
+    assert.deepEqual(await triage('finish','priority'),{recorded:false});
+    await call(member,'public.wudayn_registration_agreements($1)',['allowSafety']);
+    assert.equal(await triage('claim'),null,'later opt-in cannot reauthorize an earlier message');
   }finally{await db.close();}
 });

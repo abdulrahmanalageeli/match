@@ -19,10 +19,8 @@ const page = await browser.newPage({viewport:{width:375,height:667},isMobile:tru
 page.setDefaultTimeout(30000);
 const errors = [];
 page.on('pageerror', e=>errors.push(e.message));
-let access = 503, photoAttempts = 0, releaseOwner;
-const ownerGate = new Promise(resolve=>{ releaseOwner=resolve; });
+let access = 503;
 const retry = page.getByRole('button',{name:'إعادة المحاولة',exact:true});
-const emptyPhoto = page.getByText('لم يشارك الطرف الآخر صورته حاليًا.');
 const input = page.getByRole('textbox',{name:'رسالتك'});
 try {
   await page.route('**/*', async route => {
@@ -30,13 +28,6 @@ try {
     if (url.protocol==='blob:' || url.protocol==='data:') return route.continue();
     if (url.hostname!=='127.0.0.1') return route.abort();
     if (url.pathname==='/__qa/profile') return route.fulfill({status:access,json:access===200});
-    if (url.pathname==='/__qa/owner') { await ownerGate; return route.fulfill({json:'fixture-owner'}); }
-    if (url.pathname==='/__qa/photos') return route.fulfill({status:++photoAttempts===1?503:200,json:{mine:null,peer:null,sharedUntil:null}});
-    if (url.pathname==='/src/photos/photoData.ts') return route.fulfill({contentType:'application/javascript',body:`
-      export const emptyPhotos={mine:null,peer:null,sharedUntil:null};
-      export const photoOwner=()=>fetch('/__qa/owner').then(r=>r.json());
-      export const photoState=async()=>{const r=await fetch('/__qa/photos');if(!r.ok)throw Error();return r.json()};
-      export const loadPhoto=()=>{},preparePhoto=()=>{},removePhoto=()=>{},sharePhoto=()=>{},uploadPhoto=()=>{};`});
     return route.continue();
   });
   const url = server.resolvedUrls.local[0]+'tests/fixtures/chat-privacy-qa.html?actor=abdulrahman&interrupt&case=a11y';
@@ -115,22 +106,14 @@ try {
   assert.equal(await page.locator('.mp-hero').count(),0);
   await page.getByRole('button',{name:'العودة للمحادثة'}).click();
   await page.getByRole('button',{name:'خيارات المحادثة'}).click();
-  await page.getByRole('button',{name:/الصور الخاصة/}).click();
-  await page.getByRole('status').filter({hasText:'جارٍ تحديث إذن'}).waitFor();
-  assert.equal(await emptyPhoto.count(),0);
-  releaseOwner();
-  await page.getByRole('alert').filter({hasText:'تعذّر فتح الصور الخاصة'}).waitFor();
-  assert.equal(await emptyPhoto.count(),0);
-  await retry.click();
-  await emptyPhoto.waitFor();
+  assert.equal(await page.getByRole('button',{name:/الصور الخاصة/}).count(),0);
   assert.deepEqual(errors,[]);
-  console.log('PASS Arabic chat semantics, Riyadh time, large text at three widths, controls, retry, constrained viewport, profile access and photo-sharing states.');
+  console.log('PASS Arabic chat semantics, Riyadh time, large text at three widths, controls, retry, constrained viewport, profile access and regular and view-once chat media.');
 } catch (error) {
   console.error(errors);
   await page.screenshot({path:resolve(output,'failure.png')}).catch(()=>{});
   throw error;
 } finally {
-  releaseOwner();
   await browser.close();
   await server.close();
 }

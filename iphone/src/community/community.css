@@ -434,7 +434,7 @@ html[data-nf-chat-viewport] .cm-chat {
   padding: 12px 15px 7px;
   box-shadow: 0 2px 7px #51233704;
 }
-.cm-bubble.self { align-self: flex-start; background: linear-gradient(145deg,#671f37,#511329); color: var(--accent-ink); border-color: transparent; border-radius: 20px 20px 6px 20px; box-shadow: 0 3px 9px #5a0f280b; }
+.cm-bubble.self { align-self: flex-start; background: #671f37 linear-gradient(145deg,#671f37,#511329); color: var(--accent-ink); border-color: transparent; border-radius: 20px 20px 6px 20px; box-shadow: 0 3px 9px #5a0f280b; }
 .cm-bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; font-size: .96rem; }
 .cm-message-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 5px; color: var(--muted); font-size: .62rem; }
 .cm-message-row:not(:last-child) .cm-receipt-label { display: none; }

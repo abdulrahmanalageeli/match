@@ -1,4 +1,4 @@
-import {decideJourney} from './communication-fixture.mjs';
+import {decideJourney,seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -11,10 +11,12 @@ test("pilot expiry, two-party progression, capacity and private access work thro
   async function add(gender) {
     const id = randomUUID(), user = { id, email: id + "@example.test", sessionId: randomUUID() };
     await addUser(db, user);
+    await seedCommunicationMember(db,user,gender,'draft');
     const state = await call(user, "public.marriage_apply($1)", [{
       displayName: "عضو تجريبي", age: 30, city: "الرياض", gender, profession: "معلّم", bio: "ملف اختباري",
       contact: user.email, preferredMinAge: 25, preferredMaxAge: 40, familyPreference: "",
-      consentVersion: "2026-11-05",
+      consentVersion: "2026-11-07-privacy",
+      signupConsents: {version:"2026-11-07-privacy",adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:true,photo:false},
     }]);
     await asService(db, () => db.query("select public.marriage_review($1,'approve')", [id]));
     await asService(db, () => db.query("select public.marriage_record_receipt($1,$2,false)", [id, {
@@ -44,12 +46,13 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     const ids = [];
     for (const p of peers) ids.push(await call(member, "public.marriage_request($1)", [p.id]));
     for (let i = 0; i < 2; i++) await call(peers[i], "public.marriage_act($1,'accept')", [ids[i]]);
-    await assert.rejects(call(peers[2], "public.marriage_act($1,'accept')", [ids[2]]), /تعارفان/);
+    await assert.rejects(call(peers[2], "public.marriage_act($1,'accept')", [ids[2]]), /عدد الارتباطات المتاح/);
     await db.query("update marriage.member_requests set created_at=now()-interval '8 days' where id=$1", [ids[4]]);
     await assert.rejects(call(peers[4], "public.marriage_act($1,'accept')", [ids[4]]), /مهلة/);
     assert(!(await call(peers[4], "public.marriage_inbox()")).some(r => r.id === ids[4]));
     await call(peers[1], "public.marriage_act($1,'cancel')", [ids[1]]);
     await call(peers[3], "public.marriage_act($1,'accept')", [ids[3]]);
+    await signCommunicationAgreement(call,member,peers[0],ids[0]);
     const stageState=({stage,mine,peer,exclusive,consentMine,consentPeer})=>({stage,mine,peer,exclusive,consentMine,consentPeer});
     const choose=(u,action,stage)=>decideJourney(call,u,ids[0],'step',action,stage);
     assert.deepEqual(stageState(await choose(member,'propose',1)),{stage:0,mine:true,peer:false,exclusive:false,consentMine:false,consentPeer:false});

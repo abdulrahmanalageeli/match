@@ -15,7 +15,7 @@ self.addEventListener('push', event => {
   let value;
   try { value = event.data?.json(); } catch { return; }
   if (!validEvent(value)) return;
-  const body = 'لديك تحديث جديد.';
+  const body = value.kind === 'publication' && value.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : 'لديك تحديث جديد.';
   event.waitUntil(self.registration.showNotification('وُدَين', {
     body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon-v2.png',
     tag: value.kind + ':' + value.requestId,

@@ -1,3 +1,4 @@
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -19,10 +20,13 @@ test('isolated marriage database enforces role, consent, billing, matching and c
     await db.exec('set role anon');
     await assert.rejects(rpc('public.marriage_state()'),/permission denied/i);
     await db.exec('reset role');
+    // These existing members exercise the historical, editable questionnaire contract.
+    await seedCommunicationMember(db,woman,'woman','draft');
+    await seedCommunicationMember(db,man,'man','draft');
     await run(woman,async()=>{
       assert.equal((await rpc('public.marriage_state()')).user.applicationStatus,'draft');
        const catalog=await rpc('public.marriage_catalog()');
-       assert.equal(catalog.questions.length,32);
+       assert.equal(catalog.questions.length,54);
        assert(catalog.assessment.dimensions.some(dimension=>dimension.id==='wife_work'));
       await assert.rejects(db.query('select * from marriage.contacts'),/permission/i);
       await assert.rejects(rpc('marriage.member_state($1)',[man.id]),/permission/i);

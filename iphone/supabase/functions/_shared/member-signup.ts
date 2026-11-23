@@ -2,8 +2,10 @@ import { accessError, hashGuardianValue } from './guardian-access.ts';
 
 export const memberSignupKind = 'member_self_claimed_email';
 export const memberSignupUnavailable = 'تعذّر إنشاء الحساب بهذه البيانات. جرّب تسجيل الدخول إلى حسابك أو تواصل مع الدعم.';
+const registrationVersion = 'wudayn-entry-2026-11-23';
+const purposes = ['adult','terms','privacy','sensitiveProfile','assessment','transcript'] as const;
 const consentVersion = '2026-11-07-privacy';
-export type MemberSignupInput = { email: string; password: string; phoneProof: string; deviceId: string; consent: { version: string; adult: true; terms: true; privacy: true } };
+export type MemberSignupInput = { email: string; password: string; phoneProof: string; deviceId: string; consent: { version: string; registrationVersion: string; sensitivePublication:boolean; photo:boolean; safetyTextReview:boolean } & Record<typeof purposes[number],true> };
 type ServiceError = { status?: number; code?: string };
 type MemberSignupServices = {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>;
@@ -26,11 +28,11 @@ export function parseMemberSignup(value: unknown): MemberSignupInput {
   if (typeof input.password !== 'string' || input.password.length < 10 || !input.password.trim() || new TextEncoder().encode(input.password).length > 72)
     throw accessError('استخدم كلمة مرور من ١٠ أحرف على الأقل، وبحد أقصى ٧٢ بايت.');
   const consent = input.consent as Record<string, unknown> | undefined;
-  if (!consent || consent.version !== consentVersion || consent.adult !== true || consent.terms !== true || consent.privacy !== true)
-    throw accessError('أكّد العمر، واقبل الشروط، واطّلع على إشعار الخصوصية قبل إنشاء الحساب.');
+  if (!consent || consent.version !== consentVersion || consent.registrationVersion !== registrationVersion || typeof consent.sensitivePublication !== 'boolean' || typeof consent.photo !== 'boolean' || purposes.some(key => consent[key] !== true))
+    throw accessError('راجع الموافقات المطلوبة قبل إنشاء الحساب.');
   if(typeof input.phoneProof!=='string'||!/^[a-f0-9]{64}$/.test(input.phoneProof)||typeof input.deviceId!=='string'||!/^(web|ios):[a-f0-9-]{36}$/i.test(input.deviceId))
     throw accessError('أكمل تأكيد رقم الجوال قبل إنشاء الحساب.');
-  return { email, password: input.password, phoneProof:input.phoneProof,deviceId:input.deviceId, consent: { version: consentVersion, adult: true, terms: true, privacy: true } };
+  return { email, password: input.password, phoneProof:input.phoneProof,deviceId:input.deviceId, consent: { version: consentVersion, registrationVersion, adult: true, terms: true, privacy: true, sensitiveProfile: true, sensitivePublication: consent.sensitivePublication, photo: consent.photo, safetyTextReview: consent.safetyTextReview===true, assessment: true, transcript: true } };
 }
 
 export async function performMemberSignup(input: MemberSignupInput, networkHash: string, secret: string, service: MemberSignupServices): Promise<{ ok: true }> {

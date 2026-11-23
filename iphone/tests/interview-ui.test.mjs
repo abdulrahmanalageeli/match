@@ -53,6 +53,8 @@ function mount(initial, intercept = () => null) {
   const exports = {};
   const icons = new Proxy({}, { get: (_target,key) => Object.defineProperty(() => null,'name',{value:key}) });
   const require = name => {
+    if (name === '../publishing/PublicationCenter') return { usePublishedCopy: (_key, fallback) => fallback };
+    if (name === '../launchEvents') return { launchEvent: noop };
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type,props,key) => ({type,props,key}), jsxs: (type,props,key) => ({type,props,key}) };
     if (name === 'react-dom') return { createPortal: tree => tree };

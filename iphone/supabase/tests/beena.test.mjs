@@ -1,3 +1,5 @@
+import oldCatalog from '../../src/compatibility/catalog-v3.json' with {type:'json'};
+import {seedCommunicationMember} from './communication-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -14,6 +16,7 @@ function setup(db){
  const call=(u,sql,args=[])=>asMember(db,u.id,u.sessionId,()=>rpc(sql,args));
  async function member(gender='man'){
   const u={id:randomUUID(),sessionId:randomUUID(),email:randomUUID()+'@example.test'};await addUser(db,u);
+  await seedCommunicationMember(db,u,gender,'draft');
   u.profile={displayName:'عضو تجريبي',age:29,gender,city:'الرياض',profession:'مهندس',bio:'نبذة اختيارية',contact:u.email,
    preferredMinAge:25,preferredMaxAge:40,familyPreference:'',appearanceVersion:'appearance-v1',assessmentVersion:'marriage-v2',consentVersion:version,
    marriageBasics:{},partnerCriteria:{},surveyAnswers:{},personalityAnswers:{},personalityVersion:'personality-v1',hardRequirements:[],priorityCategories:[],signupConsents:all};
@@ -67,7 +70,8 @@ test('real Beena persists privately with explicit consent, clears on withdrawal,
   let state=await save(u,{beena:privateValue});assert.deepEqual(state.profile.beena,privateValue);
   await save(peer,{beena:full('B',['A'])});await approve(u);await approve(peer);
   let card=await rpc('marriage.member_card($1,$2)',[peer.id,u.id]);
-  assert.equal(card.beena,undefined);assert.equal(card.beenaStory,undefined);assert.equal(card.fit.beena.percentage,100);
+  assert.equal(card.beena,undefined);assert.equal(card.beenaStory,undefined);assert.equal(card.fit?.beena,undefined,'private Beena detail is hidden before a mutual connection');
+  assert.equal((await rpc("(select fit from marriage.pair_fit($1,$2))",[peer.id,u.id])).beena.percentage,100);
   assert.deepEqual((await call(u,'public.marriage_personal_data()')).profile.beena,privateValue);
   state=await save(u,{signupConsents:undefined,consentVersion:'2026-11-06-assessment'});
   assert.deepEqual(state.profile.beena,privateValue);
@@ -95,7 +99,7 @@ test('real Beena persists privately with explicit consent, clears on withdrawal,
   assert.equal((await db.query('select review_status from marriage.members where id=$1',[u.id])).rows[0].review_status,'approved');
   state=await save(u,{signupConsents:essential,beena:privateValue});assert.equal(state.profile.beena,null);
   assert.equal((await db.query('select count(*)::int n from marriage.beena_answers where member_id=$1',[u.id])).rows[0].n,0);
-  assert.equal((await rpc('marriage.member_card($1,$2)',[peer.id,u.id])).fit.beena.percentage,null);
+  assert.equal((await rpc('(select fit from marriage.pair_fit($1,$2))',[peer.id,u.id])).beena.percentage,null);
   await save(u,{beena:privateValue});assert.equal((await save(u,{beena:null})).profile.beena,null);
   await save(u,{beena:privateValue});assert.equal((await save(u,{beena:{version:'beena-v1',answers:{}}})).profile.beena,null);
   for(const role of ['anon','authenticated','service_role']){
@@ -118,7 +122,7 @@ test('real Beena persists privately with explicit consent, clears on withdrawal,
 test('server ranking adjusts only complete Beena; baseline percentage and eligibility stay unchanged',async()=>{
  const db=await createDatabase();try{
   const{rpc,member,save,approve}=setup(db),a=await member(),b=await member('woman');
-  const answers=Object.fromEntries((await db.query("select question_code,min(code) code from marriage.question_options group by question_code")).rows.map(r=>[r.question_code,r.code]));
+  const answers=Object.fromEntries(oldCatalog.dimensions.flatMap(d=>[[d.id,d.options[0].code],[d.partnerId,d.options[0].code]]));
   await save(a,{surveyAnswers:answers,beena:full()});await save(b,{surveyAnswers:answers,beena:full('B',['A'])});await approve(a);await approve(b);
   let result=(await db.query('select * from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0];
   const base=(await db.query('select * from marriage.pair_fit_before_beena($1,$2)',[a.id,b.id])).rows[0];

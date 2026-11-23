@@ -12,7 +12,7 @@ test('private testers: server-only access, shared messages, role isolation and m
  await rpc('send',a,{clientId:'10000000-0000-4000-8000-000000000001',body:'hello'});
  await rpc('send',a,{clientId:'10000000-0000-4000-8000-000000000001',body:'hello'});
  let s=await rpc('state',b);assert.equal(s.messages.length,1);assert.equal(s.messages[0].sender,'abdulrahman');
- await rpc('profile',b,{profile:{displayName:'اسم الاختبار',gender:'man'},expectedRevision:s.profileRevision});s=await rpc('state',a);assert.equal(s.profiles.reham.displayName,'اسم الاختبار');assert.equal(s.profiles.reham.gender,'woman');
+ await rpc('profile',b,{profile:{...s.profiles.reham,displayName:'اسم الاختبار',gender:'man',age:29,birthDate:'1997-01-01',signupConsents:{version:'2026-11-07-privacy',adult:true,terms:true,privacy:true,assessment:true,sensitiveProfile:true,sensitivePublication:true,photo:false}},expectedRevision:s.profileRevision});s=await rpc('state',a);assert.equal(s.profiles.reham.displayName,'اسم الاختبار');assert.equal(s.profiles.reham.gender,'woman');
  await rpc('permission_invite',a);await rpc('permission_accept',b);
  s=await rpc('call_start',a,{clientId:'10000000-0000-4000-8000-000000000002'});const callId=s.call.id;
  await assert.rejects(rpc('token',a,{callId}));await assert.rejects(rpc('call_accept',a,{callId}));

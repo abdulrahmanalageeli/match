@@ -40,6 +40,7 @@ import { BeenaFields } from '../beena/BeenaFields';
 import { beenaScenarios } from '../beena/model';
 import { InterviewEntry, InterviewPanel } from '../interview/InterviewPanel';
 import { applyInterviewAnswers } from '../interview/model';
+import { markLunaFields, manualLunaFields, restoreLunaFields, retractLunaFields, type LunaDraftFields } from './lunaDraftFields';
 import { applyProfileProposals, profileContextFromAnswers, type ProfileProposal } from '../interview/profileCapture';
 import { answersFromAssessmentContext, assessmentContextFromAnswers } from '../interview/assessmentContext';
 import { buildProfileAnswerProvenance, type ProfileAnswerProvenance } from '../interview/profileProvenance';
@@ -412,9 +413,14 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       confirmedProfileProposals.current = snapshot.document?.profileConfirmed ?? [];
       interviewVersion.current = snapshot.document ? { model:snapshot.document.model, promptVersion:snapshot.document.promptVersion, confirmedAt:snapshot.document.confirmedAt } : {};
       if (snapshot.document?.profileConfirmed?.length) setInterviewApplied(true);
-      const knownProfileFields = new Set(profileContextFromAnswers(current.current.answers, consentRef.current.sensitiveProfile).map(field => field.fieldId));
-      const restoreProfile = (snapshot.document?.profileConfirmed ?? []).filter(field => !knownProfileFields.has(field.fieldId));
-      if (restoreProfile.length) update(applyProfileProposals(current.current.answers, restoreProfile, consentRef.current.sensitiveProfile));
+      if (snapshot.document && !snapshot.document.pendingAnalysis) {
+        const before = current.current;
+        const legacyAges = !before.lunaFields && ['preferences','readiness','review'].includes(before.step);
+        const restored = restoreLunaFields(before.answers,snapshot.document,consentRef.current.sensitiveProfile,before.lunaFields,legacyAges);
+        if (JSON.stringify(before.answers) !== JSON.stringify(restored.answers) || JSON.stringify(before.lunaFields ?? {}) !== JSON.stringify(restored.fields)) {
+          update(restored.answers, restored.fields);
+        }
+      }
       const confirmed = snapshot.document?.status === 'confirmed' ? snapshot.document.confirmed.filter(item => item.kind !== 'beena') : [];
       const saved = current.current.answers;
       const session = snapshot.document;
@@ -591,7 +597,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     if (draftRef && draftOwner) draftRef.current = next;
     setDraft(next);
   }
-  function update(values: Partial<Answers>) {
+  function update(values: Partial<Answers>, confirmedFields?: LunaDraftFields) {
     if (error && error.field in values) setError(null);
     const previous = current.current.answers;
     const next = applicableFamilyAnswers({ ...previous, ...values });
@@ -599,14 +605,28 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
       previous.surveyAnswers?.marriage_timeline !== next.surveyAnswers?.marriage_timeline)) {
       next.membershipReadiness = { ...next.membershipReadiness, clarifications: {} };
     }
-    commit({ answers: next, consent: false });
+    const lunaFields = consentRef.current.assessment
+      ? confirmedFields ?? manualLunaFields(previous,next,current.current.lunaFields) : undefined;
+    commit({ answers: next, consent: false, lunaFields });
   }
   function applyCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
     confirmedProfileProposals.current=document.profileConfirmed ?? proposals;
     interviewVersion.current={model:document.model,promptVersion:document.promptVersion,confirmedAt:document.confirmedAt};
-    update(applyProfileProposals(current.current.answers, proposals, consentRef.current.sensitiveProfile));
+    const before = current.current;
+    const patch = applyProfileProposals(before.answers, proposals, consentRef.current.sensitiveProfile);
+    update(patch, markLunaFields({...before.answers,...patch},proposals,before.lunaFields));
     void saveProgressNow();
   }
+  function retractCapturedProfile(proposals: ProfileProposal[], document: InterviewDocument) {
+    const before = current.current;
+    const next = retractLunaFields(before.answers, proposals,before.lunaFields);
+    confirmedProfileProposals.current = document.profileConfirmed ?? [];
+    if (next.answers !== before.answers) {
+      update(next.answers,next.fields);
+      void saveProgressNow();
+    }
+  }
+
   async function selectGender(gender: Profile["gender"]) {
     if (gender === p.gender || photoBusy || !await chooseConsent('photo',false)) return;
     const marriageBasics = { ...p.marriageBasics }, partnerCriteria = { ...p.partnerCriteria };
@@ -845,7 +865,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                       })}
                     </div>
                     {(p.preferredMinAge !== '18' || p.preferredMaxAge !== '110') && <button type="button" className="f-link"
-                      onClick={() => update({preferredMinAge:'18',preferredMaxAge:'110'})}>أي عمر</button>}
+                      onClick={() => update({preferredMinAge:'18',preferredMaxAge:'110'}, {...current.current.lunaFields, preferredMinAge:'manual', preferredMaxAge:'manual'})}>أي عمر</button>}
                   </div>
                 </details>
                 {p.gender === 'woman' && (
@@ -916,7 +936,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
         profileContext={profileContextFromAnswers(p, consents.sensitiveProfile)}
         assessmentContext={assessmentContextFromAnswers(p)} hardRequirements={p.hardRequirements}
         onStructuredDraftChange={choices => update(answersFromAssessmentContext(choices))}
-        onProfileApply={applyCapturedProfile}
+        onProfileApply={applyCapturedProfile} onProfileRetract={retractCapturedProfile}
         sensitiveProfileAllowed={consents.sensitiveProfile}
         consentGranted={consents.assessment && (entryAuthorized || draft.permissions?.interview === true)}
         onUnavailable={() => { if (trackRegistration) launchEvent('error', 'compatibility', draftOwner); setFallbackAvailable(true); }}

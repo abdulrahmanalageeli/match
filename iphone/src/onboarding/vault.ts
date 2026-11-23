@@ -14,7 +14,7 @@ type Decode = (text: string, owner: string, baseline: string, now: number) => Ap
 function payload(draft: ApplicationDraft) {
   const { portrait: _portrait, signupConsents: _signupConsents, ...answers } = draft.answers;
   const { owner, baseline, step, returnToReview, permissions } = draft;
-  return { version: 1, owner, baseline, answers, step, returnToReview, ...(permissions ? { permissions } : {}) };
+  return { version: 1, owner, baseline, answers, step, returnToReview, ...(draft.lunaFields && permissions?.assessment ? {lunaFields:draft.lunaFields} : {}), ...(permissions ? { permissions } : {}) };
 }
 
 export function createDraftVault(getStorage: () => Storage | null, decode: Decode, now = Date.now) {

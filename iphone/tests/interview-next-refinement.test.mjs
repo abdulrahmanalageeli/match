@@ -35,3 +35,15 @@ test('ignores self height, unrelated evidence, flexible preferences and resolved
   doc.statements.push(note('height','طويل'));
   assert.equal(nextRefinement(doc,[context('marriageBasics.marriageTimeline',['when_ready'])]),undefined);
 });
+test('a new preference can be refined deliberately after an earlier range was dismissed', () => {
+  const doc = session(height);
+  doc.turns.push({id:'decline',question:prompts.height,answer:'يكفيني الوصف',skipped:false});
+  const replacement = {...height, turnId:'correction', quote:'أفضل شخصًا أقصر مني'};
+  doc.statements = [replacement];
+  doc.turns.push({id:'correction',question:'وش تحب توضّح؟',answer:replacement.quote,skipped:false});
+  assert.equal(nextRefinement(doc), undefined);
+  assert.equal(nextRefinement(doc,[],{},true),replacement);
+  const indifferent = {...replacement,quote:'الطول مو مهم'};
+  doc.statements = [indifferent];doc.turns.at(-1).answer = indifferent.quote;
+  assert.equal(nextRefinement(doc,[],{},true),undefined);
+});

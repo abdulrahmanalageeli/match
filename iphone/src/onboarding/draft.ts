@@ -7,6 +7,7 @@ import { personalityVersion, personalityQuestionsFor } from "../compatibility/pe
 import { validPublicAvatar } from "../compatibility/appearance";
 import { validBeenaProfile } from "../beena/model";
 import { canonicalCity, canonicalNationality } from '../profile/profileOptions';
+import type { LunaDraftFields } from './lunaDraftFields';
 import type { MembershipReadiness } from './membershipReadiness';
 
 export const chapters = [
@@ -38,6 +39,7 @@ export type ApplicationDraft = {
   step: Chapter;
   returnToReview: boolean;
   consent: boolean;
+  lunaFields?: LunaDraftFields;
   permissions?: { version: string; sensitiveProfile: boolean; sensitivePublication?: boolean; assessment: boolean; interview?: boolean };
 };
 const numbers = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab", useGrouping: false });

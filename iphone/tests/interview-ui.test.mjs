@@ -7,6 +7,7 @@ import topics from '../src/interview/catalog.json' with { type: 'json' };
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with { type: 'json' };
 import profileCatalog from '../src/interview/profile-catalog.json' with { type: 'json' };
 import * as parenting from '../src/compatibility/parenting.mjs';
+import * as nextStepHelpers from '../src/interview/privateNextStep.ts';
 import * as refinements from '../src/interview/nextRefinement.mjs';
 import refinementPrompts from '../src/interview/refinement-prompts.json' with { type: 'json' };
 import * as openingEvidence from '../src/interview/openingEvidence.ts';
@@ -78,6 +79,7 @@ function mount(initial, intercept = () => null) {
     };
     if (name === './catalog.json') return { default: topics };
     if (name === './opening-scenarios.json') return { default: openingScenarios };
+    if (name === './privateNextStep') return nextStepHelpers;
     if (name === './opening-prompts.json') return { default: openingPrompts };
     if (name === './PrivateMemory') {
       const exports = {};
@@ -505,4 +507,24 @@ test('the actual private recap and height editor accept a member range and recov
   assert.deepEqual(ui.profileApplied[0][0].values,['175','']);
   assert.match(textOf(ui.render()),/حُفظ التفضيل/);
   ui.unmount();
+});
+
+test('the draft is notified once when a submitted correction retracts a previously confirmed field, including lost responses', async () => {
+  const old = {...capturedProfile, evidence:[{turnId:'a',quote:'أفضّل منقبة'}]};
+  for (const lost of [false,true]) {
+    const initial = {document:{...baseDocument(),profileConfirmed:[old],turns:[
+      {id:'a',topic:'intent',question:'وش تفضل؟',answer:'أفضّل منقبة',skipped:false}]},revision:3};
+    const retracted = [];
+    const ui = mount(initial,(payload,snapshot) => {
+      if (payload.action !== 'answer') return;
+      snapshot.document = {...snapshot.document,profileConfirmed:[],lastRequestId:payload.requestId};
+      snapshot.revision++;
+      return lost ? Promise.reject(Error('response lost')) : Promise.resolve(clone(snapshot));
+    });
+    ui.render({onProfileRetract:withdrawn=>retracted.push(clone(withdrawn))});await tick();
+    let tree = ui.render();assert.equal(retracted.length,0);
+    nodes(tree).find(n=>n.type==='textarea').props.onChange({target:{value:'ما عندي تفضيل'}});
+    sendAction(ui.render()).props.onClick();await tick();ui.render();
+    assert.deepEqual(retracted,[[old]]);ui.unmount();
+  }
 });

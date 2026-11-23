@@ -3,7 +3,7 @@ import prompts from './refinement-prompts.json' with { type: 'json' };
 const formalTiming = 'preference:marriage_timeline:self';
 
 function flexiblePreference(quote) {
-  return /(?:ما\s*(?:يهمني|يفرق معي|عندي (?:حد|تفضيل))|أي\s+(?:طول|عمر|وقت)\s+يناسبني|بدون\s+(?:حدود|تحديد))/u.test(quote);
+  return /(?:ما\s*(?:يهمني|يفرق معي|عندي (?:حد|تفضيل))|(?:مو|مب)\s+(?:مهم|شرط)|أي\s+(?:طول|عمر|وقت)\s+يناسبني|بدون\s+(?:حدود|تحديد))/u.test(quote);
 }
 
 function canRefine(statement) {
@@ -15,15 +15,20 @@ function canRefine(statement) {
  * never supplies an age, height or timing code. Manual review can reopen other topics. */
 export function nextRefinement(
   doc,
-  context = [],
+  context,
   choices = {},
   manual = false,
 ) {
   if (doc.pendingAnalysis || doc.status !== 'review') return;
-  const answered = new Set(doc.turns.map(turn => turn.question.split('\u2029').at(-1)));
-  if (!manual && Object.values(prompts).some(prompt => answered.has(prompt))) return;
+  const turnOrder = new Map(doc.turns.map((turn, i) => [turn.id, i]));
+  const lastAsked = new Map();
+  for (const [i, turn] of doc.turns.entries()) {
+    const prompt = turn.question.split('\u2029').at(-1);
+    if (Object.values(prompts).includes(prompt)) lastAsked.set(prompt, i);
+  }
+  if (!manual && lastAsked.size) return;
   const resolved = [
-    ...(doc.profileContext ?? []), ...context,
+    ...(context ?? doc.profileContext ?? []),
     ...(doc.profileProposals ?? []).filter(p => !p.needsClarification),
     ...(doc.profileConfirmed ?? []),
   ];
@@ -37,7 +42,8 @@ export function nextRefinement(
   let best;
   let bestValue = 0;
   for (const note of doc.statements ?? []) {
-    if (!canRefine(note) || answered.has(prompts[note.topic]) || !note.quote.trim()
+    const askedAt = lastAsked.get(prompts[note.topic]) ?? -1;
+    if (!canRefine(note) || (turnOrder.get(note.turnId) ?? -1) <= askedAt || !note.quote.trim()
       || !turns.get(note.turnId)?.includes(note.quote) || flexiblePreference(note.quote)) continue;
     // A relative age can already guide the member; asking for their range can
     // fill both age bounds. A vague height has no usable structured filter.

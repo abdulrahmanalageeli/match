@@ -6,7 +6,7 @@ import type { InterviewStatement } from './types';
 import './private-memory.css';
 
 export type RefinementTopic = 'height' | 'age' | 'timeline';
-export type Refinement = { min?: number; max?: number } | { value: string } | { approximate: true };
+export type Refinement = { min?: number; max?: number; mode?: 'require' | 'prefer' } | { value: string } | { approximate: true };
 type Refinable = InterviewStatement & { topic: RefinementTopic };
 const sections = [['self', 'عنّي'], ['partner', 'ما أتمناه في شريكي'], ['intent', 'عن الزواج']] as const;
 const digits = (value: string) => value.replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
@@ -21,6 +21,7 @@ function RefinePreference({ statement, disabled, save }: {
   const [low, setLow] = useState('');
   const [high, setHigh] = useState('');
   const [when, setWhen] = useState('');
+  const [required, setRequired] = useState(false);
   const id = useId();
   const field = profileField(topic === 'height' ? 'partnerCriteria.height' : topic === 'age' ? 'preferredMinAge' : 'marriageBasics.marriageTimeline')!;
   const min = numeric(low), max = numeric(high);
@@ -38,7 +39,7 @@ function RefinePreference({ statement, disabled, save }: {
     <p className="wi-refine-question" id={id}>{prompts[topic]}</p>
     {editing ? <form aria-labelledby={id} onSubmit={event => {
       event.preventDefault();
-      if (!disabled && valid) save(topic, topic === 'timeline' ? { value: when } : { min, max });
+      if (!disabled && valid) save(topic, topic === 'timeline' ? { value: when } : { min, max, ...(topic === 'height' && required ? {mode:'require' as const} : {}) });
     }}>
       {topic === 'timeline' ? <select aria-label="توقيت الزواج" value={when} onChange={e => setWhen(e.target.value)} disabled={disabled}>
         <option value="" disabled>اختر الوقت اللي يناسبك</option>{field.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -48,6 +49,8 @@ function RefinePreference({ statement, disabled, save }: {
           <label>إلى <span>{unit}</span><input type="text" inputMode="numeric" dir="ltr" aria-label={`الحد الأعلى (${unit})`} maxLength={3} value={high} onChange={e => setHigh(e.target.value)} disabled={disabled}/></label>
         </div>
         <small role="status" className="wi-refine-hint">{error || 'تقدر تحدد حد واحد أو الاثنين.'}</small>
+        {topic === 'height' && <label className="wi-range-require"><input type="checkbox" checked={required}
+          disabled={disabled} onChange={e => setRequired(e.target.checked)}/>هذا النطاق شرط أساسي عندي</label>}
       </>}
       <div className="wi-refine-actions"><button className="wi-button" type="submit" disabled={disabled || !valid}>حفظ في مسودة ملفي</button>
         <button className="wi-link" type="button" disabled={disabled} onClick={() => save(topic, { approximate: true })}>يكفيني الوصف</button></div>

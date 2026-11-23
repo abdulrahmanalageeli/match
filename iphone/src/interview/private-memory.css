@@ -31,3 +31,6 @@
 .wi-refine-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .wi-refine-top .wi-link { font-size: .72rem; }
 .wi-card-session:has(.wi-memory > .wi-memory-refine form, .wi-memory-recap[open] .wi-memory-refine form) > .wi-hybrid { display: none; }
+
+.wi-range-require { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: .84rem; }
+.wi-range-require input { margin: 0; accent-color: var(--burgundy, #722a49); }

@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, explicitPartnerChildren, genericEvidence, groundHybridChoices } from './interview-grounding.mjs';
 import { randomUUID } from 'node:crypto';
 import { reconcileStatements, validatedStatements, statementGuidance, statementSchema } from './interview-memory.mjs';
-import { canRefine, endsInRefinement, refinementSelection, applyRefinement } from './interview-refinement.mjs';
+import { canRefine, endsInRefinement, refinementSelection, applyRefinement, correctedRefinementFields, ageRangeConflict } from './interview-refinement.mjs';
 import { nextRefinement } from '../../src/interview/nextRefinement.mjs';
 import { PROJECT_URL, PUBLISHABLE_KEY } from './ai.mjs';
 import topics from '../../src/interview/catalog.json' with { type: 'json' };
@@ -67,11 +67,11 @@ export function parseInterviewInput(body, allowRetainedResidence = false) {
   if (!record(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw invalid();
   const allowed = {
     load: ['action'], start: ['action', 'consentVersion', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid'],
-    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow', 'refinementsAvailable'],
+    answer: ['action', 'revision', 'requestId', 'answer', 'skip', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow', 'refinementsAvailable', 'answeredFieldIds'],
     clarify: ['action', 'revision', 'requestId', 'answer', 'profileContext', 'sensitiveProfileAllowed', 'verifyChoices', 'editNextStep', 'refineTopic', 'refinement'],
     choiceHelp: ['action', 'revision', 'fieldId', 'answer', 'priorAnswer', 'gender'],
     draft: ['action', 'revision', 'answer'], review: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed'],
-    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow', 'refinementsAvailable'], resume: ['action', 'revision'], delete: ['action', 'revision'],
+    retry: ['action', 'revision', 'profileContext', 'assessmentContext', 'sensitiveProfileAllowed', 'hybrid', 'cardsAfterReply', 'openingFlow', 'refinementsAvailable', 'answeredFieldIds'], resume: ['action', 'revision'], delete: ['action', 'revision'],
     confirm: ['action', 'revision', 'choices', 'shareReview', 'profileChoices'],
     directConfirm: ['action', 'revision', 'choices', 'profileContext', 'sensitiveProfileAllowed', 'inferredPartnerIds'],
     structuredConfirm: ['profileContext','sensitiveProfileAllowed','action', 'revision', 'choices', 'shareReview', 'profileChoices', 'inferredPartnerIds'],
@@ -99,6 +99,12 @@ export function parseInterviewInput(body, allowRetainedResidence = false) {
     || (body.priorAnswer !== undefined && (!body.answer || !safeText(body.priorAnswer, 450)))
     || (body.gender !== undefined && !['woman', 'man'].includes(body.gender)))) throw invalid();
   if (body.hybrid !== undefined && typeof body.hybrid !== 'boolean') throw invalid();
+  if (body.answeredFieldIds !== undefined) {
+    const allowed = new Set(assessment().requiredFields.map(field => field.id));
+    const ids = body.answeredFieldIds;
+    if (body.hybrid !== true || body.refinementsAvailable !== true || !Array.isArray(ids) || ids.length > allowed.size ||
+      new Set(ids).size !== ids.length || ids.some(id => !allowed.has(id))) throw invalid();
+  }
   if (body.refinementsAvailable !== undefined && (body.hybrid !== true || typeof body.refinementsAvailable !== 'boolean')) throw invalid();
   if ((body.openingFlow !== undefined && typeof body.openingFlow !== 'boolean') ||
     (body.editNextStep !== undefined && typeof body.editNextStep !== 'boolean')) throw invalid();
@@ -203,7 +209,7 @@ function nextOpeningQuestion(turns, proposals, result, reflection = '') {
   }
   return { topic: scenario.topic, text: reflection ? `${reflection}\u2029${text}` : text, suggestions: [] };
 }
-function suggestedDecisionQuestion(document, proposals, result, reply) {
+function suggestedDecisionQuestion(document, proposals, result, reply, answeredFieldIds) {
   const fields = result.questionFields;
   const source = document.turns[0];
   const quote = typeof result.replyEvidence === 'string' ? result.replyEvidence.trim() : '';
@@ -212,7 +218,7 @@ function suggestedDecisionQuestion(document, proposals, result, reply) {
       !safeText(result.question, 280) || !/^[^\r\n\u2029؟?]+[؟?]$/u.test(result.question.trim()) ||
       result.question.includes(SENSITIVE_REDACTION) || alreadyAsked(result.question, document)) return null;
   const pending = new Set(missingFields({...document,proposals}, topicById.get(result.questionTopic)).map(item => item.id));
-  if (!topicById.has(result.questionTopic) || !fields.every(id => pending.has(id))) return null;
+  if (!topicById.has(result.questionTopic) || !fields.every(id => pending.has(id) && !answeredFieldIds.includes(id))) return null;
   return {topic:result.questionTopic,text:(reply || 'ذكرت «' + quote + '».') + '\u2029' + result.question.trim(),suggestions:[]};
 }
 
@@ -636,7 +642,7 @@ function schemaFor(document, sensitiveProfileAllowed, liveOpening, hybrid) {
       kind: { type: 'string', enum: ['preference', 'personality'] } } } } } } : base;
 }
 
-export function interviewCompletionRequest(document, finalReview = false, sensitiveProfileAllowed = false, memberGender = null, { hybrid = false } = {}) {
+export function interviewCompletionRequest(document, finalReview = false, sensitiveProfileAllowed = false, memberGender = null, { hybrid = false, answeredFieldIds = [] } = {}) {
   const providerSafe = providerDocument(document, sensitiveProfileAllowed);
   const last = document.turns.at(-1);
   const next = nextTopic(document, false);
@@ -694,6 +700,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   instructions += '\nمدينة الأصل ليست مدينة الإقامة ولا دليلًا على القبيلة أو الجنسية. خطط حفل الزواج وتوقيت الإنجاب وترتيب السكن وتوزيع المصاريف تفاصيل اختيارية: استخرجها فقط عند تصريح العضو بها، ولا تطل الجلسة بسؤالها إذا لم ترد؛ يستطيع إكمالها في النموذج. لا تفسر اختيار مناقشة التفاصيل كرفض أو شرط. الرغبة في الإنجاب لا تحدد موعده، وترتيب الميزانية لا يحدد من يدفع. لا تستنتج قسمة المصاريف بالتساوي من كلمة التعاون. بيننا سؤال وجواب اختياري يكتبه العضو بنفسه خارج جلسة التسجيل، وليس شرطًا لإكمالها.';
   if (finalReview) instructions += '\nهذه مراجعة استخراج فقط: reply فارغ وanswerDisposition=answered وquickReplies=[]. لا تكتب رد محادثة جديدًا.';
   if (hybrid) instructions += '\n' + statementGuidance;
+  if (answeredFieldIds.length) instructions += '\nمعرّفات answeredFieldIds تخص بطاقات أجاب عنها العضو في المسودة. استخدميها فقط لتجنّب تكرار السؤال، ولا تفترضي أي اختيار ولا تستخدمي المعرّفات دليلًا.';
   const liveOpening = hybrid && !finalReview && isOpeningTurn(last);
   if (liveOpening) instructions += `\nأنتِ لونا في بداية تعارف خاص. اكتبي في reply جملة سعودية قصيرة تردّ على معنى محدد من آخر رسالة، حتى لو كانت جملة واحدة. replyEvidence عبارة حرفية قصيرة من آخر answer تسند ردك. احفظي الفرق بين الرغبة والشرط والتردّد. مثال توضيحي فقط: من «أبي بيت مستقل بس قريب من أهلي» يمكن أن تقولي «يهمّك يكون لكم بيتكم، وبنفس الوقت يكون أهلك قريبين.» لا تكرري المثال مع شخص آخر. إذا طلب شرحًا فاشرحي المقصود باختصار. تجنّبي المدح الجاهز ووصف الشخصية ووعد الحفظ، ولا تضعي سؤالًا في reply. إذا لم تجدي معنى تسندينه اتركي reply وreplyEvidence فارغين.
 في هذه البداية وحدها، question اختياري. اقترحي سؤالًا واحدًا فقط إذا أضاف معلومة تفرق في فهم آخر إجابة أو تناول جانبًا مرتبطًا بها ما زال مفتوحًا. إذا حسم الشخص السكن أو المصاريف أو طريقة التعامل مع اختلاف الرأي، لا تعيدي السؤال عنها. لا تسألي عن استثناء افتراضي أو تبرير قرار واضح. عند وجود سؤال، حددي questionTopic وquestionFields للجانب الناقص من openingTopics. إذا لم يوجد سؤال مفيد اتركي question وquestionTopic فارغين وquestionFields=[] وfollowUp=false. دعي الانتقال للموقف التالي للتطبيق.
@@ -704,6 +711,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
     model: INTERVIEW_MODEL, store: false, reasoning_effort: 'low', max_completion_tokens: requiredInterview(document) ? 10000 : 7000,
     messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({
       transcript: providerSafe.turns,
+      ...(answeredFieldIds.length ? {answeredFieldIds} : {}),
       ...(hybrid ? {privateStatements:privateStatements(document, [], sensitiveProfileAllowed)} : {}),
       ...(liveOpening ? { openingTopics: openingFields } : {}),
       memberGender: memberGender === 'woman' || memberGender === 'man' ? memberGender : null,
@@ -722,7 +730,7 @@ nextTopic.missingFields وpossibleFollowUpTopic.missingFields يحددان ال�
   };
 }
 
-export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false, finishOpening = false, pendingGrounding = false, sensitiveProfileAllowed = false, refinementsAvailable = false } = {}) {
+export function applyInterviewCompletion(document, completion, finalReview = false, previousProposals = document.proposals, { hybrid = false, finishOpening = false, pendingGrounding = false, sensitiveProfileAllowed = false, refinementsAvailable = false, answeredFieldIds = [] } = {}) {
   const choice = completion?.choices?.[0];
   if (choice?.finish_reason !== 'stop' || choice.message?.refusal) throw unavailable();
   let result;
@@ -807,7 +815,24 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
     if (needsClarification && !(hybrid && result.answerDisposition === 'clarify' && !unclearConfirmation(last)) && item.evidence.some(e => e.turnId === last?.id)) continue;
     if(!prior||evidencePosition(item.evidence)>=evidencePosition(prior.evidence))profileRetained.set(item.id,item);
   }
-  const profileProposals=[...profileRetained.values()];
+  const statements = hybrid ? privateStatements(document, result.statements, sensitiveProfileAllowed) : [];
+  const corrections = correctedRefinementFields(statements, document.turns);
+  for (const [id, position] of corrections) {
+    const stale = profileRetained.get(id);
+    if (stale && (evidencePosition(stale.evidence) < position || (evidencePosition(stale.evidence) === position && stale.needsClarification))) profileRetained.delete(id);
+  }
+  const profileProposals = [...profileRetained.values()];
+  const profileConfirmed = (document.profileConfirmed ?? []).filter(saved => {
+    if (profileInvalidated.has(saved.id)) return false;
+    const position = evidencePosition(saved.evidence);
+    if (position < (corrections.get(saved.id) ?? -1)) return false;
+    const updated = profileRetained.get(saved.id);
+    // Member edits take precedence over a reinterpretation of the original turn.
+    // A different answer grounded in a later turn needs fresh confirmation.
+    if (!hybrid || !updated || evidencePosition(updated.evidence) <= position) return true;
+    return !updated.needsClarification && updated.mode === saved.mode && updated.exclude === saved.exclude &&
+      JSON.stringify(updated.values) === JSON.stringify(saved.values);
+  });
   proposals = withPartnerDefaults(proposals, invalidated);
   // Previously captured fields help avoid re-asking because an extraction
   // accidentally omitted one. These values never enter confirmable results.
@@ -861,13 +886,13 @@ export function applyInterviewCompletion(document, completion, finalReview = fal
   const groundedReply = !finalReview && bounded(result.replyEvidence, 160) && last?.answer.includes(result.replyEvidence.trim())
     && !/[؟?\r\n\u2029]/u.test(result.reply) && !result.reply.includes(SENSITIVE_REDACTION) ? result.reply.trim() : '';
   const pairedFollowUp = refinementsAvailable && openingFlow && finishOpening && !finalReview && document.turns.length === 1
-    ? suggestedDecisionQuestion(document, proposals, result, groundedReply) : null;
+    ? suggestedDecisionQuestion(document, proposals, result, groundedReply, answeredFieldIds) : null;
   const opening = pairedFollowUp ?? (openingFlow && !finalReview && !finishOpening ? nextOpeningQuestion(document.turns, proposals, result, groundedReply) : null);
   const closing = groundedReply && !opening ? { topic: last.topic, text: groundedReply, suggestions: [] } : null;
   return { ...document, model: INTERVIEW_MODEL,
-    ...(hybrid ? {statements: privateStatements(document, result.statements, sensitiveProfileAllowed)} : {}),
+    ...(hybrid ? {statements} : {}),
     proposals: hybrid && !pendingGrounding ? proposals.filter(p => p.needsClarification || directCarryForward(p, document.turns) || p.evidence.every(e => e.turnId.startsWith('context:'))) : proposals,
-    profileProposals,profileConfirmed:(document.profileConfirmed??[]).filter(item=>!profileInvalidated.has(item.id)), readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
+    profileProposals,profileConfirmed, readiness: validateNotes(result.readiness, document.turns, true), clarifications: validateNotes(result.clarifications, document.turns),
     currentQuestion: openingFlow ? opening ?? closing : question,
     status: openingFlow ? (opening ? 'active' : 'review') : next ? 'active' : 'review', lastMode: 'luna', pendingAnalysis: false, confirmed: [], reviewSharing: false, confirmedAt: null,
   };
@@ -1129,6 +1154,10 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
     if (input.refineTopic) {
       if (document.status !== 'review' || !hasAnalyzedIntroduction(document) || document.turns.length >= turnLimit(document) ||
           !canRefine(document, input.refineTopic)) throw invalid();
+      if (input.refineTopic === 'age') {
+        const message = ageRangeConflict(document, input.refinement);
+        if (message) throw new InterviewError(400, 'age_range_conflict', message);
+      }
       const selection = refinementSelection(input.refineTopic, input.refinement);
       const next = applyRefinement(document, selection, input.requestId, randomUUID());
       // This transition changes no assessed choices. The dedicated attestation
@@ -1199,17 +1228,18 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
         ? input.editNextStep ? nextStepQuestion() : { topic: document.currentQuestion?.topic ?? document.turns.at(-1)?.topic ?? 'intent', text: 'وش تحب توضّح عن إجاباتك؟' }
         : unfinishedOpeningScenario(document) ?? document.currentQuestion;
       const optionalNextStep = isNextStep(question?.text);
-      if (requiredInterview(document) && input.skip && (!optionalNextStep || !hasAnalyzedIntroduction(document))) {
+      const optionalFollowUp = input.cardsAfterReply && document.status === 'review' && !document.pendingAnalysis
+        && document.currentQuestion?.text.includes('\u2029') && /[؟?]$/u.test(question?.text ?? '');
+      const optionalQuestion = optionalNextStep || optionalFollowUp;
+      if (requiredInterview(document) && input.skip && (!optionalQuestion || !hasAnalyzedIntroduction(document))) {
         throw new InterviewError(409, 'answer_required', 'هذه النقطة مطلوبة لإكمال التوافق. أجب بكلماتك أو اطلب توضيح السؤال.');
       }
       if (openingScenario(question?.text, question?.topic) && input.answer.length > 700) throw new InterviewError(400,'answer_too_long','اختصر إجابتك إلى ٧٠٠ حرف؛ يكفي موقف بسيط.');
-      const optionalFollowUp = input.cardsAfterReply && document.status === 'review' && !document.pendingAnalysis
-        && document.currentQuestion?.text.includes('\u2029') && /[؟?]$/u.test(question?.text ?? '');
       const canAnswer = clarifying ? hasAnalyzedIntroduction(document) && document.status !== 'confirmed' : document.status === 'active' || optionalFollowUp;
       if (!canAnswer || !question || (optionalNextStep && !hasAnalyzedIntroduction(document)) ||
         (input.editNextStep && document.status !== 'review') ||
         document.turns.length >= (requiredInterview(document) ? turnLimit(document) : LEGACY_MAX_TURNS)) throw invalid();
-      if (input.skip && optionalNextStep) {
+      if (input.skip && optionalQuestion) {
         // Skipping adds no content and leaves the attested transcript intact.
         return save({ ...document, currentQuestion: null, status: 'review', lastRequestId: input.requestId, draftAnswer: '' });
       }
@@ -1245,10 +1275,19 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const openai = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout: providerTimeout });
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
-      const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid }), { timeout: providerTimeout, maxRetries: 0 });
-      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, refinementsAvailable: input.refinementsAvailable === true, sensitiveProfileAllowed: input.sensitiveProfileAllowed === true, pendingGrounding: hybrid, finishOpening: input.openingFlow || (input.cardsAfterReply && next.turns.length > 1) });
+      const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid, answeredFieldIds:input.answeredFieldIds }), { timeout: providerTimeout, maxRetries: 0 });
+      analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, refinementsAvailable: input.refinementsAvailable === true, answeredFieldIds:input.answeredFieldIds, sensitiveProfileAllowed: input.sensitiveProfileAllowed === true, pendingGrounding: hybrid, finishOpening: input.openingFlow || (input.cardsAfterReply && next.turns.length > 1) });
       if (hybrid && (input.cardsAfterReply || input.openingFlow || input.verifyChoices || input.editNextStep)) {
         const turns = providerDocument(next, input.sensitiveProfileAllowed === true).turns.filter(t => !t.skipped);
+        const latest = next.turns.at(-1);
+        const answeringOptional = input.action === 'answer' && !input.skip && hasAnalyzedIntroduction(document) &&
+          document.status === 'review' && document.currentQuestion?.text === latest?.question &&
+          latest.question.includes('\u2029');
+        // Keep independently checked evidence for unaffected topics. New evidence,
+        // invalidations and the topic being clarified still go through verification.
+        const inClarifiedTopic = new Set(assessment().requiredFields.filter(f => f.topic.id === latest?.topic).map(f => f.id));
+        const retainedChecks = isNextStep(latest?.question) ? document.proposals :
+          answeringOptional ? document.proposals.filter(p => !inClarifiedTopic.has(p.id)) : [];
         analyzed.proposals = await groundHybridChoices(analyzed.proposals, turns, memberGender, async data => {
           try {
             // Leave time for the existing save and attestation before the client deadline.
@@ -1259,7 +1298,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
             const timeout = Math.min(6000,budget());
             return timeout > 0 ? await checkCatalogAnswers(openai, INTERVIEW_MODEL, data, timeout) : [];
           } catch { return []; } // Verification is optional. The ordinary question remains available.
-        }, isNextStep(next.turns.at(-1)?.question) ? document.proposals : []);
+        }, retainedChecks);
       }
       if (requiredInterview(analyzed) && (input.cardsAfterReply || (hybrid && (document.promptVersion === PROMPT_VERSION || !isOpeningTurn(next.turns.at(-1)))))) {
         const message = analyzed.currentQuestion;

@@ -57,13 +57,14 @@ export function ReadinessStep({ value, familyPreference, formalTiming, answers, 
   const formalLabel = dimensionsForVersion(answers?.assessmentVersion).find(item => item.id === 'marriage_timeline')?.options.find(option => option.code === formalTiming)?.self;
   const wedding = answers?.marriageBasics?.marriageTimeline;
   const [editingTopics, setEditingTopics] = useState<ReadinessTopic[]>([]);
-  const carriedFamily = familyPreference === 'من البداية' ? 'early' : undefined;
+  const carriedFamily = familyPreference === 'من البداية' ? 'early' : familyPreference === 'نتفق على ذلك لاحقًا' ? 'discuss' : undefined;
   const carriedStep = declaredNextStep(plan?.answer);
   const priorAnswers = { family: carriedFamily, nextStep: carriedStep };
   const shownAnswer = (topic: ReadinessTopic) => editingTopics.includes(topic) ? undefined
     : value[topic] ?? (value.agreement ? undefined : priorAnswers[topic]);
   const reviewed = value.family && value.nextStep && conflicts.every(topic => value.clarifications?.[topic]);
   function selectScenario(topic: ReadinessTopic, choice: string) {
+    setEditingTopics(previous => previous.filter(item => item !== topic));
     if (value[topic] === choice) return;
     const clarifications = { ...value.clarifications };
     delete clarifications[topic];

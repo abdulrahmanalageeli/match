@@ -1,6 +1,7 @@
 import { interviewWritingDrafts } from './writingDraft';
 import { groundedSuggestions } from './openingEvidence';
 import { PrivateMemory, type Refinement, type RefinementTopic } from './PrivateMemory';
+import { recalledNextStep } from './privateNextStep';
 import { nextRefinement } from './nextRefinement.mjs';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -122,10 +123,11 @@ type Props = {
   gender?: 'woman' | 'man';
   hardRequirements?: readonly string[];
   sensitiveProfileAllowed?: boolean;
+  onProfileRetract?: (withdrawn: ProfileProposal[], document: InterviewDocument) => void;
   onProfileApply?: (confirmed: ProfileProposal[], document: InterviewDocument) => void;
 };
 
-export function InterviewPanel({ open, auth, measurementOwner, initialField, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply }: Props) {
+export function InterviewPanel({ open, auth, measurementOwner, initialField, onClose, onDirectQuestions = onClose, onboarding = false, direct = false, consentGranted = false, onUnavailable, onFallbackApply, onApply, profileContext, onAssessmentVersion, assessmentContext, onStructuredDraftChange, gender, hardRequirements = [], sensitiveProfileAllowed = false, onProfileApply, onProfileRetract }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [snapshot, setSnapshot] = useState<InterviewSnapshot>({ document: null, revision: 0 });
@@ -157,6 +159,8 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const contextRef = useRef(profileContext); contextRef.current = profileContext;
   const assessmentContextRef = useRef(assessmentContext); assessmentContextRef.current = assessmentContext;
   const sensitiveProfileAllowedRef = useRef(sensitiveProfileAllowed); sensitiveProfileAllowedRef.current = sensitiveProfileAllowed;
+  const retractRef = useRef(onProfileRetract); retractRef.current = onProfileRetract;
+  const lastConfirmedProfile = useRef<ProfileProposal[]>([]);
   const profileApplyRef = useRef(onProfileApply); profileApplyRef.current = onProfileApply;
   const [answerHelp, setAnswerHelp] = useState(false);
   const answerRef = useRef(answer);
@@ -185,9 +189,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const hasOpening = doc?.turns.some(turn => !turn.skipped && turn.answer.trim());
   const openingTurn = Boolean(doc?.status === 'active' && doc.turns.length === 0);
   const nextStepTurn = hybridEnabled && doc?.currentQuestion?.text.split('\u2029').at(-1) === openingPrompts.nextStep;
-  const latestStep = doc?.turns.filter(turn => turn.question === openingPrompts.nextStep && !turn.skipped).at(-1);
-  const nextStepNote = doc?.readiness.find(note => note.id === 'nextStep' && (!latestStep || note.evidence.some(evidence => evidence.turnId === latestStep.id)));
-  const nextStepText = nextStepNote?.text ?? latestStep?.answer ?? doc?.statements?.filter(s => s.topic === 'nextStep' && s.subject === 'intent').at(-1)?.quote;
+  const nextStepText = recalledNextStep(doc)?.text;
   const owner = auth.testSession ?? auth.token ?? '';
   const reviewVersion = doc ? JSON.stringify([doc.status, doc.proposals, doc.confirmed]) : '';
   const profileVersion = JSON.stringify(doc?.profileProposals ?? []);
@@ -195,7 +197,19 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const editedReceiptChoices = useRef(new Set<string>());
   const versionCallback = useRef(onAssessmentVersion); versionCallback.current = onAssessmentVersion;
-  const assign = useCallback((next: InterviewSnapshot, replaceAnswer = false) => {
+  const assign = useCallback((next: InterviewSnapshot, replaceAnswer = false, analyzed = false) => {
+    const document = next.document;
+    if (!document) lastConfirmedProfile.current = [];
+    else if (!document.pendingAnalysis) {
+      const confirmed = document.profileConfirmed ?? [];
+      if (analyzed && document.lastMode === 'luna') {
+        const withdrawn = lastConfirmedProfile.current.filter(old => !confirmed.some(item =>
+          item.id === old.id && item.mode === old.mode && item.exclude === old.exclude
+          && item.values.length === old.values.length && item.values.every((value, index) => value === old.values[index])));
+        if (withdrawn.length) retractRef.current?.(withdrawn, document);
+      }
+      lastConfirmedProfile.current = confirmed;
+    }
     if (next.document) versionCallback.current?.(next.document.promptVersion !== 'wudayn-interview-5');
     else {
       editedReceiptChoices.current.clear();
@@ -216,6 +230,9 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
     const before = current.current;
     if (action === 'draft') draftInFlight.current = payload.answer as string;
     const canOfferRefinements = hybridEnabled && (action === 'retry' || (action === 'answer' && payload.openingFlow === true));
+    const answeredFieldIds = canOfferRefinements
+      ? [...new Set(assessmentContextRef.current?.filter(field => field.values.length === 1).map(field => field.id))]
+      : [];
     try {
       const usesContext = ['start', 'answer', 'clarify', 'retry', 'review','structuredConfirm','directConfirm'].includes(action);
       const next = await requestInterview(auth, {
@@ -228,6 +245,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         } : {}),
         ...(action === 'retry' && hybridEnabled ? { openingFlow: true } : {}),
         ...(canOfferRefinements ? { refinementsAvailable: true } : {}),
+        ...(answeredFieldIds.length ? { answeredFieldIds } : {}),
         ...payload,
       });
       if (!mounted.current) return null;
@@ -236,7 +254,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         const changes = messageChanges(before, next, hybridEnabled), turnId = next.document.turns.at(-1)?.id;
         if (turnId && changes.length) setCaptures(previous => ({ ...previous, [turnId]: changes }));
       }
-      assign(next, replaceAnswer);
+      assign(next, replaceAnswer, ['answer','clarify','retry','review'].includes(action));
       if (auth.token && action === 'draft' && answerRef.current !== payload.answer)
         void interviewWritingDrafts.save(auth.token, next, answerRef.current).catch(() => {});
       if (auth.token && action === 'load' && replaceAnswer) {
@@ -259,7 +277,9 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         try {
           const recovered = await requestInterview(auth, { action: 'load' });
           if (mounted.current) {
-            assign(recovered, ['answer', 'clarify'].includes(action) && recovered.document?.lastRequestId === payload.requestId);
+            const accepted = ['answer','clarify'].includes(action) && recovered.document?.lastRequestId === payload.requestId;
+            const reanalyzed = ['retry','review'].includes(action) && recovered.revision > before.revision;
+            assign(recovered, accepted, accepted || reanalyzed);
             if (['directConfirm','structuredConfirm'].includes(action) && recovered.structuredConfirmation && recovered.document?.status === 'confirmed') {
               const committed = new Map(recovered.document.confirmed.map(item => [item.id, item.values[0]]));
               const submitted = payload.choices as InterviewSelection[];
@@ -678,7 +698,10 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
           {!direct && !responding && doc.status === 'review' && hybridReady && doc.currentQuestion && (hasFollowUp || !/[؟?]/u.test(doc.currentQuestion.text)) &&
             <div className="wi-bubble wi-bubble-guide wi-closing"><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>
               {renderLunaMessage(doc.currentQuestion.text, true, 'wi-reflection')}
-              {hasFollowUp && !clarifying && <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => setClarifying('followUp')}>أردّ على لونا</button>}
+              {hasFollowUp && !clarifying && <div className="wi-refine-actions">
+                <button type="button" className="wi-link" disabled={actionBlocked} onClick={() => setClarifying('followUp')}>أردّ على لونا</button>
+                <button type="button" className="wi-link" disabled={actionBlocked || Boolean(answer.trim())} onClick={() => void send(true)}>تخطّي السؤال</button>
+              </div>}
             </div>}
           {responding && <p className="wi-coverage-note" role="status"><TypingDots/> لونا تقرأ رسالتك. تقدر تكمل الاختيارات الآن.</p>}
           {!direct && profileProposals.length > 0 && <button className="wi-profile-summary-link" type="button" onClick={() => setProfileReview(true)} disabled={actionBlocked}>

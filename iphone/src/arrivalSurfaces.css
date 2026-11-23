@@ -253,6 +253,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .df-portrait-placeholder::before,
 .phone-app .cm-shell .df-discovery .df-portrait-placeholder .cm-weekly-contours { display: none; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual { width: auto; min-width: 0; min-height: 44px; }
+.phone-app .cm-shell .df-discovery .dr-row-overview > .dr-fit-visual > * { pointer-events: none; }
 .phone-app .cm-shell .df-discovery .dr-row-overview > .dr-fit-visual { border-inline-start: 1px solid var(--arrival-rule); padding-inline-start: 12px; }
 .phone-app .cm-shell .df-discovery .df-card-compatibility { margin-block-end: 10px; color: #655f64; font-size: 0.75rem; }
 .phone-app .cm-shell .df-discovery .df-recommendation { position: relative; text-align: start; }
@@ -291,7 +292,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   min-width: 44px;
   padding: 0 2px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   color: var(--tinted-ink, #694052);
   font: inherit;

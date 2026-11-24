@@ -43,7 +43,7 @@
   padding: 0 0 12px;
   height: auto;
   aspect-ratio: auto;
-  background: #11070d url('/brand/wudayn-privacy-banner.webp') center top / cover no-repeat;
+  background: #11070d;
 }
 .df-card-portrait > .df-portrait-media:has(> .wd-private-portrait) {
   position: relative;
@@ -52,7 +52,8 @@
 .df-portrait-media > .wd-private-portrait {
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: transparent;
+  border-radius: 12px;
+  background: #11070d url('/brand/wudayn-privacy-banner.webp') center / cover no-repeat;
 }
 .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-shade { display: none; }
 .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-identity {

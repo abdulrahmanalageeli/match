@@ -258,7 +258,9 @@ try{
    await page.waitForFunction(()=>window.__scope?.portraitOnly && window.__portraits.size>0);
    assert.equal(await card.locator('.df-card-portrait img[src*="portraits"]').count(),0);
    assert.equal(await card.locator('.df-live-caption,.wd-capture-watermark').count(),0);
-   const art = await card.locator('.df-card-portrait').evaluate(async node=>{
+   assert.equal(await page.locator('.wd-capture-trigger:visible').count(),0);
+   assert.equal(await card.locator('.df-card-portrait').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
+   const art = await card.locator('.wd-private-portrait').evaluate(async node=>{
      const url=getComputedStyle(node).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
      const img=new Image(); img.src=url; await img.decode(); return img.naturalWidth;
    });
@@ -266,6 +268,7 @@ try{
    const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
    assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
    assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
+   await page.waitForFunction(box=>[...window.__portraits.values()].some(rect=>rect.every((v,i)=>Math.abs(v-box[i])<1)),[photoBox.x,photoBox.y,photoBox.width,photoBox.height]);
    await card.screenshot({path:resolve(output,'iphone-capture-card-'+width+'.png')});
  }
  await page.getByRole('button',{name:'جميع الملفات'}).click();
@@ -283,5 +286,6 @@ try{
  await page.waitForFunction(()=>window.__portraits.size>0);
  await row.getByRole('button',{name:/عرض ملف سارة/}).click();
  await page.waitForFunction(()=>window.__scope?.scope==='profile' && !window.__scope.portraitOnly && window.__portraits.size===0);
+ assert.equal(await page.locator('.mp-profile .wd-capture-trigger,.mp-profile .wd-capture-watermark').count(),0);
  assert.deepEqual(errors,[]);console.log('PASS: discovery layout, membership, interest, iPhone portrait bridge, capture backing and scope cleanup.');
 }catch(e){console.error('Browser errors:',errors,e);await page?.screenshot({path:resolve(output,'failure.png'),timeout:5000}).catch(()=>{});throw e;}finally{await browser?.close();await server.close();}

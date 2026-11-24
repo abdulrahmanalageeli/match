@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { LockKeyhole, Eye } from '../BrandIcons';
 import { setNativeCaptureScope } from '../session';
+import { nativePrivatePhoto } from '../community/privatePhoto';
 import './capturePrivacy.css';
 
 type Scope = 'discovery' | 'profile' | 'chat';
@@ -41,6 +42,7 @@ const noteText: Record<Scope, string> = {
 };
 
 export function CaptureWatermark({ scope, variant = 'inline' }: { scope: Scope; variant?: 'inline' | 'photo' }) {
+  if (nativePrivatePhoto()) return null;
   return <span className={`wd-capture-watermark wd-capture-watermark--${variant}`} aria-hidden="true">
     <LockKeyhole size={12}/><span>وُدَين · {scope === 'chat' && variant === 'inline' ? 'حديث خاص' : 'خاص'}</span>
   </span>;
@@ -61,6 +63,7 @@ function pauseVoiceNotes() {
 }
 
 export function CapturePrivacyButton({ scope }: { scope: Scope }) {
+  if (nativePrivatePhoto()) return null;
   return <button type="button" className="wd-capture-trigger" data-scope={scope}
     aria-label="ستر الشاشة" title="ستر الشاشة" aria-haspopup="dialog"
     onClick={showPrivacyNote}>

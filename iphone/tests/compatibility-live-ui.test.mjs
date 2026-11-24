@@ -265,7 +265,7 @@ test('a profile opened from expanded Luna results refreshes in the eligible dire
 test('an open recommended profile refreshes after moving out of the top five, then closes if no longer eligible', async () => {
   const source = sourceWith([person(90)]), m = mount(communityCode, 'Discovery', baseProps(source));
   m.render(); await settle(); let tree = m.render();
-  named(tree, 'PersonCard').props.open({ closest: () => null, querySelector: () => ({}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
+  named(tree, 'PersonCard').props.open({ closest: () => null, querySelector: () => ({querySelector: () => null}), getBoundingClientRect: () => ({ top: 0 }), matches: () => true });
   tree = m.render(); assert.equal(tree.props.person.fit.preference, 90);
   const lookups = [];
   let eligible = true;

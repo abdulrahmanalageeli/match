@@ -48,6 +48,21 @@
 .wd-pair-verdict[data-status="aligned"] { color: #d8f6e7; }
 .wd-pair-preview:not([data-rotating]) .nf-logo-wave { animation: none; }
 @media(prefers-reduced-motion:no-preference) {
+  .wd-pair-people[data-bands] img { animation: wd-portrait-dissolve 420ms ease-in-out both; }
+  .wd-pair-people[data-bands]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-size: 100% 3600%;
+    animation: wd-bands-appear 420ms ease-in-out both, wd-bands-turn 1380ms steps(35, end) both;
+  }
+  .wd-pair-people[data-bands='link']::after { background-image: url('/brand/welcome/bands-link.webp'); }
+  .wd-pair-people[data-bands='part']::after { background-image: url('/brand/welcome/bands-part.webp'); }
+  @keyframes wd-portrait-dissolve { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes wd-bands-appear { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes wd-bands-turn { from { background-position-y: 0%; } to { background-position-y: 100%; } }
   html:not([data-nf-motion="reduced"]) .wd-pair-factor { display: block; animation: wd-pair-factor-in 300ms ease-out; }
   @keyframes wd-pair-factor-in { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   .wd-pair-preview:not([hidden]) { animation: wd-pair-unfold 560ms cubic-bezier(.22,.72,.2,1); }

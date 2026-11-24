@@ -63,6 +63,21 @@ try{
  const score=activeRow.locator('.nf-score-tile strong');
  const reading=activeRow.locator('.wd-pair-reading');
  const verdict=activeRow.locator('.wd-pair-verdict');
+ async function checkBands(ending) {
+  const people=activeRow.locator('.wd-pair-people');
+  await page.waitForFunction(expected=>{
+   const node=document.querySelector('.wd-pair-row:not([inert]) .wd-pair-people');
+   if(node?.dataset.bands!==expected)return false;
+   const style=getComputedStyle(node,'::after');
+   const position=parseFloat(style.backgroundPositionY);
+   return Number(style.opacity)>.5 && position>0 && position<100;
+  },ending);
+  const imageUrl=await people.evaluate(node=>getComputedStyle(node,'::after').backgroundImage.slice(5,-2));
+  assert(imageUrl.endsWith('/bands-'+ending+'.webp'));
+  await page.evaluate(async url=>{const image=new Image();image.src=url;await image.decode();},imageUrl);
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.wd-pair-row:not([inert]) .wd-pair-people'),'::after').backgroundPositionY==='100%');
+  if(captureStills)await pair.screenshot({path:resolve(output,'welcome-bands-'+ending+'.png')});
+ }
  await pair.waitFor();
  const scale=await pair.evaluate(node=>node.getBoundingClientRect().width/node.offsetWidth);
  assert(Math.abs(scale-1)<.002,'welcome preview renders without transformed text');
@@ -81,12 +96,15 @@ try{
  assert(await firstScore.evaluate(node=>node.isConnected),'changing the factor preserves the score element');
  assert.equal(await score.textContent(),rotation[0][1]);
  assert.match(await reading.innerText(),/بيت مستقل/);
+ await checkBands('part');
  await page.waitForFunction(topic=>document.querySelector('.wd-pair-row:not([inert]) .wd-pair-identity > span')?.textContent===topic,rotation[1][0]);
  assert.equal(await score.textContent(),rotation[1][1]);
  assert.equal(await activeRow.locator('.nf-score-tile-copy > span').innerText(),'التوافق');
  await activeRow.locator('img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
  assert.equal(await verdict.innerText(),rotation[1][2]);
  if(captureStills)await page.screenshot({path:resolve(output,'welcome-pair-agreement.png'),animations:'disabled'});
+ await next.click();
+ await checkBands('link');
  await pair.getByRole('button',{name:'من كلام سعود'}).click();
  assert.match(await reading.innerText(),/يناسبني أنقل للرياض/);
  await page.waitForTimeout(6950);
@@ -100,7 +118,7 @@ try{
   assert.equal(await activeRow.locator('.wd-pair-identity > span').innerText(),topic);
   assert.equal(await score.textContent(),percent);
   assert.equal(await verdict.innerText(),expectedVerdict);
-  assert.equal(await activeRow.locator('.wd-portrait-rings').count(),0);
+  assert.equal(await activeRow.locator('.wd-pair-people').getAttribute('data-bands'),null);
   assert((await reading.innerText()).trim().split(/\s+/).length<=14,'one short reading per rotation');
   const fits=await reading.evaluate(node=>{const range=document.createRange();range.selectNodeContents(node);return node.scrollWidth<=node.clientWidth+1&&range.getBoundingClientRect().height<=2*parseFloat(getComputedStyle(node).lineHeight)+1;});
   assert(fits,'reading fits within two lines: '+topic);
@@ -153,6 +171,7 @@ try{
   assert.equal(await pair.getByRole('button',{name:'إيقاف التبديل التلقائي'}).count(),0);
   await next.click();
   assert.match(await reading.innerText(),/بيت مستقل/);
+  assert.equal(await activeRow.locator('.wd-pair-people').getAttribute('data-bands'),null);
   assert.equal(await score.textContent(),rotation[0][1]);
   await next.click();
   assert.equal(await score.textContent(),rotation[1][1]);

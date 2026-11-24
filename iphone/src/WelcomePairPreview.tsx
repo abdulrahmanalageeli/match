@@ -64,10 +64,11 @@ export function WelcomePairPreview({ visible, reduced }: { visible: boolean; red
     const { title, reading:original, status } = pair.factors[alternate ? 1 : 0];
     const reading=published.find(item=>item.key===`welcome.${index}.${alternate?1:0}`)?.body??original;
     const verdict = status === 'aligned' ? 'اتفاق' : !status || status === 'missing' ? 'غير محسوم' : 'للنقاش';
+    const showBands = alternate && speaker === null && !reduced && status && status !== 'missing';
     return <div key={index} className="wd-pair-row" data-outgoing={outgoing || undefined}
       inert={outgoing || undefined} aria-hidden={outgoing || undefined}>
       <div className="wd-pair-top">
-        <div className="wd-pair-people">{pair.people.map((person, i) => <button key={person.image} className="wd-pair-person" type="button"
+        <div className="wd-pair-people" data-bands={showBands ? (status === 'aligned' ? 'link' : 'part') : undefined}>{pair.people.map((person, i) => <button key={person.image} className="wd-pair-person" type="button"
           aria-label={'من كلام ' + person.name} aria-pressed={speaker === i} onFocus={() => setPaused(true)} onClick={() => {
             setPaused(true);
             setSelection({ index, alternate: false, speaker: speaker === i ? null : i, fromScore });

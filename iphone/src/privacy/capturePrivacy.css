@@ -39,11 +39,11 @@
 .phone-app .cm-shell .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) {
   display: grid;
   justify-items: center;
-  gap: 8px;
-  padding: 0 0 12px;
+  gap: 0;
+  padding: 0;
   height: auto;
   aspect-ratio: auto;
-  background: #11070d;
+  background: transparent;
 }
 .df-card-portrait > .df-portrait-media:has(> .wd-private-portrait) {
   position: relative;
@@ -51,18 +51,21 @@
 }
 .df-portrait-media > .wd-private-portrait {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  /* The lock is centered in the upper 69% of the square banner. Use the
+     standard recommendation photo ratio to frame the complete shackle. */
+  aspect-ratio: 1.45 / 1;
   border-radius: 12px;
-  background: #11070d url('/brand/wudayn-privacy-banner.webp') center / cover no-repeat;
+  background: #11070d url('/brand/wudayn-privacy-banner.webp') center top / cover no-repeat;
 }
 .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-shade { display: none; }
 .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-identity {
   position: static;
   justify-self: stretch;
-  padding: 9px 15px 0;
+  padding: 12px 16px 0;
 }
+.df-discovery .df-card-portrait:has(.wd-private-portrait) :is(.df-intention, .df-identity-meta, .df-identity-line > span:not([class])) { color: var(--supporting-ink, #53454b); }
 .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-intention { margin-bottom: 2px; }
-.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-line h2 { font-size: 1.55rem; }
+.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-line h2 { color: var(--ink); font-size: 1.55rem; }
 .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-meta { margin-top: 3px; }
 .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-badges { top: 42px; }
 

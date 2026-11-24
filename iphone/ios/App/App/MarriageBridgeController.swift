@@ -73,7 +73,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
             return
         }
         if let backing {
-            backing.setArtwork(for: scope)
+            backing.setArtwork(for: scope, isScreenshotBacking: true)
             return
         }
 
@@ -96,7 +96,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
             item.gestureRecognizers?.forEach { $0.isEnabled = false }
         }
         let note = WudaynPrivacyNote(frame: content.bounds)
-        note.setArtwork(for: scope)
+        note.setArtwork(for: scope, isScreenshotBacking: true)
         note.isUserInteractionEnabled = false
         note.accessibilityViewIsModal = false
         note.accessibilityElementsHidden = true

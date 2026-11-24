@@ -24,6 +24,7 @@ async function entry(href, mode = 'production') {
     './auth/passwordRecovery': { readRecoveryLink, cleanRecoveryUrl },
     './auth/signupReturn': { readSignupReturn },
     './community/ConnectionNotice': { ConnectionNotice: 'ConnectionNotice' },
+    './privacy/CapturePrivacy': { CapturePrivacyHost: 'CapturePrivacyHost' },
     './settings/preferences': { initializeDevicePreferences: () => events.push(['preferences']) },
     './monitoring': { AppBoundary: 'AppBoundary', initializeFaultReporting: () => events.push(['monitoring']) },
     './mobile/keyboardViewport': { initializeKeyboardViewport: () => { events.push(['keyboard']); return () => {}; } },

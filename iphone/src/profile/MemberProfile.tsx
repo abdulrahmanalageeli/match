@@ -3,7 +3,7 @@ import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess} from '../membership/access';
 import { languageOpennessLabels } from "../compatibility/marriage";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { MoreHorizontal, Flag, ArrowRight, BookOpenCheck, BriefcaseBusiness, CalendarDays, GraduationCap, MapPin, Check, ChevronDown, Eye, Feather, Heart, ListFilter, LockKeyhole, Sparkles, UserRound } from "../BrandIcons";
+import { MoreHorizontal, Flag, ArrowRight, BookOpen, BookOpenCheck, BriefcaseBusiness, CalendarDays, Clock3, GraduationCap, Home, Landmark, MapPin, Check, Eye, Feather, Heart, ListFilter, LockKeyhole, Sparkles, UserRound } from "../BrandIcons";
 import type { CommunitySource, PublicPerson } from '../community/data';
 import { denied } from '../community/chatOutbox';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
@@ -20,17 +20,23 @@ import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
-import { marriagePlanKeys, marriagePlanQuestions, marriagePlanLabel } from '../compatibility/marriagePlans';
+import { marriagePlanQuestions, marriagePlanLabel } from '../compatibility/marriagePlans';
 import { PersonalPrompts } from './PersonalPrompts';
 
 const ar = new Intl.NumberFormat('ar-SA');
 type Fact = [string, string];
-function Facts({ title, items, initiallyOpen=false }: {title: string; items: (Fact | false | undefined | '')[]; initiallyOpen?: boolean}) {
+type FactVisual = 'facts'|'statements';
+function Facts({ title, icon, visual='facts', items }: {title: string; icon: ReactNode; visual?:FactVisual; items: (Fact | false | undefined | '')[]}) {
   const visible = items.filter((item): item is Fact => Array.isArray(item) && typeof item[1] === 'string' && !!item[1].trim());
-  return visible.length ? <details className="mp-fact-group" open={initiallyOpen || undefined}>
-    <summary><span className="mp-fact-heading"><strong role="heading" aria-level={2}>{title}</strong></span><ChevronDown size={16} className="mp-fact-chevron" aria-hidden="true"/></summary>
-    <dl>{visible.map(([label,value])=><div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}</dl>
-  </details> : null;
+  return visible.length ? <section className="mp-fact-group" data-visual={visual}>
+    <h2 className="mp-fact-heading">{icon}<span>{title}</span></h2>
+    <dl>{visible.map(([label,value])=>{
+      const tone=label==='لون البشرة'?skinTones.find(option=>option.label===value):undefined;
+      return <div key={label}>
+        <dt>{label}</dt><dd dir="auto">{tone&&<span className="mp-tone-swatch" style={{backgroundColor:tone.color}} aria-hidden="true"/>}{value}</dd>
+      </div>;
+    })}</dl>
+  </section> : null;
 }
 const validCount = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
 export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,onBlock,interestAction}: {
@@ -153,46 +159,48 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         <PersonalPrompts key={person.id} answers={person}/>
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
         {person.beenaStory&&<BeenaSummary story={person.beenaStory} name={person.alias}/>}
-        {canOpenPassport&&<MotionPressButton ref={passportButton} className="mp-passport-link" onClick={()=>setPassportOpen(true)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>جواز الجاهزية للزواج</strong><small>الأقسام التي اختار مشاركتها معك</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>}
       </>}
       {visibleSection==='details'&&<>
         <VerifiedBadge claims={person.manualVerifications}/>
-        <Facts title="بداية الزواج" initiallyOpen items={[
-          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['توقيت الزواج',marriageTimelineLabels[b.marriageTimeline]],
-          person.exclusive&&['نوع التعارف','تعارف حصري'],
-          person.marriageIntent&&['هدف التعارف',person.marriageIntent],
-          person.familyPreference&&['إشراك الأهل',person.familyPreference],
-          b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['اللقاء',meetingPreferenceLabels[b.meetingPreference]],
-          b?.mahrRange && ['المهر', mahrRanges[b.mahrRange]],
-        ]}/>
-        <Facts title="حياتي اليوم" initiallyOpen items={[
+        <Facts title="وضعي اليوم" icon={<UserRound aria-hidden="true"/>} items={[
           b?.maritalStatus&&['الحالة الاجتماعية',{never_married:'لم يسبق الزواج',divorced:'مطلّق / مطلّقة',widowed:'أرمل / أرملة',married:'متزوج'}[b.maritalStatus]],
           b?.maritalStatus==='married'&&validCount(b.currentWives,1,4)&&['عدد الزوجات حاليًا',ar.format(b.currentWives)],
           validCount(b?.childrenCount,0,20)&&['الأبناء',b.childrenCount===0?'ليس لدي أبناء':ar.format(b.childrenCount)],
           b?.nationality&&['الجنسية',b.nationality],
           b?.originCity&&['مدينة الأصل',b.originCity],
-          Boolean(b?.spokenLanguages?.length) && ['اللغات', b!.spokenLanguages!.join(' · ')],
-          b?.preferredLanguage && ['لغة التواصل المفضلة', b.preferredLanguage],
-          b?.languageOpenness && ['اختلاف اللغة', languageOpennessLabels[b.languageOpenness]],
           b?.smoking&&['التدخين',{never:'لا أدخّن',cigarettes:'سجائر',vape:'فيب',shisha:'شيشة',sometimes:'أحيانًا',yes:'أدخّن'}[b.smoking]],
         ]}/>
-        <Facts title="تفاصيل شخصية" items={[
+        <Facts title="الخطوة الرسمية" icon={<Clock3 aria-hidden="true"/>} visual="statements" items={[
+          b?.marriageTimeline&&marriageTimelineLabels[b.marriageTimeline]&&['توقيت الزواج',marriageTimelineLabels[b.marriageTimeline]],
+          person.exclusive&&['نوع التعارف','تعارف حصري'],
+          person.familyPreference&&['إشراك الأهل',person.familyPreference],
+          b?.meetingPreference&&meetingPreferenceLabels[b.meetingPreference]&&['اللقاء',meetingPreferenceLabels[b.meetingPreference]],
+          b?.polygynyPreference&&b.polygynyPreference!=='prefer_not_to_say'&&['الموقف من التعدد',polygynyLabels[b.polygynyPreference]],
+          b?.mahrRange && ['المهر', mahrRanges[b.mahrRange]],
+          marriagePlanLabel('weddingStyle',b?.weddingStyle)&&[marriagePlanQuestions.weddingStyle.label,marriagePlanLabel('weddingStyle',b?.weddingStyle)!],
+        ]}/>
+        <Facts title="الحياة المشتركة" icon={<Home aria-hidden="true"/>} visual="statements" items={[
+          marriagePlanLabel('childrenTiming',b?.childrenTiming)&&[marriagePlanQuestions.childrenTiming.label,marriagePlanLabel('childrenTiming',b?.childrenTiming)!],
+          marriagePlanLabel('housingPlan',b?.housingPlan)&&[marriagePlanQuestions.housingPlan.label,marriagePlanLabel('housingPlan',b?.housingPlan)!],
+          marriagePlanLabel('expenseSharing',b?.expenseSharing)&&[marriagePlanQuestions.expenseSharing.label,marriagePlanLabel('expenseSharing',b?.expenseSharing)!],
+        ]}/>
+        <Facts title="اللغات والتواصل" icon={<BookOpen aria-hidden="true"/>} items={[
+          Boolean(b?.spokenLanguages?.length)&&['اللغات',b!.spokenLanguages!.join(' · ')],
+          (b?.preferredLanguage||b?.languageOpenness)&&['التواصل',[b?.preferredLanguage&&`أفضل ${b.preferredLanguage}`,b?.languageOpenness&&languageOpennessLabels[b.languageOpenness]].filter(Boolean).join(' · ')],
+        ]}/>
+        <Facts title="المظهر واللباس" icon={<Eye aria-hidden="true"/>} items={[
           validCount(b?.heightCm,120,230)&&['الطول',ar.format(b.heightCm)+' سم'],validCount(b?.weightKg,35,250)&&['الوزن',ar.format(b.weightKg)+' كجم'],
           b?.skinTone&&['لون البشرة',skinTones.find(t=>t.value===b.skinTone)?.label??''],
           b?.dressStyle&&['غطاء الرأس',dressStyles.find(t=>t.value===b.dressStyle)?.label??''],
           b?.dressFlexibility&&b.dressFlexibility!=='prefer_not_to_say'&&['مناقشة غطاء الرأس',dressFlexibilities.find(t=>t.value===b.dressFlexibility)?.label??''],
+        ]}/>
+        <Facts title="الخلفية المعلنة" icon={<Landmark aria-hidden="true"/>} items={[
           b?.tribalBackground&&b.tribalBackground!=='prefer_not_to_say'&&['الخلفية القبلية',b.tribalBackground==='tribal'?'قبلي':'غير قبلي'],
           b?.tribalBackground==='tribal'&&b.tribeName&&['القبيلة',b.tribeName],
-        ]}/>
-        <Facts title="خطط الحياة الزوجية" items={marriagePlanKeys.map(key => {
-          const label = marriagePlanLabel(key, b?.[key]);
-          return label ? [marriagePlanQuestions[key].label, label] as [string, string] : undefined;
-        })}/>
-        <Facts title="قناعات وتطلّعات" items={[
-          b?.polygynyPreference&&b.polygynyPreference!=='prefer_not_to_say'&&['الموقف من التعدد',polygynyLabels[b.polygynyPreference]],
           b?.religiousAffiliation&&b.religiousAffiliation!=='prefer_not_to_say'&&['المذهب',religiousAffiliationLabels[b.religiousAffiliation]],
           b?.prayerPractice&&b.prayerPractice!=='prefer_not_to_say'&&['الصلاة',prayerPracticeLabels[b.prayerPractice]],
         ]}/>
+        {canOpenPassport&&<MotionPressButton ref={passportButton} className="mp-passport-link" onClick={()=>setPassportOpen(true)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>جواز الجاهزية للزواج</strong><small>الأقسام التي اختار مشاركتها معك</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>}
       </>}
       {hasFit&&section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit} profile/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
     </MotionReveal>

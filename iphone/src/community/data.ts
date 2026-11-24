@@ -13,10 +13,10 @@ import { callRpc, CloudError } from "../cloud";
 import { launchEvent } from '../launchEvents';
 import { privateUpdates, type WatchUpdates } from "./updates";
 import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
-import type { MarriageBasics } from "../compatibility/marriage";
+import type { MarriageBasics, PartnerCriteria } from "../compatibility/marriage";
 import type { PublicAvatar } from "../compatibility/appearance";
-import { personalityQuestionsFor } from "../compatibility/personality";
-import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
+import { personalityQuestionsFor, partnerTraitQuestions } from "../compatibility/personality";
+import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, assessmentVersion, applicableDimensions, dimensionsForVersion, practicalAnswerKeys, interests, rankPreferences, type MatchFit } from "../compatibility/model";
 import { beenaScenarios, sharedBeenaStory, type BeenaProfile, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
@@ -555,7 +555,7 @@ const demoWomen: DemoSeed[] = [
 
 // This assessment measures behaviors, not MBTI categories. Fictional responses
 // supply complete answers for each supported test assessment.
-function demoSurvey(seed: DemoSeed, index: number, version: typeof assessmentVersion | 'marriage-v3'): Record<string,string> {
+function demoSurvey(seed: DemoSeed, index: number, version: typeof assessmentVersion | 'marriage-v3', partnerChildren?: PartnerCriteria['children']): Record<string,string> {
   const [social,,,openness,closeness,,,,novelty,conflict,directness] = seed.traits;
   const self: Record<string,string> = {
     children_plan: seed.children ?? 'A', residence_plan: seed.relocate ? 'C' : 'A', wife_work: index % 5 === 3 ? 'C' : 'A',
@@ -571,8 +571,12 @@ function demoSurvey(seed: DemoSeed, index: number, version: typeof assessmentVer
     repair_after_conflict: conflict >= 4 ? 'A' : conflict <= 2 ? 'B' : 'C',
     closeness_pace: closeness <= 2 ? 'C' : openness >= 4 ? 'B' : 'A',
   };
-  return Object.fromEntries(dimensionsForVersion(version).flatMap(d => [[d.id,self[d.id]], [d.partnerId,
-    d.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[d.id]] ]));
+  return Object.fromEntries(applicableDimensions(version, self, seed.childrenCount ?? 0, partnerChildren).flatMap(topic =>
+    practicalAnswerKeys(topic, version).map(key => {
+      const answer = key === topic.partnerId && topic.id === 'social_rhythm' && index % 3 === 1 ? 'B' : self[topic.id];
+      return [key, answer];
+    })
+  ));
 }
 
 export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => group.map((seed,index) => {
@@ -580,8 +584,62 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
   const menPhotos = ['fahad','saud','yasser','mazen-test-v3','','abdullah','omar','khalid-test-v3'];
   const womenPhotos = ['sarah-realistic-v2','lulwa-realistic-v2','noura-realistic-v2','amal-realistic-v2','hind-test-v3','manal-realistic-v2','reem-test-v3'];
   const photo = woman ? womenPhotos[index] : menPhotos[index];
-  const tone = (['tone_3','tone_5','tone_2','tone_7','tone_4','tone_6'] as const)[index%6];
+  const tone = (['tone_4','tone_5','tone_2','tone_8','tone_1','tone_6'] as const)[(index + (woman ? 0 : 1)) % 6];
   const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered'] as const)[index];
+  const noChildren = seed.children === 'B';
+  const partnerCriteria: PartnerCriteria = {
+    sharedLanguage: {mode: 'prefer'},
+    education: {mode: 'any'},
+    profession: {mode: 'any'},
+    height: {mode: 'any'},
+    weight: {mode: 'any'},
+    tribalBackground: {mode: 'any'},
+    nationality: {mode: 'any'},
+    maritalStatus: {mode: 'any'},
+    children: noChildren ? {mode: 'require', target: 'none'} : {mode: 'any'},
+    smoking: seed.smoking ? {mode: 'any'} : {mode: 'prefer', target: 'never'},
+    skinTone: {mode: 'any'},
+    ...(!woman && {dressStyle: {mode: 'any'}, dressFlexibility: {mode: 'any'}}),
+  };
+  const surveyAnswers = demoSurvey(seed, index, assessmentVersion, partnerCriteria.children);
+  const originCities = woman
+    ? ['الطائف','الرياض','جدة','القصيم','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام']
+    : ['الرياض','الأحساء','جدة','الطائف','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام'];
+  const tribeName = (woman ? ['عتيبة', 'بني تميم'] : ['عنزة', 'بني تميم'])[index % 2];
+  const tribal = index % 3 !== 2;
+  const expensePlans = {A:'husband_essentials',B:'equal',C:'proportional',D:'discuss'} as const;
+  const housingPlans = {A:'independent',B:'discuss',C:'with_family',D:'discuss'} as const;
+  const marriageBasics: MarriageBasics = {
+    heightCm: woman ? [165,169,162,167,164,166,160,171,158,163][index] : [179,183,174,181,176,178,172,180,185,175][index],
+    weightKg: woman ? [59,64,55,62,58,60,54,67,52,65][index] : [78,85,72,82,76,80,69,87,84,75][index],
+    nationality: seed.nationality ?? (woman ? 'سعودية' : 'سعودي'),
+    originCity: originCities[index],
+    spokenLanguages: index % 4 === 3 ? ['العربية'] : ['العربية','الإنجليزية'],
+    preferredLanguage: 'العربية',
+    languageOpenness: (['flexible','shared_required','open_to_learning'] as const)[index % 3],
+    maritalStatus: seed.status ?? 'never_married',
+    childrenCount: seed.childrenCount ?? 0,
+    polygynyPreference: index % 5 === 3 ? 'open_to_discussion' : 'not_open',
+    smoking: seed.smoking ?? 'never',
+    tribalBackground: tribal ? 'tribal' : 'non_tribal',
+    ...(tribal && {tribeName}),
+    religiousAffiliation: index === 7 ? 'shia' : 'sunni',
+    prayerPractice: index % 4 === 2 ? 'working_on_consistency' : 'regular',
+    marriageTimeline: seed.timeline,
+    meetingPreference: seed.meeting,
+    skinTone: tone,
+    weddingStyle: (['simple','moderate','discuss','larger'] as const)[index % 4],
+    housingPlan: housingPlans[surveyAnswers.housing_arrangement as keyof typeof housingPlans],
+    expenseSharing: expensePlans[surveyAnswers.financial_provision as keyof typeof expensePlans],
+    ...(surveyAnswers.children_plan === 'A' && {
+      childrenTiming: (['after_one_two_years','first_year','discuss','after_two_years'] as const)[index % 4],
+    }),
+    ...(woman && {
+      mahrRange: (['from_30000','from_50000','under_30000','from_70000','from_100000'] as const)[index % 5],
+      dressStyle: dress,
+      dressFlexibility: index % 2 ? 'open_to_discussion' : 'keep',
+    }),
+  };
   return {
     id:`${woman?'w':''}p${String(index+1).padStart(2,'0')}`, isDemo:true as const,
     membershipTier: (index%5===0?'seriousness':index%5===1||index%5===3?'premium':'free') as 'free'|'premium'|'seriousness',
@@ -596,19 +654,15 @@ export const demoPeople = [demoMen,demoWomen].flatMap((group,genderIndex) => gro
     surveyAnswers:demoSurvey(seed,index,'marriage-v3'),beena:fictionalBeena(index+genderIndex*15+1),
     currentAssessment: {
       assessmentVersion, personalityVersion:'personality-v2' as const,
-      surveyAnswers:demoSurvey(seed,index,assessmentVersion),
-      personalityAnswers:Object.fromEntries(personalityQuestionsFor('personality-v2').map((q,i)=>[q.id,seed.currentTraits[i]])),
+      surveyAnswers,
+      personalityAnswers: Object.fromEntries([
+        ...personalityQuestionsFor('personality-v2').map((question, i) => [question.id, seed.currentTraits[i]]),
+        ...partnerTraitQuestions.map((question, i) => [question.id, ['C','E','C','A','C'][(i + index) % 5]]),
+      ]),
     },
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),
-    partnerCriteria:{ tribalBackground:{mode:'any' as const},nationality:{mode:'any' as const},smoking:{mode:seed.smoking?'any' as const:'prefer' as const,target:'never' as const} },
-    marriageBasics:{
-      heightCm:woman?[165,169,162,167,164,166,160,171,158,163][index]:[179,183,174,181,176,178,172,180,185,175][index],
-      weightKg:woman?[59,64,55,62,58,60,54,67,52,65][index]:[78,85,72,82,76,80,69,87,84,75][index],
-      nationality:seed.nationality??(woman?'سعودية':'سعودي'),maritalStatus:seed.status??'never_married',childrenCount:seed.childrenCount??0,
-      polygynyPreference:index%5===3?'open_to_discussion':'not_open',smoking:seed.smoking??'never',tribalBackground:index%5===4?'prefer_not_to_say':index%2?'tribal':'non_tribal',
-      marriageTimeline:seed.timeline,meetingPreference:seed.meeting,
-      ...(woman?{skinTone:tone,dressStyle:dress,dressFlexibility:index%2?'open_to_discussion':'keep'}:{}),
-    } as MarriageBasics,
+    partnerCriteria,
+    marriageBasics,
     publicAvatar:woman&&!photo?{style:dress,skinTone:tone} as PublicAvatar:null,
     demoPhoto:photo?`/demo/portraits/${photo}.webp`:undefined,
   };
@@ -736,10 +790,8 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     return [...eligible, ...others];
   }
   function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
-    // Fixtures have no member consent receipt. Keep their private matching
-    // inputs intact, while using the same default-hidden public presentation.
-    const visibleBasics={...person.marriageBasics};
-    for(const key of ['skinTone','tribalBackground','tribeName','religiousAffiliation','prayerPractice'] as const)delete visibleBasics[key];
+    // This function only receives the built-in fictional roster. Its profile
+    // details are authored for display. Real members use the separate server projection.
     return {
       id: person.id, isDemo:true, online:onlinePeople.has(person.id), interested:interestedPeople.has(person.id),
       premium:person.membershipTier!=='free',membershipTier:person.membershipTier,
@@ -759,7 +811,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       marriageIntent: person.marriageIntent,
       familyPreference: person.familyPreference,
       beenaStory: sharedBeenaStory(person.beena),
-      marriageBasics: visibleBasics,
+      marriageBasics: { ...person.marriageBasics },
       publicAvatar: person.publicAvatar,
       demoPhoto: person.demoPhoto,
       reasons,

@@ -47,6 +47,21 @@ test('Self preview includes explicitly selected marriage timing and meeting pref
  assert.equal(cleared.marriageBasics.meetingPreference,undefined);
 });
 
+test('self preview includes the saved city of origin and public marriage plans',()=>{
+ const marriageBasics = {
+  originCity: 'الطائف',
+  weddingStyle: 'simple',
+  childrenTiming: 'first_year',
+  housingPlan: 'independent',
+  expenseSharing: 'proportional',
+ };
+ const preview = publicProfile({city:'الرياض',marriageBasics},'self');
+ assert.equal(preview.city,'الرياض');
+ for (const [field, value] of Object.entries(marriageBasics)) {
+  assert.equal(preview.marriageBasics[field],value,field);
+ }
+});
+
 test('self preview mirrors separate sensitive publication choice without deleting own data',()=>{
  const profile={displayName:'عضوة',age:28,city:'الرياض',profession:'مصممة',bio:'نبذة',
   marriageBasics:{heightCm:164,skinTone:'tone_3',tribalBackground:'tribal',tribeName:'خاصة',religiousAffiliation:'sunni',prayerPractice:'regular'},
@@ -55,6 +70,6 @@ test('self preview mirrors separate sensitive publication choice without deletin
  const hidden=publicProfile(profile,'self');
  assert.equal(hidden.marriageBasics.tribeName,undefined);assert.equal(hidden.marriageBasics.skinTone,undefined);assert.equal(hidden.publicAvatar,null);
  const shown=publicProfile({...profile,signupConsents:{...profile.signupConsents,sensitivePublication:true}},'self');
- assert.equal(shown.marriageBasics.tribeName,'خاصة');assert.deepEqual(shown.publicAvatar,profile.publicAvatar);
+ assert.equal(shown.marriageBasics.skinTone,'tone_3');assert.equal(shown.marriageBasics.tribeName,'خاصة');assert.deepEqual(shown.publicAvatar,profile.publicAvatar);
  assert.equal(profile.marriageBasics.tribeName,'خاصة');
 });

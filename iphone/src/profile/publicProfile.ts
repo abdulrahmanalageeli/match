@@ -18,7 +18,7 @@ export function publicProfile(profile: Profile, id: string, demoPhoto?: string):
     marriageBasics: b ? {
       spokenLanguages: b.spokenLanguages, preferredLanguage: b.preferredLanguage, languageOpenness: b.languageOpenness,
       ...(profile.gender === 'woman' && b.mahrRange ? { mahrRange: b.mahrRange } : {}),
-      heightCm: b.heightCm, weightKg: b.weightKg, nationality: b.nationality,
+      heightCm: b.heightCm, weightKg: b.weightKg, nationality: b.nationality, originCity: b.originCity,
       maritalStatus: b.maritalStatus, childrenCount: b.childrenCount, smoking: b.smoking,
       tribalBackground: b.tribalBackground, tribeName: b.tribalBackground === 'tribal' ? b.tribeName : undefined,
       skinTone: b.skinTone, dressStyle: b.dressStyle, dressFlexibility: b.dressFlexibility,
@@ -27,6 +27,8 @@ export function publicProfile(profile: Profile, id: string, demoPhoto?: string):
       religiousAffiliation: b.religiousAffiliation === 'prefer_not_to_say' ? undefined : b.religiousAffiliation,
       prayerPractice: b.prayerPractice === 'prefer_not_to_say' ? undefined : b.prayerPractice,
       marriageTimeline: b.marriageTimeline, meetingPreference: b.meetingPreference,
+      weddingStyle: b.weddingStyle, childrenTiming: b.childrenTiming,
+      housingPlan: b.housingPlan, expenseSharing: b.expenseSharing,
     } : undefined,
     interests: interests.filter(item => profile.interestIds?.includes(item.id)).map(item => item.label),
     reasons: [], demoPhoto,

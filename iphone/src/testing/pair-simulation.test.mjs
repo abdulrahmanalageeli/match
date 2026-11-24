@@ -23,6 +23,29 @@ const pair=await compile('./pair.ts');
 const pairUrl=moduleUrl(resolveImports(pair.source.replace("'../community/data'",JSON.stringify(dataUrl)),pair.file));
 const {pairSource,testProfile}=await import(pairUrl);
 const {demoPeople,withOwnReaction,searchMessageRows}=await import(dataUrl);
+const testerDirectory=await compile('../community/testingDiscovery.ts');
+const {withTestingDiscovery}=await import(moduleUrl(resolveImports(testerDirectory.source.replace("'./data'",JSON.stringify(dataUrl)),testerDirectory.file)));
+
+test('a paid tester can read all fictional directory scores with optional profile basics omitted',async()=>{
+  const seed=demoPeople.find(person=>person.id==='p01');
+  const viewer={...testProfile('abdulrahman'),...seed,...seed.currentAssessment,partnerCriteria:{}};
+  viewer.marriageBasics={...seed.marriageBasics};
+  delete viewer.marriageBasics.spokenLanguages;
+  delete viewer.marriageBasics.smoking;
+  delete viewer.marriageBasics.childrenCount;
+  const original=structuredClone(viewer);
+  const realCard={id:'peer',alias:'رهام',fit:{covered:7,total:16,assessmentComplete:false,percentage:null}};
+  const real={discover:async()=>[realCard]};
+  const directory=(owner)=>withTestingDiscovery(real,()=>viewer,owner,()=>'seriousness').discover({mode:'all'});
+  const cards=await directory('authorized-fixture-owner');
+  assert.equal(cards[0],realCard);
+  const roster=cards.filter(person=>person.isDemo);
+  assert.equal(roster.length,10);
+  for(const alias of ['لولوة','دانة'])assert(roster.some(person=>person.alias===alias));
+  for(const person of roster)assert(Number.isInteger(person.fit.percentage),person.alias);
+  assert((await directory()).filter(person=>person.isDemo).every(person=>person.fit.percentage===null));
+  assert.deepEqual(viewer,original);
+});
 
 test('restricted browser storage does not prevent either saved tester account from opening',async t=>{
   const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');

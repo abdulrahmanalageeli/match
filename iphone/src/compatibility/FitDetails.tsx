@@ -11,6 +11,11 @@ import "./fit.css";
 const arabic = new Intl.NumberFormat("ar-SA", { numberingSystem: "arab" });
 const topic = (id: string, version?: string) => dimensionsForVersion(version).find(dimension => dimension.id === id);
 
+export function partialPreferenceCoverage(fit?: MatchFit) {
+  if (!fit || !Number.isInteger(fit.covered) || !Number.isInteger(fit.total) || fit.covered < 0 || fit.covered >= fit.total) return null;
+  return `${arabic.format(fit.covered)} من ${arabic.format(fit.total)}`;
+}
+
 export function suggestedQuestions(fit?: MatchFit) {
   const ids = fit && ["marriage-v1", "marriage-v2", "marriage-v3", "marriage-v4"].includes(fit.version) ? [...fit.discussion, ...fit.missing, ...fit.strengths] : [];
   const questions = ids.map(id => topic(id, fit?.version)?.discussion).filter((value): value is string => Boolean(value));
@@ -25,6 +30,7 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
   const preferencePanel=useRef<HTMLDivElement>(null);
   if (!["marriage-v1", "marriage-v2", "marriage-v3", "marriage-v4"].includes(fit.version)) return null;
   const preference = preferencePercentage(fit);
+  const coverage = partialPreferenceCoverage(fit);
   const hasPersonality = fit.personality?.version === 'personality-v1' || fit.personality?.version === 'personality-v2';
   const personality = personalityPercentage(fit);
   const personalityUnavailable=personality===null&&fit.personality?.complete===true;
@@ -54,7 +60,9 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
           ? <span className="nf-fit-score-mark" role="img" aria-label={`${arabic.format(preference)} بالمئة`}><LogoCompatibilityMark percentage={preference} prominent/><bdi dir="ltr" aria-hidden="true">{preference}%</bdi></span>
           : <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} بالمئة`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{preference}%</bdi>}</strong>}
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${preference ?? 0}%`}}/></div>
-        <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
+        <p>{preference !== null ? 'بحسب ما يهمّ كل طرف في شريك الحياة' : coverage
+          ? `يمكن مقارنة ${coverage} من مواضيع التفضيلات بينكما. تظهر النسبة عند اكتمال بيانات المقارنة.`
+          : 'تظهر النسبة عند اكتمال بيانات المقارنة بينكما.'}</p>
         {!profile && <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>}
       </div>
       {!profile && fit.version === 'marriage-v4' && typeof fit.partnerPersonalityFit === 'number' && Number.isInteger(fit.partnerPersonalityFit) && fit.partnerPersonalityFit >= 0 && fit.partnerPersonalityFit <= 100 &&

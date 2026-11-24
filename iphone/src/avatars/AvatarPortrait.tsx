@@ -1,8 +1,9 @@
 import { useEffect, useId, useState } from "react";
 import { dressStyles, skinTones, type PublicAvatar } from "../compatibility/appearance";
+import { DiscoveryPhoto } from "../privacy/DiscoveryPhoto";
 import "./avatar-portrait.css";
 
-type Props = { avatar: PublicAvatar; className?: string; decorative?: boolean };
+type Props = { avatar: PublicAvatar; className?: string; decorative?: boolean; discovery?: {name: string; compact?: boolean} };
 
 const rasterPortraitsReady = true;
 
@@ -24,7 +25,7 @@ function RasterPortrait({ source }: { source: string }) {
 }
 
 /** A member-selected illustration. Clothing and skin are never inferred from a photo or profile. */
-export function AvatarPortrait({ avatar, className = "", decorative = false }: Props) {
+export function AvatarPortrait({ avatar, className = "", decorative = false, discovery }: Props) {
   const id = "portrait-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const tone = skinTones.find(item => item.value === avatar.skinTone);
   const dress = dressStyles.find(item => item.value === avatar.style);
@@ -33,6 +34,7 @@ export function AvatarPortrait({ avatar, className = "", decorative = false }: P
   const covered = avatar.style !== "uncovered";
   const niqab = avatar.style === "niqab";
   const rasterSource = `/avatars/semi-realistic/${avatar.style}-${avatar.skinTone}.webp?v=${niqab ? 7 : 6}`;
+  if (discovery) return <DiscoveryPhoto {...discovery} src={rasterSource}/>;
   const frontalFace = "M141 153c0-46 21-68 59-68s61 26 61 68l-4 73c-3 30-22 61-45 69-8 3-16 3-24 0-22-8-41-39-44-69z";
   const coveredFace = "M147 164c-1-36 19-63 53-63 35 0 55 29 55 65v50c0 30-18 62-42 77-8 5-18 5-26 0-24-15-40-47-40-77z";
   return <svg className={"nf-avatar-portrait " + className} viewBox="0 0 400 480" preserveAspectRatio="xMidYMid slice"

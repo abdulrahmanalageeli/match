@@ -568,9 +568,6 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   };
 });
 const examples = demoPeople;
-function demoAssessmentFor(person: (typeof examples)[number], viewer: Profile) {
-  return viewer.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
-}
 
 const demoPortraitFiles = new Map<string, { file: Blob; clearBlob?: Blob; policy: PortraitRevealPolicy }>();
 function validatePortraitUpload(file: Blob, blur: number) {
@@ -588,6 +585,15 @@ function validatePortraitReveal(blur: number, reveal?: { policy: PortraitRevealP
 }
 
 export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController } {
+  function demoAssessmentFor(person: (typeof examples)[number], member: Profile) {
+    const peer = member.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
+    if (!simulationOptions.useAvailableTesterBasics) return peer;
+    // An optional fixture preference must not force a tester to supply an omitted personal detail.
+    const partnerCriteria = { ...peer.partnerCriteria };
+    if (!member.marriageBasics?.spokenLanguages?.length && partnerCriteria.sharedLanguage?.mode === 'prefer') delete partnerCriteria.sharedLanguage;
+    if (!member.marriageBasics?.smoking && partnerCriteria.smoking?.mode === 'prefer') delete partnerCriteria.smoking;
+    return { ...peer, partnerCriteria };
+  }
   const listeners = new Set<() => void>();
   let relocationCities:string[]=[];
   const peerPrefix = viewer().gender === "man" ? "w" : "";

@@ -82,7 +82,7 @@ import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
 import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
-import { FitDetails, preferencePercentage } from "../compatibility/FitDetails";
+import { FitDetails, partialPreferenceCoverage, preferencePercentage } from "../compatibility/FitDetails";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
 import { PersonAvatar } from "../avatars/PersonAvatar";
 import { MatchesOverview } from './MatchesOverview';
@@ -424,7 +424,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   const timeline = person.marriageBasics?.marriageTimeline;
   return <>
     <div className="df-portrait-media">
-    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo||protectedDiscovery?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias}/> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
+    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo||protectedDiscovery?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias}/> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
       alt="" onError={() => setFailedPhotoSrc(photo)} /> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
@@ -526,6 +526,7 @@ function MembershipRowSpark() {
 function DirectoryRow({person,source,open,explain,request,interest,busy}:{person:PublicPerson;source:CommunitySource;open:(button:HTMLButtonElement)=>void;explain:()=>void;request:()=>void;interest:()=>void;busy:boolean}) {
   const {premium,upgrade}=useMembershipAccess();
   const score = premium && !person.compatibilityLocked ? preferencePercentage(person.fit) : null;
+  const coverage = partialPreferenceCoverage(person.fit);
   const sampleOnly=person.isDemo&&!source.simulation&&!source.demoInteractions;
   const ineligible=person.eligible===false;
   const timeline=person.marriageBasics?.marriageTimeline;
@@ -558,8 +559,8 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
       </div>
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
-        aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
-        {score === null ? <span className="dr-fit-pending">—<small>غير مكتمل</small></span> : <ScoreTile percentage={score} variant="logo"/>}
+        aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? (coverage ? coverage + ' مواضيع قابلة للمقارنة' : 'بيانات المقارنة غير مكتملة') : ar.format(score) + '٪'}. عرض الشرح`}>
+        {score === null ? <span className="dr-fit-pending">{coverage ?? '—'}<small>{coverage ? 'مواضيع للمقارنة' : 'بيانات غير مكتملة'}</small></span> : <ScoreTile percentage={score} variant="logo"/>}
       </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={()=>upgrade("premium")} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>فتح النسبة</span></button>}
     </div>
 
@@ -688,7 +689,8 @@ function Discovery({
         if (seq === sequence.current) setLoading(false);
       }
     },
-    [source, filters, order],
+    // The server projects different score fields for free and paid viewers.
+    [source, filters, order, premium],
   );
   useReadRecovery(recoverable, () => refresh(false), source);
   useEffect(() => {

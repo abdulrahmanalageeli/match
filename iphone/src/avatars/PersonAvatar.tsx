@@ -17,7 +17,7 @@ export function PersonAvatar({ person, source, className = '', protectedDiscover
   const image = Boolean(person.portrait || person.publicAvatar || photo);
   return <span className={`nf-person-avatar ${className}`} data-image={image || undefined} data-tone={(letter.codePointAt(0) ?? 0) % 3}>
     {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} alt="" className="nf-person-avatar-image" discovery={protectedDiscovery ? {name:person.alias,compact:true} : undefined}/>
-      : person.publicAvatar ? <AvatarPortrait avatar={person.publicAvatar} decorative/>
+      : person.publicAvatar ? <AvatarPortrait avatar={person.publicAvatar} decorative discovery={protectedDiscovery ? {name:person.alias,compact:true} : undefined}/>
       : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias} compact/>
       : photo ? <img src={photo} alt="" width="112" height="140" loading="lazy" decoding="async" onError={() => setFailedPhoto(photo)}/>
       : <b aria-hidden="true">{letter}</b>}

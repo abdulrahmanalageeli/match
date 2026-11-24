@@ -21,11 +21,13 @@ import '/src/design.css';import '/src/flows.css';import '/src/screens.css';impor
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
 const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:dimensions.map(item=>item.id),discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:dimensions.length,total:dimensions.length,percentage:72-i*3}}));
 people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
+Object.assign(people[1].fit,{covered:7,total:16,assessmentComplete:false,percentage:null});
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 source.blockPerson=async()=>{throw Error('not part of fixture')};
 if (location.search.includes('protectedPhotos')) {
  people[0].portrait={id:'synthetic-portrait',path:'fixture',blur:0,revealed:true};
+ people[1].publicAvatar={style:'hijab',skinTone:'tone_3'};
  source.portraitUrl=async()=>'/demo/portraits/reem-realistic-v2.webp';
 }
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
@@ -172,6 +174,10 @@ try{
    assert(await first.locator('.dr-fit-visual').evaluate(n=>n.getBoundingClientRect().height>=44),'percentage opens an accessible target at '+width);
  }
  assert.equal(await page.locator('.dr-online-label').count(),2);assert.equal(await page.locator('.dr-avatar-online').count(),2);
+ const partialRow=page.getByRole('article',{name:'ملف ريم',exact:true});
+ await partialRow.getByRole('button',{name:/٧ من ١٦ مواضيع قابلة للمقارنة/}).click();
+ await page.getByRole('dialog').getByText(/يمكن مقارنة ٧ من ١٦/).waitFor();
+ await page.keyboard.press('Escape');
  const sample=page.getByRole('article',{name:'ملف مها',exact:true});assert.equal(await sample.locator('.dr-row-actions').count(),0);await sample.locator('.dr-row-image b').waitFor();assert.equal(await sample.getByRole('button',{name:/استعراض الملف الخيالي/}).count(),1);
  await sample.locator('.dr-sample-preview').click();await page.getByText('طلبات التعارف غير متاحة لهذا الملف.',{exact:true}).waitFor();assert.equal(await page.locator('.mp-action-main').count(),0);await page.locator('.mp-back').click();await first.locator('.dr-bio-peek').click();await page.locator('.mp-profile h1').waitFor();await page.locator('.mp-back').click();
  await page.getByRole('button',{name:'فتح البحث',exact:true}).click();await page.getByRole('textbox',{name:'البحث بالاسم أو المهنة أو النبذة'}).fill('سارة');await page.waitForTimeout(400);await page.getByRole('button',{name:'تصفية الملفات',exact:true}).click();await page.getByLabel('من', {exact:true}).fill('25');await page.getByRole('button',{name:'عرض النتائج',exact:true}).click();await page.getByRole('button',{name:/مسح .* فلاتر/}).click();await page.waitForTimeout(400);assert.equal(await page.evaluate(()=>window.__filters.at(-1).search),'سارة');
@@ -225,8 +231,12 @@ try{
  await page.getByRole('button',{name:'ابحث مع لونا'}).click();
  await page.getByRole('button',{name:'اكتشف وسام الجدية'}).click();await selected(/وسام الجدية/).waitFor();await back.click();
  for(const [tier,label] of [['premium','تفعّلت عضويتك المميزة'],['seriousness','تفعّل وسام الجدية'],['premium','عضويتك الآن المميزة'],['free','عضويتك الآن مجانية']]){
+  const initialReads=await page.evaluate(()=>window.__filters.length);
   await page.evaluate(value=>window.__setTier(value),tier);
   await page.getByRole('status').filter({hasText:label}).waitFor();
+  if(label==='تفعّلت عضويتك المميزة'||tier==='free'){
+   await page.waitForFunction(count=>window.__filters.length>count,initialReads);
+  }
   await page.getByRole('button',{name:'إغلاق إشعار العضوية'}).click();
   assert.equal(await page.locator('.wd-tier-change').count(),0);
  }
@@ -234,9 +244,13 @@ try{
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
  // Simulate the Capacitor contract. The screenshot records the actual HTML
  // backing a secure canvas, not the result of the iOS hardware compositor.
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture?protectedPhotos');
+ await page.locator('.df-recommendation .nf-avatar-render[data-ready]').waitFor();
+ assert.equal(await page.locator('.wd-private-portrait').count(),0,'ordinary browsers use the existing visual portraits');
  await page.addInitScript(() => {
    window.CapacitorCustomPlatform={name:'ios'};
    window.__portraits=new Map();
+   window.__placedImages=new Set();
    window.Capacitor={
      PluginHeaders:[{name:'PrivateSession',methods:['read','setCaptureScope','discoveryPortrait'].map(name=>({name,rtype:'promise'}))}],
      nativePromise:async(_plugin,method,options)=>{
@@ -244,7 +258,17 @@ try{
        if(method==='setCaptureScope') {window.__scope=options;return;}
        if(!options.box){window.__portraits.delete(options.id);return {placed:false};}
        if(!window.__portraits.has(options.id)&&!options.image)return {placed:false};
-       window.__portraits.set(options.id,options.box);
+       // UIScrollView stores child frames in content coordinates.
+       const [x,y,width,height]=options.box;
+       window.__portraits.set(options.id,[x+scrollX,y+scrollY,width,height]);
+       if(options.image){
+         const [x,y,w,h]=options.box;
+         const target=[...document.querySelectorAll('.wd-private-portrait')].find(node=>{
+           const rect=node.getBoundingClientRect();
+           return Math.abs(rect.x-x)<2 && Math.abs(rect.y-y)<2 && Math.abs(rect.width-w)<2;
+         });
+         if(target)window.__placedImages.add((w<60?'row ':'card ')+target.getAttribute('aria-label'));
+       }
        if(options.box[2]<60 && (options.cutouts||[]).some(rect=>rect[2]>=options.box[2] && rect[3]>=options.box[3])) window.__obscuredAvatar=true;
        return {placed:true};
      }
@@ -268,10 +292,22 @@ try{
    const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
    assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
    assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
-   await page.waitForFunction(box=>[...window.__portraits.values()].some(rect=>rect.every((v,i)=>Math.abs(v-box[i])<1)),[photoBox.x,photoBox.y,photoBox.width,photoBox.height]);
+   await page.waitForFunction(([x,y,w,h])=>[...window.__portraits.values()].some(rect=>
+     [x+scrollX,y+scrollY,w,h].every((value,i)=>Math.abs(value-rect[i])<1)),[photoBox.x,photoBox.y,photoBox.width,photoBox.height]);
    await card.screenshot({path:resolve(output,'iphone-capture-card-'+width+'.png')});
  }
+ async function verifyProtectedSources(kind,container){
+   for(const name of ['سارة','ريم','لولو']){
+     const label='الصورة الشخصية لـ '+name;
+     const portrait=page.locator(container).getByRole('img',{name:label,exact:true});
+     await portrait.scrollIntoViewIfNeeded();
+     await page.waitForFunction(key=>window.__placedImages.has(key),kind+' '+label);
+   }
+   assert.equal(await page.locator(container+' :is(img[src*="/portraits/"],.nf-avatar-portrait)').count(),0);
+ }
+ await verifyProtectedSources('card','.df-portrait-media');
  await page.getByRole('button',{name:'جميع الملفات'}).click();
+ await verifyProtectedSources('row','.dr-row-image');
  const row=page.locator('.dr-person-row').filter({has:page.getByRole('button',{name:/عرض ملف سارة/})}).first();
  await row.scrollIntoViewIfNeeded();
  await row.locator('.wd-private-portrait--small').waitFor();
@@ -279,6 +315,41 @@ try{
  assert.equal(await page.evaluate(()=>Boolean(window.__obscuredAvatar)),false,'the online ring must leave its photo visible');
  assert.equal(await page.locator('.dr-person-row img[src*="portraits"]').count(),0);
  await row.screenshot({path:resolve(output,'iphone-capture-directory.png')});
+ const activity=await row.locator('.wd-private-portrait--small').evaluate(async portrait=>{
+   const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+   const spacer=document.createElement('div');
+   spacer.style.height='100vh';
+   document.body.append(spacer);
+   const initialY=window.scrollY;
+   const readRect=portrait.getBoundingClientRect.bind(portrait);
+   const setPortrait=window.__portraits.set.bind(window.__portraits);
+   try {
+     portrait.scrollIntoView({block:'center',behavior:'instant'});
+     await new Promise(resolve=>setTimeout(resolve,750));
+     const rect=readRect();
+     const entry=[...window.__portraits].find(([,box])=>Math.abs(box[0]-rect.x-scrollX)<1 && Math.abs(box[1]-rect.y-scrollY)<1);
+     if(!entry)throw Error('the tested row must have an installed native portrait');
+     let measurements=0,placements=0;
+     portrait.getBoundingClientRect=()=>{measurements++;return readRect();};
+     window.__portraits.set=(id,box)=>{if(id===entry[0])placements++;return setPortrait(id,box);};
+     // A decorative animation elsewhere used to start 650 ms of layout polling.
+     spacer.dispatchEvent(new AnimationEvent('animationstart',{bubbles:true}));
+     for(let i=0;i<10;i++)await nextFrame();
+     const idleMeasurements=measurements;
+     const start=window.scrollY;
+     window.scrollTo({top:start+6,behavior:'instant'});
+     for(let i=0;i<5;i++)await nextFrame();
+     return {idleMeasurements,placements,scrollDistance:window.scrollY-start};
+   } finally {
+     delete portrait.getBoundingClientRect;
+     delete window.__portraits.set;
+     spacer.remove();
+     window.scrollTo({top:initialY,behavior:'instant'});
+   }
+ });
+ assert.ok(activity.idleMeasurements<=2,'a decorative animation must leave the portrait tracker idle');
+ assert.equal(activity.scrollDistance,6,'the fixture must exercise document scrolling');
+ assert.equal(activity.placements,0,'the native scroll view already moves this unobstructed portrait');
  await page.getByRole('button',{name:'تصفية الملفات'}).click();
  await page.waitForFunction(()=>window.__portraits.size===0);
  await page.getByRole('button',{name:'إغلاق',exact:true}).click();

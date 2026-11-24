@@ -8,6 +8,7 @@ export type DemoSimulationOptions = {
   externalAccepted?: () => number;
   canAct?: () => boolean;
   interactiveJourney?: boolean;
+  useAvailableTesterBasics?: boolean;
   generateReading?: (id: string) => Promise<Pick<import('./deepCompatibilityModel').DeepSnapshot,'findings'|'review'>>;
   random?: () => number;
   aiReply?: (input: { person: PublicPerson; messages: { senderIsMe: boolean; body: string }[] }) => Promise<string>;

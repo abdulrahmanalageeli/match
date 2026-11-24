@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {createDatabase,addUser,asMember,asService} from './harness.mjs';
 import {seedCommunicationMember} from './communication-fixture.mjs';
 import currentPersonality from '../../src/compatibility/personality-catalog.json' with {type:'json'};
+import currentPractical from '../../src/compatibility/catalog.json' with {type:'json'};
 
 const sections=['summary','strengths','differences','patterns','expectations','friction','conversation','conclusion'];
 async function setup(){
@@ -172,6 +173,7 @@ test('changing either instrument invalidates old invitations and leases; mixed a
   await grant();
   const old=await call(a,'request');
   await upgradeAssessment(db,b,true);
+  await db.query("delete from marriage.member_answers where member_id=$1 and question_code='partner_residence_plan'",[b.id]);
   assert.equal((await call(b)).status,'stale');
   await assert.rejects(call(b,'accept',{...modernConsent,requestId:old.id}),e=>e.code==='42501');
   await assert.rejects(call(a,'request'),e=>e.code==='42501');
@@ -195,7 +197,12 @@ test('changing either instrument invalidates old invitations and leases; mixed a
   const side=claim.snapshot.b;
   assert.equal(side.assessmentVersion,'marriage-v4');
   assert.equal(side.personalityVersion,'personality-v2');
-  assert.equal(side.entries.length,45);
+  assert.equal(side.entries.length,44);
+  const expectedPractical=currentPractical.dimensions
+   .filter(dimension=>dimension.id!=='parenting_approach')
+   .flatMap(dimension=>dimension.id==='residence_plan'?[dimension.id]:[dimension.id,dimension.partnerId])
+   .map(key=>'answer:'+key).sort();
+  assert.deepEqual(side.entries.filter(e=>e.key.startsWith('answer:')).map(e=>e.key).sort(),expectedPractical);
   assert.ok(!side.entries.some(e=>e.key.includes('parenting_approach')));
   const labels=['لا يشبهني إطلاقًا','لا يشبهني كثيرًا','يشبهني إلى حد ما','يشبهني','يشبهني كثيرًا'];
   for(const [i,item] of currentPersonality.entries()){
@@ -214,7 +221,7 @@ test('changing either instrument invalidates old invitations and leases; mixed a
   await call(b,'accept',{...modernConsent,requestId:fresh.id});
   const next=await job('claim');
   assert.equal(next.snapshot.a.entries.length,47);
-  assert.equal(next.snapshot.b.entries.length,45);
+  assert.equal(next.snapshot.b.entries.length,44);
   const draft=report();
   for(const f of draft.findings)f.evidence=[{side:'a',key:'personality:lasting_tension'},{side:'b',key:'answer:partner_marriage_timeline'}];
   assert.equal((await job('publish',next.lease,draft)).status,'review');
@@ -237,6 +244,7 @@ test('fictional current reading requires positive permission and a complete inst
   assert.equal(await rpc('(select count(*)::int from marriage.demo_deep_usage)'),0);
   assert.equal((await reserve(modernConsent.consentVersion)).entries.length,47);
   await db.query("delete from marriage.member_answers where member_id=$1 and question_code='money_management'",[a.id]);
+  assert.equal(await rpc('marriage.deep_complete($1)',[a.id]),false,'a retired answer never replaces a required answer');
   await assert.rejects(reserve(modernConsent.consentVersion),e=>e.code==='22023');
   assert.equal(await rpc('(select attempts from marriage.demo_deep_usage where member_id=$1)',[a.id]),1);
   await assert.rejects(asMember(db,a.id,a.sessionId,()=>rpc('marriage.marriage_demo_deep_reserve()')),e=>e.code==='42501');

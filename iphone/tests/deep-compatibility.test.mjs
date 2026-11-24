@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDeepAnalysisService,analysisRequest,privateReviewRequest,validatePrivateReview,validateReport,parseDeepInput,SECTIONS} from '../api/_lib/deep-compatibility.mjs';
 import personalityCatalog from '../src/compatibility/personality-catalog.json' with {type:'json'};
+import practicalCatalog from '../src/compatibility/catalog.json' with {type:'json'};
 import legacyCatalog from '../src/compatibility/personality-catalog-v1.json' with {type:'json'};
 const legacyKeys=legacyCatalog.map(item=>item.id);
 import handler from '../api/deep-compatibility.mjs';
 const actor='11111111-1111-4111-8111-111111111111',connectionId='22222222-2222-4222-8222-222222222222',lease='33333333-3333-4333-8333-333333333333';
 const snapshot={a:{entries:[{key:'answer:closeness',question:'القرب',answer:'أحتاج مساحة'}]},b:{entries:[{key:'personality:reassurance',question:'الطمأنة',answer:'أقدّر التواصل'}]}};
-const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',title:`فكرة مستقلة ${i+1}`,text:`قراءة ${i+1}: قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.`,evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
+const outlookText='فرصة بينكما: قد يسهل التطمين طلب مساحة.\n\nما قد يصعب: قد يُفهم الصمت على أنه ابتعاد.\n\nمن الآن: اختارا عبارة تحدد وقت العودة للحديث ثم اسألا إن كانت مطمئنة.';
+const findings=()=>SECTIONS.map((section,i)=>({id:`f${i+1}`,section,kind:'manageable',title:`فكرة مستقلة ${i+1}`,text:section==='patterns'?'الطرف أ: قد يسهل بدء الحديث حين تهمك الفكرة.\n\nالطرف ب: قد يهمك وضوح النية في بداية التعارف.':section==='conclusion'?outlookText:`قراءة ${i+1}: قد يختلف فهمكما للقرب، ويستحق ترتيب أوقات التواصل نقاشًا بينكما.`,evidence:[{side:'a',key:'answer:closeness'},{side:'b',key:'personality:reassurance'}]}));
 const completion=value=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
 const response=()=>({headers:{},setHeader(key,value){this.headers[key]=value},status(value){this.code=value;return this},json(value){this.body=value;return this},end(){return this}});
 test('native endpoint permits only narrow CORS preflight and disables caching',async()=>{
@@ -22,13 +24,13 @@ test('endpoint rejects oversized and unauthenticated requests before accessing d
  const signedOut=response();await handler({method:'POST',headers:{},body:{connectionId}},signedOut);assert.equal(signedOut.code,401);
  const get=response();await handler({method:'GET',headers:{}},get);assert.equal(get.code,405);
 });
-function setup({deny=false,busy=false,invalid=false,publishDenied=false}={}){
+function setup({deny=false,busy=false,invalid=false,publishDenied=false,evidence=snapshot,joint=()=>findings()}={}){
  const calls=[];let modelCalls=0;
  const service=createDeepAnalysisService({env:{OPENAI_API_KEY:'test',SUPABASE_SERVICE_ROLE_KEY:'test'},fetcher:async(url,options)=>{
   const body=JSON.parse(options.body);calls.push({url,body,authorization:options.headers.Authorization});
   if(url.endsWith('/marriage_state'))return {ok:!deny,status:deny?403:200,json:async()=>deny?{code:'42501'}:{user:{id:actor}}};
   if(url.endsWith('/marriage_deep_analysis'))return {ok:true,json:async()=>({status:'queued'})};
-  if(body.action==='claim')return {ok:true,json:async()=>busy?{status:'busy'}:{status:'claimed',id:connectionId,lease,snapshot}};
+  if(body.action==='claim')return {ok:true,json:async()=>busy?{status:'busy'}:{status:'claimed',id:connectionId,lease,snapshot:evidence}};
   if(body.action==='publish'&&publishDenied)return {ok:false,status:403,json:async()=>({code:'42501'})};
   return {ok:true,json:async()=>({status:'review'})};
  },clientFactory:()=>({chat:{completions:{create:async request=>{
@@ -40,7 +42,7 @@ function setup({deny=false,busy=false,invalid=false,publishDenied=false}={}){
    assert.equal(request.messages[1].content.includes(findings()[0].text),false,'no joint finding text in private preview');
    return completion({items:items.map(item=>({id:item.id,text:'إجاباتك تشير إلى تفضيل يستحق توضيحه عند الحديث عن القرب والتواصل.'}))});
   }
-  return completion({findings:invalid?[]:findings()});
+  return completion({findings:invalid?[]:joint(request)});
  }}}})});
  return {service,calls,get modelCalls(){return modelCalls}};
 }
@@ -71,6 +73,73 @@ test('private previews receive only cited own evidence and reject missing or dup
 test('durable busy claim prevents repeat model call',async()=>{
  const s=setup({busy:true});assert.deepEqual(await s.service({connectionId},{authorization:'Bearer abc'}),{status:'generating'});assert.equal(s.modelCalls,0);
 });
+
+function coveredFindings(input) {
+ const rows=findings().map(row=>({...row,evidence:[]}));
+ for(const side of ['a','b']){
+  const entries=input[side].entries;
+  const anchor=entries.find(item=>item.key.startsWith('personality:'))??entries[0];
+  for(const row of rows)row.evidence.push({side,key:anchor.key});
+  entries.filter(item=>item!==anchor).forEach(({key},index)=>rows[index%rows.length].evidence.push({side,key}));
+ }
+ return rows;
+}
+
+test('joint generation requires both sides’ current questionnaire coverage before disclosure review',async()=>{
+ const entries=answer=>[
+  ...practicalCatalog.dimensions.flatMap(d=>[
+   {key:'answer:'+d.id,question:d.selfPrompt,answer},
+   {key:'answer:'+d.partnerId,question:d.partnerPrompt,answer},
+  ]),
+  ...personalityCatalog.map(({id,prompt})=>({key:'personality:'+id,question:prompt,answer})),
+ ];
+ const evidence={
+  a:{assessmentVersion:'marriage-v4',entries:entries('يشبهني')},
+  b:{assessmentVersion:'marriage-v4',entries:entries('لا يشبهني كثيرًا')},
+ };
+ const latest=['money_management','conflict_response','social_boundaries'];
+ const missingKey='answer:money_management';
+ for(const repair of [true,false]){
+  let attempts=0;
+  const s=setup({evidence,joint(request){
+   const input=JSON.parse(request.messages[1].content);
+   for(const side of ['a','b']){
+    const keys=input[side].entries.map(item=>item.key);
+    assert.equal(keys.length,46);
+    assert(!keys.includes('answer:partner_residence_plan'));
+    for(const key of latest) assert(keys.includes('answer:'+key));
+   }
+   const rows=coveredFindings(input);
+   if(++attempts===2){
+    assert.match(request.messages[0].content,/a:answer:money_management/);
+    if(repair)return rows;
+   }
+   for(const row of rows)row.evidence=row.evidence.filter(ref=>ref.side!=='a'||ref.key!==missingKey);
+   return rows;
+  }});
+  if(repair){
+   assert.deepEqual(await s.service({connectionId},{authorization:'Bearer abc'}),{status:'review'});
+   assert.equal(s.calls.at(-1).body.action,'publish');
+   assert.equal(s.modelCalls,4);
+  } else {
+   await assert.rejects(s.service({connectionId},{authorization:'Bearer abc'}),error=>error.code==='unavailable');
+   assert.equal(s.calls.at(-1).body.action,'fail');
+   assert.equal(s.modelCalls,2);
+  }
+  assert.equal(attempts,2);
+ }
+});
+test('an outlook without a practical step is repaired before sharing',async()=>{
+ let attempts=0;
+ const s=setup({joint:()=>{
+  const rows=findings();
+  if(++attempts===1) rows.find(f=>f.section==='conclusion').text=outlookText.split('\n\n').slice(0,2).join('\n\n');
+  return rows;
+ }});
+ await s.service({connectionId},{authorization:'Bearer abc'});
+ assert.equal(attempts,2);
+ assert.equal(s.calls.at(-1).body.action,'publish');
+});
 test('malformed model report and revoked publish do not release private text',async()=>{
  for(const options of [{invalid:true},{publishDenied:true}]){const s=setup(options);await assert.rejects(s.service({connectionId},{authorization:'Bearer abc'}));assert.equal(s.calls.at(-1).body.action,'fail')}
 });
@@ -95,6 +164,8 @@ test('current and mixed reports use each member’s own instrument and enforce b
   for(const item of personalityCatalog.filter(item=>item.reverse))assert.ok(system.includes(item.id));
   assert.equal(system.includes('أجاب الطرفان عن نسختين مختلفتين'),pair[0]!==pair[1]);
   assert.equal(system.includes('النسخة التاريخية'),pair.includes(legacyCatalog));
+  assert.match(system,/لا تفترضي علاقة أو تاريخًا مشتركًا/);
+  assert.match(system,/أول قراءة patterns صورة شخصية لكل طرف/);
   assert.match(system,/لا تحوّلي الشخصية إلى نسبة توافق أو ترتيب/);
   const refs=['a','b'].map(side=>({side,key:full[side].entries[0].key}));
   const rows=findings().map(row=>({...row,evidence:refs}));
@@ -155,12 +226,17 @@ test('member demos reserve against authenticated membership before Sol and retur
   },clientFactory:()=>({chat:{completions:{create:async req=>{
    invocations++;assert.equal(req.model,'gpt-6.2-sol');
    const input=JSON.parse(req.messages[1].content);
-   assert.equal(input.b.entries.length,13);
+   assert.equal(input.b.entries.length,44);
    assert.equal(input.b.personalityVersion,'personality-v1');assert.match(req.messages[0].content,/ملف خيالي/);
-   return completion({findings:findings()});
+   return completion({findings:coveredFindings(input)});
   }}}})});
   const request=service(allowed?{demoPersonaId:'p01',consentVersion:'deep-assessment-v2'}:{demoPersonaId:'p01'},{authorization:'Bearer demo'});
-  if(allowed){const result=await request;assert.equal(result.findings.length,8);assert.equal('evidence' in result.findings[0],false);assert.match(result.findings[0].text,/\n\n/);}
+  if(allowed){const result=await request;assert.equal(result.findings.length,8);assert.equal('evidence' in result.findings[0],false);
+   assert.equal(result.review.length,8);
+   for(const item of result.review) {
+    assert(item.ownEvidence.length);
+    assert(item.ownEvidence.every(entry=>snapshot.a.entries.some(own=>own.key===entry.key) && entry.value===''));
+   }assert.match(result.findings[0].text,/\n\n/);}
   else await assert.rejects(request,error=>error.status===403);
   assert.equal(invocations,allowed?1:0);assert.equal(calls.length,1);assert(calls[0].endsWith('/marriage_demo_deep_reserve'));
  }

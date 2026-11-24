@@ -1,3 +1,4 @@
+import { Sheet } from './Sheet';
 import {DemoDeepReading} from './DemoDeepReading';
 import {RelocationCities} from './RelocationCities';
 import {LunaSearch} from './LunaSearch';
@@ -179,7 +180,7 @@ const practicalQuestions = [
 ];
 
 function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
-  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'اكتملت محاكاة البلاغ' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'هذه معاينة للبلاغ؛ لم يُرسل إلى الفريق.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
+  return <div className="cm-report-receipt"><SuccessNotice title={demo ? 'أُغلق التواصل مع هذا الملف' : 'أُرسل بلاغك للمراجعة'} detail={demo ? 'أُخفي الملف من تجربتك.' : 'اكتمل إرسال البلاغ. يمكنك مراسلة الفريق إذا احتجت متابعة.'} close={close}/>{!demo && <SupportContact subject="متابعة بلاغ في وُدَين" context="للمتابعة، اذكر اسم العرض والتاريخ التقريبي للبلاغ. تجنّب إرسال صور الهوية أو تفاصيل خاصة لا تحتاجها المتابعة."/>}</div>;
 }
 
 function RequestWaiting({ connection }: { connection: Connection }) {
@@ -258,46 +259,6 @@ function Banner({ text, alert = false }: { text: string; alert?: boolean }) {
     </p>
   );
 }
-function Sheet({
-  title,
-  onClose,
-  children,
-  className,
-}: {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      dir="rtl"
-      aria-label={title}
-      className={className ? `cm-sheet ${className}` : "cm-sheet"}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <header>
-        <h2>{title}</h2>
-        <button className="icon-btn" onClick={onClose} aria-label="إغلاق">
-          <X />
-        </button>
-      </header>
-      {children}
-    </dialog>
-  );
-}
-
 function FilterSheet({
   source,onSaved,filters,allProfiles,
   apply,
@@ -684,7 +645,7 @@ function Discovery({
   const [sent, setSent] = useState<RequestEntry | null>(null);
   const [rowBusy, setRowBusy] = useState<string|null>(null);
   const [reportTarget, setReportTarget] = useState<PublicPerson|null>(null);
-  const [reportSent, setReportSent] = useState(false);
+  const [reportSent, setReportSent] = useState<'local'|'sent'|null>(null);
   const [rowError,setRowError]=useState("");
   const [interestNotice,setInterestNotice]=useState("");
   const identity = useRef<HTMLElement>(null);
@@ -910,7 +871,7 @@ function Discovery({
       } else {
         if(action==='dismiss') {if(!source.dismissPerson)throw Error('الإخفاء غير متاح الآن.');await source.dismissPerson(item.id);setHiddenNotice(`أُخفي ملف ${item.alias} من الاستكشاف والترشيحات.`);}
         else if(action==='block' && source.blockPerson) {await source.blockPerson(item.id);setHiddenNotice('تم حظر العضو.');}
-        else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(true);}
+        else {if(!source.reportPerson)throw Error('الإبلاغ غير متاح الآن.');await source.reportPerson(item.id,reason||'');feedback('success');setReportTarget(null);setReportSent(item.isDemo?'local':'sent');}
         setList(rows=>rows.filter(row=>row.id!==item.id));
       }
     }catch(e){setRowError(messageFor(e));}
@@ -984,7 +945,7 @@ function Discovery({
         <CapturePrivacyButton scope="discovery"/>
       </header>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
-      {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
+      {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
       <NextStep source={source}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
       <div className="df-feed-controls">
@@ -1641,8 +1602,8 @@ export function Chat({
               </div>}
             </div>;
           })}
-      {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.simulation
-        ? <DemoDeepReading key={connection.id} person={connection.person} open={deepOpen && !privateHidden} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setDeepOpen(false)}>{content}</Sheet>}/>
+      {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.profileReading
+        ? <DemoDeepReading key={connection.id} person={connection.person} read={source.profileReading} watch={source.watch} open={deepOpen && !privateHidden} onClose={()=>setDeepOpen(false)}/>
         : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
         onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>)}
         </div>
@@ -1783,7 +1744,7 @@ function Requests({
   const [endedFeedback, setEndedFeedback] = useState<string | null>(null);
   const exitFeedback = endedFeedback && source.conversationPilot && <ConversationPilotFeedback key={endedFeedback}
     requestId={endedFeedback} respond={source.conversationPilot} resumeChat={()=>{}}/>;
-  const [reportSent, setReportSent] = useState(false);
+  const [reportSent, setReportSent] = useState<'local'|'sent'|null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [recoverable, setRecoverable] = useState(false);
@@ -1952,7 +1913,7 @@ function Requests({
     });
   }
   async function act(
-    action: "accept" | "demoAccept" | "decline" | "cancel" | SafetyAction,
+    action: "accept" | "decline" | "cancel" | SafetyAction,
     reason?: string,
     target?: Connection,
   ) {
@@ -1963,24 +1924,20 @@ function Requests({
     setBusy(true);
     setActionError("");
     try {
-      if (action === "demoAccept") {
-        const demoSource=request.person.isDemo?source.demoInteractions??source:source;
-        if (!demoSource.demoAcceptOutgoing) return;
-        await demoSource.demoAcceptOutgoing(request.id);
-      } else await source.act(request.id, action, reason || undefined, allowRematch);
+      await source.act(request.id, action, reason || undefined, allowRematch);
       if (intent !== navigation.current) return;
       feedback('success');
       setConfirm(null);
       setDeclineTarget(null);
       setRemoveTarget(null);
-      if (action === "accept" || action === "demoAccept") {
+      if (action === "accept") {
         setList(rows => rows.map(row => row.id === request.id ? { ...row, status: "accepted" } : row));
         const accepted = (await source.inbox()).find(row=>row.id===request.id&&row.status==='accepted');
         if (intent !== navigation.current) return;
         onMutual(accepted || { ...request, status: "accepted" });
         void refresh();
       } else {
-        if (action === 'report') setReportSent(true);
+        if (action === 'report') setReportSent(request.person.isDemo?'local':'sent');
         if (action === 'cancel' && request.status === 'accepted') setEndedFeedback(request.id);
         setSelected(null);
         setChat(false);
@@ -2013,7 +1970,7 @@ function Requests({
         initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
         source={item.person.isDemo?source.demoInteractions??source:source}
         onCompletion={onCompletion}
-        onReported={()=>setReportSent(true)}
+        onReported={()=>setReportSent(item.person.isDemo?'local':'sent')}
         onEnded={setEndedFeedback}
         connection={item}
         back={leaveChat}
@@ -2054,8 +2011,6 @@ function Requests({
         ) : (
           <>
             <p className="cm-help">طلبك بانتظار ردّ الطرف الآخر.</p>
-            {(source.demoAcceptOutgoing || (item.person.isDemo && source.demoInteractions?.demoAcceptOutgoing)) && item.id!=='tester-pair' && <button className="btn-secondary cm-demo-peer" data-chat-entry="" disabled={busy}
-              onClick={() => void act("demoAccept")}><MessageCircle size={15} /> محاكاة قبول الطرف الآخر</button>}
             <button
               className="btn-secondary"
               disabled={busy}
@@ -2174,7 +2129,7 @@ function Requests({
     <header className="cm-header"><Brand /><CapturePrivacyButton scope="chat"/></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
     {exitFeedback}
-    {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
+    {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
     <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
@@ -2203,7 +2158,7 @@ function Requests({
       <div className="cm-title">
         <h1 tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>
       </div>
-      {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
+      {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
 
       {conversations ? <div className="cm-segments" role="group" aria-label="عرض المحادثات">
         <button aria-pressed={!onlyUnread} onClick={() => setOnlyUnread(false)}>الكل</button>

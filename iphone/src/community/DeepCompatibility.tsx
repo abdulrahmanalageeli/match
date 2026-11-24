@@ -16,9 +16,9 @@ const stateCopy: Record<DeepSnapshot['status'], string> = {
 const count = new Intl.NumberFormat('ar-SA');
 const message = (error: unknown) => error instanceof Error && /[\u0600-\u06ff]/.test(error.message) ? error.message : 'تعذّر الاتصال الآن. حاول مجددًا.';
 
-export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, onNoticeChange, sheet }: {
+export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, onNoticeChange, sheet, profileRequest = false }: {
   source?: DeepAnalysisSource; watch: WatchUpdates; connectionId: string; peerName: string; open: boolean;
-  onOpenChange(open: boolean): void; onNoticeChange?(): void; sheet(content: ReactNode): ReactNode;
+  profileRequest?: boolean; onOpenChange(open: boolean): void; onNoticeChange?(): void; sheet(content: ReactNode): ReactNode;
 }) {
   const membership = useMembershipAccess();
   const [snapshot, setSnapshot] = useState<DeepSnapshot | null>(null);
@@ -70,7 +70,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
       if (current !== sequence.current) return;
       if (!document.hidden) setSnapshot(next);
       // One explicit approval starts one job. Polls and re-renders never invoke AI.
-      if (action === 'generate' || action === 'accept' && next?.canGenerate) {
+      if (action === 'generate' || (action === 'accept' || profileRequest && action === 'request') && next?.canGenerate) {
         await source.generate(connectionId);
         if (!mounted.current || document.hidden || current !== sequence.current) return;
         next = await source.request(connectionId, 'get');
@@ -125,7 +125,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     : status === 'review' ? snapshot?.myReviewed ? 'حُفظت اختياراتك · بانتظار الطرف الآخر' : 'قراءتك الخاصة جاهزة · راجع ما ترغب بمشاركته'
     : snapshot ? stateCopy[snapshot.status] : '';
   return <>
-    {hasNotice && <div className="wd-deep-event" aria-label="تحديث تحليل وُدَين">
+    {!profileRequest && hasNotice && <div className="wd-deep-event" aria-label="تحديث تحليل وُدَين">
       <span className="wd-deep-event-brand"><img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>{deepReportTitle}</span>
       <p>{notice}</p>
       <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
@@ -134,23 +134,23 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     </div>}
     {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
       {hidden ? <p className="wd-deep-note"><LockKeyhole size={18}/> التقرير مخفي أثناء مغادرة التطبيق.</p> : <>
-        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3><p>يربط Sol 6.2 بين إجاباتكما ليشرح كيف قد يظهر الاتفاق أو الاختلاف في يوم عادي، ويقترح سؤالًا وتجربة صغيرة تخصّكما.</p></div>
+        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3><p>ترسم القراءة ملامح كلٍّ منكما من إجاباتكما، وتقترح أسئلة تساعدكما على معرفة ما يهمّ كل طرف قبل القرار.</p></div>
         <ol className="wd-deep-steps" aria-label="مراحل التحليل">{['الموافقة', 'التحليل', 'المراجعة', 'تقريركما'].map((label, index) => <li key={label} data-current={index === step || undefined} data-done={index < step || undefined} aria-current={index === step ? 'step' : undefined}><span>{count.format(index + 1)}</span>{label}</li>)}</ol></>}
         {error && <div className="wd-deep-error" role="alert"><p>{error}</p><button className="btn-text" onClick={() => void refresh()} disabled={busy}>تحديث الحالة</button></div>}
-        {!source && <p className="wd-deep-note">يُتاح طلب التحليل لأعضاء وسام الجدية في التوافقات الحقيقية. هذه المحادثة التجريبية لا ترسل أي إجابات للتحليل.</p>}
+        {!source && <p className="wd-deep-note">طلب التحليل غير متاح في هذه المحادثة.</p>}
         {source && !snapshot && !error && <p role="status" className="wd-deep-note">{busy ? 'جارٍ تنفيذ طلبك…' : 'جارٍ تحميل حالة التقرير…'}</p>}
         {isStart && <>
           {status === 'stale' && <p className="wd-deep-note">يلزم طلب جديد وموافقة من كل طرف إذا تغيّرت الإجابات أو نسخة الاستبيان أو انتهت صلاحية الموافقة.</p>}
           {status === 'declined' && <p className="wd-deep-note">لم تُقبل الدعوة السابقة. لم يُفتح تقرير مشترك.</p>}
           {status === 'cancelled' && <p className="wd-deep-note">أُلغي التحليل السابق وسُحب الوصول إلى محتواه.</p>}
-          <ConsentCopy/>
+          <ConsentCopy local={source?.localProcessing?.()}/>
           {snapshot?.canRequest ? <button className="btn-primary" disabled={busy} onClick={() => void act('request')}>أوافق وأرسل طلب التحليل</button>
             : membership.tier !== 'seriousness' ? <><p className="wd-deep-note">إرسال الطلب من مزايا وسام الجدية. يستطيع الطرف الآخر الموافقة وقراءة التقرير بأي عضوية.</p><button className="btn-primary" onClick={() => { onOpenChange(false); membership.upgrade("seriousness"); }}>اكتشف وسام الجدية</button></>
             : <p className="wd-deep-note">طلب تحليل جديد غير متاح الآن. يلزم اكتمال إجابات الطرفين وتوفّر طلب ضمن حد الاستخدام.</p>}
         </>}
         {status === 'requested' && <>
           <div className="wd-deep-state"><Sparkles size={22}/><h3>{snapshot?.requestedByMe ? 'دعوتك وصلت' : `دعوة من ${peerName} لتحليل التوافق`}</h3><p>{snapshot?.requestedByMe ? 'يبدأ التحليل بعد موافقة الطرف الآخر. لا تحتاجان إلى إجابات جديدة.' : 'المشاركة اختيارية ومجانية لك. راجع ما سيُستخدم وما يمكن مشاركته قبل الموافقة.'}</p></div>
-          {!snapshot?.requestedByMe && <><ConsentCopy/><button className="btn-primary" disabled={busy} onClick={() => void act('accept')}>أوافق وأبدأ التحليل</button><button className="btn-text" disabled={busy} onClick={() => void act('decline')}>لا أرغب بالمشاركة</button></>}
+          {!snapshot?.requestedByMe && <><ConsentCopy local={source?.localProcessing?.()}/><button className="btn-primary" disabled={busy} onClick={() => void act('accept')}>أوافق وأبدأ التحليل</button><button className="btn-text" disabled={busy} onClick={() => void act('decline')}>لا أرغب بالمشاركة</button></>}
         </>}
         {(status === 'ready' || status === 'generating' || status === 'failed') && <div className="wd-deep-state" role="status">
           <span className="wd-deep-reading" data-moving={busy || status === 'generating' || undefined}><BookOpen size={26}/></span>
@@ -164,7 +164,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
           <div className="wd-deep-review-tools"><span>{count.format(selected)} من {count.format(snapshot?.review.length ?? 0)} نقطة محددة</span><button type="button" className="btn-text" onClick={() => setDecisions(Object.fromEntries((snapshot?.review ?? []).map(item => [item.id, selected !== snapshot?.review.length])))} disabled={busy}>{selected === snapshot?.review.length ? 'إلغاء التحديد' : 'تحديد جميع النقاط'}</button></div>
           <div className="wd-deep-review-list">{Object.entries(deepSections).map(([key, label]) => {
             const items = snapshot?.review.filter(item => item.section === key) ?? [];
-            return items.length ? <details key={key} open={key === 'summary'}><summary>{label}<span>{count.format(items.length)}</span></summary>{items.map((item, index) => <div className="wd-deep-disclosure" key={item.id}><label className="wd-deep-choice"><input type="checkbox" checked={decisions[item.id] === true} disabled={busy} onChange={event => setDecisions(value => ({ ...value, [item.id]: event.target.checked }))}/><span><strong>السماح بمشاركة القراءة {count.format(index + 1)}</strong><small>{item.ownInterpretation}</small></span></label><details className="wd-deep-evidence"><summary>إجاباتك التي تستند إليها</summary><p>{item.ownEvidence.length ? item.ownEvidence.map(entry => `${entry.label}: ${entry.value}`).join(' · ') : 'لا تتضمن إجابة خاصة بك.'}</p></details></div>)}</details> : null;
+            return items.length ? <details key={key} open={key === 'summary'}><summary>{label}<span>{count.format(items.length)}</span></summary>{items.map((item, index) => <div className="wd-deep-disclosure" key={item.id}><label className="wd-deep-choice"><input type="checkbox" checked={decisions[item.id] === true} disabled={busy} onChange={event => setDecisions(value => ({ ...value, [item.id]: event.target.checked }))}/><span><strong>السماح بمشاركة القراءة {count.format(index + 1)}</strong><small>{item.ownInterpretation}</small></span></label><details className="wd-deep-evidence"><summary>إجاباتك التي تستند إليها</summary><p>{item.ownEvidence.length ? item.ownEvidence.map(entry => entry.value ? `${entry.label}: ${entry.value}` : entry.label).join(' · ') : 'لا تتضمن إجابة خاصة بك.'}</p></details></div>)}</details> : null;
           })}</div>
           <button className="btn-primary" disabled={busy} onClick={() => void act('review')}>{selected ? 'اعتماد اختيارات المشاركة' : 'عدم مشاركة أي نقطة'}</button>
           <small className="wd-deep-footnote">لن تُشارك النقاط غير المحددة. لا حاجة للإجابة عن أي سؤال.</small>
@@ -179,9 +179,9 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
   </>;
 }
 
-function ConsentCopy() {
+function ConsentCopy({local=false}: {local?:boolean}) {
   return <div className="wd-deep-consent"><h3><LockKeyhole size={17}/> قبل أن توافق</h3>
-    <p>تستخدم لونا إجاباتكما عن التفضيلات والشخصية وخطط الزواج لإعداد قراءة مشتركة عبر OpenAI. يبدأ التحليل بعد موافقتكما.</p>
+    <p>{local ? 'تُقارن إجاباتكما المحفوظة على هذا الجهاز بعد الموافقة على طلب التحليل.' : 'تستخدم لونا إجاباتكما عن التفضيلات والشخصية وخطط الزواج لإعداد قراءة مشتركة عبر OpenAI. يبدأ التحليل بعد موافقتكما.'}</p>
     <details><summary>ما الذي تشمله القراءة؟</summary>
       <p>تشمل الإجابات المحفوظة عن متطلبات الشريك والشخصية والسكن والإنجاب والمصاريف. تبقى المحادثات والصور وبيانات التواصل ومدينة الأصل ونص «بيننا» خارج القراءة.</p>
     </details>

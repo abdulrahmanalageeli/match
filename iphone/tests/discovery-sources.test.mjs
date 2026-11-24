@@ -178,3 +178,34 @@ test('paired discovery honors actual interests, work filters and combined orderi
   assert.deepEqual((await source.discover({ mode: 'all', sort: 'youngest', offset: 1 })).map(row => row.id), all.slice(1).map(row => row.id));
   assert.deepEqual(await source.discover({ mode: 'all', offset: 24 }), []);
 });
+
+test('verified member testers can use the same bot workflow in either discovery pool',async()=>{
+  const code=(await compile('../src/community/testingDiscovery.ts')).replace("'./data'",JSON.stringify(dataUrl));
+  const {withTestingDiscovery}=await import(url(code));
+  for (const gender of ['woman','man']) {
+    const profile={...demoProfile,gender};
+    const remote={discover:async()=>[],inbox:async()=>[],watch:()=>()=>{},unreadCount:async()=>0};
+    const directory=withTestingDiscovery(remote,()=>profile,'verified-'+gender,()=>'premium');
+    const people=await directory.discover({mode:'all'});
+    assert.equal(people.length,10);
+    const person=people.find(row=>row.eligible!==false);
+    const id=await directory.request(person.id);
+    const bot=directory.demoInteractions;
+    await bot.simulation.step();
+    assert((await directory.inbox()).some(row=>row.id===id && row.status==='accepted'));
+    if(gender==='woman')await bot.agree(id,'propose',{days:7,signed:true});
+    await bot.simulation.step();
+    if(gender==='man')await bot.agree(id,'accept',{signed:true,proposalId:(await bot.agreement(id)).proposalId});
+    assert.equal((await bot.agreement(id)).status,'accepted');
+    await bot.send(id,'كيف يومك؟','test-message');
+    for(let i=0;i<4;i++)await bot.simulation.step();
+    assert.equal((await bot.thread(id)).at(-1).senderIsMe,false);
+    const report=bot.profileReading;
+    await report.request(person.id,'request');await report.generate(person.id);
+    const state=await report.request(person.id,'get');
+    assert.equal(state.peerReviewed,true);
+    const shared=await report.request(person.id,'review',{[state.review[0].id]:true});
+    assert.deepEqual(shared.findings.map(row=>row.id),[state.review[0].id]);
+    assert.equal(remote.simulation,undefined);
+  }
+});

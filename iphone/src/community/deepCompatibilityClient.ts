@@ -30,16 +30,17 @@ async function generateReading(body: {connectionId:string} | {demoPersonaId:stri
   });
   if (!response.ok) {
     const result = await response.json().catch(() => null);
-    throw Error(typeof result?.error === 'string' && /[\u0600-\u06ff]/.test(result.error)
-      ? result.error : 'لم يكتمل التحليل الآن. يمكنك المحاولة مجددًا دون إرسال طلب جديد.');
+    throw Object.assign(new Error(typeof result?.error === 'string' && /[\u0600-\u06ff]/.test(result.error)
+      ? result.error : 'لم يكتمل التحليل الآن. يمكنك المحاولة مجددًا دون إرسال طلب جديد.'),{status:response.status});
   }
   return response;
 }
 
-export async function generateDemoReading(demoPersonaId:string) {
-  const response=await generateReading({demoPersonaId,consentVersion:deepConsentVersion});
+export async function generateDemoReading(demoPersonaId:string,userId:string) {
+  const response=await generateReading({demoPersonaId,consentVersion:deepConsentVersion},userId);
   const data=await response.json();
   const {findings}=deepSnapshot({status:'shared', findings:data.findings});
-  if (!findings.length) throw Error('تعذّر تحميل القراءة التجريبية.');
-  return findings;
+  if (!findings.length) throw Error('تعذّر تحميل القراءة.');
+  const review = Array.isArray(data.review) ? deepSnapshot({status:'review',review:data.review}).review : [];
+  return {findings,review};
 }

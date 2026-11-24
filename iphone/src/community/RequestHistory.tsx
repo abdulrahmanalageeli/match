@@ -48,7 +48,7 @@ export function RequestHistory({ source, title }: { source: CommunitySource; tit
   }, [source, open, retry, cursor]);
   if (!source.requestHistory) return null;
   return <details className="cm-request-history" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>{title || (source.demoAcceptOutgoing ? 'سجل الشخصيات التوضيحية المغلقة' : 'الطلبات والتعارفات المغلقة')}</summary>
+    <summary>{title || 'الطلبات والتعارفات المغلقة'}</summary>
     <p>يُعرض انتهاء المهلة عندما يؤكده النظام؛ الإغلاق وحده لا يوضح سبب انتهاء التعارف.</p>
     {loading && <p role="status">جارٍ تحميل السجل…</p>}
     {error ? <><p role="alert">تعذّر تحميل السجل.</p><button className="btn-text" onClick={() => setRetry(n => n + 1)}>إعادة المحاولة</button></> :

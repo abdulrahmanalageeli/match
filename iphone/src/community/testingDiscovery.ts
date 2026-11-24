@@ -1,17 +1,27 @@
-import {demoCommunity,type CommunitySource,type PublicPerson} from './data';
+import {demoCommunity,demoPeople,type CommunitySource,type PublicPerson} from './data';
 import type {Profile} from '../types';
 
 // Sample cards remain local fixtures, never fabricated member accounts.
-export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, testingOwnerId?:string, tier:()=> 'free'|'premium'|'seriousness'=()=> 'free'):CommunitySource {
-  const samples=demoCommunity(viewer,false,{membershipTier:tier,canAct:()=>Boolean(testingOwnerId),storageKey:testingOwnerId?`wudayn-owner-demo-${testingOwnerId}`:undefined});
+export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, testingOwnerId?:string, tier:()=> 'free'|'premium'|'seriousness'=()=> 'free', generateReading?:import('./simulation').DemoSimulationOptions['generateReading']):CommunitySource {
+  const samples=demoCommunity(viewer,false,{membershipTier:tier,interactiveJourney:Boolean(testingOwnerId),generateReading,canAct:()=>Boolean(testingOwnerId),storageKey:testingOwnerId?`wudayn-owner-demo-${testingOwnerId}`:undefined});
   const localConnection=async(id:string)=>Boolean(testingOwnerId)&&(await samples.inbox()).some(row=>row.id===id);
   let watchers=0;
-  const sampleIds=new Set<string>();
+  const sampleIds=new Set(demoPeople.map(person=>person.id));
   const sampleOnly=()=>Promise.reject(new Error('هذا ملف توضيحي للتجربة. يمكنك إرسال طلب تعارف إلى الأعضاء الحقيقيين.'));
   return {...real,
     demoInteractions:testingOwnerId?samples:undefined,
     async inbox(){return [...await real.inbox(),...(testingOwnerId?await samples.inbox():[])];},
     async act(id,action,reason,allowRematch){return (await localConnection(id)?samples:real).act(id,action,reason,allowRematch);},
+    async notifications(){
+      const [members,local]=await Promise.all([real.notifications?.()??[],testingOwnerId?samples.notifications?.()??[]:[]]);
+      return [...members,...local].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    },
+    async readNotifications(ids){
+      const local=new Set((testingOwnerId?await samples.notifications?.():[])?.map(row=>row.id));
+      const memberIds=ids.filter(id=>!local.has(id)),sampleRows=ids.filter(id=>local.has(id));
+      if (sampleRows.length) await samples.readNotifications?.(sampleRows);
+      if (memberIds.length) await real.readNotifications?.(memberIds);
+    },
     async unreadCount(){return await real.unreadCount()+(testingOwnerId?await samples.unreadCount():0);},
     watch(listener){
       const stopReal=real.watch(listener);
@@ -36,7 +46,7 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
       if(people.length>=offset+limit)return people.slice(offset,offset+limit);
       const fixtures=await samples.discover({...filters,mode:'all',eligibleOnly:filters.mode!=='all'||filters.eligibleOnly,offset:Math.max(0,offset-people.length),afterId:undefined});
       for(const person of fixtures)sampleIds.add(person.id);
-      return [...people.slice(offset),...fixtures.map(person=>({...person,isDemo:true,online:false}))].slice(0,limit);
+      return [...people.slice(offset),...fixtures.map(person=>({...person,isDemo:true,online:testingOwnerId?person.online:false}))].slice(0,limit);
     },
     noteProfileOpen:async id=>{if(!sampleIds.has(id))await real.noteProfileOpen?.(id);},
     gallery:async id=>id&&sampleIds.has(id)?[]:await real.gallery?.(id)??[],

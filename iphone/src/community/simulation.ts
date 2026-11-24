@@ -8,6 +8,7 @@ export type DemoSimulationOptions = {
   externalAccepted?: () => number;
   canAct?: () => boolean;
   interactiveJourney?: boolean;
+  generateReading?: (id: string) => Promise<Pick<import('./deepCompatibilityModel').DeepSnapshot,'findings'|'review'>>;
   random?: () => number;
   aiReply?: (input: { person: PublicPerson; messages: { senderIsMe: boolean; body: string }[] }) => Promise<string>;
 };
@@ -129,7 +130,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
       const pending = world.records.find(record => record.status === 'pending' && record.direction === 'outgoing' && people.some(person => person.id === record.peer));
       if (pending && acceptedCount() < 2 && !world.exclusive()) {
         const person = people.find(person => person.id === pending.peer)!;
-        const decline = hash(person.id) % 4 === 0;
+        const decline = !options.interactiveJourney && hash(person.id) % 4 === 0;
         pending.status = decline ? 'closed' : 'accepted'; pending.updatedAt = new Date().toISOString();
         pending.allowRematch = !decline;
         if (!decline) pending.celebrationKey = crypto.randomUUID();

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Chat } from '../../src/community/Community';
 import { demoCommunity, demoProfile, type Connection } from '../../src/community/data';
 import { MembershipAccess } from '../../src/membership/access';
-import { deepSnapshot, deepSections, type DeepStatus } from '../../src/community/deepCompatibilityModel';
+import { deepSnapshot, type DeepStatus } from '../../src/community/deepCompatibilityModel';
 import '../../src/design.css';
 import '../../src/flows.css';
 import '../../src/screens.css';
@@ -38,7 +38,8 @@ const texts = [
   'تخيّلا أن أحدكما عاد مرهقًا ولم يبدأ الحديث. ما أول معنى سيخطر لك: يحتاج هدوءًا، أم ينتظر سؤالي، أم لا يريد التواصل؟ ثم اسألا: ما الجملة القصيرة التي ستغيّر هذا التفسير؟ هذا يختبر كيف تقرآن الصمت والمبادرة، لا مدى حبكما. سؤال المتابعة: لو قال «أحتاج نصف ساعة ثم نكمل»، هل يطمئنك وضوح العودة، أم تحتاج أيضًا كلمة اهتمام قبلها؟ لا توجد إجابة مثالية؛ المهم فهم الفرق.',
   'الفرصة هنا ليست أن تصبحا متماثلين، بل أن تصبح الإشارات بينكما أوضح. جرّبا اتفاقًا صغيرًا على المبادرة أو مهلة الخلاف، ثم لاحظا إن كان كل طرف يشعر بأنه مفهوم دون أن يتخلى عن احتياجه. إذا لم ينجح، اسألا أي تفسير لم يكن دقيقًا بدل الحكم على الشخصية. الإجابات تصف انطباعكما عن أنفسكما، ولا تخبرنا بعد كيف تتصرفان معًا أو هل تلتزمان باتفاقاتكما؛ هذا ما يحتاج معرفة وحوارًا فعليين.',
 ];
-const findings = Object.keys(deepSections).map((section, index) => ({ id: `f${index + 1}`, section, kind: index === 7 ? 'uncertain' : index === 1 ? 'strength' : 'manageable', text: texts[index] }));
+const fixtureSections = ['summary','strengths','differences','patterns','expectations','friction','conversation','conclusion'];
+const findings = fixtureSections.map((section, index) => ({ id: `f${index + 1}`, section, kind: index === 7 ? 'uncertain' : index === 1 ? 'strength' : 'manageable', text: texts[index] }));
 findings.push(
   {id:'f9',section:'patterns',kind:'manageable',text:'الرغبة في حوار عميق لا تعني سهولة كشف المشاعر. أ يفضّل التعمق لكنه يصف انفتاحًا أقل، وقد يشعر بقرب من النقاش الفكري قبل الحديث الشخصي. ب أكثر مبادرة وانفتاحًا، لكنه قد لا يقول بوضوح ما يريد سماعه. قد يستمران في حديث ممتع دون أن يعرف أحدهما أن الآخر ينتظر مشاركة شخصية. هذا تفسير محتمل، وليس استنتاجًا أن أحدكما يخفي شيئًا. ما الموضوع الذي يساعدك على الشعور بالأمان، وما السؤال الذي يأتي مبكرًا عليك؟'},
   {id:'f10',section:'patterns',kind:'manageable',text:'المبادرة بالنقاش والقدرة على تسمية الاحتياج ليستا الشيء نفسه. ب يفضّل حل الخلاف سريعًا، مع مباشرة أقل في التعبير عن الاحتياج؛ قد يبدأ الحديث بينما لم تتضح له بعد جملة «ما أحتاجه منك». أ قد يحتاج وقتًا أطول قبل النقاش، وهو ما قد يمنحه فرصة لصياغة الرد أو قد يُفهم خطأً كتأجيل. لا نعرف أي الاحتمالين يحدث فعليًا. قبل مناقشة الحل، جرّبا أن يصف كل طرف احتياجه بجملة واحدة دون اتهام.'},

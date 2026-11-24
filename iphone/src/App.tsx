@@ -81,7 +81,8 @@ import {
   restoreMembership,
 } from "./billing";
 import { demoProposals } from "./demo";
-import { SimulationPanel } from './testing/SimulationPanel';
+import './testing/simulation-panel.css';
+import { generateDemoReading } from './community/deepCompatibilityClient';
 import {
   toProposal,
   type AccountState,
@@ -249,10 +250,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const source = useMemo(
     () =>
       pair ? pair.source : demo
-        ? demoCommunity(() => sampleProfileRef.current)
+        ? demoCommunity(() => sampleProfileRef.current, true, {interactiveJourney:true})
         : token && cloud
           ? live?.demoDiscoveryEnabled && live.demoInteractionsEnabled
-            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current)
+            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current, id=>generateDemoReading(id,live.user.id))
             : cloudCommunity(token, memberPendingSends(token))
           : null,
     [demo, token, sampleSession, pair, live?.demoDiscoveryEnabled, live?.demoInteractionsEnabled, live?.user.id],
@@ -277,6 +278,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const waitingForLaunch = !demo && live?.prelaunch?.locked === true;
   const memberAccess = demo || Boolean(!waitingForLaunch && live && (live.user.applicationStatus === "approved" || live.user.profileReviewPending));
   const paused = demo ? samplePaused : Boolean(live?.user.paused);
+  useEffect(() => {
+    if (!demo || paused || onboardingPreview || !source?.simulation) return;
+    source.simulation.start();
+    return () => source.simulation?.dispose();
+  }, [demo, source, paused, onboardingPreview]);
+
   const chatUnread = useUnreadCount(memberAccess ? source : null);
   const mutual = useMutualMatches(memberAccess && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean } | null>(null);
@@ -1237,10 +1244,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
       {tester && !onboardingPreview && <details className="nf-tester-tools">
-        <summary aria-label="أدوات الاختبار الخاص" className={tester.actor==='abdulrahman'?'nf-simulation-toggle':undefined}>{tester.actor==='abdulrahman'&&<span>محاكاة</span>}<ChevronDown size={16} aria-hidden="true" /></summary>
+        <summary aria-label="أدوات الاختبار الخاص" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">
-        <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span>{tester.actor==='abdulrahman'&&<><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select><button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button></>}<button onClick={exitDemo}>خروج</button></div>
-        {source?.simulation && <SimulationPanel source={source} paused={paused}/>}
+        <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
+
         </div>
       </details>}
       {demo && !tester && !onboardingPreview && <DemoNotice onExit={exitDemo} gender={sampleProfile.gender}

@@ -1,7 +1,7 @@
 export const deepSections = {
-  summary: 'ملخص التوافق', strengths: 'ما يجمعكما', differences: 'ما قد تختلفان عليه',
-  patterns: 'ما وراء الإجابات', expectations: 'التوقعات المتبادلة', friction: 'نقاط تستحق الانتباه',
-  conversation: 'أسئلة للنقاش بينكما', conclusion: 'الخلاصة',
+  patterns: 'تفاعل شخصيتيكما', summary: 'ملخص التوافق', strengths: 'ما يجمعكما', differences: 'ما قد تختلفان عليه',
+  expectations: 'التوقعات المتبادلة', friction: 'نقاط تستحق الانتباه',
+  conversation: 'أسئلة للنقاش بينكما', conclusion: 'مستقبلكما',
 } as const;
 export type DeepSection = keyof typeof deepSections;
 export type DeepStatus = 'none' | 'requested' | 'ready' | 'generating' | 'review' | 'shared' | 'declined' | 'cancelled' | 'stale' | 'failed';
@@ -20,6 +20,7 @@ export function deepConsent(action: 'request' | 'accept', requestId?: string) {
   return { consentVersion: deepConsentVersion, requestId };
 }
 export type DeepAnalysisSource = {
+  localProcessing?(): boolean;
   request(connectionId: string, action: DeepAction, decisions?: Record<string, boolean>, requestId?: string): Promise<DeepSnapshot>;
   generate(connectionId: string): Promise<void>;
 };

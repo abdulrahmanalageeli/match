@@ -14,10 +14,15 @@ test('only the verified owner and Reham can switch memberships; reset and expiry
   const reham=await member('reham@example.test','4c6ad0d9-a5c5-42dd-bb6c-a0614e7341b9','woman');
   const rehamState=await call(reham,'premium');
   assert.equal(rehamState.membershipTesting.selected,'premium');
-  assert.equal(rehamState.demoInteractionsEnabled,false);
+  assert.equal(rehamState.demoInteractionsEnabled,true);
+  assert.equal(rehamState.demoDiscoveryEnabled,true);
   assert.equal((await call(reham,'actual')).membershipTesting.selected,'actual');
   await assert.rejects(call(other,'seriousness'),/الاختبار/);
-  assert.equal((await rpc('marriage.member_state($1)',[other.id])).membershipTesting,undefined);
+  const otherState=await rpc('marriage.member_state($1)',[other.id]);
+  assert.equal(otherState.membershipTesting,undefined);
+  assert.equal(otherState.demoInteractionsEnabled,false);
+  await db.query('update auth.users set email_confirmed_at=null where id=$1',[reham.id]);
+  assert.equal((await rpc('marriage.member_state($1)',[reham.id])).demoInteractionsEnabled,false);
   for(const [tier,active,capacity] of [['free',false,1],['premium',true,2],['seriousness',true,3]]){
    const state=await call(owner,tier);
    assert.equal(state.membership.active,active);assert.equal(state.membership.tier,tier);

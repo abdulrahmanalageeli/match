@@ -1,3 +1,4 @@
+import { DemoDeepReading } from '../community/DemoDeepReading';
 import { mahrRanges } from '../compatibility/marriage';
 import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess} from '../membership/access';
@@ -50,6 +51,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
   useCapturePrivacy('profile');
   const [failed,setFailed]=useState(false);
+  const [readingId,setReadingId]=useState<string>();
   const [passportOpen,setPassportOpen]=useState(false);
   const passportButton=useRef<HTMLButtonElement>(null);
   const sections=useRef<HTMLDivElement>(null);
@@ -84,6 +86,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   </article>;
   const b=person.marriageBasics;
   const privateDemo = person.isDemo && (source?.simulation || source?.demoInteractions || source?.familyTestMode);
+  const reading = !preview && person.isDemo ? (source?.demoInteractions ?? source)?.profileReading : undefined;
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const hasFit=premium&&!person.compatibilityLocked&&!preview&&Boolean(person.fit||person.reasons.length);
   const visibleSection=section==='fit'&&!hasFit?'about':section;
@@ -142,6 +145,10 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       </div>
     </section>
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}
+    {reading && <>
+      <MotionPressButton className="mp-passport-link" onClick={()=>setReadingId(person.id)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>تحليل وُدَين المعمّق</strong><small>قراءة التوافق مع {person.alias}</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>
+      <DemoDeepReading key={person.id} person={person} read={reading} watch={(source?.demoInteractions ?? source)!.watch} open={readingId===person.id} onClose={()=>setReadingId(undefined)}/>
+    </>}
     <div className="mp-sections" ref={sections} role="group" aria-label="أقسام الملف">
       <MotionPressButton aria-pressed={visibleSection==='about'} aria-controls={contentId} onClick={()=>selectSection('about')}><Feather size={16} aria-hidden="true"/>نبذة</MotionPressButton>
       {hasDetails&&<MotionPressButton aria-pressed={visibleSection==='details'} aria-controls={contentId} onClick={()=>selectSection('details')}><ListFilter size={16} aria-hidden="true"/>التفاصيل</MotionPressButton>}

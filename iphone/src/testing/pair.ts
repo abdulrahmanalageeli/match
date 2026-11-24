@@ -53,7 +53,7 @@ function fictionalViewer(profile: Profile): Profile {
  const fixture = demoPeople.find(person => person.gender === profile.gender)!;
  return {
   ...demoProfile, ...fixture.currentAssessment,
-  gender:profile.gender, age:32, preferredMinAge:18, preferredMaxAge:60,
+  displayName:profile.displayName, gender:profile.gender, age:32, preferredMinAge:18, preferredMaxAge:60,
   surveyAnswers:{...fixture.currentAssessment.surveyAnswers,residence_plan:'B'},
   partnerCriteria:fixture.partnerCriteria,
   marriageBasics:{...fixture.marriageBasics,polygynyPreference:profile.gender==='man'?'not_open':'open_to_discussion'},
@@ -67,12 +67,12 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
  const local=demoCommunity(()=>{
   const current=viewer(),own=cached?.profiles[account.actor];
   const latest=own?{...testProfile(account.actor,own),gender:current.gender}:current;
-  return account.actor==='reham'?{...latest,gender:'woman'}:fictionalViewer(latest);
+  return fictionalViewer(latest);
  },false,{
   storageKey:`nisfayn-simulation-v1-${account.actor}-${viewer().gender}`,
   externalAccepted:()=>Number(cached?.matched),
-  canAct:()=>account.actor==='abdulrahman'&&Boolean(cached)&&!cached?.exclusive,
-  interactiveJourney:account.actor==='abdulrahman',
+  canAct:()=>cached?.actor===account.actor&&!cached?.exclusive,
+  interactiveJourney:true,
   ...(account.actor==='abdulrahman'?{aiReply:({person,messages}:{person:PublicPerson;messages:{senderIsMe:boolean;body:string}[]})=>requestSimulationReply(person.id,messages,account.session)}:{}),
  });
  const listeners=new Set<()=>void>();let timer:number|undefined,polling=false;
@@ -136,7 +136,6 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const blob=await response.blob();if(blob.type!=='image/jpeg')throw Error('تعذّر تحميل الصورة.');return URL.createObjectURL(blob);
  }
  const source:CommunitySource={...local,
-  simulation:account.actor==='abdulrahman'?local.simulation:undefined,
   ...manualVerificationSource(account.session),
   suggestOpener:()=>requestAi({mode:'opener'},account.session),
   familyTestMode: true,

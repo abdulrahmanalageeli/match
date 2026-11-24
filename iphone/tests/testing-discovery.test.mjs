@@ -7,7 +7,7 @@ const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDisc
 const exports={};
 const localRows=[];
 const local={discover:async()=>fixtures,inbox:async()=>localRows,request:async id=>{localRows.push({id:'local-request',person:{id,isDemo:true},status:'pending'});return 'local-request';},setInterest:async()=>{},act:async()=>{localRows[0].status='accepted';},unreadCount:async()=>1};
-new Function('require','exports',code)(()=>({demoCommunity:()=>local}),exports);
+new Function('require','exports',code)(()=>({demoCommunity:()=>local,demoPeople:fixtures}),exports);
 test('directory fills empty slots with labeled fixtures without skipping real pages',async()=>{
   const members=Array.from({length:30},(_,i)=>({id:'member-'+i})),requests=[];
   const real={discover:async f=>members.slice(f.offset,f.offset+24),request:async id=>{requests.push(id);return 'request';}};

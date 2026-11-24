@@ -32,14 +32,14 @@ function harness(actor) {
   return { pair, options, ai, remote, localCalls, state, local };
 }
 
-test('only Abdulrahman exposes and can run the simulator after verified pair state', async () => {
+test('both testers can run the simulator after verified pair state', async () => {
   for (const actor of ['abdulrahman', 'reham']) {
     const h = harness(actor);
     assert.equal(h.options.canAct(), false);
     await h.pair.source.agreement('tester-pair');
-    assert.equal(Boolean(h.pair.source.simulation), actor === 'abdulrahman');
-    assert.equal(h.options.canAct(), actor === 'abdulrahman');
-    assert.equal(h.options.interactiveJourney, actor === 'abdulrahman');
+    assert.equal(Boolean(h.pair.source.simulation), true);
+    assert.equal(h.options.canAct(), true);
+    assert.equal(h.options.interactiveJourney, true);
     assert.equal(typeof h.options.aiReply, actor === 'abdulrahman' ? 'function' : 'undefined');
     h.state.exclusive = true;
     assert.equal(h.options.canAct(), false);

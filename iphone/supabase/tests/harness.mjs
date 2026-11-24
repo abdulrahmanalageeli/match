@@ -41,7 +41,7 @@ export async function createDatabase({coreOnly=false, throughMigration}={}) {
   for (const file of (await readdir(directory)).filter(s=>s.endsWith('.sql')).sort()) {
     if(throughMigration && file>throughMigration) continue;
     if(coreOnly && !file.endsWith('_marriage_core.sql')) continue;
-    let sql=await readFile(new URL(file,directory),'utf8');
+    let sql=(await readFile(new URL(file,directory),'utf8')).replace(/\r\n/g,'\n');
     if(file.endsWith('_immediate_push_wakeup.sql')) {
       // Hosted networking and encrypted Vault are unavailable in WASM.
       // Capture wake requests locally; never contact a production endpoint.

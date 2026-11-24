@@ -24,6 +24,13 @@ test('export includes all approved sections, but never IDs, raw evidence or priv
   assert.doesNotMatch(document,/PRIVATE_ID|PRIVATE_REVIEW|RAW_EVIDENCE|ملخص التوافق/);
 });
 
+test('previously shared comparison rows are omitted from saved readings', () => {
+  const text = 'وقت الخلاف\n\nاختارا وقتًا للعودة إلى الحوار.\n\n«عبارة الاستبيان»\nإجابتك: «الخيار الأول». إجابة أمل: «الخيار الثاني».';
+  const document = deepReportDocument({...shared,findings:[{...shared.findings[0],text}]}, 'أمل');
+  assert.match(document,/اختارا وقتًا/);
+  assert.doesNotMatch(document,/الخيار الأول|الخيار الثاني|عبارة الاستبيان/);
+});
+
 test('peer names and model text cannot insert markup or initiate network requests', () => {
   const document = deepReportDocument({...shared,findings:[{...shared.findings[0],text:'<script>alert(1)</script><img src="https://evil.invalid"> &'}]}, '<svg onload="alert(1)">');
   assert.doesNotMatch(document,/<script|<img|<svg/);

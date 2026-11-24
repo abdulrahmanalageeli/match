@@ -67,6 +67,12 @@ function harness(t,overrides={}){
 }
 async function acceptFictional(source,id){const request=await source.request(id);await source.demoAcceptOutgoing(request);return request;}
 
+async function signAsReham(source,id) {
+  await source.agree(id,'propose',{days:7,signed:true});
+  await source.simulation.step();
+  assert.equal((await source.agreement(id)).status,'accepted');
+}
+
 test('library paging excludes deleted and view-once rows, and paired unread/typing stay in their own conversation',async t=>{
  const list=Array.from({length:62},(_,i)=>({id:`m${i}`,sender:'abdulrahman',body:`Family ${i}`,createdAt:new Date(Date.now()-100000+i*100).toISOString()}));
  list[1].attachment={id:'once',kind:'photo',viewOnce:true};list[2].deletedAt=new Date().toISOString();
@@ -81,7 +87,8 @@ test('library paging excludes deleted and view-once rows, and paired unread/typi
  await h.source.setTyping('tester-pair',true);assert.equal(await h.source.typingState('tester-pair'),true);
  assert.deepEqual(h.calls.find(c=>c.action==='typing_set').payload,{active:true},'No draft text is transmitted');
  const participant=(await h.source.discover({mode:'all'}))[0],local=await acceptFictional(h.source,participant.id);
- await h.source.send(local,'local family fixture','mine');const calls=h.calls.length;
+ await signAsReham(h.source,local);
+  await h.source.send(local,'local family fixture','mine');const calls=h.calls.length;
  assert.equal((await h.source.searchMessages(local,'family'))[0].body,'local family fixture');
  assert.equal(await h.source.typingState(local),false);await h.source.setTyping(local,true);
  assert.deepEqual(await h.source.readState(local),{firstUnreadId:null,unreadCount:0});assert.equal(h.calls.length,calls);
@@ -96,6 +103,7 @@ test('pair and local reactions use their own source, refresh historical messages
   assert.deepEqual(await h.source.reactToMessage('tester-pair','real','👍'),[{emoji:'❤️',count:1,mine:false},{emoji:'👍',count:1,mine:true}]);
   assert.deepEqual(await h.source.reactToMessage('tester-pair','real',null),[{emoji:'❤️',count:1,mine:false}]);
   const person=(await h.source.discover({mode:'all'}))[0],id=await acceptFictional(h.source,person.id);
+  await signAsReham(h.source,id);
   await h.source.send(id,'local fixture','local');
   const remoteCalls=h.calls.length;
   assert.deepEqual(await h.source.reactToMessage(id,'local','😂'),[{emoji:'😂',count:1,mine:true}]);
@@ -176,6 +184,11 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
 
 test('all ten eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
   const h=harness(t);
+  const viewer=demoPeople.find(p=>p.gender==='woman');
+  Object.assign(h.profile,viewer.currentAssessment,{
+    surveyAnswers:{...viewer.currentAssessment.surveyAnswers,residence_plan:'B'},
+    partnerCriteria:viewer.partnerCriteria,marriageBasics:{...viewer.marriageBasics,polygynyPreference:'not_open'},
+  });
   const all=await h.source.discover({mode:'all'});
   const openToDiscussion=['p04','p09'];
   assert.equal(all.length,10);
@@ -201,9 +214,10 @@ test('old tester commitment does not erase new fictional matches when reloading 
   await h.source.inbox();
   const people=await h.source.discover({mode:'all'});
   const id=await acceptFictional(h.source,people[0].id);
+  await signAsReham(h.source,id);
   await h.source.send(id,'هذه محادثة توضيحية محفوظة','persisted-message');
   const restored=h.reopen();
-  assert.equal(restored.simulation,undefined,'The non-administrator tester has no simulation controls');
+  assert(restored.simulation,'A returning tester keeps the same interactive directory');
   assert((await restored.inbox()).some(row=>row.id===id),'Historical retirement must not delete newly created local conversations');
   assert.equal((await restored.thread(id))[0].body,'هذه محادثة توضيحية محفوظة');
 });
@@ -245,3 +259,42 @@ test('fictional discovery uses Abdulrahman’s complete assessment and honors ac
   assert.equal(people[0].fit.assessmentComplete,true);
   assert.deepEqual(await h.source.discover({mode:'all',search:'No matching profile'}),[]);
 });
+
+for (const actor of ['reham','abdulrahman']) {
+  test(actor+' can request any visible reading and the peer handles the invitation and agreement',async t=>{
+    const h=harness(t,{actor});
+    const peers=(await h.source.discover({mode:'all'})).filter(person=>person.isDemo);
+    const readings=h.source.profileReading;
+    assert.equal(peers.length,10);
+    const reports=new Set();
+    for (const person of peers) {
+      const accepted=await readings.request(person.id,'request');
+      assert.equal(accepted.status,'ready');
+      await readings.generate(person.id);
+      const review=await readings.request(person.id,'get');
+      assert.equal(review.peerReviewed,true);
+      assert(review.review.length>0);
+      const result=await readings.request(person.id,'review',Object.fromEntries(review.review.map(row=>[row.id,true])));
+      assert.equal(result.status,'shared');
+      assert(result.findings.some(row=>row.section==='patterns'));
+      reports.add(JSON.stringify(result.findings));
+    }
+    assert.equal(reports.size,10);
+    await assert.rejects(readings.request('tester-pair','request'));
+    const person=peers.find(p=>p.eligible!==false);
+    const id=await h.source.request(person.id);
+    await h.source.simulation.step();
+    assert((await h.source.inbox()).some(row=>row.id===id && row.status==='accepted'));
+    if(actor==='reham') await signAsReham(h.source,id);
+    else {
+      await h.source.simulation.step();
+      const offer=await h.source.agreement(id);
+      assert.equal(offer.status,'proposed');
+      assert.equal((await h.source.agree(id,'accept',{proposalId:offer.proposalId,signed:true})).status,'accepted');
+    }
+    await h.source.send(id,'كيف يومك؟','test-text');
+    for(let i=0;i<4;i++) await h.source.simulation.step();
+    assert.equal((await h.source.thread(id)).at(-1).senderIsMe,false);
+    assert(!h.calls.some(call=>['send','agreement_propose','agreement_accept'].includes(call.action)));
+  });
+}

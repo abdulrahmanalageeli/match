@@ -7,8 +7,11 @@ export const deepResearchCopy = 'وجدت دراسة شملت ٤٣ مجموعة 
 export const deepKindCopy = { strength: 'نقطة قوة', manageable: 'مساحة للنقاش', incompatibility: 'تعارض مع شرط أساسي', uncertain: 'يحتاج توضيحًا' };
 
 export function readingCopy(text: string) {
-  const [first, ...body] = text.trim().split(/\r?\n\s*\r?\n/);
-  return body.length && first.length <= 110 ? { title: first, body } : { title: '', body: [text] };
+  // Older local reports appended labeled questionnaire responses to the interpretation.
+  const paragraphs = text.trim().split(/\r?\n\s*\r?\n/).filter(paragraph =>
+    !/^(?:«[^»]+»\r?\n)?(?:إجابتك|إجابة [^:«»\n]+|تفضيلك المحفوظ بخصوص الشريك|تفضيل [^:«»\n]+ بخصوص الشريك):\s*«/.test(paragraph));
+  const [first = '', ...body] = paragraphs;
+  return body.length && first.length <= 110 ? { title: first, body } : { title: '', body: paragraphs };
 }
 
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);

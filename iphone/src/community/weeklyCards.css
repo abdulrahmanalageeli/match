@@ -37,21 +37,17 @@
 .cm-detail-actions.cm-weekly-actions { border-top: 0; padding-top: 5px; }
 .cm-person:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -3px; }
 
-/* Only the selected person's ribbon and monogram travel between the two views. */
+/* Keep each portrait and its watermark in one snapshot. */
 :root[data-nf-weekly-card] { view-transition-name: none; }
 :root[data-nf-weekly-card] [data-weekly-moving] { view-transition-name: nf-weekly-identity; animation: none; }
-:root[data-nf-weekly-card] [data-weekly-moving] .cm-avatar { view-transition-name: nf-weekly-seal; }
 :root[data-nf-weekly-card]::view-transition { pointer-events: none; }
-:root[data-nf-weekly-card]::view-transition-group(nf-weekly-identity),
-:root[data-nf-weekly-card]::view-transition-group(nf-weekly-seal) {
+:root[data-nf-weekly-card]::view-transition-group(nf-weekly-identity) {
   animation-duration: var(--nf-motion-reveal, 280ms);
   animation-timing-function: var(--nf-ease-settle, cubic-bezier(.22,.78,.28,1));
 }
 :root[data-nf-weekly-card]::view-transition-group(nf-weekly-identity) { border-radius: 17px 17px 13px 13px; overflow: clip; }
 :root[data-nf-weekly-card]::view-transition-new(nf-weekly-identity),
-:root[data-nf-weekly-card]::view-transition-new(nf-weekly-seal),
-:root[data-nf-weekly-card]::view-transition-old(nf-weekly-identity),
-:root[data-nf-weekly-card]::view-transition-old(nf-weekly-seal) { animation-duration: var(--nf-motion-shift, 220ms); }
+:root[data-nf-weekly-card]::view-transition-old(nf-weekly-identity) { animation-duration: var(--nf-motion-shift, 220ms); }
 @media (prefers-reduced-motion: reduce) {
   :root[data-nf-weekly-card]::view-transition-group(*),
   :root[data-nf-weekly-card]::view-transition-old(*),

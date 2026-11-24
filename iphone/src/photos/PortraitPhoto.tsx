@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { UserRound } from "../BrandIcons";
 import type { ProfilePortrait } from '../types';
 import type { CommunitySource } from '../community/data';
 import { CaptureWatermark } from '../privacy/CapturePrivacy';
@@ -65,7 +64,7 @@ export function PortraitPhoto({portrait,source,alt,className,captionClassName,fr
     return()=>{active=false;clearTimeout(wake);clearInterval(timer);observer?.disconnect();stop();document.removeEventListener('visibilitychange',visibility);discard();invalidate.current=null;};
   },[source,signature,portrait.id,portrait.path,portrait.revealed,portrait.revealPolicy]);
   const shown=loaded?.signature===signature && loaded.source===source ? loaded : null;
-  const photo=shown?<img ref={node=>{element.current=node;}} className={className} src={shown.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span ref={node=>{element.current=node;}} className={className} aria-label="الصورة غير متاحة بعد"><UserRound size={30}/></span>;
+  const photo=shown?<img data-access-checked-portrait="" ref={node=>{element.current=node;}} className={className} src={shown.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span data-access-checked-portrait="" ref={node=>{element.current=node;}} className={className} role="img" aria-label="الصورة غير متاحة بعد"/>;
   if (!captionClassName && !frameClassName) return photo;
   return <>{frameClassName?<div className={frameClassName}>{photo}{shown && <CaptureWatermark scope="profile" variant="photo"/>}</div>:photo}
     {captionClassName && shown && <span className={captionClassName}>{shown.revealed?'الصورة الواضحة متاحة لك بإذن صاحبها':shown.blur>0?'صورة بتمويه اختياري':'صورة شخصية'}</span>}

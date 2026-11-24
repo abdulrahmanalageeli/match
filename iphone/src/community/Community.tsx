@@ -415,19 +415,20 @@ function WeeklyContours() {
 
 function DiscoveryPortrait({ person, source, priority = false, heading = false }: { person: PublicPerson; source: CommunitySource; priority?: boolean; heading?: boolean }) {
   const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
-  const [photoReadySrc, setPhotoReadySrc] = useState<string | null>(null);
   const avatar = person.publicAvatar;
   const candidatePhoto = !avatar && person.demoPhoto?.startsWith("/demo/portraits/") ? person.demoPhoto : undefined;
   const photo = candidatePhoto && candidatePhoto !== failedPhotoSrc ? candidatePhoto : undefined;
   const timeline = person.marriageBasics?.marriageTimeline;
   return <>
-    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <><div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div><img className="df-portrait-image df-demo-image" data-loaded={photoReadySrc===photo||undefined} src={photo} width="1122" height="1402"
+    <div className="df-portrait-media">
+    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
-      alt="" onLoad={() => setPhotoReadySrc(photo)} onError={() => setFailedPhotoSrc(photo)} /></> :
+      alt="" onError={() => setFailedPhotoSrc(photo)} /> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
+    {(person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
+    </div>
     <div className="df-portrait-shade" aria-hidden="true" />
     <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
-    {(person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
     <div className="df-portrait-badges">
       {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
@@ -812,18 +813,17 @@ function Discovery({
     const origin = (anchor.closest('.dr-row-profile-group, .df-recommendation') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
     listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
-    move(origin, () => {
+    move(origin.querySelector<HTMLElement>('.df-portrait-media') ?? origin, () => {
       flushSync(() => { setNotice(""); setError(""); setRowError(''); setInterestNotice(''); setSelected(item.id); setSelectedPerson(item); });
-      const hero = identity.current;
-      if (!hero) return null;
+      if (!identity.current) return null;
       window.scrollTo(0, 0);
-      hero.closest(".mp-profile")?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
+      identity.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
       void source.noteProfileOpen?.(item.id).catch(() => {});
-      return hero;
+      return identity.current?.querySelector<HTMLElement>('.mp-portrait') ?? null;
     });
   }
   function closeProfile() {
-    const origin = identity.current;
+    const origin = identity.current?.querySelector<HTMLElement>('.mp-portrait');
     const shell = origin?.closest(".cm-shell");
     const anchor = listPosition.current;
     if (!origin || !anchor || !shell) { setSelected(null); setSelectedPerson(null); return; }
@@ -833,7 +833,8 @@ function Discovery({
       if (!button) { window.scrollTo(0, anchor.scroll); return null; }
       window.scrollTo(0, window.scrollY + button.getBoundingClientRect().top - anchor.top);
       button.focus({ preventScroll: true });
-      return (button.closest('.dr-row-profile-group, .df-recommendation') ?? button).querySelector(".cm-weekly-identity");
+      const card=button.closest('.dr-row-profile-group, .df-recommendation');
+      return card?.querySelector<HTMLElement>('.df-portrait-media, .dr-row-avatar') ?? null;
     });
   }
   async function sendRequest(target=person) {
@@ -883,7 +884,7 @@ function Discovery({
         interestAction={person.eligible!==false&&source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:person.eligible===false&&!person.connectionId?<p className="cm-help"><LockKeyhole size={14} />هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.</p>:<>
-          <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main">
+          <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main" data-introduction-request={premium&&!person.connectionId||undefined}>
             <span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? memberAr.openChat : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? memberAr.request : "اشترك وابدأ التعارف"}</strong></span>
             <span className="mp-action-symbol" aria-hidden="true">{person.connectionStatus==='accepted'?<MessageCircle size={18}/>:person.connectionStatus==='pending'?<Clock3 size={18}/>:<AddPersonMark/>}</span>
           </button>
@@ -1503,9 +1504,13 @@ export function Chat({
   }
   function returnToChat() {
     const origin = profileIdentity.current?.querySelector<HTMLElement>('.mp-portrait');
-    const swap = () => { flushSync(() => setProfileOpen(false)); return screen.current?.querySelector<HTMLElement>('.cm-chat-person .cm-avatar') ?? null; };
+    const swap = () => {
+      flushSync(() => setProfileOpen(false));
+      const button = screen.current?.querySelector<HTMLButtonElement>('.cm-chat-person');
+      button?.focus({ preventScroll: true });
+      return button?.querySelector<HTMLElement>('.cm-avatar') ?? null;
+    };
     if (origin) profileFlight(origin, swap); else swap();
-    requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-chat-person')?.focus({ preventScroll: true }));
   }
   function openPartnerProfile(origin: HTMLButtonElement) {
     reading.remember(); typing.stop();

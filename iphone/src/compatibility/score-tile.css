@@ -24,4 +24,5 @@
 .nf-score-logo-prominent .nf-logo-wave-back { animation-duration:7s; }
 @keyframes nf-logo-flow { to { transform:translateX(-48px); } }
 @media (prefers-reduced-motion:reduce) { .nf-logo-wave { animation:none; } }
+html[data-nf-motion="reduced"] .nf-logo-wave { animation:none; }
 html[data-nf-ambient-paused] .nf-logo-wave { animation-play-state:paused; }

@@ -58,10 +58,13 @@ try{
  const scoreText = async tile => (await tile.locator('.nf-score-tile strong').innerText()).replace(/[\u061c\u200e\u200f]/g,'');
  assert.equal(await scoreText(weekly),percent(72));
  await weekly.getByText('تختلف رغبتكما في الإنجاب.',{exact:true}).waitFor();
+ const sourcePhoto=await weekly.locator('.df-portrait-image').evaluate(async image=>{await image.decode();return image.currentSrc;});
+ assert.equal(await weekly.locator('.df-portrait-placeholder, .df-portrait-media .cm-avatar').count(),0,'a loaded portrait has no monogram layer to surface during navigation');
  await page.screenshot({path:resolve(output,'recommended-390.png'),fullPage:true});
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  await page.locator('.mp-profile h1').waitFor();
  const profile=page.locator('.mp-profile');
+ assert.equal(await profile.locator('.mp-portrait img').first().evaluate(async image=>{await image.decode();return image.currentSrc;}),sourcePhoto);
  assert.equal(await page.locator('html').getAttribute('data-capture-scope'),'profile');
  await profile.getByLabel('خيارات الملف').click();
  const block=await profile.getByRole('button',{name:'حظر العضو',exact:true}).boundingBox();

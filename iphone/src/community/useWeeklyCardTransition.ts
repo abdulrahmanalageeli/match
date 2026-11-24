@@ -2,8 +2,7 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 
 type Flight = { elements: HTMLElement[]; transition?: ViewTransition };
 
-// Mark just the selected identity and seal. Other candidates, answers and the
-// surrounding screen stay outside the browser's transition snapshots.
+// Signed portraits recheck access on mount and render directly on the new screen.
 export function useWeeklyCardTransition() {
   const flight = useRef<Flight | null>(null);
   const clear = useCallback(() => {
@@ -24,11 +23,13 @@ export function useWeeklyCardTransition() {
   return (origin: HTMLElement, swap: () => HTMLElement | null) => {
     clear();
     const root = document.documentElement;
-    if (!document.startViewTransition || document.hidden || root.dataset.nfMotion === "reduced" ||
+    if (!document.startViewTransition || document.hidden || origin.querySelector('[data-access-checked-portrait]') || root.dataset.nfMotion === "reduced" ||
         matchMedia("(prefers-reduced-motion: reduce)").matches) {
       swap();
       return;
     }
+    const demoSelector = 'img[src^="/demo/portraits/"]';
+    const originPhoto = origin.querySelector<HTMLImageElement>(demoSelector)?.src;
     const current: Flight = { elements: [origin] };
     flight.current = current;
     root.dataset.nfWeeklyCard = "";
@@ -36,7 +37,8 @@ export function useWeeklyCardTransition() {
     const transition = document.startViewTransition(() => {
       if (flight.current !== current || !origin.isConnected) return;
       const next = swap();
-      if (next) {
+      if (next && !next.querySelector('[data-access-checked-portrait]') &&
+          next.querySelector<HTMLImageElement>(demoSelector)?.src === originPhoto) {
         next.dataset.weeklyMoving = "";
         current.elements.push(next);
       } else {

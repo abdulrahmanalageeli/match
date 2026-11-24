@@ -8,9 +8,9 @@
   grid-area: 1 / 1;
   align-self: stretch;
   justify-self: stretch;
-  background: transparent url('/brand/wudayn-privacy-row-lock.webp') center / contain no-repeat;
+  background: transparent url('/brand/wudayn-private-avatar.webp') center / contain no-repeat;
 }
-/* The capture artwork includes the entire bezel and its projecting clasp. */
+/* The artwork supplies its own circular edge. */
 .phone-app .cm-shell .df-discovery .dr-row-image:has(.wd-private-portrait--small) {
   overflow: visible;
   border: 0;

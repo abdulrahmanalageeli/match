@@ -1,10 +1,9 @@
 import { useId, useRef } from "react";
-import { CircleHelp, Fingerprint, SlidersHorizontal } from "../BrandIcons";
+import { CircleHelp, Fingerprint, MessageCircle, SlidersHorizontal } from "../BrandIcons";
 import { dimensionsForVersion, preferencePercentage, personalityPercentage, type MatchFit } from "./model";
 export { preferencePercentage, personalityPercentage } from "./model";
 import { PersonalityAnalysis } from "./PersonalityAnalysis";
 import { PreferenceInsights } from "./PreferenceInsights";
-import { readPreferenceEvidence } from "./preference-evidence";
 import { LogoCompatibilityMark } from "./LogoCompatibilityMark";
 import "./score-tile.css";
 import "./fit.css";
@@ -29,10 +28,6 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
   const hasPersonality = fit.personality?.version === 'personality-v1' || fit.personality?.version === 'personality-v2';
   const personality = personalityPercentage(fit);
   const personalityUnavailable=personality===null&&fit.personality?.complete===true;
-  const conversationQuestion = suggestedQuestions(fit)[0];
-  const questionAlreadyShown = profile && readPreferenceEvidence(fit).topics.some(
-    item => item.status !== 'missing' && topic(item.id, fit.version)?.discussion === conversationQuestion,
-  );
   function explainPreferences(){
     const panel=preferencePanel.current;if(!panel)return;
     panel.focus({preventScroll:true});
@@ -49,35 +44,42 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
   return <section className="nf-fit" aria-labelledby={heading}>
     <header className="nf-fit-heading">
       <h2 id={heading} className="nf-fit-title">التوافق بينكما</h2>
-      {!profile && <p>{hasPersonality ? 'التفضيلات، والطباع، ومواقف الحياة. لكلٍّ قراءة مستقلة.' : 'تفضيلات الزواج ومواقف الحياة المشتركة.'}</p>}
+      <p>{hasPersonality ? 'التفضيلات، والطباع، ومواقف الحياة. لكلٍّ قراءة مستقلة.' : 'تفضيلات الزواج ومواقف الحياة المشتركة.'}</p>
     </header>
     <div className="nf-fit-scores">
       <div className="nf-fit-score" data-fit-score="preferences">
         <SlidersHorizontal className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>درجة توافق التفضيلات</h3>
-        <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} بالمئة`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{profile && <LogoCompatibilityMark percentage={preference}/>}<bdi dir="ltr">{preference}%</bdi></>}</strong>
+        {profile && preference !== null
+          ? <span className="nf-fit-score-mark" role="img" aria-label={`${arabic.format(preference)} بالمئة`}><LogoCompatibilityMark percentage={preference} prominent/><bdi dir="ltr" aria-hidden="true">{preference}%</bdi></span>
+          : <strong aria-label={preference === null ? 'بانتظار التقييمين' : `${arabic.format(preference)} بالمئة`}>{preference === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{preference}%</bdi>}</strong>}
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${preference ?? 0}%`}}/></div>
         <p>{preference === null ? 'بانتظار اكتمال التقييمين' : 'بحسب ما يهمّ كل طرف في شريك الحياة'}</p>
         {!profile && <button type="button" className="nf-personality-explain" aria-controls={preferenceId} onClick={explainPreferences}>{preference===null?'قراءة الإجابات المتاحة':'كيف حُسبت الدرجة؟'}<CircleHelp size={15}/></button>}
       </div>
-      {fit.version === 'marriage-v4' && typeof fit.partnerPersonalityFit === 'number' && Number.isInteger(fit.partnerPersonalityFit) && fit.partnerPersonalityFit >= 0 && fit.partnerPersonalityFit <= 100 &&
+      {!profile && fit.version === 'marriage-v4' && typeof fit.partnerPersonalityFit === 'number' && Number.isInteger(fit.partnerPersonalityFit) && fit.partnerPersonalityFit >= 0 && fit.partnerPersonalityFit <= 100 &&
         <div className="nf-fit-score" data-fit-score="partner-personality">
           <Fingerprint className="nf-score-icon" size={20} aria-hidden="true"/><h3>توافق تفضيلات الشخصية</h3>
-          <strong>{profile && <LogoCompatibilityMark percentage={fit.partnerPersonalityFit} personality/>}{arabic.format(fit.partnerPersonalityFit)}<small> من ١٠٠</small></strong>
+          <strong>{arabic.format(fit.partnerPersonalityFit)}<small> من ١٠٠</small></strong>
           <p>نقارن الصفات التي يفضّلها كل منكما بوصف الآخر لنفسه. تأخذ الدرجة الاتجاهين في الحسبان، وتُستبعد الصفات التي تركتموها مرنة.</p>
         </div>}
       {hasPersonality && <div className="nf-fit-score personality" data-fit-score="personality">
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
         <h3>تشابه الإجابات الشخصية</h3>
-        <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : `${arabic.format(personality)} بالمئة`}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <>{profile && <LogoCompatibilityMark percentage={personality} personality/>}<bdi dir="ltr">{personality}%</bdi></>}</strong>
+        {profile && personality !== null
+          ? <span className="nf-fit-score-mark" role="img" aria-label={`${arabic.format(personality)} بالمئة`}><LogoCompatibilityMark percentage={personality} personality prominent/><bdi dir="ltr" aria-hidden="true">{personality}%</bdi></span>
+          : <strong aria-label={personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار التقييمين' : `${arabic.format(personality)} بالمئة`}>{personality === null ? <span className="nf-score-pending" aria-hidden="true">—</span> : <bdi dir="ltr">{personality}%</bdi>}</strong>}
         <div className="nf-score-track" aria-hidden="true"><span style={{width:`${personality ?? 0}%`}}/></div>
-        <p>{personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار اكتمال التقييمين' : profile ? 'مدى تقارب إجاباتكما عن أسلوبكما وطباعكما' : 'تشابه أسلوبكما وطباعكما'}</p>
+        <p>{personality === null ? personalityUnavailable?'تعذّر التحقق من النتيجة':'بانتظار اكتمال التقييمين' : 'تشابه أسلوبكما وطباعكما'}</p>
         {!profile && <button type="button" className="nf-personality-explain" aria-controls={personalityId} onClick={explainPersonality}>{personality===null?'عن هذا التقييم':'لماذا هذه النسبة؟'}<CircleHelp size={15}/></button>}
       </div>}
     </div>
-    {profile ? <PreferenceInsights fit={fit} profile/> : <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>}
-    {hasPersonality && <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel} compact={profile}/>}
-    {!questionAlreadyShown && <section className="nf-fit-conversation"><h3>سؤال لبداية أوضح</h3><p>{conversationQuestion}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></section>}
+    {profile ? <details className="mp-fit-preferences">
+      <summary><SlidersHorizontal size={17} aria-hidden="true"/><span>تفاصيل توافق التفضيلات</span></summary>
+      <PreferenceInsights fit={fit}/>
+    </details> : <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>}
+    {hasPersonality && <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>}
+    <section className="nf-fit-conversation"><h3><MessageCircle size={17} aria-hidden="true"/><span>سؤال لبداية أوضح</span></h3><div><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></div></section>
     <p className="nf-fit-boundary">قراءات من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نتيجة عند اكتمال تقييمها لدى الطرفين.</p>
   </section>;
 }

@@ -409,57 +409,36 @@
 }
 .mp-fit .nf-fit-score > :is(.nf-score-icon, .nf-score-track) { display: none; }
 .phone-app .mp-fit .nf-fit-score h3 { grid-area: 1 / 1; }
-.phone-app .mp-fit .nf-fit-score > strong { grid-area: 1 / 2 / 3; margin: 0; }
+.phone-app .mp-fit .nf-fit-score > :is(strong, .nf-fit-score-mark) { grid-area: 1 / 2 / 3; margin: 0; }
+.mp-fit .nf-fit-score-mark {
+  display: inline-flex;
+  direction: ltr;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 98px;
+  min-height: 44px;
+}
+.mp-fit .nf-fit-score-mark .nf-score-logo {
+  width: 43px;
+  height: 41px;
+  transform: scale(1.04, 1.1);
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px #54152a1f);
+}
+.mp-fit .nf-fit-score-mark > bdi {
+  color: var(--accent-fill);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 610;
+  line-height: 1;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+.mp-fit [data-fit-score="personality"] .nf-fit-score-mark > bdi { color: #40816b; }
 .phone-app .mp-fit .nf-fit-score > p { grid-area: 2 / 1; min-height: 0; margin: 0; }
-.phone-app .mp-profile .mp-fit .nf-fit-scores {
-  background: var(--raised-tint, #f4efed);
-  border-color: transparent;
-}
-.phone-app .mp-fit .nf-fit-score + .nf-fit-score { border-block-start: 1px solid var(--line); }
-.phone-app .mp-fit .nf-fit-score > p { color: var(--supporting-ink, #575158); }
-.mp-fit .nf-pref-topic-list, .mp-fit .nf-pref-more > div { gap: 0; }
-.mp-fit .mp-fit-topic { border-top: 1px solid var(--line); }
-.mp-fit .mp-fit-topic > summary {
-  min-height: 46px;
-  padding: 8px 2px;
-  font-size: .875rem;
-  color: var(--ink);
-}
-.mp-fit-topic > summary > strong { flex: 1; min-width: 0; font-weight: 600; }
-.mp-fit-topic > summary > span {
-  white-space: nowrap;
-  color: var(--supporting-ink, #575158);
-  font-size: .75rem;
-}
-.mp-fit-topic[data-tone="aligned"] > summary > span { color: var(--positive-ink, #536b50); }
-.mp-fit-topic[data-tone="discussion"] > summary > span { color: var(--accent-fill); }
-.mp-fit-topic-body { padding: 0 2px 12px; }
-.mp-fit-topic-body p { margin: 0; }
-.mp-fit-topic-body blockquote {
-  margin: 8px 0 0;
-  padding-inline-start: 10px;
-  border-inline-start: 2px solid var(--accent-fill);
-  font-size: .8125rem;
-  line-height: 1.8;
-}
-.mp-fit .nf-preference-insights :is(.nf-pref-map,.nf-pref-criteria,.nf-pref-method) { margin-top: 0; }
-.mp-fit .nf-preference-insights :is(.nf-pref-map,.nf-pref-criteria,.nf-pref-method) > summary {
-  min-height: 48px;
-  font-size: .8125rem;
-}
-.mp-fit .nf-preference-insights :is(.nf-pref-map,.nf-pref-criteria,.nf-pref-method) > summary > svg { display: none; }
-.mp-fit .nf-fit .nf-personality-reading > summary { min-height: 48px; }
-.mp-fit .nf-personality-domains { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.mp-fit .nf-personality-domain {
-  padding: 9px 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-}
-.mp-fit .nf-personality-domain-heading { align-items: baseline; }
-.mp-fit .nf-personality-domain-heading > strong { font-size: 1rem; }
-.mp-fit .nf-fit .nf-personality-domain p { margin: 3px 0 0; font-size: .8125rem; }
+.mp-fit-preferences { margin-block: 16px; border-block: 1px solid var(--line); }
+.mp-fit-preferences > summary { padding: 14px 4px; min-height: 44px; color: var(--ink); font-weight: 600; cursor: pointer; }
 
 .mp-content .mp-story .mp-hero-interests {
   justify-content: flex-start;
@@ -482,4 +461,174 @@
   border-radius: 50%;
   background: #b88c9a;
 }
-.phone-app .mp-fit .nf-fit-score > strong { display: inline-flex; align-items: center; gap: 5px; }
+
+/* Compatibility follows the same borderless editorial hierarchy as About and Details. */
+.phone-app .mp-profile .mp-fit > .nf-fit > :is(.mp-fit-preferences, .nf-personality-reading, .nf-fit-conversation) {
+  position: relative;
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+.phone-app .mp-profile .mp-fit > .nf-fit > :is(.mp-fit-preferences, .nf-personality-reading, .nf-fit-conversation)::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 12px;
+  inset-inline-start: 11px;
+  width: 1px;
+  height: 34px;
+  background: linear-gradient(to bottom, #8c5268, transparent);
+  opacity: .5;
+}
+.phone-app .mp-profile .mp-fit :is(.mp-fit-preferences > summary, .nf-personality-reading > summary, .nf-fit-conversation > h3) {
+  position: relative;
+  display: grid;
+  grid-template-columns: 23px auto minmax(20px, 1fr);
+  align-items: center;
+  gap: 11px;
+  min-height: 0;
+  margin: 0 0 5px;
+  padding: 0;
+  color: var(--accent-fill);
+  font-size: .95rem;
+  font-weight: 650;
+  line-height: 1.7;
+}
+.phone-app .mp-profile .mp-fit :is(.mp-fit-preferences > summary, .nf-personality-reading > summary, .nf-fit-conversation > h3)::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset-inline-start: 0;
+  width: 23px;
+  height: 23px;
+  box-sizing: border-box;
+  border: 1px solid #b88c9a;
+  border-radius: 50%;
+  background: var(--surface, #fff);
+}
+.phone-app .mp-profile .mp-fit :is(.mp-fit-preferences > summary, .nf-personality-reading > summary, .nf-fit-conversation > h3)::after {
+  content: "";
+  grid-column: 3;
+  width: auto;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: linear-gradient(to left, var(--line), transparent);
+  transform: none;
+}
+.phone-app .mp-profile .mp-fit :is(.mp-fit-preferences > summary, .nf-personality-reading > summary, .nf-fit-conversation > h3) > svg,
+.phone-app .mp-profile .mp-fit .nf-personality-seal {
+  position: relative;
+  z-index: 1;
+  grid-column: 1;
+  width: 23px;
+  height: 23px;
+  padding: 4px;
+  box-sizing: border-box;
+  color: var(--accent-fill);
+  background: transparent;
+}
+.phone-app .mp-profile .mp-fit :is(.mp-fit-preferences > summary, .nf-fit-conversation > h3) > span { grid-column: 2; }
+.phone-app .mp-profile .mp-fit .nf-personality-reading > summary > span:nth-child(2) {
+  grid-column: 2;
+  display: block;
+}
+.phone-app .mp-profile .mp-fit .nf-personality-reading > summary > span:nth-child(2) small { display: none; }
+.phone-app .mp-profile .mp-fit .nf-personality-reading > summary strong {
+  color: var(--accent-fill);
+  font-size: .95rem;
+  font-weight: 650;
+}
+.phone-app .mp-profile .mp-fit .mp-fit-preferences > summary::after,
+.phone-app .mp-profile .mp-fit .nf-personality-reading > summary::after { transform: none; }
+.phone-app .mp-profile .mp-fit .mp-fit-preferences > .nf-preference-insights,
+.phone-app .mp-profile .mp-fit .nf-personality-body,
+.phone-app .mp-profile .mp-fit .nf-fit-conversation > div {
+  margin-inline-start: 34px;
+}
+.phone-app .mp-profile .mp-fit .mp-fit-preferences > .nf-preference-insights { margin-top: 12px; }
+.phone-app .mp-profile .mp-fit .nf-personality-body { padding: 10px 0 0; }
+.phone-app .mp-profile .mp-fit .nf-personality-lead { padding: 9px 0 14px; border-top: 0; }
+.phone-app .mp-profile .mp-fit .nf-pref-heading > span,
+.phone-app .mp-profile .mp-fit .nf-personality-eyebrow { display: none; }
+.phone-app .mp-profile .mp-fit .nf-pref-heading h3 { margin: 0 0 4px; font-size: .9rem; }
+.phone-app .mp-profile .mp-fit :is(.nf-pref-heading > p, .nf-personality-lead > p) {
+  margin-bottom: 12px;
+  color: var(--supporting-ink, #575158);
+  font-size: .82rem;
+  line-height: 1.85;
+}
+.phone-app .mp-profile .mp-fit .nf-pref-counts {
+  gap: 0;
+  border-block: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+}
+.phone-app .mp-profile .mp-fit .nf-pref-counts > button {
+  min-height: 64px;
+  padding: 8px 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.phone-app .mp-profile .mp-fit .nf-pref-counts > button + button {
+  border-inline-start: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+}
+.phone-app .mp-profile .mp-fit .nf-pref-counts > button[aria-pressed="true"] {
+  background: transparent;
+  box-shadow: inset 0 -2px var(--accent-fill);
+}
+.phone-app .mp-profile .mp-fit .nf-pref-counts > button > strong { font-size: 1.05rem; }
+.phone-app .mp-profile .mp-fit .nf-pref-count-note { margin: 8px 0 14px; font-size: .72rem; }
+.phone-app .mp-profile .mp-fit .nf-pref-topic-list { gap: 0; }
+.phone-app .mp-profile .mp-fit .nf-pref-topic {
+  padding: 13px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+.phone-app .mp-profile .mp-fit .nf-pref-topic h4 { margin: 5px 0 3px; font-size: .9rem; }
+.phone-app .mp-profile .mp-fit .nf-pref-topic > p { font-size: .82rem; line-height: 1.85; }
+.phone-app .mp-profile .mp-fit .nf-pref-topic-icon { width: 19px; height: 19px; }
+.phone-app .mp-profile .mp-fit .nf-pref-prompt { border-top-color: color-mix(in srgb, var(--line) 72%, transparent); }
+.phone-app .mp-profile .mp-fit .nf-pref-more > div { gap: 0; }
+.phone-app .mp-profile .mp-fit .nf-personality-domains {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+.phone-app .mp-profile .mp-fit .nf-personality-domain {
+  padding: 11px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+.phone-app .mp-profile .mp-fit .nf-personality-domain h4 { font-size: .85rem; }
+.phone-app .mp-profile .mp-fit .nf-personality-domain-heading > strong { color: #40816b; font-size: .95rem; }
+.phone-app .mp-profile .mp-fit .nf-analysis-meter { height: 3px; margin: 8px 0 6px; }
+.phone-app .mp-profile .mp-fit .nf-analysis-meter > span { background: #40816b; }
+.phone-app .mp-profile .mp-fit .nf-personality-domain p { font-size: .78rem; line-height: 1.75; }
+.phone-app .mp-profile .mp-fit .nf-personality-insights { gap: 0; margin: 10px 0; }
+.phone-app .mp-profile .mp-fit .nf-personality-insight {
+  padding: 13px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+.phone-app .mp-profile .mp-fit .nf-fit-conversation > div { padding-top: 3px; }
+.phone-app .mp-profile .mp-fit .nf-fit-conversation p { margin: 0 0 3px; font-size: .9rem; line-height: 1.85; }
+.phone-app .mp-profile .mp-fit .nf-fit-conversation small {
+  color: var(--supporting-ink, #575158);
+  font-size: .72rem;
+}
+.phone-app .mp-profile .mp-fit .nf-fit-boundary {
+  margin: 20px 34px 0;
+  padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  font-size: .7rem;
+}
+@media(max-width:350px) {
+  .phone-app .mp-profile .mp-fit .nf-personality-domains { grid-template-columns: minmax(0, 1fr); }
+}

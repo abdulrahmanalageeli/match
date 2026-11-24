@@ -72,7 +72,7 @@ try{
  assert.equal(await profile.locator('.mp-fit-preview, .mp-content .nf-fit-score').count(),0);
  await page.screenshot({path:resolve(output,'profile-390.png'),fullPage:true});
  await profile.getByRole('button',{name:'التوافق',exact:true}).click();
- assert.match(await profile.locator('[data-fit-score="preferences"] bdi').innerText(),/^(?:72%|٧٢٪)$/);
+ assert(await profile.locator('[data-fit-score="preferences"]').getByRole('img',{name:'٧٢ بالمئة',exact:true}).isVisible());
  await page.locator('.mp-back').click();
  await page.locator('html[data-capture-scope="discovery"]').waitFor({state:'attached'});
  await weekly.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
@@ -86,6 +86,7 @@ try{
  await first.locator('.dr-bio-peek').click();
  assert.equal(await profile.getByText(concern,{exact:true}).count(),0,'compatibility explanations stay out of the profile overview');
  await profile.getByRole('button',{name:'التوافق',exact:true}).click();
+ await profile.locator('.mp-fit-preferences > summary').click();
  await profile.getByText(concern,{exact:true}).waitFor();
  await page.locator('.mp-back').click();
  assert.equal(await ineligible.locator('.dr-row-interest').count(),0);

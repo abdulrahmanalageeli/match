@@ -20,6 +20,8 @@
 .nf-score-ring-facets { stroke-width: .55; stroke-opacity: .6; stroke-linecap: round; stroke-linejoin: round; }
 .nf-logo-wave { animation:nf-logo-flow 8s linear infinite; }
 .nf-logo-wave-back { animation-direction:reverse; animation-duration:11s; }
+.nf-score-logo-prominent .nf-logo-wave { animation-duration:4.8s; }
+.nf-score-logo-prominent .nf-logo-wave-back { animation-duration:7s; }
 @keyframes nf-logo-flow { to { transform:translateX(-48px); } }
 @media (prefers-reduced-motion:reduce) { .nf-logo-wave { animation:none; } }
 html[data-nf-ambient-paused] .nf-logo-wave { animation-play-state:paused; }

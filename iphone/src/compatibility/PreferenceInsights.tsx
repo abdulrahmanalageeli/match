@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
-import { categories, dimensionsForVersion, preferencePercentage, type MatchFit } from './model';
+import { dimensionsForVersion, preferencePercentage, type MatchFit } from './model';
 import { readPreferenceEvidence, reciprocalTopicAgreement, type PreferenceTopicStatus } from './preference-evidence';
 import { MotionReveal } from '../motion/Reanimated';
 import './preference-insights.css';
@@ -14,7 +14,7 @@ const statusNames: Record<Topic['status'], string> = {
   discussion: 'مساحة للنقاش', missing: 'بانتظار إجاباتكما',
 };
 
-function TopicCard({ topic, version, compact }: { topic: Topic; version: string; compact: boolean }) {
+function TopicCard({ topic, version }: { topic: Topic; version: string }) {
   const definition = dimensionsForVersion(version).find(item => item.id === topic.id);
   if (!definition) return null;
   const aligned = topic.status === 'aligned';
@@ -26,13 +26,6 @@ function TopicCard({ topic, version, compact }: { topic: Topic; version: string;
     : topic.status === 'different' ? 'لم تتطابق رغبة أيٍّ منكما مع إجابة الآخر في هذا الموضوع. تحدثا عن احتياجاتكما ومساحة المرونة الممكنة.'
     : missing ? 'لم تكتمل الإجابات اللازمة للمقارنة في هذا الموضوع. لا نعتبر الصمت اتفاقًا أو اختلافًا.'
     : 'تظهر المقارنة اختلافًا يستحق الحديث. قد يساعدكما مثال من الحياة على فهم ما يناسب كل طرف.';
-  if (compact) return <details className="mp-fit-topic" data-tone={aligned ? 'aligned' : missing ? 'missing' : 'discussion'}>
-    <summary><strong>{definition.title}</strong><span>{aligned ? 'اتفاق' : missing ? 'لم يكتمل' : 'للنقاش'}</span></summary>
-    <div className="mp-fit-topic-body">
-      <p>{explanation}</p>
-      {!missing && <blockquote>{definition.discussion}</blockquote>}
-    </div>
-  </details>;
   return <article className="nf-pref-topic" data-tone={aligned ? 'aligned' : missing ? 'missing' : 'discussion'}>
     <div className="nf-pref-topic-top"><span className="nf-pref-topic-icon"><Icon size={17} strokeWidth={1.6} aria-hidden="true" /></span><span>{statusNames[topic.status]}</span></div>
     <h4>{definition.title}</h4>
@@ -41,7 +34,7 @@ function TopicCard({ topic, version, compact }: { topic: Topic; version: string;
   </article>;
 }
 
-export function PreferenceInsights({ fit, profile = false }: { fit: MatchFit; profile?: boolean }) {
+export function PreferenceInsights({ fit }: { fit: MatchFit }) {
   const [view, setView] = useState<View>('all');
   const titleId = useId();
   const topicsId = useId();
@@ -60,16 +53,10 @@ export function PreferenceInsights({ fit, profile = false }: { fit: MatchFit; pr
     { key: 'missing' as const, label: 'لم يكتمل', topics: missing, icon: ScanLine },
   ];
   const selected = groups.find(group => group.key === view);
-  const shown = profile ? [...discussion.slice(0, 1), ...aligned.slice(0, 1), ...missing.slice(0, 1),
-    ...discussion.slice(1), ...aligned.slice(1), ...missing.slice(1)]
-    : selected?.topics ?? [aligned[0], discussion[0], ...(!aligned.length || !discussion.length ? missing.slice(0, 1) : [])].filter((topic): topic is Topic => Boolean(topic));
-  const preview = shown.slice(0, profile ? 3 : 2);
+  const shown = selected?.topics ?? [aligned[0], discussion[0], ...(!aligned.length || !discussion.length ? missing.slice(0, 1) : [])].filter((topic): topic is Topic => Boolean(topic));
+  const preview = shown.slice(0, 2);
   const rest = view === 'all' ? readout.topics.filter(topic => !preview.some(item => item.id === topic.id)) : shown.slice(2);
-  const criteria = readout.criteria;
   return <section className="nf-preference-insights" aria-labelledby={titleId}>
-    {profile ? <header className="nf-pref-heading"><h3 id={titleId}>أبرز المواضيع بينكما</h3>
-      {agreement && <p>{ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا فيها اتفاق متبادل.</p>}
-    </header> : <>
     <header className="nf-pref-heading"><span><Compass size={15} strokeWidth={1.5} aria-hidden="true" /> من الإجابات إلى معنى</span><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3><p>{percentage === null ? 'هذه قراءة للمواضيع المتاحة. تظهر درجة التفضيلات بعد اكتمال التقييم لدى الطرفين.' : 'نقارن ما يبحث عنه كل طرف بما أجاب عنه الآخر. الاتفاق هنا يعني أن الرغبتين متوافقتان مع الإجابتين.'}</p></header>
     <div className="nf-pref-counts" role="group" aria-label="استعراض مواضيع التوافق">
       {groups.map(({ key, label, topics, icon: Icon }) => <button key={key} type="button" aria-pressed={view === key} aria-controls={topicsId} data-tone={key} onClick={() => setView(current => current === key ? 'all' : key)}>
@@ -78,31 +65,30 @@ export function PreferenceInsights({ fit, profile = false }: { fit: MatchFit; pr
     </div>
     <p className="nf-pref-count-note">{agreement ? <>تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</> : 'الأعداد تلخّص مواضيع الحوار.'}</p>
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
-    </>}
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
-      {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} compact={profile} key={topic.id} />) : <p className="nf-pref-empty">{profile ? 'ستظهر المواضيع هنا عند توفر الإجابات.' : view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
-      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} compact={profile} />)}</div></details>}
+      {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
+      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} />)}</div></details>}
     </MotionReveal>
-    <details className="nf-pref-map"><summary><Layers3 size={17} strokeWidth={1.5} aria-hidden="true" /><span>خريطة التوافق<small>كيف تتوزع المواضيع على جوانب الحياة؟</small></span></summary><div className="nf-pref-map-body">
-      <div className="nf-pref-map-legend"><span data-tone="aligned">اتفاق</span><span data-tone="discussion">للنقاش</span><span data-tone="missing">لم يكتمل</span></div>
-      {readout.categories.map(category => <div className="nf-pref-category" key={category.id}>
-        <div><h4>{categories.find(item => item.id === category.id)?.label ?? category.id}</h4><small>{ar.format(category.covered)} / {ar.format(category.total)} مكتمل</small></div>
-        <div className="nf-pref-segments" role="img" aria-label={`${ar.format(category.aligned)} مواضيع اتفاق، ${ar.format(category.discussion)} للنقاش، ${ar.format(category.total-category.covered)} لم تكتمل`}>
-          {Array.from({length: category.total}, (_, index) => <i key={index} data-tone={index < category.aligned ? 'aligned' : index < category.covered ? 'discussion' : 'missing'} />)}
-        </div>
-      </div>)}
-      <p>كل جزء يمثّل موضوعًا واحدًا، وليس نقطة مئوية أو وزنًا في النتيجة.</p>
-    </div></details>
+    <details className="nf-pref-map">
+      <summary><Layers3 size={17} strokeWidth={1.5} aria-hidden="true"/><span>الحياة كما تتخيّلانها<small>أسئلة من تفاصيل اليوم</small></span></summary>
+      <dl className="nf-pref-conversation-starters">
+        <div><dt>البيت</dt><dd>كيف تتخيّلان يومًا عاديًا في بيتكما؟</dd></div>
+        <div><dt>الوقت</dt><dd>كيف تحبّان قضاء وقتكما بين العمل والأهل والراحة؟</dd></div>
+        <div><dt>الحوار</dt><dd>متى تحبّان الرجوع للحديث بعد اختلاف؟</dd></div>
+      </dl>
+    </details>
     {fit.practicalConcerns?.includes('relocation') && <p>كل منكما يريد البقاء في مدينته، ومدينتاكما مختلفتان.</p>}
     {fit.practicalConcerns?.includes('age_range') && <p>العمر خارج النطاق المفضّل لأحد الطرفين على الأقل.</p>}
     {fit.practicalConcerns?.includes('children_intent') && <p>تختلف رغبتكما الشخصية في الإنجاب.</p>}
-    {fit.practicalConcerns?.includes('required_criterion') && <p>هناك اختلاف في تفضيل إضافي حدده أحدكما كأساسي.</p>}
     {fit.practicalConcerns?.includes('location_unknown') && <p>نحتاج معرفة المدينتين لتقييم إمكانية السكن في مدينة مشتركة.</p>}
-    {criteria && criteria.total > 0 && <details className="nf-pref-criteria"><summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true" /><span>تفضيلاتكما الإضافية<small>التفاصيل التي تهمّكما</small></span></summary><div><p>من {ar.format(criteria.total)} تفضيلًا إضافيًا عبر الاتجاهين: {ar.format(criteria.matched)} متوافق، و{ar.format(criteria.different)} غير متوافق، و{ar.format(criteria.missing)} لا تتوفر إجابته.</p><p>يشمل ذلك التفضيلات المحددة مثل الدراسة والعمل والتفاصيل الشخصية. لا نكشف اختيارات الشريك الخاصة أو ننسب هذه الأعداد إلى طرف بعينه.</p></div></details>}
-    <details className="nf-pref-method"><summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true" /><span>كيف نقرأ توافقكما؟</span></summary><div>
-      <p>نقارن تفضيلات كل طرف بإجابات الآخر، مع مراعاة الأولويات التي تهمّكما. يتحقق الاتفاق المتبادل عندما يكون اختيار كل طرف ضمن ما يقبله الآخر.</p>
-      <p>درجة الترتيب من ١٠٠ تعطي وزنًا للأولويات، وتنخفض عند اختلافكما في موضوع أساسي. نسبة المواضيع المتفق عليها تحسب كل موضوع مرة واحدة. احتمال نجاح الزواج لا يُقاس بهذا التقييم.</p>
-    </div></details>
+    <details className="nf-pref-criteria">
+      <summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true"/><span>خصوصية اختياراتكما</span></summary>
+      <div><p>تبقى تفضيلات الشريك التي يحدّدها كلٌّ منكما خاصة. وفي التعارف، يختار كل طرف ما يحبّ أن يشاركه ومتى.</p></div>
+    </details>
+    <details className="nf-pref-method">
+      <summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true"/><span>قراءة ودّين</span></summary>
+      <div><p>تُظهر لكما قراءة ودّين أين تلتقي تفضيلاتكما وأي المواضيع تستحق حديثًا. ابدآ بموضوع يهمّكما، واسألا بعضكما كيف يبدو في الحياة اليومية.</p></div>
+    </details>
     {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> هذه النتيجة تدعم ملخّص المواضيع؛ التفصيل في اتجاهي المقارنة غير متاح لها حاليًا.</p>}
   </section>;
 }

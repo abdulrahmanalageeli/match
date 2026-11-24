@@ -42,21 +42,25 @@
 .nf-fit :is(.nf-pref-map,.nf-pref-criteria,.nf-pref-method)>summary>svg{color:#716b70;flex:none}
 .nf-fit :is(.nf-pref-map,.nf-pref-criteria)>summary>span{display:grid;gap:3px}
 .nf-fit :is(.nf-pref-map,.nf-pref-criteria)>summary small{font-size:13px;line-height:1.7;color:#716b70;font-weight:400}
-.nf-pref-map-body{padding:2px 1px 13px}
-.nf-pref-map-legend{display:flex;gap:15px;margin-bottom:16px;flex-wrap:wrap}
-.nf-pref-map-legend>span{display:flex;align-items:center;gap:5px;font-size:13px;color:#716b70}
-.nf-pref-map-legend>span::before{content:'';width:7px;height:7px;border-radius:3px;background:#e5e2de}
-.nf-pref-map-legend>span[data-tone=aligned]::before{background:#536b50}
-.nf-pref-map-legend>span[data-tone=discussion]::before{background:#54152a}
-.nf-pref-category{margin-bottom:17px}
-.nf-pref-category>div:first-child{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
-.nf-pref-category h4{font-size:14px;font-weight:500;color:#242326;margin:0;line-height:1.7}
-.nf-fit .nf-pref-category small{font-size:13px;color:#716b70;font-variant-numeric:tabular-nums;white-space:nowrap}
-.nf-pref-segments{display:flex;gap:4px;height:6px}
-.nf-pref-segments>i{flex:1;min-width:0;background:#e5e2de;border-radius:3px}
-.nf-pref-segments>i[data-tone=aligned]{background:#536b50}
-.nf-pref-segments>i[data-tone=discussion]{background:#54152a}
-.nf-fit .nf-pref-map-body>p{font-size:13px;line-height:1.85;color:#716b70;margin:5px 0 0}
+.nf-pref-conversation-starters {
+  display: grid;
+  gap: 12px;
+  margin: 2px 0 16px;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--line, #e5e2de);
+}
+.nf-pref-conversation-starters dt {
+  color: var(--accent-fill, #54152a);
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.65;
+}
+.nf-pref-conversation-starters dd {
+  margin: 2px 0 0;
+  color: var(--ink, #242326);
+  font-size: .875rem;
+  line-height: 1.85;
+}
 .nf-fit :is(.nf-pref-criteria,.nf-pref-method)>div{padding:2px 1px 13px}
 .nf-fit :is(.nf-pref-criteria,.nf-pref-method) p{font-size:14px;line-height:1.95;color:#474247;margin:0 0 12px}
 .nf-pref-weights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:14px 0}

@@ -30,6 +30,7 @@
 .cm-chat .cm-composer-surface { align-items: flex-end; box-shadow: none; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); padding: 3px; }
 .cm-chat-compose textarea { flex: 1; min-width: 0; width: 100%; overflow-y: auto; scrollbar-width: none; line-height: 22px; }
 .cm-chat-compose textarea::-webkit-scrollbar { display: none; }
+.cm-chat-privacy-signature { display: flex; justify-content: center; margin-block-start: 3px; }
 .cm-chat-compose textarea::-webkit-scrollbar-button { display: none; }
 .cm-chat-compose .cm-count { display: block; padding-inline: 12px; font-size: 10px; text-align: end; }
 .cm-chat .cm-chat-tools { display: grid; }

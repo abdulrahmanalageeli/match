@@ -41,6 +41,9 @@
 .df-recommendation .cm-person { width: 100%; }
 .df-read-fit { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding-inline: 8px; color: var(--accent-fill); background: transparent; border: 0; font: inherit; font-size: .83rem; }
 .df-live-caption { position: absolute; z-index: 1; top: 8px; inset-inline-start: 8px; }
+.df-photo-privacy { position: absolute; inset-block-start: 28%; inset-inline-end: 0; width: min(45%, 120px); pointer-events: none; }
+.dr-row-avatar .wd-capture-watermark--photo { inset: auto auto 2px 2px; padding: 2px; }
+.dr-row-avatar .wd-capture-watermark--photo span { display: none; }
 .dr-decision-copy { flex: 1; min-width: 0; }
 .dr-decision-copy .dr-bio-peek { max-width: 100%; }
 .dr-decision-copy .df-card-reason { margin: 4px 0 0; text-align: start; }

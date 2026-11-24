@@ -4,6 +4,7 @@ import type { ChatAttachment, CommunitySource } from './data';
 import { useDevicePreferences, useSystemReducedMotion } from '../settings/preferences';
 import { feedback } from '../feedback/haptics';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { CapturePrivacyButton, CaptureWatermark } from '../privacy/CapturePrivacy';
 import './chatMedia.css';
 import { preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
 
@@ -103,11 +104,18 @@ function RecordingWaveform({ stream }: { stream: MediaStream }) {
 
 function PhotoViewer({ url, close }: { url: string; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [ratio, setRatio] = useState<number>();
   useEffect(() => { const node = dialog.current; node?.showModal(); return () => node?.close(); }, []);
   return <dialog ref={dialog} className="cm-photo-viewer" dir="rtl" aria-label="صورة المحادثة"
     onCancel={event => { event.preventDefault(); close(); }} onContextMenu={event => event.preventDefault()}>
-    <header><span><LockKeyhole size={17}/>بينكما فقط</span><button type="button" aria-label="إغلاق الصورة" onClick={close} autoFocus><X size={23}/></button></header>
-    <div className="cm-photo-viewer-image"><img src={url} alt="الصورة المرسلة في المحادثة" draggable={false} onDragStart={event => event.preventDefault()}/></div>
+    <header><span><LockKeyhole size={17}/>بينكما فقط</span><CapturePrivacyButton scope="chat"/><button type="button" className="cm-photo-viewer-close" aria-label="إغلاق الصورة" onClick={close} autoFocus><X size={23}/></button></header>
+    <div className="cm-photo-viewer-image">
+      <div className="cm-photo-viewer-frame" style={ratio ? { width: `min(100cqw, ${100 * ratio}cqh)` } : undefined}>
+        <img src={url} alt="الصورة المرسلة في المحادثة" draggable={false} onDragStart={event => event.preventDefault()}
+          onLoad={({currentTarget}) => setRatio(currentTarget.naturalWidth / currentTarget.naturalHeight)}/>
+        <CaptureWatermark scope="chat" variant="photo"/>
+      </div>
+    </div>
     <footer><p>لا يستطيع الموقع منع لقطات الشاشة أو تصوير الشاشة بجهاز آخر. احترم خصوصية الطرف الآخر.</p></footer>
   </dialog>;
 }
@@ -205,7 +213,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   }
   if (error) return <button type="button" className="cm-media-retry" onClick={() => setRetry(n => n + 1)}><RotateCcw size={16}/> إعادة تحميل المرفق</button>;
   if (!url) return <div className="cm-media-loading" role="status"><LoaderCircle size={19}/> تحميل المرفق…</div>;
-  return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={event => event.preventDefault()} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={false} onDragStart={event => event.preventDefault()} onError={() => setError('تعذّر تحميل الصورة.')}/></button>{viewer && <PhotoViewer url={viewer} close={closeViewer}/>}</>
+  return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={event => event.preventDefault()} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={false} onDragStart={event => event.preventDefault()} onError={() => setError('تعذّر تحميل الصورة.')}/><CaptureWatermark scope="chat" variant="photo"/></button>{viewer && <PhotoViewer url={viewer} close={closeViewer}/>}</>
     : <VoicePlayer memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
 }
 

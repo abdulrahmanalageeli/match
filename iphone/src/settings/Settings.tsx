@@ -11,6 +11,7 @@ import { useDevicePreferences, useSystemReducedMotion } from "./preferences";
 import { RequestHistory } from '../community/RequestHistory';
 import { MatchingExclusions } from "./MatchingExclusions";
 import { MemberData } from "./MemberData";
+import { CapturePrivacyButton, useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { PushSettings } from "../notifications/PushSettings";
 import { LunaReviewPermission } from './LunaReviewPermission';
 import { NativePrivacy } from './NativePrivacy';
@@ -140,6 +141,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [showCompletion,setShowCompletion]=useState(false);
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
   const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|null>(null);
+  useCapturePrivacy(profilePanel === 'photos' ? 'profile' : null);
   const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
   const [hasPreviousVerification,setHasPreviousVerification]=useState(false);
   useEffect(()=>{let current=true;setOwnClaims([]);setHasPreviousVerification(false);if(source?.verification)void source.verification('state').then(result=>{if(current){setOwnClaims(result.claims);setHasPreviousVerification(result.requests.length>0);}}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
@@ -179,7 +181,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
       <p role="status">{summary.error ? 'تعذّر تحميل النسخة المعتمدة.' : summary.data ? 'لا تتوفر نسخة معتمدة للمعاينة حتى اكتمال المراجعة.' : 'جارٍ تحميل النسخة المعتمدة…'}</p>{summary.error&&<button className="btn-secondary" onClick={summary.refresh}>إعادة المحاولة</button>}</div>}</main>;
   }
   if(profilePanel==='photos')return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager">
-    <header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
+    <header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/><CapturePrivacyButton scope="profile"/></header>
     <h1>صوري وخصوصيتها</h1>
     {source?.gallery && <section className="st-section"><h2>صور تظهر في ملفي</h2><ProfileGallery source={source} editable onChanged={onProfileChanged}/></section>}
   </div></main>;

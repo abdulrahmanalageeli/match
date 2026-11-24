@@ -10,6 +10,7 @@ import { languageOptions } from "../compatibility/marriage";
 import { ScoreTile } from '../compatibility/ScoreTile';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
+import { CapturePrivacyButton, CaptureWatermark, useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import {
   useCallback,
@@ -465,6 +466,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
     <div className="df-portrait-shade" aria-hidden="true" />
     <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
+    {(person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
     <div className="df-portrait-badges">
       {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
     </div>
@@ -570,6 +572,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
           <PersonAvatar person={person} source={source} className="dr-row-image"/>
+          {(person.portrait || (!person.publicAvatar && person.demoPhoto)) && <CaptureWatermark scope="discovery" variant="photo"/>}
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
         </span>
         <span className="dr-row-identity">
@@ -842,6 +845,7 @@ function Discovery({
     catch(e){if(seq===sequence.current)setError(messageFor(e));}finally{setLoadingMore(false);}
   }
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
+  useCapturePrivacy(person ? null : 'discovery');
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
     const origin = (anchor.closest('.dr-row-profile-group, .df-recommendation') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
@@ -977,6 +981,7 @@ function Discovery({
             onClick={() => void refreshDirectory()}
           ><RotateCcw size={15} aria-hidden="true" /></button>}
         </div>
+        <CapturePrivacyButton scope="discovery"/>
       </header>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
@@ -1333,6 +1338,7 @@ export function Chat({
   const [profileOpen, setProfileOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(Boolean(initialRoom));
+  useCapturePrivacy(profileOpen || (familyOpen && source.family) ? null : 'chat');
   useEffect(()=>{if(initialRoom)setFamilyOpen(true);},[initialRoom]);
   const [endMatch, setEndMatch] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
@@ -1562,6 +1568,7 @@ export function Chat({
           <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
+        <CapturePrivacyButton scope="chat"/>
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
@@ -1663,6 +1670,7 @@ export function Chat({
           <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!thread.draft.trim() || !canSend}><Send size={19} /></MotionPressButton>
         </form>
        </div>
+        <div className="cm-chat-privacy-signature"><CaptureWatermark scope="chat"/></div>
         {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
       </div>}
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
@@ -1861,6 +1869,7 @@ function Requests({
   }, [refresh]);
   const item = list.find((c) => c.id === selected);
   const inChat = !!item && item.status === "accepted" && chat;
+  useCapturePrivacy(item || (visitPerson && !conversations) ? null : matches ? 'profile' : 'chat');
   useLayoutEffect(() => {
     if (!initialRequestId || item?.id !== initialRequestId || inChat || focusedInitial.current === initialRequestId) return;
     const heading = document.querySelector<HTMLElement>(".mp-profile h1");
@@ -2162,7 +2171,7 @@ function Requests({
     </Sheet>}
   </>;
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
-    <header className="cm-header"><Brand /></header>
+    <header className="cm-header"><Brand /><CapturePrivacyButton scope="chat"/></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
     {exitFeedback}
     {reportSent && <ReportReceipt demo={Boolean(source.demoAcceptOutgoing)} close={()=>setReportSent(false)}/>}
@@ -2189,6 +2198,7 @@ function Requests({
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header">
         <Brand />
+        <CapturePrivacyButton scope="chat"/>
       </header>
       <div className="cm-title">
         <h1 tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>

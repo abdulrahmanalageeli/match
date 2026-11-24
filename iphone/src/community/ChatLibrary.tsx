@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, Image, LoaderCircle, LockKeyhole, MessageCircle, Mic, Search, X } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { CapturePrivacyButton } from '../privacy/CapturePrivacy';
 import type { CommunitySource, Message } from './data';
 import { MessageMedia } from './ChatMedia';
 import { refreshHistoricalMessages } from './messageRefresh';
@@ -138,7 +139,7 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
           {!waiting && !error && hasOlder && <MotionPressButton className="cm-library-more" disabled={loadingOlder} onClick={() => more.current()}>{loadingOlder ? 'جارٍ تحميل المزيد…' : 'نتائج أقدم'}</MotionPressButton>}
         </>}
       </div>
-      <footer className="cm-library-note"><LockKeyhole size={13}/><span>بينكما فقط · صور العرض لمرة واحدة لا تظهر هنا</span></footer>
+      <footer className="cm-library-note"><LockKeyhole size={13}/><span>بينكما فقط · صور العرض لمرة واحدة لا تظهر هنا</span><CapturePrivacyButton scope="chat"/></footer>
     </MotionReveal>
   </dialog>;
 }

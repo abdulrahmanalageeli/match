@@ -5,6 +5,7 @@ import { ReleaseGate } from './release/ReleaseGate'
 import { readRecoveryLink, cleanRecoveryUrl } from './auth/passwordRecovery'
 import { readSignupReturn } from './auth/signupReturn'
 import { ConnectionNotice } from './community/ConnectionNotice'
+import { CapturePrivacyHost } from './privacy/CapturePrivacy'
 import './design.css'
 import './flows.css'
 import './screens.css'
@@ -53,4 +54,4 @@ const releaseResumeHint = recoveryLink ? 'بعد التحديث، افتح را�
   : familyInvite ? 'بعد التحديث، افتح رابط دعوة الأهل مرة أخرى.' : undefined
 createRoot(document.getElementById('root')!).render(<AppBoundary><ReleaseGate resumeHint={releaseResumeHint}>{recoveryLink ? <App recoveryLink={recoveryLink}/> : signupReturn ? <App signupReturn={signupReturn}/> : familyEntry
   ? <Suspense fallback={<main className="flow-frame" dir="rtl"><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
-  : <App openLogin={testerEntry}/>}<ConnectionNotice/></ReleaseGate></AppBoundary>)
+  : <App openLogin={testerEntry}/>}<ConnectionNotice/><CapturePrivacyHost/></ReleaseGate></AppBoundary>)

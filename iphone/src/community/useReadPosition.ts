@@ -14,7 +14,7 @@ export function useReadPosition(
     let frame: number;
     let retry: number;
     async function check() {
-      if (!active || document.hidden || document.querySelector('dialog[open]') || busy || acknowledged.current === latest) return;
+      if (!active || document.hidden || document.querySelector('dialog[open], html[data-capture-native-hidden], html[data-capture-pending]') || busy || acknowledged.current === latest) return;
       const el = element!;
       if (el.scrollHeight - el.scrollTop - el.clientHeight > 60) return;
       const last = Array.from(el.querySelectorAll<HTMLElement>("[data-server-id]")).find((row) => row.dataset.serverId === latest);
@@ -35,9 +35,11 @@ export function useReadPosition(
     document.addEventListener("visibilitychange", schedule);
     document.addEventListener("focusin", schedule);
     window.addEventListener("online", schedule);
+    window.addEventListener("wudayn:privacy-visible", schedule);
     return () => {
       active = false; window.clearTimeout(retry); cancelAnimationFrame(frame);
       element.removeEventListener("scroll", schedule); document.removeEventListener("visibilitychange", schedule); document.removeEventListener("focusin", schedule); window.removeEventListener("online", schedule);
+      window.removeEventListener("wudayn:privacy-visible", schedule);
     };
   }, [source, requestId, log, latest, enabled]);
 }

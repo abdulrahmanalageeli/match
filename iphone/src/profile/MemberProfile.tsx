@@ -13,6 +13,7 @@ import { FitDetails } from '../compatibility/FitDetails';
 import { BeenaSummary } from '../beena/BeenaSummary';
 import { ProfileGallery } from '../photos/ProfileGallery';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
+import { CapturePrivacyButton, CaptureWatermark, useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { marriageTimelineLabels, meetingPreferenceLabels, polygynyLabels, prayerPracticeLabels, religiousAffiliationLabels } from '../compatibility/marriage';
 import './member-profile.css';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
@@ -47,6 +48,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const {premium,upgrade,gift}=useMembershipAccess();
   const canGift=Boolean(gift&&!preview&&!person.isDemo);
   const [section,setSection]=useState<'about'|'details'|'fit'>('about');
+  useCapturePrivacy('profile');
   const [failed,setFailed]=useState(false);
   const [passportOpen,setPassportOpen]=useState(false);
   const passportButton=useRef<HTMLButtonElement>(null);
@@ -108,6 +110,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     <header className="mp-navigation">
       <button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button>
       <span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>
+      <CapturePrivacyButton scope="profile"/>
       {(interestAction||onReport||canGift)&&<div className="mp-navigation-actions">
         {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>
           <Heart size={17} fill={person.interested?'currentColor':'none'} aria-hidden="true"/>اهتمام
@@ -125,7 +128,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       {corners.map(({area,label,value,icon:Icon})=>value && <div key={area} className="mp-portrait-fact" style={{gridArea:area}}>
         <Icon size={16} strokeWidth={1.6} aria-hidden="true"/><span className="mp-fact-label">{label}</span><bdi>{value}</bdi>
       </div>)}
-      <div className="mp-portrait-column">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
+      <div className="mp-portrait-column">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<><img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/><CaptureWatermark scope="profile" variant="photo"/></>:<span className="mp-monogram" aria-hidden="true">{Array.from(person.alias.trim())[0]||<UserRound size={44}/>}</span>}</div>}
         {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
       </div>
     </div>

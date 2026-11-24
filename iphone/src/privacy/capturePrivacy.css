@@ -1,0 +1,159 @@
+.wd-capture-watermark, button.wd-capture-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35em;
+  font-family: var(--font-ui, sans-serif);
+  white-space: nowrap;
+}
+.wd-capture-watermark {
+  color: #76666f;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  user-select: none;
+}
+.wd-capture-watermark.wd-capture-watermark--photo {
+  position: absolute;
+  inset: auto auto 8px 8px;
+  z-index: 1;
+  max-width: calc(100% - 12px);
+  padding: 3px 7px;
+  border: 1px solid #fff5;
+  border-radius: 20px;
+  background: #341222dd;
+  color: #fff9f2;
+  font-size: 10px;
+}
+.wd-capture-watermark svg, .wd-capture-trigger svg { flex-shrink: 0; }
+button.wd-capture-trigger {
+  align-self: center;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent-fill, #54152a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.wd-capture-trigger:focus-visible, .wd-capture-resume:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+:is(.cm-photo-viewer, .pg-lightbox) .wd-capture-trigger { color: #fff8ed; }
+@media(max-width: 420px) {
+  .cm-chat-head .wd-capture-trigger span { display: none; }
+}
+
+/* The note is also the sole printable child of body. A modal places the
+   deliberate cover above an already-open photo viewer or conversation sheet. */
+dialog.wd-capture-note {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: max(22px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom));
+  overflow: auto;
+  isolation: isolate;
+  align-items: safe center;
+  justify-items: center;
+  border: 0;
+  border-radius: 0;
+  background: radial-gradient(ellipse at 80% 12%, #713245 0, transparent 57%),
+    radial-gradient(ellipse at 6% 96%, #63233d 0, transparent 56%), #391124;
+  color: #fff6e6;
+  font-family: var(--font-ui, Tajawal, sans-serif);
+  text-align: center;
+  color-scheme: dark;
+}
+.wd-capture-note::backdrop { background: #391124; }
+dialog.wd-capture-note:not([open]) { display: none; }
+dialog.wd-capture-note[open], html:is([data-capture-hidden], [data-capture-pending]) dialog.wd-capture-note { display: grid; }
+.wd-capture-note::before, .wd-capture-note::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: min(80vmin, 480px);
+  height: 68%;
+  border: 1px solid #dbb99236;
+  border-radius: 50%;
+  box-shadow: 0 0 0 16px #391124, 0 0 0 17px #dbb99221, 0 0 0 34px #391124, 0 0 0 35px #dbb99217;
+  pointer-events: none;
+}
+.wd-capture-note::before { top: -30%; left: -32vmin; transform: rotate(35deg); }
+.wd-capture-note::after { bottom: -34%; right: -32vmin; transform: rotate(35deg); }
+.wd-capture-composition { max-width: 27rem; margin-block: auto; padding: 20px 0; }
+.wd-capture-seal {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 74px;
+  margin-inline: auto;
+  border: 1px solid #d5b89680;
+  border-radius: 50% 50% 46% 46%;
+}
+.wd-capture-seal img { display: block; width: 37px; height: 45px; object-fit: contain; filter: brightness(0) invert(.91) sepia(.38); }
+.wd-capture-brand { display: block; margin-top: 10px; font-size: 29px; line-height: 1.5; font-weight: 700; }
+.wd-capture-rule {
+  display: block;
+  width: 54px;
+  height: 1px;
+  margin: 24px auto;
+  background: linear-gradient(to right, transparent, #dec09b 50%, transparent);
+}
+.wd-capture-note h2 { margin: 0; color: inherit; font: 700 clamp(26px, 7vw, 42px)/1.55 var(--font-ui, sans-serif); }
+.wd-capture-note p { max-width: 21em; margin: 5px auto 0; color: #f0dbd8; font-size: 17px; line-height: 1.85; }
+button.wd-capture-resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 28px 0 0;
+  padding: 6px 18px;
+  border: 1px solid #e4c7b180;
+  border-radius: 24px;
+  background: transparent;
+  color: #fff6e6;
+  font: 600 14px/1.5 var(--font-ui, sans-serif);
+  cursor: pointer;
+}
+/* A dialog in the browser's top layer can outpaint any normal z-index. */
+html:is([data-capture-hidden], [data-capture-pending]) body > :not(.wd-capture-note),
+html:is([data-capture-hidden], [data-capture-pending]) dialog:not(.wd-capture-note),
+html:is([data-capture-hidden], [data-capture-pending]) dialog:not(.wd-capture-note)::backdrop {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+html:has(.wd-capture-note[open]) dialog:not(.wd-capture-note),
+html:has(.wd-capture-note[open]) dialog:not(.wd-capture-note)::backdrop { opacity: 0 !important; }
+html:is([data-capture-hidden], [data-capture-pending]) .wd-capture-resume { visibility: hidden; }
+@media print {
+  html[data-capture-scope] body > :not(.wd-capture-note),
+  html[data-capture-scope] dialog:not(.wd-capture-note),
+  html[data-capture-scope] dialog:not(.wd-capture-note)::backdrop,
+  html[data-capture-scope] .wd-capture-resume { display: none !important; }
+  html[data-capture-scope], html[data-capture-scope] body {
+    margin: 0 !important; height: auto !important; min-height: 0 !important;
+  }
+  html[data-capture-scope] dialog.wd-capture-note {
+    position: relative;
+    display: grid !important;
+    width: 100%;
+    height: auto;
+    min-height: 85vh;
+    overflow: hidden;
+    color: #401428;
+    background: white;
+  }
+  .wd-capture-note::before, .wd-capture-note::after { display: none; }
+  .wd-capture-note p { color: #54444a; }
+  .wd-capture-seal img { filter: none; }
+}

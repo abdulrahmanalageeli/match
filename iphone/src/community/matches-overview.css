@@ -23,6 +23,9 @@
 .mo-name { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:none; border:0; padding:0; color:var(--ink); font:inherit; font-size:16px; font-weight:650; cursor:pointer; }
 .mo-current-copy>.mo-name { font-size:15px; line-height:1.2; }
 .mo-current-copy>p { margin:0; color:var(--muted); font-size:11px; line-height:1.3; }
+.mo-portrait-link { position: relative; }
+.mo-portrait-link .wd-capture-watermark--photo { inset: auto auto 1px 1px; padding: 2px; }
+.mo-portrait-link .wd-capture-watermark--photo > span { display: none; }
 .mo-action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:6px 11px; border:1px solid #cdb9c1; border-radius:8px; background:transparent; color:var(--accent-fill); font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
 .mo-action-incoming { background:var(--accent-fill); border-color:var(--accent-fill); color:#fff; }
 .mo-unread { display:grid; place-items:center; min-width:17px; height:17px; padding-inline:3px; border-radius:50%; background:var(--accent-fill); color:#fff; font-size:10px; }

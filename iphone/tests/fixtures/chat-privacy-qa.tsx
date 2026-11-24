@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { VoiceCallsProvider } from '../../src/voice/VoiceCalls';
 import { createRoot } from 'react-dom/client';
 import { Chat } from '../../src/community/Community';
+import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
 import { demoCommunity, type CommunitySource, type Message, type Connection } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
 import '../../src/design.css';import '../../src/flows.css';import '../../src/screens.css';import '../../src/motion.css';
@@ -59,4 +60,4 @@ function Fixture() {
  const [opened,setOpened]=useState(false);
  return <VoiceCallsProvider source={source} owner={null} demo><div className="phone-app" dir="rtl" lang="ar"><main className="cm-shell">{opened?<Chat source={source} connection={connection} back={()=>setOpened(false)} close={()=>setOpened(false)} backLabel="رجوع"/>:<section className="cm-view"><h1>تعارف متبادل · اختبار محلي</h1><button className="cm-request" onClick={()=>setOpened(true)}>فتح المحادثة مع {connection.person.alias}</button></section>}</main></div></VoiceCallsProvider>;
 }
-createRoot(document.getElementById('root')!).render(<Fixture/>);
+createRoot(document.getElementById('root')!).render(<><Fixture/><CapturePrivacyHost/></>);

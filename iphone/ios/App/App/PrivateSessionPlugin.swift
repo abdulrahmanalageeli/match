@@ -15,7 +15,8 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "appearance", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setCaptureScope", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func appearance(_ call: CAPPluginCall) {
@@ -37,6 +38,18 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func privacyStatus(_ call: CAPPluginCall) {
         DispatchQueue.main.async { call.resolve(NisfaynPrivacy.shared.status) }
+    }
+
+    @objc func setCaptureScope(_ call: CAPPluginCall) {
+        guard let value = call.getString("scope"), let scope = CaptureScope(rawValue: value) else {
+            call.reject("نطاق الخصوصية غير صالح.")
+            return
+        }
+        DispatchQueue.main.async {
+            (self.bridge?.viewController as? MarriageBridgeController)?.setProtectedContent(scope: scope)
+            NisfaynPrivacy.shared.setCaptureScope(scope)
+            call.resolve()
+        }
     }
 
     @objc func privacyConfigure(_ call: CAPPluginCall) {
@@ -105,12 +118,131 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
-/// Native cover protects snapshots and blocks web content until device authentication.
-/// Device passcode is an intentional fallback when biometrics are unavailable.
+enum CaptureScope: String {
+    case publicScreen = "public"
+    case discovery, profile, chat
+
+    var heading: String { self == .chat ? "هذه المحادثة خاصة" : "خصوصيتنا أمانة" }
+}
+
+// A solid, member-independent background also serves as the underlay behind
+// the existing protected one-time photo renderer.
+final class WudaynPrivacyNote: UIView {
+    private let ivory = UIColor(red: 1, green: 0.97, blue: 0.91, alpha: 1)
+    let heading = UILabel()
+    let detail = UILabel()
+    let button = UIButton(type: .system)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        backgroundColor = UIColor(red: 0.267, green: 0.075, blue: 0.153, alpha: 1)
+        isOpaque = true
+        contentMode = .redraw
+        accessibilityViewIsModal = true
+        semanticContentAttribute = .forceRightToLeft
+
+        let wordmark = UILabel()
+        wordmark.text = "وُدَين"
+        wordmark.font = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: .systemFont(ofSize: 48, weight: .semibold))
+        heading.font = .preferredFont(forTextStyle: .title2)
+        detail.font = .preferredFont(forTextStyle: .body)
+        for label in [wordmark, heading, detail] {
+            label.textColor = ivory
+            label.textAlignment = .center
+            label.numberOfLines = 0
+            label.adjustsFontForContentSizeCategory = true
+        }
+        heading.accessibilityTraits.insert(.header)
+        detail.textColor = UIColor(red: 0.94, green: 0.83, blue: 0.80, alpha: 1)
+        var configuration = UIButton.Configuration.tinted()
+        configuration.baseForegroundColor = ivory
+        configuration.baseBackgroundColor = ivory
+        configuration.cornerStyle = .capsule
+        button.configuration = configuration
+        button.isHidden = true
+        let touchHeight = button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+        touchHeight.priority = .defaultHigh
+        touchHeight.isActive = true
+
+        let stack = UIStackView(arrangedSubviews: [wordmark, heading, detail, button])
+        if let path = Bundle.main.path(forResource: "wudayn-emblem-v2", ofType: "png", inDirectory: "public/brand"),
+           let image = UIImage(contentsOfFile: path) {
+            let seal = UIView()
+            seal.layer.borderWidth = 1
+            seal.layer.borderColor = UIColor(red: 0.86, green: 0.73, blue: 0.58, alpha: 0.55).cgColor
+            seal.layer.cornerRadius = 32
+            let mark = UIImageView(image: image.withRenderingMode(.alwaysTemplate))
+            mark.contentMode = .scaleAspectFit
+            mark.tintColor = ivory
+            mark.translatesAutoresizingMaskIntoConstraints = false
+            seal.addSubview(mark)
+            stack.insertArrangedSubview(seal, at: 0)
+            NSLayoutConstraint.activate([
+                seal.widthAnchor.constraint(equalToConstant: 64), seal.heightAnchor.constraint(equalToConstant: 64),
+                mark.centerXAnchor.constraint(equalTo: seal.centerXAnchor), mark.centerYAnchor.constraint(equalTo: seal.centerYAnchor),
+                mark.widthAnchor.constraint(equalToConstant: 36), mark.heightAnchor.constraint(equalToConstant: 40)
+            ])
+        }
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.alignment = .center
+        stack.setCustomSpacing(20, after: wordmark)
+        stack.setCustomSpacing(18, after: detail)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.alwaysBounceVertical = false
+        addSubview(scroll)
+        scroll.addSubview(stack)
+        let guide = scroll.contentLayoutGuide
+        let centerHeight = guide.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor)
+        centerHeight.priority = .defaultLow
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
+            guide.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+            guide.heightAnchor.constraint(greaterThanOrEqualTo: scroll.frameLayoutGuide.heightAnchor),
+            centerHeight,
+            stack.centerYAnchor.constraint(equalTo: guide.centerYAnchor),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: guide.topAnchor, constant: 20),
+            stack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -28)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func draw(_ rect: CGRect) {
+        super.draw(rect)
+        let radius = min(bounds.width, bounds.height) * 0.80
+        UIColor(red: 0.86, green: 0.69, blue: 0.53, alpha: 0.28).setStroke()
+        for center in [CGPoint(x: bounds.minX, y: bounds.minY - radius * 0.50),
+                       CGPoint(x: bounds.maxX, y: bounds.maxY + radius * 0.50)] {
+            for inset: CGFloat in [0, 9] {
+                let arc = UIBezierPath(arcCenter: center, radius: radius + inset, startAngle: 0, endAngle: 2 * .pi, clockwise: true)
+                arc.lineWidth = 1
+                arc.stroke()
+            }
+        }
+    }
+}
+
 final class NisfaynPrivacy: NSObject {
     static let shared = NisfaynPrivacy()
     private weak var window: UIWindow?
-    private var cover: UIView?
+    private var cover: WudaynPrivacyNote?
+    private enum Reason: Equatable {
+        case inactive, locked, recording(CaptureScope), screenshot(CaptureScope)
+    }
+    private var visibleReason: Reason?
+    private var inactive = true
+    // Start covered during capture until the web app declares its first scope.
+    // The separate SwiftUI target uses this conservative default across its sheets.
+    private var scope: CaptureScope = .profile
+    private var screenshotScope: CaptureScope?
     private var context: LAContext?
     private var unlocked = false
     private var backgroundAt: Date?
@@ -118,60 +250,139 @@ final class NisfaynPrivacy: NSObject {
     private var autoUnlock = true
     private var enabled: Bool { UserDefaults.standard.bool(forKey: "nisfayn.privacy.lock") }
     private var delay: Int { UserDefaults.standard.integer(forKey: "nisfayn.privacy.delay") }
-    var mayOpen: Bool { UIApplication.shared.applicationState == .active && (!enabled || unlocked) }
+    var mayOpen: Bool { UIApplication.shared.applicationState == .active && visibleReason == nil && (!enabled || unlocked) }
     var status: [String: Any] {
         let ctx = LAContext()
         return ["enabled": enabled, "delay": delay, "available": ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)]
     }
-    func attach(_ window: UIWindow) { self.window = window; shield() }
+    func attach(_ window: UIWindow) {
+        guard self.window !== window else { return }
+        NotificationCenter.default.removeObserver(self)
+        cover?.removeFromSuperview()
+        cover = nil
+        visibleReason = nil
+        screenshotScope = nil
+        self.window = window
+        if #available(iOS 17.0, *) {
+            window.registerForTraitChanges([UITraitSceneCaptureState.self]) { [weak self] (source: UIWindow, _: UITraitCollection) in
+                guard let self, self.window === source else { return }
+                self.refreshCover()
+            }
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshCover), name: UIScreen.capturedDidChangeNotification, object: window.screen)
+        NotificationCenter.default.addObserver(self, selector: #selector(tookScreenshot), name: UIApplication.userDidTakeScreenshotNotification, object: nil)
+        shield()
+    }
+
+    func setCaptureScope(_ next: CaptureScope) {
+        if next != scope { screenshotScope = nil }
+        scope = next
+        refreshCover()
+    }
+
+    private var recording: Bool {
+        guard let window else { return false }
+        if #available(iOS 17.0, *), window.traitCollection.sceneCaptureState == .active { return true }
+        return window.screen.isCaptured
+    }
+
+    @objc private func tookScreenshot() {
+        // UIKit posts this notification AFTER saving the screenshot.
+        guard scope != .publicScreen, !inactive, visibleReason == nil else { return }
+        screenshotScope = scope
+        refreshCover()
+    }
+
+    @objc private func coverAction() {
+        switch visibleReason {
+        case .locked: unlock()
+        case .screenshot:
+            screenshotScope = nil
+            refreshCover()
+        default: break
+        }
+    }
+
+    @objc private func refreshCover() {
+        guard let window else { return }
+        #if canImport(Capacitor)
+        defer {
+            // A UIKit cover is invisible to WebKit's document.hidden flag.
+            let event = cover == nil ? "wudayn:privacy-visible" : "wudayn:privacy-covered"
+            (window.rootViewController as? MarriageBridgeController)?.bridge?.triggerWindowJSEvent(eventName: event)
+        }
+        #endif
+        let reason: Reason
+        if inactive { reason = .inactive }
+        else if enabled && !unlocked { reason = .locked }
+        else if scope != .publicScreen && recording { reason = .recording(scope) }
+        else if let screenshotScope { reason = .screenshot(screenshotScope) }
+        else {
+            guard cover != nil else { return }
+            cover?.removeFromSuperview()
+            cover = nil
+            visibleReason = nil
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
+            NotificationCenter.default.post(name: NisfaynPushCenter.openEvent, object: nil)
+            return
+        }
+
+        if let cover, reason == visibleReason {
+            window.bringSubviewToFront(cover)
+            return
+        }
+        let note = cover ?? WudaynPrivacyNote(frame: window.bounds)
+        if cover == nil {
+            window.endEditing(true)
+            note.button.addTarget(self, action: #selector(coverAction), for: .touchUpInside)
+            window.addSubview(note)
+            cover = note
+        }
+        visibleReason = reason
+        note.button.isHidden = true
+        switch reason {
+        case .inactive, .locked:
+            note.heading.text = "مساحتك الخاصة"
+            note.detail.text = nil
+            note.button.configuration?.title = "فتح وُدَين"
+            note.button.isHidden = reason != .locked
+        case .recording(let scope):
+            note.heading.text = scope.heading
+            note.detail.text = "أوقف تسجيل الشاشة أو مشاركتها للمتابعة."
+        case .screenshot(let scope):
+            note.heading.text = scope.heading
+            note.detail.text = "التقطت لقطة شاشة. استأذن قبل مشاركة ما تراه هنا."
+            note.button.configuration?.title = "العودة"
+            note.button.isHidden = false
+        }
+        window.bringSubviewToFront(note)
+        if !inactive { UIAccessibility.post(notification: .screenChanged, argument: note.heading) }
+    }
+
     func shield() {
-        guard cover == nil, let window else { return }
-        let view = UIView(frame: window.bounds)
-        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.backgroundColor = UIColor(red: 0.99, green: 0.99, blue: 0.98, alpha: 1)
-        view.accessibilityViewIsModal = true
-        let title = UILabel()
-        title.text = "وُدَين"
-        title.font = .systemFont(ofSize: 32, weight: .semibold)
-        title.textColor = UIColor(red: 0.33, green: 0.08, blue: 0.16, alpha: 1)
-        title.textAlignment = .center
-        let detail = UILabel()
-        detail.text = "مساحتك الخاصة"
-        detail.textAlignment = .center
-        detail.font = .preferredFont(forTextStyle: .body)
-        detail.textColor = .secondaryLabel
-        let button = UIButton(type: .system)
-        button.setTitle("فتح وُدَين", for: .normal)
-        button.titleLabel?.font = .preferredFont(forTextStyle: .headline)
-        button.addTarget(self, action: #selector(unlock), for: .touchUpInside)
-        let stack = UIStackView(arrangedSubviews: [title, detail, button])
-        stack.axis = .vertical; stack.spacing = 20; stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-        NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: view.centerXAnchor), stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)])
-        window.addSubview(view); cover = view
+        inactive = true
+        refreshCover()
     }
     func background() {
         backgroundAt = Date(); autoUnlock = true; attempt = UUID(); context?.invalidate(); context = nil; shield()
     }
     func active() {
-        guard context == nil else { return }
+        inactive = false
         if let backgroundAt, Date().timeIntervalSince(backgroundAt) >= Double(delay) { unlocked = false }
         backgroundAt = nil
-        if !enabled || unlocked { reveal() }
-        else if autoUnlock { autoUnlock = false; unlock() }
-        else { shield() }
-    }
-    private func reveal() {
-        cover?.removeFromSuperview(); cover = nil
-        NotificationCenter.default.post(name:NisfaynPushCenter.openEvent,object:nil)
+        refreshCover()
+        if enabled && !unlocked && autoUnlock && context == nil {
+            autoUnlock = false
+            unlock()
+        }
     }
     @objc private func unlock() {
         guard UIApplication.shared.applicationState == .active, context == nil else { return }
-        if !enabled { reveal(); return }
+        if !enabled { refreshCover(); return }
         authenticate { [weak self] ok in
             guard let self, ok else { return }
             self.unlocked = true
-            if UIApplication.shared.applicationState == .active { self.reveal() }
+            if UIApplication.shared.applicationState == .active { self.refreshCover() }
         }
     }
     private func authenticate(_ completion: @escaping (Bool) -> Void) {
@@ -192,7 +403,7 @@ final class NisfaynPrivacy: NSObject {
             UserDefaults.standard.set(enabled, forKey: "nisfayn.privacy.lock")
             UserDefaults.standard.set(delay, forKey: "nisfayn.privacy.delay")
             self.unlocked = true
-            if UIApplication.shared.applicationState == .active { self.reveal() }
+            if UIApplication.shared.applicationState == .active { self.refreshCover() }
             completion(true)
         }
     }

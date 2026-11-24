@@ -4,12 +4,18 @@ interface SecureSessionPlugin {
   read(options?: { key?: string }): Promise<{ token: string | null }>;
   save(options: { token: string; key?: string }): Promise<void>;
   clear(options?: { key?: string }): Promise<void>;
+  setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'}): Promise<void>;
 }
 
 const native = registerPlugin<SecureSessionPlugin>("PrivateSession");
 const useKeychain = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 const key = "marriage.session";
+
+export function setNativeCaptureScope(scope: 'discovery' | 'profile' | 'chat' | 'public') {
+  // Older installed binaries still use the web watermark and privacy screen.
+  if (useKeychain()) return native.setCaptureScope({scope}).catch(() => {});
+}
 
 // The draft store deliberately has no web storage fallback.
 export function privateDraftKeychain() {

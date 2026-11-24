@@ -1,10 +1,14 @@
 import Capacitor
+import UIKit
 import WebKit
 import AuthenticationServices
 import CryptoKit
 import Security
 
 final class MarriageBridgeController: CAPBridgeViewController {
+    private let content = UIView()
+    private var secureField: PhotoSecureField?
+    private var backing: WudaynPrivacyNote?
     private var reportedSafeInsets: (top: Int, bottom: Int)?
     private var pageLoadObservation: NSKeyValueObservation?
 
@@ -18,6 +22,16 @@ final class MarriageBridgeController: CAPBridgeViewController {
     }
 
     override func capacitorDidLoad() {
+        // Capacitor has created its WKWebView. Keep that same instance, its
+        // delegates, and its navigation history for the life of the bridge.
+        if let webView {
+            content.frame = webView.frame
+            content.backgroundColor = .systemBackground
+            view = content
+            webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            content.addSubview(webView)
+            content.accessibilityElements = [webView]
+        }
         pageLoadObservation = webView?.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
             guard !webView.isLoading else { return }
             DispatchQueue.main.async {
@@ -33,6 +47,56 @@ final class MarriageBridgeController: CAPBridgeViewController {
         bridge?.registerPluginInstance(NisfaynVoicePlugin())
         bridge?.registerPluginInstance(NisfaynFeedbackPlugin())
         bridge?.registerPluginInstance(SocialAuthPlugin())
+    }
+
+    func setProtectedContent(scope: CaptureScope) {
+        guard let webView else { return }
+        if scope == .publicScreen {
+            guard secureField != nil else { return }
+            content.addSubview(webView)
+            webView.frame = content.bounds
+            secureField?.removeFromSuperview()
+            secureField = nil
+            backing?.removeFromSuperview()
+            backing = nil
+            return
+        }
+        if let backing {
+            backing.heading.text = scope.heading
+            return
+        }
+
+        // This is the same best-effort UIKit canvas as the one-time viewer.
+        // If unavailable, keep the page usable with its web deterrents and
+        // the independent native recording/switcher cover.
+        let field = PhotoSecureField(frame: content.bounds)
+        field.isSecureTextEntry = true
+        field.text = " "
+        field.textColor = .clear
+        field.tintColor = .clear
+        field.backgroundColor = .clear
+        field.isAccessibilityElement = false
+        field.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        guard let canvas = field.canvas() else { return }
+        canvas.isUserInteractionEnabled = true
+        canvas.isAccessibilityElement = false
+        // Leave scrolling, selection, long press and text input to WebKit.
+        for item in [field as UIView, canvas] {
+            item.gestureRecognizers?.forEach { $0.isEnabled = false }
+        }
+        let note = WudaynPrivacyNote(frame: content.bounds)
+        note.heading.text = scope.heading
+        note.detail.text = "استأذن قبل مشاركة ما تراه هنا."
+        note.isUserInteractionEnabled = false
+        note.accessibilityViewIsModal = false
+        note.accessibilityElementsHidden = true
+        content.insertSubview(note, at: 0)
+        content.addSubview(field)
+        canvas.addSubview(webView)
+        field.interactiveContent = webView
+        webView.frame = canvas.bounds
+        secureField = field
+        backing = note
     }
 }
 

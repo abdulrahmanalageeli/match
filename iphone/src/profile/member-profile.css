@@ -118,6 +118,7 @@
 .mp-interest-feedback{margin:0 0 8px;color:var(--accent-fill);font-size:.75rem}
 .mp-portrait-column { min-width: 0; }
 .phone-app .mp-profile .mp-portrait-column .mp-portrait-caption { justify-content:center; text-align:center; margin:5px 0 0; overflow-wrap:anywhere; }
+.mp-portrait { position: relative; }
 .mp-profile .mp-portrait-column .mp-portrait { height: auto; aspect-ratio: 4 / 5; }
 .phone-app .mp-profile .mp-hero {
   grid-template-columns: minmax(0, 1fr);

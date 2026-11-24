@@ -28,9 +28,11 @@
 .cm-photo-viewer::backdrop { background: #200d16; }
 .cm-photo-viewer > header { display: flex; align-items: center; justify-content: space-between; gap: 15px; flex: none; }
 .cm-photo-viewer > header > span { display: inline-flex; align-items: center; gap: 8px; font-size: .83rem; font-weight: 500; }
-.cm-photo-viewer > header button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #fff9ef26; border-radius: 50%; background: #fff9ef0b; color: inherit; }
-.cm-photo-viewer-image { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
-.cm-photo-viewer-image img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 15px; }
+.cm-photo-viewer-close { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #fff9ef26; border-radius: 50%; background: #fff9ef0b; color: inherit; }
+.cm-message-photo, .cm-photo-viewer-frame { position: relative; }
+.cm-photo-viewer-image { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; container-type: size; }
+.cm-photo-viewer-frame { max-width: 100%; }
+.cm-photo-viewer-frame img { display: block; width: 100%; height: auto; max-height: calc(100dvh - 200px); max-height: 100cqh; object-fit: contain; border-radius: 15px; }
 .cm-photo-viewer footer { flex: none; text-align: center; max-width: 480px; margin: 0 auto; }
 .cm-photo-viewer footer strong { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: .74rem; line-height: 1.8; font-weight: 500; }
 .cm-photo-viewer footer strong svg { flex: none; }

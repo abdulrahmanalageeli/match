@@ -11,6 +11,7 @@ await mkdir(output,{recursive:true});
 const fixture=`
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {Discovery} from '/src/community/Community.tsx';
+import {CapturePrivacyHost} from '/src/privacy/CapturePrivacy.tsx';
 import {Settings} from '/src/settings/Settings.tsx';
 import {MembershipAccess} from '/src/membership/access.tsx';
 import {Membership} from '/src/membership/Membership.tsx';
@@ -36,9 +37,9 @@ function Fixture(){
     buy={noop} restore={noop} manage={noop} refresh={noop} onPolicy={noop}/>:<main className="app-screen cm-shell" dir="rtl">{settings?<Settings demo state={null} demoMember={{displayName:'عبدالرحمن',city:'الرياض',age:30}} paused={false} busy={false} source={source} onEdit={noop} onMembership={noop} onToggle={noop} onDelete={noop} onExit={noop} onPrivacy={noop}/>:<Discovery source={source} onInbox={noop} onConversation={noop} onAccount={noop}/>}</main>}</div>
  </MembershipAccess.Provider>;
 }
-createRoot(document.getElementById('root')).render(<Fixture/>);
+createRoot(document.getElementById('root')).render(<><Fixture/><CapturePrivacyHost/></>);
 `;
-const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),server:{host:'127.0.0.1',port:5281,strictPort:true},
+const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),cacheDir:'node_modules/.vite-discovery-refinement',server:{host:'127.0.0.1',port:5281,strictPort:true},
  plugins:[{name:'local-discovery-fixture',enforce:'pre',resolveId(id){if(id==='virtual:discovery-fixture')return '\0discovery-fixture'},
  async load(id){if(id==='\0discovery-fixture')return(await transformWithEsbuild(fixture,'fixture.tsx',{loader:'tsx',jsx:'automatic'})).code;},
  transform(code,id){if(id.replaceAll('\\','/').endsWith('/community/Community.tsx'))return code+'\nexport {Discovery};';},
@@ -48,6 +49,11 @@ try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});const weekly=page.locator('.df-recommendation').first();
+ await page.locator('html[data-capture-scope="discovery"]').waitFor({state:"attached"});
+ await page.locator(".df-card-portrait .wd-capture-watermark").first().waitFor();
+ await page.emulateMedia({media:"print"});await page.locator(".wd-capture-note").waitFor();
+ assert.equal(await weekly.isVisible(),false);
+ await page.emulateMedia({media:"screen"});
  const percent = value => new Intl.NumberFormat('ar-SA',{style:'percent',numberingSystem:'arab'}).format(value/100).replace(/[\u061c\u200e\u200f]/g,'');
  const scoreText = async tile => (await tile.locator('.nf-score-tile strong').innerText()).replace(/[\u061c\u200e\u200f]/g,'');
  assert.equal(await scoreText(weekly),percent(72));
@@ -56,6 +62,7 @@ try{
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  await page.locator('.mp-profile h1').waitFor();
  const profile=page.locator('.mp-profile');
+ assert.equal(await page.locator('html').getAttribute('data-capture-scope'),'profile');
  await profile.getByLabel('خيارات الملف').click();
  const block=await profile.getByRole('button',{name:'حظر العضو',exact:true}).boundingBox();
  const report=await profile.getByRole('button',{name:'الإبلاغ والحظر',exact:true}).boundingBox();
@@ -67,6 +74,7 @@ try{
  await profile.getByRole('button',{name:'التوافق',exact:true}).click();
  assert.match(await profile.locator('[data-fit-score="preferences"] bdi').innerText(),/^(?:72%|٧٢٪)$/);
  await page.locator('.mp-back').click();
+ await page.locator('html[data-capture-scope="discovery"]').waitFor({state:'attached'});
  await weekly.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
  const sheet=page.getByRole('dialog');await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();

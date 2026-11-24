@@ -62,6 +62,14 @@ npm start
 
 Vite proxies local requests to port 8787. That service uses its own SQLite file and operator CLI. Live member discovery and mutual chat use Supabase; the fictional walkthrough also exercises these flows. See [local service setup](service/README.md).
 
+## Screenshot privacy
+
+Discovery, member profiles and chats offer **ستر الشاشة** to cover the entire screen with a Wudayn privacy note before taking a screenshot. **إظهار المحتوى** returns to the same view. The browser also covers hidden pages and substitutes the note for the page in print and Save as PDF. An ordinary OS screenshot can still capture whatever the browser displays.
+
+The Capacitor iPhone app places sensitive views over the note inside the same secure text canvas used for one-time photos. The saved image depends on how that iOS version composites the canvas. A Wudayn note or a blanked region is possible. If the canvas is unavailable, normal screens retain their web deterrents and one-time photos retain their existing availability check. The app separately covers active recording, mirroring and app-switcher previews. Screenshot reminders are local to the viewer.
+
+For device acceptance, use a synthetic conversation on each supported iOS version. Inspect the **saved** hardware-button screenshot in Photos for discovery, a profile, an open chat with a draft, and an enlarged attachment. Check recording already active before opening chat as well as starting it in chat. Stop recording, return through the app switcher with device lock enabled, and verify keyboard entry, scrolling, VoiceOver and photo dismissal.
+
 ## Checks
 
 Accepted conversations include Agora voice calls. Browser tab hiding no longer immediately hangs up; returning validates the server call and resumes or repairs media while preserving mute/timer. Browser suspension and server expiry can still end a call. Background/locked-screen incoming calling is not implemented. The certificate remains only in Supabase Edge secrets. See [voice backend and access rules](docs/voice-calls.md) and [native setup and device checks](ios/VOICE_CALLS.md).

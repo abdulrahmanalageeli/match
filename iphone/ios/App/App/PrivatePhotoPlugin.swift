@@ -5,13 +5,28 @@ import UIKit
 // text canvas excludes its contents from system capture on supported iOS builds.
 // This is an undocumented UIKit layout detail: fail closed if it changes, and
 // verify screenshots on devices for every supported OS before releasing.
-private final class PhotoSecureField: UITextField {
+final class PhotoSecureField: UITextField {
+    weak var interactiveContent: UIView?
     override var canBecomeFirstResponder: Bool { false }
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let interactiveContent, bounds.contains(point) {
+            return interactiveContent.hitTest(convert(point, to: interactiveContent), with: event)
+        }
+        return super.hitTest(point, with: event)
+    }
     override func textRect(forBounds bounds: CGRect) -> CGRect { bounds }
     override func editingRect(forBounds bounds: CGRect) -> CGRect { bounds }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // A text field normally sizes its canvas for one line of text.
+        secureCanvas?.frame = bounds
+    }
+    private var secureCanvas: UIView? {
+        subviews.first { String(describing: type(of: $0)).contains("CanvasView") }
+    }
     func canvas() -> UIView? {
         layoutIfNeeded()
-        return subviews.first { String(describing: type(of: $0)).contains("CanvasView") }
+        return secureCanvas
     }
 }
 
@@ -75,15 +90,22 @@ private final class PrivatePhotoController: UIViewController {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        let note = WudaynPrivacyNote(frame: view.bounds)
+        note.heading.text = "هذه الصورة خاصة"
+        note.detail.text = "استأذن قبل مشاركة الصور."
+        note.accessibilityViewIsModal = false
+        note.accessibilityElementsHidden = true
+        note.isUserInteractionEnabled = false
+        view.addSubview(note)
         let field = PhotoSecureField(frame: view.bounds)
         field.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         field.isSecureTextEntry = true; field.text = " "
-        field.textColor = .clear; field.tintColor = .clear
+        field.backgroundColor = .clear; field.textColor = .clear; field.tintColor = .clear
         field.isUserInteractionEnabled = false; field.isAccessibilityElement = false
         view.addSubview(field)
         guard let canvas = field.canvas() else { image = nil; return }
         picture.frame = canvas.bounds; picture.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        picture.backgroundColor = .black
         picture.contentMode = .scaleAspectFit; picture.image = image; image = nil
         picture.accessibilityLabel = "صورة لمرة واحدة"; picture.isAccessibilityElement = true
         canvas.addSubview(picture); protected = true
@@ -97,7 +119,33 @@ private final class PrivatePhotoController: UIViewController {
         close.translatesAutoresizingMaskIntoConstraints = false
         close.addTarget(self, action: #selector(finish), for: .touchUpInside)
         view.addSubview(close)
-        NSLayoutConstraint.activate([close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8), close.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16), close.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16), close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44), close.widthAnchor.constraint(greaterThanOrEqualToConstant: 120)])
+        // The footer remains visible even on iOS versions that replace protected
+        // layers with black instead of compositing the art underneath.
+        let footer = UILabel()
+        footer.text = "وُدَين  ·  صورة خاصة"
+        footer.font = .preferredFont(forTextStyle: .footnote)
+        footer.adjustsFontForContentSizeCategory = true
+        footer.textColor = .white
+        footer.textAlignment = .center
+        footer.backgroundColor = UIColor(red: 0.267, green: 0.075, blue: 0.153, alpha: 1)
+        footer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(footer)
+        field.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            footer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            footer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            footer.heightAnchor.constraint(greaterThanOrEqualToConstant: 32),
+            field.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            field.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            field.topAnchor.constraint(equalTo: view.topAnchor),
+            field.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            close.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            close.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            close.widthAnchor.constraint(greaterThanOrEqualToConstant: 120)
+        ])
         for event in [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification, UIApplication.userDidTakeScreenshotNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: event, object: nil, queue: .main) { [weak self] _ in self?.finish() })
         }

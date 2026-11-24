@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { UserRound } from "../BrandIcons";
 import type { ProfilePortrait } from '../types';
 import type { CommunitySource } from '../community/data';
+import { CaptureWatermark } from '../privacy/CapturePrivacy';
 
 type LoadedPortrait = { signature: string; source: CommunitySource; url: string; key: string; revealed: boolean; blur: number };
 const viewKey = (photo: ProfilePortrait) => [photo.id,photo.path,photo.blur,photo.revealed??false].join('|');
@@ -66,7 +67,7 @@ export function PortraitPhoto({portrait,source,alt,className,captionClassName,fr
   const shown=loaded?.signature===signature && loaded.source===source ? loaded : null;
   const photo=shown?<img ref={node=>{element.current=node;}} className={className} src={shown.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span ref={node=>{element.current=node;}} className={className} aria-label="الصورة غير متاحة بعد"><UserRound size={30}/></span>;
   if (!captionClassName && !frameClassName) return photo;
-  return <>{frameClassName?<div className={frameClassName}>{photo}</div>:photo}
+  return <>{frameClassName?<div className={frameClassName}>{photo}{shown && <CaptureWatermark scope="profile" variant="photo"/>}</div>:photo}
     {captionClassName && shown && <span className={captionClassName}>{shown.revealed?'الصورة الواضحة متاحة لك بإذن صاحبها':shown.blur>0?'صورة بتمويه اختياري':'صورة شخصية'}</span>}
   </>;
 }

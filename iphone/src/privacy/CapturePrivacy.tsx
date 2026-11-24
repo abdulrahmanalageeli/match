@@ -161,7 +161,7 @@ export function CapturePrivacyHost() {
     onCancel={event => { if (document.documentElement.hasAttribute('data-capture-hidden')) event.preventDefault(); }}
     aria-labelledby="wd-capture-title" aria-describedby="wd-capture-detail">
     <div className="wd-capture-composition">
-      <div className="wd-capture-seal" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" alt=""/></div>
+      <div className="wd-capture-seal" aria-hidden="true"><img className={scope === 'profile' ? 'wd-profile-lock' : undefined} src={scope === 'profile' ? '/brand/wudayn-privacy-lock.webp' : '/brand/wudayn-emblem-v2.png'} alt=""/></div>
       <span className="wd-capture-brand" aria-label="وُدَين">وُدَين</span>
       <span className="wd-capture-rule" aria-hidden="true"/>
       <h2 id="wd-capture-title">{noteTitle[scope]}</h2>

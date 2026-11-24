@@ -95,6 +95,8 @@ import './message-actions.css';
 import './directory.css';
 import { MemberProfile as Profile } from '../profile/MemberProfile';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
+import { DiscoveryPhoto } from '../privacy/DiscoveryPhoto';
+import { nativePrivatePhoto } from './privatePhoto';
 import { HelpButton, HelpCenter } from '../help/HelpCenter';
 import { SupportContact } from '../help/SupportContact';
 import { SuccessNotice } from './SuccessNotice';
@@ -418,14 +420,15 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   const avatar = person.publicAvatar;
   const candidatePhoto = !avatar && person.demoPhoto?.startsWith("/demo/portraits/") ? person.demoPhoto : undefined;
   const photo = candidatePhoto && candidatePhoto !== failedPhotoSrc ? candidatePhoto : undefined;
+  const protectedDiscovery = nativePrivatePhoto();
   const timeline = person.marriageBasics?.marriageTimeline;
   return <>
     <div className="df-portrait-media">
-    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
+    {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo||protectedDiscovery?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" /> : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias}/> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
       alt="" onError={() => setFailedPhotoSrc(photo)} /> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
-    {(person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
+    {!protectedDiscovery && (person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
     </div>
     <div className="df-portrait-shade" aria-hidden="true" />
     <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
@@ -533,9 +536,9 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       <div className="dr-row-profile-group">
         <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
-          <PersonAvatar person={person} source={source} className="dr-row-image"/>
-          {(person.portrait || (!person.publicAvatar && person.demoPhoto)) && <CaptureWatermark scope="discovery" variant="photo"/>}
-          {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"/>}
+          <PersonAvatar person={person} source={source} className="dr-row-image" protectedDiscovery={nativePrivatePhoto()}/>
+          {!nativePrivatePhoto() && (person.portrait || (!person.publicAvatar && person.demoPhoto)) && <CaptureWatermark scope="discovery" variant="photo"/>}
+          {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"><i className="dr-online-dot"/></span>}
         </span>
         <span className="dr-row-identity">
           <span className="dr-row-name">

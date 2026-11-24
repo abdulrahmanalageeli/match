@@ -8,15 +8,17 @@ export type DeviceLockStatus = {
 };
 export type DeviceAppearance = { icon: string; supported: boolean; callerName: boolean };
 
+type PortraitPlacement = { id: string; box?: number[]; radius?: number; cutouts?: number[][]; image?: string };
 interface SecureSessionPlugin {
   read(options?: { key?: string }): Promise<{ token: string | null }>;
   save(options: { token: string; key?: string }): Promise<void>;
   clear(options?: { key?: string }): Promise<void>;
-  setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'}): Promise<void>;
   privacyStatus(): Promise<DeviceLockStatus>;
   privacyConfigure(options: { enabled: boolean; delay: number }): Promise<DeviceLockStatus>;
   appearance(): Promise<DeviceAppearance>;
   setAppearance(options: { icon?: string; callerName?: boolean }): Promise<DeviceAppearance>;
+  setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'; portraitOnly: boolean}): Promise<void>;
+  discoveryPortrait(options: PortraitPlacement): Promise<{ placed: boolean }>;
 }
 
 const native = registerPlugin<SecureSessionPlugin>("PrivateSession");
@@ -25,9 +27,13 @@ const useKeychain = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 const key = "marriage.session";
 
+export function placeDiscoveryPortrait(options: PortraitPlacement) {
+  return native.discoveryPortrait(options).catch(() => ({ placed: false }));
+}
+
 export function setNativeCaptureScope(scope: 'discovery' | 'profile' | 'chat' | 'public') {
   // Older installed binaries still use the web watermark and privacy screen.
-  if (useKeychain()) return native.setCaptureScope({scope}).catch(() => {});
+  if (useKeychain()) return native.setCaptureScope({scope, portraitOnly: scope === 'discovery'}).catch(() => {});
 }
 
 // The draft store deliberately has no web storage fallback.

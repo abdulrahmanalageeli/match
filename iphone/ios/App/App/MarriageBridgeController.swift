@@ -1,6 +1,8 @@
 import Capacitor
 import UIKit
 import WebKit
+import AVFoundation
+import CoreImage
 import AuthenticationServices
 import CryptoKit
 import Security
@@ -9,6 +11,8 @@ final class MarriageBridgeController: CAPBridgeViewController {
     private let content = UIView()
     private var secureField: PhotoSecureField?
     private var backing: WudaynPrivacyNote?
+    private(set) var discoveryPortraitsEnabled = false
+    private var portraits: [String: DiscoveryPortraitView] = [:]
     private var reportedSafeInsets: (top: Int, bottom: Int)?
     private var pageLoadObservation: NSKeyValueObservation?
 
@@ -33,7 +37,10 @@ final class MarriageBridgeController: CAPBridgeViewController {
             content.accessibilityElements = [webView]
         }
         pageLoadObservation = webView?.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
-            guard !webView.isLoading else { return }
+            if webView.isLoading {
+                self?.clearPortraits()
+                return
+            }
             DispatchQueue.main.async {
                 self?.reportedSafeInsets = nil
                 self?.view.setNeedsLayout()
@@ -49,9 +56,13 @@ final class MarriageBridgeController: CAPBridgeViewController {
         bridge?.registerPluginInstance(SocialAuthPlugin())
     }
 
-    func setProtectedContent(scope: CaptureScope) {
+    func setProtectedContent(scope: CaptureScope, portraitOnly: Bool) {
+        discoveryPortraitsEnabled = scope == .discovery && portraitOnly
+        if !discoveryPortraitsEnabled {
+            clearPortraits()
+        }
         guard let webView else { return }
-        if scope == .publicScreen {
+        if scope == .publicScreen || discoveryPortraitsEnabled {
             guard secureField != nil else { return }
             content.addSubview(webView)
             webView.frame = content.bounds
@@ -62,6 +73,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
             return
         }
         if let backing {
+            backing.setArtwork(for: scope)
             backing.heading.text = scope.heading
             return
         }
@@ -85,6 +97,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
             item.gestureRecognizers?.forEach { $0.isEnabled = false }
         }
         let note = WudaynPrivacyNote(frame: content.bounds)
+        note.setArtwork(for: scope)
         note.heading.text = scope.heading
         note.detail.text = "استأذن قبل مشاركة ما تراه هنا."
         note.isUserInteractionEnabled = false
@@ -98,6 +111,107 @@ final class MarriageBridgeController: CAPBridgeViewController {
         secureField = field
         backing = note
     }
+
+    func removePortrait(_ id: String) {
+        portraits.removeValue(forKey: id)?.removeFromSuperview()
+    }
+
+    private func clearPortraits() {
+        portraits.values.forEach { $0.removeFromSuperview() }
+        portraits.removeAll()
+    }
+
+    // WebKit owns all labels and hit targets. Only the authorized bitmap is
+    // mounted in a capture-excluded layer above the matching artwork in HTML.
+    func placePortrait(_ id: String, frame: CGRect, radius: CGFloat, image: UIImage?, cutouts: [CGRect]) -> Bool {
+        guard discoveryPortraitsEnabled, let webView, frame.width > 0, frame.height > 0 else { return false }
+        let scroll = webView.scrollView
+        let field: DiscoveryPortraitView
+        if let existing = portraits[id] {
+            field = existing
+        } else {
+            guard let image, let portrait = DiscoveryPortraitView(image: image) else { return false }
+            field = portrait
+            scroll.addSubview(field)
+            portraits[id] = field
+        }
+        field.frame = frame.offsetBy(dx: scroll.contentOffset.x, dy: scroll.contentOffset.y)
+        field.layer.cornerRadius = radius
+        // Preserve fixed bars and badges when they overlap a partial portrait.
+        var path = CGPath(rect: field.bounds, transform: nil)
+        for cutout in cutouts {
+            let intersection = frame.intersection(cutout)
+            if !intersection.isNull {
+                let hole = intersection.offsetBy(dx: -frame.minX, dy: -frame.minY)
+                path = path.subtracting(CGPath(rect: hole, transform: nil))
+            }
+        }
+        if cutouts.isEmpty { field.layer.mask = nil }
+        else {
+            let mask = CAShapeLayer()
+            mask.frame = field.bounds
+            mask.path = path
+            field.layer.mask = mask
+        }
+        return true
+    }
+}
+
+// A still portrait is one video frame. AVFoundation can exclude this layer
+// from system capture without putting the WKWebView inside a secure field.
+private final class DiscoveryPortraitView: UIView {
+    private static let context = CIContext(options: [.cacheIntermediates: false])
+    private let display = AVSampleBufferDisplayLayer()
+    private let field = PhotoSecureField()
+
+    init?(image: UIImage) {
+        super.init(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
+        guard let cg = image.cgImage, cg.width <= 1024, cg.height <= 1024 else { return nil }
+        display.preventsCapture = true
+        display.videoGravity = .resizeAspectFill
+        // Exclude the entire photo surface, including the video renderer's
+        // own capture fill, so the public artwork underneath can show through.
+        isOpaque = false
+        backgroundColor = .clear
+        field.frame = bounds
+        field.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        field.isSecureTextEntry = true
+        field.text = " "
+        field.textColor = .clear
+        field.backgroundColor = .clear
+        addSubview(field)
+        guard let canvas = field.canvas() else { return nil }
+        canvas.layer.addSublayer(display)
+        isUserInteractionEnabled = false
+        accessibilityElementsHidden = true
+        clipsToBounds = true
+
+        var pixels: CVPixelBuffer?
+        let attributes = [kCVPixelBufferIOSurfacePropertiesKey: [:] as NSDictionary] as CFDictionary
+        guard CVPixelBufferCreate(kCFAllocatorDefault, cg.width, cg.height, kCVPixelFormatType_32BGRA,
+                                  attributes, &pixels) == kCVReturnSuccess, let pixels else { return nil }
+        Self.context.render(CIImage(cgImage: cg), to: pixels)
+        var format: CMVideoFormatDescription?
+        guard CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixels,
+                                                            formatDescriptionOut: &format) == noErr, let format else { return nil }
+        var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: .zero, decodeTimeStamp: .invalid)
+        var sample: CMSampleBuffer?
+        guard CMSampleBufferCreateReadyWithImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixels,
+                  formatDescription: format, sampleTiming: &timing, sampleBufferOut: &sample) == noErr,
+              let sample, let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true) else { return nil }
+        let settings = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+        CFDictionarySetValue(settings, Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                             Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
+        display.enqueue(sample)
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        display.frame = bounds
+        CATransaction.commit()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
 @objc(SocialAuthPlugin)

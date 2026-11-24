@@ -24,6 +24,10 @@ people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 source.blockPerson=async()=>{throw Error('not part of fixture')};
+if (location.search.includes('protectedPhotos')) {
+ people[0].portrait={id:'synthetic-portrait',path:'fixture',blur:0,revealed:true};
+ source.portraitUrl=async()=>'/demo/portraits/reem-realistic-v2.webp';
+}
 const noop=()=>{};const settings=new URLSearchParams(location.search).has('settings');
 function Fixture(){
  const [initialPlan,openOffer]=React.useState(null);
@@ -46,7 +50,7 @@ const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),
  configureServer(dev){dev.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/__discovery-fixture')){res.setHeader('Content-Type','text/html');res.end(await dev.transformIndexHtml('/__discovery-fixture','<!doctype html><html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/@id/__x00__discovery-fixture"></script></body></html>'));return;}next();});}}]});
 await server.listen();let browser,page;const errors=[];
 try{
- browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});const weekly=page.locator('.df-recommendation').first();
  await page.locator('html[data-capture-scope="discovery"]').waitFor({state:"attached"});
@@ -228,5 +232,56 @@ try{
  }
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings');await page.getByRole('heading',{name:'الإعدادات',exact:true}).waitFor();await page.waitForTimeout(250);assert.equal(await page.locator('.st-verification-entry').count(),0);
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
- assert.deepEqual(errors,[]);console.log('PASS: phone/tablet layout, online labels, interest send/undo/failure, unused verification hidden, legacy access retained.');
+ // Simulate the Capacitor contract. The screenshot records the actual HTML
+ // backing a secure canvas, not the result of the iOS hardware compositor.
+ await page.addInitScript(() => {
+   window.CapacitorCustomPlatform={name:'ios'};
+   window.__portraits=new Map();
+   window.Capacitor={
+     PluginHeaders:[{name:'PrivateSession',methods:['read','setCaptureScope','discoveryPortrait'].map(name=>({name,rtype:'promise'}))}],
+     nativePromise:async(_plugin,method,options)=>{
+       if(method==='read') return {token:null};
+       if(method==='setCaptureScope') {window.__scope=options;return;}
+       if(!options.box){window.__portraits.delete(options.id);return {placed:false};}
+       if(!window.__portraits.has(options.id)&&!options.image)return {placed:false};
+       window.__portraits.set(options.id,options.box);
+       if(options.box[2]<60 && (options.cutouts||[]).some(rect=>rect[2]>=options.box[2] && rect[3]>=options.box[3])) window.__obscuredAvatar=true;
+       return {placed:true};
+     }
+   };
+ });
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture?protectedPhotos');
+ for (const [width,height] of [[375,812],[393,852]]) {
+   await page.setViewportSize({width,height});
+   const card=page.locator('.df-recommendation').first();
+   await card.locator('.wd-private-portrait').scrollIntoViewIfNeeded();
+   await page.waitForFunction(()=>window.__scope?.portraitOnly && window.__portraits.size>0);
+   assert.equal(await card.locator('.df-card-portrait img[src*="portraits"]').count(),0);
+   assert.equal(await card.locator('.df-live-caption,.wd-capture-watermark').count(),0);
+   const art = await card.locator('.df-card-portrait').evaluate(async node=>{
+     const url=getComputedStyle(node).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
+     const img=new Image(); img.src=url; await img.decode(); return img.naturalWidth;
+   });
+   assert.ok(art>=390,'the capture backing must render the bundled privacy artwork');
+   const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
+   assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
+   assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
+   await card.screenshot({path:resolve(output,'iphone-capture-card-'+width+'.png')});
+ }
+ await page.getByRole('button',{name:'جميع الملفات'}).click();
+ const row=page.locator('.dr-person-row').filter({has:page.getByRole('button',{name:/عرض ملف سارة/})}).first();
+ await row.scrollIntoViewIfNeeded();
+ await row.locator('.wd-private-portrait--small').waitFor();
+ await page.waitForFunction(()=>[...window.__portraits.values()].some(box=>box[2]<60));
+ assert.equal(await page.evaluate(()=>Boolean(window.__obscuredAvatar)),false,'the online ring must leave its photo visible');
+ assert.equal(await page.locator('.dr-person-row img[src*="portraits"]').count(),0);
+ await row.screenshot({path:resolve(output,'iphone-capture-directory.png')});
+ await page.getByRole('button',{name:'تصفية الملفات'}).click();
+ await page.waitForFunction(()=>window.__portraits.size===0);
+ await page.getByRole('button',{name:'إغلاق',exact:true}).click();
+ await row.scrollIntoViewIfNeeded();
+ await page.waitForFunction(()=>window.__portraits.size>0);
+ await row.getByRole('button',{name:/عرض ملف سارة/}).click();
+ await page.waitForFunction(()=>window.__scope?.scope==='profile' && !window.__scope.portraitOnly && window.__portraits.size===0);
+ assert.deepEqual(errors,[]);console.log('PASS: discovery layout, membership, interest, iPhone portrait bridge, capture backing and scope cleanup.');
 }catch(e){console.error('Browser errors:',errors,e);await page?.screenshot({path:resolve(output,'failure.png'),timeout:5000}).catch(()=>{});throw e;}finally{await browser?.close();await server.close();}

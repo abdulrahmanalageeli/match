@@ -16,7 +16,8 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setCaptureScope", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setCaptureScope", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "discoveryPortrait", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func appearance(_ call: CAPPluginCall) {
@@ -46,9 +47,35 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         DispatchQueue.main.async {
-            (self.bridge?.viewController as? MarriageBridgeController)?.setProtectedContent(scope: scope)
+            (self.bridge?.viewController as? MarriageBridgeController)?.setProtectedContent(scope: scope, portraitOnly: call.getBool("portraitOnly") == true)
             NisfaynPrivacy.shared.setCaptureScope(scope)
             call.resolve()
+        }
+    }
+
+    @objc func discoveryPortrait(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), id.count <= 80 else { call.reject("Invalid portrait"); return }
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController as? MarriageBridgeController else {
+                call.resolve(["placed": false]); return
+            }
+            guard let box = call.getArray("box", Double.self), box.count == 4,
+                  box.allSatisfy({ $0.isFinite }), box[2] > 0, box[3] > 0,
+                  box[2] <= 2000, box[3] <= 2000 else {
+                host.removePortrait(id); call.resolve(["placed": false]); return
+            }
+            guard host.discoveryPortraitsEnabled, NisfaynPrivacy.shared.mayOpen else {
+                host.removePortrait(id); call.resolve(["placed": false]); return
+            }
+            var image: UIImage?
+            if let encoded = call.getString("image"), encoded.count <= 1024 * 1024,
+               let bytes = Data(base64Encoded: encoded) { image = UIImage(data: bytes) }
+            let cutouts = (call.getArray("cutouts") ?? []).compactMap { entry -> CGRect? in
+                guard let rect = entry as? [Double], rect.count == 4 else { return nil }
+                return CGRect(x: rect[0], y: rect[1], width: rect[2], height: rect[3])
+            }
+            let frame = CGRect(x: box[0], y: box[1], width: box[2], height: box[3])
+            call.resolve(["placed": host.placePortrait(id, frame: frame, radius: CGFloat(call.getDouble("radius") ?? 0), image: image, cutouts: cutouts)])
         }
     }
 
@@ -132,6 +159,8 @@ final class WudaynPrivacyNote: UIView {
     let heading = UILabel()
     let detail = UILabel()
     let button = UIButton(type: .system)
+    private let profileLock = UIImageView()
+    func setArtwork(for scope: CaptureScope) { profileLock.isHidden = scope != .profile }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -177,6 +206,15 @@ final class WudaynPrivacyNote: UIView {
             mark.tintColor = ivory
             mark.translatesAutoresizingMaskIntoConstraints = false
             seal.addSubview(mark)
+            if let url = Bundle.main.url(forResource: "wudayn-privacy-lock", withExtension: "webp", subdirectory: "public/brand") {
+                profileLock.image = UIImage(contentsOfFile: url.path)
+                profileLock.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+                profileLock.contentMode = .scaleAspectFill
+                profileLock.layer.cornerRadius = 32
+                profileLock.clipsToBounds = true
+                profileLock.isHidden = true
+                seal.addSubview(profileLock)
+            }
             stack.insertArrangedSubview(seal, at: 0)
             NSLayoutConstraint.activate([
                 seal.widthAnchor.constraint(equalToConstant: 64), seal.heightAnchor.constraint(equalToConstant: 64),
@@ -298,6 +336,7 @@ final class NisfaynPrivacy: NSObject {
     @objc private func tookScreenshot() {
         // UIKit posts this notification AFTER saving the screenshot.
         guard scope != .publicScreen, !inactive, visibleReason == nil else { return }
+        if scope == .discovery, (window?.rootViewController as? MarriageBridgeController)?.discoveryPortraitsEnabled == true { return }
         screenshotScope = scope
         refreshCover()
     }
@@ -351,14 +390,17 @@ final class NisfaynPrivacy: NSObject {
         note.button.isHidden = true
         switch reason {
         case .inactive, .locked:
+            note.setArtwork(for: .publicScreen)
             note.heading.text = "مساحتك الخاصة"
             note.detail.text = nil
             note.button.configuration?.title = "فتح وُدَين"
             note.button.isHidden = reason != .locked
         case .recording(let scope):
+            note.setArtwork(for: scope)
             note.heading.text = scope.heading
             note.detail.text = "أوقف تسجيل الشاشة أو مشاركتها للمتابعة."
         case .screenshot(let scope):
+            note.setArtwork(for: scope)
             note.heading.text = scope.heading
             note.detail.text = "التقطت لقطة شاشة. استأذن قبل مشاركة ما تراه هنا."
             note.button.configuration?.title = "العودة"

@@ -1,3 +1,70 @@
+/* This is also the visible surface underneath a capture-excluded iOS photo. */
+.wd-private-portrait {
+  display: block;
+  overflow: hidden;
+  background: #000 url('/brand/wudayn-privacy-lock.webp') center / contain no-repeat;
+}
+.wd-private-portrait--small {
+  grid-area: 1 / 1;
+  align-self: stretch;
+  justify-self: stretch;
+  background: transparent url('/brand/wudayn-privacy-row-lock.webp') center / contain no-repeat;
+}
+/* The capture artwork includes the entire bezel and its projecting clasp. */
+.phone-app .cm-shell .df-discovery .dr-row-image:has(.wd-private-portrait--small) {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.phone-app .cm-shell .df-discovery .dr-row-avatar:has(.wd-private-portrait--small) .dr-avatar-online {
+  inset: 0;
+  border: 0;
+  box-shadow: none;
+}
+.dr-online-dot { display: none; }
+.dr-row-avatar:has(.wd-private-portrait) .dr-avatar-online::after { display: none; }
+.dr-row-avatar:has(.wd-private-portrait) .dr-online-dot {
+  position: absolute;
+  display: block;
+  inset-inline-end: 0;
+  bottom: 0;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #32805b;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0 0 12px;
+  height: auto;
+  aspect-ratio: auto;
+  background: #11070d url('/brand/wudayn-privacy-banner.webp') center top / cover no-repeat;
+}
+.df-card-portrait > .df-portrait-media:has(> .wd-private-portrait) {
+  position: relative;
+  width: 100%;
+}
+.df-portrait-media > .wd-private-portrait {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: transparent;
+}
+.df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-shade { display: none; }
+.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-identity {
+  position: static;
+  justify-self: stretch;
+  padding: 9px 15px 0;
+}
+.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-intention { margin-bottom: 2px; }
+.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-line h2 { font-size: 1.55rem; }
+.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-meta { margin-top: 3px; }
+.df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-badges { top: 42px; }
+
 .wd-capture-watermark, button.wd-capture-trigger {
   display: inline-flex;
   align-items: center;
@@ -101,6 +168,7 @@ dialog.wd-capture-note[open], html:is([data-capture-hidden], [data-capture-pendi
   border-radius: 50% 50% 46% 46%;
 }
 .wd-capture-seal img { display: block; width: 37px; height: 45px; object-fit: contain; filter: brightness(0) invert(.91) sepia(.38); }
+.wd-capture-seal img.wd-profile-lock { width: 100%; height: 100%; border-radius: inherit; filter: none; }
 .wd-capture-brand { display: block; margin-top: 10px; font-size: 29px; line-height: 1.5; font-weight: 700; }
 .wd-capture-rule {
   display: block;

@@ -116,6 +116,7 @@ import { denied, discardClosedDrafts, type Outgoing } from "./chatOutbox";
 import { useThread } from "./useThread";
 import { ChatMediaComposer, MessageMedia } from "./ChatMedia";
 import { CallPermissionButton } from "./CallPermission";
+import { ChatScreenshotNotice } from "../privacy/ChatScreenshotNotice";
 import { ConversationAgreement } from "./ConversationAgreement";
 import { ConversationPilotFeedback } from "./ConversationPilotFeedback";
 import { useReadPosition } from "./useReadPosition";
@@ -634,7 +635,12 @@ function Discovery({
   const [hiddenNotice, setHiddenNotice] = useState('');
   const [more, setMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  useEffect(()=>{const timer=window.setTimeout(()=>setFilters(f=>f.search===query?f:{...f,search:query}),250);return()=>clearTimeout(timer);},[query]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setFilters(current =>
+      (current.search ?? '') === query ? current : {...current, search: query}
+    ), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
   const [list, setList] = useState<PublicPerson[]>([]);
   const listRef=useRef(list);listRef.current=list;
   const [showReceipt, setShowReceipt] = useState(profileSaved);
@@ -730,17 +736,29 @@ function Discovery({
   useEffect(() => {
     if (selected || loading || fitPerson || filterOpen || reportTarget) return;
     let leaving = false;
+    let settleTimer: number | undefined;
+    const position = () => ({filters, order, query, scroll:window.scrollY, pages:Math.max(1, Math.ceil(listRef.current.length / 24))});
     const remember = () => {
       if (restoreBrowse.current || leaving) return;
       const cards = [...document.querySelectorAll<HTMLElement>('[data-weekly-person]')];
       const first = cards.find(card => card.getBoundingClientRect().bottom > 100);
-      saveBrowseMemory(source,{filters,order,query,scroll:window.scrollY,pages:Math.max(1,Math.ceil(listRef.current.length/24)),
+      saveBrowseMemory(source,{...position(),
         anchor:first?.dataset.weeklyPerson?{id:first.dataset.weeklyPerson,top:first.getBoundingClientRect().top}:undefined});
     };
+    const onScroll = () => {
+      if (restoreBrowse.current || leaving) return;
+      saveBrowseMemory(source, position());
+      clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(remember, 120);
+    };
     const leave = () => { remember(); leaving = true; };
-    remember(); window.addEventListener('scroll',remember,{passive:true});
+    remember(); window.addEventListener('scroll',onScroll,{passive:true});
     window.addEventListener('nisfayn:before-navigation',leave);
-    return () => { window.removeEventListener('scroll',remember); window.removeEventListener('nisfayn:before-navigation',leave); };
+    return () => {
+      clearTimeout(settleTimer);
+      window.removeEventListener('scroll',onScroll);
+      window.removeEventListener('nisfayn:before-navigation',leave);
+    };
   }, [source,filters,order,query,selected,loading,fitPerson,filterOpen,reportTarget,list.length]);
   useEffect(() => {
     setList([]);
@@ -1330,6 +1348,7 @@ export function Chat({
   useEffect(()=>{if(initialMessage&&!initialRoom)setJumpToId(initialMessage);},[initialMessage,initialRoom]);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [replyNotice, setReplyNotice] = useState('');
+  const [agreementSlot, setAgreementSlot] = useState<HTMLDivElement | null>(null);
   const [conversationAllowed, setConversationAllowed] = useState(!source.agreement);
   const canDraft = thread.ready && !thread.accessDenied;
   const canSend = canDraft && conversationAllowed && thread.connectionState === 'online';
@@ -1549,8 +1568,9 @@ export function Chat({
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
+        {source.reportChatScreenshot && !connection.person.isDemo && <ChatScreenshotNotice key={connection.id} source={source} requestId={connection.id} />}
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        <ConversationAgreement hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
           respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
         <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
@@ -1625,6 +1645,7 @@ export function Chat({
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
+      <div ref={setAgreementSlot} className="cm-agreement-slot"/>
       {canDraft && <div className="cm-chat-compose">
 
        {replyDraft && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>

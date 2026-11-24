@@ -3,6 +3,7 @@ import UIKit
 import WebKit
 import AVFoundation
 import CoreImage
+import ImageIO
 import AuthenticationServices
 import CryptoKit
 import Security
@@ -13,6 +14,14 @@ final class MarriageBridgeController: CAPBridgeViewController {
     private var backing: WudaynPrivacyNote?
     private(set) var discoveryPortraitsEnabled = false
     private var portraits: [String: DiscoveryPortraitView] = [:]
+    private let portraitDecoder: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "com.wudayn.discovery-portraits"
+        queue.qualityOfService = .userInitiated
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+    private var pendingPortraits: [String: DiscoveryFrameDecode] = [:]
     private var reportedSafeInsets: (top: Int, bottom: Int)?
     private var pageLoadObservation: NSKeyValueObservation?
 
@@ -110,29 +119,58 @@ final class MarriageBridgeController: CAPBridgeViewController {
     }
 
     func removePortrait(_ id: String) {
+        pendingPortraits.removeValue(forKey: id)?.cancel()
         portraits.removeValue(forKey: id)?.removeFromSuperview()
     }
 
     private func clearPortraits() {
+        portraitDecoder.cancelAllOperations()
+        pendingPortraits.removeAll()
         portraits.values.forEach { $0.removeFromSuperview() }
         portraits.removeAll()
     }
 
+    func updatePortrait(_ id: String, frame: CGRect, measuredOffset: CGPoint?, radius: CGFloat,
+                        encoded: String?, cutouts: [CGRect], completion: @escaping (Bool) -> Void) {
+        if portraits[id] != nil || encoded == nil {
+            completion(placePortrait(id, frame: frame, measuredOffset: measuredOffset, radius: radius, sample: nil, cutouts: cutouts))
+            return
+        }
+        guard let encoded, encoded.utf8.count <= 1024 * 1024 else { completion(false); return }
+        // A canceled job may already be decoding. Only its original placement
+        // is allowed to consume the result, even after a route or account change.
+        let request = DiscoveryFrameDecode(encoded)
+        pendingPortraits[id]?.cancel()
+        pendingPortraits[id] = request
+        request.completionBlock = { [weak self, weak request] in
+            DispatchQueue.main.async {
+                guard let self, let request, self.pendingPortraits[id] === request else { completion(false); return }
+                self.pendingPortraits.removeValue(forKey: id)
+                guard !request.isCancelled, NisfaynPrivacy.shared.mayOpen else { completion(false); return }
+                completion(self.placePortrait(id, frame: frame, measuredOffset: measuredOffset,
+                                              radius: radius, sample: request.sample, cutouts: cutouts))
+            }
+        }
+        portraitDecoder.addOperation(request)
+    }
+
     // WebKit owns all labels and hit targets. Only the authorized bitmap is
     // mounted in a capture-excluded layer above the matching artwork in HTML.
-    func placePortrait(_ id: String, frame: CGRect, radius: CGFloat, image: UIImage?, cutouts: [CGRect]) -> Bool {
+    private func placePortrait(_ id: String, frame: CGRect, measuredOffset: CGPoint?, radius: CGFloat, sample: CMSampleBuffer?, cutouts: [CGRect]) -> Bool {
         guard discoveryPortraitsEnabled, let webView, frame.width > 0, frame.height > 0 else { return false }
         let scroll = webView.scrollView
         let field: DiscoveryPortraitView
         if let existing = portraits[id] {
             field = existing
         } else {
-            guard let image, let portrait = DiscoveryPortraitView(image: image) else { return false }
+            guard let sample, let portrait = DiscoveryPortraitView(sample: sample) else { return false }
             field = portrait
             scroll.addSubview(field)
             portraits[id] = field
         }
-        field.frame = frame.offsetBy(dx: scroll.contentOffset.x, dy: scroll.contentOffset.y)
+        // The JS measurement and this callback can land on different scroll frames.
+        let offset = measuredOffset ?? scroll.contentOffset
+        field.frame = frame.offsetBy(dx: offset.x, dy: offset.y)
         field.layer.cornerRadius = radius
         // Preserve fixed bars and badges when they overlap a partial portrait.
         var path = CGPath(rect: field.bounds, transform: nil)
@@ -157,13 +195,11 @@ final class MarriageBridgeController: CAPBridgeViewController {
 // A still portrait is one video frame. AVFoundation can exclude this layer
 // from system capture without putting the WKWebView inside a secure field.
 private final class DiscoveryPortraitView: UIView {
-    private static let context = CIContext(options: [.cacheIntermediates: false])
     private let display = AVSampleBufferDisplayLayer()
     private let field = PhotoSecureField()
 
-    init?(image: UIImage) {
+    init?(sample: CMSampleBuffer) {
         super.init(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
-        guard let cg = image.cgImage, cg.width <= 1024, cg.height <= 1024 else { return nil }
         display.preventsCapture = true
         display.videoGravity = .resizeAspectFill
         // Exclude the entire photo surface, including the video renderer's
@@ -178,11 +214,42 @@ private final class DiscoveryPortraitView: UIView {
         field.backgroundColor = .clear
         addSubview(field)
         guard let canvas = field.canvas() else { return nil }
+        // Cover the capture artwork during the first render commit. The
+        // placeholder is inside the secure canvas alongside the video layer.
+        canvas.backgroundColor = UIColor(red: 239/255, green: 237/255, blue: 238/255, alpha: 1)
         canvas.layer.addSublayer(display)
         isUserInteractionEnabled = false
         accessibilityElementsHidden = true
         clipsToBounds = true
 
+        display.enqueue(sample)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        display.frame = bounds
+        CATransaction.commit()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+private final class DiscoveryFrameDecode: Operation, @unchecked Sendable {
+    private let encoded: String
+    private(set) var sample: CMSampleBuffer?
+    init(_ encoded: String) { self.encoded = encoded }
+    override func main() {
+        if !isCancelled { sample = Self.makeSample(encoded) }
+    }
+
+    private static let context = CIContext(options: [.cacheIntermediates: false])
+
+    static func makeSample(_ encoded: String) -> CMSampleBuffer? {
+        guard let data = Data(base64Encoded: encoded),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              cg.width <= 1024, cg.height <= 1024 else { return nil }
         var pixels: CVPixelBuffer?
         let attributes = [kCVPixelBufferIOSurfacePropertiesKey: [:] as NSDictionary] as CFDictionary
         guard CVPixelBufferCreate(kCFAllocatorDefault, cg.width, cg.height, kCVPixelFormatType_32BGRA,
@@ -199,16 +266,8 @@ private final class DiscoveryPortraitView: UIView {
         let settings = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
         CFDictionarySetValue(settings, Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
                              Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
-        display.enqueue(sample)
+        return sample
     }
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        display.frame = bounds
-        CATransaction.commit()
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
 @objc(SocialAuthPlugin)

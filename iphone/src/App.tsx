@@ -1,3 +1,4 @@
+import { FeatureOverview, overviewSeen, rememberOverview } from './help/FeatureOverview';
 import memberAr from './member-copy.ts';
 import {MembershipAccess} from './membership/access';
 import { finalizeStagedPortrait, finalizePortraitStage, pendingPortraitStage } from './photos/stagedPortrait';
@@ -186,7 +187,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [unlockOfferOwner, setUnlockOfferOwner] = useState<string | null>(null);
   const [entryReceipt, setEntryReceipt] = useState<{ owner: string; value: SignupAgreements | null } | null>(null);
   const accountAgreements = entryReceipt?.owner === token ? entryReceipt?.value : undefined;
   useEffect(() => {
@@ -291,17 +291,15 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     return () => source.simulation?.dispose();
   }, [demo, source, paused, onboardingPreview]);
 
-  const chatUnread = useUnreadCount(memberAccess ? source : null);
+  const badgeOwner = tester ? 'tester:' + tester.session : !demo ? token : null;
+  const updatePushBadge = useCallback((count: number) => {
+    if (badgeOwner) void setPushBadge(count, badgeOwner).catch(() => {});
+  }, [badgeOwner]);
+  const chatUnread = useUnreadCount(memberAccess ? source : null, updatePushBadge);
   const mutual = useMutualMatches(memberAccess && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
-  useEffect(()=>{
-    if(!source||!memberAccess||(demo&&!tester))return;
-    let alive=true;let timeout:ReturnType<typeof setTimeout>|undefined;
-    const refresh=()=>{clearTimeout(timeout);timeout=setTimeout(()=>{void source.unreadCount().then(count=>{if(alive)void setPushBadge(count,tester ? 'tester:'+tester.session : token).catch(()=>{});}).catch(()=>{});},400);};
-    refresh();const stop=source.watch(refresh);return()=>{alive=false;clearTimeout(timeout);stop();};
-  },[source,memberAccess,demo,tester?.session,token]);
   usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null, async (id, kind,event) => {
     if(kind==='publication'){setPublicationOpen({id,owner:token});return;}
     if(!memberAccess)return;
@@ -360,12 +358,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     }
     tokenRef.current = t;
     setToken(t);
-    if (!t) setUnlockOfferOwner(null);
     version.current++;
-  }
-  function rememberSignIn(t: string) {
-    remember(t);
-    setUnlockOfferOwner(t);
   }
   function go(next: View) {
     if (next === view) return;
@@ -389,19 +382,34 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     window.scrollTo({ top, behavior: 'instant' });
   }, [view]);
   const atWelcome = !loading && !demo && !token && !live && view === "main";
+  const [guideSeen, setGuideSeen] = useState(overviewSeen);
+  const [guideReplayed, setGuideReplayed] = useState(false);
+  const [guideClosedHere, setGuideClosedHere] = useState(false);
+  const guideEntry = atWelcome || Boolean((tester || live) && (view === 'main' || view === 'discover'));
+  const canShowArrivalPrompt = guideEntry && !loading && !socialPending && !conversationIntent &&
+    !publicationOpen && !policy && !confirm && !onboardingPreview && !mutual.match && !curatedMatch && !error;
+  const showArrivalGuide = canShowArrivalPrompt && (!guideSeen || guideReplayed) &&
+    (guideReplayed || (!startAtLogin && !openLogin));
+  function closeArrivalGuide() {
+    rememberOverview();
+    setGuideSeen(true);
+    setGuideClosedHere(true);
+    setGuideReplayed(false);
+    window.scrollTo({top:0, behavior:'instant'});
+  }
   useEffect(() => {
-    if (active && (view === "application" || view === "main") && !warmCommunity)
+    if (!showArrivalGuide && active && (view === "application" || view === "main") && !warmCommunity)
       void loadCommunity().catch(() => {});
-  }, [active, view]);
+  }, [active, view, showArrivalGuide]);
   useLayoutEffect(() => {
     if (!fromIntake) return;
     const heading = document.querySelector<HTMLElement>(".phone-app main h1");
     if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
   }, [fromIntake]);
   useEffect(() => {
-    if (atWelcome && !warmIntake) void loadIntake().catch(() => {});
-    if (atWelcome && !warmCommunity) void loadCommunity().catch(() => {});
-  }, [atWelcome]);
+    if (atWelcome && !showArrivalGuide && !warmIntake) void loadIntake().catch(() => {});
+    if (atWelcome && !showArrivalGuide && !warmCommunity) void loadCommunity().catch(() => {});
+  }, [atWelcome, showArrivalGuide]);
   useEffect(()=>{
     if (view==='register' && !demo) void import('./launchEvents').then(({noteSignupStart})=>noteSignupStart());
   },[view,demo]);
@@ -670,7 +678,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         return;
       }
       if (!cloudSelected) await saveSession(result.token);
-      rememberSignIn(result.token);
+      remember(result.token);
       liveDraftOwner.current = result.state.user.id;
       setLive(result.state);
       setDemo(false);
@@ -682,7 +690,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       const userId = await socialSignIn(provider);
       const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, userId);
       if (status.required) { setSocialPending({ userId, email: status.email, initialReceipt }); return; }
-      rememberSignIn(userId);
+      remember(userId);
       await refresh(userId);
       setDemo(false);
       go('main');
@@ -690,13 +698,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }
   function finishSocialOnboarding(userId: string) {
     setSocialPending(null);
-    rememberSignIn(userId);
+    remember(userId);
     setDemo(false);
     go('main');
     void run(async () => { await refresh(userId); });
   }
   function phoneSignedIn(memberId: string) {
-    rememberSignIn(memberId);
+    remember(memberId);
     setDemo(false);
     go("main");
     void run(async () => { await refresh(memberId); });
@@ -1069,6 +1077,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     publicationScreen = 'welcome';
     screen = (
       <Welcome
+        skipOpening={guideClosedHere} onGuide={()=>{window.scrollTo({top:0,behavior:'instant'});setGuideReplayed(true);}}
         onRegister={() => leaveWelcome("register")}
         onLogin={() => leaveWelcome("login")}
         onDemo={() => leaveWelcome("demo")}
@@ -1248,16 +1257,18 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onChats={source ? () => go("chats") : undefined} chatUnread={chatUnread}
       />
     );
+  const deviceOfferOwner = tester ? 'tester:' + tester.actor : !demo && token && live ? live.user.id : null;
+  if(showArrivalGuide) screen=<FeatureOverview close={closeArrivalGuide}/>;
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
     <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership,gift:giftingAvailable?openGifts:undefined,giftAttention}}>
-    {ios && !demo && !tester && !socialPending && live && token && unlockOfferOwner === token &&
-      <DeviceUnlockOffer key={token}/>}
+    {ios && deviceOfferOwner && canShowArrivalPrompt && !showArrivalGuide &&
+      <DeviceUnlockOffer key={deviceOfferOwner} owner={deviceOfferOwner}/>}
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource} onReview={live?.user.id && !demo ? (chapter,field)=>{setSupportField({owner:live.user.id,chapter,field});setApplicationChapter(chapter);go("application");} : undefined}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
-      {tester && !onboardingPreview && <details className="nf-tester-tools">
+      {tester && !onboardingPreview && !showArrivalGuide && <details className="nf-tester-tools">
         <summary aria-label="أدوات الاختبار الخاص" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">
         <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
@@ -1289,12 +1300,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </div>
       )}
       {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token}/>}
-      <PublicationCenter key={demo?'demo':token??'public'} enabled={!demo && !tester && !loading && cloudSelected} owner={token} screen={publicationScreen}
+      <PublicationCenter key={demo?'demo':token??'public'} enabled={!showArrivalGuide && !demo && !tester && !loading && cloudSelected} owner={token} screen={publicationScreen}
         openedId={publicationOpen?.owner===token?publicationOpen.id:null} onConsumed={()=>setPublicationOpen(null)} navigate={go}>
         <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
       </PublicationCenter>
 
-      {source && memberAccess && !paused && !onboardingPreview && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
+      {source && memberAccess && !paused && !onboardingPreview && !showArrivalGuide && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
         setConversationIntent({ source, id }); go('chats');
       }}/>}
       {memberAccess && mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (

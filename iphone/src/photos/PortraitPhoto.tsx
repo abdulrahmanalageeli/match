@@ -11,10 +11,12 @@ export function PortraitPhoto({portrait,source,alt,className,captionClassName,fr
   const [loaded,setLoaded]=useState<LoadedPortrait|null>(null);
   const element=useRef<HTMLElement|null>(null);
   const invalidate=useRef<(()=>void)|null>(null);
-  const signature=[portrait.id,portrait.path,portrait.revealed??false,portrait.revealPolicy??'never'].join('|');
+  const prefetch=Boolean(discovery && source?.portraitUrlResolvesState);
+  const signature=[viewKey(portrait),portrait.revealPolicy??'never'].join('|');
   useEffect(()=>{
     if(!source?.portraitUrl)return;
     let active=true,inFlight=false,inViewport=typeof IntersectionObserver==='undefined',lastCheck=0,generation=0;
+    let nearViewport=false,attemptedPrefetch=false;
     let current:LoadedPortrait|null=null,wake:ReturnType<typeof setTimeout>|undefined;
     function discard(){
       generation++;
@@ -23,12 +25,19 @@ export function PortraitPhoto({portrait,source,alt,className,captionClassName,fr
       if(active)setLoaded(null);
     }
     invalidate.current=discard;
+    function canRefresh(){
+      return inViewport || (nearViewport && !attemptedPrefetch && !portrait.revealed && !current);
+    }
     async function refresh(){
-      if(!active||inFlight||document.hidden||!inViewport)return;
+      if(!active||inFlight||document.hidden||!canRefresh())return;
+      if(!inViewport)attemptedPrefetch=true;
       inFlight=true;lastCheck=Date.now();
       let requestGeneration=generation;
       try {
-        const info=source!.portraitState?await source!.portraitState(portrait):portrait;
+        // On a cold load the cloud download already selects the authorized variant.
+        // Continue rechecking access while an existing image is on screen.
+        const needsCheck = current !== null || !source!.portraitUrlResolvesState;
+        const info=needsCheck && source!.portraitState?await source!.portraitState(portrait):portrait;
         if(requestGeneration!==generation)return;
         const key=viewKey(info);
         if(current?.key===key)return;
@@ -36,34 +45,47 @@ export function PortraitPhoto({portrait,source,alt,className,captionClassName,fr
         discard();
         requestGeneration=generation;
         let shown=info;
-        const url=await source!.portraitUrl(info, authorized=>{shown=authorized;});
-        if(!active||document.hidden||!inViewport||requestGeneration!==generation){if(url.startsWith('blob:'))URL.revokeObjectURL(url);return;}
+        const mayKeep=(variant:ProfilePortrait)=>active && !document.hidden && requestGeneration===generation &&
+          (inViewport || (nearViewport && !variant.revealed));
+        const url=await source!.portraitUrl(info, authorized=>{shown=authorized;return mayKeep(authorized);});
+        if(!mayKeep(shown)){if(url.startsWith('blob:'))URL.revokeObjectURL(url);return;}
         current={signature,source:source!,url,key:viewKey(shown),revealed:shown.revealed===true,blur:shown.blur};
         setLoaded(current);
-      } catch { discard();requestGeneration=generation; }
-      finally {inFlight=false;if(active&&requestGeneration!==generation&&!document.hidden&&inViewport)void refresh();}
+      } catch { if(requestGeneration===generation){discard();requestGeneration=generation;} }
+      finally {inFlight=false;if(active&&requestGeneration!==generation&&!document.hidden&&canRefresh())void refresh();}
     }
     function schedule(){
       if(!active||document.hidden||!inViewport||wake!==undefined)return;
       wake=setTimeout(()=>{wake=undefined;void refresh();},Math.max(0,2000-(Date.now()-lastCheck)));
     }
     function visibility(){
-      if(document.hidden)discard();
+      if(document.hidden){attemptedPrefetch=false;discard();}
       else {lastCheck=0;void refresh();}
     }
     const anchor=element.current?.parentElement??element.current;
     const observer=typeof IntersectionObserver==='undefined'?null:new IntersectionObserver(entries=>{
-      inViewport=entries.some(entry=>entry.isIntersecting);
-      if(inViewport)void refresh();
-      else if(current?.revealed||inFlight)discard();
+      const wasVisible=inViewport;
+      inViewport=entries[entries.length-1]?.isIntersecting===true;
+      if(inViewport){attemptedPrefetch=false;void refresh();}
+      else if(current?.revealed || (wasVisible && inFlight))discard();
     });
-    if(anchor)observer?.observe(anchor);
+    // Only preload a live discovery variant whose fresh authorization permits
+    // it offscreen. The strict viewport observer still owns revealed photos.
+    const nearby=prefetch && typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{
+      nearViewport=entries[entries.length-1]?.isIntersecting===true;
+      if(nearViewport)void refresh();
+      else {
+        if(attemptedPrefetch && !inViewport && current)discard();
+        attemptedPrefetch=false;
+      }
+    },{rootMargin:'240px 0px'}):null;
+    if(anchor){observer?.observe(anchor);nearby?.observe(anchor);}
     if(inViewport)void refresh();
     const stop=source.watch(schedule);
     const timer=setInterval(()=>{void refresh();},15000);
     document.addEventListener('visibilitychange',visibility);
-    return()=>{active=false;clearTimeout(wake);clearInterval(timer);observer?.disconnect();stop();document.removeEventListener('visibilitychange',visibility);discard();invalidate.current=null;};
-  },[source,signature,portrait.id,portrait.path,portrait.revealed,portrait.revealPolicy]);
+    return()=>{active=false;clearTimeout(wake);clearInterval(timer);observer?.disconnect();nearby?.disconnect();stop();document.removeEventListener('visibilitychange',visibility);discard();invalidate.current=null;};
+  },[source,signature,prefetch,portrait.id,portrait.path,portrait.revealed,portrait.revealPolicy]);
   const shown=loaded?.signature===signature && loaded.source===source ? loaded : null;
   const photo=discovery ? <DiscoveryPhoto {...discovery} src={shown?.url} observe={node=>{element.current=node;}}/> : shown?<img data-access-checked-portrait="" ref={node=>{element.current=node;}} className={className} src={shown.url} alt={alt} width="640" height="800" decoding="async" onError={()=>invalidate.current?.()}/>:<span data-access-checked-portrait="" ref={node=>{element.current=node;}} className={className} role="img" aria-label="الصورة غير متاحة بعد"/>;
   if (!captionClassName && !frameClassName) return photo;

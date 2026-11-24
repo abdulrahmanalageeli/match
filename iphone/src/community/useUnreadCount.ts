@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CommunitySource } from "./data";
 
-export function useUnreadCount(source: CommunitySource | null) {
+export function useUnreadCount(source: CommunitySource | null, onCount?: (count: number) => void) {
   const [snapshot, setSnapshot] = useState<{ source: CommunitySource; count: number } | null>(null);
   useEffect(() => {
     if (!source) return;
@@ -12,7 +12,10 @@ export function useUnreadCount(source: CommunitySource | null) {
       fetching = true;
       try {
         const count = await source.unreadCount();
-        if (active) setSnapshot(previous => previous?.source === source && previous.count === count ? previous : { source, count });
+        if (active) {
+          setSnapshot(previous => previous?.source === source && previous.count === count ? previous : { source, count });
+          onCount?.(count);
+        }
       } catch {
         if (active) setSnapshot(null);
       } finally {
@@ -23,6 +26,6 @@ export function useUnreadCount(source: CommunitySource | null) {
     void refresh();
     const stop = source.watch(refresh);
     return () => { active = false; stop(); };
-  }, [source]);
+  }, [source, onCount]);
   return source && snapshot?.source === source ? snapshot.count : 0;
 }

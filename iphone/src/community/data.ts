@@ -155,7 +155,7 @@ export type RequestAction =
   | "cancel"
   | "block"
   | "report";
-export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
+export type ActivityNotification = { id: string; kind: 'profile_visit' | 'exclusive' | 'interest' | 'screenshot'; createdAt: string; readAt?: string | null; requestId?: string; person: PublicPerson };
 export type JourneyTopic = 'exclusive' | 'step';
 export type JourneyDecision = 'propose' | 'accept' | 'clear';
 export type StepProgress = { exclusiveId?:string; stepId?:string; rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
@@ -177,7 +177,9 @@ export interface CommunitySource extends ManualVerificationSource {
   readinessEligibleConnection?(connectionId: string): boolean;
   noteDiscoveryBrowse?(): void;
   discover(filters: Filters | LunaResults['options']): Promise<PublicPerson[]>;
-  portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => void): Promise<string>;
+  /** The live download checks its authorized variant with the callback before reading Storage. */
+  portraitUrlResolvesState?: true;
+  portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => boolean | void): Promise<string>;
   portraitState?(photo: ProfilePortrait): Promise<ProfilePortrait>;
   setPortrait(file: Blob, blur: number, reveal?: { policy: PortraitRevealPolicy; clearBlob?: Blob }): Promise<ProfilePortrait>;
   setPortraitPolicy(photo: ProfilePortrait, policy: PortraitRevealPolicy): Promise<ProfilePortrait>;
@@ -196,6 +198,7 @@ export interface CommunitySource extends ManualVerificationSource {
   removeGallery?(photo: GalleryPhoto): Promise<void>;
   rewindStep?(id: string, stage: number, agree: boolean): Promise<StepProgress>;
   noteProfileOpen?(candidateId: string): Promise<void>;
+  reportChatScreenshot?(requestId: string, eventId: string): Promise<void>;
   notifications?(): Promise<ActivityNotification[]>;
   readNotifications?(ids: string[]): Promise<void>;
   inbox(): Promise<Connection[]>;
@@ -259,6 +262,7 @@ export type ConnectionReview = {
 };
 
 export function cloudCommunity(userId: string, pendingSends?: PendingChatSends): CommunitySource {
+  let inboxForTurn: Promise<Connection[]> | undefined;
   const media = () => import('./memberChatMedia').then(module => module.memberChatMediaSource(userId));
   async function timedRpc<T>(name: string, params: Record<string, unknown>): Promise<T> {
     const controller = new AbortController();
@@ -295,6 +299,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     suggestOpener: () => requestAi({mode:'opener'}),
     family: async (action, payload = {}) => unwrapFamilyResult(await timedRpc('marriage_family', { action, payload: boundedFamilyPayload(action, payload) })),
     readiness: (action, payload = {}) => timedRpc('marriage_passport', { action, payload: action === 'save' ? normalizeReadinessDraft(payload) : payload }),
+    portraitUrlResolvesState: true,
     async portraitState(photo) {
       const current = await timedRpc<ProfilePortrait | null>("marriage_portrait_view", { photo_id: photo.id });
       if (!current || current.id !== photo.id) throw Error("الصورة غير متاحة.");
@@ -304,9 +309,9 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       if (!cloud) throw Error("الصورة غير متاحة.");
       const current = await timedRpc<ProfilePortrait | null>("marriage_portrait_view", { photo_id: photo.id });
       if (!current || current.id !== photo.id) throw Error("الصورة غير متاحة.");
+      if (authorized?.(current) === false) throw Error("الصورة غير متاحة.");
       const { data, error } = await cloud.storage.from("nisfayn-profile-portraits").download(current.path);
       if (error) throw Error("تعذّر تحميل الصورة.");
-      authorized?.(current);
       return URL.createObjectURL(data);
     },
     async setPortrait(file, blur, reveal) {
@@ -387,9 +392,18 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       rememberSupportDirectory(userId,options);
       return cards;
     },
-    inbox: () => timedRpc("marriage_inbox", {}),
+    inbox() {
+      // Mounted widgets and realtime listeners read the same authorized inbox
+      // in one turn. A later read always gets a fresh server snapshot.
+      if (!inboxForTurn) {
+        inboxForTurn = timedRpc<Connection[]>("marriage_inbox", {});
+        queueMicrotask(() => { inboxForTurn = undefined; });
+      }
+      return inboxForTurn;
+    },
     requestHistory: beforeId => beforeId ? timedRpc("marriage_request_history_page", {before_id:beforeId}) : timedRpc("marriage_request_history", {}),
     matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),
+    reportChatScreenshot: (requestId, eventId) => timedRpc('marriage_chat_screenshot', { request_id: requestId, event_id: eventId }),
     notifications: () => timedRpc('marriage_notifications', {}),
     readNotifications: ids => timedRpc('marriage_notifications_read', { notification_ids: ids }),
     unreadCount: () => timedRpc("marriage_unread_count", {}),

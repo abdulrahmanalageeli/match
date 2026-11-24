@@ -175,6 +175,10 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async request(id){const s=await available();if((await local.inbox()).filter(c=>c.status==='accepted').length+Number(s.matched)>=2)throw Error('الحد الأقصى تعارفان متزامنان.');if(id===peer){await mutate("rematch_request");return "tester-pair";}return local.request(id);},
   async demoAcceptOutgoing(id){const s=await available(id);const others=(await local.inbox()).filter(c=>c.status==='accepted'&&!['demo-mutual','demo-incoming'].includes(c.id));if(others.length+Number(s.matched)>=2)throw Error('الحد الأقصى تعارفان متزامنان.');return local.demoAcceptOutgoing!(id);},
   async noteProfileOpen(id){if(id===peer)await mutate('profile_visit',{person:id});else await local.noteProfileOpen?.(id);},
+  async reportChatScreenshot(id,eventId){
+   if(id!=='tester-pair')throw Error('المحادثة غير متاحة.');
+   await testRequest('chat_screenshot',account.session,{eventId});
+  },
   async notifications(){const rows=await testRequest<(Omit<ActivityNotification,'person'>&{actor:Actor})[]>('notifications',account.session);const s=await state();return [...rows.map(row=>({...row,person:{...testPerson(row.actor,s.profiles[row.actor]),exclusive:s.exclusive}})),...await local.notifications?.()??[]].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));},
   async readNotifications(ids){const localIds=new Set((await local.notifications?.()??[]).map(n=>n.id));await local.readNotifications?.(ids.filter(id=>localIds.has(id)));const remote=ids.filter(id=>!localIds.has(id));if(remote.length)await mutate('notifications_read',{ids:remote});},
   watch(listener){listeners.add(listener);if(timer===undefined){timer=window.setInterval(()=>void poll(),850);document.addEventListener('visibilitychange',visible);window.addEventListener('online',visible);window.addEventListener('focus',visible);void poll();}

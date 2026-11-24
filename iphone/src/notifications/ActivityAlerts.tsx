@@ -1,3 +1,4 @@
+import { captureTitle, captureDetail, publishChatScreenshots } from "./chatScreenshots";
 import memberAr from '../member-copy.ts';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, MessageCircle, Route, X } from "../BrandIcons";
@@ -13,7 +14,7 @@ import { compatibilitySnapshot, compareCompatibility, type CompatibilityChange, 
 import type { MatchFit } from '../compatibility/model';
 import { CompatibilityNotice, CompatibilityChangeSheet } from './CompatibilityNotice';
 
-type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit' | 'request'; stamp: string; person?: PublicPerson };
+type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit' | 'request' | 'screenshot'; stamp: string; person?: PublicPerson };
 type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
 export const journeyStages = memberAr.stages;
 
@@ -62,6 +63,7 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
     const completed = new Map<string, Activity>();
     const progress = new Map<string, StepProgress>();
     let progressAt = 0;
+    let trailing: number | undefined;
     let notifications: ActivityNotification[] = [];
     setToast(null);
     setFitChanges([]);setFitDetailId(null);
@@ -71,12 +73,26 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
       if (fetching) { dirty = true; return; }
       fetching = true;
       try {
-        const allConnections = await source.inbox();
-        const connections = allConnections.filter(c => c.status === 'accepted');
-        if (!active) return;
-        if (source.progress && Date.now() - progressAt > 2500) {
+        const remaining = 2500 - (Date.now() - progressAt);
+        const readActivity = remaining <= 0;
+        if (readActivity) {
           progressAt = Date.now();
-          try { notifications = await source.notifications?.() || []; } catch { /* Retry on the next refresh. */ }
+          if (trailing !== undefined) { clearTimeout(trailing); trailing = undefined; }
+        } else if (source.reportChatScreenshot && trailing === undefined) {
+          // A realtime signal can arrive just inside the throttle window.
+          trailing = window.setTimeout(() => { trailing = undefined; void refresh(); }, remaining);
+        }
+        const [allConnections, activity] = await Promise.all([
+          source.inbox(),
+          readActivity ? source.notifications?.().catch(() => undefined) : undefined,
+        ]);
+        if (!active) return;
+        if (activity) {
+          notifications = activity;
+          publishChatScreenshots(source, activity);
+        }
+        const connections = allConnections.filter(c => c.status === 'accepted');
+        if (source.progress && readActivity) {
           await Promise.all(connections.map(async c => {
             try { const value = await source.progress!(c.id); if (active) progress.set(c.id, value); }
             catch { /* Keep message alerts available if a journey cannot load. */ }
@@ -99,7 +115,10 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
           // Consecutive saves become one net change per connection, rather than a stack of alerts.
           return next.length || current.length ? next : current;
         });
-        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `${memberAr.interest} من ${n.person.alias}` : n.kind === 'profile_visit' ? `${memberAr.visit} من ${n.person.alias}` : 'اتفقتما على التعارف الحصري', detail: n.kind === 'interest' ? 'تعرّف على الملف من الإشعارات' : n.kind === 'profile_visit' ? 'يمكنك الاطّلاع على الملف من الإشعارات' : 'يمكنكما متابعة الحديث في محادثتكما', stamp: n.createdAt, person:n.person }));
+        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => n.kind === 'screenshot' ? {
+          key: n.id, id: connections.some(c => c.id === n.requestId) ? n.requestId! : '', kind: 'screenshot',
+          title: captureTitle(n.person.alias), detail: captureDetail, stamp: n.createdAt, person: n.person,
+        } : ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `${memberAr.interest} من ${n.person.alias}` : n.kind === 'profile_visit' ? `${memberAr.visit} من ${n.person.alias}` : 'اتفقتما على التعارف الحصري', detail: n.kind === 'interest' ? 'تعرّف على الملف من الإشعارات' : n.kind === 'profile_visit' ? 'يمكنك الاطّلاع على الملف من الإشعارات' : 'يمكنكما متابعة الحديث في محادثتكما', stamp: n.createdAt, person:n.person }));
         for (const c of allConnections) if (c.status === 'pending' && c.direction === 'incoming') {
           next.push({key:c.id+':request',id:c.id,kind:'request',title:`طلب تعارف من ${c.person.alias}`,detail:'اطّلع على الملف واقبل الطلب أو اعتذر',stamp:c.createdAt||c.updatedAt||c.id,person:c.person});
         }
@@ -135,7 +154,7 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
           const prefs=controls.current;
           const hour=prefs?.quiet ? Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:prefs.zone}).format(new Date())) : -1;
           const quiet=prefs?.quiet && (prefs.start<prefs.end ? hour>=prefs.start && hour<prefs.end : hour>=prefs.start || hour<prefs.end);
-          const category=newest.kind==='message'?'message':'connections';
+          const category=newest.kind==='message'||newest.kind==='screenshot'?'message':'connections';
           if(!quiet && prefs?.sound!==false && prefs?.[category]!==false) playActivitySound();
         }
       } catch { /* Existing inbox error handling owns connection failures. */ }
@@ -144,7 +163,7 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
     void refresh();
     const stop = source.watch(() => void refresh());
     document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); };
+    return () => { active = false; if (trailing !== undefined) clearTimeout(trailing); stop(); document.removeEventListener('visibilitychange', refresh); };
   }, [source]);
   const fitDetail = fitChanges.find(item => item.id === fitDetailId);
   useEffect(() => { if (fitDetailId && !fitDetail) setFitDetailId(null); }, [fitDetailId, fitDetail]);

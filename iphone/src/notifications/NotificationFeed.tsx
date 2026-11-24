@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send } from "../BrandIcons";
+import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send, LockKeyhole } from "../BrandIcons";
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import type { ActivityNotification, CommunitySource, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
@@ -24,6 +24,7 @@ function dayLabel(at?: string) {
 }
 function EventIcon({ item }: { item: FeedItem }) {
   const props = {size:12,strokeWidth:1.8,'aria-hidden':true as const};
+  if (item.kind === 'screenshot') return <LockKeyhole {...props}/>;
   if (item.kind === 'visit') return <Eye {...props}/>;
   if (item.kind === 'interest') return <Heart {...props}/>;
   if (item.kind === 'message' || item.kind === 'feedback') return <MessageCircle {...props}/>;

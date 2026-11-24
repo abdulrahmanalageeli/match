@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 
 export type DeviceLockStatus = {
   enabled: boolean;
@@ -8,7 +8,7 @@ export type DeviceLockStatus = {
 };
 export type DeviceAppearance = { icon: string; supported: boolean; callerName: boolean };
 
-type PortraitPlacement = { id: string; box?: number[]; radius?: number; cutouts?: number[][]; image?: string };
+type PortraitPlacement = { id: string; box?: number[]; scrollOrigin?: number[]; radius?: number; cutouts?: number[][]; image?: string };
 interface SecureSessionPlugin {
   read(options?: { key?: string }): Promise<{ token: string | null }>;
   save(options: { token: string; key?: string }): Promise<void>;
@@ -18,6 +18,8 @@ interface SecureSessionPlugin {
   appearance(): Promise<DeviceAppearance>;
   setAppearance(options: { icon?: string; callerName?: boolean }): Promise<DeviceAppearance>;
   setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'; portraitOnly: boolean}): Promise<void>;
+  setScreenshotContext(options: { context: string; active: boolean }): Promise<void>;
+  addListener(event: 'chatScreenshot', listener: (event: { context: string; eventId: string }) => void): Promise<PluginListenerHandle>;
   discoveryPortrait(options: PortraitPlacement): Promise<{ placed: boolean }>;
 }
 

@@ -29,6 +29,7 @@ try {
     membership: { active: false, tier: 'free' }, profile: null, introduction: null };
   await page.addInitScript(() => {
     const mode = new URLSearchParams(location.search).get('mode');
+    if (mode !== 'restored-tour') localStorage.setItem('wudayn.feature-overview.v1','seen');
     window.lockCalls = [];
     if (mode === 'web') return;
     window.CapacitorCustomPlatform = { name: 'ios' };
@@ -38,7 +39,7 @@ try {
     window.Capacitor = {
       PluginHeaders: [{ name: 'PrivateSession', methods: methods.map(name => ({ name, rtype: 'promise' })) }],
       async nativePromise(plugin, method, options) {
-        if (method === 'read') return { token: mode === 'restored' ? 'fixture-session' : null };
+        if (method === 'read') return { token: (mode === 'restored' || mode === 'restored-tour') ? 'fixture-session' : null };
         if (method === 'privacyStatus') { window.lockCalls.push(method); return status; }
         if (method === 'privacyConfigure') {
           window.lockCalls.push(options);
@@ -71,7 +72,7 @@ try {
           import "/src/flows.css";
           import "/src/screens.css";
           import "/src/typography.css";
-          createRoot(document.querySelector("#root")).render(React.createElement(App, { openLogin: true }));
+          createRoot(document.querySelector("#root")).render(React.createElement(App, { openLogin: !location.search.includes("restored-tour") }));
         </script></html>`;
       return route.fulfill({ contentType: 'text/html', body: await server.transformIndexHtml(url.pathname, html) });
     }
@@ -95,9 +96,23 @@ try {
     await page.getByRole('heading', { name: 'أهلًا بعودتك' }).waitFor({ state: 'detached' });
   }
   const dialog = page.getByRole('dialog', { name: /تفعيل/ });
+  await page.goto(base + '__device-unlock?mode=restored-tour', { waitUntil: 'domcontentloaded' });
+  const guide = page.locator('.wd-overview');
+  await guide.waitFor();
+  assert.deepEqual(await page.evaluate(() => window.lockCalls), []);
+  assert.equal(await dialog.count(), 0);
+  await guide.getByRole('button', { name: 'تخطّي الجولة' }).click();
+  await page.getByRole('heading', { name: 'طلبك قيد المراجعة' }).waitFor();
+  await dialog.getByRole('button', { name: 'ذكّرني غدًا' }).click();
+  await dialog.waitFor({ state: 'detached' });
+  await page.evaluate(() => localStorage.removeItem('wudayn.device-lock-offer.v1.fixture-member'));
   await signIn('face');
   await dialog.waitFor();
-  await page.screenshot({ path: resolve(output, 'face-id.png') });
+  for (const [width,height] of [[375,667],[390,844],[430,932]]) {
+    await page.setViewportSize({width,height});
+    await page.screenshot({ path: resolve(output, 'face-id-'+width+'.png') });
+    assert.ok(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth));
+  }
   const enable = dialog.getByRole('button', { name: /Face ID/ });
   await enable.click();
   await dialog.getByRole('alert').waitFor();
@@ -105,24 +120,38 @@ try {
   await dialog.waitFor({ state: 'detached' });
   const config = { enabled: true, delay: 60 };
   assert.deepEqual(await page.evaluate(() => window.lockCalls), ['privacyStatus', config, config]);
+  await page.evaluate(() => localStorage.removeItem('wudayn.device-lock-offer.v1.fixture-member'));
   await signIn('touch');
   await dialog.getByRole('button', { name: /Touch ID/ }).waitFor();
   await page.setViewportSize({ width: 375, height: 667 });
   assert.equal(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth), true);
-  await dialog.getByRole('button', { name: 'لاحقًا' }).click();
+  await dialog.getByRole('button', { name: 'ذكّرني غدًا' }).click();
   await dialog.waitFor({ state: 'detached' });
   assert.deepEqual(await page.evaluate(() => window.lockCalls), ['privacyStatus']);
+  await page.goto(base + '__device-unlock?mode=restored');
+  await page.getByRole('heading', { name: 'طلبك قيد المراجعة' }).waitFor();
+  assert.equal(await dialog.count(), 0);
+  await page.evaluate(() => localStorage.removeItem('wudayn.device-lock-offer.v1.fixture-member'));
   for (const mode of ['enabled', 'passcode', 'web']) {
     await signIn(mode);
     if (mode !== 'web') await page.waitForFunction(() => window.lockCalls.includes('privacyStatus'));
     assert.equal(await dialog.count(), 0);
     assert.deepEqual(await page.evaluate(() => window.lockCalls), mode === 'web' ? [] : ['privacyStatus']);
   }
-  await page.goto(base + '__device-unlock?mode=restored');
+  // A due reminder also reopens in a session left running on the home screen.
+  await page.addInitScript(() => {
+    if (new URLSearchParams(location.search).has('due'))
+      localStorage.setItem('wudayn.device-lock-offer.v1.fixture-member', String(Date.now()+2500));
+  });
+  await page.goto(base + '__device-unlock?mode=restored&due=1');
   await page.getByRole('heading', { name: 'طلبك قيد المراجعة' }).waitFor();
+  await dialog.waitFor();
+  await dialog.getByRole('button', {name:'لا تذكّرني مرة أخرى'}).click();
+  await page.goto(base + '__device-unlock?mode=restored');
+  await page.getByRole('heading', {name:'طلبك قيد المراجعة'}).waitFor();
   assert.deepEqual(await page.evaluate(() => window.lockCalls), []);
   assert.deepEqual(errors, []);
-  console.log('Passed sign-in offer, retry, native success, skip, enabled, unavailable, web, and restored session.');
+  console.log('Passed sign-in offer, retry, native success, snooze and expiry, permanent dismissal, enabled, unavailable, web, and restored session.');
 } finally {
   await browser?.close();
   await server.close();

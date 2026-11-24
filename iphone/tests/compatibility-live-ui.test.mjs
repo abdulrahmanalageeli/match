@@ -12,6 +12,7 @@ import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMe
 import { shuffleWithVisibility } from '../src/community/visibilityOrder.ts';
 
 const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests, DirectoryRow, PersonCard, FilterSheet };');
+const lunaCode = compile(await readFile(new URL('../src/community/LunaSearch.tsx', import.meta.url), 'utf8'));
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
 const relationshipCountsCode = compile(await readFile(new URL('../src/community/useRelationshipCounts.ts', import.meta.url), 'utf8'));
 function compile(source) { return ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText; }
@@ -74,6 +75,46 @@ function sourceWith(people = []) {
 }
 const person = (score, id = 'partner') => ({ id, alias: 'رهام', fit: { preference: score }, age: 29, city: 'الرياض' });
 const baseProps = source => ({ source, onInbox: noop, onAccount: noop, onChatChange: noop, onMutual: noop, onConversationOpened: noop, onBrowse: noop });
+
+test('an empty Luna recommendation can search all eligible profiles with the same plan and filters', async () => {
+  const filters = {mode:'recommended', minAge:26, excludeCities:['جدة']};
+  const options = {...filters, lunaFields:{smoking:'never'}, luna:[{field:'interest',kind:'must',terms:['القراءة']}]};
+  const source = sourceWith();
+  let plans = 0;
+  const calls = [];
+  source.lunaSearch = async () => { plans++; return {options, people:[], criteria:[], summary:'القراءة'}; };
+  source.discover = async searchOptions => {
+    calls.push({...searchOptions});
+    if (calls.length === 1) throw Error('تعذّر الاتصال');
+    return [{...person(77),isDemo:true}];
+  };
+  const m = mount(lunaCode,'LunaSearch',{source,filters,open:noop},{tier:'seriousness'});
+  const buttons = tree => nodes(tree).filter(node=>node.type==='button');
+  const expand = tree => buttons(tree).find(node=>textOf(node)==='ابحث في جميع الملفات المؤهلة');
+  buttons(m.render())[0].props.onClick();
+  nodes(m.render()).find(node=>node.type==='textarea').props.onChange({target:{value:'أحب القراءة'}});
+  nodes(m.render()).find(node=>node.type==='form').props.onSubmit({preventDefault:noop});
+  await settle();
+  const first = expand(m.render());
+  assert.ok(first);
+  first.props.onClick();
+  first.props.onClick();
+  await settle();
+  assert.equal(calls.length,1);
+  assert.ok(nodes(m.render()).some(node=>node.props?.role==='alert'));
+  expand(m.render()).props.onClick();
+  await settle();
+  const tree = m.render();
+  assert.ok(textOf(tree).includes('ضمن جميع الملفات المؤهلة'));
+  assert.ok(textOf(tree).includes('تجريبي'));
+  assert.equal(expand(tree),undefined);
+  source.notify();
+  await settle();
+  assert.equal(plans,1);
+  assert.equal(calls.length,3);
+  for(const call of calls) assert.deepEqual(call,{...options,mode:'all',eligibleOnly:true,offset:0});
+  m.close();
+});
 
 test('minimum compatibility filter is Premium-only and stale free thresholds are cleared on apply',()=>{
  for(const premium of [false,true]){
@@ -202,6 +243,23 @@ test('an unchanged message does not freeze the active chat fit; queued updates f
   await settle(); chat = m.render();
   assert.equal(calls, 2); assert.equal(chat.props.connection.person.fit.preference, 61);
   assert.equal(chat.key, firstKey, 'refresh retains the chat component and its draft state'); m.close();
+});
+
+test('a profile opened from expanded Luna results refreshes in the eligible directory', async () => {
+  const source=sourceWith(), m=mount(communityCode,'Discovery',baseProps(source));
+  m.render(); await settle();
+  named(m.render(),'LunaSearch').props.open(person(80),'all');
+  assert.equal(m.render().type.name,'MemberProfile');
+  const lookups=[];
+  source.discover=async filters=>{
+    if (!filters.subjectId) return [];
+    lookups.push([filters.mode,filters.eligibleOnly,filters.subjectId]);
+    return filters.mode==='all'?[person(75)]:[];
+  };
+  source.notify(); await settle();
+  assert.equal(m.render().props.person.fit.preference,75);
+  assert.deepEqual(lookups,[['all',true,'partner']]);
+  m.close();
 });
 
 test('an open recommended profile refreshes after moving out of the top five, then closes if no longer eligible', async () => {

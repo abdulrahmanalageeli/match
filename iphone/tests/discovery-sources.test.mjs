@@ -180,15 +180,22 @@ test('paired discovery honors actual interests, work filters and combined orderi
 });
 
 test('verified member testers can use the same bot workflow in either discovery pool',async()=>{
-  const code=(await compile('../src/community/testingDiscovery.ts')).replace("'./data'",JSON.stringify(dataUrl));
+  const code=(await compile('../src/community/testingDiscovery.ts'))
+    .replace("'./data'",JSON.stringify(dataUrl))
+    .replace("'./demoLunaSearch'",JSON.stringify(new URL('../src/community/demoLunaSearch.ts',import.meta.url).href));
   const {withTestingDiscovery}=await import(url(code));
   for (const gender of ['woman','man']) {
     const profile={...demoProfile,gender};
-    const remote={discover:async()=>[],inbox:async()=>[],watch:()=>()=>{},unreadCount:async()=>0};
+    const remote={discover:async()=>[],inbox:async()=>[],watch:()=>()=>{},unreadCount:async()=>0,
+      lunaSearch:async(alias,filters)=>({people:[],options:{...filters,lunaFields:{},luna:[{field:'alias',kind:'must',terms:[alias]}]}})};
     const directory=withTestingDiscovery(remote,()=>profile,'verified-'+gender,()=>'premium');
     const people=await directory.discover({mode:'all'});
     assert.equal(people.length,10);
     const person=people.find(row=>row.eligible!==false);
+    const result=await directory.lunaSearch(person.alias,{mode:'all'});
+    assert(result.people.some(row=>row.id===person.id));
+    assert(result.people.every(row=>row.isDemo && row.eligible && row.alias===person.alias));
+    assert.deepEqual(await directory.discover(result.options),result.people);
     const id=await directory.request(person.id);
     const bot=directory.demoInteractions;
     await bot.simulation.step();

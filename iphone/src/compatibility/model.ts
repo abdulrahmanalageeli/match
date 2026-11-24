@@ -1,3 +1,4 @@
+import interestLabels from "./interests.json" with { type: "json" };
 import { normalizeNationality } from './nationality.ts';
 import { reciprocalTraitFit, traitRankMultiplier } from './personality.ts';
 export { normalizeNationality } from './nationality.ts';
@@ -50,16 +51,7 @@ export function personalityPercentage(fit?: MatchFit): number | null {
 }
 // Short list drawn from BlindMatch's HobbiesPickerModal. Keep public labels
 // separate from permanent IDs so edits to Arabic wording never break a match.
-export const interests = [
-  { id: "reading", label: "القراءة" },
-  { id: "cooking", label: "الطبخ" },
-  { id: "walking", label: "المشي" },
-  { id: "travel", label: "السفر" },
-  { id: "photography", label: "التصوير" },
-  { id: "board_games", label: "الألعاب اللوحية" },
-  { id: "museums", label: "المتاحف" },
-  { id: "creative_writing", label: "الكتابة الإبداعية" },
-] as const;
+export const interests = (Object.keys(interestLabels) as (keyof typeof interestLabels)[]).map(id => ({ id, label: interestLabels[id] }));
 
 export const maxInterests = 3;
 export type CompatibilitySelection = {

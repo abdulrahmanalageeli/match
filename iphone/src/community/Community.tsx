@@ -636,6 +636,7 @@ function Discovery({
   const [showReceipt, setShowReceipt] = useState(profileSaved);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<PublicPerson | null>(null);
+  const expandedLunaPerson = useRef<string | null>(null);
   const [fitPerson, setFitPerson] = useState<PublicPerson | null>(null);
   const openPeople = useRef<PublicPerson[]>([]);
   openPeople.current = [selectedPerson, fitPerson].filter((value): value is PublicPerson => value !== null);
@@ -761,7 +762,8 @@ function Discovery({
         // Re-query the authorized directory rather than freezing its old score.
         await Promise.all([...new Map(openPeople.current.map(person=>[person.id,person])).values()].map(async person=>{
           if(latest.has(person.id)){details.set(person.id,latest.get(person.id)!);return;}
-          const eligible=await source.discover({...filters,mode:order,subjectId:person.id,offset:0});
+          const lookupScope=expandedLunaPerson.current===person.id?{mode:'all' as const,eligibleOnly:true}:{mode:order};
+          const eligible=await source.discover({...filters,...lookupScope,subjectId:person.id,offset:0});
           details.set(person.id,eligible.find(candidate=>candidate.id===person.id)??null);
         }));
         if(!active||seq!==sequence.current||actionPending.current)return;
@@ -809,6 +811,7 @@ function Discovery({
   const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
   useCapturePrivacy(person ? null : 'discovery');
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
+    expandedLunaPerson.current=null;
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
     const origin = (anchor.closest('.dr-row-profile-group, .df-recommendation') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
     if (!origin) return;
@@ -960,7 +963,10 @@ function Discovery({
         {searchOpen&&<label className="dr-search" id={searchId}><input autoFocus aria-label="البحث بالاسم أو المهنة أو النبذة" placeholder="ابحث في الملفات" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){setSearchOpen(false);searchToggle.current?.focus();}}} maxLength={80}/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="مسح البحث"><X size={14}/></button>}</label>}
       </div>
         <button className="dr-filter-shortcut" aria-label="تصفية الملفات" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={18}/>{count>0&&<b>{ar.format(count)}</b>}</button></div>}
-      <LunaSearch key={preferenceRevision} filters={{...filters,search:query,mode:order}} source={source} open={person=>{setSelectedPerson(person);setSelected(person.id);}}/>
+      <LunaSearch key={preferenceRevision} filters={{...filters,search:query,mode:order}} source={source} open={(person,mode)=>{
+        expandedLunaPerson.current=mode==='all'&&order==='recommended'?person.id:null;
+        setSelectedPerson(person);setSelected(person.id);
+      }}/>
       {count > 0 && (
         <div className="cm-applied" aria-label="التصفية النشطة"><button onClick={()=>setFilters({search:query})}>مسح {ar.format(count)} فلاتر <X size={13}/></button>
           {(filters.minAge || filters.maxAge) && (

@@ -47,6 +47,22 @@ test('planner can combine nationality, a numeric range and a published mention',
   }
 });
 
+test('planner uses published directory choices for sectors, degrees and selected interests',()=>{
+  const guide=searchRequest('أبحث عن شخص يعمل في قطاع التقنية').messages[0].content;
+  const fields=JSON.parse(guide.split('دليل الحقول: ')[1].split('\n')[0]);
+  const criterion=(field,term)=>({field,kind:'must',terms:[term],label:term});
+  for (const [field,term] of [['profession','التقنية والبرمجة'],['education','بكالوريوس'],['interest','التصوير']]) {
+    assert.ok(fields[field].includes(term));
+    const criteria=[criterion(field,term)];
+    assert.deepEqual(validatePlan({...plan,criteria}).criteria,criteria);
+  }
+  for (const [field,term] of [['profession','جرّاح قلب'],['education','درجة جامعية'],['interest','photography']]) {
+    assert.throws(()=>validatePlan({...plan,criteria:[criterion(field,term)]}));
+  }
+  const exactTitle=criterion('profileText','جرّاح قلب');
+  assert.deepEqual(validatePlan({...plan,criteria:[exactTitle]}).criteria,[exactTitle]);
+});
+
 test('an unrecognized description never turns into an unrestricted directory listing',async()=>{
   const empty={summary:'',minAge:null,maxAge:null,city:null,smoking:null,maritalStatus:null,criteria:[]};
   const search=createLunaSearch({env:{OPENAI_API_KEY:'test'},

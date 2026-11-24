@@ -5,7 +5,7 @@ import type {LunaResults} from './lunaSearchClient';
 import type {CommunitySource, Filters, PublicPerson} from './data';
 import './luna-search.css';
 
-export function LunaSearch({source,filters,open}:{source:CommunitySource;filters:Filters;open:(person:PublicPerson)=>void}) {
+export function LunaSearch({source,filters,open}:{source:CommunitySource;filters:Filters;open:(person:PublicPerson,mode:Filters['mode'])=>void}) {
   const {tier,upgrade}=useMembershipAccess();
   const [expanded,setExpanded]=useState(false),[query,setQuery]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -33,12 +33,26 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
     const stop=source.watch(()=>void refresh());
     return ()=>{revision++;stop();};
   },[source,options]);
-  async function search() {
+  async function search(allEligible=false) {
     if(lock.current || !source.lunaSearch || tier!=='seriousness') return;
+    if(allEligible && (!result || result.options.mode!=='recommended' || result.people.length)) return;
     lock.current=true;setBusy(true);setError('');setResult(null);
     const ticket=++sequence.current;
-    try {const next=await source.lunaSearch(query,filters);if(ticket===sequence.current)setResult(next);}
-    catch(problem){if(ticket===sequence.current)setError(problem instanceof Error?problem.message:'تعذّر البحث.');}
+    try {
+      let next:LunaResults;
+      if(allEligible && result) {
+        const options={...result.options,mode:'all' as const,eligibleOnly:true,offset:0};
+        next={...result,options,people:await source.discover(options)};
+      } else {
+        next=await source.lunaSearch(query,filters);
+      }
+      if(ticket===sequence.current)setResult(next);
+    } catch(problem) {
+      if(ticket===sequence.current) {
+        if(allEligible)setResult(result);
+        setError(problem instanceof Error?problem.message:'تعذّر البحث.');
+      }
+    }
     finally{if(ticket===sequence.current){lock.current=false;setBusy(false);}}
   }
   return <section className="luna-search" aria-label="البحث مع لونا">
@@ -56,9 +70,12 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
         {error&&<p role="alert" className="flow-error">{error}</p>}
         {busy&&<p role="status" className="luna-search-loading">أرتّب تفضيلاتك وأبحث في الملفات المؤهلة…</p>}
         {result&&<div className="luna-search-results" aria-live="polite"><p>{result.summary}</p>
+          <p className="luna-search-privacy">{result.options.mode==='recommended'?'ضمن الترشيحات':'ضمن جميع الملفات المؤهلة'}</p>
           <div className="luna-search-criteria">{result.criteria.map((item,index)=><span key={index}>{item.kind==='must'?'شرط · ':item.kind==='exclude'?'استبعاد · ':'تفضيل · '}{item.label}</span>)}</div>
           <p className="luna-search-privacy">{filters.sort==='youngest'||filters.sort==='oldest'?'الترتيب حسب العمر الذي اخترته، ثم مطابقة الوصف والتوافق.':'الترتيب حسب مطابقة الوصف ثم التوافق.'} تُطبّق الشروط الإلزامية على المعلومات المصرّح بها.</p>
-          {result.people.length===0?<p>لم أجد ملفًا يحقق وصفك والفلاتر الحالية وشروط الطرفين. يمكنك تعديل الوصف أو الفلاتر.</p>:<><h3>أقرب الملفات لبحثك{result.people.length===24?' · أول ٢٤ نتيجة':''}</h3>{result.people.map(person=><button key={person.id} type="button" className="luna-search-person" onClick={()=>open(person)}><span><strong>{person.alias}</strong><small>{person.age} عامًا · {person.city} · {person.occupation}</small></span><ArrowRight size={18}/></button>)}</>}
+          {result.people.length===0?<><p>لم أجد ملفًا يحقق وصفك والفلاتر الحالية وشروط الطرفين.</p>
+            {result.options.mode==='recommended'&&<button className="btn-secondary" type="button" onClick={()=>void search(true)}>ابحث في جميع الملفات المؤهلة</button>}
+          </>:<><h3>أقرب الملفات لبحثك{result.people.length===24?' · أول ٢٤ نتيجة':''}</h3>{result.people.map(person=><button key={person.id} type="button" className="luna-search-person" onClick={()=>open(person,result.options.mode)}><span><strong>{person.alias}{person.isDemo?' · تجريبي':''}</strong><small>{person.age} عامًا · {person.city} · {person.occupation}</small></span><ArrowRight size={18}/></button>)}</>}
         </div>}
       </>}
     </div>}

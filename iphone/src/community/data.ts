@@ -176,7 +176,7 @@ export interface CommunitySource extends ManualVerificationSource {
   readinessTestMode?: boolean;
   readinessEligibleConnection?(connectionId: string): boolean;
   noteDiscoveryBrowse?(): void;
-  discover(filters: Filters): Promise<PublicPerson[]>;
+  discover(filters: Filters | LunaResults['options']): Promise<PublicPerson[]>;
   portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => void): Promise<string>;
   portraitState?(photo: ProfilePortrait): Promise<ProfilePortrait>;
   setPortrait(file: Blob, blur: number, reveal?: { policy: PortraitRevealPolicy; clearBlob?: Blob }): Promise<ProfilePortrait>;

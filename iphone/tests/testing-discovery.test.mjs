@@ -2,12 +2,46 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 import {readFileSync} from 'node:fs';
+import {demoLunaScore} from '../src/community/demoLunaSearch.ts';
 const fixtures=Array.from({length:15},(_,i)=>({id:'sample-'+i,online:true}));
 const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDiscovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-const exports={};
 const localRows=[];
 const local={discover:async()=>fixtures,inbox:async()=>localRows,request:async id=>{localRows.push({id:'local-request',person:{id,isDemo:true},status:'pending'});return 'local-request';},setInterest:async()=>{},act:async()=>{localRows[0].status='accepted';},unreadCount:async()=>1};
-new Function('require','exports',code)(()=>({demoCommunity:()=>local,demoPeople:fixtures}),exports);
+function loadTestingModule(samples){
+  const module={};
+  new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
+  return module;
+}
+const exports=loadTestingModule(local);
+
+test('Luna searches eligible tester cards before pagination and refreshes with the same plan',async()=>{
+  const cards=Array.from({length:29},(_,index)=>({id:'demo-'+index,alias:index>=25?'نورة':'سارة',age:27,eligible:index!==27}));
+  const options={mode:'all',offset:0,lunaFields:{},luna:[{field:'alias',kind:'must',terms:['نورة']}]};
+  const members=[{id:'live-member'}];
+  let reservations=0;
+  const real={
+    lunaSearch:async()=>{reservations++;return {options,people:members};},
+    discover:async received=>{assert.deepEqual(received.luna,options.luna);return members;},
+  };
+  const samples={discover:async f=>{
+    assert.equal(f.eligibleOnly,true);
+    return cards.filter(row=>row.eligible).slice(f.offset,f.offset+24);
+  }};
+  const source=loadTestingModule(samples).withTestingDiscovery(real,()=>({}),'verified-owner');
+  const result=await source.lunaSearch('نورة',{mode:'all'});
+  assert.deepEqual(result.people.map(p=>p.id),['live-member','demo-25','demo-26','demo-28']);
+  assert.equal(result.people[1].isDemo,true);
+  cards[26].eligible=false;
+  assert.deepEqual((await source.discover(result.options)).map(p=>p.id),['live-member','demo-25','demo-28']);
+  assert.equal(reservations,1);
+  assert.deepEqual((await source.discover({...options,mode:'recommended'})).map(p=>p.id),['live-member']);
+});
+
+test('a denied Luna search never falls back to sample cards',async()=>{
+  const {withTestingDiscovery}=loadTestingModule({discover:()=>assert.fail('unauthorized sample search')});
+  const source=withTestingDiscovery({lunaSearch:async()=>{throw Error('forbidden');}},()=>({}),'verified-owner');
+  await assert.rejects(source.lunaSearch('نورة',{}),/forbidden/);
+});
 test('directory fills empty slots with labeled fixtures without skipping real pages',async()=>{
   const members=Array.from({length:30},(_,i)=>({id:'member-'+i})),requests=[];
   const real={discover:async f=>members.slice(f.offset,f.offset+24),request:async id=>{requests.push(id);return 'request';}};

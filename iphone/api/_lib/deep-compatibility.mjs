@@ -1,3 +1,4 @@
+import { completeLuna } from './luna-safety.mjs';
 import OpenAI from 'openai';
 import currentPersonality from '../../src/compatibility/personality-catalog.json' with {type:'json'};
 import legacyPersonality from '../../src/compatibility/personality-catalog-v1.json' with {type:'json'};
@@ -57,7 +58,7 @@ async function generateJointReport(client,snapshot,options) {
  const scoped=reportEvidence(snapshot);
  const request=analysisRequest(scoped,options);
  const generate=async timeout=>validateReport(
-  await client.chat.completions.create(request,{timeout,maxRetries:0}),scoped);
+  await completeLuna(client, request,{timeout,maxRetries:0}),scoped);
  let report=await generate(120000);
  const missing=missingQuestionEvidence(scoped,report);
  const completeOutlook=report=>report.findings.filter(f=>f.section==='conclusion').every(f=>{
@@ -195,7 +196,7 @@ export function createDeepAnalysisService({env=process.env,fetcher=fetch,clientF
    const client=clientFactory({apiKey:env.OPENAI_API_KEY,maxRetries:0,timeout:120000});
    const report=await generateJointReport(client,job.snapshot);
    const [a,b]=await Promise.all(['a','b'].map(async side=>validatePrivateReview(
-    await client.chat.completions.create(privateReviewRequest(job.snapshot,report,side),{timeout:75000,maxRetries:0}),report)));
+    await completeLuna(client, privateReviewRequest(job.snapshot,report,side),{timeout:75000,maxRetries:0}),report)));
    for(const finding of report.findings)finding.reviewText={a:a.get(finding.id),b:b.get(finding.id)};
    if(Buffer.byteLength(JSON.stringify(report))>100000)throw unavailable();
    await rpc('marriage_deep_analysis_job',{...base,action:'publish',lease:job.lease,report},true);

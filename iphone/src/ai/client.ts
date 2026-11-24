@@ -3,6 +3,11 @@ import { Capacitor } from '@capacitor/core';
 
 export type AiRequest = { mode: 'opener' };
 export type SimulationMessage = { senderIsMe: boolean; body: string };
+function checkLunaNotice(result: { code?: string; error?: string } | null) {
+  if (result?.code === 'luna_warning' || result?.code === 'luna_locked' || result?.code === 'luna_withheld') {
+    throw Object.assign(new Error(result.error || 'استخدام لونا مقيّد مؤقتًا.'), { lunaSecurity: true });
+  }
+}
 const localStarters = [
   'أهلًا، يسعدني التعرف عليك. ما الشيء البسيط الذي يجعل يومك أجمل؟',
   'أهلًا، ما الذي يساعدك على الشعور بالراحة في بداية التعارف؟',
@@ -28,12 +33,14 @@ export async function requestAi(input: AiRequest, testSession?: string): Promise
       method: 'POST', headers, body: JSON.stringify({ mode: 'opener' }), signal: AbortSignal.timeout(25000),
     });
     const result = await response.json().catch(() => null);
+    checkLunaNotice(result);
     if (!response.ok || typeof result?.text !== 'string' || !result.text.trim()) {
       throw Error(typeof result?.error === 'string' && /[\u0600-\u06ff]/.test(result.error)
         ? result.error : 'المساعدة الذكية غير متاحة الآن. يمكنك متابعة الحديث بطريقتك.');
     }
     return result.text.trim().slice(0, 1000);
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && 'lunaSecurity' in error) throw error;
     // Generic local copy preserves the feature offline without claiming AI output.
     return localStarters[Math.floor(Math.random() * localStarters.length)];
   }
@@ -56,6 +63,7 @@ export async function requestSimulationReply(personaId: string, messages: Simula
     signal: AbortSignal.timeout(25000),
   });
   const result = await response.json().catch(() => null);
+  checkLunaNotice(result);
   if (!response.ok || typeof result?.text !== 'string' || !result.text.trim() || result.text.length > 450) {
     // The simulation decides whether to pause or show a local fallback. Never
     // turn an API failure into a generic opener masquerading as a peer reply.

@@ -86,6 +86,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
   const seed = Math.floor(random() * 0x7fffffff);
   const lastVisits = new Map<string, number>();
   const social = new Map<string, number>();
+  const refusedTurns = new Map<string, string | undefined>();
   for (const event of log) if (event.personId && ['profile_visit', 'interest', 'request'].includes(event.kind)) {
     social.set(event.personId, Math.max(social.get(event.personId)??0,event.kind === 'profile_visit' ? 1 : event.kind === 'interest' ? 2 : 3));
     if(event.kind==='profile_visit')lastVisits.set(event.personId,Date.parse(event.at));
@@ -145,6 +146,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
         if (record.status !== 'accepted' || !people.some(person => person.id === record.peer)) return false;
         if (world.chatReady?.(record.id) === false || world.conversationAllowed?.(record.id) === false || world.exclusive() && !world.conversationAllowed) return false;
         const rows = (world.messages.get(record.id) ?? []).filter(row => !row.deletedAt);
+        if (refusedTurns.has(record.id) && refusedTurns.get(record.id) === rows.at(-1)?.id) return false;
         return !rows.length || rows.at(-1)?.senderIsMe;
       });
       if (chat) {
@@ -174,7 +176,15 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
           try {
             const reply = await options.aiReply({ person, messages: history });
             if (typeof reply === 'string' && reply.trim() && reply.length <= 1000) { body = reply.trim(); kind = 'ai_reply'; }
-          } catch { kind = 'reply_fallback'; }
+          } catch (error) {
+            if (error instanceof Error && 'lunaSecurity' in error) {
+              typing.delete(chat.id);
+              refusedTurns.set(chat.id, last?.id);
+              window.dispatchEvent(new CustomEvent('wudayn:luna-notice', { detail: error.message }));
+              return;
+            }
+            kind = 'reply_fallback';
+          }
         }
         typing.delete(chat.id);
         if (!allowed(person.id) || chat.status !== 'accepted' || world.chatReady?.(chat.id) === false || world.conversationAllowed?.(chat.id) === false || rows.filter(row => !row.deletedAt).at(-1)?.id !== last?.id || JSON.stringify(simulationHistory(rows)) !== JSON.stringify(history)) return;

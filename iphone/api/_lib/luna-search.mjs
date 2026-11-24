@@ -1,3 +1,4 @@
+import { completeLuna } from './luna-safety.mjs';
 import OpenAI from 'openai';
 import profileCatalog from '../../src/interview/profile-catalog.json' with {type:'json'};
 import {PROJECT_URL, PUBLISHABLE_KEY, DEFAULT_MODEL, AIError} from './ai.mjs';
@@ -70,8 +71,10 @@ export function parseSearch(body) {
 }
 export function validatePlan(plan) {
   if (!plan || typeof plan.summary !== 'string' || plan.summary.length > 500 || !Array.isArray(plan.criteria) || plan.criteria.length > 10) throw failure();
+  if (Object.keys(plan).some(key => !['summary','minAge','maxAge','city','smoking','maritalStatus','criteria'].includes(key))) throw failure();
   for (const group of plan.criteria) {
     if (!group || (!strictFields.includes(group.field) && !(group.kind==='prefer' && group.field===undefined))) throw failure();
+    if (Object.keys(group).some(key => !['kind','field','terms','label'].includes(key))) throw failure();
     if (!['must', 'prefer', 'exclude'].includes(group.kind) || typeof group.label !== 'string' || group.label.length > 100 || !Array.isArray(group.terms) || group.terms.length < 1 || group.terms.length > 8 || group.terms.some(term => typeof term !== 'string' || term.trim().length < (publicFields.get(group.field)?.kind === 'number' ? 1 : 2) || term.length > 80)) throw failure();
     const field = publicFields.get(group.field);
     if (field?.kind === 'number' && group.terms.some(term => {
@@ -121,7 +124,7 @@ export function createLunaSearch({env=process.env,fetcher=fetch,clientFactory=op
     await rpc('marriage_luna_search_reserve',{});
     if (!plan) {
       const client=clientFactory({apiKey:env.OPENAI_API_KEY,maxRetries:0,timeout:25000});
-      const completion=await client.chat.completions.create(searchRequest(query));
+      const completion=await completeLuna(client, searchRequest(query));
       if (completion.choices?.[0]?.finish_reason!=='stop' || completion.choices[0].message.refusal) throw failure();
       try { plan=validatePlan(JSON.parse(completion.choices[0].message.content)); } catch { throw failure(); }
     }

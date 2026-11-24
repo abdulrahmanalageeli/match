@@ -1,3 +1,4 @@
+import { completeLuna, restrictedRequest } from './luna-safety.mjs';
 import OpenAI from 'openai';
 import { createHash } from 'node:crypto';
 import personas from '../../src/community/demoPersonas.json' with { type: 'json' };
@@ -107,7 +108,7 @@ export function completionRequest(input, model) {
   return {
     model, store: false, reasoning_effort: 'none', max_completion_tokens: 300,
     messages: input.mode === 'simulation_reply'
-      ? [{ role: 'system', content: common + '\n' + simulationInstruction }, { role: 'user', content: JSON.stringify({ transcript: input.messages.map(message => ({ speaker: message.senderIsMe ? 'عبدالرحمن' : 'الشخصية', text: message.body })) }) }]
+      ? [{ role: 'system', content: common + '\n' + simulationInstruction }, { role: 'user', content: JSON.stringify({ transcript: input.messages.filter((m, i) => i === input.messages.length - 1 || !restrictedRequest(m.body)).map(message => ({ speaker: message.senderIsMe ? 'عبدالرحمن' : 'الشخصية', text: message.body })) }) }]
       : [{ role: 'system', content: common + '\n' + instruction }, { role: 'user', content: 'اقترح بداية عامة ومحترمة للتعارف الجاد.' }],
     response_format: { type: 'json_schema', json_schema: {
       name: 'nisfayn_short_text', strict: true,
@@ -145,7 +146,7 @@ export function createAIService({ env = process.env, fetcher = fetch, clientFact
       if (claim.status === 'limited') throw new AIError(429, 'limited', 'وصلت إلى حد المساعدة الذكية لهذه الفترة. حاول لاحقًا.');
       if (claim.status !== 'allowed') throw unavailable();
       const openai = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout: 12000 });
-      const completion = await openai.chat.completions.create(completionRequest(input, model), { timeout: 12000, maxRetries: 0 });
+      const completion = await completeLuna(openai, completionRequest(input, model), { timeout: 12000, maxRetries: 0 });
       return outputText(completion);
     };
     const value = generate();

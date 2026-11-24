@@ -1,5 +1,6 @@
+import { protectLunaEndpoint, sendLunaAccessError } from './_lib/luna-access.mjs';
 import { AIError, createAIService, MAX_BODY } from './_lib/ai.mjs';
-const serve = createAIService();
+const serve = protectLunaEndpoint('ai', createAIService(), MAX_BODY);
 const nativeOrigins = new Set(['capacitor://localhost', 'http://localhost']);
 const requestHeaders = ['content-type', 'authorization', 'x-test-session'];
 export default async function handler(req, res) {
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
   if (Number(req.headers['content-length'] || 0) > MAX_BODY) return res.status(413).json({ error: 'الطلب أطول من المسموح.', code: 'too_large' });
   try { return res.status(200).json(await serve(req.body, req.headers)); }
   catch (error) {
+    if (sendLunaAccessError(error, res)) return;
     const known = error instanceof AIError;
     const status = known ? error.status : 503;
     if (status === 429) res.setHeader('Retry-After', '60');

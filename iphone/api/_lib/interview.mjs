@@ -1,3 +1,4 @@
+import { completeLuna, LunaContentError } from './luna-safety.mjs';
 import memberAr from '../../src/member-ar.json' with { type: 'json' };
 import OpenAI from 'openai';
 import { checkCatalogAnswers, directCarryForward, eligibleCarryForward, explicitPartnerChildren, genericEvidence, groundHybridChoices } from './interview-grounding.mjs';
@@ -1118,7 +1119,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
         const help = choiceHelpRequest(input, memberGender);
         const timeout = 6500;
         const client = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout });
-        const completion = await client.chat.completions.create(help.request, { timeout, maxRetries: 0 });
+        const completion = await completeLuna(client, help.request, { timeout, maxRetries: 0 });
         const choiceHelp = parseChoiceHelp(completion, help);
         if (reserve.reviewSession && identity.token) {
           if (!serviceKey) throw unavailable();
@@ -1275,7 +1276,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
       const openai = clientFactory({ apiKey: env.OPENAI_API_KEY, maxRetries: 0, timeout: providerTimeout });
       // Keep the saved pending document clear, but give Luna the previous
       // validated extraction as context so it can preserve or correct it.
-      const completion = await openai.chat.completions.create(interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid, answeredFieldIds:input.answeredFieldIds }), { timeout: providerTimeout, maxRetries: 0 });
+      const completion = await completeLuna(openai, interviewCompletionRequest({ ...next, proposals: document.proposals }, reviewPass, input.sensitiveProfileAllowed === true, memberGender, { hybrid, answeredFieldIds:input.answeredFieldIds }), { timeout: providerTimeout, maxRetries: 0 });
       analyzed = applyInterviewCompletion(next, completion, reviewPass, document.proposals, { hybrid, refinementsAvailable: input.refinementsAvailable === true, answeredFieldIds:input.answeredFieldIds, sensitiveProfileAllowed: input.sensitiveProfileAllowed === true, pendingGrounding: hybrid, finishOpening: input.openingFlow || (input.cardsAfterReply && next.turns.length > 1) });
       if (hybrid && (input.cardsAfterReply || input.openingFlow || input.verifyChoices || input.editNextStep)) {
         const turns = providerDocument(next, input.sensitiveProfileAllowed === true).turns.filter(t => !t.skipped);
@@ -1297,7 +1298,7 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
             if (quota.status !== 'allowed') return [];
             const timeout = Math.min(6000,budget());
             return timeout > 0 ? await checkCatalogAnswers(openai, INTERVIEW_MODEL, data, timeout) : [];
-          } catch { return []; } // Verification is optional. The ordinary question remains available.
+          } catch (error) { if (error instanceof LunaContentError) throw error; return []; }
         }, retainedChecks);
       }
       if (requiredInterview(analyzed) && (input.cardsAfterReply || (hybrid && (document.promptVersion === PROMPT_VERSION || !isOpeningTurn(next.turns.at(-1)))))) {
@@ -1321,7 +1322,14 @@ export function createInterviewService({ env = process.env, fetcher = fetch, cli
         }
         analyzed = { ...analyzed, status: 'active', currentQuestion: question };
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof LunaContentError) {
+        // The draft was saved before inference. Restore the previous turn using
+        // the same revision check, so a refusal cannot attest an outage or
+        // poison every later turn with the refused submission.
+        if (input.action === 'answer' || input.action === 'clarify') await save(document);
+        throw error;
+      }
       return fail(next, 'unavailable');
     }
     const saved = await save(analyzed);

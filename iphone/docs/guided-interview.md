@@ -24,6 +24,10 @@ Readiness notes and clarification points are separate self-reported outputs. The
 
 ## Persistence and privacy
 
+All four member-facing AI APIs share a server-side access check before serving a model result, including cached results. The interview, question help, discovery search, conversation assistance, private simulation and compatibility reports use the same verified account or private tester identity. The first two prohibited submissions within a 24-hour window receive Arabic warnings. The third starts a 24-hour Luna cooldown. Changing devices, signing in again or deleting an interview preserves that cooldown. Members retain access to manual answers, their private draft and deletion.
+
+The counter stores only identity, counts and timestamps. A model's role is limited to its assigned structured task. Stored evidence and historical messages are screened before inference, and unsafe output is withheld before display or publication. Suspicious material from a partner's evidence does not count against the reader. Apply the Luna access migration before deploying the API. If the guard is unavailable, AI generation is unavailable until it recovers.
+
 The `marriage_interview` RPC derives ownership from the current authenticated member session or a valid existing private tester session. New members can use it before their public profile or membership review is complete. Abdulrahman and Reham have isolated interview records. No caller-supplied owner identifier selects another person's record.
 
 An interview-specific consent version, `wudayn-interview-v1`, is recorded before starting. Transcripts, drafts, evidence and proposals stay in private database records. They are not stored in browser storage, placed on public profiles, or shared with matches or family chats. The database retains the session for thirty days after its last save; expired reads are hidden and cleanup removes expired records. Member export includes the private record, and account deletion cascades to it.

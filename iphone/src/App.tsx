@@ -204,6 +204,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [loading, setLoading] = useState(true);
   const [socialPending, setSocialPending] = useState<{ userId: string; email: string; initialReceipt?: SignupAgreements } | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const showLunaNotice = (event: Event) => setError((event as CustomEvent<string>).detail);
+    window.addEventListener('wudayn:luna-notice', showLunaNotice);
+    return () => window.removeEventListener('wudayn:luna-notice', showLunaNotice);
+  }, []);
   const inflight = useRef(false);
   const version = useRef(0);
   const refreshSequence = useRef(0);

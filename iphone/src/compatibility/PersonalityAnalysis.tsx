@@ -6,7 +6,7 @@ import { analyzePersonality, currentPersonalityDomains, personalityDomains, pers
 
 const arabic = new Intl.NumberFormat('ar-SA', {numberingSystem:'arab'});
 
-export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;panelRef:RefObject<HTMLDetailsElement|null>}) {
+export function PersonalityAnalysis({fit,id,panelRef,compact=false}:{fit:MatchFit;id:string;panelRef:RefObject<HTMLDetailsElement|null>;compact?:boolean}) {
   const percentage=personalityPercentage(fit);
   const unverifiable=percentage===null&&fit.personality?.complete===true;
   const analysis=percentage===null?null:analyzePersonality(fit.personality);
@@ -18,18 +18,18 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
   const strength=analysis?.strengths[0],discussion=analysis?.discussion[0];
 
   return <details ref={panelRef} id={id} className="nf-personality-reading">
-    <summary tabIndex={0}><span className="nf-personality-seal"><Fingerprint size={22} strokeWidth={1.5}/></span><span><strong>ما وراء انسجام الشخصية</strong><small>{unverifiable?'تفصيل النتيجة غير متاح حاليًا':percentage===null?'ما الذي نحتاجه لقراءة أوضح؟':'من الإجابات إلى معنى يمكن مناقشته'}</small></span></summary>
+    <summary tabIndex={0}>{!compact&&<span className="nf-personality-seal"><Fingerprint size={22} strokeWidth={1.5} aria-hidden="true"/></span>}<span><strong>{compact?'محاور الشخصية':'ما وراء انسجام الشخصية'}</strong>{!compact&&<small>{unverifiable?'تفصيل النتيجة غير متاح حاليًا':percentage===null?'ما الذي نحتاجه لقراءة أوضح؟':'من الإجابات إلى معنى يمكن مناقشته'}</small>}</span></summary>
     <div className="nf-personality-body">
       {percentage===null?<div className="nf-personality-pending"><ScanLine size={24} strokeWidth={1.5}/><h3>{unverifiable?'نحتاج قراءة محدّثة':'نحتاج صوتكما معًا'}</h3>{unverifiable?<p>تعذّر التحقق من تفاصيل النتيجة. حدّث الملف للمحاولة مجددًا. لا نعرض نسبة لا تدعمها تفاصيل الحساب.</p>:<><p>تظهر النسبة وقراءتها عندما يجيب كلاكما عن عبارات الشخصية {fit.personality?.version === 'personality-v2' ? 'الخمس عشرة' : 'الاثنتي عشرة'}. لا نُكمل الإجابات الناقصة بالتخمين.</p><small>يمكن استكمال التقييم من الإعدادات ← ملفي وتفضيلاتي.</small></>}</div>
         : evidence&&analysis?<>
-          <div className="nf-personality-lead"><span className="nf-personality-eyebrow">قراءة مبنية على إجاباتكما</span><h3>{arabic.format(close)} من {arabic.format(total)} عبارة متقاربة</h3><p>{close===total?'تتقارب درجات إجاباتكما في جميع العبارات. ابدآ بمثال من الحياة لترَيا كيف يظهر هذا التقارب بينكما.':`${arabic.format(total-close)} من العبارات تحمل اختلافًا أوضح. هذه مواضيع لفهم احتياجاتكما، وليست حكمًا على إمكانية العلاقة.`}</p></div>
+          <div className="nf-personality-lead">{!compact&&<span className="nf-personality-eyebrow">قراءة مبنية على إجاباتكما</span>}<h3>{arabic.format(close)} من {arabic.format(total)} عبارة متقاربة</h3>{!compact&&<p>{close===total?'تتقارب درجات إجاباتكما في جميع العبارات. ابدآ بمثال من الحياة لترَيا كيف يظهر هذا التقارب بينكما.':`${arabic.format(total-close)} من العبارات تحمل اختلافًا أوضح. هذه مواضيع لفهم احتياجاتكما، وليست حكمًا على إمكانية العلاقة.`}</p>}</div>
           <div className="nf-personality-domains" aria-label="تقارب الإجابات في محاور الشخصية">
             {evidence.domains.map(domain=>{
               const definition=[...personalityDomains, ...currentPersonalityDomains].find(item=>item.id===domain.id)!;
               return <div className="nf-personality-domain" key={domain.id}>
                 <div className="nf-personality-domain-heading"><h4>{definition.title}</h4><strong>{arabic.format(domain.percentage!)}<small>٪</small></strong></div>
-                <div className="nf-analysis-meter" role="meter" aria-label={`تقارب ${definition.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={domain.percentage!}><span style={{width:`${domain.percentage}%`}}/></div>
-                <p>{definition.description}</p><small>{arabic.format(domain.covered)} من {arabic.format(domain.total)} عبارات لدى الطرفين</small>
+                {!compact&&<div className="nf-analysis-meter" role="meter" aria-label={`تقارب ${definition.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={domain.percentage!}><span style={{width:`${domain.percentage}%`}}/></div>}
+                <p>{definition.description}</p>{(!compact||domain.covered!==domain.total)&&<small>{arabic.format(domain.covered)} من {arabic.format(domain.total)} عبارات لدى الطرفين</small>}
               </div>;
             })}
           </div>

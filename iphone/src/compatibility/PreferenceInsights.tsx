@@ -14,7 +14,7 @@ const statusNames: Record<Topic['status'], string> = {
   discussion: 'مساحة للنقاش', missing: 'بانتظار إجاباتكما',
 };
 
-function TopicCard({ topic, version }: { topic: Topic; version: string }) {
+function TopicCard({ topic, version, compact }: { topic: Topic; version: string; compact: boolean }) {
   const definition = dimensionsForVersion(version).find(item => item.id === topic.id);
   if (!definition) return null;
   const aligned = topic.status === 'aligned';
@@ -26,6 +26,13 @@ function TopicCard({ topic, version }: { topic: Topic; version: string }) {
     : topic.status === 'different' ? 'لم تتطابق رغبة أيٍّ منكما مع إجابة الآخر في هذا الموضوع. تحدثا عن احتياجاتكما ومساحة المرونة الممكنة.'
     : missing ? 'لم تكتمل الإجابات اللازمة للمقارنة في هذا الموضوع. لا نعتبر الصمت اتفاقًا أو اختلافًا.'
     : 'تظهر المقارنة اختلافًا يستحق الحديث. قد يساعدكما مثال من الحياة على فهم ما يناسب كل طرف.';
+  if (compact) return <details className="mp-fit-topic" data-tone={aligned ? 'aligned' : missing ? 'missing' : 'discussion'}>
+    <summary><strong>{definition.title}</strong><span>{aligned ? 'اتفاق' : missing ? 'لم يكتمل' : 'للنقاش'}</span></summary>
+    <div className="mp-fit-topic-body">
+      <p>{explanation}</p>
+      {!missing && <blockquote>{definition.discussion}</blockquote>}
+    </div>
+  </details>;
   return <article className="nf-pref-topic" data-tone={aligned ? 'aligned' : missing ? 'missing' : 'discussion'}>
     <div className="nf-pref-topic-top"><span className="nf-pref-topic-icon"><Icon size={17} strokeWidth={1.6} aria-hidden="true" /></span><span>{statusNames[topic.status]}</span></div>
     <h4>{definition.title}</h4>
@@ -34,7 +41,7 @@ function TopicCard({ topic, version }: { topic: Topic; version: string }) {
   </article>;
 }
 
-export function PreferenceInsights({ fit }: { fit: MatchFit }) {
+export function PreferenceInsights({ fit, profile = false }: { fit: MatchFit; profile?: boolean }) {
   const [view, setView] = useState<View>('all');
   const titleId = useId();
   const topicsId = useId();
@@ -53,12 +60,16 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
     { key: 'missing' as const, label: 'لم يكتمل', topics: missing, icon: ScanLine },
   ];
   const selected = groups.find(group => group.key === view);
-  const shown = selected?.topics ?? [aligned[0], discussion[0], ...(!aligned.length || !discussion.length ? missing.slice(0, 1) : [])].filter((topic): topic is Topic => Boolean(topic));
-  const preview = shown.slice(0, 2);
+  const shown = profile ? [...discussion.slice(0, 1), ...aligned.slice(0, 1), ...missing.slice(0, 1),
+    ...discussion.slice(1), ...aligned.slice(1), ...missing.slice(1)]
+    : selected?.topics ?? [aligned[0], discussion[0], ...(!aligned.length || !discussion.length ? missing.slice(0, 1) : [])].filter((topic): topic is Topic => Boolean(topic));
+  const preview = shown.slice(0, profile ? 3 : 2);
   const rest = view === 'all' ? readout.topics.filter(topic => !preview.some(item => item.id === topic.id)) : shown.slice(2);
   const criteria = readout.criteria;
-
   return <section className="nf-preference-insights" aria-labelledby={titleId}>
+    {profile ? <header className="nf-pref-heading"><h3 id={titleId}>أبرز المواضيع بينكما</h3>
+      {agreement && <p>{ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا فيها اتفاق متبادل.</p>}
+    </header> : <>
     <header className="nf-pref-heading"><span><Compass size={15} strokeWidth={1.5} aria-hidden="true" /> من الإجابات إلى معنى</span><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3><p>{percentage === null ? 'هذه قراءة للمواضيع المتاحة. تظهر درجة التفضيلات بعد اكتمال التقييم لدى الطرفين.' : 'نقارن ما يبحث عنه كل طرف بما أجاب عنه الآخر. الاتفاق هنا يعني أن الرغبتين متوافقتان مع الإجابتين.'}</p></header>
     <div className="nf-pref-counts" role="group" aria-label="استعراض مواضيع التوافق">
       {groups.map(({ key, label, topics, icon: Icon }) => <button key={key} type="button" aria-pressed={view === key} aria-controls={topicsId} data-tone={key} onClick={() => setView(current => current === key ? 'all' : key)}>
@@ -67,9 +78,10 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
     </div>
     <p className="nf-pref-count-note">{agreement ? <>تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</> : 'الأعداد تلخّص مواضيع الحوار.'}</p>
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
+    </>}
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
-      {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
-      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} />)}</div></details>}
+      {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} compact={profile} key={topic.id} />) : <p className="nf-pref-empty">{profile ? 'ستظهر المواضيع هنا عند توفر الإجابات.' : view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
+      {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} compact={profile} />)}</div></details>}
     </MotionReveal>
     <details className="nf-pref-map"><summary><Layers3 size={17} strokeWidth={1.5} aria-hidden="true" /><span>خريطة التوافق<small>كيف تتوزع المواضيع على جوانب الحياة؟</small></span></summary><div className="nf-pref-map-body">
       <div className="nf-pref-map-legend"><span data-tone="aligned">اتفاق</span><span data-tone="discussion">للنقاش</span><span data-tone="missing">لم يكتمل</span></div>

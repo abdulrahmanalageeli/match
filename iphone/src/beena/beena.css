@@ -9,10 +9,60 @@
 
 /* The public entry is one optional Q&A; private scenario scores stay separate. */
 .bn-fields .bn-story-editor{padding:0;border:0;background:none;box-shadow:none}
-.bn-fields .bn-qa-question,.bn-public-qa .bn-qa-question{font-size:.9rem;font-weight:600;line-height:1.85;color:var(--ink);margin:14px 0 10px}
+.bn-fields .bn-qa-question{font-size:.9rem;font-weight:600;line-height:1.85;color:var(--ink);margin:14px 0 10px}
 .bn-fields .bn-story-editor textarea{min-height:110px;font-size:1rem;line-height:1.8}
-.bn-public-qa{padding:18px 0;border-top:1px solid var(--line,#e6dedb)}
-.bn-public-qa h3{display:flex;align-items:center;gap:7px;font-size:.85rem;color:var(--accent);margin:0}
-.bn-public-qa .bn-qa-answer{font-size:.9rem;line-height:1.95;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.bn-public-qa {
+  position: relative;
+  margin-block-start: 22px;
+  padding-block: 0 6px;
+}
+.bn-public-qa::before {
+  content: "";
+  position: absolute;
+  inset-block: 12px 0;
+  inset-inline-start: 11px;
+  width: 1px;
+  background: linear-gradient(to bottom, #8c5268, #c6a4ae 58%, transparent);
+  opacity: .55;
+}
+.bn-interview-heading {
+  display: grid;
+  grid-template-columns: 23px auto minmax(20px, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  color: var(--accent-fill);
+}
+.bn-interview-heading > svg {
+  position: relative;
+  z-index: 1;
+  width: 23px;
+  height: 23px;
+  padding: 4px;
+  box-sizing: border-box;
+  color: var(--accent-fill);
+  background: var(--surface, #fff);
+  border: 1px solid #b88c9a;
+  border-radius: 50%;
+}
+.bn-interview-heading h3 { margin: 0; font-size: 1rem; }
+.bn-interview-heading::after {
+  content: "";
+  height: 1px;
+  background: linear-gradient(to left, var(--line), transparent);
+}
+.bn-interview-heading > span { color: var(--muted); font-size: .75rem; }
+.bn-public-qa .bn-qa-question {
+  margin: 10px 0 8px;
+  margin-inline-start: 34px;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.75;
+  font-weight: 600;
+}
+.bn-interview-reply { margin: 0; margin-inline-start: 34px; padding: 0; }
+.bn-interview-reply figcaption { display: flex; align-items: center; gap: 7px; color: var(--accent-fill); font-size: .8rem; font-weight: 600; }
+.bn-interview-reply figcaption > span { font: 1.65rem/1 Georgia, serif; height: .9em; color: #996979; }
+.bn-public-qa .bn-qa-answer { margin: 3px 0 0; color: var(--ink); font-size: .94rem; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 
 .bn-qa-publishing summary{font-size:.8rem;color:var(--accent);cursor:pointer;padding-block:8px}

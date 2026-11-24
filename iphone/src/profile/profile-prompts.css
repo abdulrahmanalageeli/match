@@ -1,14 +1,69 @@
 .phone-app .mp-personal-prompts { margin: 0 0 27px; }
-.phone-app .mp-prompts-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
-.phone-app .mp-prompts-heading > span { display: none; }
-.phone-app .mp-prompts-heading h2 { flex: 1; margin: 0; font-size: 18px; }
-.phone-app .mp-prompts-heading > small { color: #716b70; font-size: 12px; }
-.phone-app .mp-prompt-card { padding: 20px 0; border: 0; border-top: 1px solid #e5e2de; border-radius: 0; background: transparent; margin: 0; }
-.phone-app .mp-prompt-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: #716b70; font-size: 14px; font-weight: 500; }
-.phone-app .mp-prompt-card h3 svg { flex: none; color: #716b70; }
-.phone-app .mp-prompt-card p { margin: 0; font-size: 16px; line-height: 2; color: #242326; white-space: pre-line; overflow-wrap: anywhere; }
-.phone-app .mp-prompts-toggle { display: flex; justify-content: center; align-items: center; gap: 7px; width: 100%; min-height: 44px; border: 0; background: none; font: inherit; font-size: 14px; color: #54152a; cursor: pointer; }
-.phone-app .mp-prompts-toggle[aria-expanded=true] svg { transform: rotate(180deg); }
+.phone-app .mp-prompts-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.phone-app .mp-prompts-heading::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to left, var(--line), transparent);
+}
+.phone-app .mp-prompts-heading h2 { margin: 0; font-size: 18px; }
+.phone-app .mp-prompt-list {
+  position: relative;
+  display: grid;
+  gap: 17px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.phone-app .mp-prompt-list::before {
+  content: "";
+  position: absolute;
+  inset-block: 13px 15px;
+  inset-inline-start: 11px;
+  width: 1px;
+  background: linear-gradient(to bottom, #8c5268 0%, #c6a4ae 52%, #8c5268 100%);
+  opacity: .55;
+}
+.phone-app .mp-prompt-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+}
+.phone-app .mp-prompt-card > svg {
+  position: relative;
+  z-index: 1;
+  width: 23px;
+  height: 23px;
+  padding: 4px;
+  box-sizing: border-box;
+  color: var(--accent-fill);
+  background: var(--surface, #fff);
+  border: 1px solid #b88c9a;
+  border-radius: 50%;
+}
+.phone-app .mp-content .mp-prompt-list h3 {
+  margin: 0 0 3px;
+  color: var(--accent-fill);
+  font-size: .8rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.phone-app .mp-content .mp-prompt-list p {
+  margin: 0;
+  color: var(--ink);
+  font-size: .96rem;
+  line-height: 1.75;
+  text-align: match-parent;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 .nf-prompt-editor { padding: 19px 17px; border: 1px solid #dfc7c2; border-radius: 23px; background: linear-gradient(130deg,#fffaf4,#f7eae4); min-width: 0; }
 .nf-prompt-editor > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #71354e; }
 .nf-prompt-editor > header > span { display: flex; gap: 7px; align-items: center; }
@@ -31,5 +86,5 @@
 .pe-prompt-invite { display: flex; align-items: center; gap: 10px; width: 100%; text-align: start; padding: 15px; border: 1px solid #ddc5be; border-radius: 18px; background: linear-gradient(120deg,#fff9f1,#f5e3dd); color: #78475d; font: inherit; cursor: pointer; }
 .pe-prompt-invite > span { display: grid; flex: 1; min-width: 0; gap: 3px; }
 .pe-prompt-invite strong { font-size: .83rem; }.pe-prompt-invite small { font-size: .69rem; line-height: 1.8; color: #93717b; }
-.nf-prompt-editor :is(button,textarea):focus-visible,.mp-prompts-toggle:focus-visible,.pe-prompt-invite:focus-visible { outline: 2px solid #a46983; outline-offset: 3px; }
-@media(max-width:350px) { .nf-prompt-editor { padding: 16px 12px; }.nf-prompt-choices button { font-size: .68rem; padding-inline: 8px; }.phone-app .mp-prompt-card { padding: 17px 16px; } }
+.nf-prompt-editor :is(button,textarea):focus-visible,.pe-prompt-invite:focus-visible { outline: 2px solid #a46983; outline-offset: 3px; }
+@media(max-width:350px) { .nf-prompt-editor { padding: 16px 12px; }.nf-prompt-choices button { font-size: .68rem; padding-inline: 8px; }}

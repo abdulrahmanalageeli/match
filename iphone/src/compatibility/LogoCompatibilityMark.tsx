@@ -1,7 +1,7 @@
 import { useId } from 'react';
 
 /** The brand emblem fills from the bottom using the actual compatibility score. */
-export function LogoCompatibilityMark({ percentage }: { percentage: number }) {
+export function LogoCompatibilityMark({ percentage, personality = false }: { percentage: number; personality?: boolean }) {
   const id = useId();
   const score = Math.max(0, Math.min(100, percentage));
   const surface = `translate(0 ${score === 100 ? -5 : 48 * (1 - score / 100)})`;
@@ -19,7 +19,9 @@ export function LogoCompatibilityMark({ percentage }: { percentage: number }) {
       </mask>
     </defs>
     <image href="/brand/wudayn-emblem-v2.png" width="48" height="48" opacity=".18" style={{filter:'grayscale(1)'}}/>
-    <image href="/brand/wudayn-emblem-v2.png" width="48" height="48" opacity={score>0?1:0} mask={`url(#${id})`}/>
+    <g opacity={score>0?1:0} mask={`url(#${id})`}>
+      {personality ? <rect width="48" height="48" mask={`url(#${id}-shape)`} fill="#40816b"/> : <image href="/brand/wudayn-emblem-v2.png" width="48" height="48"/>}
+    </g>
     {score>0&&<g mask={`url(#${id}-shape)`}><g className="nf-logo-level" transform={surface}>
       <path className="nf-logo-wave" d={wave} fill="none" stroke="#fff7ef" strokeWidth=".9" strokeOpacity=".7"/>
     </g></g>}

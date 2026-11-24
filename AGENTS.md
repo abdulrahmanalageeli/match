@@ -1,5 +1,9 @@
 # Wudayn development instructions
 
+## Wudayn interface styling
+
+Keep content sections on the existing page background. Use transparent surfaces for profile details, interviews, summaries, and explanatory copy. Establish hierarchy through Arabic typography, alignment, and compact spacing. Avoid decorative background fills, shaded text panels, and document-style boxes. Reserve color for elements that communicate an action, identity, or state. Keep headings, answers, and supporting details closer to their own section than to adjacent sections. Use spacing first: keep the first item close beneath its heading and preserve existing dividers.
+
 ## Start here
 
 Wudayn (وُدَين) is a production-intended Saudi marriage application for serious introductions, compatibility, and consent-based relationship progression. Read `docs/AI_PROJECT_CONTEXT.md` for the project map, decisions, and known gaps. Read only the feature documentation relevant to the task afterward.

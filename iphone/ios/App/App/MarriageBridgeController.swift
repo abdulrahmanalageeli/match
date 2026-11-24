@@ -74,7 +74,6 @@ final class MarriageBridgeController: CAPBridgeViewController {
         }
         if let backing {
             backing.setArtwork(for: scope)
-            backing.heading.text = scope.heading
             return
         }
 
@@ -98,8 +97,6 @@ final class MarriageBridgeController: CAPBridgeViewController {
         }
         let note = WudaynPrivacyNote(frame: content.bounds)
         note.setArtwork(for: scope)
-        note.heading.text = scope.heading
-        note.detail.text = "استأذن قبل مشاركة ما تراه هنا."
         note.isUserInteractionEnabled = false
         note.accessibilityViewIsModal = false
         note.accessibilityElementsHidden = true

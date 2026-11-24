@@ -91,8 +91,7 @@ private final class PrivatePhotoController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let note = WudaynPrivacyNote(frame: view.bounds)
-        note.heading.text = "هذه الصورة خاصة"
-        note.detail.text = "استأذن قبل مشاركة الصور."
+        note.setArtwork(for: .profile)
         note.accessibilityViewIsModal = false
         note.accessibilityElementsHidden = true
         note.isUserInteractionEnabled = false

@@ -149,7 +149,6 @@ enum CaptureScope: String {
     case publicScreen = "public"
     case discovery, profile, chat
 
-    var heading: String { self == .chat ? "هذه المحادثة خاصة" : "خصوصيتنا أمانة" }
 }
 
 // A solid, member-independent background also serves as the underlay behind
@@ -160,7 +159,13 @@ final class WudaynPrivacyNote: UIView {
     let detail = UILabel()
     let button = UIButton(type: .system)
     private let profileLock = UIImageView()
-    func setArtwork(for scope: CaptureScope) { profileLock.isHidden = scope != .profile }
+    private let wordmark = UILabel()
+    func setArtwork(for scope: CaptureScope) {
+        profileLock.isHidden = scope != .profile
+        wordmark.isHidden = scope != .publicScreen
+        heading.isHidden = scope != .publicScreen
+        detail.isHidden = scope != .publicScreen
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -171,7 +176,6 @@ final class WudaynPrivacyNote: UIView {
         accessibilityViewIsModal = true
         semanticContentAttribute = .forceRightToLeft
 
-        let wordmark = UILabel()
         wordmark.text = "وُدَين"
         wordmark.font = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: .systemFont(ofSize: 48, weight: .semibold))
         heading.font = .preferredFont(forTextStyle: .title2)
@@ -273,14 +277,13 @@ final class NisfaynPrivacy: NSObject {
     private weak var window: UIWindow?
     private var cover: WudaynPrivacyNote?
     private enum Reason: Equatable {
-        case inactive, locked, recording(CaptureScope), screenshot(CaptureScope)
+        case inactive, locked, recording(CaptureScope)
     }
     private var visibleReason: Reason?
     private var inactive = true
     // Start covered during capture until the web app declares its first scope.
     // The separate SwiftUI target uses this conservative default across its sheets.
     private var scope: CaptureScope = .profile
-    private var screenshotScope: CaptureScope?
     private var context: LAContext?
     private var unlocked = false
     private var backgroundAt: Date?
@@ -309,7 +312,6 @@ final class NisfaynPrivacy: NSObject {
         cover?.removeFromSuperview()
         cover = nil
         visibleReason = nil
-        screenshotScope = nil
         self.window = window
         if #available(iOS 17.0, *) {
             window.registerForTraitChanges([UITraitSceneCaptureState.self]) { [weak self] (source: UIWindow, _: UITraitCollection) in
@@ -318,12 +320,10 @@ final class NisfaynPrivacy: NSObject {
             }
         }
         NotificationCenter.default.addObserver(self, selector: #selector(refreshCover), name: UIScreen.capturedDidChangeNotification, object: window.screen)
-        NotificationCenter.default.addObserver(self, selector: #selector(tookScreenshot), name: UIApplication.userDidTakeScreenshotNotification, object: nil)
         shield()
     }
 
     func setCaptureScope(_ next: CaptureScope) {
-        if next != scope { screenshotScope = nil }
         scope = next
         refreshCover()
     }
@@ -334,22 +334,8 @@ final class NisfaynPrivacy: NSObject {
         return window.screen.isCaptured
     }
 
-    @objc private func tookScreenshot() {
-        // UIKit posts this notification AFTER saving the screenshot.
-        guard scope != .publicScreen, !inactive, visibleReason == nil else { return }
-        if scope == .discovery, (window?.rootViewController as? MarriageBridgeController)?.discoveryPortraitsEnabled == true { return }
-        screenshotScope = scope
-        refreshCover()
-    }
-
     @objc private func coverAction() {
-        switch visibleReason {
-        case .locked: unlock()
-        case .screenshot:
-            screenshotScope = nil
-            refreshCover()
-        default: break
-        }
+        if visibleReason == .locked { unlock() }
     }
 
     @objc private func refreshCover() {
@@ -365,7 +351,6 @@ final class NisfaynPrivacy: NSObject {
         if inactive { reason = .inactive }
         else if enabled && !unlocked { reason = .locked }
         else if scope != .publicScreen && recording { reason = .recording(scope) }
-        else if let screenshotScope { reason = .screenshot(screenshotScope) }
         else {
             guard cover != nil else { return }
             cover?.removeFromSuperview()
@@ -398,14 +383,6 @@ final class NisfaynPrivacy: NSObject {
             note.button.isHidden = reason != .locked
         case .recording(let scope):
             note.setArtwork(for: scope)
-            note.heading.text = scope.heading
-            note.detail.text = "أوقف تسجيل الشاشة أو مشاركتها للمتابعة."
-        case .screenshot(let scope):
-            note.setArtwork(for: scope)
-            note.heading.text = scope.heading
-            note.detail.text = "التقطت لقطة شاشة. استأذن قبل مشاركة ما تراه هنا."
-            note.button.configuration?.title = "العودة"
-            note.button.isHidden = false
         }
         window.bringSubviewToFront(note)
         if !inactive { UIAccessibility.post(notification: .screenChanged, argument: note.heading) }

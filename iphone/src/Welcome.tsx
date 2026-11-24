@@ -11,7 +11,7 @@ import './welcome.css';
 
 type WelcomeProps = {
   onRegister: () => void; onLogin: () => void; onPrivacy: () => void;
-  onDemo?: () => void; onDemoIntake?: () => void; replayIntro?: boolean;
+  onDemo?: () => void; onDemoIntake?: () => void; replayIntro?: boolean; skipOpening?:boolean; onGuide?:()=>void;
 };
 const previews = [
   { id: 'luna', label: 'لونا', icon: MessageCircle, title: 'وش يهمّك في شريك حياتك؟', description: 'احكِ للونا عن يومك وعن الزواج اللي تتمناه. تقترح إجابات من كلامك، وأنت تراجعها وتكمّل اللي باقي.', alt: 'جلسة التوافق مع لونا وسؤالها الافتتاحي عن حياتك والشريك اللي تتمناه' },
@@ -30,11 +30,11 @@ function WelcomeLogo({ maskId, className }: { maskId: string; className: string 
 // Returning from login/privacy never restarts the opening in this app session.
 let arrivalSeen = false;
 
-export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }: WelcomeProps) {
+export function Welcome({ onRegister, onLogin, onPrivacy, onGuide, skipOpening=false, replayIntro = false }: WelcomeProps) {
   const { value } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
   const reduced = value.reducedMotion || systemReduced;
-  const [introducing, setIntroducing] = useState(() => (replayIntro || !arrivalSeen) && !reduced && !document.hidden);
+  const [introducing, setIntroducing] = useState(() => !skipOpening && (replayIntro || !arrivalSeen) && !reduced && !document.hidden);
   const [revealDelay, setRevealDelay] = useState(() => introducing ? 1750 : 0);
   const [hidden, setHidden] = useState(() => document.hidden);
   const [selected, setSelected] = useState(0);
@@ -70,7 +70,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
       if (event.key === 'Escape') { event.preventDefault(); skipIntro(); }
       if (event.key === 'Tab') { event.preventDefault(); skipIntro(); }
     }}>
-      <div className="wd-launch-door" aria-hidden="true"><img src="/brand/welcome/shared-future.webp" alt=""/></div>
+      <div className="wd-launch-door" aria-hidden="true"><picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future-mobile.webp"/><img src="/brand/welcome/shared-future.webp" alt=""/></picture></div>
       <div className="wd-launch-brand"><WelcomeLogo maskId={maskId+'-launch'} className="wd-launch-emblem"/><BrandWordmark className="wd-launch-wordmark"/></div>
     </div>, document.body)}
     <main inert={introducing || undefined} aria-hidden={introducing || undefined} className="nf-welcome nf-arrival wd-welcome" dir="rtl" data-opening={introducing && !reduced || undefined} data-still={reduced || hidden || undefined} aria-labelledby="arrival-heading">
@@ -92,7 +92,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
         <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton><p className="wd-seriousness-proof">توافق قبل التواصل <i/> مدة متفق عليها <i/> خطوة رسمية واضحة</p><a className="wd-welcome-explore" href="#welcome-experience">اكتشف وُدَين <ArrowDown size={15} aria-hidden="true"/></a></div>
       </MotionReveal>
       <figure className="wd-hero-art">
-        <picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future.webp"/><img src="/brand/welcome/shared-future.webp" alt="مشهد تعبيري لشريكين يبدآن حياة مشتركة" width="1200" height="800" fetchPriority="high"/></picture>
+        <picture><source media="(max-width: 759px)" srcSet="/brand/welcome/shared-future-mobile.webp"/><img src="/brand/welcome/shared-future.webp" alt="مشهد تعبيري لشريكين يبدآن حياة مشتركة" width="1200" height="800" fetchPriority="high"/></picture>
 
       </figure>
     </section>
@@ -119,6 +119,6 @@ export function Welcome({ onRegister, onLogin, onPrivacy, replayIntro = false }:
     </ol></section>
 
     <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">خلّ البداية<br/>تشبهك.</h2><p>ابدأ باللي يهمّك في زواجك، وخذ وقتك في اختيار الشخص اللي تشاركه هالحياة.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>
-    <footer className="wd-welcome-footer"><BrandWordmark/><span>بداية لحياة مشتركة</span><button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
+    <footer className="wd-welcome-footer"><BrandWordmark/><span>بداية لحياة مشتركة</span>{onGuide&&<button type="button" onClick={onGuide}>جولة في وُدَين</button>}<button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
   </main></>;
 }

@@ -85,8 +85,9 @@ export function CapturePrivacyHost() {
     // Cover entry into a protected route until the native bridge has moved
     // the WebView. Public routes and ordinary browsers have no handshake.
     if (nativeUpdate) {
-      root.toggleAttribute('data-capture-pending', true);
-      void nativeUpdate.finally(() => { if (current) delete root.dataset.capturePending; });
+      const pending = scope === 'discovery' ? 'data-portrait-pending' : 'data-capture-pending';
+      root.setAttribute(pending, '');
+      void nativeUpdate.finally(() => { if (current) root.removeAttribute(pending); });
     }
     const hide = () => {
       root.toggleAttribute('data-capture-hidden', true);
@@ -156,6 +157,7 @@ export function CapturePrivacyHost() {
       delete root.dataset.captureScope;
       delete root.dataset.captureHidden;
       delete root.dataset.capturePending;
+      delete root.dataset.portraitPending;
       delete root.dataset.captureNativeHidden;
     };
   }, [scope]);

@@ -57,6 +57,13 @@
   border-radius: 12px;
   background: #11070d url('/brand/wudayn-privacy-banner.webp') center top / cover no-repeat;
 }
+/* The artwork backs a mounted protected portrait. Loading and unavailable
+   portraits use the ordinary card surface during normal browsing. */
+.df-portrait-media > .wd-private-portrait:not([data-portrait-state=ready]),
+.dr-row-image > .wd-private-portrait--small:not([data-portrait-state=ready]) {
+  background: var(--raised-tint, #efedee);
+}
+.dr-row-image > .wd-private-portrait--small:not([data-portrait-state=ready]) { border-radius: 50%; }
 .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-shade { display: none; }
 .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-identity {
   position: static;
@@ -207,6 +214,16 @@ html:is([data-capture-hidden], [data-capture-pending]) dialog:not(.wd-capture-no
 html:has(.wd-capture-note[open]) dialog:not(.wd-capture-note),
 html:has(.wd-capture-note[open]) dialog:not(.wd-capture-note)::backdrop { opacity: 0 !important; }
 html:is([data-capture-hidden], [data-capture-pending]) .wd-capture-resume { visibility: hidden; }
+/* While UIKit moves WebKit into its protected canvas, use the app's
+   neutral loading surface. Recording and background covers own their art. */
+@media screen {
+  html[data-capture-pending]:not([data-capture-hidden]) .wd-capture-note {
+    background: var(--paper, #fdfdfd);
+  }
+  html[data-capture-pending]:not([data-capture-hidden]) .wd-capture-note .wd-capture-composition,
+  html[data-capture-pending]:not([data-capture-hidden]) .wd-capture-note::before,
+  html[data-capture-pending]:not([data-capture-hidden]) .wd-capture-note::after { visibility: hidden; }
+}
 @media print {
   html[data-capture-scope] body > :not(.wd-capture-note),
   html[data-capture-scope] dialog:not(.wd-capture-note),
@@ -229,3 +246,9 @@ html:is([data-capture-hidden], [data-capture-pending]) .wd-capture-resume { visi
   .wd-capture-note p { color: #54444a; }
   .wd-capture-seal img { filter: none; }
 }
+
+.cm-chat-capture-notice { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 6px; color: #614a52; font-size: 12px; line-height: 1.55; text-align: start; }
+.cm-chat-capture-notice > svg { flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+.cm-chat-capture-notice p { margin: 3px 0; color: #652a40; }
+.cm-chat-capture-notice time { margin-inline-start: 8px; white-space: nowrap; font-size: 10px; }
+.cm-chat-capture-notice button { color: inherit; text-decoration: underline; }

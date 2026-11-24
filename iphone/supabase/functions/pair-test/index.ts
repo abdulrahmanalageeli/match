@@ -5,7 +5,7 @@ import { parsePortraitUpload, portraitRequestLimit, portraitPolicies } from '../
 import { downloadChatMedia, viewOnceUpload, chatObjectPath } from '../_shared/chat-media.ts';
 import { projectPairState } from '../_shared/pair-privacy.ts';
 const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type,apikey,x-test-session,x-client-id,x-duration-ms,x-portrait-blur,x-portrait-reveal,x-profile-revision,x-view-once','Access-Control-Allow-Methods':'POST,OPTIONS'};
-const allowed=new Set(['portrait_info','portrait_remove','heartbeat','interest','uninterest','dismiss_person','report_person','rematch_request','rematch_accept','rematch_decline','match_seen','rewind','gallery_list','gallery_remove','notifications','notifications_read','profile_visit','state','send','read','delivered','profile','close','reset','step','logout','call_start','call_accept','call_decline','call_end','token','permission_invite','permission_accept','permission_decline','agreement_extend','agreement_extension_accept','agreement_propose','agreement_accept','agreement_family']);
+const allowed=new Set(['chat_screenshot','portrait_info','portrait_remove','heartbeat','interest','uninterest','dismiss_person','report_person','rematch_request','rematch_accept','rematch_decline','match_seen','rewind','gallery_list','gallery_remove','notifications','notifications_read','profile_visit','state','send','read','delivered','profile','close','reset','step','logout','call_start','call_accept','call_decline','call_end','token','permission_invite','permission_accept','permission_decline','agreement_extend','agreement_extension_accept','agreement_propose','agreement_accept','agreement_family']);
 const bucket='nisfayn-test-chat';
 allowed.add('portrait_policy');
 allowed.add('message_delete');
@@ -140,6 +140,12 @@ Deno.serve(async req=>{
    return Response.json({session,...await rpc('state',session)},{headers});
   }
   if(!allowed.has(body.action)||!validSession(body.session))return Response.json({error:'يرجى تسجيل الدخول.'},{status:401,headers});
+  if(body.action==='chat_screenshot'){
+   if(!validId(body.payload?.eventId))throw Error('معرّف اللقطة غير صالح.');
+   const {error}=await client.rpc('nisfayn_test_chat_screenshot',{session_token:body.session,event_id:body.payload.eventId});
+   if(error)throw Object.assign(Error(error.message),{status:error.code==='42501'?403:400});
+   return Response.json({ok:true},{headers});
+  }
   let data=await rpc(body.action,body.session,body.payload||{});
   if(body.action==='message_delete'&&data){
    const path=data._deletedMediaPath;delete data._deletedMediaPath;

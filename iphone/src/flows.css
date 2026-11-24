@@ -540,6 +540,17 @@ body {
 .action-dialog::backdrop {
   background: #35181e66;
 }
+.device-unlock-offer .f-secondary { margin-block-start: 8px; }
+.device-unlock-dismiss {
+  display: block;
+  margin: 4px auto 0;
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+}
 .action-dialog header {
   display: flex;
   align-items: center;

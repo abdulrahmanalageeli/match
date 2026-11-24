@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { VoiceCallsProvider } from '../../src/voice/VoiceCalls';
 import { createRoot } from 'react-dom/client';
+import { ActivityAlerts } from '../../src/notifications/ActivityAlerts';
+import { NotificationFeed } from '../../src/notifications/NotificationFeed';
+import type { ActivityNotification } from '../../src/community/data';
 import { Chat } from '../../src/community/Community';
 import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
 import { demoCommunity, type CommunitySource, type Message, type Connection } from '../../src/community/data';
@@ -55,9 +58,31 @@ const source:CommunitySource = {...base,
  async sendMedia(_room,file,kind,clientId,duration,viewOnce){const media=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file);});const id=crypto.randomUUID(),rows=read();rows.push({id,sender:actor,clientId,body:kind==='photo'?'صورة':'رسالة صوتية',createdAt:new Date().toISOString(),attachment:{id:crypto.randomUUID(),kind,mime:file.type,size:file.size,duration,viewOnce},media});write(rows);return id;},
 };
 const connection:Connection={id:'local-privacy-qa',status:'accepted',direction:'incoming',person:{id:peer,alias:peer==='reham'?'رهام':'عبدالرحمن',age:29,city:'الرياض',occupation:'ملف اختبار',bio:'شخصية اختبار محلية.',interests:[],reasons:[]}};
+const captures = params.has('captures');
+const secondConnection = {...connection, id:'second-room', person:{...connection.person,id:'second-person',alias:'عضو ثانٍ'}};
+const connections = [connection, secondConnection];
+if (captures) {
+ const store = key+'-captures';
+ type Capture = {id:string; requestId:string; sender:string; createdAt:string};
+ const records = ():Capture[] => JSON.parse(localStorage.getItem(store)||'[]');
+ let failFirst = true;
+ source.inbox = async () => connections;
+ source.reportChatScreenshot = async (requestId,id) => {
+   if (failFirst) { failFirst=false; throw Error('Offline'); }
+   if (!records().some(row=>row.id===id)) localStorage.setItem(store,JSON.stringify([...records(),{id,requestId,sender:actor,createdAt:new Date().toISOString()}]));
+ };
+ source.notifications = async ():Promise<ActivityNotification[]> => records().filter(row=>row.sender!==actor).map(row=>({
+   id:row.id,requestId:row.requestId,createdAt:row.createdAt,person:connection.person,kind:'screenshot',
+ }));
+ window.addEventListener('storage',event=>{if(event.key===store)listeners.forEach(fn=>fn());});
+}
 initializeDevicePreferences();
 function Fixture() {
- const [opened,setOpened]=useState(false);
- return <VoiceCallsProvider source={source} owner={null} demo><div className="phone-app" dir="rtl" lang="ar"><main className="cm-shell">{opened?<Chat source={source} connection={connection} back={()=>setOpened(false)} close={()=>setOpened(false)} backLabel="رجوع"/>:<section className="cm-view"><h1>تعارف متبادل · اختبار محلي</h1><button className="cm-request" onClick={()=>setOpened(true)}>فتح المحادثة مع {connection.person.alias}</button></section>}</main></div></VoiceCallsProvider>;
+ const [room,setRoom]=useState<string|null>(null);
+ const selected=connections.find(c=>c.id===room);
+ return <VoiceCallsProvider source={source} owner={null} demo><div className="phone-app" dir="rtl" lang="ar"><main className="cm-shell">{selected?<Chat key={selected.id} source={source} connection={selected} back={()=>setRoom(null)} close={()=>setRoom(null)} backLabel="رجوع"/>:<section className="cm-view"><h1>تعارف متبادل · اختبار محلي</h1>
+   {(captures?connections:[connection]).map(c=><button key={c.id} className="cm-request" onClick={()=>setRoom(c.id)}>فتح المحادثة مع {c.person.alias}</button>)}
+   {captures && <NotificationFeed source={source} connections={connections} onProfile={()=>{}} onRequest={()=>{}} onConversation={setRoom}/>}
+ </section>}</main></div>{captures&&<ActivityAlerts source={source} onOpen={setRoom} onNotifications={()=>setRoom(null)}/>}</VoiceCallsProvider>;
 }
 createRoot(document.getElementById('root')!).render(<><Fixture/><CapturePrivacyHost/></>);

@@ -47,8 +47,9 @@ try {
  for(const mode of ['os','app']){await page.emulateMedia({reducedMotion:mode==='os'?'reduce':'no-preference'});if(mode==='app')await page.evaluate(()=>document.documentElement.dataset.nfMotion='reduced');await input.fill('فحص تقليل الحركة '+mode);await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).click();assert.equal(await page.locator('.cm-bubble[data-composed]').evaluate(e=>getComputedStyle(e).animationName),'none');await page.waitForTimeout(900);}
  await page.goto('http://127.0.0.1:5283/tests/fixtures/chat-privacy-qa.html?actor=abdulrahman&renew&case='+Date.now());
  await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
- await page.getByRole('button',{name:'تجديد ميثاق التعارف'}).click();
- await page.getByRole('dialog').getByRole('heading',{name:'حان وقت الخطوة التالية'}).waitFor();
+ await page.locator('.cm-agreement-slot').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
+ await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
+ await page.getByRole('dialog').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();
  await input.fill('مسودة محفوظة أثناء التجديد');

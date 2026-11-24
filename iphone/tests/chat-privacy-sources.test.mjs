@@ -59,7 +59,12 @@ test('live discovery forwards every filter in both modes and keeps request dates
  const filters={city:'الرياض',search:'عضو',nationality:'السعودية',excludeCities:['جدة'],onlineOnly:true,minFit:70,work:'A',availableOnly:true};
  await source.discover({...filters,mode:'recommended'});await source.discover({...filters,mode:'all'});
  assert.deepEqual(calls.slice(0,2),['recommended','all'].map(mode=>['marriage_browse',{options:{...filters,mode,includeIneligible:mode==='all'}},'member']));
- assert.deepEqual(await source.inbox(),[request]);
+ const inboxReads = () => calls.filter(([name])=>name==='marriage_inbox').length;
+ const [first, second] = await Promise.all([source.inbox(), source.inbox()]);
+ assert.deepEqual(first,[request]); assert.deepEqual(second,[request]);
+ assert.equal(inboxReads(),1,'simultaneous visible widgets share their authorized snapshot');
+ await source.inbox();
+ assert.equal(inboxReads(),2,'a subsequent event reads the current inbox');
  await source.requestHistory();assert.deepEqual(calls.at(-1),['marriage_request_history',{},'member']);
  assert.equal(source.callPermission,undefined,'ordinary live calls use the recipient answer flow');
  assert.equal(typeof source.confirmMediaViewed,'function');

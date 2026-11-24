@@ -1,7 +1,8 @@
+import { captureTitle, captureDetail } from './chatScreenshots.ts';
 import memberAr from '../member-copy.ts';
 import type { ActivityNotification, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 
-export type FeedKind = 'visit' | 'interest' | 'request' | 'message' | 'journey' | 'exclusive' | 'match' | 'feedback';
+export type FeedKind = 'visit' | 'interest' | 'request' | 'message' | 'journey' | 'exclusive' | 'match' | 'feedback' | 'screenshot';
 export type FeedFilter = 'all' | 'unread' | 'requests' | 'interests' | 'visits' | 'journey' | 'messages';
 export type FeedItem = {
   id: string; kind: FeedKind; person: PublicPerson; title: string; detail: string;
@@ -17,6 +18,11 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     const visit = n.kind === 'profile_visit';
     const interest = n.kind === 'interest';
     const open = n.requestId && active.has(n.requestId);
+    if (n.kind === 'screenshot') return {
+      id: n.id, activityId: n.id, person: n.person, kind: 'screenshot',
+      at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
+      title: captureTitle(n.person.alias), detail: captureDetail, target: open ? 'conversation' : null,
+    };
     return {
       id: n.id, activityId: n.id, person: n.person, kind: interest ? 'interest' : visit ? 'visit' : 'exclusive',
       at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
@@ -73,5 +79,5 @@ export function filterFeed(rows: FeedItem[], filter: FeedFilter) {
     || (filter === 'visits' && row.kind === 'visit')
     || (filter === 'interests' && row.kind === 'interest')
     || (filter === 'journey' && (row.kind === 'journey' || row.kind === 'exclusive' || row.kind === 'feedback'))
-    || (filter === 'messages' && row.kind === 'message'));
+    || (filter === 'messages' && (row.kind === 'message' || row.kind === 'screenshot')));
 }

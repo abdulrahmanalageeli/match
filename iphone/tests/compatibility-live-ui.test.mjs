@@ -34,12 +34,14 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     useId: () => { const at = cursor++; return `test-${at}`; },
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
-  const timer = () => 0;
+  const timeouts = new Map();
+  let nextTimer = 0, cardScans = 0;
+  const schedule = (fn, delay) => { timeouts.set(++nextTimer, {fn, delay}); return nextTimer; };
   const windowEvents = new Map();
-  const browser = { setTimeout: timer, setInterval: timer, scrollTo: noop, scrollY: 0,
+  const browser = { setTimeout: schedule, setInterval: noop, scrollTo: noop, scrollY: 0,
     addEventListener: (name, fn) => { if (!windowEvents.has(name)) windowEvents.set(name, new Set()); windowEvents.get(name).add(fn); },
     removeEventListener: (name, fn) => windowEvents.get(name)?.delete(fn) };
-  const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [] };
+  const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: selector => { if (selector === '[data-weekly-person]') cardScans++; return []; } };
   const exports = {};
   const require = name => {
     if (name === 'react') return react;
@@ -59,10 +61,12 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));
     return modules.get(name);
   };
-  vm.runInNewContext(code, { exports, require, document: doc, window: browser, clearTimeout: noop, clearInterval: noop });
+  vm.runInNewContext(code, { exports, require, document: doc, window: browser, clearTimeout: id => timeouts.delete(id), clearInterval: noop });
   return {
     render(next) { if (next) props = next; let tree, passes = 0; do { changed = false; cursor = 0; tree = exports[component](props); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (changed); return tree; },
     close() { for (const hook of hooks) hook?.cleanup?.(); },
+    runTimers(delay) { for (const [id,timer] of [...timeouts]) if (timer.delay === delay) { timeouts.delete(id); timer.fn(); } },
+    cardScans() { return cardScans; },
     scroll(value) { browser.scrollY = value; for (const fn of windowEvents.get('scroll') ?? []) fn(); },
     leaving() { for (const fn of windowEvents.get('nisfayn:before-navigation') ?? []) fn(); },
   };
@@ -228,6 +232,23 @@ test('navigation captures discovery position before the parent resets the page s
   r.render(); await settle(); r.render();
   r.scroll(1200); r.leaving(); r.scroll(0);
   assert.equal(readBrowseMemory(source).scroll, 1200);
+  r.close();
+});
+
+test('initial search keeps loaded recommendations and scrolling measures the anchor once at rest', async () => {
+  const source = sourceWith([person(90)]);
+  let pageReads = 0;
+  source.discover = async () => { pageReads++; return source.people; };
+  const r = mount(communityCode, 'Discovery', baseProps(source));
+  r.render(); await settle(); r.render();
+  r.runTimers(250); r.render(); await settle(); r.render();
+  assert.equal(pageReads, 1);
+  const beforeScroll = r.cardScans();
+  for (let i=1; i<=30; i++) r.scroll(i * 10);
+  assert.equal(r.cardScans(), beforeScroll);
+  assert.equal(readBrowseMemory(source).scroll, 300);
+  r.runTimers(120);
+  assert.equal(r.cardScans(), beforeScroll + 1);
   r.close();
 });
 

@@ -67,3 +67,16 @@ test('read activity and viewed requests leave unread filter; messages keep serve
   assert.deepEqual(filterFeed(rows, 'unread').map(r => r.kind), ['message']);
   assert.equal(filterFeed(rows, 'messages')[0].at, message.lastMessage.createdAt);
 });
+
+test('a screenshot is a private activity notice that opens its own accepted chat', () => {
+  const chat = {...request, status:'accepted', id:'correct-chat'};
+  const notice = {...visit, id:'capture', kind:'screenshot', requestId:chat.id};
+  const rows = buildFeed([chat, {...chat,id:'another-chat'}], [notice], new Map(), new Set());
+  const [alert] = filterFeed(rows,'messages');
+  assert.equal(alert.kind,'screenshot');
+  assert.equal(alert.requestId,chat.id);
+  assert.equal(alert.target,'conversation');
+  assert.equal(alert.unread,true);
+  assert.equal(buildFeed([], [notice], new Map(), new Set())[0].target,null);
+  assert.equal(buildFeed([], [{...notice, readAt:notice.createdAt}], new Map(), new Set())[0].unread,false);
+});

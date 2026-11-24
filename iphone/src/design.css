@@ -73,7 +73,11 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
 }
 body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
 body:has(.phone-app > .wd-welcome)::before {
-  --nf-safe-surface: #fdfdfc url('/brand/welcome/shared-future.webp') 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
+  --wd-welcome-photo: url('/brand/welcome/shared-future.webp');
+  --nf-safe-surface: #fdfdfc var(--wd-welcome-photo) 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
+}
+@media (max-width: 759px) {
+  body:has(.phone-app > .wd-welcome)::before { --wd-welcome-photo: url('/brand/welcome/shared-future-mobile.webp'); }
 }
 @media (prefers-reduced-motion: reduce) { body:has(.phone-app)::before { --nf-safe-light: .08; } }
 html[data-nf-motion="reduced"] body:has(.phone-app)::before { --nf-safe-light: .08; }

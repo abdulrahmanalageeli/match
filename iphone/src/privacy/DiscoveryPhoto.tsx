@@ -4,13 +4,16 @@ import { placeDiscoveryPortrait } from '../session';
 // Read the same authorized (possibly blurred) image the ordinary portrait
 // would display. Never mount its pixels in the capture-visible DOM.
 async function thumbnail(url: string, max: number, signal: AbortSignal) {
-  const response = await fetch(url, { signal });
-  if (!response.ok) throw Error('Portrait unavailable');
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
+  // Use the already-authorized blob URL (or bundled asset) directly. Fetching
+  // it into a second Blob copied the bitmap payload before every decode.
+  if (signal.aborted) throw Error('Portrait request cancelled');
+  const img = new Image();
+  img.decoding = 'async';
+  img.crossOrigin = 'anonymous';
+  const cancel = () => img.removeAttribute('src');
+  signal.addEventListener('abort', cancel, { once: true });
   try {
-    const img = new Image();
-    img.src = objectUrl;
+    img.src = url;
     await img.decode();
     if (signal.aborted) throw Error('Portrait request cancelled');
     const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
@@ -31,15 +34,17 @@ async function thumbnail(url: string, max: number, signal: AbortSignal) {
       reader.readAsDataURL(jpeg);
     });
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    signal.removeEventListener('abort', cancel);
   }
 }
 
+// Keep at most a short strip on either side of the viewport warm during a flick.
+const preloadDistance = 240;
 const covers = '.mi-tabbar, .wd-tier-change, [role="alertdialog"]';
 function visibleCoverRects() {
   const root = document.documentElement;
   if (root.dataset.captureScope !== 'discovery' || document.hidden ||
-      root.matches('[data-capture-pending],[data-capture-hidden],[data-capture-native-hidden]') ||
+      root.matches('[data-portrait-pending],[data-capture-pending],[data-capture-hidden],[data-capture-native-hidden]') ||
       document.querySelector('dialog[open],[aria-modal="true"]:not([hidden])') ||
       (window.visualViewport?.scale ?? 1) !== 1) return null;
   return Array.from(document.querySelectorAll(covers), cover => cover.getBoundingClientRect());
@@ -48,7 +53,7 @@ function visibleCoverRects() {
 function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | null) {
   if (!coverRects) return;
   const rect = node.getBoundingClientRect();
-  if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight ||
+  if (!rect.width || !rect.height || rect.bottom <= -preloadDistance || rect.top >= innerHeight + preloadDistance ||
       rect.right <= 0 || rect.left >= innerWidth) return;
   const cutouts: number[][] = [];
   function exclude(r: DOMRect) {
@@ -58,11 +63,17 @@ function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | 
   coverRects.forEach(exclude);
   node.closest('.dr-row-avatar')?.querySelectorAll('.wd-member-badge,.wd-capture-watermark,.dr-online-dot')
     .forEach(cover => exclude(cover.getBoundingClientRect()));
+  node.closest('.df-card-portrait')?.querySelectorAll('.wd-portrait-membership > *, .df-portrait-badges > *')
+    .forEach(badge => exclude(badge.getBoundingClientRect()));
   const centerX = Math.max(0, (Math.max(0, rect.left) + Math.min(innerWidth, rect.right)) / 2);
   const centerY = Math.max(0, (Math.max(0, rect.top) + Math.min(innerHeight, rect.bottom)) / 2);
   const card = node.closest('.df-recommendation,.dr-person-row');
-  if (!card || !card.contains(document.elementFromPoint(centerX, centerY))) return;
-  return { box: [rect.x, rect.y, rect.width, rect.height], radius: compact ? rect.width / 2 : 12, cutouts };
+  if (!card) return;
+  if (rect.bottom > 0 && rect.top < innerHeight) {
+    const underChrome = coverRects.some(r => centerX >= r.left && centerX < r.right && centerY >= r.top && centerY < r.bottom);
+    if (!underChrome && !card.contains(document.elementFromPoint(centerX, centerY))) return;
+  }
+  return { scrollOrigin: [window.scrollX, window.scrollY], box: [rect.x, rect.y, rect.width, rect.height], radius: compact ? rect.width / 2 : 12, cutouts };
 }
 
 // Share observers across visible cards. A settled feed has no animation loop.
@@ -98,7 +109,7 @@ function watch(node: HTMLElement, update: Update) {
     layout.observe(document.body);
     const changes = new MutationObserver(schedule);
     changes.observe(document.documentElement, {subtree: true, childList: true, attributes: true,
-      attributeFilter: ['class','open','hidden','style','data-capture-scope','data-capture-hidden','data-capture-native-hidden','data-capture-pending']});
+      attributeFilter: ['class','open','hidden','style','data-capture-scope','data-capture-hidden','data-capture-native-hidden','data-capture-pending','data-portrait-pending']});
     document.addEventListener('scroll', schedule, true);
     document.addEventListener('transitionrun', moving);
     document.addEventListener('animationstart', moving);
@@ -133,8 +144,10 @@ export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: 
     const node = anchor.current;
     if (!node || !src) return;
     const id = crypto.randomUUID();
+    delete node.dataset.portraitState;
     let request: AbortController | undefined;
     let placed = false, busy = false, disposed = false, failed = false, last = '';
+    let activation = 0;
     let bitmap: string | undefined;
     const remove = () => {
       request?.abort();
@@ -142,6 +155,7 @@ export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: 
       bitmap = undefined;
       if (placed || busy) void placeDiscoveryPortrait({ id });
       placed = false;
+      delete node.dataset.portraitState;
       last = '';
       failed = false;
     };
@@ -166,30 +180,52 @@ export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: 
           return;
         }
         if (disposed || current.signal.aborted) return;
+        const attemptedAt = activation;
         const result = await placeDiscoveryPortrait({ id, ...geometry, image: placed ? undefined : bitmap });
         if (disposed || current.signal.aborted) return;
         placed = result.placed;
         last = signature;
+        node.dataset.portraitState = placed ? 'ready' : 'unavailable';
         if (placed) bitmap = undefined;
-        else failed = true; // No insecure fallback on an unsupported build.
-      })().catch(() => { if (!current.signal.aborted) failed = true; })
+        else failed = activation === attemptedAt;
+      })().catch(() => {
+        if (!current.signal.aborted) {
+          failed = true;
+          node.dataset.portraitState = 'unavailable';
+        }
+      })
         .finally(() => { busy = false; if (!disposed) schedule(); });
     };
-    const visibility = () => { if (document.hidden) remove(); };
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
+    const resume = () => {
+      // UIKit may reject placement while locked or recording, even with a
+      // visible document. Its foreground signal permits a fresh placement.
+      activation++;
+      if (failed) {
+        failed = false;
+        delete node.dataset.portraitState;
+      }
+      schedule();
+    };
+    const visibility = () => { if (document.hidden) remove(); else resume(); };
+    const observer = new IntersectionObserver(entries => {
+      if (disposed) return;
+      if (entries[entries.length - 1].isIntersecting) {
         watch(node, update);
       } else {
         unwatch(node);
         remove();
       }
-    });
+    }, { rootMargin: preloadDistance + 'px 0px' });
     observer.observe(node);
     document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('wudayn:privacy-covered', remove);
+    window.addEventListener('wudayn:privacy-visible', resume);
     return () => {
       disposed = true;
       observer.disconnect();
       document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('wudayn:privacy-covered', remove);
+      window.removeEventListener('wudayn:privacy-visible', resume);
       unwatch(node);
       remove();
     };

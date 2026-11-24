@@ -17,8 +17,41 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "privacyStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setCaptureScope", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setScreenshotContext", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "discoveryPortrait", returnType: CAPPluginReturnPromise)
     ]
+
+    private var screenshotContext: UUID?
+
+    override func load() {
+        NotificationCenter.default.addObserver(self, selector: #selector(didTakeScreenshot),
+                                               name: UIApplication.userDidTakeScreenshotNotification, object: nil)
+    }
+
+    @objc func setScreenshotContext(_ call: CAPPluginCall) {
+        guard let raw = call.getString("context"), let token = UUID(uuidString: raw) else {
+            call.reject("Invalid chat context")
+            return
+        }
+        DispatchQueue.main.async {
+            if call.getBool("active") == true {
+                self.screenshotContext = token
+            } else if self.screenshotContext == token {
+                self.screenshotContext = nil
+            }
+            call.resolve()
+        }
+    }
+
+    @objc private func didTakeScreenshot() {
+        guard let context = screenshotContext, NisfaynPrivacy.shared.mayReportChatScreenshot,
+              let controller = bridge?.viewController, controller.presentedViewController == nil,
+              let window = controller.viewIfLoaded?.window, window.isKeyWindow,
+              window.windowScene?.activationState == .foregroundActive
+        else { return }
+        notifyListeners("chatScreenshot", data: ["context": context.uuidString.lowercased(),
+                                                  "eventId": UUID().uuidString.lowercased()])
+    }
 
     @objc func appearance(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
@@ -67,15 +100,22 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
             guard host.discoveryPortraitsEnabled, NisfaynPrivacy.shared.mayOpen else {
                 host.removePortrait(id); call.resolve(["placed": false]); return
             }
-            var image: UIImage?
-            if let encoded = call.getString("image"), encoded.count <= 1024 * 1024,
-               let bytes = Data(base64Encoded: encoded) { image = UIImage(data: bytes) }
             let cutouts = (call.getArray("cutouts") ?? []).compactMap { entry -> CGRect? in
                 guard let rect = entry as? [Double], rect.count == 4 else { return nil }
                 return CGRect(x: rect[0], y: rect[1], width: rect[2], height: rect[3])
             }
             let frame = CGRect(x: box[0], y: box[1], width: box[2], height: box[3])
-            call.resolve(["placed": host.placePortrait(id, frame: frame, radius: CGFloat(call.getDouble("radius") ?? 0), image: image, cutouts: cutouts)])
+            let origin = call.getArray("scrollOrigin", Double.self)
+            let measuredOffset: CGPoint?
+            if let origin, origin.count == 2, origin.allSatisfy({ $0.isFinite }) {
+                measuredOffset = CGPoint(x: origin[0], y: origin[1])
+            } else {
+                measuredOffset = nil
+            }
+            host.updatePortrait(id, frame: frame, measuredOffset: measuredOffset, radius: CGFloat(call.getDouble("radius") ?? 0),
+                                encoded: call.getString("image"), cutouts: cutouts) { placed in
+                call.resolve(["placed": placed])
+            }
         }
     }
 
@@ -298,6 +338,7 @@ final class NisfaynPrivacy: NSObject {
     private var enabled: Bool { UserDefaults.standard.bool(forKey: "nisfayn.privacy.lock") }
     private var delay: Int { UserDefaults.standard.integer(forKey: "nisfayn.privacy.delay") }
     var mayOpen: Bool { UIApplication.shared.applicationState == .active && visibleReason == nil && (!enabled || unlocked) }
+    var mayReportChatScreenshot: Bool { scope == .chat && mayOpen }
     var status: [String: Any] {
         let ctx = LAContext()
         var biometry = "none"
@@ -326,7 +367,10 @@ final class NisfaynPrivacy: NSObject {
             }
         }
         NotificationCenter.default.addObserver(self, selector: #selector(refreshCover), name: UIScreen.capturedDidChangeNotification, object: window.screen)
-        shield()
+        // An inactive foreground scene is normal during a cold launch. The
+        // switcher shield belongs to actual interruptions and background entry.
+        inactive = window.windowScene?.activationState == .background
+        refreshCover()
     }
 
     func setCaptureScope(_ next: CaptureScope) {

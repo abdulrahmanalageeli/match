@@ -251,21 +251,31 @@ try{
    window.CapacitorCustomPlatform={name:'ios'};
    window.__portraits=new Map();
    window.__placedImages=new Set();
+   window.__scopeReady=new Promise(resolve=>{window.__enterDiscovery=resolve;});
+   window.__canPlace=false;
+   window.__firstPlacement=new Promise(resolve=>{window.__releasePortraits=resolve;});
    window.Capacitor={
      PluginHeaders:[{name:'PrivateSession',methods:['read','setCaptureScope','discoveryPortrait'].map(name=>({name,rtype:'promise'}))}],
      nativePromise:async(_plugin,method,options)=>{
        if(method==='read') return {token:null};
-       if(method==='setCaptureScope') {window.__scope=options;return;}
+       if(method==='setCaptureScope') {
+         if(options.scope==='discovery')await window.__scopeReady;
+         window.__scope=options;return;
+       }
        if(!options.box){window.__portraits.delete(options.id);return {placed:false};}
        if(!window.__portraits.has(options.id)&&!options.image)return {placed:false};
-       // UIScrollView stores child frames in content coordinates.
+       await window.__firstPlacement;
+       if(!window.__canPlace)return {placed:false};
+       // The scroll position sampled by JS travels with its rectangle. UIKit
+       // may receive the call after a different scroll position is onscreen.
        const [x,y,width,height]=options.box;
-       window.__portraits.set(options.id,[x+scrollX,y+scrollY,width,height]);
+       const [originX,originY]=options.scrollOrigin;
+       window.__portraits.set(options.id,[x+originX,y+originY,width,height]);
        if(options.image){
          const [x,y,w,h]=options.box;
          const target=[...document.querySelectorAll('.wd-private-portrait')].find(node=>{
            const rect=node.getBoundingClientRect();
-           return Math.abs(rect.x-x)<2 && Math.abs(rect.y-y)<2 && Math.abs(rect.width-w)<2;
+           return Math.abs(rect.x+scrollX-x-originX)<2 && Math.abs(rect.y+scrollY-y-originY)<2 && Math.abs(rect.width-w)<2;
          });
          if(target)window.__placedImages.add((w<60?'row ':'card ')+target.getAttribute('aria-label'));
        }
@@ -275,6 +285,16 @@ try{
    };
  });
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?protectedPhotos');
+ const firstBacking=page.locator('.df-recommendation .wd-private-portrait').first();
+ await firstBacking.waitFor();
+ await page.locator('html[data-portrait-pending]').waitFor({state:'attached'});
+ assert.equal(await page.locator('.wd-capture-note').isVisible(),false,'entering discovery should leave recommendations visible');
+ assert.equal(await page.evaluate(()=>window.__portraits.size),0);
+ assert.equal(await firstBacking.evaluate(node=>getComputedStyle(node).backgroundImage),'none','cold loads should not flash the screenshot lock');
+ await page.evaluate(()=>window.__enterDiscovery());
+ await page.evaluate(()=>window.__releasePortraits());
+ await page.locator('.df-recommendation .wd-private-portrait[data-portrait-state=unavailable]').first().waitFor();
+ await page.evaluate(()=>{window.__canPlace=true;window.dispatchEvent(new Event('wudayn:privacy-visible'));});
  for (const [width,height] of [[375,812],[393,852],[430,932]]) {
    await page.setViewportSize({width,height});
    const card=page.locator('.df-recommendation').first();
@@ -284,7 +304,7 @@ try{
    assert.equal(await card.locator('.df-live-caption,.wd-capture-watermark').count(),0);
    assert.equal(await page.locator('.wd-capture-trigger:visible').count(),0);
    assert.equal(await card.locator('.df-card-portrait').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
-   const art = await card.locator('.wd-private-portrait').evaluate(async node=>{
+   const art = await card.locator('.wd-private-portrait[data-portrait-state=ready]').evaluate(async node=>{
      const style=getComputedStyle(node);
      const url=style.backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
      const img=new Image(); img.src=url; await img.decode();

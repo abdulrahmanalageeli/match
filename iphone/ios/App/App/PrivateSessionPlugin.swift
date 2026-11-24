@@ -160,11 +160,17 @@ final class WudaynPrivacyNote: UIView {
     let button = UIButton(type: .system)
     private let profileLock = UIImageView()
     private let wordmark = UILabel()
-    func setArtwork(for scope: CaptureScope) {
+    func setArtwork(for scope: CaptureScope, isScreenshotBacking: Bool = false) {
+        let profileNote = isScreenshotBacking && scope == .profile
+        let showsText = profileNote || scope == .publicScreen
         profileLock.isHidden = scope != .profile
-        wordmark.isHidden = scope != .publicScreen
-        heading.isHidden = scope != .publicScreen
-        detail.isHidden = scope != .publicScreen
+        wordmark.isHidden = !showsText
+        heading.isHidden = !showsText
+        detail.isHidden = !showsText
+        if profileNote {
+            heading.text = "خصوصيتنا أمانة"
+            detail.text = "استأذن قبل مشاركة ما تراه هنا."
+        }
     }
 
     override init(frame: CGRect) {

@@ -275,7 +275,7 @@ try{
    };
  });
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?protectedPhotos');
- for (const [width,height] of [[375,812],[393,852]]) {
+ for (const [width,height] of [[375,812],[393,852],[430,932]]) {
    await page.setViewportSize({width,height});
    const card=page.locator('.df-recommendation').first();
    await card.locator('.wd-private-portrait').scrollIntoViewIfNeeded();
@@ -285,13 +285,26 @@ try{
    assert.equal(await page.locator('.wd-capture-trigger:visible').count(),0);
    assert.equal(await card.locator('.df-card-portrait').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
    const art = await card.locator('.wd-private-portrait').evaluate(async node=>{
-     const url=getComputedStyle(node).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
-     const img=new Image(); img.src=url; await img.decode(); return img.naturalWidth;
+     const style=getComputedStyle(node);
+     const url=style.backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
+     const img=new Image(); img.src=url; await img.decode();
+     return {width:img.naturalWidth,height:img.naturalHeight,positionY:parseFloat(style.backgroundPositionY)/100};
    });
-   assert.ok(art>=390,'the capture backing must render the bundled privacy artwork');
+   assert.ok(art.width>=390,'the capture backing must render the bundled privacy artwork');
    const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
    assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
    assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
+   // The woven lock spans 4% to 65% of the bundled square, from shackle to base.
+   const scaledHeight=art.height*Math.max(photoBox.width/art.width,photoBox.height/art.height);
+   const offsetY=(photoBox.height-scaledHeight)*art.positionY;
+   const topGap=offsetY+.04*scaledHeight;
+   const bottomGap=photoBox.height-(offsetY+.65*scaledHeight);
+   assert.ok(topGap>0 && bottomGap>0 && Math.abs(topGap-bottomGap)<photoBox.height*.02,
+     'the full lock must have equal breathing room above and below it at '+width);
+   assert.ok(await card.evaluate(node=>{
+     const header=getComputedStyle(node.querySelector('.df-card-portrait')).backgroundColor;
+     return header==='rgba(0, 0, 0, 0)' || header===getComputedStyle(node).backgroundColor;
+   }),'member details must sit on the card surface without a dark strip');
    await page.waitForFunction(([x,y,w,h])=>[...window.__portraits.values()].some(rect=>
      [x+scrollX,y+scrollY,w,h].every((value,i)=>Math.abs(value-rect[i])<1)),[photoBox.x,photoBox.y,photoBox.width,photoBox.height]);
    await card.screenshot({path:resolve(output,'iphone-capture-card-'+width+'.png')});

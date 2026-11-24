@@ -302,6 +302,7 @@ final class NisfaynPrivacy: NSObject {
         return ["enabled": enabled, "delay": delay, "biometry": biometry,
                 "available": ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)]
     }
+    @MainActor
     func attach(_ window: UIWindow) {
         guard self.window !== window else { return }
         NotificationCenter.default.removeObserver(self)

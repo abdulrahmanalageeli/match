@@ -7,7 +7,6 @@ import { withTestingDiscovery } from './community/testingDiscovery';
 import {membershipPriceLabel,type MembershipPlan} from './membershipPricing';
 import {MembershipChangeNotice} from './membership/MembershipEntry';
 import type {GiftRecipient} from './membership/GiftMembership';
-const GiftMembership = lazy(()=>import('./membership/GiftMembership').then(m=>({default:m.GiftMembership})));
 import './testingTrial.css';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "./BrandIcons";
@@ -21,6 +20,7 @@ import type { PortraitDraft } from './photos/portraitPreparation';
 import { APPLICATION_INTEGRITY_VERSION, LEGAL_NOTICE_VERSION } from './legal/LegalNotice';
 import { socialSignIn } from './auth/social';
 import { SocialOnboarding } from './auth/SocialOnboarding';
+import { DeviceUnlockOffer } from './auth/DeviceUnlockOffer';
 import { SupportContact, SupportProvider } from './help/SupportContact';
 import { createSupportSource } from './help/support';
 import { feedback } from './feedback/haptics';
@@ -100,6 +100,7 @@ async function loadCommunity() {
 }
 const LazyCommunity = lazy(loadCommunity);
 const Settings = lazy(() => import("./settings/Settings").then(m => ({ default: m.Settings })));
+const GiftMembership = lazy(()=>import('./membership/GiftMembership').then(m=>({default:m.GiftMembership})));
 let warmIntake: typeof import("./onboarding/GuidedApplication").GuidedApplication | undefined;
 async function loadIntake() {
   const module = await import("./onboarding/GuidedApplication");
@@ -185,6 +186,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [unlockOfferOwner, setUnlockOfferOwner] = useState<string | null>(null);
   const [entryReceipt, setEntryReceipt] = useState<{ owner: string; value: SignupAgreements | null } | null>(null);
   const accountAgreements = entryReceipt?.owner === token ? entryReceipt?.value : undefined;
   useEffect(() => {
@@ -353,7 +355,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     }
     tokenRef.current = t;
     setToken(t);
+    if (!t) setUnlockOfferOwner(null);
     version.current++;
+  }
+  function rememberSignIn(t: string) {
+    remember(t);
+    setUnlockOfferOwner(t);
   }
   function go(next: View) {
     if (next === view) return;
@@ -658,7 +665,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         return;
       }
       if (!cloudSelected) await saveSession(result.token);
-      remember(result.token);
+      rememberSignIn(result.token);
       liveDraftOwner.current = result.state.user.id;
       setLive(result.state);
       setDemo(false);
@@ -670,7 +677,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       const userId = await socialSignIn(provider);
       const status = await callRpc<{ required: boolean; email: string }>('marriage_social_onboarding_status', {}, userId);
       if (status.required) { setSocialPending({ userId, email: status.email, initialReceipt }); return; }
-      remember(userId);
+      rememberSignIn(userId);
       await refresh(userId);
       setDemo(false);
       go('main');
@@ -678,13 +685,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }
   function finishSocialOnboarding(userId: string) {
     setSocialPending(null);
-    remember(userId);
+    rememberSignIn(userId);
     setDemo(false);
     go('main');
     void run(async () => { await refresh(userId); });
   }
   function phoneSignedIn(memberId: string) {
-    remember(memberId);
+    rememberSignIn(memberId);
     setDemo(false);
     go("main");
     void run(async () => { await refresh(memberId); });
@@ -1239,6 +1246,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
   return (
     <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership,gift:giftingAvailable?openGifts:undefined,giftAttention}}>
+    {ios && !demo && !tester && !socialPending && live && token && unlockOfferOwner === token &&
+      <DeviceUnlockOffer key={token}/>}
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource} onReview={live?.user.id && !demo ? (chapter,field)=>{setSupportField({owner:live.user.id,chapter,field});setApplicationChapter(chapter);go("application");} : undefined}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>

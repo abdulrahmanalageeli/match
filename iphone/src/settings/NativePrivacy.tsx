@@ -1,21 +1,13 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { useEffect, useState } from 'react';
+import { nativeSession as native, type DeviceAppearance, type DeviceLockStatus } from '../session';
 import { ShieldCheck } from '../BrandIcons';
 import { pushPrivacy } from '../notifications/push';
 import { feedback } from '../feedback/haptics';
 
-type Appearance = {icon:string;supported:boolean;callerName:boolean};
-type Privacy = { enabled: boolean; delay: number; available: boolean };
-const native = registerPlugin<{
-  appearance():Promise<Appearance>;
-  setAppearance(options:{icon?:string;callerName?:boolean}):Promise<Appearance>;
-  privacyStatus(): Promise<Privacy>;
-  privacyConfigure(options: { enabled: boolean; delay: number }): Promise<Privacy>;
-}>('PrivateSession');
-
 export function NativePrivacy({owner}:{owner:string|null}) {
-  const [appearance,setAppearance]=useState<Appearance|null>(null);
-  const [state, setState] = useState<Privacy | null>(null);
+  const [appearance,setAppearance]=useState<DeviceAppearance|null>(null);
+  const [state, setState] = useState<DeviceLockStatus | null>(null);
   useEffect(()=>{if(Capacitor.getPlatform()==='ios')void native.appearance().then(setAppearance).catch(()=>{});},[]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -48,7 +40,7 @@ export function NativePrivacy({owner}:{owner:string|null}) {
       <button type="button" className="st-row st-switch" role="switch" aria-checked={state.enabled}
         disabled={busy || !state.available} onClick={() => void configure(!state.enabled, state.delay)}>
         <span className="st-icon"><ShieldCheck /></span><span className="st-row-copy"><strong>قفل وُدَين</strong>
-          <small>{state.available ? 'Face ID أو رمز قفل iPhone. يُطلب التحقق أيضًا لتغيير هذا الإعداد.' : 'فعّل رمز قفل iPhone أولًا لاستخدام قفل التطبيق.'}</small></span>
+          <small>{state.available ? <>{state.biometry && state.biometry !== 'none' && <><bdi>{state.biometry}</bdi> أو </>}رمز قفل iPhone. يُطلب التحقق أيضًا لتغيير هذا الإعداد.</> : 'فعّل رمز قفل iPhone أولًا لاستخدام قفل التطبيق.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {state.enabled && <label className="st-row"><span className="st-row-copy"><strong>القفل بعد مغادرة التطبيق</strong></span>

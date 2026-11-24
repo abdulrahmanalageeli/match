@@ -253,7 +253,16 @@ final class NisfaynPrivacy: NSObject {
     var mayOpen: Bool { UIApplication.shared.applicationState == .active && visibleReason == nil && (!enabled || unlocked) }
     var status: [String: Any] {
         let ctx = LAContext()
-        return ["enabled": enabled, "delay": delay, "available": ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)]
+        var biometry = "none"
+        if ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) {
+            switch ctx.biometryType {
+            case .faceID: biometry = "Face ID"
+            case .touchID: biometry = "Touch ID"
+            default: break
+            }
+        }
+        return ["enabled": enabled, "delay": delay, "biometry": biometry,
+                "available": ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)]
     }
     func attach(_ window: UIWindow) {
         guard self.window !== window else { return }

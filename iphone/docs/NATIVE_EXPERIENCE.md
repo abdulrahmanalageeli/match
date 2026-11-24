@@ -16,8 +16,10 @@ browser audio, and older installed builds retain their foreground-only transport
   send VoIP pushes for ordinary messages, cancellations or background refresh.
 - CallKit owns audio-session activation. Available Bluetooth/HFP inputs appear in
   the audio output sheet; disconnection and token renewal have bounded deadlines.
-- Settings offer optional Face ID/device-passcode locking and immediate/one/five
-  minute lock delay. The native privacy cover hides app-switcher snapshots.
+- After member sign-in, iPhones with enrolled Face ID or Touch ID offer to lock
+  the saved session. Skipping defers the offer to the next explicit sign-in.
+  Settings also support device-passcode locking and immediate/one/five minute
+  lock delays. The native privacy cover hides app-switcher snapshots.
 - APNs messages are grouped by thread. Preview privacy is private by default,
   with explicit sender-only and sender-plus-text choices, evaluated at delivery.
   Private photo content is never attached. The badge counts unread messages.

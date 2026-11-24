@@ -1,13 +1,26 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
+export type DeviceLockStatus = {
+  enabled: boolean;
+  delay: number;
+  available: boolean;
+  biometry?: 'Face ID' | 'Touch ID' | 'none';
+};
+export type DeviceAppearance = { icon: string; supported: boolean; callerName: boolean };
+
 interface SecureSessionPlugin {
   read(options?: { key?: string }): Promise<{ token: string | null }>;
   save(options: { token: string; key?: string }): Promise<void>;
   clear(options?: { key?: string }): Promise<void>;
   setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'}): Promise<void>;
+  privacyStatus(): Promise<DeviceLockStatus>;
+  privacyConfigure(options: { enabled: boolean; delay: number }): Promise<DeviceLockStatus>;
+  appearance(): Promise<DeviceAppearance>;
+  setAppearance(options: { icon?: string; callerName?: boolean }): Promise<DeviceAppearance>;
 }
 
 const native = registerPlugin<SecureSessionPlugin>("PrivateSession");
+export { native as nativeSession };
 const useKeychain = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 const key = "marriage.session";

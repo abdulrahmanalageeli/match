@@ -24,7 +24,7 @@ const assert = require('node:assert/strict');
     });
     await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5493');
     await page.getByRole('button', { name: /^رهام/ }).click();
-    await page.getByRole('button', { name: 'دخول التجربة', exact: true }).click();
+    await page.getByRole('button', { name: 'دخول', exact: true }).click();
     await page.locator('.nf-tester-bar').waitFor({state:'attached'});
     state.messages.push({ id: 'new-1', sender: 'abdulrahman', body: 'اختبار تنبيه الرسائل', createdAt: new Date().toISOString() });
     await page.locator('.nf-activity-toast').filter({ hasText: 'رسائل من عبدالرحمن' }).waitFor();

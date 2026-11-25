@@ -454,12 +454,12 @@ const sampleLifeAnswers: Record<string, string> = {
   closeness_pace: "B", partner_closeness_pace: "B", marriage_timeline: "B", partner_marriage_timeline: "B",
 };
 export const demoProfile: Profile = {
-  displayName: "عضوة تجريبية",
+  displayName: "نورة",
   age: 28,
   city: "الرياض",
   gender: "woman",
   profession: "مصممة",
-  bio: "ملف توضيحي",
+  bio: "",
   lookingFor: "أبحث عن شريك واضح في نيته، لطيف في اختلافه، ويؤمن بأن الزواج شراكة في التفاصيل والمسؤوليات.",
   valuesStatement: "الاحترام وقت الاختلاف، الصدق، وحفظ مساحة لكل منا دون أن نبتعد عن بعضنا.",
   lifeTogether: "بيت هادئ تملؤه الأحاديث، ومساحة لطموح كل منا، ووقت ثابت للأهل ولأنفسنا.",

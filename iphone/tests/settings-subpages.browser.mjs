@@ -15,7 +15,7 @@ try {
  await page.setViewportSize({width,height:844});await page.goto('http://127.0.0.1:5286/tests/fixtures/settings-qa.html');await page.locator('.st-member-card').waitFor();
  assert.equal(await page.getByText(/لونا|Luna/i).count(),0);
  assert(await page.getByText('ملفك متاح للترشيحات',{exact:true}).isVisible());
- for(const [group,control] of [['المساعدة والدعم','دليلك في وُدَين'],['الحساب','إنهاء التجربة']]){
+ for(const [group,control] of [['المساعدة والدعم','دليلك في وُدَين'],['الحساب','تسجيل الخروج']]){
    const fold=page.getByText(group,{exact:true});
    await fold.click();assert(await page.getByRole('button',{name:new RegExp(control)}).isVisible());await fold.click();
  }

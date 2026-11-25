@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { ImagePlus, Mic, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from "../BrandIcons";
+import { Image as PhotoIcon, AudioLines, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from "../BrandIcons";
 import type { ChatAttachment, CommunitySource } from './data';
 import { useDevicePreferences, useSystemReducedMotion } from '../settings/preferences';
 import { feedback } from '../feedback/haptics';
@@ -29,6 +29,46 @@ async function preparePhoto(file: File) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+const timelineMarks = Array.from({length: 36}, (_, i) => i % 6 === 0 ? 12 : 5);
+
+// Read the existing attachment blob only when its player comes into view.
+function AudioTimeline({ url, fraction }: { url: string; fraction: number }) {
+  const strip = useRef<HTMLSpanElement>(null);
+  const [wave, setWave] = useState<{ url: string; bars: number[] } | null>(null);
+  useEffect(() => {
+    const node = strip.current;
+    if (!node || !url.startsWith('blob:') || !window.OfflineAudioContext) return;
+    const controller = new AbortController();
+    async function measure() {
+      try {
+        const data = await (await fetch(url, {signal: controller.signal})).arrayBuffer();
+        if (controller.signal.aborted) return;
+        const decoder = new OfflineAudioContext(1, 1, 16000);
+        const samples = (await decoder.decodeAudioData(data)).getChannelData(0);
+        if (controller.signal.aborted) return;
+        const levels = timelineMarks.map((_, index) => {
+          const start = Math.floor(index * samples.length / timelineMarks.length);
+          const end = Math.floor((index + 1) * samples.length / timelineMarks.length);
+          let power = 0;
+          for (let i = start; i < end; i++) power += samples[i] * samples[i];
+          return Math.sqrt(power / Math.max(1, end - start));
+        });
+        const peak = Math.max(.01, ...levels);
+        setWave({url, bars: levels.map(level => 3 + Math.round(24 * level / peak))});
+      } catch { /* The time ruler remains seekable if waveform decoding is unavailable. */ }
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); void measure(); }
+    });
+    observer.observe(node);
+    return () => { observer.disconnect(); controller.abort(); };
+  }, [url]);
+  const bars = wave?.url === url ? wave.bars : timelineMarks;
+  return <span ref={strip} className="cm-audio-wave" dir="ltr" aria-hidden="true">
+    {bars.map((height, i) => <i key={i} style={{height}} data-played={i < fraction * bars.length || undefined}/>)}
+  </span>;
+}
+
 function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?: number; failed?: () => void; memory?: {source: CommunitySource; key: string} }) {
   const remember = (value: number) => { if (!memory) return; let positions = voicePositions.get(memory.source); if (!positions) { positions = new Map(); voicePositions.set(memory.source,positions); } positions.set(memory.key,value); if(positions.size>200) positions.delete(positions.keys().next().value!); };
   const audio = useRef<HTMLAudioElement>(null);
@@ -54,8 +94,12 @@ function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?
       onLoadedMetadata={() => { const value = audio.current?.duration; if (value && Number.isFinite(value)) setLength(value); if (audio.current) { audio.current.playbackRate = rate; const saved = memory ? voicePositions.get(memory.source)?.get(memory.key) : 0; if(saved && saved < (value || duration || 0) - .3) {audio.current.currentTime=saved;setPosition(saved);} } }}
       onTimeUpdate={() => { const value=audio.current?.currentTime || 0; setPosition(value); remember(audio.current?.ended ? 0 : value); }} onError={() => { setBuffering(false); setError('تعذّر تحميل التسجيل.'); failed?.(); }}/>
     <button type="button" className="cm-audio-play" aria-label={playing ? 'إيقاف التسجيل مؤقتًا' : 'تشغيل التسجيل الصوتي'} aria-busy={buffering} onClick={() => void toggle()}>{buffering ? <LoaderCircle size={19} className="cm-spin"/> : playing ? <Pause size={19}/> : <Play size={19}/>}</button>
-    <div className="cm-audio-track"><span>{buffering ? 'جارٍ تجهيز الصوت…' : 'رسالة صوتية'}</span><input aria-label="موضع تشغيل التسجيل" aria-valuetext={`${seconds(position)} من ${seconds(length)}`} type="range" min="0" max={length || 1} step="0.1" disabled={!length} value={Math.min(position,length || 1)} onChange={e => { const value = Number(e.target.value); if (audio.current) audio.current.currentTime = value; setPosition(value); }}/></div>
-    <time dir="ltr">{seconds(playing || position ? position : length)}</time>
+    <div className="cm-audio-track">
+      <div className="cm-audio-caption"><b>{buffering ? 'جارٍ تجهيز الصوت…' : 'رسالة صوتية'}</b><time dir="ltr">{seconds(playing || position ? position : length)}</time></div>
+      <div className="cm-audio-seek"><AudioTimeline url={url} fraction={length ? position / length : 0}/>
+        <input dir="ltr" aria-label="موضع تشغيل التسجيل" aria-valuetext={`${seconds(position)} من ${seconds(length)}`} type="range" min="0" max={length || 1} step="0.1" disabled={!length} value={Math.min(position,length || 1)} onChange={e => { const value = Number(e.target.value); if (audio.current) audio.current.currentTime = value; setPosition(value); }}/>
+      </div>
+    </div>
     <MotionPressButton className="cm-audio-speed" aria-label={`سرعة التشغيل ${rate}، تغيير السرعة`} onClick={() => {
       const next = rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1;
       if (audio.current) { audio.current.playbackRate = next; audio.current.preservesPitch = true; }
@@ -206,7 +250,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
     const confirmed = viewed || Boolean(attachment.viewedAt);
     const label = confirmed ? 'عُرضت الصورة' : opened ? 'استُخدمت فرصة العرض' : 'صورة لمرة واحدة';
     return <><button type="button" className="cm-once-photo" disabled={senderIsMe || opened || opening} onClick={() => void openPhoto()} aria-label={opened ? label : senderIsMe ? 'صورة لمرة واحدة أرسلتها' : 'فتح الصورة لمرة واحدة'}>
-      <span className="cm-once-mark">{opening ? <LoaderCircle className="cm-spin" size={24}/> : confirmed ? <CheckCheck size={24}/> : <CircleDashed size={25}/>}</span>
+      <span className="cm-once-mark" aria-hidden="true">{opening ? <LoaderCircle className="cm-spin" size={24}/> : confirmed ? <CheckCheck size={24}/> : <><CircleDashed size={27}/><b>١</b></>}</span>
       <span><strong>{label}</strong><small>{opening ? 'جارٍ الفتح…' : confirmed ? 'لا يمكن عرضها مجددًا' : opened ? 'لم يصل تأكيد عرض الصورة' : senderIsMe ? 'يمكن للطرف الآخر فتحها مرة واحدة' : 'اضغط للعرض · تختفي عند الإغلاق'}</small></span>
       {!senderIsMe && !opened && !opening && <Eye size={17}/>}</button>
       {error && <p className="cm-once-error" role="alert">{error}</p>}</>;
@@ -331,7 +375,7 @@ export function ChatMediaComposer({ source, requestId, disabled, callActive, onR
           <MotionPressButton type="button" className="cm-media-send" disabled={busy || disabled} aria-label={error ? 'إعادة إرسال المرفق' : 'إرسال المرفق'} onClick={() => void send()}>{busy ? <LoaderCircle className="cm-spin" size={18}/> : error ? <RotateCcw size={18}/> : <Send size={18}/>}</MotionPressButton>
         </div>
       </div>
-        : <div className="cm-media-tools"><button type="button" aria-label="إرفاق صورة" title="إرفاق صورة" disabled={disabled || busy} onClick={() => picker.current?.click()}><ImagePlus size={19}/></button><button type="button" className="cm-record-trigger" aria-label="رسالة صوتية" title="اضغط مطولًا للتسجيل، أو اضغط مرة للتسجيل الحر" disabled={disabled || busy || callActive} onPointerDown={startHold} onContextMenu={event => event.preventDefault()} onClick={event => { if (event.detail > 0 && suppressClick.current) { suppressClick.current = false; return; } void record(true); }}><Mic size={19}/></button>{busy && <span role="status">جارٍ التجهيز…</span>}</div>}
+        : <div className="cm-media-tools"><button type="button" aria-label="إرفاق صورة" title="إرفاق صورة" disabled={disabled || busy} onClick={() => picker.current?.click()}><PhotoIcon size={23}/></button><button type="button" className="cm-record-trigger" aria-label="رسالة صوتية" title="اضغط مطولًا للتسجيل، أو اضغط مرة للتسجيل الحر" disabled={disabled || busy || callActive} onPointerDown={startHold} onContextMenu={event => event.preventDefault()} onClick={event => { if (event.detail > 0 && suppressClick.current) { suppressClick.current = false; return; } void record(true); }}><AudioLines size={23}/></button>{busy && <span role="status">جارٍ التجهيز…</span>}</div>}
     {error && <p className="cm-media-error" role="alert">{error}</p>}
   </div>;
 }

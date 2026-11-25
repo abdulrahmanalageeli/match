@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deepConsent, deepSnapshot } from '../src/community/deepCompatibilityModel.ts';
+import { deepConsent, deepSnapshot, deepTimelineIndex } from '../src/community/deepCompatibilityModel.ts';
 
 const finding = {id:'f1',section:'summary',kind:'manageable',text:'Joint private inference',evidence:[{side:'b',key:'private'}]};
 test('review state retains only own evidence, never draft inference or peer input',()=>{
@@ -10,9 +10,17 @@ test('review state retains only own evidence, never draft inference or peer inpu
   assert.equal(JSON.stringify(view).includes('Secret'),false);
 });
 test('shared state exposes approved report text without raw evidence or review payload',()=>{
-  const view=deepSnapshot({status:'shared',findings:[finding],review:[{private:'secret'}]});
+  const view=deepSnapshot({status:'shared',createdAt:'2026-11-25T10:00:00Z',eventAt:'2026-11-25T10:05:00Z',findings:[finding],review:[{private:'secret'}]});
   assert.deepEqual(view.findings,[{id:'f1',section:'summary',kind:'manageable',text:'Joint private inference'}]);
   assert.deepEqual(view.review,[]);
+  assert.equal(view.createdAt,'2026-11-25T10:00:00Z');
+  assert.equal(view.eventAt,'2026-11-25T10:05:00Z');
+});
+test('report event stays at its real place while later chat messages follow it',()=>{
+  const messages=[{createdAt:'2026-11-25T10:00:00Z'},{createdAt:'2026-11-25T10:06:00Z'},{createdAt:'2026-11-25T10:08:00Z'}];
+  assert.equal(deepTimelineIndex(messages,'2026-11-25T10:05:00Z'),1);
+  assert.equal(deepTimelineIndex(messages,'2026-11-25T10:09:00Z'),3);
+  assert.equal(deepTimelineIndex(messages,null),3);
 });
 test('revoked, stale, pending and failed responses discard previously shared content',()=>{
   for(const status of ['cancelled','stale','requested','failed','ready','generating','declined','none']){

@@ -78,7 +78,7 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
           <div className="luna-search-criteria">{result.criteria.map((item,index)=><span key={index}>{item.kind==='must'?'شرط · ':item.kind==='exclude'?'استبعاد · ':'تفضيل · '}{item.label}</span>)}</div>
           {result.people.length===0?<><p>لا توجد نتائج تطابق بحثك.</p>
             {result.options.mode==='recommended'&&<button className="btn-secondary" type="button" onClick={()=>void search(true)}>ابحث في جميع الملفات المؤهلة</button>}
-          </>:<><h3>أقرب الملفات لبحثك{result.people.length===24?' · أول ٢٤ نتيجة':''}</h3>{result.people.map(person=><button key={person.id} type="button" className="luna-search-person" onClick={()=>open(person,result.options.mode)}><span><strong>{person.alias}{person.isDemo?' · تجريبي':''}</strong><small>{person.age} عامًا · {person.city} · {person.occupation}</small></span><ArrowRight size={18}/></button>)}</>}
+          </>:<><h3>أقرب الملفات لبحثك{result.people.length===24?' · أول ٢٤ نتيجة':''}</h3>{result.people.map(person=><button key={person.id} type="button" className="luna-search-person" onClick={()=>open(person,result.options.mode)}><span><strong>{person.alias}</strong><small>{person.age} عامًا · {person.city} · {person.occupation}</small></span><ArrowRight size={18}/></button>)}</>}
         </div>}
       </>}
     </div>}

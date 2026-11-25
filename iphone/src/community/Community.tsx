@@ -44,6 +44,7 @@ import { canRetryRead } from './readRecovery';
 import { useReadRecovery } from './useReadRecovery';
 import { ThreadConnection } from './ThreadConnection';
 import { DeepCompatibility } from './DeepCompatibility';
+import { deepTimelineIndex } from './deepCompatibilityModel';
 import './everyday.css';
 import {
   ArrowLeft,
@@ -106,7 +107,6 @@ import { nativePrivatePhoto } from './privatePhoto';
 import { HelpButton, HelpCenter } from '../help/HelpCenter';
 import { SupportContact } from '../help/SupportContact';
 import { SuccessNotice } from './SuccessNotice';
-import { RequestHistory } from './RequestHistory';
 import { CommunitySkeleton } from './CommunitySkeleton';
 import { feedback } from '../feedback/haptics';
 import { ChatInsights } from './ChatInsights';
@@ -1199,7 +1199,7 @@ function JourneySummary({ source, id, name, open }: { source: CommunitySource; i
   if (!source.progress) return null;
   const next = journeyNext(progress, name);
   return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label={`مسار التعارف: ${next.title}. ${next.waiting}. متفق عليه: ${next.agreed}`} title={next.title}>
-    <Sparkles size={14} aria-hidden="true"/><span>مسار التعارف</span>
+    <Compass size={18} aria-hidden="true"/><span>مسار التعارف</span>
     {next.yours&&<span className="cm-journey-attention" role="status">بانتظارك</span>}
     <ChevronLeft size={12} aria-hidden="true"/>
   </MotionPressButton>;
@@ -1394,6 +1394,8 @@ export function Chat({
   const [insightsOpen, setInsightsOpen] = useState(false);
   const thread = useThread(source, connection.id, guide || insightsOpen);
   const [deepOpen, setDeepOpen] = useState(Boolean(initialAnalysis));
+  const [deepTimelineAt, setDeepTimelineAt] = useState<string | null>(null);
+  const [deepTimelineSlot, setDeepTimelineSlot] = useState<HTMLSpanElement | null>(null);
   useEffect(() => { if(initialAnalysis) setDeepOpen(true); },[initialAnalysis]);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1511,6 +1513,9 @@ export function Chat({
   const onDeepNotice = useCallback(() => {
     if (atBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
     else setShowLatest(true);
+  }, []);
+  const onDeepTimelineChange = useCallback((at: string | null) => {
+    setDeepTimelineAt(current => current === at ? current : at);
   }, []);
   function scrollToLatest() {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
@@ -1631,27 +1636,25 @@ export function Chat({
   function openFamily() { reading.remember(); typing.stop(); setFamilyOpen(true); }
   if (profileOpen) return <MotionReveal distance={10} fromOpacity={1} axis="x" duration={280}><Profile source={source} person={connection.person} identity={profileIdentity} connectionId={connection.id} back={returnToChat} backText="العودة للمحادثة"/></MotionReveal>;
   if (familyOpen && source.family) return <FamilyBridgePanel initialRoom={initialRoom} initialMessage={initialMessage} source={source} connectionId={connection.id} name={connection.person.alias} onBack={() => { setFamilyOpen(false); requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-guide-button')?.focus()); }}/>;
+  const deepEventIndex = deepTimelineIndex(thread.rows, deepTimelineAt);
+  const deepTimelineMarker = <span key="deep-analysis-timeline" ref={setDeepTimelineSlot} style={{ display: 'contents' }}/>;
+  const deepTimelineNode = conversationAllowed && !thread.accessDenied && !connection.person.isDemo
+    ? <DeepCompatibility key={`deep:${connection.id}`} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice} onTimelineChange={onDeepTimelineChange} timelineTarget={deepTimelineSlot}
+      onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>
+    : null;
   return (
     <section className="cm-chat" ref={screen} data-conversation-id={connection.id} data-private-hidden={privateHidden || undefined}>
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
       <header className="cm-chat-head">
-        <ScenePaths className="cm-chat-arrival-paths" />
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
-        <button className="icon-btn" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight /></button>
+        <button className="icon-btn cm-chat-back" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : 'الملف الشخصي'}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
-      <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
-        {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
-        {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
-          respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
-        <button className="cm-end-visible" type="button" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}>إنهاء التعارف</button>
-      </div>
 
       {(conversationAllowed || thread.rows.length > 0 || thread.error) && <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
@@ -1685,7 +1688,7 @@ export function Chat({
             const { status, deleted, canReply, canDelete, canReact, canReport } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             const read = msg.readByPeer || Boolean(msg.readAt);
-            return <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
+            const messageNode = <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReport && !canReply && !canDelete && !canReact}
@@ -1714,12 +1717,14 @@ export function Chat({
                 <span>{status.error}</span><button disabled={!canSend} onClick={() => { composer.current?.focus({preventScroll:true}); thread.outbox.retry(status.clientId); }}><RotateCcw size={13} /> إعادة الإرسال</button>
               </div>}
             </div>;
+            return i === deepEventIndex ? [deepTimelineMarker, messageNode] : messageNode;
           })}
+          {deepEventIndex === thread.rows.length && deepTimelineMarker}
           {source.reportChatScreenshot&&!connection.person.isDemo&&<ChatScreenshotNotice key={'screenshot-'+connection.id} source={source} requestId={connection.id}/>}
-      {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.profileReading
+          {deepTimelineNode}
+      {conversationAllowed && !thread.accessDenied && connection.person.isDemo && source.profileReading
         ? <DemoDeepReading key={connection.id} person={connection.person} read={source.profileReading} watch={source.watch} open={deepOpen && !privateHidden} onClose={()=>setDeepOpen(false)}/>
-        : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}
-        onOpenChange={value => { typing.stop(); setDeepOpen(value); }} sheet={content => <Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={() => setDeepOpen(false)}>{content}</Sheet>}/>)}
+        : null}
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
@@ -1728,6 +1733,13 @@ export function Chat({
         typing={typing} onSubmit={submit} name={connection.person.alias}>
         <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
       </ChatComposer>}
+      <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
+        {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
+        <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
+          respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
+        <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}><span>إنهاء</span></button>
+      </div>
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
       {actionMessage && hasMessageActions && !privateHidden && <MessageFocus anchor={messageActionAnchor} self={actionMessage.senderIsMe}
         label={actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}
@@ -2234,7 +2246,6 @@ function Requests({
       onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
     {error && <button className="btn-text" onClick={() => void refresh()}>إعادة المحاولة</button>}
-    <RequestHistory source={source}/>
   </section>;
   const filtered = list.filter(
     (c) => conversations ? c.status === "accepted" && (!onlyUnread || !!c.unreadCount) :
@@ -2246,7 +2257,7 @@ function Requests({
   const search = query.trim().normalize("NFKC");
   const rows = filtered.filter((c) => !search || c.person.alias.normalize("NFKC").includes(search));
   return (
-    <section className="screen-content cm-view">
+    <section className="screen-content cm-view cm-conversations-view">
       {exitFeedback}
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header">
@@ -2346,7 +2357,6 @@ function Requests({
           </button>
         ))}
       </div>
-      <RequestHistory source={source}/>
     </section>
   );
 }

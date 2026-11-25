@@ -41,6 +41,7 @@ test('deep analysis requires higher tier and mutual consent; drafts and partner 
   await assert.rejects(call(a,'request'),/وسام/);
   await grant();
   const requested=await call(a,'request');assert.equal(requested.status,'requested');
+  assert.ok(requested.createdAt);assert.ok(requested.eventAt);
   assert.equal((await call(a,'request')).id,requested.id,'request retry is idempotent');
   assert.equal((await db.query('select snapshot from marriage.deep_analyses')).rows[0].snapshot,null,'no answers copied before both consent');
   assert.equal((await job('claim')).status,'idle');
@@ -69,8 +70,10 @@ test('deep analysis requires higher tier and mutual consent; drafts and partner 
   await assert.rejects(call(a,'review',{f1:true}),/كل إفصاح/);
   await call(a,'review',decisions(true));
   assert.equal((await call(b)).findings.length,0,'first reviewer cannot release shared text');
+  await db.query("update marriage.deep_analyses set status_at='2000-01-01T00:00:00Z' where id=$1",[requested.id]);
   const shared=await call(b,'review',{...decisions(true),f2:false});
   assert.equal(shared.status,'shared');assert.equal(shared.findings.length,6);
+  assert.ok(Date.parse(shared.eventAt)>Date.parse('2000-01-02T00:00:00Z'),'shared report receives its real chat event time');
   assert.equal(shared.findings.some(f=>f.id==='f2'),false);
   assert.equal(shared.findings.some(f=>f.id==='f1'),false,'approved summary cannot indirectly reveal a source refused on another finding');
   assert.equal(shared.findings.some(f=>f.id==='f3'),true,'unrelated approved evidence remains available');

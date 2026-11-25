@@ -26,7 +26,7 @@ export async function testRequest<T>(action:string,session='',payload:unknown={}
 }
 export function testProfile(actor:Actor,profile?:Partial<Profile>):Profile{
  const defaults:Profile={...demoProfile,beena:null,displayName:actor==='reham'?'رهام':'عبدالرحمن',gender:actor==='reham'?'woman':'man',age:actor==='reham'?27:29,
- profession:actor==='reham'?'ملف اختبار':'تطوير وُدَين',bio:actor==='reham'?'ملف رهام لتجربة وُدَين مع عبدالرحمن. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.':'أطوّر تجربة وُدَين وأختبر التعارف والمحادثات مع رهام. المعلومات والإجابات الأولية أمثلة قابلة للتعديل.',
+ profession:actor==='reham'?'':'تطوير وُدَين',bio:'',
  contact:actor+'@example.invalid',publicAvatar:actor==='reham'?{style:'hijab',skinTone:'tone_3'}:null,
  marriageBasics:actor==='reham'?demoProfile.marriageBasics:{heightCm:178,weightKg:78,nationality:'سعودي',maritalStatus:'never_married',smoking:'never',childrenCount:0,tribalBackground:'prefer_not_to_say'},
  };
@@ -40,7 +40,7 @@ export function testPerson(actor:Actor,profile?:PublicTestProfile):PublicPerson{
  publicAvatar,portrait,marriageBasics:p.marriageBasics,lookingFor:p.lookingFor,valuesStatement:p.valuesStatement,lifeTogether:p.lifeTogether,
  marriageIntent:p.marriageIntent,familyPreference:p.familyPreference,education:p.education,
  beenaStory:profile?.beenaStory?{scenarioId:profile.beenaStory.scenarioId,text:profile.beenaStory.text}:undefined,
- demoPhoto:actor==='abdulrahman'?'/demo/portraits/tester-shemagh.webp':undefined,interests:interests.filter(item=>p.interestIds?.includes(item.id)).map(item=>item.label),reasons:['تعارف متبادل مفعّل للاختبار']};
+ demoPhoto:actor==='abdulrahman'?'/demo/portraits/tester-shemagh.webp':undefined,interests:interests.filter(item=>p.interestIds?.includes(item.id)).map(item=>item.label),reasons:['تعارف متبادل']};
 }
 // Only fictional discovery uses this scenario. Saved tester answers and the
 // server-scored relationship with the other tester remain untouched.

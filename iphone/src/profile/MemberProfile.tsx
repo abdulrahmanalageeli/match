@@ -160,7 +160,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         <Icon size={16} strokeWidth={1.6} aria-hidden="true"/><span className="mp-fact-label">{label}</span><bdi>{value}</bdi>
       </div>)}
 <div className="mp-portrait-column">{person.portrait?<PortraitPhoto portrait={person.portrait} source={source} frameClassName="mp-portrait" captionClassName={person.isDemo?undefined:'mp-portrait-caption'} alt={`الصورة الشخصية لـ ${person.alias}`}/>:<div className={'mp-portrait'+(!person.publicAvatar&&!photo?' mp-portrait-private':'')}>{person.publicAvatar?<AvatarPortrait avatar={person.publicAvatar}/>:photo?<img src={photo} alt={privateDemo ? `الصورة الشخصية لـ ${person.alias}` : `صورة توضيحية لملف ${person.alias}`} onError={()=>setFailed(true)}/>:<img src="/brand/wudayn-privacy-lock.webp" alt="صورة خاصة"/>}</div>}
-        {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'حساب توضيحي لاختبار التجربة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
+        {(!person.portrait||person.isDemo)&&!privateDemo&&<div className="mp-portrait-caption">{person.isDemo?'ملف للمعاينة':person.publicAvatar?'صورة رمزية اختيارية':photo?'شخصية توضيحية · صورة مولّدة':<><LockKeyhole size={12}/> الصور تُشارك بخصوصية</>}</div>}
       </div>
     </div>
     <section className="mp-hero" data-weekly-featured={featured||undefined} aria-label={`ملف ${person.alias}`}>

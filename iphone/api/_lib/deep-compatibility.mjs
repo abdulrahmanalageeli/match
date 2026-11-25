@@ -167,7 +167,7 @@ export function createDeepAnalysisService({env=process.env,fetcher=fetch,clientF
    const key=privileged?env.SUPABASE_SERVICE_ROLE_KEY:PUBLISHABLE_KEY;
    let response,value;try{response=await fetcher(`${PROJECT_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{apikey:key,Authorization:privileged?`Bearer ${key}`:bearer,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(6000)});value=await response.json()}catch{throw unavailable()}
    if(!response.ok){
-    if(demoPersonaId&&value?.code==='54000')throw new DeepAnalysisError(429,'quota','استخدمت قراءاتك التجريبية الثلاث لهذا اليوم.');
+    if(demoPersonaId&&value?.code==='54000')throw new DeepAnalysisError(429,'quota','استخدمت قراءاتك الثلاث لهذا اليوم.');
     if(demoPersonaId&&value?.code==='22023')throw new DeepAnalysisError(422,'incomplete','أكمل إجابات التوافق أولًا ليكون للقراءة أساس.');
     if(value?.code==='42501'||[401,403].includes(response.status))throw new DeepAnalysisError(403,'forbidden','التحليل غير متاح لهذه المحادثة أو انتهت الموافقة.');throw unavailable()}
    return value;

@@ -1375,9 +1375,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
       {tester && !onboardingPreview && !showArrivalGuide && <details className="nf-tester-tools">
-        <summary aria-label="أدوات الاختبار الخاص" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
+        <summary aria-label="إعدادات الحساب" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">
-          <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
+          <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'}</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
         </div>
       </details>}
       {pendingPhoto && (memberAccess || waitingForLaunch || view === 'settings') && <div className="feedback" role="status">

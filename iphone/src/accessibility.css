@@ -22,10 +22,10 @@ html[data-nf-text="large"] { font-size: max(112.5%, var(--nf-system-text, 0px));
 }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-media-tools button { width: 44px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] {
-  flex-wrap: wrap; max-height: 24%; overflow-y: auto;
+  flex-wrap: nowrap; max-height: none; overflow: visible;
 }
 :root .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] :is(.cm-agreement-summary > button, .cm-end-visible, .cm-journey-summary) {
-  min-height: 44px; font-size: .75rem; white-space: normal; text-align: start; max-width: 100%;
+  min-height: 44px; font-size: .75rem; white-space: nowrap; max-width: 100%;
 }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose {
   max-height: 45%; overflow-y: auto; overscroll-behavior: contain;
@@ -57,10 +57,10 @@ html[data-nf-chat-compact] .phone-app .cm-shell .cm-chat[data-conversation-id] .
 
 /* Preserve transcript space while the keyboard and large Arabic text share the screen. */
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head {
-  flex: 0 0 auto; max-height: 22%; overflow-y: auto; padding-block: 2px;
+  flex: 0 0 auto; max-height: none; overflow: visible;
 }
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy small {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+  max-height: 0; margin: 0; opacity: 0; overflow: hidden; pointer-events: none;
 }
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] {
   max-height: 18%; flex-shrink: 1; min-height: 0;

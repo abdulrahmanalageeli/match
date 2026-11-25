@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpen, ChevronLeft, LockKeyhole, Sparkles } from '../BrandIcons';
 import { useMembershipAccess } from '../membership/access';
 import { deepSections, type DeepAction, type DeepAnalysisSource, type DeepSnapshot } from './deepCompatibilityModel';
@@ -16,9 +17,10 @@ const stateCopy: Record<DeepSnapshot['status'], string> = {
 const count = new Intl.NumberFormat('ar-SA');
 const message = (error: unknown) => error instanceof Error && /[\u0600-\u06ff]/.test(error.message) ? error.message : 'تعذّر الاتصال الآن. حاول مجددًا.';
 
-export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, onNoticeChange, sheet, profileRequest = false }: {
+export function DeepCompatibility({ source, watch, connectionId, peerName, open, onOpenChange, onNoticeChange, onTimelineChange, timelineTarget, sheet, profileRequest = false }: {
   source?: DeepAnalysisSource; watch: WatchUpdates; connectionId: string; peerName: string; open: boolean;
-  profileRequest?: boolean; onOpenChange(open: boolean): void; onNoticeChange?(): void; sheet(content: ReactNode): ReactNode;
+  profileRequest?: boolean; onOpenChange(open: boolean): void; onNoticeChange?(): void; onTimelineChange?(at: string | null): void;
+  timelineTarget?: Element | null; sheet(content: ReactNode): ReactNode;
 }) {
   const membership = useMembershipAccess();
   const [snapshot, setSnapshot] = useState<DeepSnapshot | null>(null);
@@ -120,18 +122,22 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
   const step = status === 'shared' ? 3 : status === 'review' ? 2 : status && ['ready', 'generating', 'failed'].includes(status) ? 1 : 0;
   const hasNotice = Boolean(snapshot?.id && status && status !== 'none' && !hidden);
   const noticeKey = hasNotice ? `${snapshot?.id}:${status}:${snapshot?.myReviewed}` : '';
+  const timelineAt = hasNotice ? snapshot?.eventAt ?? snapshot?.createdAt ?? null : null;
   useLayoutEffect(() => { if (noticeKey) onNoticeChange?.(); }, [noticeKey, onNoticeChange]);
+  useLayoutEffect(() => { onTimelineChange?.(timelineAt); }, [timelineAt, onTimelineChange]);
+  useEffect(() => () => onTimelineChange?.(null), [onTimelineChange]);
   const notice = status === 'requested' ? snapshot?.requestedByMe ? 'أرسلت دعوة لاكتشاف توافقكما بعمق' : `دعوة من ${peerName} لاكتشاف توافقكما بعمق`
     : status === 'review' ? snapshot?.myReviewed ? 'حُفظت اختياراتك · بانتظار الطرف الآخر' : 'قراءتك الخاصة جاهزة · راجع ما ترغب بمشاركته'
     : snapshot ? stateCopy[snapshot.status] : '';
+  const timelineNotice = !profileRequest && hasNotice ? <div className="wd-deep-event" aria-label="تحديث تحليل وُدَين">
+    <span className="wd-deep-event-brand"><img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>{deepReportTitle}</span>
+    <p>{notice}</p>
+    <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
+      {actionable && <i aria-label="بانتظارك"/>}{status === 'shared' ? 'فتح التحليل المحفوظ' : status === 'requested' && !snapshot?.requestedByMe ? 'مراجعة الدعوة' : status === 'review' && !snapshot?.myReviewed ? 'مراجعة المشاركة' : 'عرض التفاصيل'}<ChevronLeft size={13}/>
+    </button>
+  </div> : null;
   return <>
-    {!profileRequest && hasNotice && <div className="wd-deep-event" aria-label="تحديث تحليل وُدَين">
-      <span className="wd-deep-event-brand"><img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>{deepReportTitle}</span>
-      <p>{notice}</p>
-      <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)}>
-        {actionable && <i aria-label="بانتظارك"/>}{status === 'shared' ? 'قراءة التحليل' : status === 'requested' && !snapshot?.requestedByMe ? 'مراجعة الدعوة' : status === 'review' && !snapshot?.myReviewed ? 'مراجعة المشاركة' : 'عرض التفاصيل'}<ChevronLeft size={13}/>
-      </button>
-    </div>}
+    {timelineTarget === undefined ? timelineNotice : timelineTarget ? createPortal(timelineNotice, timelineTarget) : null}
     {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
       {hidden ? <p className="wd-deep-note"><LockKeyhole size={18}/> التقرير مخفي أثناء مغادرة التطبيق.</p> : <>
         {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3></div>

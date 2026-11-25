@@ -303,7 +303,7 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     </button> : call && <VoiceDialog minimize={call.status === "active" ? () => setMinimized(true) : undefined}
       close={() => call.status === "ended" ? dismiss() : call.status === "active" ? setMinimized(true) : void act(call.direction === "incoming" ? "decline" : "end")}>
       <header><Brand/><span><ShieldCheck size={14}/> مكالمة داخل وُدَين</span></header>
-      {demo && <p className="nf-call-demo">معاينة تجريبية · لا يُستخدم الميكروفون ولا يُتصل بأي شخص</p>}
+      {demo && <p className="nf-call-demo">معاينة المكالمة · الميكروفون مغلق</p>}
       <div className="nf-call-identity">
         <div className="nf-call-halo" data-active={call.status !== "ended" || undefined}>
           <div className="nf-call-avatar">{call.person&&source ? <PersonAvatar person={call.person} source={source}/> : <span>{call.person?.alias.slice(0, 1) || "ن"}</span>}</div>

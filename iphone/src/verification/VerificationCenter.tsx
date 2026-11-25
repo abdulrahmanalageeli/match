@@ -24,7 +24,7 @@ function RequestCard({ request, busy, onWithdraw }: { request: ManualVerificatio
   const kind = verificationKinds.find(item => item.id === request.kind);
   const canWithdraw = ['draft', 'pending', 'changes_requested', 'approved'].includes(request.status);
   return <article className={`mv-request mv-request-${request.status}`}>
-    <div className="mv-request-top"><strong>{kind?.label}{request.isTest ? <small>تجريبي</small> : null}</strong><span className="mv-status">{verificationStatusLabels[request.status]}</span></div>
+    <div className="mv-request-top"><strong>{kind?.label}</strong><span className="mv-status">{verificationStatusLabels[request.status]}</span></div>
     {request.reason ? <p className="mv-review-note"><CircleAlert size={15} /><span>{request.reason}</span></p> : null}
     {request.status === 'stale' ? <p className="mv-fine-print">تغيّر البيان في ملفك بعد المراجعة، لذلك لم تعد الشارة سارية.</p> : null}
     {request.status === 'draft' ? <p className="mv-fine-print">لم يكتمل إرسال هذا الطلب. يمكنك سحبه من هنا.</p> : null}
@@ -57,7 +57,6 @@ export function VerificationCenter({ source, onBack }: { source: ManualVerificat
   }, [source.verification]);
 
   const validClaims = currentVerificationClaims(state.claims);
-  const test = state.isTest || source.verificationTestMode;
   const available = !!source.verification;
 
   async function refresh() {
@@ -83,8 +82,7 @@ export function VerificationCenter({ source, onBack }: { source: ManualVerificat
   return <main className="app-screen mv-screen" dir="rtl"><div className="screen-content mv-content">
     <header className="mv-navigation"><button type="button" onClick={onBack}><ArrowRight size={18} />الإعدادات</button><Brand compact /></header>
     <section className="mv-cover" aria-labelledby="mv-title"><h1 id="mv-title">توثيق بياناتك</h1><div className="mv-cover-foot"><LockKeyhole size={15} /><span>المراجعة محددة النطاق وليست توثيقًا حكوميًا</span></div></section>
-    {test ? <p className="mv-test-note"><CircleAlert size={17} />حساب تجريبي · الطلبات والشارات هنا للاختبار فقط.</p> : null}
-    {!available ? <div className="mv-notice"><LockKeyhole size={20} /><h2>التوثيق مرتبط بحسابك</h2><p>سجّل الدخول بحسابك للوصول إلى المراجعة الخاصة. لا يمكن إرسال مستندات من العرض التجريبي العام.</p></div> : null}
+    {!available ? <div className="mv-notice"><LockKeyhole size={20} /><h2>التوثيق مرتبط بحسابك</h2><p>سجّل الدخول بحسابك للوصول إلى المراجعة الخاصة.</p></div> : null}
     <div className="mv-notice" role="status"><LockKeyhole size={20} /><h2>إرسال المستندات متوقف مؤقتًا</h2><p>يمكنك متابعة طلباتك السابقة أو سحبها من هنا. لا ترسل المستندات في المحادثات أو إلى الدعم كبديل.</p><p>اعتماد ملف العضوية لا يعني التحقق من الهوية أو الحالة الاجتماعية.</p></div>
     {loading ? <div className="mv-loading" role="status"><LoaderCircle size={20} className="mv-spin" />جارٍ تحميل طلباتك…</div> : null}
     {error ? <div className="mv-feedback mv-error" role="alert"><CircleAlert size={17} /><p>{error}</p></div> : null}

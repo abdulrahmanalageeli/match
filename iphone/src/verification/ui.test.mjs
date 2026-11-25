@@ -45,13 +45,13 @@ function noNestedButtons(html) {
   assert.equal(depth, 0);
 }
 
-test('badge describes its manual scope and preserves visible test distinction', () => {
+test('badge describes its manual scope and omits synthetic claims', () => {
   const html = render(VerifiedBadge, { claims: [claim] });
   assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /الحالة الاجتماعية/);
   assert.match(html, /عرض نطاق التوثيق وصلاحيته/);
   assert.doesNotMatch(html, /موثق رسميًا|حكومي/);
-  assert.match(render(VerifiedBadge, { claims: [{ ...claim, isTest: true }], compact: true }), /توثيق تجريبي/);
+  assert.equal(render(VerifiedBadge, { claims: [{ ...claim, isTest: true }], compact: true }), '');
   assert.equal(render(VerifiedBadge, { claims: [{ ...claim, expiresAt: '2000-01-01T00:00:00Z' }] }), '');
 });
 
@@ -73,7 +73,7 @@ test('the profile opens on About with Details available for verified claims', ()
 
 test('document collection is unavailable for demo, testers and members while history stays accessible', () => {
   const unavailable = render(VerificationCenter, { source: {}, profile, onBack: noop });
-  assert.match(unavailable, /لا يمكن إرسال مستندات من العرض التجريبي العام/);
+  assert.match(unavailable, /التوثيق مرتبط بحسابك/);
   assert.doesNotMatch(unavailable, /type="file"/);
   const tester = render(VerificationCenter, { source, profile, onBack: noop });
   assert.match(tester, /إرسال المستندات متوقف مؤقتًا/);

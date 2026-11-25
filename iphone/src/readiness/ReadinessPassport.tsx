@@ -135,7 +135,6 @@ export function ReadinessPassportPanel({ source, onBack }: { source: CommunitySo
   const activeGrants = passport?.grants.filter(item => Date.parse(item.expiresAt) > Date.now() && connections.some(connection => connection.id === item.connectionId)) ?? [];
   return <PassportFrame onBack={onBack}>
     <PassportCover count={ready} updatedAt={passport?.updatedAt} />
-    {source.readinessTestMode && <p className="rp-test-note">وضع التجربة · هذا جواز تجريبي، ولا يمثّل تحققًا من هوية حقيقية أو بيانات موثّقة.</p>}
     <div className="rp-intro"><LockKeyhole size={16} /><p>الجواز اختياري ولا يظهر في الاستكشاف.</p></div>
     {error && <div role="alert" className="rp-feedback rp-error"><p>{error}</p>{!passport && <button type="button" className="btn-secondary" onClick={() => setRetry(value => value + 1)}>إعادة المحاولة</button>}</div>}
     {status && <p role="status" className="rp-feedback rp-success"><Check size={16} /> {status}</p>}
@@ -224,7 +223,6 @@ export function SharedReadinessPassportPanel({ source, connectionId, onBack, nam
   }, [source, connectionId, retry]);
   return <PassportFrame shared onBack={onBack}>
     <PassportCover shared name={name} updatedAt={view?.updatedAt} />
-    {source.readinessTestMode && <p className="rp-test-note">عرض تجريبي · لا يمثّل تحققًا من هوية حقيقية.</p>}
     {error ? <div role="alert" className="rp-feedback rp-error"><p>{error}</p><button className="btn-secondary" type="button" onClick={() => setRetry(value => value + 1)}>إعادة المحاولة</button></div> : !view ? <p className="rp-loading" role="status">جارٍ التحقق من إذن المشاركة…</p> : <SharedPassportDetails view={view} />}
   </PassportFrame>;
 }

@@ -112,7 +112,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
     return () => dialog?.close();
   }, []);
   const pause = action === "pause";
-  const label = pause ? "إيقاف الترشيحات مؤقتًا" : demo ? "إنهاء التجربة" : "تسجيل الخروج";
+  const label = pause ? "إيقاف الترشيحات مؤقتًا" : "تسجيل الخروج";
   return (
     <dialog className="st-dialog" dir="rtl" ref={ref} aria-labelledby="st-confirm-heading" aria-describedby="st-confirm-detail"
       onCancel={event => { event.preventDefault(); onCancel(); }}>
@@ -161,7 +161,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const canManageMatching = Boolean(demo || state?.user.applicationStatus === "approved" || state?.user.profileReviewPending);
   const canSeeMembership = canManageMatching || state?.membership.active;
   const tier = state?.membership.tier ?? (state?.membership.active ? 'premium' : 'free');
-  const membershipDetail = demo ? 'عضوية تجريبية' : state?.membership.status==='expired'?'انتهت صلاحية العضوية': state?.membership.status==='trial'?'تجربتك المجانية مفعّلة': {free:'العضوية المجانية · استكشف مزايا الترقية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
+  const membershipDetail = state?.membership.status==='expired'?'انتهت صلاحية العضوية': state?.membership.status==='trial'?'تجربتك المجانية مفعّلة': {free:'العضوية المجانية · استكشف مزايا الترقية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
   const membershipBillingDetail = demo ? null : summary.data?.subscriptions[0] ? applePeriodText(summary.data.subscriptions[0]) :
     state?.membership.expiresAt && state.membership.active ? (state.membership.status==='trial'?'تنتهي تجربتك في ':'وصولك سارٍ حتى ') + settingsDate(state.membership.expiresAt) + '.' : null;
   const location = member?.city || state?.user.email;
@@ -248,7 +248,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {owner && <SettingRow icon={<Download />} title="نسخة من بياناتي" action={() => setDataSheet({ mode: "export", owner })} />}
           </div>
         </details>
-        {!demo&&state?.membershipTesting&&onTestMembership&&<section className="st-section" aria-label="اختبار العضوية"><h2>اختبار العضوية</h2><div className="st-group">{([['actual','العضوية الفعلية'],['free','المجانية'],['premium','المميزة'],['seriousness','وسام الجدية']] as const).map(([tier,label])=><PreferenceSwitch key={tier} icon={<CreditCard/>} title={label} checked={state.membershipTesting?.selected===tier} disabled={busy} onChange={()=>onTestMembership(tier)}/>)}</div><p className="flow-note">لحسابك فقط، لمدة ٢٤ ساعة. لا يغيّر فواتير Apple أو يلغي الاشتراك.</p></section>}
+        {!demo&&state?.membershipTesting&&onTestMembership&&<section className="st-section" aria-label="معاينة العضويات"><h2>معاينة العضويات</h2><div className="st-group">{([['actual','العضوية الفعلية'],['free','المجانية'],['premium','المميزة'],['seriousness','وسام الجدية']] as const).map(([tier,label])=><PreferenceSwitch key={tier} icon={<CreditCard/>} title={label} checked={state.membershipTesting?.selected===tier} disabled={busy} onChange={()=>onTestMembership(tier)}/>)}</div><p className="flow-note">لحسابك فقط، لمدة ٢٤ ساعة. لا يغيّر فواتير Apple أو يلغي الاشتراك.</p></section>}
         <details className="st-section st-fold st-hub"><summary><span><strong>العرض والصوت</strong><small>حجم النص، الحركة والتنبيهات الحسية</small></span></summary>
           <div className="st-group">
             <PreferenceSwitch icon={<Type />} title="تكبير النص" checked={value.largeText} onChange={() => setPreference("largeText", !value.largeText)} />
@@ -263,7 +263,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         <details className="st-section st-fold st-hub st-access"><summary><span><strong>الحساب</strong><small>المعرّف، تسجيل الخروج وحذف الحساب</small></span></summary>
           <div className="st-group">
             {state?.user.id&&<button type="button" className="st-row st-member-id-row" onClick={()=>void copyMemberId()}><span className="st-icon"><Copy size={18}/></span><span className="st-row-copy"><strong>معرّف العضو</strong><small dir="ltr">{state.user.id}</small></span><span aria-live="polite">{memberIdCopied?'تم النسخ':'نسخ'}</span></button>}
-            <SettingRow icon={<LogOut />} title={demo ? "إنهاء التجربة" : "تسجيل الخروج"} action={() => setConfirm("exit")} disabled={busy} />
+            <SettingRow icon={<LogOut />} title="تسجيل الخروج" action={() => setConfirm("exit")} disabled={busy} />
             {!demo && <SettingRow icon={<Trash2 />} title="حذف حسابي" action={onDelete} disabled={busy} danger />}
           </div>
         </details>

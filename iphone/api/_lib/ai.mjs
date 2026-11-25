@@ -31,7 +31,7 @@ export function parseInput(body) {
   }
   if (!object(body) || Buffer.byteLength(JSON.stringify(body)) > MAX_BODY) throw bad();
   if (body.mode === 'demo_reply') {
-    throw new AIError(403, 'personal_text_disabled', 'الردود التجريبية محلية حاليًا؛ لا تُرسل الرسائل إلى مزوّد الذكاء الاصطناعي.');
+    throw new AIError(403, 'personal_text_disabled', 'الردود محلية حاليًا؛ لا تُرسل الرسائل إلى مزوّد الذكاء الاصطناعي.');
   }
   if (body.mode === 'opener') {
     if (!exactKeys(body, ['mode'])) throw bad();

@@ -7,6 +7,7 @@ import './conversation-agreement.css';
 import { HelpButton } from '../help/HelpCenter';
 import { SuccessNotice } from './SuccessNotice';
 const deadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',year:'numeric',numberingSystem:'arab',calendar:'gregory',hour:'numeric',minute:'2-digit'});
+const shortDeadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',numberingSystem:'arab',calendar:'gregory'});
 const daysFormat=new Intl.NumberFormat('ar-SA',{numberingSystem:'arab'});
 
 export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails,hasHistory,noticeSlot,peerAlias}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string}){
@@ -125,7 +126,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  </>;
  if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return null;
  if(allowed)return <div className="cm-agreement-summary">
-  {agreement.status==='accepted' && decisions ? decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(true)} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`} aria-haspopup="dialog"><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':`${dueSoon?'موعدكما قريب · ':''}حتى ${date}`}</span></button>}
+  {agreement.status==='accepted' && decisions ? decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(true)} data-due-soon={dueSoon || undefined} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`} aria-haspopup="dialog"><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
   {expanded&&<AgreementDetails close={()=>setExpanded(false)}>
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
     <h2>{memberAr.agreementTitle}</h2>

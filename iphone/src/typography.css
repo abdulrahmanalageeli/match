@@ -1,4 +1,4 @@
-/* Shared interface hierarchy. Messages intentionally retain native Arabic shaping. */
+/* Shared interface hierarchy. */
 .phone-app :is(h1, h2, h3, button, label, summary) { letter-spacing: normal; }
 .phone-app .cm-shell .cm-title h1,
 .phone-app .cm-shell .cm-title.df-title h1,

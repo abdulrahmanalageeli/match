@@ -39,7 +39,7 @@ function SmsDialog({email,deviceId,done,correction=false}:{email:string;deviceId
   <button type="button" className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
   <h2 id="signup-sms-title">{proof?'أدخل رمز التحقق':'تأكيد رقم الجوال'}</h2>
   <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'رقمك لا يظهر للأعضاء.'}</p>
-  {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر خلال فترة الاختبار.</span></div>}
+  {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
    {!proof && <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>}
    {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setCode(e.target.value.replace(/[^0-9٠-٩]/g,''));setError('');}}/></label>}

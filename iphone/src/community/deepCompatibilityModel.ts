@@ -9,7 +9,7 @@ export type DeepAction = 'get' | 'request' | 'accept' | 'decline' | 'cancel' | '
 export type DeepReview = { id: string; section: DeepSection; ownInterpretation: string; ownEvidence: { key: string; label: string; value: string }[] };
 export type DeepFinding = { id: string; section: DeepSection; kind: 'strength' | 'manageable' | 'incompatibility' | 'uncertain'; text: string };
 export type DeepSnapshot = {
-  id?: string; status: DeepStatus; canRequest: boolean; requestedByMe: boolean;
+  id?: string; status: DeepStatus; createdAt?: string; eventAt?: string; canRequest: boolean; requestedByMe: boolean;
   canGenerate: boolean; myReviewed: boolean; peerReviewed: boolean;
   review: DeepReview[]; findings: DeepFinding[];
 };
@@ -24,6 +24,13 @@ export type DeepAnalysisSource = {
   request(connectionId: string, action: DeepAction, decisions?: Record<string, boolean>, requestId?: string): Promise<DeepSnapshot>;
   generate(connectionId: string): Promise<void>;
 };
+
+export function deepTimelineIndex(messages: readonly { createdAt: string }[], eventAt?: string | null): number {
+  const eventTime = eventAt ? Date.parse(eventAt) : Number.NaN;
+  if (!Number.isFinite(eventTime)) return messages.length;
+  const index = messages.findIndex(message => Date.parse(message.createdAt) > eventTime);
+  return index < 0 ? messages.length : index;
+}
 
 const statuses: DeepStatus[] = ['none', 'requested', 'ready', 'generating', 'review', 'shared', 'declined', 'cancelled', 'stale', 'failed'];
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -48,7 +55,9 @@ export function deepSnapshot(value: unknown): DeepSnapshot {
     if (!text(item.id) || !section(item.section) || !text(item.text) || !['strength', 'manageable', 'incompatibility', 'uncertain'].includes(text(item.kind))) throw Error('تعذّر تحميل التقرير المشترك.');
     return { id: text(item.id), section: item.section, kind: item.kind as DeepFinding['kind'], text: text(item.text) };
   }) : [];
-  return { id: typeof data.id === 'string' ? data.id : undefined, status, canRequest: data.canRequest === true,
+  return { id: typeof data.id === 'string' ? data.id : undefined, status,
+    createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
+    eventAt: typeof data.eventAt === 'string' ? data.eventAt : undefined, canRequest: data.canRequest === true,
     requestedByMe: data.requestedByMe === true, canGenerate: data.canGenerate === true,
     myReviewed: data.myReviewed === true, peerReviewed: data.peerReviewed === true, review, findings };
 }

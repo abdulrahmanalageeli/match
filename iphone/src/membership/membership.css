@@ -6,8 +6,9 @@
 @font-face{font-family:'Lateef';src:url('/fonts/Lateef-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 .wd-member-badge{display:inline-flex;vertical-align:-.18em;align-items:center;justify-content:center;flex:0 0 19px;width:19px;height:19px;margin-inline:5px 1px;line-height:1;isolation:isolate}
 .phone-app .st-member-avatar,.phone-app .nf-person-avatar{position:relative;overflow:visible!important}
-.phone-app .st-member-avatar>.wd-member-badge,.phone-app .nf-person-avatar>.wd-member-badge{position:absolute;top:-5px;right:-5px;z-index:3;margin:0;width:22px;height:22px;border-radius:50%;background:transparent;box-shadow:none}
-.phone-app .st-member-avatar>.wd-member-badge>.wd-membership-mark,.phone-app .nf-person-avatar>.wd-member-badge>.wd-membership-mark{width:100%!important;height:100%!important;border-radius:0}
+.phone-app :is(.st-member-avatar,.nf-person-avatar,.dr-row-avatar)>.wd-member-badge{position:absolute;top:-5px;right:-5px;z-index:3;margin:0;width:22px;height:22px;border-radius:50%;background:transparent;box-shadow:none}
+.phone-app :is(.st-member-avatar,.nf-person-avatar,.dr-row-avatar)>.wd-member-badge>.wd-membership-mark{width:100%!important;height:100%!important;border-radius:0}
+.phone-app .dr-row-avatar>.wd-member-badge{pointer-events:none;background:var(--surface)}
 .wd-portrait-membership{position:absolute;top:6px;right:6px;z-index:4;line-height:1;pointer-events:none}
 .wd-portrait-membership>.wd-member-badge{margin:0;width:26px;height:26px}
 .df-card-portrait .wd-portrait-membership>.wd-member-badge{width:34px;height:34px}

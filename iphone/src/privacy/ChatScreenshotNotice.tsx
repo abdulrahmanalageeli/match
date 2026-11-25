@@ -45,10 +45,11 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
       setFailed(ids => ids.filter(id => id !== eventId));
     } catch { /* Keep the notice and its retry action visible. */ }
   };
+  if (!nativePrivatePhoto() && !latest) return null;
   return <div className="cm-chat-capture-notice" ref={chat}>
     <LockKeyhole size={14} aria-hidden="true"/>
     <div>
-      <span>{unavailable ? 'حدّث تطبيق الآيفون لتفعيل تنبيهات لقطات الشاشة.' : 'عند رصد لقطة شاشة في تطبيق الآيفون، يُنبَّه الطرف الآخر. لقطات المتصفح لا تُرصَد.'}</span>
+      {nativePrivatePhoto() && <span>{unavailable ? 'حدّث تطبيق الآيفون لتفعيل تنبيهات لقطات الشاشة.' : 'عند رصد لقطة شاشة في تطبيق الآيفون، يُنبَّه الطرف الآخر. لقطات المتصفح لا تُرصَد.'}</span>}
       {latest && <p><strong>{captureTitle(latest.person.alias)}</strong><time dateTime={latest.createdAt}>{captureTime.format(new Date(latest.createdAt))}</time></p>}
       {failed.length > 0 && <p role="alert">تعذّر تأكيد إرسال تنبيه اللقطة. <button onClick={() => void retry()}>إعادة المحاولة</button></p>}
     </div>

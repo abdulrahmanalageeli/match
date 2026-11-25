@@ -64,7 +64,7 @@ Vite proxies local requests to port 8787. That service uses its own SQLite file 
 
 ## Screenshot privacy
 
-In the browser, Discovery, member profiles and chats offer **ستر الشاشة** to cover the entire screen with a Wudayn privacy note. **إظهار المحتوى** returns to the same view. The browser also covers hidden pages and substitutes the note for the page in print and Save as PDF. An ordinary OS screenshot can still capture whatever the browser displays. The iPhone app applies capture protection automatically and omits the manual cover button and watermark.
+Capture protection applies automatically in the native iPhone app. Browser pages display and print normally.
 
 On iPhone, Discovery displays recommendation photos and directory thumbnails in individual capture-protected native layers over Wudayn’s woven silk lock artwork. Member names, compatibility, membership badges and navigation remain in the captured page. An unavailable protected surface leaves the artwork visible. Member profiles and chats use a full-page secure canvas. The saved result depends on the iOS compositor. Active recording, mirroring and app-switcher previews still receive a separate cover.
 

@@ -11,7 +11,7 @@ import { languageOptions } from "../compatibility/marriage";
 import { ScoreTile } from '../compatibility/ScoreTile';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
 import { ScenePaths } from '../ScenePaths';
-import { CapturePrivacyButton, CaptureWatermark, useCapturePrivacy } from '../privacy/CapturePrivacy';
+import { useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import {
   useCallback,
@@ -426,17 +426,16 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
       alt="" onError={() => setFailedPhotoSrc(photo)} /> :
       <div className="df-portrait-placeholder" aria-hidden="true"><WeeklyContours /><Avatar name={person.alias} large /></div>}
-    {!protectedDiscovery && (person.portrait || photo) && <div className="df-photo-privacy"><CaptureWatermark scope="discovery" variant="photo"/></div>}
     </div>
-    <div className="df-portrait-shade" aria-hidden="true" />
-    <span className="wd-portrait-membership"><MemberBadge tier={person.membershipTier} active={person.premium}/></span>
-    <div className="df-portrait-badges">
-      {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<span className="df-photo-label">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={12} /> الصور تُشارك بخصوصية</>}</span>}
-    </div>
-    <div className="df-portrait-identity">{timeline && <span className="df-intention"><Clock3 size={12} />توقيت الزواج · {marriageTimelineLabels[timeline]}</span>}
-      <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}<VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
-      <div className="df-identity-meta">{person.city && <span><MapPin size={14} />{person.city}</span>}
-        {person.occupation && <span><BriefcaseBusiness size={14} />{person.occupation}</span>}</div>
+    <div className="df-portrait-identity">
+      <div className="df-member-heading">
+        <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span className="df-member-age">{ar.format(person.age)} عامًا</span>}{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
+        <MemberBadge tier={person.membershipTier} active={person.premium} labeled/>
+      </div>
+      <div className="df-identity-meta">{person.city && <span><MapPin size={13} />{person.city}</span>}
+        {person.occupation && <span><BriefcaseBusiness size={13} />{person.occupation}</span>}
+        {timeline && marriageTimelineLabels[timeline] && <span><Clock3 size={13} />الزواج {marriageTimelineLabels[timeline]}</span>}</div>
+      {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<small className="df-portrait-source">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={11} /> الصور تُشارك بخصوصية</>}</small>}
     </div>
   </>;
 }
@@ -472,13 +471,14 @@ function PersonCard({
     <div className="df-card-copy" id={descriptionId}>
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
-      {context && <p className="df-card-reason">{context}</p>}
+      {person.interests.length>0&&<p className="df-card-interests">{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</p>}
+      {context && !canReadFit && <p className="df-card-reason">{context}</p>}
       {canReadFit ? <div className="df-card-fit-summary">
         <button type="button" className="df-read-fit" onClick={explain}
           aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
           {score === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={score} variant="logo" pauseOffscreen/>}
-          <ChevronLeft size={14} aria-hidden="true"/>
         </button>
+        {context && <p className="df-card-reason">{context}</p>}
       </div> : !premium && <div className="df-card-fit-summary">
         <button type="button" className="df-read-fit wd-weekly-upgrade" onClick={()=>upgrade('premium')}
           aria-label={person.recommendationPercentage == null ? 'عرض العضوية لفتح نسبة التوافق' : ar.format(person.recommendationPercentage)+'٪، عرض العضوية لقراءة تفاصيل التوافق'}>
@@ -486,8 +486,7 @@ function PersonCard({
           <span>{person.recommendationPercentage != null ? 'فتح تفاصيل التوافق' : 'فتح نسبة التوافق'}</span><ChevronLeft size={14} aria-hidden="true"/>
         </button>
       </div>}
-      <span className="df-card-footer"><span>{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span>
-        <span className="df-open-profile">الملف الكامل <ArrowLeft size={17} /></span></span>
+      <span className="df-open-profile">الملف الكامل <ArrowLeft size={15} /></span>
     </div>
   </div>;
 }
@@ -535,14 +534,13 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       <div className="dr-row-profile-group">
         <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
-          <PersonAvatar person={person} source={source} className="dr-row-image" protectedDiscovery={nativePrivatePhoto()}/>
-          {!nativePrivatePhoto() && (person.portrait || (!person.publicAvatar && person.demoPhoto)) && <CaptureWatermark scope="discovery" variant="photo"/>}
+          <PersonAvatar person={person} source={source} className="dr-row-image" protectedDiscovery={nativePrivatePhoto()} showMembership={false}/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"><i className="dr-online-dot"/></span>}
+          <MemberBadge tier={person.membershipTier} active={person.premium}/>
         </span>
         <span className="dr-row-identity">
           <span className="dr-row-name">
             <strong>{person.alias}</strong>
-            <VerifiedBadge claims={person.manualVerifications} compact interactive={false}/>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
             {!sampleOnly && !ineligible && source.setInterest && (
               <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)}
@@ -995,7 +993,6 @@ function Discovery({
             onClick={() => void refreshDirectory()}
           ><RotateCcw size={15} aria-hidden="true" /></button>}
         </div>
-        <CapturePrivacyButton scope="discovery"/>
       </header>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
       {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
@@ -1365,7 +1362,6 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
         <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!draft.trim() || !canSend}><Send size={19} /></MotionPressButton>
       </form>
     </div>
-    <div className="cm-chat-privacy-signature"><CaptureWatermark scope="chat"/></div>
     {draft.length > 850 && <span className="cm-count">{ar.format(draft.length)} / ١٠٠٠</span>}
   </div>;
 }
@@ -1408,7 +1404,8 @@ export function Chat({
   const messageActionHelp = useId();
   const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
-  const [privateHidden, setPrivateHidden] = useState(() => document.hidden);
+  const [pageHidden, setPageHidden] = useState(() => document.hidden);
+  const privateHidden = pageHidden && nativePrivatePhoto();
   const [jumpToId, setJumpToId] = useState<string | null>(initialRoom?null:initialMessage??null);
   useEffect(()=>{if(initialMessage&&!initialRoom)setJumpToId(initialMessage);},[initialMessage,initialRoom]);
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -1429,10 +1426,10 @@ export function Chat({
   const firstId = thread.rows[0]?.id;
   const replyDraft = thread.replyDraft;
   const reading = useChatReading(source, connection.id, log, atBottom, thread, canDraft && !profileOpen && !familyOpen);
-  const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
+  const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !pageHidden);
   const profileIdentity = useRef<HTMLElement>(null);
   const profileFlight = useWeeklyCardTransition();
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !privateHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !pageHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
@@ -1470,7 +1467,7 @@ export function Chat({
   }
 
   useEffect(() => {
-    const hide = () => setPrivateHidden(document.hidden);
+    const hide = () => setPageHidden(document.hidden);
     document.addEventListener('visibilitychange', hide);
     return () => document.removeEventListener('visibilitychange', hide);
   }, []);
@@ -1623,7 +1620,6 @@ export function Chat({
           <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : <>الملف الشخصي <ChevronLeft size={12}/></>}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
-        <CapturePrivacyButton scope="chat"/>
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
@@ -2201,7 +2197,7 @@ function Requests({
     </Sheet>}
   </>;
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
-    <header className="cm-header"><Brand /><CapturePrivacyButton scope="chat"/></header>
+    <header className="cm-header"><Brand /></header>
     <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
     {exitFeedback}
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
@@ -2228,7 +2224,6 @@ function Requests({
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header">
         <Brand />
-        <CapturePrivacyButton scope="chat"/>
       </header>
       <div className="cm-title">
         <h1 tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>

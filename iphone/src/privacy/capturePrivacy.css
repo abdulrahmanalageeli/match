@@ -10,19 +10,6 @@
   justify-self: stretch;
   background: transparent url('/brand/wudayn-private-avatar.webp') center / contain no-repeat;
 }
-/* The artwork supplies its own circular edge. */
-.phone-app .cm-shell .df-discovery .dr-row-image:has(.wd-private-portrait--small) {
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.phone-app .cm-shell .df-discovery .dr-row-avatar:has(.wd-private-portrait--small) .dr-avatar-online {
-  inset: 0;
-  border: 0;
-  box-shadow: none;
-}
 .dr-online-dot { display: none; }
 .dr-row-avatar:has(.wd-private-portrait) .dr-avatar-online::after { display: none; }
 .dr-row-avatar:has(.wd-private-portrait) .dr-online-dot {
@@ -35,19 +22,6 @@
   border: 2px solid #fff;
   border-radius: 50%;
   background: #32805b;
-}
-.phone-app .cm-shell .df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) {
-  display: grid;
-  justify-items: center;
-  gap: 0;
-  padding: 0;
-  height: auto;
-  aspect-ratio: auto;
-  background: transparent;
-}
-.df-card-portrait > .df-portrait-media:has(> .wd-private-portrait) {
-  position: relative;
-  width: 100%;
 }
 .df-portrait-media > .wd-private-portrait {
   width: 100%;
@@ -64,68 +38,6 @@
   background: var(--raised-tint, #efedee);
 }
 .dr-row-image > .wd-private-portrait--small:not([data-portrait-state=ready]) { border-radius: 50%; }
-.df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-shade { display: none; }
-.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-identity {
-  position: static;
-  justify-self: stretch;
-  padding: 12px 16px 0;
-}
-.df-discovery .df-card-portrait:has(.wd-private-portrait) :is(.df-intention, .df-identity-meta, .df-identity-line > span:not([class])) { color: var(--supporting-ink, #53454b); }
-.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-intention { margin-bottom: 2px; }
-.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-line h2 { color: var(--ink); font-size: 1.55rem; }
-.df-discovery .df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-identity-meta { margin-top: 3px; }
-.df-card-portrait:has(> .df-portrait-media > .wd-private-portrait) .df-portrait-badges { top: 42px; }
-
-.wd-capture-watermark, button.wd-capture-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .35em;
-  font-family: var(--font-ui, sans-serif);
-  white-space: nowrap;
-}
-.wd-capture-watermark {
-  color: #76666f;
-  font-size: 12px;
-  line-height: 1.4;
-  pointer-events: none;
-  user-select: none;
-}
-.wd-capture-watermark.wd-capture-watermark--photo {
-  position: absolute;
-  inset: auto auto 8px 8px;
-  z-index: 1;
-  max-width: calc(100% - 12px);
-  padding: 3px 7px;
-  border: 1px solid #fff5;
-  border-radius: 20px;
-  background: #341222dd;
-  color: #fff9f2;
-  font-size: 10px;
-}
-.wd-capture-watermark svg, .wd-capture-trigger svg { flex-shrink: 0; }
-button.wd-capture-trigger {
-  align-self: center;
-  width: auto;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 3px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--accent-fill, #54152a);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-button.wd-capture-trigger:focus-visible, .wd-capture-resume:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-:is(.cm-photo-viewer, .pg-lightbox) .wd-capture-trigger { color: #fff8ed; }
-@media(max-width: 420px) {
-  .cm-chat-head .wd-capture-trigger span { display: none; }
-}
 
 /* The note is also the sole printable child of body. A modal places the
    deliberate cover above an already-open photo viewer or conversation sheet. */
@@ -152,6 +64,7 @@ dialog.wd-capture-note {
   text-align: center;
   color-scheme: dark;
 }
+.wd-capture-resume:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .wd-capture-note::backdrop { background: #391124; }
 dialog.wd-capture-note:not([open]) { display: none; }
 dialog.wd-capture-note[open], html:is([data-capture-hidden], [data-capture-pending]) dialog.wd-capture-note { display: grid; }

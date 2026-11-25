@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, ChevronLeft, Clock3, Copy, Download, HeartHandshake, Link2, LockKeyhole, MessageCircle, Plus, Send, ShieldCheck, Trash2, UserPlus, UsersRound, X } from "../BrandIcons";
 import { Brand } from '../Brand';
-import { CapturePrivacyButton, useCapturePrivacy } from '../privacy/CapturePrivacy';
+import { useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { SupportContact } from '../help/SupportContact';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { feedback } from '../feedback/haptics';
@@ -23,7 +23,7 @@ const isState = (value: unknown): value is FamilyState => Boolean(value && typeo
 
 function FamilyFrame({ children, onBack, guardian = false }: { children: ReactNode; onBack?: () => void; guardian?: boolean }) {
   useCapturePrivacy('chat');
-  return <main className="app-screen fb-screen" dir="rtl"><div className="screen-content fb-content"><header className="fb-navigation">{onBack ? <button className="fb-back" type="button" onClick={onBack}><ArrowRight size={18} /> {guardian ? 'خروج' : 'رجوع'}</button> : <span />}<Brand compact /><CapturePrivacyButton scope="chat"/></header>{children}</div></main>;
+  return <main className="app-screen fb-screen" dir="rtl"><div className="screen-content fb-content"><header className="fb-navigation">{onBack ? <button className="fb-back" type="button" onClick={onBack}><ArrowRight size={18} /> {guardian ? 'خروج' : 'رجوع'}</button> : <span />}<Brand compact /></header>{children}</div></main>;
 }
 
 function ConfirmFamilyAction({ title, description, busy, onCancel, onConfirm }: { title: string; description: string; busy: boolean; onCancel: () => void; onConfirm: () => void }) {

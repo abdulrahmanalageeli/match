@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { LockKeyhole, Eye } from '../BrandIcons';
+import { Eye } from '../BrandIcons';
 import { setNativeCaptureScope } from '../session';
 import { nativePrivatePhoto } from '../community/privatePhoto';
 import './capturePrivacy.css';
@@ -19,7 +19,7 @@ function currentScope() {
 
 export function useCapturePrivacy(scope: Scope | null) {
   useLayoutEffect(() => {
-    if (!scope) return;
+    if (!scope || !nativePrivatePhoto()) return;
     const id = Symbol();
     active.set(id, scope);
     listeners.forEach(notify => notify());
@@ -41,13 +41,6 @@ const noteText: Record<Scope, string> = {
   discovery: 'خلف كل صورة شخص اختار أن تتعرّف عليه هنا. استأذن قبل مشاركتها.',
 };
 
-export function CaptureWatermark({ scope, variant = 'inline' }: { scope: Scope; variant?: 'inline' | 'photo' }) {
-  if (nativePrivatePhoto()) return null;
-  return <span className={`wd-capture-watermark wd-capture-watermark--${variant}`} aria-hidden="true">
-    <LockKeyhole size={12}/><span>وُدَين · {scope === 'chat' && variant === 'inline' ? 'حديث خاص' : 'خاص'}</span>
-  </span>;
-}
-
 function showPrivacyNote() {
   const note = document.getElementById('wd-capture-note');
   if (note instanceof HTMLDialogElement && !note.open) {
@@ -62,16 +55,11 @@ function pauseVoiceNotes() {
   }
 }
 
-export function CapturePrivacyButton({ scope }: { scope: Scope }) {
-  if (nativePrivatePhoto()) return null;
-  return <button type="button" className="wd-capture-trigger" data-scope={scope}
-    aria-label="ستر الشاشة" title="ستر الشاشة" aria-haspopup="dialog"
-    onClick={showPrivacyNote}>
-    <LockKeyhole size={16}/><span>ستر الشاشة</span>
-  </button>;
+export function CapturePrivacyHost() {
+  return nativePrivatePhoto() ? <NativeCapturePrivacyHost/> : null;
 }
 
-export function CapturePrivacyHost() {
+function NativeCapturePrivacyHost() {
   const scope = useSyncExternalStore(subscribe, currentScope, () => null);
   const note = useRef<HTMLDialogElement>(null);
   const lifecycleCover = useRef(false);

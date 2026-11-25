@@ -50,12 +50,55 @@ try {
   await page.keyboard.press('PrintScreen');
   assert.equal(await note.isVisible(), false);
   await open.click();
-  await scope('chat');
   const input = page.getByRole('textbox', {name:'رسالتك'});
   await input.waitFor();
+  const webPrivacyUi = page.locator('.wd-capture-note, .wd-capture-trigger, .wd-capture-watermark, .cm-chat-capture-notice');
+  const assertWebScope = async () => {
+    assert.equal(await page.locator('html').getAttribute('data-capture-scope'), null);
+    assert.equal(await webPrivacyUi.count(), 0);
+  };
+  await assertWebScope();
+  await page.keyboard.press('PrintScreen');
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true})));
+  await assertWebScope();
+  assert.equal(await page.locator('html').getAttribute('data-capture-hidden'), null);
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true})));
+  await page.evaluate(() => {
+    Object.defineProperty(document,'hidden',{configurable:true,value:true});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  assert.equal(await page.locator('.cm-chat-privacy-cover').count(),0);
+  assert.ok(await input.isVisible());
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.emulateMedia({media:'print'});
+  assert.ok(await input.isVisible());
+  await page.emulateMedia({media:'screen'});
+  await page.locator('[data-server-id=regular]').getByRole('button',{name:'فتح الصورة بحجمها الكامل'}).click();
+  await page.getByRole('button',{name:'إغلاق الصورة',exact:true}).waitFor();
+  await assertWebScope();
+  assert.ok(await page.locator('.cm-photo-viewer img').evaluate(img =>
+    img.dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true}))));
+  await page.getByRole('button',{name:'إغلاق الصورة',exact:true}).click();
+  await page.getByRole('button',{name:'عرض ملف رهام'}).click();
+  await page.locator('.mp-hero h1').waitFor();
+  await assertWebScope();
+
+  // Repeat in a native iOS bridge fixture to exercise the protected scope and lifecycle.
+  await page.addInitScript(() => {
+    window.CapacitorCustomPlatform = {name:'ios'};
+    window.Capacitor = {
+      PluginHeaders:[{name:'PrivateSession', methods:['setCaptureScope','read','save','clear'].map(name=>({name, rtype:'promise'}))}],
+      nativePromise:async (_plugin, method) => method === 'read' ? {token:null} : {},
+    };
+  });
+  await page.reload();
+  await open.click();
+  await scope('chat');
   await page.evaluate(() => document.fonts.ready);
-  const watermark = page.locator('.wd-capture-watermark:visible').first();
-  await watermark.waitFor();
+  assert.equal(await page.locator('.wd-capture-trigger, .wd-capture-watermark').count(), 0);
   await page.locator('[data-server-id=reply]').waitFor();
   await snapshot('chat');
   // Exercise the native lifecycle bridge with a silent, playing media stream.
@@ -90,7 +133,7 @@ try {
   await page.getByText('PRIVATE-MESSAGE-302', {exact:true}).waitFor();
   const draft = 'مسودة خاصة PRIVATE-DRAFT-731';
   await input.fill(draft);
-  await page.locator('.wd-capture-trigger:visible').first().click();
+  await page.keyboard.press('PrintScreen');
   await coversViewport();
   await snapshot('chat-privacy-note');
   const leave = () => page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true})));
@@ -129,7 +172,10 @@ try {
   assert.equal(await sheet.isVisible(), false, 'Private top-layer dialog must be hidden in print');
   const pdfPath = resolve(output, 'chat-private.pdf');
   await page.pdf({path:pdfPath, printBackground:true, format:'A4'});
-  const pdfText = execFileSync(process.env.PDFTOTEXT || 'pdftotext', ['-enc','UTF-8',pdfPath,'-'], {encoding:'utf8'});
+  const pdfText = process.env.PDF_PYTHON
+    ? execFileSync(process.env.PDF_PYTHON, ['-X','utf8','-c',
+      'from pypdf import PdfReader; import sys; print(chr(12).join(p.extract_text() for p in PdfReader(sys.argv[1]).pages))', pdfPath], {encoding:'utf8'})
+    : execFileSync(process.env.PDFTOTEXT || 'pdftotext', ['-enc','UTF-8',pdfPath,'-'], {encoding:'utf8'});
   assert.doesNotMatch(pdfText, /PRIVATE-(?:DRAFT|DIALOG|MESSAGE)/);
   assert.match(pdfText, /[\u0600-\u06ff]/, 'The PDF must contain the Arabic privacy note');
   assert.equal(pdfText.split('\f').filter(page => page.trim()).length, 1);
@@ -141,7 +187,7 @@ try {
   await page.emulateMedia({media:'print'});
   assert.equal(await page.getByRole('button',{name:'إغلاق الصورة',exact:true}).isVisible(), false);
   await page.emulateMedia({media:'screen'});
-  await page.locator('.cm-photo-viewer .wd-capture-watermark').waitFor();
+  assert.equal(await page.locator('.cm-photo-viewer .wd-capture-watermark').count(), 0);
   await snapshot('chat-photo');
   await leave();
   await coversViewport();
@@ -160,7 +206,7 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-capture-scope'), null);
   assert.equal(await page.locator('.wd-capture-trigger:visible').count(), 0);
   assert.deepEqual(errors, []);
-  console.log('PASS: chat, profile, modal, attachment, draft, full-page cover, print PDF and scope cleanup.');
+  console.log('PASS: ordinary browser chat, profile, photo viewer and print; iOS bridge scopes, lifecycle covers, protected print, media and drafts.');
 } finally {
   await browser?.close();
   await server.close();

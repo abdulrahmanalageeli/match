@@ -61,10 +61,8 @@ function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | 
       cutouts.push([r.x, r.y, r.width, r.height]);
   }
   coverRects.forEach(exclude);
-  node.closest('.dr-row-avatar')?.querySelectorAll('.wd-member-badge,.wd-capture-watermark,.dr-online-dot')
+  node.closest('.dr-row-avatar')?.querySelectorAll('.wd-member-badge,.dr-online-dot')
     .forEach(cover => exclude(cover.getBoundingClientRect()));
-  node.closest('.df-card-portrait')?.querySelectorAll('.wd-portrait-membership > *, .df-portrait-badges > *')
-    .forEach(badge => exclude(badge.getBoundingClientRect()));
   const centerX = Math.max(0, (Math.max(0, rect.left) + Math.min(innerWidth, rect.right)) / 2);
   const centerY = Math.max(0, (Math.max(0, rect.top) + Math.min(innerHeight, rect.bottom)) / 2);
   const card = node.closest('.df-recommendation,.dr-person-row');

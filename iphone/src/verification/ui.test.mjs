@@ -55,11 +55,10 @@ test('badge describes its manual scope and preserves visible test distinction', 
   assert.equal(render(VerifiedBadge, { claims: [{ ...claim, expiresAt: '2000-01-01T00:00:00Z' }] }), '');
 });
 
-test('actual discovery row and portrait card contain no nested buttons with a valid claim', () => {
+test('discovery cards and rows keep verified claims in profile details', () => {
   for (const component of [DirectoryRow, PersonCard]) {
     const html = render(component, { person, source: {}, open: noop, request: noop, interest: noop, dismiss: noop, report: noop, busy: false });
-    assert.match(html, /mv-badge-static/);
-    assert.match(html, /الحالة الاجتماعية/);
+    assert.doesNotMatch(html, /class="mv-badge|الحالة الاجتماعية/);
     noNestedButtons(html);
   }
 });

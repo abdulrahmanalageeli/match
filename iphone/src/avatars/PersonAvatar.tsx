@@ -7,8 +7,8 @@ import { AvatarPortrait } from './AvatarPortrait';
 import './person-avatar.css';
 
 /** A compact version of the profile image, with the same private-photo access rules. */
-export function PersonAvatar({ person, source, className = '', protectedDiscovery = false }: {
-  person: PublicPerson; source: CommunitySource; className?: string; protectedDiscovery?: boolean;
+export function PersonAvatar({ person, source, className = '', protectedDiscovery = false, showMembership = true }: {
+  person: PublicPerson; source: CommunitySource; className?: string; protectedDiscovery?: boolean; showMembership?: boolean;
 }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const letter = Array.from(person.alias.trim())[0] || 'ن';
@@ -21,6 +21,6 @@ export function PersonAvatar({ person, source, className = '', protectedDiscover
       : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias} compact/>
       : photo ? <img src={photo} alt="" width="112" height="140" loading="lazy" decoding="async" onError={() => setFailedPhoto(photo)}/>
       : <b aria-hidden="true">{letter}</b>}
-    <MemberBadge tier={person.membershipTier} active={person.premium}/>
+    {showMembership && <MemberBadge tier={person.membershipTier} active={person.premium}/>}
   </span>;
 }

@@ -1,7 +1,7 @@
+import { nativePrivatePhoto } from './privatePhoto';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, Image, LoaderCircle, LockKeyhole, MessageCircle, Mic, Search, X } from "../BrandIcons";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
-import { CapturePrivacyButton } from '../privacy/CapturePrivacy';
 import type { CommunitySource, Message } from './data';
 import { MessageMedia } from './ChatMedia';
 import { refreshHistoricalMessages } from './messageRefresh';
@@ -31,7 +31,7 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
   const [query, setQuery] = useState(''), [settledQuery, setSettledQuery] = useState('');
   const [kind, setKind] = useState<Kind>(undefined), [rows, setRows] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true), [loadingOlder, setLoadingOlder] = useState(false), [hasOlder, setHasOlder] = useState(false);
-  const [error, setError] = useState(''), [retry, setRetry] = useState(0), [privateHidden, setPrivateHidden] = useState(document.hidden);
+  const [error, setError] = useState(''), [retry, setRetry] = useState(0), [privateHidden, setPrivateHidden] = useState(() => nativePrivatePhoto() && document.hidden);
   const panelId = useId(), pendingQuery = query.trim() !== settledQuery;
   useEffect(() => {
     const node = dialog.current, previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -78,7 +78,7 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
       timer = window.setTimeout(() => { void load(); }, 250);
     }
     function visibility() {
-      setPrivateHidden(document.hidden);
+      setPrivateHidden(nativePrivatePhoto() && document.hidden);
       if (document.hidden) {
         epoch++; current = []; cursor = undefined; historical = false; setRows([]); setHasOlder(false);
         window.clearTimeout(timer);
@@ -139,7 +139,7 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
           {!waiting && !error && hasOlder && <MotionPressButton className="cm-library-more" disabled={loadingOlder} onClick={() => more.current()}>{loadingOlder ? 'جارٍ تحميل المزيد…' : 'نتائج أقدم'}</MotionPressButton>}
         </>}
       </div>
-      <footer className="cm-library-note"><LockKeyhole size={13}/><span>بينكما فقط · صور العرض لمرة واحدة لا تظهر هنا</span><CapturePrivacyButton scope="chat"/></footer>
+      <footer className="cm-library-note"><LockKeyhole size={13}/><span>بينكما فقط · صور العرض لمرة واحدة لا تظهر هنا</span></footer>
     </MotionReveal>
   </dialog>;
 }

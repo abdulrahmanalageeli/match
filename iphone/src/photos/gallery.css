@@ -17,4 +17,3 @@ html[data-nf-motion=reduced] .pg-open img{transition:none}
 html[data-nf-motion=reduced] .pg-open:active img { transform:none; }
 
 .pg-lightbox-photo { position: relative; width: fit-content; max-width: 100%; margin: auto; }
-.pg-lightbox[open] > .wd-capture-trigger { position: absolute; top: 4px; inset-inline-start: 14px; }

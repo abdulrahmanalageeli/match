@@ -5,7 +5,6 @@ import { preparePhoto } from './photoData';
 import './gallery.css';
 import { SuccessNotice } from '../community/SuccessNotice';
 import { HelpButton } from '../help/HelpCenter';
-import { CapturePrivacyButton, CaptureWatermark } from '../privacy/CapturePrivacy';
 
 type ImageItem = GalleryPhoto & { url: string };
 export function ProfileGallery({ source, subject, name, editable = false, onChanged }: { source: CommunitySource; subject?: string; name?: string; editable?: boolean; onChanged?:()=>void }) {
@@ -103,7 +102,7 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
     {saved&&<SuccessNotice key={saved+refresh} title={saved==='added'?'لمحة جديدة في ملفك':'أُزيلت الصورة من المعرض'} detail={saved==='added'?'حُفظت صورتك، وتظهر للأعضاء المؤهلين بعد اعتماد مراجعة الملف.':'الصور المرسلة سابقًا داخل المحادثات لا تتأثر.'} quiet={saved==='removed'} close={()=>setSaved(null)}/>}
     {loading&&!photos.length?<div className="pg-loading" role="status"><LoaderCircle size={20}/> تحميل المعرض</div>:<div className="pg-strip">
       {photos.map((p,i)=><div className="pg-tile" key={p.id}>
-        <button type="button" className="pg-open" onClick={()=>setSelectedId(p.id)} aria-label={'تكبير الصورة '+(i+1)}><img src={p.url} alt={'صورة من الملف '+(i+1)} loading="lazy"/><span className="pg-photo-number">0{i+1}</span><CaptureWatermark scope="profile" variant="photo"/></button>
+        <button type="button" className="pg-open" onClick={()=>setSelectedId(p.id)} aria-label={'تكبير الصورة '+(i+1)}><img src={p.url} alt={'صورة من الملف '+(i+1)} loading="lazy"/><span className="pg-photo-number">0{i+1}</span></button>
         {editable&&(remove===p.id?<div className="pg-delete-confirm"><span>حذف الصورة؟</span><button disabled={busy} onClick={()=>void erase(p)}>حذف</button><button onClick={()=>setRemove(null)}>تراجع</button></div>:<button className="pg-remove" disabled={busy} aria-label={'حذف الصورة '+(i+1)} onClick={()=>setRemove(p.id)}><Trash2 size={15}/></button>)}
       </div>)}
       {editable&&photos.length<3&&<button className="pg-add" disabled={busy} onClick={()=>input.current?.click()}><span>{busy?<LoaderCircle className="pg-spin"/>:<ImagePlus/>}</span><strong>{busy?'جارٍ الرفع…':'أضف صورة'}</strong></button>}
@@ -113,8 +112,7 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
     {error&&<p className="pg-error" role="alert">{error}<button className="btn-text" onClick={()=>setRefresh(n=>n+1)}>إعادة المحاولة</button></p>}
     <dialog ref={dialog} className="pg-lightbox" aria-label="عرض الصورة" onCancel={e=>{e.preventDefault();setSelectedId(null);}}>
       <button className="pg-close" onClick={()=>setSelectedId(null)} aria-label="إغلاق الصورة"><X/></button>
-      <CapturePrivacyButton scope="profile"/>
-      {selected>=0&&<div className="pg-lightbox-photo"><img key={photos[selected].id} src={photos[selected].url} alt={'صورة الملف '+(selected+1)}/><CaptureWatermark scope="profile" variant="photo"/></div>}
+      {selected>=0&&<div className="pg-lightbox-photo"><img key={photos[selected].id} src={photos[selected].url} alt={'صورة الملف '+(selected+1)}/></div>}
       <div className="pg-lightbox-controls"><button disabled={selected<=0} aria-label="الصورة السابقة" onClick={()=>setSelectedId(photos[selected-1].id)}><ChevronRight/></button><span>{selected+1} / {photos.length}</span><button disabled={selected<0||selected===photos.length-1} aria-label="الصورة التالية" onClick={()=>setSelectedId(photos[selected+1].id)}><ChevronLeft/></button></div>
     </dialog>
   </section>;

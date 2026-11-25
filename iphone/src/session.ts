@@ -34,7 +34,6 @@ export function placeDiscoveryPortrait(options: PortraitPlacement) {
 }
 
 export function setNativeCaptureScope(scope: 'discovery' | 'profile' | 'chat' | 'public') {
-  // Older installed binaries still use the web watermark and privacy screen.
   if (useKeychain()) return native.setCaptureScope({scope, portraitOnly: scope === 'discovery'}).catch(() => {});
 }
 

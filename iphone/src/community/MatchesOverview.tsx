@@ -3,7 +3,6 @@ import {useMembershipAccess,MembershipPrompt} from '../membership/access';
 import { useId, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, LockKeyhole, MessageCircle, Ring, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
-import { CapturePrivacyButton, CaptureWatermark } from '../privacy/CapturePrivacy';
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { preferencePercentage } from '../compatibility/model';
@@ -36,7 +35,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
     .sort((a,b) => Number(b.direction === 'incoming')-Number(a.direction === 'incoming') || stamp(b)-stamp(a));
   const filters = [{id:'all',label:'الكل'}, {id:'incoming',label:'بانتظارك'}, {id:'outgoing',label:'المرسلة'}] as const;
   return <section className="screen-content cm-view mo-view">
-    <header className="cm-header"><Brand /><CapturePrivacyButton scope="profile"/></header>
+    <header className="cm-header"><Brand /></header>
     <MotionReveal as="header" className="mo-heading" distance={8}><h1 tabIndex={-1}>التوافقات</h1></MotionReveal>
     {error && <div className="mo-empty" role="alert"><p>{error}</p><MotionPressButton className="btn-secondary" onClick={onRetry}>إعادة المحاولة</MotionPressButton></div>}
     {loading && !connections.length && !error ? <CommunitySkeleton variant="conversations" label="جارٍ تحضير مساحة التعارف…"/> : <>
@@ -48,7 +47,6 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
             <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
-              {(row.person.portrait || (!row.person.publicAvatar && row.person.demoPhoto)) && <CaptureWatermark scope="profile" variant="photo"/>}
             </button>
             <div className="mo-current-copy">
               <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>

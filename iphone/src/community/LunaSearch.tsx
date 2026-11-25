@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {Search, Sparkles, ArrowRight, LockKeyhole} from '../BrandIcons';
+import {Search, Sparkles, ArrowRight, LockKeyhole, CircleHelp} from '../BrandIcons';
 import {useMembershipAccess} from '../membership/access';
 import type {LunaResults} from './lunaSearchClient';
 import type {CommunitySource, Filters, PublicPerson} from './data';
@@ -57,7 +57,11 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
   }
   return <section className="luna-search" aria-label="البحث مع لونا">
     <button className="luna-search-entry" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>
-      <span className="luna-search-orb"><Sparkles size={22}/></span><span><strong>ابحث مع لونا</strong></span>{tier==='seriousness'?<Search size={19}/>:<LockKeyhole size={19}/>}
+      <span className="luna-search-orb"><Sparkles size={18}/></span>
+      <span className="luna-search-title"><strong>ابحث مع لونا</strong><CircleHelp size={14} aria-hidden="true"/></span>
+      <span className="luna-search-access" data-unlocked={tier==='seriousness'||undefined}>
+        {tier==='seriousness'?<Search size={17}/>:<><LockKeyhole size={14}/><small>وسام الجدية</small></>}
+      </span>
     </button>
     {expanded&&<div className="luna-search-conversation">
       {tier!=='seriousness'?<div className="luna-search-upgrade"><p>البحث حسب الوصف متاح مع وسام الجدية.</p><button className="f-primary" onClick={()=>upgrade("seriousness")}>اكتشف وسام الجدية</button></div>:!source.lunaSearch?<p role="status">البحث متاح عند تسجيل الدخول بحساب عضوية حقيقي.</p>:<>

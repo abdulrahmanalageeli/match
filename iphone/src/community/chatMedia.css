@@ -5,7 +5,7 @@
 .cm-media-preview-actions{flex-direction:row-reverse}
 /* Private media stays in the conversation, with an explicit one-time opening. */
 .cm-message-photo { border: 0; padding: 0; color: inherit; cursor: zoom-in; width: 100%; }
-.cm-message-photo img, .cm-photo-viewer img, .cm-media-preview img { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+html[data-capture-scope] :is(.cm-message-photo, .cm-photo-viewer, .cm-media-preview) img { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .cm-once-photo { display: flex; gap: 12px; align-items: center; width: 100%; min-width: min(245px, 62vw); min-height: 82px; border: 1px solid #c5838f35; border-radius: 16px; padding: 15px 12px; background: linear-gradient(135deg,#c5838f14,#e7d8c21c); color: inherit; text-align: start; font: inherit; }
 .cm-once-photo:disabled { opacity: 1; cursor: default; }
 .cm-once-photo > span:nth-child(2) { display: grid; gap: 5px; flex: 1; }
@@ -33,10 +33,6 @@
 .cm-photo-viewer-image { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; container-type: size; }
 .cm-photo-viewer-frame { max-width: 100%; }
 .cm-photo-viewer-frame img { display: block; width: 100%; height: auto; max-height: calc(100dvh - 200px); max-height: 100cqh; object-fit: contain; border-radius: 15px; }
-.cm-photo-viewer footer { flex: none; text-align: center; max-width: 480px; margin: 0 auto; }
-.cm-photo-viewer footer strong { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: .74rem; line-height: 1.8; font-weight: 500; }
-.cm-photo-viewer footer strong svg { flex: none; }
-.cm-photo-viewer footer p { font-size: .67rem; line-height: 1.8; color: #d0b9bd; margin: 10px 0 0; }
 .cm-once-photo:focus-visible, .cm-message-photo:focus-visible, .cm-photo-viewer button:focus-visible { outline: 2px solid var(--rose); outline-offset: 3px; }
 @media(prefers-reduced-motion:no-preference) {
   html:not([data-nf-motion=reduced]) .cm-photo-viewer[open] { animation: cm-media-reveal .2s ease-out both; }

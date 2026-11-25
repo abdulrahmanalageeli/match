@@ -19,8 +19,9 @@ import {MembershipChangeNotice} from '/src/membership/MembershipEntry.tsx';
 import {dimensions} from '/src/compatibility/model.ts';
 import '/src/design.css';import '/src/flows.css';import '/src/screens.css';import '/src/motion.css';
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
-const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:dimensions.map(item=>item.id),discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:dimensions.length,total:dimensions.length,percentage:72-i*3}}));
+const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'three_to_six_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:dimensions.map(item=>item.id),discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:dimensions.length,total:dimensions.length,percentage:72-i*3}}));
 people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
+people[0].membershipTier='premium';people[1].membershipTier='seriousness';
 people[0].manualVerifications=[{id:'fixture-marital-status',kind:'marital_status',label:'الحالة الاجتماعية',reviewedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),isTest:false}];
 Object.assign(people[1].fit,{covered:7,total:16,assessmentComplete:false,percentage:null});
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
@@ -102,6 +103,13 @@ async function checkDirectoryPull() {
  const clickSuppressed = await surface.evaluate(element=>!element.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})));
  assert.ok(clickSuppressed,'a completed drag suppresses its following click');
 }
+async function openProfileAtMembershipSeal(row){
+ const button=row.getByRole('button',{name:/عرض ملف/});
+ await button.scrollIntoViewIfNeeded();
+ const [hitbox,seal]=await Promise.all([button.boundingBox(),row.locator('.dr-row-avatar > .wd-member-badge').boundingBox()]);
+ assert.ok(hitbox && seal,'profile button and membership seal are visible');
+ await button.click({position:{x:seal.x+seal.width/2-hitbox.x,y:seal.y+seal.height/2-hitbox.y}});
+}
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
@@ -120,23 +128,30 @@ try{
  await verification.getByRole('button',{name:'إغلاق تفاصيل التوثيق'}).click();
  await memberProfile.locator('.mp-back').click();
  console.log('Passed: the interactive verification badge opens its scoped claim from التفاصيل.');
- await page.locator('html[data-capture-scope="discovery"]').waitFor({state:"attached"});
- await page.locator(".df-card-portrait .wd-capture-watermark").first().waitFor();
- await page.emulateMedia({media:"print"});await page.locator(".wd-capture-note").waitFor();
- assert.equal(await weekly.isVisible(),false);
+ await weekly.waitFor();
+ assert.equal(await page.locator('html[data-capture-scope],.wd-capture-trigger,.wd-capture-watermark,.wd-capture-note').count(),0);
+ await page.emulateMedia({media:"print"});
+ assert.equal(await weekly.isVisible(),true,'web print keeps the recommendation visible');
  await page.emulateMedia({media:"screen"});
  const percent = value => new Intl.NumberFormat('ar-SA',{style:'percent',numberingSystem:'arab'}).format(value/100).replace(/[\u061c\u200e\u200f]/g,'');
  const scoreText = async tile => (await tile.locator('.nf-score-tile strong').innerText()).replace(/[\u061c\u200e\u200f]/g,'');
  assert.equal(await scoreText(weekly),percent(72));
  await weekly.getByText('تختلف رغبتكما في الإنجاب.',{exact:true}).waitFor();
  const sourcePhoto=await weekly.locator('.df-portrait-image').evaluate(async image=>{await image.decode();return image.currentSrc;});
+ for(const [index,tier] of ['premium','seriousness'].entries()){
+   const recommendation=page.locator('.df-recommendation').nth(index);
+   const seal=recommendation.locator('.df-member-heading .wd-member-badge[data-tier="'+tier+'"]');
+   const photo=await recommendation.locator('.df-portrait-media').boundingBox();
+   const mark=await seal.boundingBox();
+   assert.ok(photo && mark && mark.y>=photo.y+photo.height,'the membership seal sits fully outside the photograph');
+ }
  assert.equal(await weekly.locator('.df-portrait-placeholder, .df-portrait-media .cm-avatar').count(),0,'a loaded portrait has no monogram layer to surface during navigation');
  await page.screenshot({path:resolve(output,'recommended-390.png'),fullPage:true});
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  await page.locator('.mp-profile h1').waitFor();
  const profile=page.locator('.mp-profile');
  assert.equal(await profile.locator('.mp-portrait img').first().evaluate(async image=>{await image.decode();return image.currentSrc;}),sourcePhoto);
- assert.equal(await page.locator('html').getAttribute('data-capture-scope'),'profile');
+ assert.equal(await page.locator('html').getAttribute('data-capture-scope'),null);
  await profile.getByLabel('خيارات الملف').click();
  const block=await profile.getByRole('button',{name:'حظر العضو',exact:true}).boundingBox();
  const report=await profile.getByRole('button',{name:'الإبلاغ والحظر',exact:true}).boundingBox();
@@ -148,13 +163,26 @@ try{
  await profile.getByRole('button',{name:'التوافق',exact:true}).click();
  assert(await profile.locator('[data-fit-score="preferences"]').getByRole('img',{name:'٧٢ بالمئة',exact:true}).isVisible());
  await page.locator('.mp-back').click();
- await page.locator('html[data-capture-scope="discovery"]').waitFor({state:'attached'});
+ await weekly.waitFor();
  await weekly.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
  const sheet=page.getByRole('dialog');await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'جميع الملفات',exact:true}).click();
  await page.locator('.dr-person-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const first=page.getByRole('article',{name:'ملف سارة',exact:true});
  const ineligible=page.getByRole('article',{name:'ملف نورة',exact:true});
+ for(const [name,tier] of [['سارة','premium'],['ريم','seriousness']]){
+   const avatar=page.getByRole('article',{name:'ملف '+name,exact:true}).locator('.dr-row-avatar');
+   const seal=avatar.locator(':scope > .wd-member-badge[data-tier="'+tier+'"]');
+   await seal.waitFor();
+   assert.equal(await avatar.locator('.dr-row-image .wd-member-badge').count(),0);
+ }
+ const rowFrame=async name=>page.getByRole('article',{name:'ملف '+name,exact:true}).locator('.dr-row-image').evaluate(node=>{
+   const frame=getComputedStyle(node);
+   return [frame.paddingTop,frame.borderTopWidth,frame.borderRadius,frame.boxShadow,frame.backgroundImage];
+ });
+ await page.getByRole('article',{name:'ملف مها',exact:true}).locator('.dr-row-image b').waitFor();
+ assert.deepEqual(await rowFrame('سارة'),await rowFrame('مها'),'photos and initials share the same portrait frame');
+ await page.screenshot({path:resolve(output,'directory-390.png')});
  const concern = 'تختلف رغبتكما الشخصية في الإنجاب.';
  assert.equal(await first.getByText(concern,{exact:true}).count(),0,'decision explanations stay out of the compact directory');
  await first.locator('.dr-bio-peek').click();
@@ -321,7 +349,7 @@ try{
    return document.elementFromPoint(rect.right-5,rect.top+2)?.closest('button')===button;
  }), 'the top edge of the free upgrade action opens membership');
  await directoryLock.tap();await selected(/المميزة/).waitFor();await back.click();
- await first.getByRole('button',{name:/عرض ملف سارة/}).click();
+ await openProfileAtMembershipSeal(first);
  assert.doesNotMatch(await page.locator('.mp-profile').ariaSnapshot(),/تختلف رغبتكما|٧٢٪|72%|٦٥٪|65%/);
  await page.getByRole('button',{name:'فتح تفاصيل التوافق مع العضوية المميزة'}).press('Enter');
  await selected(/المميزة/).waitFor();await back.click();
@@ -348,6 +376,7 @@ try{
    window.CapacitorCustomPlatform={name:'ios'};
    window.__portraits=new Map();
    window.__placedImages=new Set();
+   window.__uncoveredSealTiers=new Set();
    window.__scopeReady=new Promise(resolve=>{window.__enterDiscovery=resolve;});
    window.__canPlace=false;
    window.__firstPlacement=new Promise(resolve=>{window.__releasePortraits=resolve;});
@@ -375,6 +404,12 @@ try{
            return Math.abs(rect.x+scrollX-x-originX)<2 && Math.abs(rect.y+scrollY-y-originY)<2 && Math.abs(rect.width-w)<2;
          });
          if(target)window.__placedImages.add((w<60?'row ':'card ')+target.getAttribute('aria-label'));
+         const seal=target?.closest('.dr-row-avatar')?.querySelector(':scope > .wd-member-badge');
+         if(seal){
+           const bounds=seal.getBoundingClientRect();
+           const expected=[bounds.x+scrollX-originX,bounds.y+scrollY-originY,bounds.width,bounds.height];
+           if(options.cutouts?.some(rect=>expected.every((value,i)=>Math.abs(value-rect[i])<1)))window.__uncoveredSealTiers.add(seal.dataset.tier);
+         }
        }
        if(options.box[2]<60 && (options.cutouts||[]).some(rect=>rect[2]>=options.box[2] && rect[3]>=options.box[3])) window.__obscuredAvatar=true;
        return {placed:true};
@@ -411,6 +446,8 @@ try{
    const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
    assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
    assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
+   const sealBox=await card.locator('.df-member-heading .wd-member-badge').boundingBox();
+   assert.ok(sealBox && sealBox.y>=photoBox.y+photoBox.height,'the membership seal needs no cutout in the native portrait');
    // The woven lock spans 4% to 65% of the bundled square, from shackle to base.
    const scaledHeight=art.height*Math.max(photoBox.width/art.width,photoBox.height/art.height);
    const offsetY=(photoBox.height-scaledHeight)*art.positionY;
@@ -438,6 +475,7 @@ try{
  await verifyProtectedSources('card','.df-portrait-media');
  await page.getByRole('button',{name:'جميع الملفات'}).click();
  await verifyProtectedSources('row','.dr-row-image');
+ assert.deepEqual(await page.evaluate(()=>[...window.__uncoveredSealTiers].sort()),['premium','seriousness'],'native portraits leave both tier seals uncovered');
  await checkDirectoryPull();
  const row=page.locator('.dr-person-row').filter({has:page.getByRole('button',{name:/عرض ملف سارة/})}).first();
  await row.scrollIntoViewIfNeeded();
@@ -486,7 +524,7 @@ try{
  await page.getByRole('button',{name:'إغلاق',exact:true}).click();
  await row.scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>window.__portraits.size>0);
- await row.getByRole('button',{name:/عرض ملف سارة/}).click();
+ await openProfileAtMembershipSeal(row);
  await page.waitForFunction(()=>window.__scope?.scope==='profile' && !window.__scope.portraitOnly && window.__portraits.size===0);
  assert.equal(await page.locator('.mp-profile .wd-capture-trigger,.mp-profile .wd-capture-watermark').count(),0);
  assert.deepEqual(errors,[]);console.log('PASS: discovery layout, membership, interest, iPhone portrait bridge, capture backing and scope cleanup.');

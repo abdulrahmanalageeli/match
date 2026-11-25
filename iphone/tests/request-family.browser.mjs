@@ -15,6 +15,17 @@ try {
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>{const url=new URL(r.request().url());if(url.hostname==='127.0.0.1'||['blob:','data:'].includes(url.protocol))return r.continue();external.push(url.origin);return r.abort();});
  const go=async path=>{console.log('Checking',path);await page.goto('http://127.0.0.1:5285/tests/fixtures/'+path,{waitUntil:'domcontentloaded',timeout:60000});};
+ await page.addInitScript(()=>{if(location.search.includes('resuming'))Object.defineProperty(document,'hidden',{configurable:true,value:true});});
+ await go('agreement-qa.html?unsent&resuming');
+ await page.getByRole('button',{name:'التوقيع واقتراح المدة'}).waitFor();
+ await page.clock.install();
+ await go('agreement-qa.html?man&stalled');
+ await page.getByRole('status').filter({hasText:'جارٍ تحضير اتفاقكما'}).waitFor();
+ await page.clock.fastForward(15_001);
+ await page.getByRole('button',{name:'إعادة تحميل الاتفاق'}).click();
+ await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).waitFor();
+ await page.getByRole('button',{name:'Resolve previous read'}).click();
+ assert.equal(await page.getByText('المحادثة متاحة',{exact:true}).count(),0);
  for(const width of [390,320]) {
   await page.setViewportSize({width,height:844});
   await go('agreement-qa.html?unsent');

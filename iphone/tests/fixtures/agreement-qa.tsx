@@ -13,7 +13,15 @@ if(params.has('countdown')){
  agreement.status='accepted';
  agreement.deadline=new Date(Date.now()+4000).toISOString();
 }
-const source = { ...demoCommunity(() => demoProfile), agreement: async () => ({ ...agreement }), agree: async (_id: string, action: string, payload: any) => {
+let delayedRead:((value:SeriousnessAgreement)=>void)|undefined;
+let firstRead=true;
+const source = { ...demoCommunity(() => demoProfile), agreement: async () => {
+  if(firstRead && params.has('stalled')){
+    firstRead=false;
+    return new Promise<SeriousnessAgreement>(resolve=>{delayedRead=resolve;});
+  }
+  return {...agreement};
+}, agree: async (_id: string, action: string, payload: any) => {
   if(action === 'propose') agreement = { ...agreement, status: 'proposed', days: payload.days, proposalId: 'proposal-2', womanSignedAt: new Date().toISOString() };
   if(action === 'accept') agreement = { ...agreement, status: 'accepted', deadline: new Date(Date.now()+30*86400000).toISOString() };
   if(action === 'extend') agreement = { ...agreement, extension: { id: 'extension', actor: agreement.actor, days: 7 } };
@@ -24,6 +32,8 @@ const source = { ...demoCommunity(() => demoProfile), agreement: async () => ({ 
 } };
 function Fixture() {
   const [allowed, setAllowed] = useState(false), [ending, setEnding] = useState(false);
-  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/><output>{ending?'فتح تأكيد إنهاء التعارف':allowed?'المحادثة متاحة':'المحادثة بانتظار الاتفاق'}</output></main>;
+  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/><output>{ending?'فتح تأكيد إنهاء التعارف':allowed?'المحادثة متاحة':'المحادثة بانتظار الاتفاق'}</output>
+    {params.has('stalled')&&<button onClick={()=>delayedRead?.({...agreement,status:'accepted'})}>Resolve previous read</button>}
+  </main>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);

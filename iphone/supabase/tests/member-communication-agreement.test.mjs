@@ -13,7 +13,7 @@ test('real member communication requires mutual agreement; history and cleanup r
    await addUser(db,u);
    // Seed already-approved members; this test targets communication, not intake.
    await db.query("update marriage.members set review_status='approved',manual_access_until=now()+interval '1 day' where id=$1",[u.id]);
-   await db.query("insert into marriage.profiles(member_id,display_name,age,gender,city_id,profession,bio) values($1,'عضو اختبار',29,$2,(select id from marriage.cities where label='الرياض'),'مهندس','ملف تجريبي')",[u.id,gender]);
+   await db.query("insert into marriage.profiles(member_id,display_name,age,gender,city_id,profession,bio) values($1,$3,29,$2,(select id from marriage.cities where label='الرياض'),'مهندس','ملف تجريبي')",[u.id,gender,gender==='woman'?'ليلى':'خالد']);
    await db.query("insert into marriage.preferences(member_id,min_age,max_age,family_preference) values($1,25,40,'')",[u.id]);
    return u;
   }
@@ -23,6 +23,18 @@ test('real member communication requires mutual agreement; history and cleanup r
   const send=u=>call(u,'public.marriage_message($1,$2,$3)',[id,'رسالة اختبار',randomUUID()]);
   const startVoice=u=>call(u,'public.marriage_call_start($1,$2)',[id,randomUUID()]);
   const agreement=(u,action='read',payload={})=>call(u,'public.marriage_agreement($1,$2,$3)',[id,action,payload]);
+  // PostgREST omits the default action on initial load. A read must work even
+  // in a read-only transaction and must not materialize an empty agreement.
+  const readOnlyAgreement = async user => asMember(db,user.id,user.sessionId,async()=>{
+   await db.exec('begin read only');
+   try { return (await db.query('select public.marriage_agreement($1) as value',[id])).rows[0].value; }
+   finally { await db.exec('rollback'); }
+  });
+  for(const [user,actor,mineName,peerName] of [[a,'abdulrahman','خالد','ليلى'],[b,'reham','ليلى','خالد']]){
+   assert.deepEqual(await readOnlyAgreement(user),{status:'none',actor,mineName,peerName});
+  }
+  assert.equal((await db.query('select count(*)::int as count from marriage.conversation_agreements where request_id=$1',[id])).rows[0].count,0);
+  await assert.rejects(readOnlyAgreement(outsider),error=>error.code==='42501');
   const voiceAllowed=async()=>(await db.query('select marriage.voice_allowed($1,$2,$3) allowed',[id,a.id,b.id])).rows[0].allowed;
   await assert.rejects(send(a),/اتفاق الجدية/);
   await assert.rejects(startVoice(a),/غير متاحة/);
@@ -33,6 +45,7 @@ test('real member communication requires mutual agreement; history and cleanup r
   await call(a,'public.marriage_set_typing($1,false)',[id]);
   await assert.rejects(call(a,'public.marriage_set_typing($1,true)',[id]),/اتفاق الجدية/);
   const proposal=await agreement(b,'propose',{days:7,signed:true});
+  assert.equal((await readOnlyAgreement(a)).proposalId,proposal.proposalId);
   await assert.rejects(send(b),/اتفاق الجدية/);
   await agreement(a,'accept',{proposalId:proposal.proposalId,signed:true});
   const choice=(u,topic,action,token=null,stage=null)=>call(u,'public.marriage_journey_choice($1,$2,$3,$4,$5)',[id,topic,action,token,stage]);
@@ -106,6 +119,7 @@ test('real member communication requires mutual agreement; history and cleanup r
   const committedKeys=u=>call(u,'public.marriage_committed_chat_sends($1,$2)',[id,[uncertain]]);
   assert.deepEqual(await committedKeys(a),[uncertain]);assert.deepEqual(await committedKeys(b),[]);await assert.rejects(committedKeys(outsider));
   await call(b,"public.marriage_act($1,'block')",[id]);
+  await assert.rejects(readOnlyAgreement(a),error=>error.code==='42501');
   await assert.rejects(call(a,'public.marriage_message($1,$2,$3)',args));
   await assert.rejects(send(a));await assert.rejects(committedKeys(a));await assert.rejects(call(a,'public.marriage_thread_page($1)',[id]));
   assert.equal((await db.query('select count(*)::int n from marriage.thread_messages where client_id=$1',[uncertain])).rows[0].n,1);

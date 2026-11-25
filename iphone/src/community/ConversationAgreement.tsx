@@ -24,23 +24,34 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    const read=source.agreement;
    if(!read){onAllowed(true);return;}
    let active=true,fetching=false;
-   const refresh=async()=>{
-     if(fetching||saving.current||document.hidden)return;
+   let readTimeout:ReturnType<typeof setTimeout>;
+   const refresh=async(initial=false)=>{
+     if(fetching||saving.current||(!initial&&document.hidden))return;
      const version=revision.current;
      fetching=true;
+     const unavailable=()=>{
+       if(active && version===revision.current){setLoadError(true);onAllowed(false);}
+     };
+     // The session lookup can stall before the RPC's network timeout starts.
+     readTimeout=setTimeout(unavailable,15_000);
      try{
        const next=await read(requestId);
        if(active && version===revision.current)applyAgreement(next);
      }catch{
-       if(active && version===revision.current){setLoadError(true);onAllowed(false);}
-     }finally{fetching=false;}
+       unavailable();
+     }finally{clearTimeout(readTimeout);fetching=false;}
    };
-   void refresh();
-   const stop=source.watch(refresh),timer=setInterval(refresh,15000);
-   document.addEventListener('visibilitychange',refresh);
+   // A chat opened during iOS resume can mount before its first visible event.
+   void refresh(true);
+   const refreshVisible=()=>{void refresh();};
+   const stop=source.watch(refreshVisible),timer=setInterval(refreshVisible,15000);
+   document.addEventListener('visibilitychange',refreshVisible);
+   window.addEventListener('online',refreshVisible);
    return ()=>{
      active=false;revision.current++;
-     stop();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);
+     stop();clearTimeout(readTimeout);clearInterval(timer);
+     document.removeEventListener('visibilitychange',refreshVisible);
+     window.removeEventListener('online',refreshVisible);
    };
  },[source,requestId,onAllowed,applyAgreement,retry]);
  useEffect(()=>{if(openDetails)setExpanded(true);},[openDetails]);

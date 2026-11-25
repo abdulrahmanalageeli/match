@@ -560,8 +560,8 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
         </span>
       </div>
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
-        aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? (coverage ? coverage + ' مواضيع قابلة للمقارنة' : 'بيانات المقارنة غير مكتملة') : ar.format(score) + '٪'}. عرض الشرح`}>
-        {score === null ? <span className="dr-fit-pending">{coverage ?? '—'}<small>{coverage ? 'مواضيع للمقارنة' : 'بيانات غير مكتملة'}</small></span> : <ScoreTile percentage={score} variant="logo" pauseOffscreen/>}
+        aria-label={`التوافق مع ${person.alias}، ${score === null ? (coverage ? coverage + ' مواضيع قابلة للمقارنة' : 'بيانات المقارنة غير مكتملة') : ar.format(score) + '٪'}. عرض الشرح`}>
+        {score === null ? <span className="dr-fit-pending">{coverage ?? '—'}<small>{coverage ? 'مواضيع للمقارنة' : 'بيانات غير مكتملة'}</small></span> : <ScoreTile percentage={score} variant="logo" label="التوافق" pauseOffscreen/>}
       </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={()=>upgrade("premium")} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>فتح النسبة</span></button>}
     </div>
 

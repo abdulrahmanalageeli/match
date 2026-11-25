@@ -310,15 +310,12 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   .phone-app .cm-shell .df-discovery .dr-row-context { gap: 2px 3px; }
   .phone-app .cm-shell .df-discovery .dr-row-meta { font-size: .75rem; }
   .phone-app .cm-shell .df-discovery .dr-row-timeline { gap: 2px; }
-  .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-tile {
-    display: grid;
-    grid-template-columns: auto auto;
-    justify-content: center;
-    gap: 2px 4px;
-  }
-  .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-tile-copy { display: contents; }
-  .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-tile-copy > strong { grid-area: 1 / 2; }
-  .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-tile-copy > span { grid-area: 2 / 1 / 3 / 3; }
+}
+.phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-tile-copy {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-size: 10px;
 }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:disabled { opacity: .55; }

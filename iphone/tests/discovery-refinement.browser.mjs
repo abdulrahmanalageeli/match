@@ -207,7 +207,7 @@ try{
  await page.getByRole('button',{name:'إزالة المؤهلون للتعارف فقط'}).click();
  await ineligible.waitFor();
 
- await first.getByRole('button',{name:/توافق التفضيلات مع سارة/}).click();
+ await first.getByRole('button',{name:/التوافق مع سارة/}).click();
  await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();
  await page.keyboard.press('Escape');
  await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();
